@@ -1,0 +1,122 @@
+Overview
+--------
+
+Libwaveform attempts to provide versatile easy-to-use display
+of audio waveforms for Gtk+-2 applications.
+
+efficiency:
+	* audio and peak data is handled in blocks to get reasonable performance with large files.
+	* opengl hardware features are used where available.
+	* multi-level caching.
+	* in many cases drawing can be done repeatedly with virtually no cpu load.
+
+multi-level caching is provided:
+	* peak files are saved to disk roughly following freedeskop.org standards.
+	* ardour session peak files are also supported.
+	* peak files are cached in ram at multiple resolutions.
+	* audio is cached in ram for use at high resolutions.
+	* peaks are stored as OpenGl 2D textures in graphics hardware.
+	* peaks are stored as OpenGl 1D textures for use with shader programs.
+
+There are 4 main ways of using libwaveform:
+	1- the WaveformView Gtk widget
+	2- with GtkGLExt using the WaveformActor interface
+	3- rendering to a GdkPixbuf
+	4- rendering to an Alphabuf
+
+Requirements:
+	- Gtk2
+	- GtkGLExt
+	- libsndfile
+	- OpenGl (recomended)
+
+
+Status
+------
+
+Testing:
+Has been tested mostly on Radeon RV530 with Gallium 0.4, and also Intel 945.
+Much more testing is needed.
+
+If you are able to help testing, please start with running test/view_test.
+To compile this program you need to:
+	./configure --enable-test
+	make
+	cd test && make test_data
+
+Basic functionality should all be in place now, but most areas
+need improving. Feedback is needed on functionality, api, documentation,
+visuals etc.
+
+
+WaveformView
+------------
+
+The easiest way to use libwaveform is via the WaveformView Gtk widget.
+
+The widget will show the complete audio file and can be panned and zoomed
+down to sample level.
+
+To use the widget:
+	WaveformView* waveform = waveform_view_new(NULL);
+	waveform_view_load_file(waveform, "myfile.wav");
+(then pack and show as normal)	
+
+For a demonstration of usage, see: test/view_test.c
+
+
+WaveformActor
+-------------
+
+The WaveformActor interface can be used to show a waveform on an
+existing GtkGLExt drawing area. It is designed for use in editors
+and audio production tools.
+
+OpenGl shaders will be used if available, otherwise it will fallback
+to using 8 bit textures.
+
+Currently shaders are not used at high zoom - this is a TODO item.
+
+WaveformActor's share a common WfCanvas object.
+The canvas has the following directly setable properties:
+	uint32_t sample_rate
+
+In order to remain versatile, the WfCanvas is very minimal.
+For example it has no concept of time or tempo (positions are
+specified in x y coordinates).
+
+For a demonstration of usage, see: test/actor_test.c
+
+Support for different peak formats is provided by 'loaders'. As
+well as the default peak file loader, an Ardour session loader is
+provided:
+	waveform_set_peak_loader(wf_load_ardour_peak);
+or you can specify your own.
+
+
+GdkPixbuf
+---------
+
+libwaveform provides the function waveform_render_peak_to_pixbuf().
+Support for splitting the audio into blocks is not explicitly provided
+and has to be done manually.
+
+GdkPixbuf is useful as an intermediate step to producing PNG output.
+
+
+AlphaBuf
+--------
+
+Alphabufs are useful in low level OpenGl applications.
+They do not use much texture memory but are not as efficient
+as using shaders.
+
+eg to create a texture for use with Clutter:
+	Waveform* waveform = waveform_load_new("myfile.wav");
+	AlphaBuf* a = waveform_alphabuf_new(waveform, -1, FALSE);
+	texture = cogl_texture_new_from_data(a->width, a->height, COGL_TEXTURE_NONE, COGL_PIXEL_FORMAT_A_8, COGL_PIXEL_FORMAT_ANY, a->width, a->buf);
+
+The above creates a texture for the whole file.
+This is not appropriate for large files.
+
+It is planned to add better support for Clutter in the near future.

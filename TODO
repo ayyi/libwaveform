@@ -1,0 +1,33 @@
+- check XDG env var works
+- paths for peak.vert and peak.frag
+- change pool window to use wf_peak_render_to_pixbuf.
+- why do we have each actor having its own viewport? should it belong to the canvas?
+	- document the reasons why this is so.
+- both texture mode and shader modes have spurious lines.
+- actor test is too slow at high zoom.
+- fix paths for test wavs
+- test installation, test ebuild
+- remove all stdout
+- documentation
+- peak.c / peak.h need renaming
+- check copyright notices
+
+later:
+
+- cairo / clutter
+- vgain
+- iso mode
+- api:
+	- n_frames property - should we guarantee that it is always correctly set?
+	- wf_get_audio_async -- review api
+- the current texture mode is no use as it doesnt show full peak at low zoom.
+- better testing of audio cache full behaviour.
+- check that hi-res painting falls back to lo res while waiting for audio to load.
+- implement usage of textures in hi res mode.
+- v low res mode: for a long file we use loads of textures! at v low zoom this is v inefficient.
+	- would it be a problem if the v-lo-res-texture size was bigger than the audio-block size?
+	- what is best resolution for this mode?
+		- x 16 ? 1 texture is 16s - would not be used much until file length was approx 1 minute or more
+
+		c/w:
+			normal mode: 1 texture is v approx 1s.
