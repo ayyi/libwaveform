@@ -12,7 +12,7 @@ AM_CFLAGS = \
 	$(GTK_CFLAGS)
 
 TEST_LDFLAGS = \
-	$(top_srcdir)/waveform/libwaveform.a \
+	$(top_srcdir)/waveform/.libs/libwaveform.a \
 	$(GTK_LDFLAGS) \
 	$(SNDFILE_LIBS)
 

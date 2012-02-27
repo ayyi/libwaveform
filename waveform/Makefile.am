@@ -10,11 +10,9 @@ AM_CFLAGS = \
 	$(GTK_CFLAGS) \
 	$(OPENGL_CFLAGS)
 
-noinst_LIBRARIES = libwaveform.a
+lib_LTLIBRARIES = libwaveform.la
 
-CLEANFILES =
-
-libwaveform_a_SOURCES = \
+libwaveform_la_SOURCES = \
 	typedefs.h waveform.h wf_private.h \
 	peak.c peak.h \
 	loaders/ardour.c loaders/ardour.h \
@@ -35,3 +33,22 @@ libwaveform_a_SOURCES = \
 
 EXTRA_DIST = \
 	view_gl.c
+
+pkginclude_HEADERS = \
+	waveform.h \
+	peak.h \
+	peakgen.h \
+	loaders/ardour.h \
+	loaders/riff.h \
+	view.h \
+	actor.h \
+	canvas.h \
+	hi_res.h \
+	utils.h \
+	shaderutil.h \
+	gl_utils.h \
+	gl_ext.h \
+	wf_private.h
+
+CLEANFILES =
+

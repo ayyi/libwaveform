@@ -1,8 +1,7 @@
+- add pkgconfig pc file
 - check XDG env var works
-- paths for peak.vert and peak.frag
 - change pool window to use wf_peak_render_to_pixbuf.
-- why do we have each actor having its own viewport? should it belong to the canvas?
-	- document the reasons why this is so.
+- why do we have each actor having its own viewport? document the reasons why this is so.
 - both texture mode and shader modes have spurious lines.
 - actor test is too slow at high zoom.
 - fix paths for test wavs

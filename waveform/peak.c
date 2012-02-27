@@ -1448,8 +1448,19 @@ waveform_find_max_audio_level(Waveform* w)
 #ifdef USE_GDK_PIXBUF
 
 static void
-pixbuf_draw_line(cairo_t* cr, DRect* pts, double line_width, GdkColor* colour)
+Xpixbuf_draw_line(cairo_t* cr, DRect* pts, double line_width, GdkColor* colour)
 {
+	if(pts->y1 == pts->y2) return;
+	cairo_rectangle(cr, pts->x1, pts->y1, pts->x2 - pts->x1 + 1, pts->y2 - pts->y1 + 1);
+	cairo_fill (cr);
+	cairo_stroke (cr);
+}
+
+
+static void
+pixbuf_draw_line(cairo_t* cr, DRect* pts, double line_width, uint32_t colour)
+{
+	//TODO set colour, or remove arg
 	if(pts->y1 == pts->y2) return;
 	cairo_rectangle(cr, pts->x1, pts->y1, pts->x2 - pts->x1 + 1, pts->y2 - pts->y1 + 1);
 	cairo_fill (cr);
@@ -1467,23 +1478,23 @@ warn_no_src_data(Waveform* waveform, int buflen, int src_stop)
 
 
 void
-waveform_peak_to_pixbuf(Waveform* waveform, GdkPixbuf* pixbuf, uint32_t region_inset, int* start, int* end, double samples_per_px, GdkColor* colour, uint32_t colour_bg, float gain)
+waveform_peak_to_pixbuf(Waveform* waveform, GdkPixbuf* pixbuf, uint32_t region_inset, int* start, int* end, double samples_per_px, uint32_t colour, uint32_t colour_bg, float gain)
 {
 	/*
 		renders part of a peakfile (loaded into the buffer given by waveform->buf) onto the given pixbuf.
 		-the pixbuf must already be cleared, with the correct background colour.
 
-		-*** although not explicitly block-based, it can be used with blocks by specifying start and end.
+		-although not explicitly block-based, it can be used with blocks by specifying start and end.
 
 		@param pixbuf - pixbuf covers the whole Waveform. We only render to the bit between @start and @end.
 		                                        |_ TODO no, this won't work 
 
-		@param region_inset - (sample frames)
-		@param start  - (pixels) if set, we start rendering at this value from the left of the pixbuf.
-		@param end    - (pixels) if set, num of pixels from left of pixbuf to stop rendering at.
-		                Can be bigger than pixbuf width.
-
-		@param samples_per_px sets the magnification.
+		@param region_inset   - (sample frames)
+		@param start          - (pixels) if set, we start rendering at this value from the left of the pixbuf.
+		@param end            - (pixels) if set, num of pixels from left of pixbuf to stop rendering at.
+		                        Can be bigger than pixbuf width.
+		@param samples_per_px - sets the magnification.
+		@param colour_bg      - 0xrrggbbaa. used for antialiasing.
 
 		further optimisation:
 		-dont scan pixels above the peaks. Should we record the overall region/file peak level?
@@ -1498,9 +1509,9 @@ waveform_peak_to_pixbuf(Waveform* waveform, GdkPixbuf* pixbuf, uint32_t region_i
 	int bg_red = (colour_bg & 0xff000000) >> 24;
 	int bg_grn = (colour_bg & 0x00ff0000) >> 16;
 	int bg_blu = (colour_bg & 0x0000ff00) >>  8;
-	int fg_red = colour->red   >> 8;
-	int fg_grn = colour->green >> 8;
-	int fg_blu = colour->blue  >> 8;
+	int fg_red = (colour    & 0xff000000) >> 24;
+	int fg_grn = (colour    & 0x00ff0000) >> 16;
+	int fg_blu = (colour    & 0x0000ff00) >>  8;
 	//printf("%s(): bg=%x r=%x g=%x b=%x \n", __func__, colour_bg, bg_red, bg_grn bg_blu);
 
 #if 0
@@ -1766,10 +1777,9 @@ dbg(1, "height=%i", ch_height);
 	//printf("%s(): start=%03i: %lu:%06lu\n", __func__, px_start, secs, usec);
 #endif
 
-//#ifdef DBG_TILE_BOUNDARY
-	GdkColor red = {0xffff, 0xffff, 0x0000, 0xffff};
+#ifdef DBG_TILE_BOUNDARY
 	DRect pts = {px_start, 0, px_start, ch_height};
-	pixbuf_draw_line(cairo, &pts, 1.0, &red);
+	pixbuf_draw_line(cairo, &pts, 1.0, 0xff0000ff);
 	{
 												pixels[0] = 0xff;
 												pixels[1] = 0x00;
@@ -1778,7 +1788,7 @@ dbg(1, "height=%i", ch_height);
 												pixels[3* px_stop + 1] = 0xff;
 												pixels[3* px_stop + 2] = 0x00;
 	}
-//#endif
+#endif
 	cairo_surface_destroy(surface);
 	cairo_destroy(cairo);
 }
@@ -2100,7 +2110,7 @@ waveform_rms_to_pixbuf(Waveform* w, GdkPixbuf* pixbuf, uint32_t src_inset, int* 
 				//no more source data available - as the pixmap is clear, we have nothing much to do.
 				//gdk_draw_line(GDK_DRAWABLE(pixmap), gc, px, 0, px, height);//x1, y1, x2, y2
 				DRect pts = {px, 0, px, ch_height};
-				pixbuf_draw_line(cairo, &pts, 1.0, colour);
+				pixbuf_draw_line(cairo, &pts, 1.0, 0xffff00ff);
 				warn_no_src_data(w, b.len, src_stop);
 				printf("*"); fflush(stdout);
 			}

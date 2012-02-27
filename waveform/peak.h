@@ -154,7 +154,7 @@ GdkPixbuf* wf_alphabuf_to_pixbuf       (AlphaBuf*);
 #define USE_GDK_PIXBUF //TODO
 #ifdef USE_GDK_PIXBUF
 #include <gtk/gtk.h>
-void       waveform_peak_to_pixbuf     (Waveform*, GdkPixbuf*, uint32_t src_inset, int* start, int* end, double samples_per_px, GdkColor*, uint32_t colour_bg, float gain);
+void       waveform_peak_to_pixbuf     (Waveform*, GdkPixbuf*, uint32_t src_inset, int* start, int* end, double samples_per_px, uint32_t colour, uint32_t colour_bg, float gain);
 void       waveform_rms_to_pixbuf      (Waveform*, GdkPixbuf*, uint32_t src_inset, int* start, int* end, double samples_per_px, GdkColor*, uint32_t colour_bg, float gain);
 #endif
 int32_t    wf_get_peakbuf_len_frames   ();

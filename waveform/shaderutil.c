@@ -95,7 +95,7 @@ compile_shader_file(GLenum shaderType, const char* filename)
       g_free(path);
 
       if (!f) {
-         fprintf(stderr, "Unable to open shader file %s\n", filename);
+         gwarn("unable to open shader file %s", filename);
          return 0;
       }
    }

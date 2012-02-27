@@ -11,6 +11,16 @@ AM_CFLAGS = \
 
 EXTRA_DIST = \
 	shaders/peak.vert \
-	shaders/peak.frag
+	shaders/peak.frag \
+	package/gentoo/media-libs/libwaveform/libwaveform-0.1.0.ebuild
 
-#	package
+shaderdir = $(datadir)/$(PACKAGE)/shaders
+
+install-data-local:
+	@$(NORMAL_INSTALL)
+	$(mkinstalldirs) $(DESTDIR)$(shaderdir); \
+	for shader in shaders/peak.vert shaders/peak.frag; do \
+		if test -f $$shader; then \
+			$(INSTALL_DATA) $$shader $(DESTDIR)$(shaderdir); \
+		fi \
+	done;
