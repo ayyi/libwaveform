@@ -14,7 +14,8 @@ AM_CFLAGS = \
 TEST_LDFLAGS = \
 	$(top_srcdir)/waveform/.libs/libwaveform.a \
 	$(GTK_LDFLAGS) \
-	$(SNDFILE_LIBS)
+	$(SNDFILE_LIBS) \
+	$(OPENGL_LDFLAGS)
 
 waveform_test_SOURCES = \
 	common.c common.h \
