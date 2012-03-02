@@ -1,3 +1,19 @@
+/*
+  copyright (C) 2012 Tim Orford <tim@orford.org>
+
+  This program is free software; you can redistribute it and/or modify
+  it under the terms of the GNU General Public License version 3
+  as published by the Free Software Foundation.
+
+  This program is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+  GNU General Public License for more details.
+
+  You should have received a copy of the GNU General Public License
+  along with this program; if not, write to the Free Software
+  Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+*/
 #ifndef __waveform_peak_h__
 #define __waveform_peak_h__
 #include <glib.h>
@@ -83,10 +99,12 @@ typedef struct
 	uint32_t len;                // sample frames
 } WfSampleRegion;
 
+#if 0
 typedef struct _wav_cache {
 	WfBuf*         buf;
 	WfSampleRegion region;
 } WfWavCache;
+#endif
 
 struct peak_sample{
 	short positive;              // even numbered bytes in the src peakfile are positive peaks
@@ -103,7 +121,7 @@ struct _Waveform
 
 	gboolean           offline;
 
-	WfWavCache*        cache;
+	//WfWavCache*        cache;
 	GPtrArray*         hires_peaks;       // array of Peakbuf* TODO how much does audio_data deprecate this?
 	int                num_peaks;         // peak_buflen / PEAK_VALUES_PER_SAMPLE
 	RmsBuf*            rms_buf0;
@@ -136,7 +154,7 @@ int        waveform_get_n_channels     (Waveform*);
 GType      waveform_get_type           () G_GNUC_CONST;
 Waveform*  waveform_new                (const char* filename);
 Waveform*  waveform_construct          (GType);
-#define    wf_unref0(w)                (g_object_unref(w), w = NULL)
+#define    waveform_unref0(w)          (g_object_unref(w), w = NULL)
 gboolean   waveform_load               (Waveform*);
 
 gboolean   waveform_load_peak          (Waveform*, const char*, int ch_num);
@@ -154,8 +172,9 @@ GdkPixbuf* wf_alphabuf_to_pixbuf       (AlphaBuf*);
 #define USE_GDK_PIXBUF //TODO
 #ifdef USE_GDK_PIXBUF
 #include <gtk/gtk.h>
-void       waveform_peak_to_pixbuf     (Waveform*, GdkPixbuf*, uint32_t src_inset, int* start, int* end, double samples_per_px, uint32_t colour, uint32_t colour_bg, float gain);
-void       waveform_rms_to_pixbuf      (Waveform*, GdkPixbuf*, uint32_t src_inset, int* start, int* end, double samples_per_px, GdkColor*, uint32_t colour_bg, float gain);
+void       waveform_peak_to_pixbuf     (Waveform*, GdkPixbuf*, WfSampleRegion*, uint32_t colour, uint32_t bg_colour);
+void       waveform_peak_to_pixbuf_full(Waveform*, GdkPixbuf*, uint32_t src_inset, int* start, int* end, double samples_per_px, uint32_t colour, uint32_t bg_colour, float gain);
+void       waveform_rms_to_pixbuf      (Waveform*, GdkPixbuf*, uint32_t src_inset, int* start, int* end, double samples_per_px, GdkColor*, uint32_t bg_colour, float gain);
 #endif
 int32_t    wf_get_peakbuf_len_frames   ();
 

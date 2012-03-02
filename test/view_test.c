@@ -106,6 +106,10 @@ main (int argc, char *argv[])
 				break;
 			case GDK_KP_Enter:
 				break;
+			case (char)'<':
+				break;
+			case '>':
+				break;
 			case 113:
 				exit(EXIT_SUCCESS);
 				break;

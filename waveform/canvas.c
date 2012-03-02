@@ -198,7 +198,7 @@ void
 wf_canvas_remove_actor(WaveformCanvas* wfc, WaveformActor* actor)
 {
 	PF0;
-	wf_unref0(actor->waveform);
+	waveform_unref0(actor->waveform);
 }
 
 

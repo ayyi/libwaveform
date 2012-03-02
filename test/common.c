@@ -1,6 +1,6 @@
 /*
   This file is part of the Ayyi Project. http://ayyi.org
-  copyright (C) 2004-2011 Tim Orford <tim@orford.org>
+  copyright (C) 2004-2012 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -98,7 +98,6 @@ next_test()
 
 	printf("\n");
 	current_test++;
-	//if(current_test < G_N_ELEMENTS(tests)){
 	if(current_test < __n_tests){
 		if(app.timeout) g_source_remove (app.timeout);
 		test_finished = false;

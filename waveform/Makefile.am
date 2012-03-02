@@ -14,6 +14,7 @@ lib_LTLIBRARIES = libwaveform.la
 
 libwaveform_la_SOURCES = \
 	typedefs.h waveform.h wf_private.h \
+	global.c global.h \
 	peak.c peak.h \
 	loaders/ardour.c loaders/ardour.h \
 	loaders/riff.c loaders/riff.h \

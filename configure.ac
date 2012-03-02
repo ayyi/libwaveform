@@ -98,6 +98,30 @@ GLUT_LIBS=""
 AC_SUBST(GLU_LIBS)
 AC_SUBST(GLUT_LIBS)
 
+dnl -----------------------------------------------------
+
+AC_ARG_ENABLE(
+	[lv2],
+	[  --enable-lv2            build with lv2 support (default=no). Currently this option doesnt do anything useful.],
+	[
+		enable_lv2="$enableval"
+		if test "$enableval" == "yes" && `pkg-config lilv-0`; then
+			LV2_CFLAGS=`pkg-config --cflags-only-I lilv-0``pkg-config --cflags-only-I suil-0`
+			LV2_LDFLAGS=`pkg-config --libs lilv-0``pkg-config --libs suil-0``pkg-config --libs jack`
+			AC_DEFINE(USE_LV2, 1, [enable support for LV2 plugins])
+		else 
+			LV2_CFLAGS=
+			enable_lv2="no"
+		fi;
+	],
+	[
+		enable_lv2="no"
+	]
+)
+AM_CONDITIONAL(ENABLE_LV2, test "$enable_lv2" != "no")
+AC_SUBST(LV2_LDFLAGS)
+AC_SUBST(LV2_CFLAGS)
+
 dnl ------------------ test progs ------------------------
 
 AC_ARG_ENABLE(test, AS_HELP_STRING([--enable-test],[ compile the test programs]), enable_test=yes, enable_test=no)
@@ -108,7 +132,7 @@ dnl -----------------------------------------------------
 
 # extra CXXFLAGS that should always be used
 dnl CXXFLAGS="$CXXFLAGS -pipe -fmessage-length=139 -fdiagnostics-show-location=every-line"
-AM_CFLAGS="$CFLAGS -pipe  -fmessage-length=139 -fdiagnostics-show-location=every-line"
+AM_CFLAGS="$CFLAGS -pipe -fmessage-length=139 -fdiagnostics-show-location=every-line"
 
 AC_CONFIG_FILES([Makefile])
 AC_CONFIG_FILES([waveform/Makefile])
@@ -118,5 +142,6 @@ AC_OUTPUT
 AC_MSG_RESULT([])
 AC_MSG_RESULT([Libwaveform:])
 AC_MSG_RESULT([Building tests:           $enable_test])
+AC_MSG_RESULT([Building lv2:             $enable_lv2])
 AC_MSG_RESULT([])
 

@@ -60,7 +60,7 @@ write_wav_LDADD = \
 	$(TEST_LDFLAGS)
 
 test_data: Makefile
-	mkdir data
+	@if [[ ! -d data ]]; then mkdir data; fi
 	./write_wav data/mono_1.wav
 	./write_wav --channels=2 data/stereo_1.wav
 

@@ -144,7 +144,7 @@ wf_actor_free(WaveformActor* a)
 
 	g_signal_handler_disconnect((gpointer)a->waveform, a->priv->peakdata_ready_handler);
 	g_free(a->priv);
-	a->waveform = wf_unref0(a->waveform);
+	a->waveform = waveform_unref0(a->waveform);
 }
 
 
@@ -170,7 +170,7 @@ wf_actor_set_region(WaveformActor* a, WfSampleRegion* region)
 
 	a->region = *region;
 
-//dbg(0, "---- len=%u %u", a->priv->animatable.len.start_val.i, MAX(1, a->region.len));
+//dbg(1, "---- len=%u %u", a->priv->animatable.len.start_val.i, MAX(1, a->region.len));
 	if(!start && !end) return;
 
 	_wf_actor_load_missing_blocks(a);
@@ -195,10 +195,10 @@ wf_actor_set_region(WaveformActor* a, WfSampleRegion* region)
 #if 0
 				//start already animated?
 				WfAnimatable* animatable = &a->priv->animatable.start;
-				//dbg(0, "    %p %p", blah->transitions, animatable);
+				//dbg(1, "    %p %p", blah->transitions, animatable);
 				if(g_list_find(blah->transitions, animatable)){
 					//remove the animatable from the old animation
-					dbg(0, "       >>>>>>> already animating: 'start'");
+					dbg(1, "       >>>>>>> already animating: 'start'");
 					animatable->start_val.i = animatable->val.i;
 
 					if(!(blah->transitions = g_list_remove(blah->transitions, animatable))) wf_animation_remove(animation);
@@ -210,7 +210,7 @@ wf_actor_set_region(WaveformActor* a, WfSampleRegion* region)
 				wf_animation_remove_animatable(animation, &a->priv->animatable.len);
 #if 0
 				WfAnimatable* animatable = &a->priv->animatable.len;
-				//dbg(0, "    %p %p", blah->transitions, animatable);
+				//dbg(1, "    %p %p", blah->transitions, animatable);
 				if(g_list_find(blah->transitions, animatable)){
 					dbg(2, "       >>>>>>> already animating: 'end'. new_transition=%i-->%i", animatable->val.i, *animatable->model_val.i);
 					animatable->start_val.i = animatable->val.i;
@@ -218,7 +218,7 @@ wf_actor_set_region(WaveformActor* a, WfSampleRegion* region)
 					int l = g_list_length(blah->transitions);
 					blah->transitions = g_list_remove(blah->transitions, animatable);
 					if(g_list_length(blah->transitions) != l - 1) gwarn("transition not removed");
-					//dbg(0, "      len=%i", g_list_length(blah->transitions));
+					//dbg(1, "      len=%i", g_list_length(blah->transitions));
 
 					if(!blah->transitions) wf_animation_remove(animation);
 					break;
@@ -293,12 +293,12 @@ wf_actor_get_last_visible_block(WaveformActor* a, double zoom, WfViewPort* viewp
 	g_return_val_if_fail(waveform->gl_blocks, -1);
 	g_return_val_if_fail(viewport_px->right - viewport_px->left > 0.01, -1);
 
-	//dbg(0, "rect: %.2f --> %.2f", rect->left, rect->left + rect->len);
+	//dbg(1, "rect: %.2f --> %.2f", rect->left, rect->left + rect->len);
 
 	double part_inset_px = wf_actor_samples2gl(zoom, region.start);
 	double file_start_px = rect.left - part_inset_px;
 	double block_wid = wf_actor_samples2gl(zoom, WF_SAMPLES_PER_TEXTURE);
-	//dbg(0, "vp->right=%.2f", viewport_px->right);
+	//dbg(1, "vp->right=%.2f", viewport_px->right);
 	int region_start_block = region.start / WF_SAMPLES_PER_TEXTURE;
 	float _end_block = ((float)(region.start + region.len)) / WF_SAMPLES_PER_TEXTURE;
 	dbg(2, "region_start=%i region_end=%i start_block=%i end_block=%.2f(%.i) n_peak_frames=%i gl->size=%i", region.start, region.len, region_start_block, _end_block, (int)ceil(_end_block), waveform->gl_blocks->size * 256, waveform->gl_blocks->size);
@@ -312,8 +312,8 @@ wf_actor_get_last_visible_block(WaveformActor* a, double zoom, WfViewPort* viewp
 	//crop to viewport:
 	int b; for(b=region_start_block;b<=region_end_block-1;b++){ //note we dont check the last block which can be partially outside the viewport
 		float block_end_px = file_start_px + (b + 1) * block_wid;
-		//dbg(0, " %i: block_px: %.1f --> %.1f", b, block_end_px - (int)block_wid, block_end_px);
-		if(block_end_px > viewport_px->right) dbg(0, "end %i clipped by viewport at block %i. vp.right=%.2f block_end=%.1f", region_end_block, MAX(0, b/* - 1*/), viewport_px->right, block_end_px);
+		//dbg(1, " %i: block_px: %.1f --> %.1f", b, block_end_px - (int)block_wid, block_end_px);
+		if(block_end_px > viewport_px->right) dbg(1, "end %i clipped by viewport at block %i. vp.right=%.2f block_end=%.1f", region_end_block, MAX(0, b/* - 1*/), viewport_px->right, block_end_px);
 		if(block_end_px > viewport_px->right) return MAX(0, b/* - 1*/);
 
 #if 0
@@ -437,12 +437,12 @@ wf_actor_on_animation_finished(WaveformActor* actor, WfAnimation* animation)
 
 		//WfAudioData* audio = w->audio_data;
 
-		//dbg(0, "rect: %.2f --> %.2f", rect->left, rect->left + rect->len);
+		//dbg(1, "rect: %.2f --> %.2f", rect->left, rect->left + rect->len);
 
 		double part_inset_px = wf_actor_samples2gl(zoom, region.start);
 		double file_start_px = rect.left - part_inset_px;
 		double block_wid = wf_actor_samples2gl(zoom, block_size);
-		//dbg(0, "vp->right=%.2f", viewport_px->right);
+		//dbg(1, "vp->right=%.2f", viewport_px->right);
 		int region_start_block = region.start / block_size;
 		float _end_block = ((float)(region.start + region.len)) / block_size;
 		dbg(2, "region_start=%i region_end=%i start_block=%i end_block=%.2f(%.i) n_peak_frames=%i gl->size=%i", region.start, region.len, region_start_block, _end_block, (int)ceil(_end_block), waveform->gl_blocks->size * 256, waveform->gl_blocks->size);
@@ -458,8 +458,8 @@ int region_end_block = MIN(_end_block, waveform_get_n_audio_blocks(waveform) - 1
 		//crop to viewport:
 		int b; for(b=region_start_block;b<=region_end_block-1;b++){ //note we dont check the last block which can be partially outside the viewport
 			float block_end_px = file_start_px + (b + 1) * block_wid;
-			//dbg(0, " %i: block_px: %.1f --> %.1f", b, block_end_px - (int)block_wid, block_end_px);
-			if(block_end_px > viewport_px->right) dbg(0, "end %i clipped by viewport at block %i. vp.right=%.2f block_end=%.1f", region_end_block, MAX(0, b/* - 1*/), viewport_px->right, block_end_px);
+			//dbg(1, " %i: block_px: %.1f --> %.1f", b, block_end_px - (int)block_wid, block_end_px);
+			if(block_end_px > viewport_px->right) dbg(1, "end %i clipped by viewport at block %i. vp.right=%.2f block_end=%.1f", region_end_block, MAX(0, b/* - 1*/), viewport_px->right, block_end_px);
 			if(block_end_px > viewport_px->right) return MAX(0, b/* - 1*/);
 		}
 
@@ -486,7 +486,7 @@ int region_end_block = MIN(_end_block, waveform_get_n_audio_blocks(waveform) - 1
 		int b; for(b=0;b<n_blocks;b++){
 			if(audio->buf16[b] && audio->buf16[b]->buf[0]) n_loaded++;
 		}
-		dbg(0, "n_loaded=%i", n_loaded);
+		dbg(1, "n_loaded=%i", n_loaded);
 		return n_loaded;
 	}
 #endif
@@ -511,7 +511,7 @@ __wf_actor_get_viewport(WaveformActor* a, WfViewPort* viewport)
 static void
 _wf_actor_allocate_hi(WaveformActor* a)
 {
-	PF0;
+	PF;
 	Waveform* w = a->waveform;
 	g_return_if_fail(!w->offline);
 	WfRectangle* rect = &a->rect;
@@ -534,7 +534,7 @@ _wf_actor_allocate_hi(WaveformActor* a)
 		} else need_data = true;
 
 		if(need_data){
-			dbg(0, "requesting data... b=%i", b);
+			dbg(1, "requesting data... b=%i", b);
 			int n_tiers_needed = get_min_n_tiers();
 			waveform_load_audio_async(a->waveform, b, n_tiers_needed);
 		}
@@ -603,7 +603,7 @@ wf_actor_allocate(WaveformActor* a, WfRectangle* rect)
 #else
 	wf_actor_start_transition(a, animatable); //TODO this fn needs refactoring - doesnt do much now
 #endif
-	//				dbg(0, "%.2f --> %.2f", animatable->start_val.f, animatable->val.f);
+	//				dbg(1, "%.2f --> %.2f", animatable->start_val.f, animatable->val.f);
 
 	if(a->canvas->draw){ //we control painting so can animate.
 
@@ -647,7 +647,7 @@ static void
 _wf_actor_set_uniforms(float peaks_per_pixel, float top, float bottom, uint32_t _fg_colour, int n_channels)
 {
 #if 0
-	dbg(0, "peaks_per_pixel=%.2f top=%.2f bottom=%.2f n_channels=%i", peaks_per_pixel, top, bottom, n_channels);
+	dbg(1, "peaks_per_pixel=%.2f top=%.2f bottom=%.2f n_channels=%i", peaks_per_pixel, top, bottom, n_channels);
 #endif
 
 	GLuint offsetLoc = glGetUniformLocation(sh_main.program, "peaks_per_pixel");
@@ -691,7 +691,7 @@ wf_actor_paint(WaveformActor* actor)
 
 	double zoom = rect.len / region.len;
 //printf("----\n");
-//dbg(0, "zoom=%.3f", zoom);
+//dbg(1, "zoom=%.3f", zoom);
 
 	int resolution = (zoom > 1.0/16)
 		? 1
@@ -753,7 +753,7 @@ wf_actor_paint(WaveformActor* actor)
 		g_return_if_fail(WF_PEAK_BLOCK_SIZE == (WF_PEAK_RATIO * WF_PEAK_TEXTURE_SIZE)); // temp check. we use a simplified loop which requires the two block sizes are the same
 		gboolean is_first = true;
 		int b; for(b=viewport_start_block;b<=viewport_end_block;b++){
-			//dbg(0, "b=%i", b);
+			//dbg(1, "b=%i", b);
 			gboolean is_last = (b == viewport_end_block) || (b == w->gl_blocks->size - 1); //2nd test is unneccesary?
 
 			//try hi res painting first, fallback to lower resolutions.
@@ -763,7 +763,7 @@ wf_actor_paint(WaveformActor* actor)
 			switch(resolution){
 				// v high res
 				case 1 ... 12:
-					//dbg(0, "----- super hi mode !!");
+					//dbg(1, "----- super hi mode !!");
 					;WfAudioData* audio = w->priv->audio_data;
 					if(audio->n_blocks){
 						WfBuf16* buf = audio->buf16[b];
@@ -779,15 +779,15 @@ wf_actor_paint(WaveformActor* actor)
 								uint64_t block_region_end = block_region.start + block_region.len;
 
 								//float s2p = (viewport.right - viewport.left) / block_region.len; //wrong
-								//dbg(0, "zoom=%f s2p=%.4f", zoom, s2p);
+								//dbg(1, "zoom=%f s2p=%.4f", zoom, s2p);
 								if(block_start_px <= viewport.left && block_end_px >= viewport.right){
-									//dbg(0, "viewport contains single block");
+									//dbg(1, "viewport contains single block");
 								}
 												WfRectangle block_rect = {0.0, rect.top, _block_wid, rect.height/w->n_channels};
 
 int64_t left_samples = block_rect.left / zoom;
-dbg(0, "left=%f samples=%f %Li", block_rect.left, block_rect.left / zoom, left_samples);
-								dbg(0, "* block_px=%.2f-->%.2f block_region=%Lu-->%Lu viewport_region=%.2f-->%.2f(samples)",
+dbg(1, "left=%f samples=%f %Li", block_rect.left, block_rect.left / zoom, left_samples);
+								dbg(1, "* block_px=%.2f-->%.2f block_region=%Lu-->%Lu viewport_region=%.2f-->%.2f(samples)",
 									block_start_px, block_end_px,
 									block_region.start, block_region_end,
 									(float)block_region.start - ((float)block_rect.left / zoom), ((float)block_region_end) * viewport.right / block_end_px);
@@ -802,9 +802,8 @@ dbg(0, "left=%f samples=%f %Li", block_rect.left, block_rect.left / zoom, left_s
 
 							int c; for(c=0;c<w->n_channels;c++){
 								if(buf->buf[c]){
-									//dbg(0, "peakbuf: %i:%i: %i", b, c, ((short*)peakbuf->buf[c])[0]);
-printf("\n");
-									dbg(0, "b=%i", b);
+									//dbg(1, "peakbuf: %i:%i: %i", b, c, ((short*)peakbuf->buf[c])[0]);
+									dbg(2, "b=%i", b);
 									float block_rect_start = is_first ? 0 : x;//block_region.start * zoom;
 									WfRectangle block_rect = {block_rect_start, rect.top + c * rect.height/2, block_region_v_hi.len * zoom, rect.height/w->n_channels};
 									draw_wave_buffer_v_hi(w, block_region_v_hi, &block_rect, &viewport, buf, c, wfc->v_gain, actor->fg_colour);
@@ -819,7 +818,7 @@ printf("\n");
 				case 13 ... 255:
 					;Peakbuf* peakbuf = wf_get_peakbuf_n(w, b);
 					if(peakbuf){
-						//dbg(0, "  b=%i x=%.2f", b, x);
+						//dbg(1, "  b=%i x=%.2f", b, x);
 
 						//TODO might these prevent further blocks at different res? difficult to notice as they are usually the same.
 						wf_canvas_use_program(wfc, 0);
@@ -831,7 +830,7 @@ printf("\n");
 
 						int c; for(c=0;c<w->n_channels;c++){
 							if(peakbuf->buf[c]){
-								//dbg(0, "peakbuf: %i:%i: %i", b, c, ((short*)peakbuf->buf[c])[0]);
+								//dbg(1, "peakbuf: %i:%i: %i", b, c, ((short*)peakbuf->buf[c])[0]);
 								WfRectangle block_rect = {x, rect.top + c * rect.height/2, _block_wid, rect.height/w->n_channels};
 								draw_wave_buffer_hi(w, block_region, &block_rect, peakbuf, c, wfc->v_gain, actor->fg_colour);
 							}
@@ -991,7 +990,7 @@ printf("\n");
 			block_region.start = (block_region.start / WF_PEAK_BLOCK_SIZE + 1) * WF_PEAK_BLOCK_SIZE;
 			block_region_v_hi.start = (block_region_v_hi.start / WF_PEAK_BLOCK_SIZE + 1) * WF_PEAK_BLOCK_SIZE;
 			block_region_v_hi.len   = WF_PEAK_BLOCK_SIZE - block_region_v_hi.start % WF_PEAK_BLOCK_SIZE;
-//dbg(0, "block_region_start: %Lu --> %Lu", o, block_region.start);
+//dbg(1, "block_region_start: %Lu --> %Lu", o, block_region.start);
 			is_first = false;
 		}
 	}
@@ -1025,7 +1024,7 @@ wf_actor_paint_hi(WaveformActor* actor)
 
 		int width = viewport.right - viewport.left;
 		//int height = viewport.bottom - viewport.top;
-		//dbg(0, "height=%i", height);
+		//dbg(1, "height=%i", height);
 
 		glPushMatrix();
 		draw_waveform(actor, (WfSampleRegion){region.start, n_points}, width, rect.height, offx, actor->rect.top, mode, actor->fg_colour);
@@ -1064,10 +1063,10 @@ wf_actor_paint_hi2(WaveformActor* a)
 		int viewport_start_block = get_first_visible_block(&region, zoom, &rect, &viewport, WF_PEAK_BLOCK_SIZE);
 		int viewport_end_block = get_last_visible_block(a, zoom, &viewport, WF_PEAK_BLOCK_SIZE);
 		g_return_if_fail(viewport_end_block < w->audio_data->n_blocks);
-		dbg(0, "block range: %i --> %i", viewport_start_block, viewport_end_block);
+		dbg(1, "block range: %i --> %i", viewport_start_block, viewport_end_block);
 
 		double _block_wid = wf_actor_samples2gl(zoom, WF_PEAK_BLOCK_SIZE);
-		//dbg(0, "block_wid=%.2f", _block_wid);
+		//dbg(1, "block_wid=%.2f", _block_wid);
 
 		int first_offset = region.start % WF_PEAK_BLOCK_SIZE;
 		double first_offset_px = wf_actor_samples2gl(zoom, first_offset);
@@ -1075,8 +1074,8 @@ wf_actor_paint_hi2(WaveformActor* a)
 		//double px = wf_actor_samples2gl(zoom, region->start);
 		int region_start_block = region.start / WF_PEAK_BLOCK_SIZE;
 		double x = rect.left + (viewport_start_block - region_start_block) * _block_wid - first_offset_px; // x is now the start of the first block (can be before part start when inset is present)
-		//dbg(0, "region.start=%i region_start_block=%i x=%.1f", region.start, region_start_block, x);
-		dbg(0, "left=%.1f", rect.left);
+		//dbg(1, "region.start=%i region_start_block=%i x=%.1f", region.start, region_start_block, x);
+		dbg(1, "left=%.1f", rect.left);
 
 		WfSampleRegion block_region = {region.start, WF_PEAK_BLOCK_SIZE};
 		int b; for(b=viewport_start_block;b<=viewport_end_block;b++){ // iterating over audio blocks, not texture blocks.
@@ -1085,7 +1084,7 @@ wf_actor_paint_hi2(WaveformActor* a)
 //if(b == 2){
 				WfBuf* buf = w->audio_data->buf[b];
 				if(buf){
-					dbg(0, "  b=%i x=%.2f", b, x);
+					dbg(1, "  b=%i x=%.2f", b, x);
 					int offy = 0;
 					int c; for(c=0;c<w->n_channels;c++){
 						if(buf->buf[c]){
@@ -1098,10 +1097,10 @@ wf_actor_paint_hi2(WaveformActor* a)
 #else
 			Peakbuf* peakbuf = wf_get_peakbuf_n(w, b);
 			if(peakbuf){
-				//dbg(0, "  b=%i x=%.2f", b, x);
+				//dbg(1, "  b=%i x=%.2f", b, x);
 				int c; for(c=0;c<w->n_channels;c++){
 					if(peakbuf->buf[c]){
-						//dbg(0, "peakbuf: %i:%i: %p %p %i", b, c, peakbuf, peakbuf->buf[0], ((short*)peakbuf->buf[c])[0]);
+						//dbg(1, "peakbuf: %i:%i: %p %p %i", b, c, peakbuf, peakbuf->buf[0], ((short*)peakbuf->buf[c])[0]);
 						WfRectangle block_rect = {x, rect.top + c * rect.height/2, _block_wid, rect.height/w->n_channels};
 						draw_wave_buffer3(w, block_region, &block_rect, peakbuf, c, v_gain, a->fg_colour);
 					}

@@ -148,7 +148,7 @@ draw_wave_buffer_v_hi(Waveform* w, WfSampleRegion region, WfRectangle* rect, WfV
 	//const int x0 = MAX(0, floor(viewport->left - rect->left) - 3);
 //TODO crop by viewport
 	const int x0 = rect->left;
-	dbg(0, "rect=%.2f-->%.2f region=%Lu-->%Lu viewport=%.1f-->%.1f zoom=%.3f", rect->left, rect->left + rect->len, region.start, region.start + ((uint64_t)region.len), viewport->left, viewport->right, zoom);
+	dbg(2, "rect=%.2f-->%.2f region=%Lu-->%Lu viewport=%.1f-->%.1f zoom=%.3f", rect->left, rect->left + rect->len, region.start, region.start + ((uint64_t)region.len), viewport->left, viewport->right, zoom);
 	int oldx = x0 - 1;
 	int oldy = 0;
 	//int s = MAX(0, x0 / zoom - 1); // s should not depend on x!!
@@ -205,7 +205,7 @@ draw_wave_buffer_v_hi(Waveform* w, WfSampleRegion region, WfRectangle* rect, WfV
 		i++;
 	}
 	if(x >= x0 + BIG_NUMBER){ gwarn("too many lines! rect.width=%.2f", rect->len); }
-	else dbg(0, "n_lines=%i x=%i-->%i", i, x0, x);
+	else dbg(2, "n_lines=%i x=%i-->%i", i, x0, x);
 }
 
 

@@ -64,7 +64,6 @@ struct _WaveformViewPrivate {
 	gboolean        show_grid;
 };
 
-//static int      waveform_view_load_block     (WaveformView*, int blocknum);
 static int      waveform_view_get_width            (WaveformView*);
 
 #include "view_gl.c"
@@ -168,29 +167,6 @@ waveform_view_new (Waveform* waveform)
 }
 
 
-#if 0
-static int
-waveform_view_load_block (WaveformView* view, int blocknum)
-{
-	g_return_val_if_fail(view, 0);
-	Waveform* w = view->waveform;
-	if(w->gl_blocks->peak_texture[0].main[blocknum]){
-		//gwarn("waveform texture already assigned for block %i", blocknum);
-		return w->gl_blocks->peak_texture[0].main[blocknum];
-	}
-
-	//TODO move this up to parent? no need to be inside a b loop
-
-	WfRectangle rect = {0, 0, GL_WIDTH, GL_HEIGHT};
-	wf_actor_allocate_block(view->priv->actor, &rect, blocknum);
-
-	int texture_id = w->gl_blocks->peak_texture[0].main[blocknum];
-
-	return texture_id;
-}
-#endif
-
-
 static void
 _post_init (WaveformView* view)
 {
@@ -273,20 +249,6 @@ waveform_view_set_zoom (WaveformView* view, float zoom)
 	dbg(1, "zoom=%.2f", zoom);
 	view->zoom = CLAMP(zoom, 1.0, MAX_ZOOM);
 
-#if 0 // we shouldnt mess with the block width here - its the domain of the actor.
-#define INTEGER_BLOCK_WIDTH
-#ifdef INTEGER_BLOCK_WIDTH
-	double waveform_view_samples2px(WaveformView* view, uint32_t n_samples)
-	{
-		return n_samples * view->zoom; //check
-	}
-
-	double _block_width = waveform_view_samples2px(view, WF_SAMPLES_PER_TEXTURE);
-	int block_width = _block_width;
-	view->zoom = ((float)WF_SAMPLES_PER_TEXTURE) / ((float)block_width);
-	dbg(0, "width=%.2f %i zoom=%.2f", _block_width, block_width, view->zoom);
-#endif
-#endif
 	WfSampleRegion region = {view->start_frame, (waveform_get_n_frames(view->waveform) - view->start_frame) / view->zoom};
 	wf_actor_set_region(view->priv->actor, &region);
 
@@ -306,6 +268,13 @@ waveform_view_set_start (WaveformView* view, int64_t start_frame)
 		length
 	});
 	if(!view->priv->actor->canvas->draw) gtk_widget_queue_draw((GtkWidget*)view);
+}
+
+
+void
+waveform_view_set_colour(WaveformView* w, uint32_t fg, uint32_t bg)
+{
+	wf_actor_set_colour(w->priv->actor, fg, bg);
 }
 
 
@@ -481,9 +450,7 @@ waveform_view_allocate (GtkWidget* base, GdkRectangle* allocation)
 
 	WaveformView* wv = (WaveformView*)base;
 	base->allocation = (GtkAllocation)(*allocation);
-	if ((GTK_WIDGET_FLAGS (base) & GTK_REALIZED) == 0) {
-		return;
-	}
+	if ((GTK_WIDGET_FLAGS (base) & GTK_REALIZED) == 0) return;
 	gdk_window_move_resize(base->window, base->allocation.x, base->allocation.y, base->allocation.width, base->allocation.height);
 
 	if(!canvas_init_done) waveform_view_init_drawable(wv);
@@ -491,27 +458,6 @@ waveform_view_allocate (GtkWidget* base, GdkRectangle* allocation)
 	if(!gl_initialised) return;
 
 	waveform_view_gl_on_allocate(wv);
-#if 0
-	int b; for(b=start_block_num;b<=end_block_num;b++){
-#ifdef USE_TEXTURE_CACHE
-		int t;
-		if(!blocks->peak_texture[b]){
-			t = texture_cache_find_empty();
-			if(t < 0) t = texture_cache_stea();
-		}
-#endif
-		if(glIsTexture(blocks->peak_texture[b])) continue;
-		dbg(0, "loading texture: %i %i...", b, blocks->peak_texture[b]);
-//hmmmm........ this is done in waveform_view_load_block()
-		AlphaBuf* alphabuf = wf_alphabuf_new_from_wf(pool_item->waveform, b, FALSE);
-#ifdef USE_TEXTURE_CACHE
-			int texture_id = texture_cache_get(t);
-			dbg(0, "t=%i texture_id=%i", t, texture_id);
-			pool_item->waveform->gl_blocks->peak_texture[b] = texture_id;
-			texture_cache_assign(t, (WaveformBlock){pool_item->waveform, b});
-#endif
-	}
-#endif
 
 	waveform_view_set_projection(base);
 }
@@ -552,7 +498,7 @@ waveform_view_finalize (GObject* obj)
 	WaveformView* view = WAVEFORM_VIEW(obj);
 	//_g_free0 (self->priv->_filename);
 	//TODO free actor?
-	wf_unref0(view->waveform); //TODO should be done in dispose?
+	waveform_unref0(view->waveform); //TODO should be done in dispose?
 	G_OBJECT_CLASS (waveform_view_parent_class)->finalize(obj);
 }
 

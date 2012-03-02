@@ -1,18 +1,16 @@
 - add pkgconfig pc file
 - check XDG env var works
-- change pool window to use wf_peak_render_to_pixbuf.
 - why do we have each actor having its own viewport? document the reasons why this is so.
 - both texture mode and shader modes have spurious lines.
 - actor test is too slow at high zoom.
-- fix paths for test wavs
-- test installation, test ebuild
+- fix paths for test wavs (can get dir of current executable?)
 - remove all stdout
 - documentation
-- peak.c / peak.h need renaming
-- check copyright notices
+- peak.c / peak.h need renaming (split?)
 
 later:
 
+- lv2
 - cairo / clutter
 - vgain
 - iso mode

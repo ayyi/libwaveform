@@ -64,7 +64,7 @@ wf_load_ardour_peak(Waveform* wv, const char* peak_file, size_t size)
 	g_free(read_buf);
 
 #if 0
-	dbg(0, "peaks:");
+	dbg(1, "peaks:");
 	for (i=0;i<20;i++) printf("  %i %i\n", buf[2 * i], buf[2 * i + 1]);
 #endif
 	int ch_num = wv->priv->peak.buf[0] ? 1 : 0; //this makes too many assumptions. better to pass explicitly as argument.

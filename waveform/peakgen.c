@@ -98,7 +98,7 @@ waveform_ensure_peakfile (Waveform* w)
 		*/
 		if(w->offline || wf_file_is_newer(peak_filename, filename)) return peak_filename;
 
-		dbg(0, "peakfile is too old");
+		dbg(1, "peakfile is too old");
 	}
 
 	if(!wf_peakgen(filename, peak_filename)) return NULL;
@@ -132,7 +132,7 @@ wf_peakgen(const char* infilename, const char* peak_filename)
 		}
 		return false;
 	}
-	dbg(0, "n_frames=%Lu %i", sfinfo.frames, ((int)sfinfo.frames/256));
+	dbg(1, "n_frames=%Lu %i", sfinfo.frames, ((int)sfinfo.frames/256));
 
 	if (sfinfo.channels > MAX_CHANNELS){
 		printf ("Not able to process more than %d channels\n", MAX_CHANNELS) ;
@@ -301,7 +301,7 @@ peakbuf_allocate(Peakbuf* peakbuf, int c)
 	peak_mem_size += (peakbuf->size * sizeof(short));
 
 	//dbg(0, "short=%i", sizeof(short));
-	dbg(0, "b=%i: size=%i tot_peak_mem=%ikB", peakbuf->block_num, peakbuf->size, peak_mem_size / 1024);
+	dbg(1, "b=%i: size=%i tot_peak_mem=%ikB", peakbuf->block_num, peakbuf->size, peak_mem_size / 1024);
 	return peakbuf->buf[c];
 }
 
@@ -398,11 +398,11 @@ wf_peakbuf_regen(Waveform* waveform, int block_num, int min_tiers)
 	if(!buf){
 		//peakbuf->size = peakbuf_get_max_size_by_resolution(output_resolution);
 		peakbuf->size = wf_peakbuf_get_max_size(output_tiers);
-		dbg(0, "buf->size=%i blocksize=%i", peakbuf->size, WF_PEAK_BLOCK_SIZE * WF_PEAK_VALUES_PER_SAMPLE / io_ratio);
+		dbg(2, "buf->size=%i blocksize=%i", peakbuf->size, WF_PEAK_BLOCK_SIZE * WF_PEAK_VALUES_PER_SAMPLE / io_ratio);
 //TODO probably correct, but still better to base it on the audio_buffer->size property.
 peakbuf->size = WF_PEAK_BLOCK_SIZE * WF_PEAK_VALUES_PER_SAMPLE / io_ratio;
 		if(is_last_block(waveform, block_num)){
-			dbg(0, "is_last_block. (%i)", block_num);
+			dbg(2, "is_last_block. (%i)", block_num);
 			//if(block_num == 0) peakbuf->size = pool_item->samplecount / PEAK_BLOCK_TO_GRAPHICS_BLOCK * PEAK_TILE_SIZE;
 		}
 		//dbg(0, "block_num=%i of %i. allocating buffer... %i %i %i", block_num, pool_item->hires_peaks->len, PEAK_BLOCK_TO_GRAPHICS_BLOCK, PEAK_TILE_SIZE, (256 >> (output_resolution-1)));
@@ -411,10 +411,10 @@ peakbuf->size = WF_PEAK_BLOCK_SIZE * WF_PEAK_VALUES_PER_SAMPLE / io_ratio;
 		}
 	}
 
-	short         maxplus[2] = {0,0};      // highest positive audio value encountered (per block). One for each channel
-	short         maxmin [2] = {0,0};      // highest negative audio value encountered.
-	short         totplus = 0;
-	short         totmin  = 0;
+	short maxplus[2] = {0,0};      // highest positive audio value encountered (per block). One for each channel
+	short maxmin [2] = {0,0};      // highest negative audio value encountered.
+	short totplus = 0;
+	short totmin  = 0;
 
 	int n_chans = waveform_get_n_channels(waveform);
 	int c; for(c=0;c<n_chans;c++){
@@ -447,7 +447,7 @@ peakbuf->size = WF_PEAK_BLOCK_SIZE * WF_PEAK_VALUES_PER_SAMPLE / io_ratio;
 		}
 		*/
 	}
-	dbg(0, "maxlevel=%i,%i (%.3fdB)", totplus, totmin, wf_int2db(MAX(totplus, -totmin)));
+	dbg(1, "maxlevel=%i,%i (%.3fdB)", totplus, totmin, wf_int2db(MAX(totplus, -totmin)));
 
 	peakbuf_set_n_tiers(peakbuf, output_tiers, output_resolution);
 }
@@ -512,7 +512,7 @@ maintain_file_cache()
 				g_free(filename);
 			}
 		}
-		dbg(0, "peak files deleted: %i", n_deleted);
+		dbg(1, "peak files deleted: %i", n_deleted);
 
 		g_dir_close(d);
 		g_free(dir_name);

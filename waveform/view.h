@@ -1,5 +1,5 @@
 /*
-  copyright (C) 2011 Tim Orford <tim@orford.org>
+  copyright (C) 2012 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -56,16 +56,17 @@ struct _WaveformViewClass {
 };
 
 
-GType         waveform_view_get_type     () G_GNUC_CONST;
-void          waveform_view_set_gl       (GdkGLContext*);
-WaveformView* waveform_view_new          (Waveform*);
-void          waveform_view_load_file    (WaveformView*, const char*); //be careful, it force loads, even if already loaded.
-void          waveform_view_set_waveform (WaveformView*, Waveform*);
-void          waveform_view_set_zoom     (WaveformView*, float);
-void          waveform_view_set_start    (WaveformView*, int64_t);
-void          waveform_view_set_show_rms (WaveformView*, gboolean);
-void          waveform_view_set_show_grid(WaveformView*, gboolean);
-WaveformCanvas*waveform_view_get_canvas  (WaveformView*);
+GType           waveform_view_get_type      () G_GNUC_CONST;
+void            waveform_view_set_gl        (GdkGLContext*);
+WaveformView*   waveform_view_new           (Waveform*);
+void            waveform_view_load_file     (WaveformView*, const char*); //be careful, it force loads, even if already loaded.
+void            waveform_view_set_waveform  (WaveformView*, Waveform*);
+void            waveform_view_set_zoom      (WaveformView*, float);
+void            waveform_view_set_start     (WaveformView*, int64_t);
+void            waveform_view_set_colour    (WaveformView*, uint32_t fg, uint32_t bg);
+void            waveform_view_set_show_rms  (WaveformView*, gboolean);
+void            waveform_view_set_show_grid (WaveformView*, gboolean);
+WaveformCanvas* waveform_view_get_canvas    (WaveformView*);
 
 
 G_END_DECLS

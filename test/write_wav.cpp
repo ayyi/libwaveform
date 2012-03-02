@@ -1,3 +1,28 @@
+/*
+  Generates test wav
+
+  contains code generated with Faust (http://faust.grame.fr)
+
+  "Constant-Peak-Gain Resonator Synth" by Julius Smith
+
+  ---------------------------------------------------------------
+
+  copyright (C) 2012 Tim Orford <tim@orford.org>
+
+  This program is free software; you can redistribute it and/or modify
+  it under the terms of the GNU General Public License version 3
+  as published by the Free Software Foundation.
+
+  This program is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+  GNU General Public License for more details.
+
+  You should have received a copy of the GNU General Public License
+  along with this program; if not, write to the Free Software
+  Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+
+*/
 #include "config.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -12,7 +37,6 @@
 void compute_sinewave (double* buf, int n_frames);
 void compute_noise    (int count, double** input, double** output);
 void compute_kps      (int count, double** input, double** output);
-void kps_init         ();
 
 
 int
@@ -118,7 +142,134 @@ class KPS
 KPS kps;
 
 
-int main(int argc, char *argv[])
+template <int N> inline float  faustpower(float x)   { return powf(x,N); } 
+template <int N> inline double faustpower(double x)  { return pow(x,N); }
+template <int N> inline int    faustpower(int x)     { return faustpower<N/2>(x) * faustpower<N-N/2>(x); } 
+template <>      inline int    faustpower<0>(int x)  { return 1; }
+template <>      inline int    faustpower<1>(int x)  { return x; }
+
+class CPGRS
+{
+  public:
+	float     gain;          // gain
+	float     attack;        // interface->addHorizontalSlider("attack",  &fslider4, 0.01f, 0.0f, 1.0f, 0.001f);
+	float     sustain;      // interface->addHorizontalSlider("sustain", &fslider1, 0.5f, 0.0f, 1.0f, 0.01f);
+	float     release;       // interface->addHorizontalSlider("release", &fslider2, 0.2f, 0.0f, 1.0f, 0.001f);
+	float     fslider3;      // interface->addHorizontalSlider("decay",   &fslider3, 0.3f, 0.0f, 1.0f, 0.001f);
+
+  private:
+	float     fSamplingFreq;
+	float     fslider0;      // 2-filter: addHorizontalSlider("bandwidth (Hz)", &fslider0, 1e+02f, 2e+01f, 2e+04f, 1e+01f);
+	float     fConst0;
+	float     fentry0;       // "freq", 4.4e+02f, 2e+01f, 2e+04f, 1.0f
+	float     fConst1;
+	float     on_off_button; // gate (on/off)
+	int       iRec1[2];
+	float     fRec2[2];
+	int       iRec3[2];
+	float     fVec0[3];
+	float     fRec0[3];
+
+	int       t;
+
+  public:
+
+	void init()
+	{
+		t = 0;
+
+		gain = 8.0;
+		sustain = 0.5f;
+		release = 0.2f;
+		fslider3 = 0.3f;
+		attack = 0.01f;
+
+		fSamplingFreq = 44100;
+		fslider0 = 1e+02f;
+		fConst0 = (3.141592653589793f / fSamplingFreq);
+		fentry0 = 4.4e+02f;
+		fConst1 = (6.283185307179586f / fSamplingFreq);
+		on_off_button = 0.0;
+		for (int i=0; i<2; i++) iRec1[i] = 0;
+		for (int i=0; i<2; i++) fRec2[i] = 0;
+		for (int i=0; i<2; i++) iRec3[i] = 0;
+		for (int i=0; i<3; i++) fVec0[i] = 0;
+		for (int i=0; i<3; i++) fRec0[i] = 0;
+	}
+#if 0
+	virtual int getNumInputs()  { return 0; }
+	virtual int getNumOutputs() { return 1; }
+#endif
+	void compute (int count, float** input, float** output)
+	{
+		if(!(t % 4096)) on_off_button = !on_off_button;
+
+		float   fSlow0 = expf((0 - (fConst0 * fslider0)));
+		float   fSlow1 = (2 * cosf((fConst1 * fentry0)));
+		float   fSlow2 = on_off_button;
+		int     iSlow3 = (fSlow2 > 0);
+		int     iSlow4 = (fSlow2 <= 0);
+		float   fSlow5 = sustain;
+		float   fSlow6 = (sustain + (0.001f * (fSlow5 == 0.0f)));
+		float   fSlow7 = release;
+		float   fSlow8 = (1 - (1.0f / powf((1e+03f * fSlow6),(1.0f / ((fSlow7 == 0.0f) + (fSamplingFreq * fSlow7))))));
+		float   fSlow9 = fslider3;
+		float   fSlow10 = (1 - powf(fSlow6,(1.0f / ((fSlow9 == 0.0f) + (fSamplingFreq * fSlow9)))));
+		float   fSlow11 = attack;
+		float   fSlow12 = (1.0f / ((fSlow11 == 0.0f) + (fSamplingFreq * fSlow11)));
+		float   fSlow13 = (4.656612875245797e-10f * gain);
+		float   fSlow14 = (0.5f * (1 - faustpower<2>(fSlow0)));
+		float*  output0 = output[0];
+		for (int i=0; i<count; i++) {
+			iRec1[0] = (iSlow3 & (iRec1[1] | (fRec2[1] >= 1)));
+			int iTemp0 = (iSlow4 & (fRec2[1] > 0));
+			fRec2[0] = (((iTemp0 == 0) | (fRec2[1] >= 1e-06f)) * ((fSlow12 * (((iRec1[1] == 0) & iSlow3) & (fRec2[1] < 1))) + (fRec2[1] * ((1 - (fSlow10 * (iRec1[1] & (fRec2[1] > fSlow5)))) - (fSlow8 * iTemp0)))));
+			iRec3[0] = (12345 + (1103515245 * iRec3[1]));
+			float fTemp1 = (fSlow13 * (iRec3[0] * fRec2[0]));
+			fVec0[0] = fTemp1;
+			fRec0[0] = ((fSlow14 * (fVec0[0] - fVec0[2])) + (fSlow0 * ((fSlow1 * fRec0[1]) - (fSlow0 * fRec0[2]))));
+			output0[i] = (float)fRec0[0];
+
+			// post processing
+			fRec0[2] = fRec0[1]; fRec0[1] = fRec0[0];
+			fVec0[2] = fVec0[1]; fVec0[1] = fVec0[0];
+			iRec3[1] = iRec3[0];
+			fRec2[1] = fRec2[0];
+			iRec1[1] = iRec1[0];
+		}
+
+		t++;
+	}
+};
+CPGRS cpgrs;
+
+
+class Impulse
+{
+	int a;
+
+  public:
+	Impulse()
+	{
+	}
+
+	void init()
+	{
+		a = 0;
+	}
+
+	void compute (int n_chans, double** input, double** output)
+	{
+		for (int c=0; c<n_chans; c++) {
+			output[0][c] = !(a % 10);
+		}
+		a++;
+	}
+};
+Impulse impulse;
+
+
+int main(int argc, char* argv[])
 {
 	int n_channels = MONO;
 
@@ -148,7 +299,7 @@ int main(int argc, char *argv[])
 
 		case 'c':
 			n_channels = atoi(optarg);
-			printf("n_channels=%i\n", n_channels);
+			//printf("n_channels=%i\n", n_channels);
 			break;
 
 		case 'v':
@@ -174,24 +325,25 @@ int main(int argc, char *argv[])
 	char* output_filename = NULL;
 	if (optind < argc) {
 		output_filename = argv[optind++];
-		//printf("filename=%s\n", output_filename);
 	}else{
 		fprintf(stderr, "Output filename required\n");
 		return print_help();
 	}
 	printf("Generating 10s test tone\n");
 
-	double freq = 440;			// Hz
-	double duration = 10;		// Seconds
-	int sampleRate = 44100;		// Frames / second
+	double freq        = 440;   // hz
+	double duration    = 10;    // seconds
+	int    sample_rate = 44100; // frames / second
 
-	long n_frames = duration * sampleRate;
+	long n_frames = duration * sample_rate;
 
 	double* buffer = (double*) malloc(n_frames * sizeof(double) * n_channels);
 	if (!buffer) {
 		fprintf(stderr, "Could not allocate buffer for output\n");
 		return 1;
 	}
+
+	int ff = 0;
 
 	// create a single tone
 	long f;
@@ -211,18 +363,45 @@ int main(int argc, char *argv[])
 	}
 	compute_sinewave(buffer, 16384);
 
-	//mute left then right to check correct orientation
-	for(f=16384;f<16384*2;f++){
-		buffer[f * n_channels + 0] = 0.0;
-	}
-	for(f=16384*2;f<16384*3;f++){
-		buffer[f * n_channels + 1] = 0.0;
-	}
-
-	int ff = 16384 * 3;
 	double* input[2] = {NULL, NULL};
 	double* output[n_channels];// = {buffer + 16384 * n_channels, buffer + 16384 * n_channels};
-	int a; for(a=0;a<16384;a++){
+
+	ff += 16384;
+	float* output_f[n_channels];
+	cpgrs.init();
+	for(int a=0;a<16384;a++){
+		int c; for(c=0;c<n_channels;c++){
+			output[c] = buffer + ff * n_channels + a * n_channels + c;
+		}
+		cpgrs.compute(n_channels, (float**)input, (float**)output_f);
+		for(c=0;c<n_channels;c++){
+			output[0][c] = output_f[0][c];
+		}
+	}
+	ff += 16384;
+	cpgrs.release = 0.01; // <----
+	for(int a=0;a<16384;a++){
+		int c; for(c=0;c<n_channels;c++){
+			output[c] = buffer + ff * n_channels + a * n_channels + c;
+		}
+		cpgrs.compute(n_channels, (float**)input, (float**)output_f);
+		for(c=0;c<n_channels;c++){
+			output[0][c] = output_f[0][c];
+		}
+	}
+
+	//mute left then right to check correct orientation
+	ff += 16384;
+	for(f=0;f<16384;f++){
+		buffer[(f + ff) * n_channels + 0] = 0.0;
+	}
+	ff += 16384;
+	for(f=0;f<16384;f++){
+		buffer[(f + ff) * n_channels + 1] = 0.0;
+	}
+
+	ff += 16384;
+	for(int a=0;a<16384;a++){
 		int c; for(c=0;c<n_channels;c++){
 			output[c] = buffer + (ff + a) * n_channels + c;
 		}
@@ -231,7 +410,7 @@ int main(int argc, char *argv[])
 
 	ff += 16384;
 	kps.init();
-	for(a=0;a<16384;a++){
+	int a; for(a=0;a<16384;a++){
 		int c; for(c=0;c<n_channels;c++){
 			output[c] = buffer + ff * n_channels + a * n_channels + c;
 		}
@@ -254,6 +433,8 @@ int main(int argc, char *argv[])
 		}
 		pink.compute(n_channels, (double**)input, (double**)output);
 	}
+
+	//------------------- save --------------------
 
 	SF_INFO info = {
 		0,

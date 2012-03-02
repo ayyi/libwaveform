@@ -129,13 +129,13 @@ wf_load_audio_block(Waveform* waveform, int block_num)
 	//  tier 8:  0,  1, ...
 	int spacing = WF_PEAK_RATIO >> (audio->n_tiers_present - 1);
 
-	//dbg(0, "tot_frames=%i n_blocks=%i", sfinfo.frames, waveform_get_n_audio_blocks(waveform));
+	//dbg(1, "tot_frames=%i n_blocks=%i", sfinfo.frames, waveform_get_n_audio_blocks(waveform));
 	uint64_t start_pos =  block_num      * WF_PEAK_BLOCK_SIZE;
 	uint64_t end_pos   = (block_num + 1) * WF_PEAK_BLOCK_SIZE;
 	if(start_pos > sfinfo.frames){ gerr("startpos too too high. %Li > %Li block=%i", start_pos, sfinfo.frames, block_num); return false; }
-	if(end_pos > sfinfo.frames){ dbg(0, "*** last block?"); end_pos = sfinfo.frames; }
+	if(end_pos > sfinfo.frames){ dbg(1, "*** last block?"); end_pos = sfinfo.frames; }
 	sf_seek(sffile, start_pos, SEEK_SET);
-	dbg(0, "block=%i/%i tiers_present=%i spacing=%i start=%Li end=%Li", block_num, waveform_get_n_audio_blocks(waveform), audio->n_tiers_present, spacing, start_pos, end_pos);
+	dbg(1, "block=%i/%i tiers_present=%i spacing=%i start=%Li end=%Li", block_num, waveform_get_n_audio_blocks(waveform), audio->n_tiers_present, spacing, start_pos, end_pos);
 
 	int n_chans = waveform_get_n_channels(waveform);
 	g_return_val_if_fail(n_chans, false);
@@ -270,7 +270,7 @@ file_load_thread(gpointer data)
 		}
 
 		while(jobs){
-			dbg(0, "%i jobs remaining", g_list_length(jobs));
+			dbg(1, "%i jobs remaining", g_list_length(jobs));
 			QueueItem* item = g_list_first(jobs)->data;
 			jobs = g_list_remove(jobs, item);
 
@@ -369,7 +369,7 @@ waveform_load_audio_async(Waveform* waveform, int block_num, int n_tiers_needed)
 				audio->buf16[block_num]->stamp = ++wf->audio.access_counter;
 			}
 		}
-		dbg(0, "block=%i tot_audio_mem=%ukB", block_num, wf->audio.mem_size / 1024);
+		dbg(1, "block=%i tot_audio_mem=%ukB", block_num, wf->audio.mem_size / 1024);
 
 		void callback(gpointer item)
 		{
@@ -444,10 +444,10 @@ audio_cache_malloc(Waveform* w, int b)
 {
 	int size = WF_PEAK_BLOCK_SIZE;
 
-	//dbg(0, "cache_size=%ik", MAX_AUDIO_CACHE_SIZE / 1024);
+	//dbg(1, "cache_size=%ik", MAX_AUDIO_CACHE_SIZE / 1024);
 	WF* wf = wf_get_instance();
 	if(wf->audio.mem_size + size > MAX_AUDIO_CACHE_SIZE){
-		dbg(0, "**** cache full. looking for audio block to delete...");
+		dbg(1, "**** cache full. looking for audio block to delete...");
 		//what to delete?
 		// - audio cache items can be in use, but only if we are at high zoom.
 		//   But as there are many views, none of which we have knowledge of, we can't use this information.
@@ -460,14 +460,14 @@ audio_cache_malloc(Waveform* w, int b)
 		while (g_hash_table_iter_next (&iter, &key, &value)){ //need to check the stamp of each block and associate it with the waveform
 			WfBuf16* buf = key;
 			Waveform* w = value;
-			//dbg(0, "  stamp=%u", buf->stamp);
+			//dbg(1, "  stamp=%u", buf->stamp);
 			if(!oldest || buf->stamp < oldest->stamp){
 				oldest = buf;
 				oldest_waveform = w;
 			}
 		}
 		if(oldest){
-			dbg(0, "clearing buf with stamp=%i ...", oldest->stamp);
+			dbg(1, "clearing buf with stamp=%i ...", oldest->stamp);
 			audio_cache_free(oldest_waveform, wf_block_lookup_by_audio_buf(oldest_waveform, oldest));
 		}
 		if(wf->audio.mem_size + size > MAX_AUDIO_CACHE_SIZE){
@@ -478,7 +478,7 @@ audio_cache_malloc(Waveform* w, int b)
 	short* buf = g_malloc(sizeof(short) * size);
 	wf->audio.mem_size += size;
 	w->priv->audio_data->buf16[b]->size = size;
-	dbg(0, "b=%i inserting: %p", b, buf);
+	dbg(1, "b=%i inserting: %p", b, buf);
 	g_hash_table_insert(wf->audio.cache, w->priv->audio_data->buf16[b], w); //each channel has its own entry. however as channels are always accessed together, it might be better to have one entry per Buf16*
 	audio_cache_print();
 	return buf;
@@ -490,7 +490,7 @@ audio_cache_free(Waveform* w, int block)
 {
 	//currently this ONLY frees the audio data, not the structs that contain it.
 
-	//dbg(0, "b=%i", block);
+	//dbg(1, "b=%i", block);
 
 	WF* wf = wf_get_instance();
 	WfAudioData* audio = w->priv->audio_data;
@@ -499,14 +499,14 @@ audio_cache_free(Waveform* w, int block)
 		if(!g_hash_table_remove(wf->audio.cache, buf16)) gwarn("failed to remove waveform from audio_cache");
 		if(buf16->buf[WF_LEFT]){
 			wf->audio.mem_size -= buf16->size;
-			//dbg(0, "b=%i clearing left... size=%i", block, buf16->size);
+			//dbg(1, "b=%i clearing left... size=%i", block, buf16->size);
 			g_free0(buf16->buf[WF_LEFT]);
 		}
 		else { gwarn("left buffer empty"); }
 
 		if(buf16->buf[WF_RIGHT]){
 			wf->audio.mem_size -= buf16->size;
-			dbg(0, "b=%i clearing right...", block);
+			dbg(1, "b=%i clearing right...", block);
 			g_free0(buf16->buf[WF_RIGHT]);
 		}
 	}
@@ -544,7 +544,7 @@ audio_cache_print()
 		total_size++;
 		i++;
 	}
-	dbg(0, "size=%i mem=%ikB=%ikB %s", total_size, total_mem * sizeof(short) / 1024, wf->audio.mem_size * sizeof(short) / 1024, str);
+	dbg(1, "size=%i mem=%ikB=%ikB %s", total_size, total_mem * sizeof(short) / 1024, wf->audio.mem_size * sizeof(short) / 1024, str);
 }
 
 
