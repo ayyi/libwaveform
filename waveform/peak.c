@@ -304,7 +304,7 @@ waveform_load_peak(Waveform* w, const char* peak_file, int ch_num)
 	int n_channels = wf->load_peak(w, peak_file, size); //not currently passing the size. If we decide not to use it, this arg should be removed.
 
 	w->num_peaks = w->priv->peak.size / WF_PEAK_VALUES_PER_SAMPLE;
-	dbg(1, "ch=%i peak_buf=%p num_peaks=%i", ch_num, w->priv->peak.buf[ch_num], w->num_peaks);
+	dbg(1, "ch=%i num_peaks=%i", ch_num, w->num_peaks);
 #if 0
 	int i; for (i=0;i<20;i++) printf("      %i %i\n", w->priv->peak.buf[0][2 * i], w->priv->peak.buf[0][2 * i + 1]);
 #endif

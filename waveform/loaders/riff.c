@@ -58,7 +58,7 @@ wf_load_riff_peak(Waveform* wv, const char* peak_file, size_t size)
 	g_return_val_if_fail(sfinfo.channels <= 2, 0);
 
 	sf_count_t n_frames = sfinfo.frames / WF_PEAK_VALUES_PER_SAMPLE;
-	dbg(1, "n_channels=%i n_frames=%Li n_bytes=%Li n_blocks=%i", sfinfo.channels, n_frames, sfinfo.frames * peak_byte_depth, (int)(ceil((float)n_frames / WF_PEAK_TEXTURE_SIZE)));
+	dbg(1, "n_channels=%i n_frames=%Li n_bytes=%Li n_blocks=%i", sfinfo.channels, n_frames, sfinfo.frames * peak_byte_depth * sfinfo.channels, (int)(ceil((float)n_frames / WF_PEAK_TEXTURE_SIZE)));
 	dbg(1, "secs=%.3f %.3f", ((float)(n_frames)) / 44100, ((float)(n_frames * WF_PEAK_RATIO)) / 44100);
 
 	uint32_t bytes = sfinfo.frames * peak_byte_depth * WF_PEAK_VALUES_PER_SAMPLE;

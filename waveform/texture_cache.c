@@ -33,7 +33,7 @@
 #include "waveform/texture_cache.h"
 
 #define WF_TEXTURE_ALLOCATION_INCREMENT 20
-#define WF_TEXTURE_MAX                  160 //never allocate more than this
+#define WF_TEXTURE_MAX                  1024 //never allocate more than this (1024 textures equiv to ~6mins)
 
 #ifdef WF_USE_TEXTURE_CACHE
 static int time_stamp = 0;
@@ -145,7 +145,7 @@ texture_cache_assign(int t, WaveformBlock wb)
 	Texture* tx = &g_array_index(wf_get_instance()->texture_cache->t, Texture, t);
 	tx->wb = wb;
 	tx->time_stamp = time_stamp++;
-	dbg(1, "t=%i b=%i time=%i", t, wb.block, time_stamp);
+	dbg(2, "t=%i b=%i time=%i", t, wb.block, time_stamp);
 
 	//texture_cache_print();
 }

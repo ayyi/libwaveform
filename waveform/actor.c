@@ -708,7 +708,7 @@ wf_actor_paint(WaveformActor* actor)
 		int region_end_block     = (region.start + region.len) / WF_SAMPLES_PER_TEXTURE;
 		int viewport_start_block = wf_actor_get_first_visible_block(&region, zoom, &rect, &viewport);
 		int viewport_end_block   = wf_actor_get_last_visible_block (actor, zoom, &viewport);
-		if(region_end_block > w->gl_blocks->size -1){ gwarn("region too long?"); region_end_block = w->gl_blocks->size -1; }
+		if(region_end_block > w->gl_blocks->size -1){ gwarn("region too long? region_end_block=%i n_blocks=%i region.len=%i", region_end_block, w->gl_blocks->size, region.len); region_end_block = w->gl_blocks->size -1; }
 		dbg(2, "block range: region=%i-->%i viewport=%i-->%i", region_start_block, region_end_block, viewport_start_block, viewport_end_block);
 		dbg(2, "rect=%.2f %.2f viewport=%.2f %.2f", rect.left, rect.len, viewport.left, viewport.right);
 
@@ -1150,7 +1150,7 @@ wf_actor_load_texture1d(Waveform* w, int blocknum)
 					printf("  %i %i=%i %i\n", i, i -2*j -2, peak->buf[ch][i -2*j -2 ], peak->buf[ch][i -2*j -1]);
 				}
 #endif
-				gwarn("end of peak: %i b=%i n_sec=%.3f", peak->size, blocknum, ((float)((WF_PEAK_TEXTURE_SIZE * blocknum + f) * WF_PEAK_RATIO))/44100); break; }
+				dbg(1, "end of peak: %i b=%i n_sec=%.3f", peak->size, blocknum, ((float)((WF_PEAK_TEXTURE_SIZE * blocknum + f) * WF_PEAK_RATIO))/44100); break; }
 
 			buf->positive[f] =  peak->buf[ch][i  ] >> 8;
 			buf->negative[f] = -peak->buf[ch][i+1] >> 8;

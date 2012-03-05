@@ -45,8 +45,7 @@
 #include "waveform/audio.h"
 #include "waveform/peakgen.h"
 
-#define BUFFER_LEN 256 // length of the buffer to hold audio during processing.
-                       // this also defines no of samples per peak in the output peakfile.
+#define BUFFER_LEN 256 // length of the buffer to hold audio during processing. currently must be same as WF_PEAK_RATIO
 #define MAX_CHANNELS 2
 
 #define USER_CACHE_DIR ".cache/peak"
@@ -158,6 +157,9 @@ wf_peakgen(const char* infilename, const char* peak_filename)
 		FAIL_;
 	}
 
+	#define EIGHT_HOURS (60 * 60 * 8)
+	#define MAX_READ_ITER (44100 * EIGHT_HOURS / BUFFER_LEN)
+
 	//while there are frames in the input file, read them and process them:
 	short total_max[sfinfo.channels];
 	int readcount, i = 0;
@@ -165,7 +167,9 @@ wf_peakgen(const char* infilename, const char* peak_filename)
 	gint32 total_bytes_written = 0;
 	gint32 total_frames_written = 0;
 	while((readcount = sf_readf_short(infile, data, BUFFER_LEN))){
-		if(wf_debug && (readcount < BUFFER_LEN * sfinfo.channels)) printf("EOF\n");
+		if(wf_debug && (readcount < BUFFER_LEN)){
+			dbg(1, "EOF i=%i readcount=%i total_frames_written=%i", i, readcount, total_frames_written);
+		}
 
 		short max[sfinfo.channels];
 		short min[sfinfo.channels];
@@ -189,7 +193,7 @@ wf_peakgen(const char* infilename, const char* peak_filename)
 			if(i<10) printf("  %i %i\n", max[0], min[0]);
 		}
 #endif
-		if(++i > 16384){ printf("warning: stopped before EOF.\n"); break; }
+		if(++i > MAX_READ_ITER){ printf("warning: stopped before EOF.\n"); break; }
 	}
 
 	if(wf_debug){
@@ -200,7 +204,7 @@ wf_peakgen(const char* infilename, const char* peak_filename)
 		printf("size: %'Li bytes %li:%02li:%03li. maxlevel=%i(%fdB)\n", samples_read * sizeof(short), mins, secs, ms, total_max[0], wf_int2db(total_max[0]));
 	}
 
-	dbg(2, "total_items_written=%i items_per_channel=%i peaks_per_channel=%i", total_frames_written, total_frames_written/sfinfo.channels, total_frames_written/(sfinfo.channels * WF_PEAK_VALUES_PER_SAMPLE));
+	dbg(1, "total_items_written=%i items_per_channel=%i peaks_per_channel=%i", total_frames_written, total_frames_written/sfinfo.channels, total_frames_written/(sfinfo.channels * WF_PEAK_VALUES_PER_SAMPLE));
 	dbg(2, "total bytes written: %i (of%Li)", total_bytes_written, (long long)sfinfo.frames * bytes_per_frame);
 
 	sf_close (outfile);

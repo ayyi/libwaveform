@@ -65,6 +65,8 @@ main (int argc, char *argv[])
 
 	set_log_handlers();
 
+	wf_debug = 0;
+
 	gtk_init(&argc, &argv);
 	GtkWidget* window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
 
