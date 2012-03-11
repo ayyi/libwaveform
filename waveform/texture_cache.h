@@ -20,10 +20,11 @@
 
 #ifdef WF_USE_TEXTURE_CACHE
 
+#define WF_TEXTURE_CACHE_LORES_MASK (1 << 23)
+
 struct _texture_cache
 {
-	//guint       textures[WF_TEXTURE_MAX];
-	GArray*     t;                        // type Texture
+	GArray*     t;             // type Texture
 };
 
 void  texture_cache_init       ();

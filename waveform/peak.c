@@ -34,6 +34,7 @@
 #include "waveform/loaders/riff.h"
 #include "waveform/texture_cache.h"
 #include "waveform/audio.h"
+#include "waveform/alphabuf.h"
 #include "waveform/peakgen.h"
 
 static gpointer waveform_parent_class = NULL;
@@ -43,21 +44,13 @@ enum  {
 	WAVEFORM_PROPERTY1
 };
 
-//#define WF_TEXTURE_HEIGHT 128 //1024
-#define WF_TEXTURE_HEIGHT 256 //intel 945 seems to work better with square textures
-#define BITS_PER_PIXEL 8
-typedef struct _drect { double x1, y1, x2, y2; } DRect;
-
 extern WF* wf;
 guint peak_idle = 0;
 
 static void  waveform_finalize          (GObject*);
-static void _waveform_get_property      (GObject * object, guint property_id, GValue * value, GParamSpec * pspec);
+static void _waveform_get_property      (GObject*, guint property_id, GValue*, GParamSpec*);
 
-static void  waveform_peak_to_alphabuf  (Waveform*, AlphaBuf*, int* start, int* end, GdkColor* colour, uint32_t colour_bg);
-static void  waveform_rms_to_alphabuf   (Waveform*, AlphaBuf*, int* start, int* end, double samples_per_px, GdkColor* colour, uint32_t colour_bg);
 static void  waveform_set_last_fraction (Waveform*);
-static int   waveform_get_n_textures    (Waveform*);
 
 struct _buf_info
 {
@@ -152,15 +145,35 @@ __finalize(Waveform* w)
 	int i; for(i=0;i<WF_MAX_CH;i++){
 		if(w->priv->peak.buf[i]) g_free(w->priv->peak.buf[i]);
 	}
-	if(w->gl_blocks){
+#if 0
+	if(w->textures){
 		texture_cache_remove(w);
 
 		int c; for(c=0;c<WF_MAX_CH;c++){
-			if(w->gl_blocks->peak_texture[c].main) g_free(w->gl_blocks->peak_texture[c].main);
-			if(w->gl_blocks->peak_texture[c].neg) g_free(w->gl_blocks->peak_texture[c].neg);
+			if(w->textures->peak_texture[c].main) g_free(w->textures->peak_texture[c].main);
+			if(w->textures->peak_texture[c].neg) g_free(w->textures->peak_texture[c].neg);
 		}
-		g_free(w->gl_blocks);
+		g_free(w->textures);
 	}
+#else
+	if(w->textures) texture_cache_remove(w); //TODO this doesnt yet clear lo-res textures.
+
+	void free_textures(WfGlBlock** _textures)
+	{
+		WfGlBlock* textures = *_textures;
+		if(textures){
+			int c; for(c=0;c<WF_MAX_CH;c++){
+				if(textures->peak_texture[c].main) g_free(textures->peak_texture[c].main);
+				if(textures->peak_texture[c].neg) g_free(textures->peak_texture[c].neg);
+			}
+			g_free(textures);
+			*_textures = NULL;
+		}
+	}
+	free_textures(&w->textures);
+	free_textures(&w->textures_lo);
+#endif
+
 	wf_audio_free(w);
 	g_free(w->priv);
 	g_free(w->filename);
@@ -214,14 +227,20 @@ wf_get_property1(Waveform* self)
 }
 
 
-#if 0
-void
-wf_set_file(Waveform* w, const char* filename)
+WfGlBlock*
+wf_texture_array_new(int size, int n_channels)
 {
-	PF0;
-	w->n_frames = 0;
+	WfGlBlock* textures = g_new0(WfGlBlock, 1);
+	textures->size = size;
+	dbg(1, "creating glbocks... num_blocks=%i", textures->size);
+	textures->peak_texture[0].main = g_new0(unsigned, textures->size);
+	textures->peak_texture[0].neg = g_new0(unsigned, textures->size);
+	if(n_channels > 1){
+		textures->peak_texture[WF_RIGHT].main = g_new0(unsigned, textures->size);
+		textures->peak_texture[WF_RIGHT].neg = g_new0(unsigned, textures->size);
+	}
+	return textures;
 }
-#endif
 
 
 gboolean
@@ -308,27 +327,25 @@ waveform_load_peak(Waveform* w, const char* peak_file, int ch_num)
 #if 0
 	int i; for (i=0;i<20;i++) printf("      %i %i\n", w->priv->peak.buf[0][2 * i], w->priv->peak.buf[0][2 * i + 1]);
 #endif
-	if(!w->gl_blocks){
-		w->gl_blocks = g_new0(WfGlBlocks, 1);
-		w->gl_blocks->size = w->num_peaks / WF_PEAK_TEXTURE_SIZE + ((w->num_peaks % WF_PEAK_TEXTURE_SIZE) ? 1 : 0);
-		dbg(1, "creating glbocks... num_blocks=%i", w->gl_blocks->size);
-		w->gl_blocks->peak_texture[0].main = g_new0(unsigned, w->gl_blocks->size);
-		w->gl_blocks->peak_texture[0].neg = g_new0(unsigned, w->gl_blocks->size);
+	if(!w->textures){
+		w->textures = wf_texture_array_new(w->num_peaks / WF_PEAK_TEXTURE_SIZE + ((w->num_peaks % WF_PEAK_TEXTURE_SIZE) ? 1 : 0), (ch_num == 1 || n_channels == 2) ? 2 : 1);
 #ifdef WF_SHOW_RMS
 		gerr("rms TODO");
-		w->gl_blocks->rms_texture = g_new0(unsigned, w->gl_blocks->size);
+		w->textures->rms_texture = g_new0(unsigned, w->textures->size);
 #warning TODO where best to init rms textures? see peak_textures
 		extern void glGenTextures(size_t n, uint32_t* textures);
-		glGenTextures(w->gl_blocks->size, w->gl_blocks->rms_texture); //note currently doesnt use the texture_cache
+		glGenTextures(w->textures->size, w->textures->rms_texture); //note currently doesnt use the texture_cache
 #endif
 	}
 
 	waveform_set_last_fraction(w);
 
+#if 0 //moved into wf_texture_array_new()
 	if(ch_num == 1 || n_channels == 2){
-		w->gl_blocks->peak_texture[1].main = g_new0(unsigned, w->gl_blocks->size);
-		w->gl_blocks->peak_texture[1].neg = g_new0(unsigned, w->gl_blocks->size);
+		w->textures->peak_texture[WF_RIGHT].main = g_new0(unsigned, w->textures->size);
+		w->textures->peak_texture[WF_RIGHT].neg = g_new0(unsigned, w->textures->size);
 	}
+#endif
 
 	return !!w->priv->peak.buf[ch_num];
 }
@@ -483,12 +500,6 @@ line_clear(struct _line* line)
 }
 
 
-static void
-alphabuf_draw_line(AlphaBuf* pixbuf, DRect* pts, double line_width, GdkColor* colour)
-{
-}
-
-
 static inline gboolean
 get_buf_info(const Waveform* w, int block_num, struct _buf_info* b, int ch)
 {
@@ -526,119 +537,13 @@ get_rms_buf_info(const char* buf, guint len, struct _rms_buf_info* b, int ch)
 }
 
 
-static AlphaBuf*
-_alphabuf_new(int width, int height)
-{
-	AlphaBuf* a = g_new0(AlphaBuf, 1);
-	a->width = width;
-	a->height = height;
-	a->buf_size = width * height;
-	a->buf = g_malloc(a->buf_size);
-	return a;
-}
-
-
 static void
 waveform_set_last_fraction(Waveform* waveform)
 {
 	int width = WF_PEAK_TEXTURE_SIZE;
 	int width_ = waveform->num_peaks % WF_PEAK_TEXTURE_SIZE;
-	waveform->gl_blocks->last_fraction = (double)width_ / (double)width;
-	//dbg(1, "num_peaks=%i last_fraction=%.2f", waveform->num_peaks, waveform->gl_blocks->last_fraction);
-}
-
-
-AlphaBuf*
-wf_alphabuf_new(Waveform* waveform, int blocknum, gboolean is_rms)
-{
-	//copy part of the audio peakfile at 1:1 scale to a pixbuf suitable for use as a GL texture.
-	// @param blocknum - if -1, use the whole peakfile.
-
-	PF2;
-	g_return_val_if_fail(waveform->num_peaks, NULL);
-	GdkColor fg_colour = {0, 0xffff, 0xffff, 0xffff};
-
-	int px_start;
-	int px_stop;
-	int width;
-	if(blocknum == -1){
-		px_start = 0;
-		px_stop  = width = waveform->num_peaks;
-	}else{
-		int n_blocks = waveform_get_n_textures(waveform);
-		dbg(2, "block %i/%i", blocknum, n_blocks);
-		gboolean is_last = (blocknum == n_blocks - 1);
-
-		px_start =  blocknum      * WF_PEAK_TEXTURE_SIZE;
-		px_stop  = (blocknum + 1) * WF_PEAK_TEXTURE_SIZE;
-
-		width = WF_PEAK_TEXTURE_SIZE;
-		if(is_last){
-			int width_ = waveform->num_peaks % WF_PEAK_TEXTURE_SIZE;
-			dbg(1, "is_last width_=%i", width_);
-			width      = wf_power_of_two(width_);
-			//waveform_set_last_fraction(waveform);
-			//px_stop  = px_start + WF_PEAK_TEXTURE_SIZE * blocks->last_fraction;
-			px_stop  = px_start + width_;
-		}
-		dbg (2, "block_num=%i width=%i px_stop=%i", blocknum, width, px_stop, is_last);
-	}
-	AlphaBuf* buf = _alphabuf_new(width, is_rms ? WF_TEXTURE_HEIGHT / 2: WF_TEXTURE_HEIGHT);
-
-//dbg(1, "peakbuf_len=%i buf0=%p", peakbuf_len, f_item.ppppp.buf[0]);
-	//f_item.hires_peaks = NULL; //FIXME
-	if(is_rms){
-		#define SCALE_BODGE 2;
-		double samples_per_px = WF_PEAK_TEXTURE_SIZE * SCALE_BODGE;
-		uint32_t bg_colour = 0x00000000;
-		waveform_rms_to_alphabuf(waveform, buf, &px_start, &px_stop, samples_per_px, &fg_colour, bg_colour);
-	}else{
-
-		uint32_t bg_colour = 0x00000000;
-		waveform_peak_to_alphabuf(waveform, buf, &px_start, &px_stop, &fg_colour, bg_colour);
-	}
-
-#if 0
-	//put dots in corner for debugging:
-	{
-		buf->buf [0]                              = 0xff;
-		buf->buf [buf->width   - 1]               = 0xff;
-		buf->buf [buf->width * (buf->height - 1)] = 0xff;
-		buf->buf [buf->buf_size -1]               = 0xff;
-	}
-#endif
-
-	return buf;
-}
-
-
-void
-wf_alphabuf_free(AlphaBuf* a)
-{
-	if(a){
-		g_free(a->buf);
-		g_free(a);
-	}
-}
-
-
-GdkPixbuf*
-wf_alphabuf_to_pixbuf(AlphaBuf* a)
-{
-	GdkPixbuf* pixbuf = gdk_pixbuf_new(GDK_COLORSPACE_RGB, FALSE, BITS_PER_PIXEL, a->width, a->height);
-	guchar* buf = gdk_pixbuf_get_pixels(pixbuf);
-	int n = gdk_pixbuf_get_n_channels(pixbuf);
-
-	int y; for(y=0;y<a->height;y++){
-		int py = y * gdk_pixbuf_get_rowstride(pixbuf);
-		//g_return_val_if_fail(py + (a->width -1) * n + 2 < (gdk_pixbuf_get_rowstride(pixbuf) * a->height), pixbuf);
-		int x; for(x=0;x<a->width;x++){
-			buf[py + x * n    ] = a->buf[y * a->width + x];
-			buf[py + x * n + 1] = a->buf[y * a->width + x];
-			buf[py + x * n + 2] = a->buf[y * a->width + x];
-		}
-	}
-	return pixbuf;
+	waveform->textures->last_fraction = (double)width_ / (double)width;
+	//dbg(1, "num_peaks=%i last_fraction=%.2f", waveform->num_peaks, waveform->textures->last_fraction);
 }
 
 
@@ -666,20 +571,26 @@ wf_peak_malloc(Waveform* w, uint32_t bytes)
 
 
 static void
-waveform_peak_to_alphabuf(Waveform* w, AlphaBuf* a, int* start, int* end, GdkColor* colour, uint32_t colour_bg)
+alphabuf_draw_line(AlphaBuf* pixbuf, DRect* pts, double line_width, GdkColor* colour)
+{
+}
+
+
+void
+waveform_peak_to_alphabuf(Waveform* w, AlphaBuf* a, int scale, int* start, int* end, GdkColor* colour, uint32_t colour_bg)
 {
 	/*
-     renders a peakfile (loaded into the buffer given by waveform->buf) onto the given 8 bit alpha-map buffer.
+	 renders a peakfile (loaded into the buffer given by waveform->buf) onto the given 8 bit alpha-map buffer.
 
 	 -the given buffer is for a single block only.
 	 Can be simplified. Eg, the antialiasing should be removed.
 
-     @param start - if set, we start rendering at this value from the left of the pixbuf.
-     @param end   - if set, num of pixels from left of pixbuf to stop rendering at.
-                    Can be bigger than pixbuf width.
+	 @param start - if set, we start rendering at this value in the source buffer.
+	 @param end   - if set, source buffer index to stop rendering at.
+	                Is allowed to be bigger than the output buf width.
 
-     further optimisation:
-     -dont scan pixels above the peaks. Should we record the overall file peak level?
+	 further optimisation:
+	 -dont scan pixels above the peaks. Should we record the overall file peak level?
 	*/
 
 	g_return_if_fail(a);
@@ -689,9 +600,7 @@ waveform_peak_to_alphabuf(Waveform* w, AlphaBuf* a, int* start, int* end, GdkCol
 	struct timeval time_start, time_stop;
 	gettimeofday(&time_start, NULL);
 
-	struct peak_sample sample;
-	//short sample_positive;    //even numbered bytes in the src peakfile are positive peaks;
-	//short sample_negative;    //odd  numbered bytes in the src peakfile are negative peaks;
+	WfPeakSample sample;
 	short min;                //negative peak value for each pixel.
 	short max;                //positive peak value for each pixel.
 
@@ -710,13 +619,13 @@ waveform_peak_to_alphabuf(Waveform* w, AlphaBuf* a, int* start, int* end, GdkCol
 	int src_start=0;             //index into the source buffer for each sample pt.
 	int src_stop =0;   
 
-	double xmag = 1; //making xmag smaller increases the visual magnification.
+	double xmag = 1.0 * scale; //making xmag smaller increases the visual magnification.
 	                 //-the bigger the mag, the less samples we need to skip.
 	                 //-as we're only dealing with smaller peak files, we need to adjust by the RATIO.
 
 	int px_start = start ? *start : 0;
 	int px_stop  = *end;//   ? MIN(*end, width) : width;
-	dbg (2, "start=%i end=%i", px_start, px_stop);
+	dbg (0, "start=%i end=%i", px_start, px_stop);
 	//dbg (1, "width=%i height=%i", width, height);
 
 	if(width < px_stop - px_start){ gwarn("alphabuf too small? %i < %i", width, px_stop - px_start); return; }
@@ -867,7 +776,7 @@ waveform_peak_to_alphabuf(Waveform* w, AlphaBuf* a, int* start, int* end, GdkCol
 }
 
 
-static void
+void
 waveform_rms_to_alphabuf(Waveform* pool_item, AlphaBuf* pixbuf, int* start, int* end, double samples_per_px, GdkColor* colour, uint32_t colour_bg)
 {
 	/*
@@ -889,7 +798,7 @@ waveform_rms_to_alphabuf(Waveform* pool_item, AlphaBuf* pixbuf, int* start, int*
 	gettimeofday(&time_start, NULL);
 
 	if(samples_per_px < 0.001) gerr ("samples_per_pix=%f", samples_per_px);
-	struct peak_sample sample;
+	WfPeakSample sample;
 	short min;                //negative peak value for each pixel.
 	short max;                //positive peak value for each pixel.
 //	if(!pool_item->valid) return;
@@ -1133,16 +1042,6 @@ if(!n_chans){ gerr("n_chans"); n_chans = 1; }
 		secs -= 1;
 		usec = time_stop.tv_usec + 1000000 - time_start.tv_usec;
 	}
-}
-
-
-static int
-waveform_get_n_textures(Waveform* waveform)
-{
-	WfGlBlocks* blocks = waveform->gl_blocks;
-	if(blocks) return blocks->size;
-	gerr("!! no glblocks\n");
-	return -1;
 }
 
 
@@ -1499,7 +1398,7 @@ waveform_peak_to_pixbuf_full(Waveform* waveform, GdkPixbuf* pixbuf, uint32_t reg
 #endif
 
 	if(samples_per_px < 0.001) gerr ("samples_per_pix=%f", samples_per_px);
-	struct peak_sample sample;
+	WfPeakSample sample;
 	short min;                //negative peak value for each pixel.
 	short max;                //positive peak value for each pixel.
 #if 0
@@ -1821,7 +1720,7 @@ waveform_rms_to_pixbuf(Waveform* w, GdkPixbuf* pixbuf, uint32_t src_inset, int* 
 #endif
 
 	if(samples_per_px < 0.001) gerr ("samples_per_pix=%f", samples_per_px);
-	struct peak_sample sample;
+	WfPeakSample sample;
 	short min;                //negative peak value for each pixel.
 	short max;                //positive peak value for each pixel.
 	//if(!pool_item->valid) return;
@@ -2125,7 +2024,7 @@ wf_print_blocks(Waveform* w)
 {
 	g_return_if_fail(w);
 
-	WfGlBlocks* blocks = w->gl_blocks;
+	WfGlBlock* blocks = w->textures;
 	int c = 0;
 	printf("blocks:\n");
 	int k; for(k=0;k<5;k++){

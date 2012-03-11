@@ -1,8 +1,7 @@
+- test with Nouveau driver
 - add pkgconfig pc file
 - check XDG env var works
-- why do we have each actor having its own viewport? document the reasons why this is so.
 - both texture mode and shader modes have spurious lines.
-- actor test is too slow at high zoom.
 - fix paths for test wavs (can get dir of current executable?)
 - remove all stdout
 - documentation
@@ -21,10 +20,3 @@ later:
 - better testing of audio cache full behaviour.
 - check that hi-res painting falls back to lo res while waiting for audio to load.
 - implement usage of textures in hi res mode.
-- v low res mode: for a long file we use loads of textures! at v low zoom this is v inefficient.
-	- would it be a problem if the v-lo-res-texture size was bigger than the audio-block size?
-	- what is best resolution for this mode?
-		- x 16 ? 1 texture is 16s - would not be used much until file length was approx 1 minute or more
-
-		c/w:
-			normal mode: 1 texture is v approx 1s.

@@ -23,6 +23,7 @@ libwaveform_la_SOURCES = \
 	view.c view.h \
 	canvas.c canvas.h \
 	actor.c actor.h \
+	alphabuf.c alphabuf.h \
 	grid.c grid.h \
 	animator.c animator.h \
 	peakgen.c peakgen.h \

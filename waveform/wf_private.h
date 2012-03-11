@@ -17,6 +17,10 @@
 #ifndef __wf_private_h__
 #define __wf_private_h__
 
+#define WF_CACHE_BUF_SIZE (1 << 15)
+#define WF_PEAK_STD_TO_LO 16
+#define WF_PEAK_RATIO_LOW (WF_PEAK_RATIO * WF_PEAK_STD_TO_LO) // the number of samples per entry in a low res peakbuf.
+
 enum
 {
 	WF_LEFT = 0,
@@ -54,7 +58,7 @@ struct _wf
 	GAsyncQueue*  msg_queue;
 };
 
-struct __gl_blocks
+struct __gl_block
 {
 	int                size;
 	struct {
@@ -74,10 +78,16 @@ typedef struct _texture
 	int           time_stamp;
 } Texture;
 
+typedef struct _peak_sample
+{
+	short positive;
+	short negative;
+} WfPeakSample;
+
+typedef struct _drect { double x1, y1, x2, y2; } DRect;
+
+
 WF*            wf_get_instance         ();
-#if 0
-WfWavCache*    wf_wav_cache_new        (int n_channels);
-#endif
 uint32_t       wf_peakbuf_get_max_size (int n_tiers);
 
 short*         wf_peak_malloc          (Waveform*, uint32_t bytes);
@@ -85,12 +95,16 @@ Peakbuf*       wf_get_peakbuf_n        (Waveform*, int);
 void           wf_peakbuf_regen        (Waveform*, int block_num, int min_output_resolution);
 void           wf_print_blocks         (Waveform*);
 
+void           waveform_peak_to_alphabuf (Waveform*, AlphaBuf*, int scale, int* start, int* end, GdkColor* colour, uint32_t colour_bg);
+void           waveform_rms_to_alphabuf  (Waveform*, AlphaBuf*, int* start, int* end, double samples_per_px, GdkColor* colour, uint32_t colour_bg);
+
+WfGlBlock*     wf_texture_array_new      (int size, int n_channels);
+
 void           wf_audio_free           (Waveform*);
 gboolean       wf_load_audio_block     (Waveform*, int block_num);
 
 void           wf_actor_init           ();
 WaveformActor* wf_actor_new            (Waveform*);
-void           wf_actor_load_texture1d (Waveform*, int blocknum);
 
 float          wf_canvas_gl_to_px      (WaveformCanvas*, float x);
 

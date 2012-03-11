@@ -65,7 +65,7 @@ main (int argc, char *argv[])
 
 	set_log_handlers();
 
-	wf_debug = 0;
+	wf_debug = 1;
 
 	gtk_init(&argc, &argv);
 	GtkWidget* window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
@@ -88,6 +88,7 @@ main (int argc, char *argv[])
 	gboolean key_press(GtkWidget* widget, GdkEventKey* event, gpointer user_data)
 	{
 		WaveformView* waveform = user_data;
+		int n_visible_frames = ((float)waveform->waveform->n_frames) / waveform->zoom;
 
 		switch(event->keyval){
 			case 61:
@@ -99,12 +100,12 @@ main (int argc, char *argv[])
 			case GDK_KEY_Left:
 			case GDK_KEY_KP_Left:
 				dbg(0, "left");
-				waveform_view_set_start(waveform, waveform->start_frame - (1 << 14) / waveform->zoom);
+				waveform_view_set_start(waveform, waveform->start_frame - n_visible_frames / 10);
 				break;
 			case GDK_KEY_Right:
 			case GDK_KEY_KP_Right:
 				dbg(0, "right");
-				waveform_view_set_start(waveform, waveform->start_frame + (1 << 14) / waveform->zoom);
+				waveform_view_set_start(waveform, waveform->start_frame + n_visible_frames / 10);
 				break;
 			case GDK_KP_Enter:
 				break;

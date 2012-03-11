@@ -19,7 +19,7 @@
 
 #ifdef __wf_private__
 
-typedef enum {WF_INT, WF_FLOAT} WfPropType;
+typedef enum {WF_INT, WF_INT64, WF_FLOAT} WfPropType;
 
 typedef struct _animatable_property
 {

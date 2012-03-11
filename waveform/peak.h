@@ -38,8 +38,6 @@ typedef struct _WaveformClass WaveformClass;
                                        // i.e. 256 * 256 = 64k samples per texture, or 0.67 textures for 1 second of audio at 44.1k
 #define WF_PEAK_VALUES_PER_SAMPLE 2    // one positive and one negative (unless using shaders).
 
-#define WF_CACHE_BUF_SIZE (1 << 15)
-
 #define WF_SHOW_RMS
 #undef WF_SHOW_RMS
 
@@ -55,6 +53,58 @@ enum
 	WF_MONO = 1,
 	WF_STEREO,
 };
+
+typedef struct _buf_stereo
+{
+	float*     buf[WF_STEREO];
+	guint      size;             // number of floats, NOT bytes
+} WfBuf;
+
+typedef struct _buf_stereo_16
+{
+	short*     buf[WF_STEREO];
+	guint      size;             // number of shorts allocated, NOT bytes. When accessing, note that the last block will likely not be full.
+	uint32_t   stamp;            // put here for now. can move a parallel array if neccesary.
+} WfBuf16;
+
+typedef struct
+{
+	uint64_t start;              // sample frames
+	uint32_t len;                // sample frames
+} WfSampleRegion;
+
+struct _Waveform
+{
+	GObject            parent_instance;
+
+	char*              filename;          // either full path, or relative to cwd.
+	uint64_t           n_frames;          // audio file size
+	int                n_channels;
+
+	gboolean           offline;
+
+	GPtrArray*         hires_peaks;       // array of Peakbuf* TODO how much does audio_data deprecate this?
+	int                num_peaks;         // peak_buflen / PEAK_VALUES_PER_SAMPLE
+	RmsBuf*            rms_buf0;
+	RmsBuf*            rms_buf1;
+
+	WfGlBlock*         textures;          // opengl textures.
+	WfGlBlock*         textures_lo;       // low res textures.
+
+	//float            max_db;
+
+	WaveformPriv*      priv;
+};
+
+struct _WaveformClass {
+	GObjectClass parent_class;
+};
+
+typedef struct _waveform_block
+{
+	Waveform*   waveform;
+	int         block;
+} WaveformBlock;
 
 //a single hires peak block
 struct _peakbuf {
@@ -72,77 +122,6 @@ struct _buf
 	char* buf;
 	guint size;
 };
-
-typedef struct _buf_stereo
-{
-	float*     buf[WF_STEREO];
-	guint      size;             // number of floats, NOT bytes
-} WfBuf;
-
-typedef struct _buf_stereo_16
-{
-	short*     buf[WF_STEREO];
-	guint      size;             // number of shorts allocated, NOT bytes. When accessing, note that the last block will likely not be full.
-	uint32_t   stamp;            // put here for now. can move a parallel array if neccesary.
-} WfBuf16;
-
-struct _alpha_buf {
-	int        width;
-	int        height;
-	guchar*    buf;
-	int        buf_size;
-};
-
-typedef struct
-{
-	uint64_t start;              // sample frames
-	uint32_t len;                // sample frames
-} WfSampleRegion;
-
-#if 0
-typedef struct _wav_cache {
-	WfBuf*         buf;
-	WfSampleRegion region;
-} WfWavCache;
-#endif
-
-struct peak_sample{
-	short positive;              // even numbered bytes in the src peakfile are positive peaks
-	short negative;              // odd  numbered bytes in the src peakfile are negative peaks
-};
-
-struct _Waveform
-{
-	GObject            parent_instance;
-
-	char*              filename;          // either full path, or relative to cwd.
-	uint64_t           n_frames;          // audio file size
-	int                n_channels;
-
-	gboolean           offline;
-
-	//WfWavCache*        cache;
-	GPtrArray*         hires_peaks;       // array of Peakbuf* TODO how much does audio_data deprecate this?
-	int                num_peaks;         // peak_buflen / PEAK_VALUES_PER_SAMPLE
-	RmsBuf*            rms_buf0;
-	RmsBuf*            rms_buf1;
-
-	WfGlBlocks*        gl_blocks;         // opengl textures.
-
-	//float            max_db;
-
-	WaveformPriv*      priv;
-};
-
-struct _WaveformClass {
-	GObjectClass parent_class;
-};
-
-typedef struct _waveform_block
-{
-	Waveform*   waveform;
-	int         block;
-} WaveformBlock;
 
 //high level api
 Waveform*  waveform_load_new           (const char* filename);
@@ -164,10 +143,6 @@ RmsBuf*    waveform_load_rms_file      (Waveform*, int ch);
 WfBuf16*   waveform_load_audio_async   (Waveform*, int block_num, int n_tiers_needed);
 int        waveform_get_n_audio_blocks (Waveform*);
 short      waveform_find_max_audio_level(Waveform*);
-
-AlphaBuf*  wf_alphabuf_new             (Waveform*, int blocknum, gboolean is_rms);
-void       wf_alphabuf_free            (AlphaBuf*);
-GdkPixbuf* wf_alphabuf_to_pixbuf       (AlphaBuf*);
 
 #define USE_GDK_PIXBUF //TODO
 #ifdef USE_GDK_PIXBUF

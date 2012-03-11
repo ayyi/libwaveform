@@ -14,20 +14,18 @@
   along with this program; if not, write to the Free Software
   Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 */
-#ifndef __waveform_typedefs_h__
-#define __waveform_typedefs_h__
+#ifndef __wf_alphabuf_h__
+#define __wf_alphabuf_h__
 
-typedef struct _wf              WF;
-typedef struct _Waveform        Waveform;
-typedef struct _peakbuf         Peakbuf;
-typedef struct _alpha_buf       AlphaBuf;
-typedef struct _peakbuf1        WfPeakBuf;
-typedef struct _buf             RmsBuf;
-typedef struct _waveform_canvas WaveformCanvas;
-typedef struct _waveform_actor  WaveformActor;
-typedef struct __gl_block       WfGlBlock;
-typedef struct _waveform_priv   WaveformPriv;
-typedef struct _audio_data      WfAudioData;
+struct _alpha_buf {
+	int        width;
+	int        height;
+	guchar*    buf;
+	int        buf_size;
+};
 
+AlphaBuf*  wf_alphabuf_new             (Waveform*, int blocknum, int scale, gboolean is_rms);
+void       wf_alphabuf_free            (AlphaBuf*);
+GdkPixbuf* wf_alphabuf_to_pixbuf       (AlphaBuf*);
 
-#endif //__waveform_typedefs_h__
+#endif //__wf_alphabuf_h__

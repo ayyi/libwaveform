@@ -93,18 +93,24 @@ uint64_t    get_time           ();
 int
 main (int argc, char *argv[])
 {
+#if 0
 	if(sizeof(off_t) != 8){ gerr("sizeof(off_t)=%i\n", sizeof(off_t)); return EXIT_FAILURE; }
+#endif
 
 	set_log_handlers();
+
+	wf_debug = 1;
 
 	memset(&app, 0, sizeof(struct _app));
 
 	gtk_init(&argc, &argv);
-	glconfig = gdk_gl_config_new_by_mode( GDK_GL_MODE_RGBA | GDK_GL_MODE_DEPTH | GDK_GL_MODE_DOUBLE );
-	if (!glconfig) { gerr ("Cannot initialise gtkglext."); return EXIT_FAILURE; }
+	if(!(glconfig = gdk_gl_config_new_by_mode(GDK_GL_MODE_RGBA | GDK_GL_MODE_DEPTH | GDK_GL_MODE_DOUBLE))){
+		gerr ("Cannot initialise gtkglext."); return EXIT_FAILURE;
+	}
 
 	GtkWidget* window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
 
+#if 0
 	void window_on_realise(GtkWidget* widget, gpointer user_data)
 	{
 		dbg(2, "...");
@@ -115,6 +121,7 @@ main (int argc, char *argv[])
 		window_init_done = true;
 	}
 	g_signal_connect(window, "realize", G_CALLBACK(window_on_realise), NULL);
+#endif
 
 	canvas = gtk_drawing_area_new();
 	gtk_widget_set_can_focus(canvas, true);
@@ -336,6 +343,9 @@ on_allocate(GtkWidget* widget, GtkAllocation* allocation, gpointer user_data)
 
 	setup_projection(widget);
 
+	//optimise drawing by telling the canvas which area is visible
+	wf_canvas_set_viewport(wfc, &(WfViewPort){0, 0, GL_WIDTH, GL_HEIGHT});
+
 	start_zoom(zoom);
 }
 
@@ -350,6 +360,8 @@ _easing(int step, float start, float end)
 static void
 start_zoom(float target_zoom)
 {
+	//when zooming in, the Region is preserved so the box gets bigger. Drawing is clipped by the Viewport.
+
 	PF0;
 	zoom = MAX(0.1, target_zoom);
 

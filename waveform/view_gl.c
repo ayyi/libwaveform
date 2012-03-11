@@ -95,7 +95,7 @@ draw(WaveformView* view)
 	glPopMatrix();
 #endif
 
-	if(!w || !w->gl_blocks) return;
+	if(!w || !w->textures) return;
 
 	wf_actor_paint(actor);
 

@@ -161,7 +161,6 @@ wf_animation_start(WfAnimation* animation)
 
 		WfAnimation* animation = _animation;
 		GList* l = animation->members;
-		//dbg(0, "members=%i", g_list_length(l));
 		for(;l;l=l->next){
 			Blah* blah = l->data;
 			WaveformActor* a = blah->actor;
@@ -189,7 +188,6 @@ wf_animation_start(WfAnimation* animation)
 	}
 	wf_transition_frame(animation); // !!!!!! not sure it is safe to do this - members not added yet?
 	animation->timer = g_timeout_add(40, wf_transition_frame, animation);
-
 }
 
 

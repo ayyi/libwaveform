@@ -51,7 +51,6 @@ typedef struct _queue_item
 #define MAX_AUDIO_CACHE_SIZE (1 << 23) // words, NOT bytes.
 
 //static void  process_audio         (short*, int count, int channels, long long pos, short* maxplus, short* maxmin);
-//static inline void process_data_real (short* data, int data_size_frames, int n_channels, long long Xpos, short max[], short min[]);
 static short*      audio_cache_malloc (Waveform*, int);
 static void        audio_cache_free   (Waveform*, int block);
 static void        audio_cache_print  ();
@@ -390,41 +389,6 @@ waveform_load_audio_async(Waveform* waveform, int block_num, int n_tiers_needed)
 
 	return NULL;
 }
-
-
-#if 0
-static inline void
-process_data_real (short* data, int data_size_frames, int n_channels, long long Xpos, short max[], short min[])
-{
-	//produce peak data from audio data.
-	//      -only 1 item of output is produced.
-	//
-	//      data - interleaved audio.
-	//      data_size_frames - the number of frames in data to process.
-	//      pos  - is the *sample* count. (ie not frame count, and not byte count.)
-	//      max  - (output) positive peaks. must be allocated with size n_channels
-	//      min  - (output) negative peaks. must be allocated with size n_channels
-
-	/*
-	for (k = chan; k < count; k+= channels){
-		for (chan=0; chan < channels; chan++)
-			//data [k] *= channel_gain [chan] ;
-			printf("data: (%i) %i\n", chan, data[k]);
-	}*/
-	int c; for(c=0;c<n_channels;c++){
-		max[c] = 0;
-		min[c] = 0;
-	}
-	int k; for(k=0;k<data_size_frames;k+=n_channels){
-		//if(k<10) for(c=0;c<n_channels;c++) printf("data: (%i) %i\n", c, data[k + c]);
-
-		for(c=0;c<n_channels;c++){
-			max[c] = (data[k + c] > max[c]) ? data[k + c] : max[c];
-			min[c] = (data[k + c] < min[c]) ? data[k + c] : min[c];
-		}
-	}
-}
-#endif
 
 
 static int

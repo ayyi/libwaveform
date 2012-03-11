@@ -48,7 +48,7 @@ void            wf_canvas_set_rotation              (WaveformCanvas*, float);
 WaveformActor*  wf_canvas_add_new_actor             (WaveformCanvas*, Waveform*);
 void            wf_canvas_remove_actor              (WaveformCanvas*, WaveformActor*);
 void            wf_canvas_queue_redraw              (WaveformCanvas*);
-void            wf_actor_load_texture_from_alphabuf (WaveformCanvas*, int texture_id, AlphaBuf*);
+void            wf_canvas_load_texture_from_alphabuf(WaveformCanvas*, int texture_id, AlphaBuf*);
 void            wf_canvas_use_program               (WaveformCanvas*, int);
 
 #define wf_canvas_free0(A) (wf_canvas_free(A), A = NULL)

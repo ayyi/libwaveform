@@ -319,7 +319,7 @@ texture_cache_steal()
 
 		int find_texture_in_block(int n, WaveformBlock* wb)
 		{
-			WfGlBlocks* blocks = wb->waveform->gl_blocks;
+			WfGlBlock* blocks = wb->waveform->textures;
 			guint* peak_texture[4] = {
 				&blocks->peak_texture[0].main[wb->block],
 				&blocks->peak_texture[0].neg[wb->block],
@@ -337,7 +337,7 @@ texture_cache_steal()
 			gwarn("!!");
 		}else{
 			dbg(0, "clearing texture for block=%i %i ...", wb->block, p);
-			WfGlBlocks* blocks = wb->waveform->gl_blocks;
+			WfGlBlock* blocks = wb->waveform->textures;
 			guint* peak_texture[4] = {
 				&blocks->peak_texture[0].main[wb->block],
 				&blocks->peak_texture[0].neg[wb->block],
@@ -354,7 +354,7 @@ texture_cache_steal()
 void
 texture_cache_remove(Waveform* waveform) //tmp? should probably only be called by wf_unref()
 {
-	WfGlBlocks* blocks = waveform->gl_blocks;
+	WfGlBlock* blocks = waveform->textures;
 	int b; for(b=0;b<=blocks->size;b++){
 		texture_cache_unassign((WaveformBlock){waveform, b});
 	}

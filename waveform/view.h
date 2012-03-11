@@ -29,6 +29,7 @@
 #include "waveform/typedefs.h"
 #include "waveform/utils.h"
 #include "waveform/canvas.h"
+#include "waveform/peak.h"
 
 G_BEGIN_DECLS
 

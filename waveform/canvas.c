@@ -40,6 +40,7 @@
 extern void use_texture(int texture);
 #include "waveform/actor.h"
 #include "waveform/canvas.h"
+#include "waveform/alphabuf.h"
 #include "waveform/gl_ext.h"
 
 #define WAVEFORM_START_DRAW(wa) \
@@ -69,7 +70,7 @@ static void   wf_canvas_init_shaders (WaveformCanvas*);
 WaveformCanvas*
 wf_canvas_new(GdkGLContext* gl_context, GdkGLDrawable* gl_drawable)
 {
-	PF0;
+	PF;
 
 	if(!glAttachShader){
 		wf_actor_init();
@@ -241,7 +242,7 @@ wf_canvas_gl_to_px(WaveformCanvas* wfc, float x)
 
 
 void
-wf_actor_load_texture_from_alphabuf(WaveformCanvas* wa, int texture_name, AlphaBuf* alphabuf)
+wf_canvas_load_texture_from_alphabuf(WaveformCanvas* wa, int texture_name, AlphaBuf* alphabuf)
 {
 	//load the Alphabuf into the gl texture identified by texture_name.
 	//-the user can usually free the Alphabuf afterwards as it is unlikely to be needed again.
@@ -288,9 +289,9 @@ wf_actor_load_texture_from_alphabuf(WaveformCanvas* wa, int texture_name, AlphaB
 			int l; for(l=1;l<16;l++){
 				guchar* buf = generate_mipmap(alphabuf, l);
 #ifdef HAVE_NON_SQUARE_TEXTURES
-				int width = alphabuf->width/(1<<l);
+				int width = alphabuf->width / (1<<l);
 #else
-				int width = alphabuf->height/(1<<l);
+				int width = alphabuf->height / (1<<l);
 #endif
 				glTexImage2D(GL_TEXTURE_2D, l, GL_ALPHA8, width, alphabuf->height/(1<<l), 0, GL_ALPHA, GL_UNSIGNED_BYTE, buf);
 				g_free(buf);
