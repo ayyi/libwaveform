@@ -28,6 +28,7 @@ typedef struct _waveform_actor  WaveformActor;
 typedef struct __gl_block       WfGlBlock;
 typedef struct _waveform_priv   WaveformPriv;
 typedef struct _audio_data      WfAudioData;
+typedef struct _vp              WfViewPort; 
 
 
 #endif //__waveform_typedefs_h__

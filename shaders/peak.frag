@@ -112,8 +112,8 @@ void main(void)
 	}
 
 	gl_FragColor = vec4(min(1.0, val)) * fg_colour;
-	//gl_FragColor = vec4(val, val, val, 0.5);// * fg_colour;
-		//+ vec4(0.5, 0.25, 0.0, 1.0);
+	//gl_FragColor = vec4(val, val, val, 0.5)// * fg_colour;
+	//	+ vec4(0.5, 0.25, 0.0, 1.0);
 
 	//centre line:
 	//if(gl_TexCoord[0].y > 0.495 && gl_TexCoord[0].y < 0.505) gl_FragColor = vec4(1.0, 0.0, 0.0, 0.75);

@@ -42,7 +42,7 @@
 #include "test/common.h"
 
 typedef void (TestFn)();
-TestFn test_peakgen, test_audiodata, test_audio_cache;
+TestFn test_peakgen, test_audiodata, test_audio_cache, test_alphabuf;
 
 #define STOP false;
 gboolean   abort_on_fail  = true;
@@ -54,6 +54,7 @@ gpointer   tests[] = {
 	test_peakgen,
 	test_audiodata,
 	test_audio_cache,
+	test_alphabuf,
 };
 
 
@@ -79,17 +80,6 @@ main (int argc, char *argv[])
 }
 
 
-static void
-test_failed()
-{
-	//intended to replace 'goto abort'.
-	//-see also FAIL_TEST which does the same thing.
-	passed = false;
-	test_finished = true;
-	test_finished_();
-}
-
-
 static void reset_timeout(int ms)
 {
 	if(app.timeout) g_source_remove (app.timeout);
@@ -109,8 +99,13 @@ test_peakgen()
 	START_TEST;
 
 	if(!wf_peakgen(WAV, WAV ".peak")){
-		dbg(0, "peakgen failed");
+		FAIL_TEST("local peakgen failed");
 	}
+
+	//create peakfile in the cache directory
+	Waveform* w = waveform_new(WAV);
+	char* p = waveform_ensure_peakfile(w);
+	assert(p, "cache dir peakgen failed");
 
 	FINISH_TEST;
 }
@@ -201,7 +196,7 @@ test_audio_cache()
 
 	Waveform* w = waveform_new(WAV);
 
-	static int tot_blocks; tot_blocks = waveform_get_n_audio_blocks(w);
+	static int tot_blocks; tot_blocks = MIN(20, waveform_get_n_audio_blocks(w)); //cannot do too many parallel requests as the cache will fill.
 	static int n = 0;
 	static int n_tiers_needed = 3;//4;
 	static guint ready_handler = 0;
@@ -214,8 +209,7 @@ test_audio_cache()
 
 	void _on_peakdata_ready(Waveform* waveform, int block, gpointer data)
 	{
-		printf("\n");
-		dbg(0, "block=%i", block);
+		dbg(1, "block=%i", block);
 		reset_timeout(5000);
 
 		n++;
@@ -242,6 +236,29 @@ test_audio_cache()
 	int b; for(b=0;b<tot_blocks;b++){
 		waveform_load_audio_async(w, b, n_tiers_needed);
 	}
+}
+
+
+void
+test_alphabuf()
+{
+	START_TEST;
+
+	Waveform* w = waveform_load_new(WAV);
+
+	int scale[] = {1, WF_PEAK_STD_TO_LO};
+	int b; for(b=0;b<2;b++){
+		int s; for(s=0;s<G_N_ELEMENTS(scale);s++){
+			AlphaBuf* alphabuf = wf_alphabuf_new(w, b, scale[s], false);
+			assert(alphabuf, "alphabuf create failed");
+			assert(alphabuf->buf, "alphabuf has no buf");
+			assert(alphabuf->buf_size, "alphabuf size not set");
+			wf_alphabuf_free(alphabuf);
+		}
+	}
+
+	g_object_unref(w);
+	FINISH_TEST;
 }
 
 

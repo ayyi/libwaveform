@@ -111,7 +111,7 @@ texture_cache_gen()
 static void
 texture_cache_shrink(int idx)
 {
-	dbg(0, "*** %i-->%i", c->t->len, idx);
+	dbg(1, "*** %i-->%i", c->t->len, idx);
 	g_return_if_fail(!(idx % WF_TEXTURE_ALLOCATION_INCREMENT));
 
 	guint textures[WF_TEXTURE_ALLOCATION_INCREMENT];
@@ -147,7 +147,16 @@ texture_cache_assign(int t, WaveformBlock wb)
 	tx->time_stamp = time_stamp++;
 	dbg(2, "t=%i b=%i time=%i", t, wb.block, time_stamp);
 
-	//texture_cache_print();
+	static guint timeout = 0;
+	if(wf_debug){
+		if(timeout) g_source_remove(timeout);
+		gboolean _texture_cache_print(gpointer data)
+		{
+			texture_cache_print();
+			return TIMER_STOP;
+		}
+		timeout = g_timeout_add(1000, _texture_cache_print, NULL);
+	}
 }
 
 
@@ -336,7 +345,7 @@ texture_cache_steal()
 		if((p = find_texture_in_block(n, wb)) < 0){
 			gwarn("!!");
 		}else{
-			dbg(0, "clearing texture for block=%i %i ...", wb->block, p);
+			dbg(1, "clearing texture for block=%i %i ...", wb->block, p);
 			WfGlBlock* blocks = wb->waveform->textures;
 			guint* peak_texture[4] = {
 				&blocks->peak_texture[0].main[wb->block],
@@ -352,7 +361,14 @@ texture_cache_steal()
 
 
 void
-texture_cache_remove(Waveform* waveform) //tmp? should probably only be called by wf_unref()
+texture_cache_remove(Waveform* w, int b)
+{
+	texture_cache_unassign((WaveformBlock){w, b});
+}
+
+
+void
+texture_cache_remove_waveform(Waveform* waveform) //tmp? should probably only be called by wf_unref()
 {
 	WfGlBlock* blocks = waveform->textures;
 	int b; for(b=0;b<=blocks->size;b++){
@@ -367,13 +383,13 @@ static void
 texture_cache_print()
 {
 	int n_used = 0;
+	printf("         t  b  w\n");
 	int i; for(i=0;i<c->t->len;i++){
 		Texture* t = &g_array_index(c->t, Texture, i);
-		//printf("    %i: %i %i", i, t->time_stamp, t->wb.block);
+		printf("    %2i: %2i %i %p\n", i, t->time_stamp, t->wb.block, t->wb.waveform);
 		if(t->wb.waveform) n_used++;
 	}
-	//printf("\n");
-	dbg(0, "n_used=%i", n_used);
+	dbg(0, "array_size=%i n_used=%i", c->t->len, n_used);
 }
 
 

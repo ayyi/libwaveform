@@ -59,10 +59,16 @@ LDADD = \
 write_wav_LDADD = \
 	$(TEST_LDFLAGS)
 
+BUILT_SOURCES = test_data
+
 test_data: Makefile
 	@if [[ ! -d data ]]; then mkdir data; fi
-	./write_wav data/mono_1.wav
-	./write_wav --channels=2 data/stereo_1.wav
+	@if [ ! -e "data/mono_1.wav" ] || [ "./write_wav" -nt "data/mono_1.wav" ]; then \
+		./write_wav data/mono_1.wav; \
+	fi;
+	@if [ ! -e "data/stereo_1.wav" ] || [ "./write_wav" -nt "data/stereo_1.wav" ]; then \
+		./write_wav --channels=2 data/stereo_1.wav; \
+	fi;
 
 endif
 

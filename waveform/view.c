@@ -262,7 +262,7 @@ waveform_view_set_start (WaveformView* view, int64_t start_frame)
 	uint32_t length = waveform_get_n_frames(view->waveform) / view->zoom;
 	view->start_frame = CLAMP(start_frame, 0, (int64_t)waveform_get_n_frames(view->waveform) - 10);
 	view->start_frame = MIN(view->start_frame, waveform_get_n_frames(view->waveform) - length);
-	dbg(0, "start=%Lu", view->start_frame);
+	dbg(1, "start=%Lu", view->start_frame);
 	wf_actor_set_region(view->priv->actor, &(WfSampleRegion){
 		view->start_frame,
 		length

@@ -19,6 +19,7 @@
 #include "waveform/peak.h"
 
 #ifdef WF_USE_TEXTURE_CACHE
+#ifdef __wf_private__
 
 #define WF_TEXTURE_CACHE_LORES_MASK (1 << 23)
 
@@ -27,15 +28,17 @@ struct _texture_cache
 	GArray*     t;             // type Texture
 };
 
-void  texture_cache_init       ();
-void  texture_cache_gen        ();
-guint texture_cache_get        (int);
-int   texture_cache_lookup     (WaveformBlock);
-int   texture_cache_get_new    ();
-int   texture_cache_find_empty ();
-void  texture_cache_assign     (int, WaveformBlock);
-guint texture_cache_assign_new (WaveformBlock);
-void  texture_cache_remove     (Waveform*); //tmp
+void  texture_cache_init            ();
+void  texture_cache_gen             ();
+guint texture_cache_get             (int);
+int   texture_cache_lookup          (WaveformBlock);
+int   texture_cache_get_new         ();
+int   texture_cache_find_empty      ();
+void  texture_cache_assign          (int, WaveformBlock);
+guint texture_cache_assign_new      (WaveformBlock);
+void  texture_cache_remove          (Waveform*, int);
+void  texture_cache_remove_waveform (Waveform*);
 
+#endif // __wf_private__
 #endif // WF_USE_TEXTURE_CACHE
-#endif //__waveform_texture_cache_h__
+#endif // __waveform_texture_cache_h__

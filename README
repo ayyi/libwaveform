@@ -39,10 +39,7 @@ Has been tested mostly on Radeon RV530 with Gallium 0.4, and also Intel 945.
 Much more testing is needed.
 
 If you are able to help testing, please start with running test/view_test.
-To compile this program you need to:
-	./configure --enable-test
-	make
-	cd test && make test_data
+To compile this program you need to run configure with '--enable-test'.
 
 Basic functionality should all be in place now, but most areas
 need improving. Feedback is needed on functionality, api, documentation,
@@ -120,3 +117,25 @@ The above creates a texture for the whole file.
 This is not appropriate for large files.
 
 It is planned to add better support for Clutter in the near future.
+
+
+Peak file cache
+---------------
+
+A cache of peak files is stored in XDG_CACHE_HOME (default ~/.cache/).
+Files are removed if older than 30 days.
+They are stored with standard WAV headers and contain alternating 16bit integer values for plus and minus peak values.
+One pair of values (for each channel) is stored for every 256 frames of the original audio file.
+
+
+Zoom levels
+-----------
+
+There are four distinct drawing modes depending on the zoom level.
+Each mode has 16 times the resolution of the previous.
+
+- Low res uses a 256 pixel texture per 256^3 audio frames.
+- Std res uses a 256 pixel texture per 256^2 audio frames.
+- Hi res draws individual lines, one per 16 audio frames.
+- V Hi res draws at full resolution, ie using all audio frames.
+

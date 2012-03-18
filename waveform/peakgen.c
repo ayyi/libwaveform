@@ -48,31 +48,33 @@
 #define BUFFER_LEN 256 // length of the buffer to hold audio during processing. currently must be same as WF_PEAK_RATIO
 #define MAX_CHANNELS 2
 
-#define USER_CACHE_DIR ".cache/peak"
+#define DEFAULT_USER_CACHE_DIR ".cache/peak"
 
-static int      peak_mem_size = 0;
-static bool     need_file_cache_check = true;
+static int           peak_mem_size = 0;
+static bool          need_file_cache_check = true;
 
-static void     process_data        (short* data, int count, int channels, long long pos, short max[], short min[]);
-static unsigned long sample2time    (SF_INFO, long samplenum);
-static bool     wf_file_is_newer    (const char*, const char*);
-static bool     wf_create_cache_dir ();
-static char*    get_cache_dir       ();
-static void     maintain_file_cache ();
+static inline void   process_data        (short* data, int count, int channels, long long pos, short max[], short min[]);
+static unsigned long sample2time         (SF_INFO, long samplenum);
+static bool          wf_file_is_newer    (const char*, const char*);
+static bool          wf_create_cache_dir ();
+static char*         get_cache_dir       ();
+static void          maintain_file_cache ();
 
 
 char*
 waveform_ensure_peakfile (Waveform* w)
 {
+	gchar* peak_filename = NULL;
+
 	if(!wf_create_cache_dir()) return NULL;
 
-	const char* filename = w->filename;
+	char* filename = g_path_is_absolute(w->filename) ? g_strdup(w->filename) : g_build_filename(g_get_current_dir(), w->filename, NULL);
 
 	GError* error = NULL;
 	gchar* uri = g_filename_to_uri(filename, NULL, &error);
 	if(error){
 		gwarn("%s", error->message);
-		return NULL;
+		goto out;
 	}
 	dbg(1, "uri=%s", uri);
 
@@ -81,7 +83,7 @@ waveform_ensure_peakfile (Waveform* w)
 	gchar* peak_basename = g_strdup_printf("%s.peak", md5);
 	g_free(md5);
 	char* cache_dir = get_cache_dir();
-	gchar* peak_filename = g_build_filename(cache_dir, peak_basename, NULL);
+	peak_filename = g_build_filename(cache_dir, peak_basename, NULL);
 	g_free(cache_dir);
 	dbg(1, "peak_filename=%s", peak_filename);
 	g_free(peak_basename);
@@ -100,8 +102,10 @@ waveform_ensure_peakfile (Waveform* w)
 		dbg(1, "peakfile is too old");
 	}
 
-	if(!wf_peakgen(filename, peak_filename)) return NULL;
+	if(!wf_peakgen(filename, peak_filename)){ g_free0(peak_filename); goto out; }
 
+  out:
+	g_free(filename);
 
 	return peak_filename;
 }
@@ -275,7 +279,7 @@ sample2time(SF_INFO sfinfo, long samplenum)
 static gboolean
 wf_create_cache_dir()
 {
-	gchar* path = g_build_filename(g_get_home_dir(), USER_CACHE_DIR, NULL);
+	gchar* path = get_cache_dir();
 	gboolean ret  = !g_mkdir_with_parents(path, S_IRUSR | S_IWUSR | S_IXUSR | S_IRGRP);
 	if(!ret) gwarn("cannot access cache dir: %s", path);
 	g_free(path);
@@ -401,10 +405,9 @@ wf_peakbuf_regen(Waveform* waveform, int block_num, int min_tiers)
 	dbg(3, "peakbuf=%p buf0=%p", peakbuf, peakbuf->buf);
 	if(!buf){
 		//peakbuf->size = peakbuf_get_max_size_by_resolution(output_resolution);
-		peakbuf->size = wf_peakbuf_get_max_size(output_tiers);
+		//peakbuf->size = wf_peakbuf_get_max_size(output_tiers);
 		dbg(2, "buf->size=%i blocksize=%i", peakbuf->size, WF_PEAK_BLOCK_SIZE * WF_PEAK_VALUES_PER_SAMPLE / io_ratio);
-//TODO probably correct, but still better to base it on the audio_buffer->size property.
-peakbuf->size = WF_PEAK_BLOCK_SIZE * WF_PEAK_VALUES_PER_SAMPLE / io_ratio;
+		peakbuf->size = audio->buf16[block_num]->size * WF_PEAK_VALUES_PER_SAMPLE / io_ratio;
 		if(is_last_block(waveform, block_num)){
 			dbg(2, "is_last_block. (%i)", block_num);
 			//if(block_num == 0) peakbuf->size = pool_item->samplecount / PEAK_BLOCK_TO_GRAPHICS_BLOCK * PEAK_TILE_SIZE;
@@ -475,11 +478,14 @@ static char*
 get_cache_dir()
 {
 	const gchar* env = g_getenv("XDG_CACHE_HOME");
-	const char* cache_dir = env ? env : USER_CACHE_DIR;
-	//TODO check if env var is absolute or not
-	gchar* dir_name = g_build_filename(g_get_home_dir(), cache_dir, NULL);
+	if(env) dbg(0, "cache_dir=%s", env);
+	if(env) return g_strdup(env);
+
+	const char* cache_dir = DEFAULT_USER_CACHE_DIR;
+	gchar* dir_name = g_build_filename(g_get_home_dir(), DEFAULT_USER_CACHE_DIR, NULL);
 	return dir_name;
 }
+
 
 static void
 maintain_file_cache()
@@ -491,6 +497,7 @@ maintain_file_cache()
 	bool _maintain_file_cache()
 	{
 		char* dir_name = get_cache_dir();
+		dbg(0, "dir=%s", dir_name);
 		GError* error = NULL;
 		GDir* d = g_dir_open(dir_name, 0, &error);
 

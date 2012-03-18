@@ -72,7 +72,9 @@ main (int argc, char *argv[])
 
 	WaveformView* waveform = waveform_view_new(NULL);
 	waveform_view_set_show_rms(waveform, false);
+	#if 0
 	waveform_view_set_show_grid(waveform, true);
+	#endif
 	#if 0
 	WaveformCanvas* wfc = waveform_view_get_canvas(waveform);
 	wf_canvas_set_use_shaders(wfc, false);

@@ -17,6 +17,6 @@
 #ifndef __wf_grid_h__
 #define __wf_grid_h__
 
-void wf_grid_paint(WaveformCanvas*, WfSampleRegion*);
+void wf_grid_paint(WaveformCanvas*, WfSampleRegion*, WfViewPort*);
 
 #endif //__wf_grid_h__

@@ -18,8 +18,6 @@
 #define __waveform_canvas_h__
 #include "waveform/typedefs.h"
 
-typedef struct _vp { double left, top, right, bottom; } WfViewPort; 
-
 struct _waveform_canvas {
 	gboolean       show_rms;
 	gboolean       use_shaders;
@@ -36,7 +34,10 @@ struct _waveform_canvas {
 
 	int           _draw_depth;
 	int           _program;
+	guint         _queued;
 };
+
+struct _vp { double left, top, right, bottom; }; 
 
 WaveformCanvas* wf_canvas_new                       (GdkGLContext*, GdkGLDrawable*);
 WaveformCanvas* wf_canvas_new_from_widget           (GtkWidget*);

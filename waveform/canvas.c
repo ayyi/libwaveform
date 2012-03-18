@@ -116,15 +116,20 @@ wf_canvas_new_from_widget(GtkWidget* widget)
 void
 wf_canvas_free (WaveformCanvas* wfc)
 {
-	PF0;
+	PF;
+	if(wfc->_queued){ g_source_remove(wfc->_queued); wfc->_queued = false; }
 	g_free(wfc);
 }
 
 
+/*
+ *  Currently, if an application has multiple canvases and they share Waveforms,
+ *  each canvas must have the same use_shaders setting.
+ */
 void
 wf_canvas_set_use_shaders(WaveformCanvas* wfc, gboolean val)
 {
-	PF0;
+	PF;
 	wf_get_instance()->pref_use_shaders = val;
 
 	if(wfc){
@@ -148,18 +153,6 @@ wf_canvas_init_shaders(WaveformCanvas* wfc)
 		}
 
 	} WAVEFORM_END_DRAW(wfc);
-
-#if 0
-	int n_peaks = 128;
-	float peaks[n_peaks * 2];
-	int i; for(i=0;i<n_peaks;i++){
-		peaks[2 * i    ] = i;
-		peaks[2 * i + 1] = i;
-	}
-	GLuint offsetLoc = glGetUniformLocation(sh_main.program, "peaks");
-	dbg(0, "setting uniform... (peaks) loc=%i", offsetLoc);
-	glUniform2fv(offsetLoc, n_peaks, peaks);
-#endif
 }
 
 
@@ -200,25 +193,24 @@ wf_canvas_remove_actor(WaveformCanvas* wfc, WaveformActor* actor)
 {
 	PF0;
 	waveform_unref0(actor->waveform);
+	g_free(actor);
 }
 
 
 void
 wf_canvas_queue_redraw(WaveformCanvas* wfc)
 {
-	static guint queued = false;
-	//if(queued) gwarn("queued");
-	if(queued) return;
+	if(wfc->_queued) return;
 
 	gboolean wf_canvas_redraw(gpointer _canvas)
 	{
 		WaveformCanvas* wfc = _canvas;
 		if(wfc->draw) wfc->draw(wfc, wfc->draw_data);
-		queued = false;
+		wfc->_queued = false;
 		return IDLE_STOP;
 	}
 
-	queued = g_idle_add(wf_canvas_redraw, wfc);
+	wfc->_queued = g_idle_add(wf_canvas_redraw, wfc);
 }
 
 
@@ -370,5 +362,28 @@ wf_canvas_use_program(WaveformCanvas* wfc, int program)
 		glUseProgram(wfc->_program = program);
 	}
 }
+
+
+#if 0
+void
+wf_canvas_get_viewport(WaveformCanvas* canvas, WfViewPort* viewport)
+{
+	/*
+	 THIS MAY BE REMOVED
+
+	 The canvas does not always have a Viewport set.
+	 If the canvas is only showing a single Waveform, it is easier to use the Rect of the Actor instead.
+	*/
+	g_return_if_fail(canvas);
+
+	if(canvas->viewport) *viewport = *canvas->viewport;
+	else {
+		viewport->left   = a->priv->animatable.rect_left.val.f;
+		viewport->top    = a->rect.top;
+		viewport->right  = viewport->left + a->priv->animatable.rect_len.val.f;
+		viewport->bottom = a->rect.top + a->rect.height;
+	}
+}
+#endif
 
 

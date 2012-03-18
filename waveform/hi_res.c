@@ -98,32 +98,37 @@ draw_wave_buffer_hi(Waveform* w, WfSampleRegion region, WfRectangle* rect, Peakb
 	float alpha = ((float)((rgba  ) & 0xff))/0x100;
 	//dbg(0, "0x%x alpha=%.2f", rgba, alpha);
 
+	int64_t region_end = region.start + (int64_t)region.len;
+
 	float region_len = region.len;
 	short* data = peakbuf->buf[chan];
 
+	int io_ratio = (peakbuf->n_tiers == 4 || peakbuf->n_tiers == 3) ? 16 : 1; //TODO
 	int x = 0;
-	int s = 0;
-	int s_ = s + region.start;
-//dbg(0, "width=%.2f region_len=%.1f xgain=%.2f n_tiers=%i", rect->len, region_len, rect->len / region_len, peakbuf->n_tiers);
+	int p = 0;
+	int p_ = region.start / io_ratio;
+//dbg(0, "width=%.2f region=%Li-->%Li xgain=%.2f n_tiers=%i", rect->len, region.start, region.start + (int64_t)region.len, rect->len / region_len, peakbuf->n_tiers);
 //dbg(0, "x: %.2f --> %.2f", (((double)0) / region_len) * rect->len, (((double)4095) / region_len) * rect->len);
-	int io_ratio = (peakbuf->n_tiers == 4) ? 16 : 1; //TODO
-	while (s < region.len){
-		x = (((double)s) / region_len) * rect->len * io_ratio;
+	g_return_if_fail(region_end / io_ratio <= peakbuf->size / WF_PEAK_VALUES_PER_SAMPLE);
+	while (p < region.len / io_ratio){
+									if(2 * p_ >= peakbuf->size) gwarn("s_=%i size=%i", p_, peakbuf->size);
+									g_return_if_fail(2 * p_ < peakbuf->size);
+		x = (((double)p) / region_len) * rect->len * io_ratio;
 		if (x >= rect->len) break;
-//if(s < 10) printf("    x=%i %2i %2i\n", x, data[2 * s], data[2 * s_ + 1]);
+//if(s < 10) printf("    x=%i %2i %2i\n", x, data[2 * s], data[2 * p_ + 1]);
 
-		double y1 = ((double)data[2 * s    ]) * v_gain * (rect->height / 2.0) / (1 << 15);
-		double y2 = ((double)data[2 * s + 1]) * v_gain * (rect->height / 2.0) / (1 << 15);
+		double y1 = ((double)data[WF_PEAK_VALUES_PER_SAMPLE * p_    ]) * v_gain * (rect->height / 2.0) / (1 << 15);
+		double y2 = ((double)data[WF_PEAK_VALUES_PER_SAMPLE * p_ + 1]) * v_gain * (rect->height / 2.0) / (1 << 15);
 
 		_draw_line(rect->left + x, rect->top + rect->height / 2, rect->left + x, rect->top - y1 + rect->height / 2, r, g, b, alpha);
 		_draw_line(rect->left + x, rect->top + rect->height / 2, rect->left + x, rect->top - y2 + rect->height / 2, r, g, b, alpha);
 //if(s == 4095)
 //		_draw_line(rect->left + x, 0, rect->left + x, rect->height, r, g, b, 1.0);
 
-		s++;
-		s_++;
+		p++;
+		p_++;
 	}
-	dbg(2, "n_lines=%i x0=%.1f x=%i y=%.1f h=%.1f", s, rect->left, x, rect->top, rect->height);
+	dbg(2, "n_lines=%i x0=%.1f x=%i y=%.1f h=%.1f", p, rect->left, x, rect->top, rect->height);
 }
 
 

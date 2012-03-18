@@ -30,7 +30,6 @@
 #include <gtk/gtk.h>
 #include "waveform/utils.h"
 #include "waveform/peak.h"
-//#include "waveform/peakgen.h"
 #include "waveform/audio.h"
 
 typedef struct {
@@ -50,11 +49,9 @@ typedef struct _queue_item
 
 #define MAX_AUDIO_CACHE_SIZE (1 << 23) // words, NOT bytes.
 
-//static void  process_audio         (short*, int count, int channels, long long pos, short* maxplus, short* maxmin);
 static short*      audio_cache_malloc (Waveform*, int);
 static void        audio_cache_free   (Waveform*, int block);
 static void        audio_cache_print  ();
-//static float int2db                (short);
 
 
 void
@@ -66,28 +63,15 @@ wf_audio_free(Waveform* waveform)
 	WfAudioData* audio = waveform->priv->audio_data;
 	if(audio){
 		int b; for(b=0;b<audio->n_blocks;b++){
-#if 0
-			WfBuf* buf = audio->buf[b];
-			if(buf){
-				if(buf->buf[WF_LEFT]) g_free(buf->buf[WF_LEFT]);
-				if(buf->buf[WF_RIGHT]) g_free(buf->buf[WF_RIGHT]);
-				g_free(buf);
-				audio->buf[b] = NULL;
-			}
-#endif
 			WfBuf16* buf16 = audio->buf16[b];
 			if(buf16){
 				audio_cache_free(waveform, b);
-				g_free(buf16);
-				audio->buf16[b] = NULL;
+				g_free0(buf16);
+				//audio->buf16[b] = NULL;
 			}
 		}
-#if 0
-		g_free(audio->buf);
-#endif
 		g_free(audio->buf16);
 		g_free0(waveform->priv->audio_data);
-		//waveform->priv->audio_data = NULL;
 	}
 }
 
@@ -140,11 +124,8 @@ wf_load_audio_block(Waveform* waveform, int block_num)
 	g_return_val_if_fail(n_chans, false);
 
 	sf_count_t read_len = MIN(audio->buf16[block_num]->size, end_pos - start_pos); //1st of these isnt needed?
-#if 0
-	WfBuf* buf = audio->buf[block_num];
-#endif
-	WfBuf16* buf16 = audio->buf16[block_num];
-	g_return_val_if_fail(buf16 && buf16->buf[WF_LEFT], false);
+	WfBuf16* buf = audio->buf16[block_num];
+	g_return_val_if_fail(buf && buf->buf[WF_LEFT], false);
 
 	sf_count_t n_frames = read_len;
 	sf_count_t readcount;
@@ -153,7 +134,7 @@ wf_load_audio_block(Waveform* waveform, int block_num)
 			if(is_float){
 				//FIXME temporary? sndfile is supposed to automatically convert between formats??!
 
-				float readbuf[buf16->size];
+				float readbuf[buf->size];
 				if((readcount = sf_readf_float(sffile, readbuf, n_frames)) < n_frames){
 					gwarn("unexpected EOF: %s", waveform->filename);
 					gwarn("                start_frame=%Li n_frames=%Lu/%Lu read=%Li", start_pos, n_frames, sfinfo.frames, readcount);
@@ -161,18 +142,18 @@ wf_load_audio_block(Waveform* waveform, int block_num)
 
 				//convert to short
 				int j; for(j=0;j<readcount;j++){
-					buf16->buf[WF_LEFT][j] = readbuf[j] * (1 << 15);
+					buf->buf[WF_LEFT][j] = readbuf[j] * (1 << 15);
 				}
 
 			}else{
-				if((readcount = sf_readf_short(sffile, buf16->buf[WF_LEFT], n_frames)) < n_frames){
+				if((readcount = sf_readf_short(sffile, buf->buf[WF_LEFT], n_frames)) < n_frames){
 					gwarn("unexpected EOF: %s", waveform->filename);
 					gwarn("                start_frame=%Li n_frames=%Lu/%Lu read=%Li", start_pos, n_frames, sfinfo.frames, readcount);
 				}
 			}
 			/*
 			int i; for(i=0;i<10;i++){
-				printf("  %i\n", buf16->buf[WF_LEFT][i]);
+				printf("  %i\n", buf->buf[WF_LEFT][i]);
 			}
 			*/
 			break;
@@ -195,7 +176,7 @@ wf_load_audio_block(Waveform* waveform, int block_num)
 			memset(w->cache->buf->buf[1], 0, WF_CACHE_BUF_SIZE);
 			#endif
 
-			deinterleave16(read_buf, buf16->buf, n_frames);
+			deinterleave16(read_buf, buf->buf, n_frames);
 			}
 			break;
 		default:
@@ -206,7 +187,7 @@ wf_load_audio_block(Waveform* waveform, int block_num)
 	if(sf_close(sffile)) gwarn ("bad file close.");
 
 	//buffer size is the allocation size. To check if it is full, use w->samplecount
-	//buf16->size = readcount; X
+	//buf->size = readcount; X
 
 	return true;
 }
@@ -304,6 +285,10 @@ waveform_load_audio_async(Waveform* waveform, int block_num, int n_tiers_needed)
 
 	//if the file is local we access it directly, otherwise send a msg.
 	//-for now, we assume the file is local.
+
+	//if the audio file is too big for the cache, the multiple parallel calls may fail.
+	//-requests should be done sequentially to avoid this.
+	// TODO this would be helped if the buffer was not allocated until queue processing.
 
 	//TODO should use same api as g_file_read_async ? uses GAsyncReadyCallback
 

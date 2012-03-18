@@ -156,7 +156,7 @@ __finalize(Waveform* w)
 		g_free(w->textures);
 	}
 #else
-	if(w->textures) texture_cache_remove(w); //TODO this doesnt yet clear lo-res textures.
+	if(w->textures) texture_cache_remove_waveform(w); //TODO this doesnt yet clear lo-res textures.
 
 	void free_textures(WfGlBlock** _textures)
 	{
@@ -473,14 +473,13 @@ sort_(short* dest, const short* src, int size)
 
 
 #define MAX_PART_HEIGHT 1024 //FIXME
-//dupe
+
 struct _line{
 	guchar a[MAX_PART_HEIGHT]; //alpha level for each pixel in the line.
 };
 static struct _line line[3];
 
 
-//dupe
 static void
 line_write(struct _line* line, int index, guchar val)
 {
@@ -491,7 +490,6 @@ line_write(struct _line* line, int index, guchar val)
 }
 
 
-//dupe
 static void
 line_clear(struct _line* line)
 {
@@ -512,10 +510,14 @@ get_buf_info(const Waveform* w, int block_num, struct _buf_info* b, int ch)
 	b->len_frames = 0;
 	if(hires_mode){
 		WfAudioData* audio = w->priv->audio_data;
-		b->buf = audio->buf16[block_num]->buf[ch];
-		g_return_val_if_fail(b->buf, false);
-		b->len = audio->buf16[block_num]->size;
-		//dbg(2, "not empty. block=%i peaklevel=%.2f", peakbuf->block_num, int2db(peakbuf->maxlevel));
+		if(audio->buf16){
+			b->buf = audio->buf16[block_num]->buf[ch];
+			g_return_val_if_fail(b->buf, false);
+			b->len = audio->buf16[block_num]->size;
+			//dbg(2, "not empty. block=%i peaklevel=%.2f", peakbuf->block_num, int2db(peakbuf->maxlevel));
+		}else{
+			gerr("using hires mode but audio->buf not allocated");
+		}
 	}
 	b->len_frames = b->len / WF_PEAK_VALUES_PER_SAMPLE;
 
@@ -552,7 +554,7 @@ wf_peak_malloc(Waveform* w, uint32_t bytes)
 {
 	short* buf = g_malloc(bytes);
 	wf->peak_mem_size += bytes;
-	g_hash_table_insert(wf->peak_cache, w, w); //is removed in wf_unref()
+	g_hash_table_insert(wf->peak_cache, w, w); //is removed in __finalize()
 
 	//(debug) check cache size
 	int total_size = 0;
@@ -625,7 +627,7 @@ waveform_peak_to_alphabuf(Waveform* w, AlphaBuf* a, int scale, int* start, int* 
 
 	int px_start = start ? *start : 0;
 	int px_stop  = *end;//   ? MIN(*end, width) : width;
-	dbg (0, "start=%i end=%i", px_start, px_stop);
+	dbg (1, "start=%i end=%i", px_start, px_stop);
 	//dbg (1, "width=%i height=%i", width, height);
 
 	if(width < px_stop - px_start){ gwarn("alphabuf too small? %i < %i", width, px_stop - px_start); return; }
@@ -1356,6 +1358,75 @@ waveform_peak_to_pixbuf(Waveform* w, GdkPixbuf* pixbuf, WfSampleRegion* region, 
 
 
 void
+waveform_peak_to_pixbuf_async(Waveform* w, GdkPixbuf* pixbuf, WfSampleRegion* region, uint32_t colour, uint32_t bg_colour, WfPixbufCallback callback, gpointer user_data)
+{
+	g_return_if_fail(w && pixbuf && region);
+
+	typedef struct {
+		Waveform*         waveform;
+		WfSampleRegion    region;
+		uint32_t          colour;
+		uint32_t          bg_colour;
+		GdkPixbuf*        pixbuf;
+		WfPixbufCallback* callback;
+		gpointer          user_data;
+		guint             ready_handler;
+		int               n_blocks_done;
+	} C;
+	C* c = g_new0(C, 1);
+	c->waveform = w;
+	c->region = *region;
+	c->colour = colour;
+	c->bg_colour = bg_colour;
+	c->pixbuf = pixbuf;
+	c->callback = callback;
+	c->user_data = user_data;
+
+	void _waveform_peak_to_pixbuf__done(C* c)
+	{
+		PF0;
+		double samples_per_px = c->region.len / gdk_pixbuf_get_width(c->pixbuf);
+		gdk_pixbuf_fill(c->pixbuf, c->bg_colour);
+		waveform_peak_to_pixbuf_full(c->waveform, c->pixbuf, c->region.start, NULL, NULL, samples_per_px, c->colour, c->bg_colour, 1.0);
+
+		if(c->callback) c->callback(c->waveform, c->pixbuf, c->user_data);
+		g_free(c);
+	}
+
+	void _on_peakdata_ready(Waveform* w, int block, gpointer _c)
+	{
+		dbg(0, "block=%i", block);
+		C* c = _c;
+		g_return_if_fail(c);
+
+		c->n_blocks_done++;
+//TODO no, we cannot load the whole file at once!! render each block separately
+		if(c->n_blocks_done >= waveform_get_n_audio_blocks(c->waveform)){
+			g_signal_handler_disconnect((gpointer)c->waveform, c->ready_handler);
+			_waveform_peak_to_pixbuf__done(c);
+		}
+	}
+
+	double samples_per_px = region->len / gdk_pixbuf_get_width(pixbuf);
+	gboolean hires_mode = ((samples_per_px / WF_PEAK_RATIO) < 1.0);
+	if(hires_mode){
+		WfAudioData* audio = w->priv->audio_data;
+		if(!audio->buf16){
+			c->ready_handler = g_signal_connect (w, "peakdata-ready", (GCallback)_on_peakdata_ready, c);
+			int n_tiers_needed = 3; //TODO
+			int b; for(b=0;b<waveform_get_n_audio_blocks(w);b++){
+				WfBuf16* buf = waveform_load_audio_async(w, b, n_tiers_needed);
+				if(buf) _on_peakdata_ready(w, b, c);
+			}
+			return;
+		}
+	}
+
+	_waveform_peak_to_pixbuf__done(c);
+}
+
+
+void
 waveform_peak_to_pixbuf_full(Waveform* waveform, GdkPixbuf* pixbuf, uint32_t region_inset, int* start, int* end, double samples_per_px, uint32_t colour, uint32_t colour_bg, float gain)
 {
 	/*
@@ -1364,8 +1435,10 @@ waveform_peak_to_pixbuf_full(Waveform* waveform, GdkPixbuf* pixbuf, uint32_t reg
 
 		-although not explicitly block-based, it can be used with blocks by specifying start and end.
 
-		@param pixbuf - pixbuf covers the whole Waveform. We only render to the bit between @start and @end.
-		                                        |_ TODO no, this won't work 
+		-if the data is not imediately available it will not be waited for. For short samples or big pixbufs, caller should subscribe to the Waveform::peakdata_ready signal.
+
+		@param pixbuf         - pixbuf covers the whole Waveform. We only render to the bit between @start and @end. 
+		                        The simplicity of one pixbuf per waveform imposes limitations on file size and zooming.
 
 		@param region_inset   - (sample frames)
 		@param start          - (pixels) if set, we start rendering at this value from the left of the pixbuf.
@@ -1374,8 +1447,13 @@ waveform_peak_to_pixbuf_full(Waveform* waveform, GdkPixbuf* pixbuf, uint32_t reg
 		@param samples_per_px - sets the magnification.
 		@param colour_bg      - 0xrrggbbaa. used for antialiasing.
 
-		further optimisation:
-		-dont scan pixels above the peaks. Should we record the overall region/file peak level?
+		TODO
+			further optimisation:
+				-dont scan pixels above the peaks. Should we record the overall region/file peak level?
+
+			API:
+				- why region_inset but not region end?
+				- add WaveformPixbuf object?
 	*/
 
 	g_return_if_fail(pixbuf);
@@ -1406,7 +1484,7 @@ waveform_peak_to_pixbuf_full(Waveform* waveform, GdkPixbuf* pixbuf, uint32_t reg
 	if(!pool_item->source_id){ gerr ("bad core source id: %Lu.", pool_item->source_id[0]); return; }
 #endif
 
-	dbg(1, "peak_gain=%.2f", gain);
+	dbg(2, "peak_gain=%.2f", gain);
 
 	int n_chans      = waveform_get_n_channels(waveform);
 
@@ -1418,12 +1496,11 @@ waveform_peak_to_pixbuf_full(Waveform* waveform, GdkPixbuf* pixbuf, uint32_t reg
 	cairo_t* cairo = cairo_create(surface);
 	if (height > MAX_PART_HEIGHT) gerr ("part too tall. not enough memory allocated.");
 	int ch_height = height / n_chans;
-dbg(1, "height=%i", ch_height);
 	int vscale = (256*128*2) / ch_height;
 
 	int px_start = start ? *start : 0;
 	int px_stop  = end   ? MIN(*end, width) : width;
-	dbg (1, "px_start=%i px_end=%i", px_start, px_stop);
+	dbg (2, "px_start=%i px_end=%i", px_start, px_stop);
 
 	int hires_block = -1;
 	int src_px_start = 0;
@@ -1431,7 +1508,14 @@ dbg(1, "height=%i", ch_height);
 		uint64_t start_frame = px_start * samples_per_px;
 		hires_block = start_frame / WF_PEAK_BLOCK_SIZE;
 		src_px_start = (hires_block * wf_get_peakbuf_len_frames()) / samples_per_px; //if not 1st block, the src buffer address is smaller.
-		dbg(1, "hires: offset=%i", src_px_start);
+		dbg(2, "hires: offset=%i", src_px_start);
+
+		WfAudioData* audio = waveform->priv->audio_data;
+		if(!audio->buf16){
+			int n_tiers_needed = 3; //TODO
+			waveform_load_audio_async(waveform, hires_block, n_tiers_needed);
+			return;
+		}
 	}
 
 	//xmag defines how many 'samples' we need to skip to get the next pixel.
@@ -1442,12 +1526,12 @@ dbg(1, "height=%i", ch_height);
 
 	int n_tiers = hires_mode ? /*peakbuf->n_tiers*/4 : 0; //TODO
 	//note n_tiers is 1, not zero in lowres mode. (??!)
-	dbg(1, "samples_per_px=%.2f", samples_per_px);
-	dbg(1, "n_tiers=%i <<=%i", n_tiers, 1 << n_tiers);
+	dbg(2, "samples_per_px=%.2f", samples_per_px);
+	dbg(2, "n_tiers=%i <<=%i", n_tiers, 1 << n_tiers);
 
 	int ch; for(ch=0;ch<n_chans;ch++){
 		//we use the same part of Line for each channel, it is then render it to the pixbuf with a channel offset.
-		dbg (1, "ch=%i", ch);
+		dbg (2, "ch=%i", ch);
 
 		struct _buf_info b; 
 		get_buf_info(waveform, hires_block, &b, ch);
@@ -1491,8 +1575,7 @@ dbg(1, "height=%i", ch_height);
 			dbg(2, "reading from buf=%i=%.2f%% stop=%i buflen=%i blocklen=%i", src_start, percent, src_stop, b.len, wf_peakbuf_get_max_size(n_tiers));
 		}
 		if(src_stop > b.len_frames && hires_mode){
-			dbg(1, "**** block change needed!");
-			extern Peakbuf* wf_get_peakbuf_n(Waveform*, int);
+			dbg(2, "**** block change needed!");
 			Peakbuf* peakbuf = wf_get_peakbuf_n(waveform, hires_block + 1);
 			g_return_if_fail(peakbuf);
 			if(!get_buf_info(waveform, hires_block, &b, ch)){ break; }//TODO if this is multichannel, we need to go back to previous peakbuf - should probably have 2 peakbufs...
@@ -1837,7 +1920,6 @@ waveform_rms_to_pixbuf(Waveform* w, GdkPixbuf* pixbuf, uint32_t src_inset, int* 
 			}
 			if(src_stop > b.len_frames && hires_mode){
         dbg(1, "**** block change needed!");
-        extern Peakbuf* wf_get_peakbuf_n(Waveform*, int);
         Peakbuf* peakbuf = wf_get_peakbuf_n(w, hires_block + 1);
         g_return_if_fail(peakbuf);
         if(!get_rms_buf_info(rb->buf, rb->size, &b, ch)){ break; }//TODO if this is multichannel, we need to go back to previous peakbuf - should probably have 2 peakbufs...
@@ -2020,16 +2102,25 @@ waveform_rms_to_pixbuf(Waveform* w, GdkPixbuf* pixbuf, uint32_t src_inset, int* 
 
 
 void
-wf_print_blocks(Waveform* w)
+waveform_print_blocks(Waveform* w)
 {
 	g_return_if_fail(w);
 
+	printf("%s {\n", __func__);
 	WfGlBlock* blocks = w->textures;
 	int c = 0;
-	printf("blocks:\n");
-	int k; for(k=0;k<5;k++){
-		printf("  %i %i\n", blocks->peak_texture[c].main[k], blocks->peak_texture[c].neg[k]);
+	printf("  std:\n");
+	int b; for(b=0;b<5;b++){
+		printf("    %i: %2i %2i\n", b, blocks->peak_texture[c].main[b], blocks->peak_texture[c].neg[b]);
 	}
+	blocks = w->textures_lo;
+	if(blocks){
+		printf("  LOW:\n");
+		for(b=0;b<5;b++){
+			printf("    %i: %2i %2i\n", b, blocks->peak_texture[c].main[b], blocks->peak_texture[c].neg[b]);
+		}
+	} else printf("  LOW: not allocated\n");
+	printf("}\n");
 }
 
 

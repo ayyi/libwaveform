@@ -71,6 +71,18 @@ struct __gl_block
 	double             last_fraction;     // the fraction of the last block that is actually used.
 };
 
+typedef struct _buf_stereo
+{
+	float*     buf[WF_STEREO];
+	guint      size;             // number of floats, NOT bytes
+} WfBuf;
+
+typedef struct _waveform_block
+{
+	Waveform*   waveform;
+	int         block;
+} WaveformBlock;
+
 typedef struct _texture
 {
 	guint         id;
@@ -90,10 +102,10 @@ typedef struct _drect { double x1, y1, x2, y2; } DRect;
 WF*            wf_get_instance         ();
 uint32_t       wf_peakbuf_get_max_size (int n_tiers);
 
-short*         wf_peak_malloc          (Waveform*, uint32_t bytes);
-Peakbuf*       wf_get_peakbuf_n        (Waveform*, int);
-void           wf_peakbuf_regen        (Waveform*, int block_num, int min_output_resolution);
-void           wf_print_blocks         (Waveform*);
+short*         wf_peak_malloc            (Waveform*, uint32_t bytes);
+Peakbuf*       wf_get_peakbuf_n          (Waveform*, int);
+void           wf_peakbuf_regen          (Waveform*, int block_num, int min_output_resolution);
+void           waveform_print_blocks     (Waveform*);
 
 void           waveform_peak_to_alphabuf (Waveform*, AlphaBuf*, int scale, int* start, int* end, GdkColor* colour, uint32_t colour_bg);
 void           waveform_rms_to_alphabuf  (Waveform*, AlphaBuf*, int* start, int* end, double samples_per_px, GdkColor* colour, uint32_t colour_bg);

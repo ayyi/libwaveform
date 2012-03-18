@@ -54,19 +54,6 @@ enum
 	WF_STEREO,
 };
 
-typedef struct _buf_stereo
-{
-	float*     buf[WF_STEREO];
-	guint      size;             // number of floats, NOT bytes
-} WfBuf;
-
-typedef struct _buf_stereo_16
-{
-	short*     buf[WF_STEREO];
-	guint      size;             // number of shorts allocated, NOT bytes. When accessing, note that the last block will likely not be full.
-	uint32_t   stamp;            // put here for now. can move a parallel array if neccesary.
-} WfBuf16;
-
 typedef struct
 {
 	uint64_t start;              // sample frames
@@ -100,12 +87,6 @@ struct _WaveformClass {
 	GObjectClass parent_class;
 };
 
-typedef struct _waveform_block
-{
-	Waveform*   waveform;
-	int         block;
-} WaveformBlock;
-
 //a single hires peak block
 struct _peakbuf {
 	int        block_num;
@@ -116,6 +97,13 @@ struct _peakbuf {
 	void*      buf[WF_STEREO];
 	int        maxlevel;         // mostly just for debugging
 };
+
+typedef struct _buf_stereo_16
+{
+	short*     buf[WF_STEREO];
+	guint      size;             // number of shorts allocated, NOT bytes. When accessing, note that the last block will likely not be full.
+	uint32_t   stamp;            // put here for now. can move a parallel array if neccesary.
+} WfBuf16;
 
 struct _buf
 {
@@ -147,11 +135,14 @@ short      waveform_find_max_audio_level(Waveform*);
 #define USE_GDK_PIXBUF //TODO
 #ifdef USE_GDK_PIXBUF
 #include <gtk/gtk.h>
-void       waveform_peak_to_pixbuf     (Waveform*, GdkPixbuf*, WfSampleRegion*, uint32_t colour, uint32_t bg_colour);
-void       waveform_peak_to_pixbuf_full(Waveform*, GdkPixbuf*, uint32_t src_inset, int* start, int* end, double samples_per_px, uint32_t colour, uint32_t bg_colour, float gain);
-void       waveform_rms_to_pixbuf      (Waveform*, GdkPixbuf*, uint32_t src_inset, int* start, int* end, double samples_per_px, GdkColor*, uint32_t bg_colour, float gain);
+typedef void (WfPixbufCallback)(Waveform*, GdkPixbuf*, gpointer);
+
+void       waveform_peak_to_pixbuf       (Waveform*, GdkPixbuf*, WfSampleRegion*, uint32_t colour, uint32_t bg_colour);
+void       waveform_peak_to_pixbuf_async (Waveform*, GdkPixbuf*, WfSampleRegion*, uint32_t colour, uint32_t bg_colour, WfPixbufCallback, gpointer);
+void       waveform_peak_to_pixbuf_full  (Waveform*, GdkPixbuf*, uint32_t src_inset, int* start, int* end, double samples_per_px, uint32_t colour, uint32_t bg_colour, float gain);
+void       waveform_rms_to_pixbuf        (Waveform*, GdkPixbuf*, uint32_t src_inset, int* start, int* end, double samples_per_px, GdkColor*, uint32_t bg_colour, float gain);
 #endif
-int32_t    wf_get_peakbuf_len_frames   ();
+int32_t    wf_get_peakbuf_len_frames     ();
 
 #ifdef __wf_private__
 #include "wf_private.h"

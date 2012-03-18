@@ -317,9 +317,16 @@ wf_actor_allocate_block(WaveformActor* a, int b)
 	WfGlBlock* blocks = w->textures;
 
 	int c = WF_LEFT;
-	if(blocks->peak_texture[c].main[b] && glIsTexture(blocks->peak_texture[c].main[b])){
-		//gwarn("waveform texture already assigned for block %i: %i", b, blocks->peak_texture[c].main[b]);
-		return;
+	if(blocks->peak_texture[c].main[b]){
+		if(glIsTexture(blocks->peak_texture[c].main[b])){
+			//gwarn("waveform texture already assigned for block %i: %i", b, blocks->peak_texture[c].main[b]);
+			return;
+		}else{
+			gwarn("removing invalid texture...");
+			texture_cache_remove(w, b);
+			//TODO gldelete texture?
+			int c; for(c=0;c<WF_RIGHT;c++) blocks->peak_texture[c].main[b] = blocks->peak_texture[c].neg[b] = 0;
+		}
 	}
 
 	int texture_id = blocks->peak_texture[c].main[b] = texture_cache_assign_new((WaveformBlock){a->waveform, b});
@@ -339,7 +346,7 @@ wf_actor_allocate_block(WaveformActor* a, int b)
 			}
 			dbg(1, "rhs: %i: texture=%i %i %i %i", b, *peak_texture[0], *peak_texture[1], *peak_texture[2], *peak_texture[3]);
 		}else{
-			dbg(1, "* %i: texture=%i %i (rhs peak.buf not loaded)", b, texture_id, *peak_texture[1]);
+			dbg(1, "* %i: texture=%i %i (mono)", b, texture_id, *peak_texture[1]);
 		}
 
 		wf_actor_load_texture1d(w, w->textures, b);
@@ -362,7 +369,7 @@ wf_actor_allocate_block_low(WaveformActor* a, int b)
 
 	int c = WF_LEFT;
 	if(blocks->peak_texture[c].main[b] && glIsTexture(blocks->peak_texture[c].main[b])){
-		//gwarn("waveform texture already assigned for block %i: %i", b, blocks->peak_texture[c].main[b]);
+		//gwarn("waveform low-res texture already assigned for block %i: %i", b, blocks->peak_texture[c].main[b]);
 		return;
 	}
 
@@ -383,15 +390,14 @@ wf_actor_allocate_block_low(WaveformActor* a, int b)
 			}
 			dbg(1, "rhs: %i: texture=%i %i %i %i", b, *peak_texture[0], *peak_texture[1], *peak_texture[2], *peak_texture[3]);
 		}else{
-			dbg(1, "* %i: texture=%i %i (rhs peak.buf not loaded)", b, texture_id, *peak_texture[1]);
+			dbg(1, "* %i: textures=%i,%i (rhs peak.buf not loaded)", b, texture_id, *peak_texture[1]);
 		}
 
 		wf_actor_load_texture1d(w, w->textures_lo, b);
 	}else{
-		dbg(0, "* %i: texture=%i", b, texture_id);
+		dbg(1, "* %i: texture=%i", b, texture_id);
 		AlphaBuf* alphabuf = wf_alphabuf_new(w, b, WF_PEAK_STD_TO_LO, false);
 		wf_canvas_load_texture_from_alphabuf(a->canvas, texture_id, alphabuf);
-#warning TODO check AlphaBuf free
 		wf_alphabuf_free(alphabuf);
 	}
 }
@@ -532,9 +538,9 @@ _wf_actor_get_viewport_max(WaveformActor* a, WfViewPort* viewport)
 }
 
 
-#define ZOOM_HI  (1.0/16)
-#define ZOOM_MED (1.0/128) // px_per_sample - transition point from std to hi-res mode.
-#define ZOOM_LO  0.0012    // px_per_sample - transition point from low-res to std mode.
+#define ZOOM_HI  (1.0/  16)
+#define ZOOM_MED (1.0/ 128) // px_per_sample - transition point from std to hi-res mode.
+#define ZOOM_LO  (1.0/4096) // px_per_sample - transition point from low-res to std mode.
 
 static inline int
 get_resolution(double zoom)
@@ -575,16 +581,18 @@ _wf_actor_load_missing_blocks(WaveformActor* a)
 {
 	PF;
 	WfRectangle* rect = &a->rect;
-	double zoom = rect->len / a->region.len;
+	double _zoom = rect->len / a->region.len;
 
 	double zoom_start = a->priv->animatable.rect_len.val.f / a->priv->animatable.len.val.i;
-	//dbg(0, "zoom=%.4f-->%.4f", zoom_start, zoom);
+	if(zoom_start == 0.0) zoom_start = _zoom;
+	dbg(1, "zoom=%.4f-->%.4f (%.4f)", zoom_start, _zoom, ZOOM_MED);
 	int resolution1 = get_resolution(zoom_start);
-	int resolution2 = get_resolution(zoom);
+	int resolution2 = get_resolution(_zoom);
 
-	zoom = MIN(zoom, zoom_start); //use the zoom which uses the most blocks
+	double zoom = MIN(_zoom, zoom_start); //use the zoom which uses the most blocks
+	double zoom_max = MAX(_zoom, zoom_start);
 
-	if(zoom > ZOOM_MED){
+	if(zoom_max >= ZOOM_MED){
 		if(a->waveform->offline){ resolution1 = MIN(resolution1, 256); resolution1 = MIN(resolution2, 256); } //fallback to lower res
 		else _wf_actor_allocate_hi(a);
 	}
@@ -776,7 +784,7 @@ _set_gl_state_for_block(WaveformCanvas* wfc, Waveform* w, WfGlBlock* textures, i
 	}else
 		use_texture(textures->peak_texture[0].main[b]);
 
-	if(gl_error) gwarn("cannot bind texture: block=%i", b);
+	if(gl_error) gwarn("cannot bind texture: block=%i: %i", b, textures->peak_texture[0].main[b]);
 
 	glColor4f(fg.r, fg.g, fg.b, alpha); //seems we have to set colour _after_ binding... ?
 }
@@ -868,7 +876,7 @@ wf_actor_paint(WaveformActor* actor)
 
 		//for hi-res mode:
 		//block_region specifies the a sample range within the current block
-		WfSampleRegion block_region = {region.start, WF_PEAK_BLOCK_SIZE};
+		WfSampleRegion block_region = {region.start % WF_PEAK_BLOCK_SIZE, WF_PEAK_BLOCK_SIZE - region.start % WF_PEAK_BLOCK_SIZE};
 		WfSampleRegion block_region_v_hi = {region.start, WF_PEAK_BLOCK_SIZE - region.start % WF_PEAK_BLOCK_SIZE};
 
 		double x = rect.left + (viewport_start_block - region_start_block) * _block_wid - first_offset_px; // x is now the start of the first block (can be before part start when inset is present)
@@ -940,7 +948,7 @@ dbg(1, "left=%f samples=%f %Li", block_rect.left, block_rect.left / zoom, left_s
 				case 13 ... 255:
 					;Peakbuf* peakbuf = wf_get_peakbuf_n(w, b);
 					if(peakbuf){
-						//dbg(1, "  b=%i x=%.2f", b, x);
+						//dbg(0, "  b=%i x=%.2f", b, x);
 
 						//TODO might these prevent further blocks at different res? difficult to notice as they are usually the same.
 						wf_canvas_use_program(wfc, 0);
@@ -953,15 +961,33 @@ dbg(1, "left=%f samples=%f %Li", block_rect.left, block_rect.left / zoom, left_s
 						int c; for(c=0;c<w->n_channels;c++){
 							if(peakbuf->buf[c]){
 								//dbg(1, "peakbuf: %i:%i: %i", b, c, ((short*)peakbuf->buf[c])[0]);
-								WfRectangle block_rect = {x, rect.top + c * rect.height/2, _block_wid, rect.height/w->n_channels};
+								//WfRectangle block_rect = {x, rect.top + c * rect.height/2, _block_wid, rect.height / w->n_channels};
+								WfRectangle block_rect = {is_first ? x + (block_region.start - region.start % WF_PEAK_BLOCK_SIZE) * zoom : x, rect.top + c * rect.height/2, _block_wid, rect.height / w->n_channels};
+								//WfRectangle block_rect = {x + (region.start % WF_PEAK_BLOCK_SIZE) * zoom, rect.top + c * rect.height/2, _block_wid, rect.height / w->n_channels};
+								dbg(1, "rect=%.2f-->%.2f", block_rect.left, block_rect.left + block_rect.len);
+
+								if(is_last){
+									if(b < region_end_block){
+										// end is offscreen. last block is not smaller.
+										// reducing the block size here would be an optimisation rather than essential
+									}else{
+										// last block of region (not truncated by viewport).
+										//block_region.len = region.len - b * WF_PEAK_BLOCK_SIZE;
+										block_region.len = region.len % WF_PEAK_BLOCK_SIZE;
+										//block_rect.len = _block_wid * ((float)block_region.len) / WF_PEAK_BLOCK_SIZE;
+										dbg(1, "REGIONLAST: %i/%i region.len=%i ratio=%.2f rect=%.2f %.2f", b, region_end_block, block_region.len, ((float)block_region.len) / WF_PEAK_BLOCK_SIZE, block_rect.left, block_rect.len);
+									}
+								}
+								block_rect.len = block_region.len * zoom; //always!
 								draw_wave_buffer_hi(w, block_region, &block_rect, peakbuf, c, wfc->v_gain, actor->fg_colour);
 							}
+							else if(wf_debug) gwarn("buf not ready: %i", c);
 						}
 						block_done = true; //hi res was succussful. no more painting needed for this block.
 					}
 					if(block_done) break;
 
-				// standard res
+				// standard res and low res
 				case 256 ... 4095:
 					_set_gl_state_for_block(wfc, w, textures, b, fg, alpha);
 
@@ -975,23 +1001,21 @@ dbg(1, "left=%f samples=%f %Li", block_rect.left, block_rect.left / zoom, left_s
 						dbg(2, "rect.left=%.2f region->start=%i first_offset=%i", rect.left, region.start, first_offset);
 					}
 					if (is_last){
-						if(true){
-							//if(x + _block_wid < x0 + rect->len){
-							if(b < region_end_block){
-								//end is offscreen. last block is not smaller.
-							}else{
-								//end is trimmed
+						//if(x + _block_wid < x0 + rect->len){
+						if(b < region_end_block){
+							//end is offscreen. last block is not smaller.
+						}else{
+							//end is trimmed
 #if 0
-								block_wid = rect.len - x0 - _block_wid * (i - viewport_start_block); //last block is smaller
+							block_wid = rect.len - x0 - _block_wid * (i - viewport_start_block); //last block is smaller
 #else
-								double part_inset_px = wf_actor_samples2gl(zoom, region.start);
-								//double file_start_px = rect.left - part_inset_px;
-								double distance_from_file_start_to_region_end = part_inset_px + rect.len;
-								block_wid = distance_from_file_start_to_region_end - b * _block_wid;
-								dbg(2, " %i: inset=%.2f s->e=%.2f i*b=%.2f", b, part_inset_px, distance_from_file_start_to_region_end, b * _block_wid);
-								if(b * _block_wid > distance_from_file_start_to_region_end){ gwarn("!!"); continue; }
+							double part_inset_px = wf_actor_samples2gl(zoom, region.start);
+							//double file_start_px = rect.left - part_inset_px;
+							double distance_from_file_start_to_region_end = part_inset_px + rect.len;
+							block_wid = distance_from_file_start_to_region_end - b * _block_wid;
+							dbg(2, " %i: inset=%.2f s->e=%.2f i*b=%.2f", b, part_inset_px, distance_from_file_start_to_region_end, b * _block_wid);
+							if(b * _block_wid > distance_from_file_start_to_region_end){ gwarn("!!"); continue; }
 #endif
-							}
 						}
 
 						if(b == w->textures->size - 1) dbg(1, "last sample block. fraction=%.2f", w->textures->last_fraction);
@@ -1056,8 +1080,7 @@ dbg(1, "left=%f samples=%f %Li", block_rect.left, block_rect.left / zoom, left_s
 
 				default:
 					break;
-			} // end switch
-			//--------------------------------------
+			} // end resolution switch
 
 #undef DEBUG_BLOCKS
 //#define DEBUG_BLOCKS
@@ -1081,7 +1104,9 @@ dbg(1, "left=%f samples=%f %Li", block_rect.left, block_rect.left / zoom, left_s
 #endif
 			x += _block_wid;
 //uint64_t o = block_region.start;
-			block_region.start = (block_region.start / WF_PEAK_BLOCK_SIZE + 1) * WF_PEAK_BLOCK_SIZE;
+			//block_region.start = (block_region.start / WF_PEAK_BLOCK_SIZE + 1) * WF_PEAK_BLOCK_SIZE;
+			block_region.start = 0; //all blocks except first start at 0?
+			block_region.len = WF_PEAK_BLOCK_SIZE;
 			block_region_v_hi.start = (block_region_v_hi.start / WF_PEAK_BLOCK_SIZE + 1) * WF_PEAK_BLOCK_SIZE;
 			block_region_v_hi.len   = WF_PEAK_BLOCK_SIZE - block_region_v_hi.start % WF_PEAK_BLOCK_SIZE;
 //dbg(1, "block_region_start: %Lu --> %Lu", o, block_region.start);
@@ -1213,7 +1238,7 @@ glEnable(GL_TEXTURE_1D);
 		glBindTexture(GL_TEXTURE_1D, d->tex_id);
 		dbg (2, "loading texture1D... texture_id=%u", d->tex_id);
 		if(gl_error) gwarn("gl error: bind failed: unit=%i buf=%p tid=%i", d->tex_unit, d->buf, d->tex_id);
-if(!glIsTexture(d->tex_id)) gwarn ("not is texture: texture_id=%u", d->tex_id);
+		if(!glIsTexture(d->tex_id)) gwarn ("invalid texture: texture_id=%u", d->tex_id);
 		glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_WRAP_S, GL_CLAMP);
 		//glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
 		glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_WRAP_T, GL_CLAMP);
@@ -1274,7 +1299,7 @@ rgba_to_float(uint32_t rgba, float* r, float* g, float* b)
 	*r = _r / 0xff;
 	*g = _g / 0xff;
 	*b = _b / 0xff;
-	dbg (2, "%08x --> %.2f %.2f %.2f", rgba, *r, *g, *b);
+	dbg (3, "%08x --> %.2f %.2f %.2f", rgba, *r, *g, *b);
 }
 
 

@@ -30,7 +30,6 @@ gl_init(WaveformView* view)
 
 		if(wf_get_instance()->pref_use_shaders && !shaders_supported()){
 			printf("gl shaders not supported. expect reduced functionality.\n");
-			//printf("Warning: this program expects OpenGL 2.0\n");
 			wf_canvas_use_program(view->priv->canvas, 0);
 			view->priv->canvas->use_shaders = false;
 		}
@@ -62,14 +61,13 @@ waveform_view_gl_init(WaveformView* view)
 	texture_cache_gen();
 #endif
 
-	//if(view->priv->canvas->use_shaders) wf_canvas_init_shaders(view->priv->canvas);
-
+#if 0
 #ifdef USE_FBO
 	START_DRAW {
 		if(!fbo0) create_fbo();
 	} END_DRAW
 #endif
-
+#endif
 }
 
 
@@ -112,12 +110,11 @@ draw(WaveformView* view)
 							viewport->bottom = a->rect.top + a->rect.height;
 						}
 					}
-	if(false && view->priv->show_grid){
+	if(/*false && */view->priv->show_grid){
 		WfViewPort viewport; wf_actor_get_viewport(actor, &viewport);
-		wf_canvas_set_viewport(view->priv->canvas, &viewport); //TODO dont do this on every draw
 
 		WfSampleRegion region = {view->start_frame, w->n_frames};
-		wf_grid_paint(view->priv->canvas, &region);
+		wf_grid_paint(view->priv->canvas, &region, &viewport);
 	}
 }
 

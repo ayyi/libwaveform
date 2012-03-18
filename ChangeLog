@@ -1,3 +1,7 @@
 20120309
 -added Low Res mode with blocks covering 16 times the length of standard res.
 -set Viewport in actor_test to speed up drawing at high zoom.
+20120318
+-added support for asynchronous GdkPixbuf rendering.
+-improvements to hi res mode handling.
+-bugfixes for XDG cache directory settings.
