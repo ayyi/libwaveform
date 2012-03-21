@@ -481,7 +481,6 @@ get_cache_dir()
 	if(env) dbg(0, "cache_dir=%s", env);
 	if(env) return g_strdup(env);
 
-	const char* cache_dir = DEFAULT_USER_CACHE_DIR;
 	gchar* dir_name = g_build_filename(g_get_home_dir(), DEFAULT_USER_CACHE_DIR, NULL);
 	return dir_name;
 }
@@ -497,7 +496,7 @@ maintain_file_cache()
 	bool _maintain_file_cache()
 	{
 		char* dir_name = get_cache_dir();
-		dbg(0, "dir=%s", dir_name);
+		dbg(2, "dir=%s", dir_name);
 		GError* error = NULL;
 		GDir* d = g_dir_open(dir_name, 0, &error);
 

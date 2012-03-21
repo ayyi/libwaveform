@@ -5,3 +5,5 @@
 -added support for asynchronous GdkPixbuf rendering.
 -improvements to hi res mode handling.
 -bugfixes for XDG cache directory settings.
+20120320
+-fixed position of first block at hi res with inset.

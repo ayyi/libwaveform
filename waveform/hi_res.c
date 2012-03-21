@@ -113,16 +113,17 @@ draw_wave_buffer_hi(Waveform* w, WfSampleRegion region, WfRectangle* rect, Peakb
 	while (p < region.len / io_ratio){
 									if(2 * p_ >= peakbuf->size) gwarn("s_=%i size=%i", p_, peakbuf->size);
 									g_return_if_fail(2 * p_ < peakbuf->size);
-		x = (((double)p) / region_len) * rect->len * io_ratio;
-		if (x >= rect->len) break;
-//if(s < 10) printf("    x=%i %2i %2i\n", x, data[2 * s], data[2 * p_ + 1]);
+		x = rect->left + (((double)p) / region_len) * rect->len * io_ratio;
+//if(!p) dbg(0, "x=%i", x);
+		if (x - rect->left >= rect->len) break;
+//if(p < 10) printf("    x=%i %2i %2i\n", x, data[2 * s], data[2 * p_ + 1]);
 
 		double y1 = ((double)data[WF_PEAK_VALUES_PER_SAMPLE * p_    ]) * v_gain * (rect->height / 2.0) / (1 << 15);
 		double y2 = ((double)data[WF_PEAK_VALUES_PER_SAMPLE * p_ + 1]) * v_gain * (rect->height / 2.0) / (1 << 15);
 
-		_draw_line(rect->left + x, rect->top + rect->height / 2, rect->left + x, rect->top - y1 + rect->height / 2, r, g, b, alpha);
-		_draw_line(rect->left + x, rect->top + rect->height / 2, rect->left + x, rect->top - y2 + rect->height / 2, r, g, b, alpha);
-//if(s == 4095)
+		_draw_line(x, rect->top + rect->height / 2, x, rect->top - y1 + rect->height / 2, r, g, b, alpha);
+		_draw_line(x, rect->top + rect->height / 2, x, rect->top - y2 + rect->height / 2, r, g, b, alpha);
+//if(p == 4095)
 //		_draw_line(rect->left + x, 0, rect->left + x, rect->height, r, g, b, 1.0);
 
 		p++;

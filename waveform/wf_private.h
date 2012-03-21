@@ -21,6 +21,8 @@
 #define WF_PEAK_STD_TO_LO 16
 #define WF_PEAK_RATIO_LOW (WF_PEAK_RATIO * WF_PEAK_STD_TO_LO) // the number of samples per entry in a low res peakbuf.
 
+typedef struct _texture_cache TextureCache;
+
 enum
 {
 	WF_LEFT = 0,

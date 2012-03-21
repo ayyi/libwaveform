@@ -134,9 +134,12 @@ dnl -----------------------------------------------------
 dnl CXXFLAGS="$CXXFLAGS -pipe -fmessage-length=139 -fdiagnostics-show-location=every-line"
 AM_CFLAGS="$CFLAGS -pipe -fmessage-length=139 -fdiagnostics-show-location=every-line"
 
+AC_CONFIG_FILES([waveform.pc])
 AC_CONFIG_FILES([Makefile])
-AC_CONFIG_FILES([waveform/Makefile])
-AC_CONFIG_FILES([test/Makefile])
+AC_CONFIG_FILES([
+waveform/Makefile
+test/Makefile
+])
 AC_OUTPUT
 
 AC_MSG_RESULT([])

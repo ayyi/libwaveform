@@ -148,7 +148,7 @@ texture_cache_assign(int t, WaveformBlock wb)
 	dbg(2, "t=%i b=%i time=%i", t, wb.block, time_stamp);
 
 	static guint timeout = 0;
-	if(wf_debug){
+	if(wf_debug > 1){
 		if(timeout) g_source_remove(timeout);
 		gboolean _texture_cache_print(gpointer data)
 		{

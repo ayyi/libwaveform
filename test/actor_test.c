@@ -2,7 +2,8 @@
   Demonstration of the libwaveform WaveformActor interface
 
   Several waveforms are drawn onto a single canvas with
-  different colours and zoom levels.
+  different colours and zoom levels. The canvas can be zoomed
+  and panned.
 
   ---------------------------------------------------------------
 
@@ -194,18 +195,10 @@ gl_init()
 
 		if(!shaders_supported()){
 			gwarn("shaders not supported");
-			printf("Warning: this program expects OpenGL 2.0\n");
 		}
 		printf("GL_RENDERER = %s\n", (const char*)glGetString(GL_RENDERER));
 
 	} END_DRAW
-
-	/*
-	init_textures();
-
-	if(use_shaders)
-		init_programs();
-	*/
 
 	gl_initialised = true;
 }
@@ -240,7 +233,7 @@ draw(GtkWidget* widget)
 	glEnable(GL_BLEND); glEnable(GL_DEPTH_TEST); glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
 	glPushMatrix(); /* modelview matrix */
-		int i; for(i=0;i<G_N_ELEMENTS(a);i++) wf_actor_paint(a[i]);
+		int i; for(i=0;i<G_N_ELEMENTS(a);i++) if(a[i]) wf_actor_paint(a[i]);
 	glPopMatrix();
 
 #undef SHOW_BOUNDING_BOX
@@ -270,8 +263,8 @@ on_expose(GtkWidget* widget, GdkEventExpose* event, gpointer user_data)
 	if(!gl_initialised) return TRUE;
 
 	START_DRAW {
-		glClearColor( 0.0, 0.0, 0.0, 1.0 );
-		glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
+		glClearColor(0.0, 0.0, 0.0, 1.0);
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 		draw(widget);
 
@@ -295,6 +288,7 @@ on_canvas_realise(GtkWidget* _canvas, gpointer user_data)
 	gl_init();
 
 	wfc = wf_canvas_new(gl_context, gl_drawable);
+	//wf_canvas_set_use_shaders(wfc, false);
 
 	canvas_init_done = true;
 
@@ -366,7 +360,7 @@ start_zoom(float target_zoom)
 	zoom = MAX(0.1, target_zoom);
 
 	int i; for(i=0;i<G_N_ELEMENTS(a);i++)
-		wf_actor_allocate(a[i], &(WfRectangle){
+		if(a[i]) wf_actor_allocate(a[i], &(WfRectangle){
 			0.0,
 			i * GL_HEIGHT / 4,
 			GL_WIDTH * target_zoom,

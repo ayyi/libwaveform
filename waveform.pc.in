@@ -1,0 +1,12 @@
+prefix=@prefix@
+exec_prefix=@exec_prefix@
+libdir=@libdir@
+includedir=@includedir@
+
+Name: Libwaveform
+Version: @PACKAGE_VERSION@
+Description: Gtk+-2 library for displaying audio waveforms
+URL: http://github.org/ayyi/libwaveform
+Requires: gtk+-2.0 > 2.10, gtkglext >= 1.20
+Libs: -L${libdir} -lwaveform
+Cflags: -I${includedir}/waveform

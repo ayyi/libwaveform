@@ -635,8 +635,6 @@ _wf_actor_load_missing_blocks(WaveformActor* a)
 
 		Waveform* w = a->waveform;
 		if(!w->textures_lo){
-			//int num_peaks = w->num_peaks / WF_PEAK_STD_TO_LO; //TODO +1?
-			dbg(0, "CHECKME num_peaks=%i", w->num_peaks);
 			w->textures_lo = wf_texture_array_new(w->num_peaks / (WF_PEAK_STD_TO_LO * WF_PEAK_TEXTURE_SIZE) + ((w->num_peaks % (WF_PEAK_STD_TO_LO * WF_PEAK_TEXTURE_SIZE)) ? 1 : 0), w->n_channels);
 		}
 
@@ -877,6 +875,7 @@ wf_actor_paint(WaveformActor* actor)
 		//for hi-res mode:
 		//block_region specifies the a sample range within the current block
 		WfSampleRegion block_region = {region.start % WF_PEAK_BLOCK_SIZE, WF_PEAK_BLOCK_SIZE - region.start % WF_PEAK_BLOCK_SIZE};
+//dbg(0, "firstfraction=%.2f", ((float)block_region.len) / WF_PEAK_BLOCK_SIZE);
 		WfSampleRegion block_region_v_hi = {region.start, WF_PEAK_BLOCK_SIZE - region.start % WF_PEAK_BLOCK_SIZE};
 
 		double x = rect.left + (viewport_start_block - region_start_block) * _block_wid - first_offset_px; // x is now the start of the first block (can be before part start when inset is present)
@@ -948,7 +947,7 @@ dbg(1, "left=%f samples=%f %Li", block_rect.left, block_rect.left / zoom, left_s
 				case 13 ... 255:
 					;Peakbuf* peakbuf = wf_get_peakbuf_n(w, b);
 					if(peakbuf){
-						//dbg(0, "  b=%i x=%.2f", b, x);
+						dbg(1, "  b=%i x=%.2f", b, x);
 
 						//TODO might these prevent further blocks at different res? difficult to notice as they are usually the same.
 						wf_canvas_use_program(wfc, 0);
@@ -962,9 +961,17 @@ dbg(1, "left=%f samples=%f %Li", block_rect.left, block_rect.left / zoom, left_s
 							if(peakbuf->buf[c]){
 								//dbg(1, "peakbuf: %i:%i: %i", b, c, ((short*)peakbuf->buf[c])[0]);
 								//WfRectangle block_rect = {x, rect.top + c * rect.height/2, _block_wid, rect.height / w->n_channels};
-								WfRectangle block_rect = {is_first ? x + (block_region.start - region.start % WF_PEAK_BLOCK_SIZE) * zoom : x, rect.top + c * rect.height/2, _block_wid, rect.height / w->n_channels};
+//if(is_first) dbg(0, "  first. block_region.start=%Li region.start=%Li(%Li)", block_region.start, region.start, region.start % WF_PEAK_BLOCK_SIZE);
+								WfRectangle block_rect = {is_first
+										? x + (block_region.start - region.start % WF_PEAK_BLOCK_SIZE) * zoom
+										: x,
+									rect.top + c * rect.height/2, _block_wid, rect.height / w->n_channels};
+								if(is_first){
+									float first_fraction =((float)block_region.len) / WF_PEAK_BLOCK_SIZE;
+									block_rect.left += (WF_PEAK_BLOCK_SIZE - WF_PEAK_BLOCK_SIZE * first_fraction) * zoom;
+								}
 								//WfRectangle block_rect = {x + (region.start % WF_PEAK_BLOCK_SIZE) * zoom, rect.top + c * rect.height/2, _block_wid, rect.height / w->n_channels};
-								dbg(1, "rect=%.2f-->%.2f", block_rect.left, block_rect.left + block_rect.len);
+								dbg(1, "  HI: %i: rect=%.2f-->%.2f", b, block_rect.left, block_rect.left + block_rect.len);
 
 								if(is_last){
 									if(b < region_end_block){
@@ -1117,40 +1124,6 @@ dbg(1, "left=%f samples=%f %Li", block_rect.left, block_rect.left / zoom, left_s
 
 	if(gl_error) gwarn("gl error!");
 }
-
-
-#ifdef DEPRECATED
-void
-wf_actor_paint_hi(WaveformActor* actor)
-{
-	WaveformCanvas* wfc = actor->canvas;
-	g_return_if_fail(wfc);
-	g_return_if_fail(actor);
-	Waveform* w = actor->waveform; 
-
-	if(waveform_get_n_frames(w)){
-		WfRectangle rect = {actor->rect.left, actor->rect.top, actor->priv->animatable.rect_len.val.f, actor->rect.height};
-		WfSampleRegion region = {actor->priv->animatable.start.val.i, actor->priv->animatable.len.val.i};
-		double zoom = rect.len / region.len;
-
-		int n_channels = w->textures->peak_texture[WF_RIGHT].main ? 2 : 1;
-		if(!w->cache) w->cache = wf_wav_cache_new(n_channels);
-
-		WfViewPort viewport; wf_actor_get_viewport(actor, &viewport);
-		float n_points = (viewport.right - viewport.left) / zoom;
-		int offx = rect.left;
-		int mode = 4; //doesnt appear to make much difference. mode 0 does not draw any lines, only points
-
-		int width = viewport.right - viewport.left;
-		//int height = viewport.bottom - viewport.top;
-		//dbg(1, "height=%i", height);
-
-		glPushMatrix();
-		draw_waveform(actor, (WfSampleRegion){region.start, n_points}, width, rect.height, offx, actor->rect.top, mode, actor->fg_colour);
-		glPopMatrix();
-	}
-}
-#endif
 
 
 /*

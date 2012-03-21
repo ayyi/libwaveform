@@ -1,5 +1,6 @@
+- check pixbuf inset at hi res
 - test with Nouveau driver
-- add pkgconfig pc file
+- test pkgconfig file
 - both texture mode and shader modes have spurious lines.
 - fix paths for test wavs (can get dir of current executable?)
 - remove all stdout

@@ -81,13 +81,44 @@ class Pink
 Pink pink;
 
 
+class Noise
+{
+	int iRec0[2];
+
+  public:
+	double gain;
+
+	void init()
+	{
+		gain = 1.0;
+
+		iRec0[0] = 0;
+		iRec0[1] = 0;
+	}
+
+	void compute (int count, double** input, double** output)
+	{
+		double* output0 = output[0];
+		int i; for (i=0; i<count; i++) {
+			iRec0[0] = (12345 + (1103515245 * iRec0[1]));
+			output0[i] = (double)(4.656612875245797e-10f * iRec0[0]) * gain;
+			// post processing
+			iRec0[1] = iRec0[0];
+		}
+	}
+};
+Noise noise;
+
+
 class KPS
 {
+  public:
 	double fslider0; // resonator attenuation
 	double fslider1; // excitation (samples) ?
 	double fslider3; // duration (samples) ?
-	double fslider2; // output level
+	double gain;     // output level
 
+  private:
 	double fRec0[3];
 	double fRec1[2];
 	int    iRec2[2];
@@ -101,7 +132,7 @@ class KPS
 		fslider0 = 0.1;   // resonator attenuation
 		fslider1 = 128.0; // excitation (samples) ?
 		fslider3 = 128.0; // duration (samples) ?
-		fslider2 = 1.0;   // output level
+		gain     = 1.0;   // output level
 
 		IOTA = 0;
 		fRec0[1] = 0;
@@ -119,7 +150,7 @@ class KPS
 		float fSlow0 = (0.5f * (1.0f - fslider0));
 		float fSlow1 = (1.0f / fslider1);
 		float fSlow2 = 1.0;// on/off
-		float fSlow3 = (4.656612875245797e-10f * fslider2);
+		float fSlow3 = (4.656612875245797e-10f * gain);
 		int   iSlow4 = (int)((int)(fslider3 - 1.5) & 4095);
 		double* output0 = output[0];
 		for (int i=0; i<count; i++) {
@@ -153,15 +184,15 @@ class CPGRS
   public:
 	float     gain;          // gain
 	float     attack;        // interface->addHorizontalSlider("attack",  &fslider4, 0.01f, 0.0f, 1.0f, 0.001f);
-	float     sustain;      // interface->addHorizontalSlider("sustain", &fslider1, 0.5f, 0.0f, 1.0f, 0.01f);
+	float     sustain;       // interface->addHorizontalSlider("sustain", &fslider1, 0.5f, 0.0f, 1.0f, 0.01f);
 	float     release;       // interface->addHorizontalSlider("release", &fslider2, 0.2f, 0.0f, 1.0f, 0.001f);
-	float     fslider3;      // interface->addHorizontalSlider("decay",   &fslider3, 0.3f, 0.0f, 1.0f, 0.001f);
+	float     decay;         // interface->addHorizontalSlider("decay",   &fslider3, 0.3f, 0.0f, 1.0f, 0.001f);
+	float     fentry0;       // "freq", 4.4e+02f, 2e+01f, 2e+04f, 1.0f
 
   private:
 	float     fSamplingFreq;
 	float     fslider0;      // 2-filter: addHorizontalSlider("bandwidth (Hz)", &fslider0, 1e+02f, 2e+01f, 2e+04f, 1e+01f);
 	float     fConst0;
-	float     fentry0;       // "freq", 4.4e+02f, 2e+01f, 2e+04f, 1.0f
 	float     fConst1;
 	float     on_off_button; // gate (on/off)
 	int       iRec1[2];
@@ -181,7 +212,7 @@ class CPGRS
 		gain = 8.0;
 		sustain = 0.5f;
 		release = 0.2f;
-		fslider3 = 0.3f;
+		decay = 0.3f;
 		attack = 0.01f;
 
 		fSamplingFreq = 44100;
@@ -213,7 +244,7 @@ class CPGRS
 		float   fSlow6 = (sustain + (0.001f * (fSlow5 == 0.0f)));
 		float   fSlow7 = release;
 		float   fSlow8 = (1 - (1.0f / powf((1e+03f * fSlow6),(1.0f / ((fSlow7 == 0.0f) + (fSamplingFreq * fSlow7))))));
-		float   fSlow9 = fslider3;
+		float   fSlow9 = decay;
 		float   fSlow10 = (1 - powf(fSlow6,(1.0f / ((fSlow9 == 0.0f) + (fSamplingFreq * fSlow9)))));
 		float   fSlow11 = attack;
 		float   fSlow12 = (1.0f / ((fSlow11 == 0.0f) + (fSamplingFreq * fSlow11)));
@@ -362,11 +393,13 @@ int main(int argc, char* argv[])
 		}
 	}
 	compute_sinewave(buffer, 16384);
+	ff += 16384;
 
 	double* input[2] = {NULL, NULL};
 	double* output[n_channels];// = {buffer + 16384 * n_channels, buffer + 16384 * n_channels};
 
-	ff += 16384;
+	//---
+
 	float* output_f[n_channels];
 	cpgrs.init();
 	for(int a=0;a<16384;a++){
@@ -389,44 +422,115 @@ int main(int argc, char* argv[])
 			output[0][c] = output_f[0][c];
 		}
 	}
-
-	//mute left then right to check correct orientation
 	ff += 16384;
-	for(f=0;f<16384;f++){
-		buffer[(f + ff) * n_channels + 0] = 0.0;
-	}
-	ff += 16384;
-	for(f=0;f<16384;f++){
-		buffer[(f + ff) * n_channels + 1] = 0.0;
-	}
-
-	ff += 16384;
+	cpgrs.release = 0.01; // <----
+	cpgrs.fentry0 = 2e+01f; // low freq
 	for(int a=0;a<16384;a++){
+		int c; for(c=0;c<n_channels;c++){
+			output[c] = buffer + ff * n_channels + a * n_channels + c;
+		}
+		cpgrs.compute(n_channels, (float**)input, (float**)output_f);
+		for(c=0;c<n_channels;c++){
+			output[0][c] = output_f[0][c];
+		}
+	}
+	ff += 16384;
+
+	//---
+
+	if(n_channels > 1){
+		//mute left then right to check correct orientation
+		for(f=0;f<8192;f++){
+			buffer[(f + ff) * n_channels + 0] = 0.0;
+		}
+		ff += 8192;
+		for(f=0;f<8192;f++){
+			buffer[(f + ff) * n_channels + 1] = 0.0;
+		}
+		ff += 8192;
+	}
+
+	//---
+
+	noise.init();
+	noise.gain = 0.25;
+	for(int a=0;a<4096;a++){
 		int c; for(c=0;c<n_channels;c++){
 			output[c] = buffer + (ff + a) * n_channels + c;
 		}
-		compute_noise(2, (double**)input, (double**)output);
+		noise.compute(2, (double**)input, (double**)output);
 	}
+	ff += 4096;
+	noise.init();
+	noise.gain = 0.5;
+	for(int a=0;a<4096;a++){
+		int c; for(c=0;c<n_channels;c++){
+			output[c] = buffer + (ff + a) * n_channels + c;
+		}
+		noise.compute(2, (double**)input, (double**)output);
+	}
+	ff += 4096;
+	noise.init();
+	noise.gain = 0.75;
+	for(int a=0;a<4096;a++){
+		int c; for(c=0;c<n_channels;c++){
+			output[c] = buffer + (ff + a) * n_channels + c;
+		}
+		noise.compute(2, (double**)input, (double**)output);
+	}
+	ff += 4096;
+	noise.init();
+	noise.gain = 1.0;
+	for(int a=0;a<4096;a++){
+		int c; for(c=0;c<n_channels;c++){
+			output[c] = buffer + (ff + a) * n_channels + c;
+		}
+		noise.compute(2, (double**)input, (double**)output);
+	}
+	ff += 8192;
 
-	ff += 16384;
+	//---
+
 	kps.init();
-	int a; for(a=0;a<16384;a++){
+	int a; for(a=0;a<8192;a++){
 		int c; for(c=0;c<n_channels;c++){
 			output[c] = buffer + ff * n_channels + a * n_channels + c;
 		}
 		kps.compute(n_channels, (double**)input, (double**)output);
 	}
 
-	ff += 16384;
+	ff += 8192;
 	kps.init();
-	for(a=0;a<16384;a++){
+	kps.gain = 0.5;
+	for(a=0;a<8192;a++){
 		int c; for(c=0;c<n_channels;c++){
 			output[c] = buffer + (ff + a) * n_channels + c;
 		}
 		kps.compute(n_channels, (double**)input, (double**)output);
 	}
 
-	ff += 16384;
+	ff += 8192;
+	kps.init();
+	for(a=0;a<8192;a++){
+		int c; for(c=0;c<n_channels;c++){
+			output[c] = buffer + (ff + a) * n_channels + c;
+		}
+		kps.compute(n_channels, (double**)input, (double**)output);
+	}
+
+	ff += 8192;
+	kps.init();
+	kps.gain = 0.5;
+	for(a=0;a<8192;a++){
+		int c; for(c=0;c<n_channels;c++){
+			output[c] = buffer + (ff + a) * n_channels + c;
+		}
+		kps.compute(n_channels, (double**)input, (double**)output);
+	}
+
+	//---
+
+	ff += 8192;
 	for(a=0;a<16384;a++){
 		int c; for(c=0;c<n_channels;c++){
 			output[c] = buffer + ff * n_channels + a * n_channels + c;
@@ -491,20 +595,5 @@ Xcompute_noise(int count, double** input, double** output)
 	}
 }
 #endif
-
-
-void
-compute_noise (int count, double** input, double** output)
-{
-	static int iRec0[2] = {0, 0};
-
-	double* output0 = output[0];
-	int i; for (i=0; i<count; i++) {
-		iRec0[0] = (12345 + (1103515245 * iRec0[1]));
-		output0[i] = (double)(4.656612875245797e-10f * iRec0[0]);
-		// post processing
-		iRec0[1] = iRec0[0];
-	}
-}
 
 
