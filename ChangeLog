@@ -7,3 +7,6 @@
 -bugfixes for XDG cache directory settings.
 20120320
 -fixed position of first block at hi res with inset.
+-added pkgconfig file.
+20120401
+-improved shader texture sampling: add pseudo window fn and 2x oversampling

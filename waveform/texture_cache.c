@@ -383,11 +383,13 @@ static void
 texture_cache_print()
 {
 	int n_used = 0;
-	printf("         t  b  w\n");
-	int i; for(i=0;i<c->t->len;i++){
-		Texture* t = &g_array_index(c->t, Texture, i);
-		printf("    %2i: %2i %i %p\n", i, t->time_stamp, t->wb.block, t->wb.waveform);
-		if(t->wb.waveform) n_used++;
+	if(c->t->len){
+		printf("         t  b  w\n");
+		int i; for(i=0;i<c->t->len;i++){
+			Texture* t = &g_array_index(c->t, Texture, i);
+			printf("    %2i: %2i %i %p\n", i, t->time_stamp, t->wb.block, t->wb.waveform);
+			if(t->wb.waveform) n_used++;
+		}
 	}
 	dbg(0, "array_size=%i n_used=%i", c->t->len, n_used);
 }

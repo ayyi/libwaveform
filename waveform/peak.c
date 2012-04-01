@@ -27,7 +27,7 @@
 #include <stdint.h>
 #include <sys/time.h>
 #include <sndfile.h>
-#include <gtk/gtk.h>
+#include <glib.h>
 #include "waveform/utils.h"
 #include "waveform/peak.h"
 #include "waveform/loaders/ardour.h"
@@ -174,7 +174,7 @@ __finalize(Waveform* w)
 	free_textures(&w->textures_lo);
 #endif
 
-	wf_audio_free(w);
+	waveform_audio_free(w);
 	g_free(w->priv);
 	g_free(w->filename);
 }
@@ -336,16 +336,12 @@ waveform_load_peak(Waveform* w, const char* peak_file, int ch_num)
 		extern void glGenTextures(size_t n, uint32_t* textures);
 		glGenTextures(w->textures->size, w->textures->rms_texture); //note currently doesnt use the texture_cache
 #endif
+#warning TODO destroy hash_table
+		w->textures_hi = g_new0(WfTexturesHi, 1);
+		w->textures_hi->textures = g_hash_table_new(g_int_hash, g_int_equal);
 	}
 
 	waveform_set_last_fraction(w);
-
-#if 0 //moved into wf_texture_array_new()
-	if(ch_num == 1 || n_channels == 2){
-		w->textures->peak_texture[WF_RIGHT].main = g_new0(unsigned, w->textures->size);
-		w->textures->peak_texture[WF_RIGHT].neg = g_new0(unsigned, w->textures->size);
-	}
-#endif
 
 	return !!w->priv->peak.buf[ch_num];
 }
@@ -358,87 +354,6 @@ waveform_peak_is_loaded(Waveform* w, int ch_num)
 }
 
 
-#if 0 //replaced with blocked version
-gboolean
-wf_load_chunk(Waveform* w, WfSampleRegion region)
-{
-	// non-audio-block version. possibly deprecated by the block version for performance.
-
-	PF;
-	g_return_val_if_fail(w, false);
-
-	WfWavCache* cache = w->cache;
-
-	if (cache->region.start != -1) {
-		if ((region.start >= cache->region.start) && (region.start + region.len <= cache->region.start + cache->region.len)){
-			dbg(1, "cache hit");
-			return true; // already loaded
-		}
-	}
-	gwarn("cache miss: %Lu --> %i", region.start, region.len);
-
-	SNDFILE* sndfile;
-	SF_INFO sfinfo;
-	sfinfo.format = 0;
-	if(!(sndfile = sf_open(w->filename, SFM_READ, &sfinfo))){
-		if(!g_file_test(w->filename, G_FILE_TEST_EXISTS)){
-			gwarn("file open failure. file doesnt exist.");
-		}else{
-			gwarn("file open failure.");
-		}
-		return false;
-	}
-	sf_count_t n_frames = MIN(sfinfo.frames, WF_CACHE_BUF_SIZE); //fill the buffer even if bigger than the request.
-	//set the seek position so that the requested region is in the middle (so we can scroll backwards and forwards).
-	uint64_t excess = cache->buf->size - region.len;
-	uint64_t seek = region.start - MIN(region.start, excess / 2);
-	//dbg(1, "size=%i len=%i", cache->buf->size, region.len);
-	//dbg(1, "excess=%Lu seek=%Lu", excess, seek);
-
-	sf_count_t pos = sf_seek(sndfile, seek, SEEK_SET);
-	dbg(2, "pos=%Li n_frames=%Li", pos, n_frames);
-	g_return_val_if_fail(pos > -1, false);
-
-	int readcount;
-	switch(sfinfo.channels){
-		case WF_MONO:
-			if((readcount = sf_readf_float(sndfile, w->cache->buf->buf[WF_LEFT], n_frames)) < n_frames){
-				gwarn("unexpected EOF: %s", w->filename);
-				gwarn("                start_frame=%Lu n_frames=%Lu/%Lu read=%i", region.start, n_frames, sfinfo.frames, readcount);
-			}
-			break;
-		case WF_STEREO:
-			{
-			float read_buf[n_frames * WF_STEREO];
-
-			if((readcount = sf_readf_float(sndfile, read_buf, n_frames)) < n_frames){
-				gwarn("unexpected EOF: %s", w->filename);
-				gwarn("                STEREO start_frame=%Lu n_frames=%Lu/%Lu read=%i", region.start, n_frames, sfinfo.frames, readcount);
-			}
-
-			#if 0 //only useful for testing.
-			memset(w->cache->buf->buf[0], 0, WF_CACHE_BUF_SIZE);
-			memset(w->cache->buf->buf[1], 0, WF_CACHE_BUF_SIZE);
-			#endif
-
-			deinterleave(read_buf, w->cache->buf->buf, n_frames);
-			}
-			break;
-		default:
-			break;
-	}
-	sf_close(sndfile);
-	dbg(1, "readcount=%i", readcount);
-
-	w->cache->region.start = pos;//region.start;
-	w->cache->region.len = readcount;
-
-	return true;
-}
-#endif
-
-
-//dupe
 static void
 sort_(short* dest, const short* src, int size)
 {
@@ -514,13 +429,12 @@ get_buf_info(const Waveform* w, int block_num, struct _buf_info* b, int ch)
 			b->buf = audio->buf16[block_num]->buf[ch];
 			g_return_val_if_fail(b->buf, false);
 			b->len = audio->buf16[block_num]->size;
-			//dbg(2, "not empty. block=%i peaklevel=%.2f", block_num, int2db(peakbuf->maxlevel));
-			dbg(0, "HI block=%i len=%i %i", block_num, b->len, b->len / WF_PEAK_VALUES_PER_SAMPLE);
+			//dbg(2, "HI block=%i len=%i %i", block_num, b->len, b->len / WF_PEAK_VALUES_PER_SAMPLE);
 		}else{
 			gerr("using hires mode but audio->buf not allocated");
 		}
 	}else{
-		dbg(0, "STD len=%i %i (x256=%i)", b->len, b->len / WF_PEAK_VALUES_PER_SAMPLE, (b->len * 256) / WF_PEAK_VALUES_PER_SAMPLE);
+		dbg(2, "STD len=%i %i (x256=%i)", b->len, b->len / WF_PEAK_VALUES_PER_SAMPLE, (b->len * 256) / WF_PEAK_VALUES_PER_SAMPLE);
 	}
 	b->len_frames = b->len / WF_PEAK_VALUES_PER_SAMPLE;
 
@@ -556,7 +470,7 @@ waveform_set_last_fraction(Waveform* waveform)
 
 
 short*
-wf_peak_malloc(Waveform* w, uint32_t bytes)
+waveform_peak_malloc(Waveform* w, uint32_t bytes)
 {
 	short* buf = g_malloc(bytes);
 	wf->peak_mem_size += bytes;
@@ -1258,7 +1172,7 @@ wf_get_peakbuf_len_frames()
 
 
 Peakbuf*
-wf_get_peakbuf_n(Waveform* w, int block_num)
+waveform_get_peakbuf_n(Waveform* w, int block_num)
 {
 	//an array entry will be created on demand, but it will not yet contain any audio data.
 
@@ -1350,6 +1264,7 @@ warn_no_src_data(Waveform* waveform, int buflen, int src_stop)
 }
 
 
+#ifdef USE_GDK_PIXBUF
 void
 waveform_peak_to_pixbuf(Waveform* w, GdkPixbuf* pixbuf, WfSampleRegion* region, uint32_t colour, uint32_t bg_colour)
 {
@@ -1585,7 +1500,7 @@ waveform_peak_to_pixbuf_full(Waveform* waveform, GdkPixbuf* pixbuf, uint32_t reg
 			}
 			if(src_stop > b.len_frames && hires_mode){
 				dbg(2, "**** block change needed!");
-				Peakbuf* peakbuf = wf_get_peakbuf_n(waveform, hires_block + 1);
+				Peakbuf* peakbuf = waveform_get_peakbuf_n(waveform, hires_block + 1);
 				g_return_if_fail(peakbuf);
 				if(!get_buf_info(waveform, hires_block, &b, ch)){ break; }//TODO if this is multichannel, we need to go back to previous peakbuf - should probably have 2 peakbufs...
 				block_offset = block_offset2;
@@ -1925,7 +1840,7 @@ waveform_rms_to_pixbuf(Waveform* w, GdkPixbuf* pixbuf, uint32_t src_inset, int* 
 			}
 			if(src_stop > b.len_frames && hires_mode){
         dbg(1, "**** block change needed!");
-        Peakbuf* peakbuf = wf_get_peakbuf_n(w, hires_block + 1);
+        Peakbuf* peakbuf = waveform_get_peakbuf_n(w, hires_block + 1);
         g_return_if_fail(peakbuf);
         if(!get_rms_buf_info(rb->buf, rb->size, &b, ch)){ break; }//TODO if this is multichannel, we need to go back to previous peakbuf - should probably have 2 peakbufs...
         //src_start = 0;
@@ -2104,6 +2019,7 @@ waveform_rms_to_pixbuf(Waveform* w, GdkPixbuf* pixbuf, uint32_t src_inset, int* 
 	cairo_surface_destroy(surface);
 	cairo_destroy(cairo);
 }
+#endif // USE_GDK_PIXBUF
 
 
 void

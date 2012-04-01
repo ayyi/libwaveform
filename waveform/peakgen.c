@@ -325,7 +325,7 @@ peakbuf_set_n_tiers(Peakbuf* peakbuf, int n_tiers, int resolution)
 
 
 void
-wf_peakbuf_regen(Waveform* waveform, int block_num, int min_tiers)
+waveform_peakbuf_regen(Waveform* waveform, int block_num, int min_tiers)
 {
 	// make a ram peakbuf for a single block.
 	//  -the needed audio file data is assumed to be already available.
@@ -399,7 +399,7 @@ wf_peakbuf_regen(Waveform* waveform, int block_num, int min_tiers)
 
 	*/
 
-	Peakbuf* peakbuf = wf_get_peakbuf_n(waveform, block_num);
+	Peakbuf* peakbuf = waveform_get_peakbuf_n(waveform, block_num);
 	g_return_if_fail(peakbuf);
 	short* buf = peakbuf->buf[WF_LEFT];
 	dbg(3, "peakbuf=%p buf0=%p", peakbuf, peakbuf->buf);

@@ -19,7 +19,7 @@ uniform sampler1D tex1d;
 uniform sampler1D tex1d_neg;
 uniform sampler1D tex1d_3;
 uniform sampler1D tex1d_4;
-uniform vec2 peaks[128];
+//uniform vec2 peaks[128];
 uniform float peaks_per_pixel;
 //uniform float glheight;         //these are gl coordinates, not screen pixels.
 uniform float top;
@@ -33,7 +33,7 @@ void main(void)
 {
 	float object_height = (bottom - top) / 256.0; //transform to texture coords
 	//float height = 1.0;
-	float mid = object_height / 2.0;
+	//float mid = object_height / 2.0;
 	/*
 	vec2 peak = peaks[int(MCposition.x)];
 	float colour = 0.0;
@@ -50,13 +50,16 @@ void main(void)
 	float d = 1.0 / 256.0;
 
 	float y = gl_TexCoord[0].t;
-	mid = 0.5; //if using texture coords, mid is always 0.5
+	float mid = 0.5; //if using texture coords, mid is always 0.5
 	float mid_rhs = 0.75;
 	float h = 1.0;
 	if(n_channels == 2){
 		mid = 0.25;
 		h = 0.5;
 	}
+	float over_sample = 2.0;
+	d = d / over_sample;
+	float alpha_range = 0.5;
 	//float y = MCposition.y / 256.0;
 	//float y = (MCposition.y - top) / (bottom - top);
 	float val = 0.0;
@@ -64,19 +67,20 @@ void main(void)
 	float peak_pstv;
 	float peak_negv;
 	int i;
-	for(i=0;i<int(max(1, peaks_per_pixel));i++){
+	float aa = alpha_range / (peaks_per_pixel * over_sample);
+	for(i=0;i<int(max(1, peaks_per_pixel * over_sample));i++){
 		if (y > mid) {
 			peak_pstv = texture1D(tex1d,     gl_TexCoord[0].x + float(i) * d).a;
-			if(y - mid < peak_pstv * h) val += 0.5 / peaks_per_pixel;
+			if(y - mid < peak_pstv * h) val += aa;
 		} else {
 			peak_negv = texture1D(tex1d_neg, gl_TexCoord[1].x + float(i) * d).a;
-			if(-y + mid < peak_negv * h) val += 0.5 / peaks_per_pixel;
+			if(-y + mid < peak_negv * h) val += aa;
 			//val += peak_negv / (peaks_per_pixel);
 		}
 
 		if(n_channels == 2){
-			peak_pstv = texture1D(tex1d_3, gl_TexCoord[2].x + 1.0 * float(i) * d).a;
-			peak_negv = texture1D(tex1d_4, gl_TexCoord[3].x + 1.0 * float(i) * d).a;
+			peak_pstv = texture1D(tex1d_3, gl_TexCoord[2].x + float(i) * d).a;
+			peak_negv = texture1D(tex1d_4, gl_TexCoord[3].x + float(i) * d).a;
 			if (y > mid_rhs) {
 				if(y - mid_rhs < peak_pstv * h) val += 0.5 / peaks_per_pixel;
 			} else if (y > 0.5) {
@@ -85,9 +89,27 @@ void main(void)
 			}
 		}
 	}
-	if(val > 0.0) val += 0.5; //min value
+
+	//pre + post
+	//TODO this should account for over_sample
+	if (y > mid) {
+		peak_pstv = texture1D(tex1d,     gl_TexCoord[0].x + (-1.0) * over_sample * d).a;
+		if(peak_pstv * h * 0.95 > y - mid) val += 0.25 * alpha_range / peaks_per_pixel;
+
+		peak_pstv = texture1D(tex1d,     gl_TexCoord[0].x + peaks_per_pixel * over_sample * d).a;
+		if(peak_pstv * h * 0.95 > y - mid) val += 0.25 * alpha_range / peaks_per_pixel;
+	} else {
+		peak_negv = texture1D(tex1d_neg, gl_TexCoord[1].x + (-1.0) * over_sample * d).a;
+		if(-y + mid < peak_negv * h) val += 0.25 * alpha_range / peaks_per_pixel;
+
+		peak_negv = texture1D(tex1d_neg, gl_TexCoord[1].x + peaks_per_pixel * over_sample * d).a;
+		if(-y + mid < peak_negv * h) val += 0.25 * alpha_range / peaks_per_pixel;
+	}
+
+	if(val > 0.0) val += (1.0 - alpha_range); //min value
 
 	//antialiasing:
+	/*
 	if(peaks_per_pixel < 1.1){
 		if (y > mid) {
 			float y_ = y - mid;   //range: 0.0 - 0.5
@@ -110,6 +132,7 @@ void main(void)
 			}
 		}
 	}
+	*/
 
 	gl_FragColor = vec4(min(1.0, val)) * fg_colour;
 	//gl_FragColor = vec4(val, val, val, 0.5)// * fg_colour;

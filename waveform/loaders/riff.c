@@ -64,7 +64,7 @@ wf_load_riff_peak(Waveform* wv, const char* peak_file, size_t size)
 	uint32_t bytes = sfinfo.frames * peak_byte_depth * WF_PEAK_VALUES_PER_SAMPLE;
 
 	short* read_buf = (sfinfo.channels == 1)
-		? wf_peak_malloc(wv, bytes) //no deinterleaving required, so can read directly into the peak buffer.
+		? waveform_peak_malloc(wv, bytes) //no deinterleaving required, so can read directly into the peak buffer.
 		: g_malloc(bytes);
 
 	//read the whole peak file into memory:
@@ -84,8 +84,8 @@ wf_load_riff_peak(Waveform* wv, const char* peak_file, size_t size)
 		wv->priv->peak.buf[ch_num] = read_buf;
 	}else if(sfinfo.channels == 2){
 		short* buf[WF_MAX_CH] = {
-			wf_peak_malloc(wv, bytes / sfinfo.channels),
-			wf_peak_malloc(wv, bytes / sfinfo.channels)
+			waveform_peak_malloc(wv, bytes / sfinfo.channels),
+			waveform_peak_malloc(wv, bytes / sfinfo.channels)
 		};
 		int i; for(i=0;i<readcount_frames/(2);i++){
 			int c; for(c=0;c<sfinfo.channels;c++){

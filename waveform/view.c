@@ -221,7 +221,7 @@ void
 waveform_view_set_waveform (WaveformView* view, Waveform* waveform)
 {
 	PF0;
-	if(__drawing) gwarn("set_waveform called while already drawing");
+	if(__wf_drawing) gwarn("set_waveform called while already drawing");
 	if(view->waveform){
 		wf_canvas_remove_actor(view->priv->canvas, view->priv->actor);
 		g_object_unref(view->waveform);
@@ -386,7 +386,7 @@ waveform_view_on_expose (GtkWidget* widget, GdkEventExpose* event)
 	if(!GTK_WIDGET_REALIZED(widget)) return true;
 	if(!gl_initialised) return true;
 
-	START_DRAW {
+	WF_START_DRAW {
 		glClearColor(0.0, 0.0, 0.0, 1.0);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 

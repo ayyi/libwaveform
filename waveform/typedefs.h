@@ -26,6 +26,8 @@ typedef struct _buf             RmsBuf;
 typedef struct _waveform_canvas WaveformCanvas;
 typedef struct _waveform_actor  WaveformActor;
 typedef struct __gl_block       WfGlBlock;
+typedef struct _textures_hi     WfTexturesHi;
+typedef struct _texture_hi      WfTextureHi;
 typedef struct _waveform_priv   WaveformPriv;
 typedef struct _audio_data      WfAudioData;
 typedef struct _vp              WfViewPort; 

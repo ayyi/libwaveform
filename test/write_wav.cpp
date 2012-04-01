@@ -113,10 +113,10 @@ Noise noise;
 class KPS
 {
   public:
-	double fslider0; // resonator attenuation
-	double fslider1; // excitation (samples) ?
-	double fslider3; // duration (samples) ?
-	double gain;     // output level
+	double resonator_attenuation; // resonator attenuation
+	double fslider1;              // excitation (samples) ?
+	double fslider3;              // duration (samples) ?
+	double gain;                  // output level
 
   private:
 	double fRec0[3];
@@ -129,10 +129,10 @@ class KPS
   public:
 	void init()
 	{
-		fslider0 = 0.1;   // resonator attenuation
-		fslider1 = 128.0; // excitation (samples) ?
-		fslider3 = 128.0; // duration (samples) ?
-		gain     = 1.0;   // output level
+		resonator_attenuation = 0.1; // resonator attenuation
+		fslider1 = 128.0;            // excitation (samples) ?
+		fslider3 = 128.0;            // duration (samples) ?
+		gain     = 1.0;              // output level
 
 		IOTA = 0;
 		fRec0[1] = 0;
@@ -147,7 +147,7 @@ class KPS
 
 	void compute (int count, double** input, double** output)
 	{
-		float fSlow0 = (0.5f * (1.0f - fslider0));
+		float fSlow0 = (0.5f * (1.0f - resonator_attenuation));
 		float fSlow1 = (1.0f / fslider1);
 		float fSlow2 = 1.0;// on/off
 		float fSlow3 = (4.656612875245797e-10f * gain);
@@ -187,11 +187,11 @@ class CPGRS
 	float     sustain;       // interface->addHorizontalSlider("sustain", &fslider1, 0.5f, 0.0f, 1.0f, 0.01f);
 	float     release;       // interface->addHorizontalSlider("release", &fslider2, 0.2f, 0.0f, 1.0f, 0.001f);
 	float     decay;         // interface->addHorizontalSlider("decay",   &fslider3, 0.3f, 0.0f, 1.0f, 0.001f);
-	float     fentry0;       // "freq", 4.4e+02f, 2e+01f, 2e+04f, 1.0f
+	float     freq;          // "freq", 4.4e+02f, 2e+01f, 2e+04f, 1.0f
 
   private:
 	float     fSamplingFreq;
-	float     fslider0;      // 2-filter: addHorizontalSlider("bandwidth (Hz)", &fslider0, 1e+02f, 2e+01f, 2e+04f, 1e+01f);
+	float     filter_bandwidth; // 2-filter: addHorizontalSlider("bandwidth (Hz)", &fslider0, 1e+02f, 2e+01f, 2e+04f, 1e+01f);
 	float     fConst0;
 	float     fConst1;
 	float     on_off_button; // gate (on/off)
@@ -209,16 +209,16 @@ class CPGRS
 	{
 		t = 0;
 
-		gain = 8.0;
+		gain    = 8.0;
 		sustain = 0.5f;
 		release = 0.2f;
-		decay = 0.3f;
-		attack = 0.01f;
+		decay   = 0.3f;
+		attack  = 0.01f;
 
 		fSamplingFreq = 44100;
-		fslider0 = 1e+02f;
+		filter_bandwidth = 1e+02f;
 		fConst0 = (3.141592653589793f / fSamplingFreq);
-		fentry0 = 4.4e+02f;
+		freq = 4.4e+02f;
 		fConst1 = (6.283185307179586f / fSamplingFreq);
 		on_off_button = 0.0;
 		for (int i=0; i<2; i++) iRec1[i] = 0;
@@ -235,8 +235,8 @@ class CPGRS
 	{
 		if(!(t % 4096)) on_off_button = !on_off_button;
 
-		float   fSlow0 = expf((0 - (fConst0 * fslider0)));
-		float   fSlow1 = (2 * cosf((fConst1 * fentry0)));
+		float   fSlow0 = expf((0 - (fConst0 * filter_bandwidth)));
+		float   fSlow1 = (2 * cosf((fConst1 * freq)));
 		float   fSlow2 = on_off_button;
 		int     iSlow3 = (fSlow2 > 0);
 		int     iSlow4 = (fSlow2 <= 0);
@@ -423,8 +423,48 @@ int main(int argc, char* argv[])
 		}
 	}
 	ff += 16384;
+	cpgrs.release = 0.01;  // <----
+	cpgrs.freq = 100.0;    // lower freq
+	for(int a=0;a<16384;a++){
+		int c; for(c=0;c<n_channels;c++){
+			output[c] = buffer + ff * n_channels + a * n_channels + c;
+		}
+		cpgrs.compute(n_channels, (float**)input, (float**)output_f);
+		for(c=0;c<n_channels;c++){
+			output[0][c] = output_f[0][c];
+		}
+	}
+	ff += 16384;
 	cpgrs.release = 0.01; // <----
-	cpgrs.fentry0 = 2e+01f; // low freq
+	cpgrs.freq = 2.0;     // low freq
+	for(int a=0;a<16384;a++){
+		int c; for(c=0;c<n_channels;c++){
+			output[c] = buffer + ff * n_channels + a * n_channels + c;
+		}
+		cpgrs.compute(n_channels, (float**)input, (float**)output_f);
+		for(c=0;c<n_channels;c++){
+			output[0][c] = output_f[0][c];
+		}
+	}
+	ff += 16384;
+	cpgrs.freq = 440.0;
+	cpgrs.attack = 1.0f; // <----
+	cpgrs.release = 1.0f; // <----
+	cpgrs.gain = 32.0;
+	for(int a=0;a<16384;a++){
+		int c; for(c=0;c<n_channels;c++){
+			output[c] = buffer + ff * n_channels + a * n_channels + c;
+		}
+		cpgrs.compute(n_channels, (float**)input, (float**)output_f);
+		for(c=0;c<n_channels;c++){
+			output[0][c] = output_f[0][c];
+		}
+	}
+	ff += 16384;
+	cpgrs.freq = 2000.0;
+	cpgrs.attack = 1.0f; // <----
+	cpgrs.release = 1.0f; // <----
+	cpgrs.gain = 16.0;
 	for(int a=0;a<16384;a++){
 		int c; for(c=0;c<n_channels;c++){
 			output[c] = buffer + ff * n_channels + a * n_channels + c;

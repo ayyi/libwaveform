@@ -17,6 +17,12 @@
 #ifndef __wf_private_h__
 #define __wf_private_h__
 
+#ifdef USE_GDK_PIXBUF
+#include <gtk/gtk.h>
+#else
+#define GdkColor void
+#endif
+
 #define WF_CACHE_BUF_SIZE (1 << 15)
 #define WF_PEAK_STD_TO_LO 16
 #define WF_PEAK_RATIO_LOW (WF_PEAK_RATIO * WF_PEAK_STD_TO_LO) // the number of samples per entry in a low res peakbuf.
@@ -73,6 +79,22 @@ struct __gl_block
 	double             last_fraction;     // the fraction of the last block that is actually used.
 };
 
+struct _t
+{
+	unsigned*          main;
+	unsigned*          neg;
+};
+
+struct _texture_hi
+{
+	struct _t t[WF_MAX_CH];
+};
+
+struct _textures_hi
+{
+	GHashTable*        textures;
+};
+
 typedef struct _buf_stereo
 {
 	float*     buf[WF_STEREO];
@@ -104,18 +126,19 @@ typedef struct _drect { double x1, y1, x2, y2; } DRect;
 WF*            wf_get_instance         ();
 uint32_t       wf_peakbuf_get_max_size (int n_tiers);
 
-short*         wf_peak_malloc            (Waveform*, uint32_t bytes);
-Peakbuf*       wf_get_peakbuf_n          (Waveform*, int);
-void           wf_peakbuf_regen          (Waveform*, int block_num, int min_output_resolution);
-void           waveform_print_blocks     (Waveform*);
+short*         waveform_peak_malloc        (Waveform*, uint32_t bytes);
+Peakbuf*       waveform_get_peakbuf_n      (Waveform*, int);
+void           waveform_peakbuf_regen      (Waveform*, int block_num, int min_output_resolution);
+int            waveform_get_n_audio_blocks (Waveform*);
+void           waveform_print_blocks       (Waveform*);
 
-void           waveform_peak_to_alphabuf (Waveform*, AlphaBuf*, int scale, int* start, int* end, GdkColor* colour, uint32_t colour_bg);
-void           waveform_rms_to_alphabuf  (Waveform*, AlphaBuf*, int* start, int* end, double samples_per_px, GdkColor* colour, uint32_t colour_bg);
+void           waveform_peak_to_alphabuf   (Waveform*, AlphaBuf*, int scale, int* start, int* end, GdkColor* colour, uint32_t colour_bg);
+void           waveform_rms_to_alphabuf    (Waveform*, AlphaBuf*, int* start, int* end, double samples_per_px, GdkColor* colour, uint32_t colour_bg);
 
-WfGlBlock*     wf_texture_array_new      (int size, int n_channels);
+WfGlBlock*     wf_texture_array_new        (int size, int n_channels);
 
-void           wf_audio_free           (Waveform*);
-gboolean       wf_load_audio_block     (Waveform*, int block_num);
+void           waveform_audio_free         (Waveform*);
+gboolean       waveform_load_audio_block   (Waveform*, int block_num);
 
 void           wf_actor_init           ();
 WaveformActor* wf_actor_new            (Waveform*);

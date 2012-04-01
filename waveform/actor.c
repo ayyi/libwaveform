@@ -41,13 +41,13 @@
 #include "waveform/shaderutil.h"
 #include "waveform/hi_res.h"
 #include "waveform/alphabuf.h"
-//#include "gl_utils.h" //FIXME
-extern void use_texture(int texture);
+#include "waveform/gl_utils.h"
 #include "waveform/actor.h"
 #include "waveform/gl_ext.h"
 
 /*
-	Mipmapping is need because without it, peaks can be missed at small zoom, and can be too blurry.
+	Mipmapping is needed when (shaders not available) because without it,
+	peaks can be missed at small zoom, and can be too blurry.
 
 	However, it is problematic:
 	- doesnt work with non-square textures (is supposed to; possible driver issues)
@@ -57,6 +57,7 @@ extern void use_texture(int texture);
 #undef USE_MIPMAPPING
 
 #define gl_error (glGetError() != GL_NO_ERROR)
+#define gl_warn(A, ...) { if(gl_error) gwarn(A, ##__VA_ARGS__); }
 
 Shader sh_main = {"peak.vert", "peak.frag", 0};
 
@@ -136,6 +137,33 @@ wf_actor_new(Waveform* w)
 		dbg(2, ">>> block=%i", block);
 
 		WaveformActor* a = _actor;
+
+		void _load_texture_hi(WaveformActor* actor, int block)
+		{
+			/*
+			WfViewPort viewport; wf_actor_get_viewport(actor, &viewport);
+			*/
+			WfRectangle* rect = &a->rect;
+			double zoom_end = rect->len / a->region.len;
+			double zoom_start = a->priv->animatable.rect_len.val.f / a->priv->animatable.len.val.i;
+			if(zoom_start == 0.0) zoom_start = zoom_end;
+			//dbg(1, "zoom=%.4f-->%.4f (%.4f)", zoom_start, zoom_end, ZOOM_MED);
+			int resolution1 = get_resolution(zoom_start);
+			int resolution2 = get_resolution(zoom_end);
+
+			if(resolution1 == 16 || resolution2 == 16){
+				dbg(0, "hi");
+				//TODO check this block is within current viewport
+
+				WfTextureHi* texture = g_hash_table_lookup(a->waveform->textures_hi->textures, &block);
+				if(!texture){
+					//dbg(0, "inserting... %u", texture->t[WF_LEFT].main);
+					g_hash_table_insert(a->waveform->textures_hi->textures, &block, texture);
+				}
+			}
+		}
+		_load_texture_hi(a, block);
+
 		if(a->canvas->draw) wf_canvas_queue_redraw(a->canvas);
 	}
 	a->priv->peakdata_ready_handler = g_signal_connect (w, "peakdata-ready", (GCallback)_wf_actor_on_peakdata_available, a);
@@ -558,6 +586,22 @@ get_resolution(double zoom)
 static void
 _wf_actor_allocate_hi(WaveformActor* a)
 {
+	/*
+
+	How many textures do we need?
+	16           / sec
+	16 * 60      / minute
+	16 * 60 * 60 / hour    => 360 * 16 = 5760
+		-too big to have one index? hashtable?
+
+	possibilities:
+		- say that is inherently uncachable
+		- have per-waveform texture cache
+		- add to normal texture cache (will cause other stuff to be purged prematurely?)
+		- add low-priority flag to regular texture cache?
+		- have separate low-priority texture cache?       ****
+
+	*/
 	PF;
 	Waveform* w = a->waveform;
 	g_return_if_fail(!w->offline);
@@ -782,7 +826,7 @@ _set_gl_state_for_block(WaveformCanvas* wfc, Waveform* w, WfGlBlock* textures, i
 	}else
 		use_texture(textures->peak_texture[0].main[b]);
 
-	if(gl_error) gwarn("cannot bind texture: block=%i: %i", b, textures->peak_texture[0].main[b]);
+	gl_warn("cannot bind texture: block=%i: %i", b, textures->peak_texture[0].main[b]);
 
 	glColor4f(fg.r, fg.g, fg.b, alpha); //seems we have to set colour _after_ binding... ?
 }
@@ -791,12 +835,14 @@ _set_gl_state_for_block(WaveformCanvas* wfc, Waveform* w, WfGlBlock* textures, i
 static inline float get_peaks_per_pixel(WaveformCanvas* wfc, WfSampleRegion* region, WfRectangle* rect, int resolution)
 {
 	//eg: for 51200 frame sample 256pixels wide: n_peaks=51200/256=200, ppp=200/256=0.8
+
 	float region_width_px = wf_canvas_gl_to_px(wfc, rect->len);
-	dbg(2, "region_width_px=%.2f", region_width_px);
 	float peaks_per_pixel = ceil(((float)region->len / WF_PEAK_TEXTURE_SIZE) / region_width_px);
+	dbg(2, "region_width_px=%.2f peaks_per_pixel=%.2f (%.2f)", region_width_px, peaks_per_pixel, ((float)region->len / WF_PEAK_TEXTURE_SIZE) / region_width_px);
 	if(resolution == 1024) peaks_per_pixel /= 16;
 	return peaks_per_pixel;
 }
+
 
 void
 wf_actor_paint(WaveformActor* actor)
@@ -945,7 +991,7 @@ dbg(1, "left=%f samples=%f %Li", block_rect.left, block_rect.left / zoom, left_s
 
 				//hi res
 				case 13 ... 255:
-					;Peakbuf* peakbuf = wf_get_peakbuf_n(w, b);
+					;Peakbuf* peakbuf = waveform_get_peakbuf_n(w, b);
 					if(peakbuf){
 						dbg(1, "  b=%i x=%.2f", b, x);
 
@@ -1025,7 +1071,7 @@ dbg(1, "left=%f samples=%f %Li", block_rect.left, block_rect.left / zoom, left_s
 #endif
 						}
 
-						if(b == w->textures->size - 1) dbg(1, "last sample block. fraction=%.2f", w->textures->last_fraction);
+						if(b == w->textures->size - 1) dbg(2, "last sample block. fraction=%.2f", w->textures->last_fraction);
 						//TODO check what happens here if we allow non-square textures
 #if 0 // !! doesnt matter if its the last block or not, we must still take the region into account.
 						tex_pct = (i == w->textures->size - 1)
@@ -1216,9 +1262,11 @@ glEnable(GL_TEXTURE_1D);
 		//glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
 		glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_WRAP_T, GL_CLAMP);
 		glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+		//
 		//using MAG LINEAR smooths nicely but can reduce the peak.
-//		glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+		//
+		glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+//glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 		glTexImage1D(GL_TEXTURE_1D, 0, GL_ALPHA8, WF_PEAK_TEXTURE_SIZE, 0, GL_ALPHA, GL_UNSIGNED_BYTE, d->buf);
 
 		if(gl_error) gwarn("gl error: unit=%i buf=%p tid=%i", d->tex_unit, d->buf, d->tex_id);

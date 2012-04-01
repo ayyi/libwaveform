@@ -2,13 +2,12 @@
 - test with Nouveau driver
 - test pkgconfig file
 - both texture mode and shader modes have spurious lines.
-- fix paths for test wavs (can get dir of current executable?)
-- remove all stdout
 - documentation
 - peak.c / peak.h need renaming (split?)
 
 later:
 
+- add api to handle changes to the wave for editor apps.
 - lv2
 - grid lines
 - cairo / clutter

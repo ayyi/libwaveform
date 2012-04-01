@@ -26,7 +26,7 @@ gl_init(WaveformView* view)
 {
 	if(gl_initialised) return;
 
-	START_DRAW {
+	WF_START_DRAW {
 
 		if(wf_get_instance()->pref_use_shaders && !shaders_supported()){
 			printf("gl shaders not supported. expect reduced functionality.\n");

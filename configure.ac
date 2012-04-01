@@ -122,6 +122,9 @@ AM_CONDITIONAL(ENABLE_LV2, test "$enable_lv2" != "no")
 AC_SUBST(LV2_LDFLAGS)
 AC_SUBST(LV2_CFLAGS)
 
+dnl AM_CONDITIONAL(ENABLE_GDK_PIXBUF, test "yes" != "no")
+AC_DEFINE(USE_GDK_PIXBUF, 1, [enable support for Gdk Pixbuf])
+
 dnl ------------------ test progs ------------------------
 
 AC_ARG_ENABLE(test, AS_HELP_STRING([--enable-test],[ compile the test programs]), enable_test=yes, enable_test=no)

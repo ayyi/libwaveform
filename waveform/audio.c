@@ -55,13 +55,13 @@ static void        audio_cache_print  ();
 
 
 void
-wf_audio_free(Waveform* waveform)
+waveform_audio_free(Waveform* waveform)
 {
 	PF0;
 	g_return_if_fail(waveform);
 
 	WfAudioData* audio = waveform->priv->audio_data;
-	if(audio){
+	if(audio && audio->buf16){
 		int b; for(b=0;b<audio->n_blocks;b++){
 			WfBuf16* buf16 = audio->buf16[b];
 			if(buf16){
@@ -77,7 +77,7 @@ wf_audio_free(Waveform* waveform)
 
 
 gboolean
-wf_load_audio_block(Waveform* waveform, int block_num)
+waveform_load_audio_block(Waveform* waveform, int block_num)
 {
 	//load a single audio block for the case where the audio is on a local filesystem.
 
@@ -196,7 +196,7 @@ wf_load_audio_block(Waveform* waveform, int block_num)
 static gboolean
 peakbuf_is_present(Waveform* waveform, int block_num)
 {
-	Peakbuf* peakbuf = wf_get_peakbuf_n(waveform, block_num);
+	Peakbuf* peakbuf = waveform_get_peakbuf_n(waveform, block_num);
 	if(!peakbuf){ dbg(2, "no"); return FALSE; }
 	dbg(2, "%i: %s", block_num, peakbuf->buf[0] ? "yes" : "no");
 	return (gboolean)peakbuf->buf[0];
@@ -286,7 +286,7 @@ waveform_load_audio_async(Waveform* waveform, int block_num, int n_tiers_needed)
 	//if the file is local we access it directly, otherwise send a msg.
 	//-for now, we assume the file is local.
 
-	//if the audio file is too big for the cache, the multiple parallel calls may fail.
+	//if the audio file is too big for the cache, then multiple parallel calls may fail.
 	//-requests should be done sequentially to avoid this.
 	// TODO this would be helped if the buffer was not allocated until queue processing.
 
@@ -359,8 +359,8 @@ waveform_load_audio_async(Waveform* waveform, int block_num, int n_tiers_needed)
 		{
 			PeakbufQueueItem* peak = item;
 
-			if(wf_load_audio_block(peak->waveform, peak->block_num)){
-				wf_peakbuf_regen(peak->waveform, peak->block_num, peak->min_output_tiers);
+			if(waveform_load_audio_block(peak->waveform, peak->block_num)){
+				waveform_peakbuf_regen(peak->waveform, peak->block_num, peak->min_output_tiers);
 
 				g_signal_emit_by_name(peak->waveform, "peakdata-ready", peak->block_num);
 			}

@@ -54,7 +54,7 @@ wf_load_ardour_peak(Waveform* wv, const char* peak_file, size_t size)
 	close(fp);
 
 	//convert from float to short
-	short* buf = wf_peak_malloc(wv, n_frames * sizeof(short) * WF_PEAK_VALUES_PER_SAMPLE);
+	short* buf = waveform_peak_malloc(wv, n_frames * sizeof(short) * WF_PEAK_VALUES_PER_SAMPLE);
 	int i; for(i=0;i<n_frames;i++){
 		//ardour peak files have negative peak first. ABS is used because values occasionally have incorrect sign.
 		buf[2 * i    ] =   ABS(read_buf[2 * i + 1]  * (1 << 15));

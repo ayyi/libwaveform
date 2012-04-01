@@ -76,6 +76,7 @@ struct _Waveform
 
 	WfGlBlock*         textures;          // opengl textures.
 	WfGlBlock*         textures_lo;       // low res textures.
+	WfTexturesHi*      textures_hi;
 
 	//float            max_db;
 
@@ -128,19 +129,25 @@ gboolean   waveform_peak_is_loaded     (Waveform*, int ch_num);
 RmsBuf*    waveform_load_rms_file      (Waveform*, int ch);
 
 WfBuf16*   waveform_load_audio_async   (Waveform*, int block_num, int n_tiers_needed);
-int        waveform_get_n_audio_blocks (Waveform*);
 short      waveform_find_max_audio_level(Waveform*);
 
-#define USE_GDK_PIXBUF //TODO
 #ifdef USE_GDK_PIXBUF
 #include <gtk/gtk.h>
+//#else
+//#ifndef GdkPixbuf
+//#define GdkPixbuf void
+//#endif
+//#if !defined(GdkColor)
+//#define GdkColor void
+//#endif
+#endif
 typedef void (WfPixbufCallback)(Waveform*, GdkPixbuf*, gpointer);
 
 void       waveform_peak_to_pixbuf       (Waveform*, GdkPixbuf*, WfSampleRegion*, uint32_t colour, uint32_t bg_colour);
 void       waveform_peak_to_pixbuf_async (Waveform*, GdkPixbuf*, WfSampleRegion*, uint32_t colour, uint32_t bg_colour, WfPixbufCallback, gpointer);
 void       waveform_peak_to_pixbuf_full  (Waveform*, GdkPixbuf*, uint32_t src_inset, int* start, int* end, double samples_per_px, uint32_t colour, uint32_t bg_colour, float gain);
 void       waveform_rms_to_pixbuf        (Waveform*, GdkPixbuf*, uint32_t src_inset, int* start, int* end, double samples_per_px, GdkColor*, uint32_t bg_colour, float gain);
-#endif
+
 int32_t    wf_get_peakbuf_len_frames     ();
 
 #ifdef __wf_private__

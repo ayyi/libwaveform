@@ -220,6 +220,7 @@ wf_canvas_gl_to_px(WaveformCanvas* wfc, float x)
 	//convert from gl coords to screen pixels
 
 	#warning _gl_to_px TODO where viewport not set.
+	if(!wfc->viewport) return x;
 
 	//TODO move to resize handler?
 	gint drawable_width_px, height;
