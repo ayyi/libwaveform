@@ -88,7 +88,7 @@ texture_cache_gen()
 	guint* textures = g_malloc0(WF_TEXTURE_ALLOCATION_INCREMENT * sizeof(guint)); //just testing but makes no difference
 #endif
 	glGenTextures(WF_TEXTURE_ALLOCATION_INCREMENT, textures);
-	dbg(1, "size=%i-->%i textures=%u...%u", size-WF_TEXTURE_ALLOCATION_INCREMENT, size, textures[0], textures[WF_TEXTURE_ALLOCATION_INCREMENT-1]);
+	dbg(2, "size=%i-->%i textures=%u...%u", size-WF_TEXTURE_ALLOCATION_INCREMENT, size, textures[0], textures[WF_TEXTURE_ALLOCATION_INCREMENT-1]);
 	if(glGetError() != GL_NO_ERROR) gwarn("failed to generate %i textures. cache_size=%i", WF_TEXTURE_ALLOCATION_INCREMENT, c->t->len);
 
 	//check the new textures are not already in the cache

@@ -20,6 +20,7 @@
 
 */
 #define __wf_private__
+#define __wf_canvas_priv__
 #include "config.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -36,11 +37,11 @@
 #include "waveform/peak.h"
 #include "waveform/texture_cache.h"
 #include "waveform/shaderutil.h"
-//#include "gl_utils.h" //FIXME
-extern void use_texture(int texture);
+#include "waveform/gl_utils.h"
 #include "waveform/actor.h"
 #include "waveform/canvas.h"
 #include "waveform/alphabuf.h"
+#include "waveform/shader.h"
 #include "waveform/gl_ext.h"
 
 #define WAVEFORM_START_DRAW(wa) \
@@ -54,17 +55,29 @@ extern void use_texture(int texture);
 #define WAVEFORM_IS_DRAWING(wa) \
 	(wa->_draw_depth > 0)
 
-extern Shader sh_main;
-static UniformInfo uniforms[] = {
-   {"tex1d",     1, GL_INT,   { 0, 0, 0, 0 }, -1}, // LHS +ve - 0 corresponds to glActiveTexture(GL_TEXTURE0);
-   {"tex1d_neg", 1, GL_INT,   { 1, 0, 0, 0 }, -1}, // LHS -ve - 1 corresponds to glActiveTexture(GL_TEXTURE1);
-   {"tex1d_3",   1, GL_INT,   { 2, 0, 0, 0 }, -1}, // RHS +ve GL_TEXTURE2
-   {"tex1d_4",   1, GL_INT,   { 3, 0, 0, 0 }, -1}, // RHS -ve GL_TEXTURE3
-   END_OF_UNIFORMS
-};
+static void   wf_canvas_init_gl (WaveformCanvas*);
 
-static GLuint create_program         (WaveformCanvas*, Shader*, UniformInfo*);
-static void   wf_canvas_init_shaders (WaveformCanvas*);
+extern PeakShader peak_shader;
+extern BloomShader horizontal, vertical;
+extern AlphaMapShader tex2d;
+
+
+static void
+wf_canvas_init(WaveformCanvas* wfc)
+{
+	wfc->priv = g_new0(WfCanvasPriv, 1);
+
+	wfc->use_shaders = wf_get_instance()->pref_use_shaders;
+	wfc->sample_rate = 44100;
+	wfc->v_gain = 1.0;
+	wfc->texture_unit[0] = texture_unit_new(WF_TEXTURE0);
+	wfc->texture_unit[1] = texture_unit_new(WF_TEXTURE1);
+	wfc->texture_unit[2] = texture_unit_new(WF_TEXTURE2);
+	wfc->texture_unit[3] = texture_unit_new(WF_TEXTURE3);
+	wfc->use_1d_textures = wfc->use_shaders;
+	if(wfc->use_shaders) wf_canvas_init_gl(wfc);
+	//memset(&wfc->peak_shader, 0, sizeof(PeakShader));
+}
 
 
 WaveformCanvas*
@@ -79,17 +92,14 @@ wf_canvas_new(GdkGLContext* gl_context, GdkGLDrawable* gl_drawable)
 
 	WaveformCanvas* wfc = g_new0(WaveformCanvas, 1);
 	wfc->show_rms = true;
-	wfc->use_shaders = wf_get_instance()->pref_use_shaders;
 	wfc->gl_context = gl_context;
 	wfc->gl_drawable = gl_drawable;
-	wfc->sample_rate = 44100;
-	wfc->v_gain = 1.0;
+	wf_canvas_init(wfc);
 #ifdef WF_USE_TEXTURE_CACHE
 #if 0 // dont want to generate textures if this is not the first canvas. textures will be generated on demand anyway
 	texture_cache_gen();
 #endif
 #endif
-	if(wfc->use_shaders) wf_canvas_init_shaders(wfc);
 	return wfc;
 }
 
@@ -97,18 +107,18 @@ wf_canvas_new(GdkGLContext* gl_context, GdkGLDrawable* gl_drawable)
 WaveformCanvas*
 wf_canvas_new_from_widget(GtkWidget* widget)
 {
-	WaveformCanvas* wfc = g_new0(WaveformCanvas, 1);
-	wfc->use_shaders = wf_get_instance()->pref_use_shaders;
-	if(!(wfc->gl_drawable = gtk_widget_get_gl_drawable(widget))){
+	GdkGLDrawable* gl_drawable = gtk_widget_get_gl_drawable(widget);
+	if(!gl_drawable){
 		dbg(2, "cannot get drawable");
-		g_free(wfc);
 		return NULL;
 	}
-	dbg(2, "success");
+
+	WaveformCanvas* wfc = g_new0(WaveformCanvas, 1);
+	wfc->gl_drawable = gl_drawable; 
+	dbg(2, "got drawable");
 	wfc->gl_context = gtk_widget_get_gl_context(widget);
-	wfc->sample_rate = 44100;
-	wfc->v_gain = 1.0;
-	if(wfc->use_shaders) wf_canvas_init_shaders(wfc);
+	//int t; for(t=0;t<2;t++) wfc->texture_unit[t] = texture_unit_new(WF_TEXTURE0);
+	wf_canvas_init(wfc);
 	return wfc;
 }
 
@@ -118,6 +128,8 @@ wf_canvas_free (WaveformCanvas* wfc)
 {
 	PF;
 	if(wfc->_queued){ g_source_remove(wfc->_queued); wfc->_queued = false; }
+	//if(wfc->priv->peak_shader) g_free(wfc->priv->peak_shader);
+	g_free(wfc->priv);
 	g_free(wfc);
 }
 
@@ -133,23 +145,40 @@ wf_canvas_set_use_shaders(WaveformCanvas* wfc, gboolean val)
 	wf_get_instance()->pref_use_shaders = val;
 
 	if(wfc){
-		if(!val) wf_canvas_use_program(wfc, 0);
+		if(!val){
+			wf_canvas_use_program(wfc, 0);
+			wfc->use_1d_textures = false;
+		}
 		wfc->use_shaders = val;
 	}
 }
 
 
 static void
-wf_canvas_init_shaders(WaveformCanvas* wfc)
+wf_canvas_init_gl(WaveformCanvas* wfc)
 {
 	if(!glAttachShader) wf_actor_init();
 
-	if(sh_main.program){ gwarn("already done"); return; }
+	WfCanvasPriv* priv = wfc->priv;
+
+	if(priv->shaders.peak){ gwarn("already done"); return; }
 
 	WAVEFORM_START_DRAW(wfc) {
 
+		if(wf_get_instance()->pref_use_shaders && !shaders_supported()){
+			printf("gl shaders not supported. expect reduced functionality.\n");
+			wf_canvas_use_program(wfc, 0);
+			wfc->use_shaders = false;
+			wfc->use_1d_textures = false;
+		}
+		printf("GL_RENDERER = %s\n", (const char*)glGetString(GL_RENDERER));
+
 		if(wfc->use_shaders){
-			create_program(wfc, &sh_main, uniforms);
+			wf_shaders_init();
+			wfc->priv->shaders.peak = &peak_shader;
+			wfc->priv->shaders.vertical = &vertical;
+			wfc->priv->shaders.horizontal = &horizontal;
+			wfc->priv->shaders.tex2d = &tex2d;
 		}
 
 	} WAVEFORM_END_DRAW(wfc);
@@ -316,31 +345,6 @@ wf_canvas_load_texture_from_alphabuf(WaveformCanvas* wa, int texture_name, Alpha
 }
 
 
-static GLuint
-create_program(WaveformCanvas* wfc, Shader* sh, UniformInfo* uniforms)
-{
-	GLuint vert_shader = compile_shader_file(GL_VERTEX_SHADER, sh->vertex_file);
-	GLuint frag_shader = compile_shader_file(GL_FRAGMENT_SHADER, sh->fragment_file);
-
-	GLint status;
-	glGetShaderiv(frag_shader, GL_COMPILE_STATUS, &status);
-	if (status != GL_TRUE){
-		printf("shader compile error! %i\n", status);
-	}
-
-	GLuint program = sh->program = link_shaders(vert_shader, frag_shader);
-	dbg(2, "%u %u program=%u", vert_shader, frag_shader, program);
-
-	wf_canvas_use_program(wfc, program);
-
-	uniforms_init(program, uniforms);
-
-	sh->uniforms = uniforms;
-
-	return program;
-}
-
-
 void
 wf_canvas_set_share_list(WaveformCanvas* wfc)
 {
@@ -358,6 +362,8 @@ wf_canvas_set_rotation(WaveformCanvas* wfc, float rotation)
 void
 wf_canvas_use_program(WaveformCanvas* wfc, int program)
 {
+	//deprecated. use fn below.
+
 	if(wfc->use_shaders && (program != wfc->_program)){
 		dbg(2, "%i", program);
 		glUseProgram(wfc->_program = program);
@@ -365,26 +371,26 @@ wf_canvas_use_program(WaveformCanvas* wfc, int program)
 }
 
 
-#if 0
 void
-wf_canvas_get_viewport(WaveformCanvas* canvas, WfViewPort* viewport)
+wf_canvas_use_program_(WaveformCanvas* wfc, Shader* shader)
 {
-	/*
-	 THIS MAY BE REMOVED
+	int program = shader ? shader->program : 0;
 
-	 The canvas does not always have a Viewport set.
-	 If the canvas is only showing a single Waveform, it is easier to use the Rect of the Actor instead.
-	*/
-	g_return_if_fail(canvas);
+	if(wfc->use_shaders && (program != wfc->_program)){
+		dbg(2, "%i", program);
+		glUseProgram(wfc->_program = program);
 
-	if(canvas->viewport) *viewport = *canvas->viewport;
-	else {
-		viewport->left   = a->priv->animatable.rect_left.val.f;
-		viewport->top    = a->rect.top;
-		viewport->right  = viewport->left + a->priv->animatable.rect_len.val.f;
-		viewport->bottom = a->rect.top + a->rect.height;
+		//TODO do for all shaders
+		if(shader == (Shader*)&peak_shader){
+			//peak_shader.set_uniforms(peaks_per_pixel, rect.top, bottom, actor->fg_colour, n_channels);
+		}
+		if(shader == (Shader*)&vertical){
+			vertical.set_uniforms();
+		}
+		if(shader == (Shader*)&tex2d){
+			tex2d.set_uniforms();
+		}
 	}
 }
-#endif
 
 

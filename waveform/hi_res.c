@@ -33,7 +33,7 @@
 #include <GL/glxext.h>
 #include <gtkglext-1.0/gdk/gdkgl.h>
 #include <gtkglext-1.0/gtk/gtkgl.h>
-#include "waveform/gl_ext.h"
+//#include "waveform/gl_ext.h"
 #include "waveform/utils.h"
 #include "waveform/canvas.h"
 #include "waveform/actor.h"

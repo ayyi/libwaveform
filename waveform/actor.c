@@ -20,6 +20,7 @@
 
 */
 #define __wf_private__
+#define __wf_canvas_priv__
 #include "config.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -33,7 +34,9 @@
 #include <GL/glxext.h>
 #include <gtkglext-1.0/gdk/gdkgl.h>
 #include <gtkglext-1.0/gtk/gtkgl.h>
+#include "waveform/typedefs.h"
 #include "waveform/utils.h"
+#include "waveform/gl_utils.h"
 #include "waveform/peak.h"
 #include "waveform/audio.h"
 #include "waveform/texture_cache.h"
@@ -41,9 +44,16 @@
 #include "waveform/shaderutil.h"
 #include "waveform/hi_res.h"
 #include "waveform/alphabuf.h"
-#include "waveform/gl_utils.h"
+#include "waveform/fbo.h"
 #include "waveform/actor.h"
 #include "waveform/gl_ext.h"
+#define USE_FBO
+#ifdef USE_FBO
+#define multipass
+//#undef multipass
+#endif
+
+#define WF_SAMPLES_PER_TEXTURE (WF_PEAK_RATIO * WF_PEAK_TEXTURE_SIZE - TEX_BORDER)
 
 /*
 	Mipmapping is needed when (shaders not available) because without it,
@@ -56,10 +66,9 @@
 #define USE_MIPMAPPING
 #undef USE_MIPMAPPING
 
-#define gl_error (glGetError() != GL_NO_ERROR)
-#define gl_warn(A, ...) { if(gl_error) gwarn(A, ##__VA_ARGS__); }
-
-Shader sh_main = {"peak.vert", "peak.frag", 0};
+extern Shader sh_main;
+extern Shader shader2;
+extern BloomShader vertical;
 
 struct _actor_priv
 {
@@ -81,9 +90,13 @@ static void   wf_actor_allocate_block        (WaveformActor*, int b);
 static void   wf_actor_allocate_block_low    (WaveformActor*, int b);
 static void  _wf_actor_load_missing_blocks   (WaveformActor*);
 static void   wf_actor_load_texture1d        (Waveform*, WfGlBlock*, int b);
-static void   rgba_to_float                  (uint32_t rgba, float* r, float* g, float* b);
 static inline int get_resolution             (double zoom);
+static inline float get_peaks_per_pixel(WaveformCanvas* wfc, WfSampleRegion* region, WfRectangle* rect, int resolution);
+#if defined (USE_FBO) && defined (multipass)
+static void   block_to_fbo                   (WaveformActor*, int b, WfGlBlock*, int resolution);
+#endif
 
+static WfFBO* fbo_test = NULL;
 
 void
 wf_actor_init()
@@ -157,6 +170,7 @@ wf_actor_new(Waveform* w)
 
 				WfTextureHi* texture = g_hash_table_lookup(a->waveform->textures_hi->textures, &block);
 				if(!texture){
+					texture = waveform_texture_hi_new();
 					//dbg(0, "inserting... %u", texture->t[WF_LEFT].main);
 					g_hash_table_insert(a->waveform->textures_hi->textures, &block, texture);
 				}
@@ -204,7 +218,6 @@ wf_actor_set_region(WaveformActor* a, WfSampleRegion* region)
 
 	a->region = *region;
 
-//dbg(1, "---- len=%u %u", a->priv->animatable.len.start_val.i, MAX(1, a->region.len));
 	if(!start && !end) return;
 
 	if(a->rect.len > 0.00001) _wf_actor_load_missing_blocks(a);
@@ -336,9 +349,82 @@ wf_actor_get_last_visible_block(WfSampleRegion* region, WfRectangle* rect, doubl
 }
 
 
+#if defined (USE_FBO) && defined (multipass)
+static void
+block_to_fbo(WaveformActor* a, int b, WfGlBlock* blocks, int resolution)
+{
+#if 0 //nothing special to do
+	if(resolution == 1024){ //LO mode
+	}
+#endif
+
+	g_return_if_fail(!blocks->fbo[b]);
+	blocks->fbo[b] = fbo_new(0);
+	{
+		WaveformCanvas* wfc = a->canvas;
+		WaveformActor* actor = a;
+		WfGlBlock* textures = blocks;
+		WfSampleRegion region = {actor->priv->animatable.start.val.i, actor->priv->animatable.len.val.i}; //tmp
+		WfRectangle rect = {actor->rect.left, actor->rect.top, actor->priv->animatable.rect_len.val.f, actor->rect.height};
+		WfViewPort viewport; wf_actor_get_viewport(actor, &viewport); //TODO is just 0-256?
+
+		if(a->canvas->use_1d_textures){
+			WfFBO* fbo = blocks->fbo[b];
+			if(fbo){
+				draw_to_fbo(fbo) {
+					WfColourFloat fg; wf_colour_rgba_to_float(&fg, actor->fg_colour);
+					glClearColor(fg.r, fg.g, fg.b, 0.0); //background colour must be same as foreground for correct antialiasing
+					glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+
+					{
+						//set shader program
+						PeakShader* peak_shader = wfc->priv->shaders.peak;
+						wf_canvas_use_program(wfc, peak_shader->shader.program);
+
+						//uniforms:
+						float peaks_per_pixel = 1.0;//get_peaks_per_pixel(wfc, &region, &rect, get_resolution(rect.len / region.len));
+								viewport.right = 256;
+						dbg(2, "vpwidth=%.2f region_len=%i region_n_peaks=%.2f peaks_per_pixel=%.2f", (viewport.right - viewport.left), region.len, ((float)region.len / WF_PEAK_TEXTURE_SIZE), peaks_per_pixel);
+						float bottom = rect.top + rect.height;
+						int n_channels = textures->peak_texture[WF_RIGHT].main ? 2 : 1;
+						peak_shader->set_uniforms(peaks_per_pixel, rect.top, bottom, 0xffffffff, n_channels);
+					}
+
+					glEnable(GL_TEXTURE_1D);
+					int c = 0;
+					texture_unit_use_texture(a->canvas->texture_unit[0], textures->peak_texture[c].main[b]);
+					texture_unit_use_texture(a->canvas->texture_unit[1], textures->peak_texture[c].neg[b]);
+					if(a->waveform->priv->peak.buf[WF_RIGHT]){
+						c = 1;
+						texture_unit_use_texture(a->canvas->texture_unit[2], textures->peak_texture[c].main[b]);
+						texture_unit_use_texture(a->canvas->texture_unit[3], textures->peak_texture[c].neg[b]);
+					}
+
+					double top = 0;
+					double bot = fbo->height;
+					double x1 = 0;
+					double x2 = fbo->width;
+											double tex_start = 0, tex_pct = 1.0; //TODO
+					glBegin(GL_QUADS);
+					glMultiTexCoord2f(WF_TEXTURE0, tex_start + 0.0,     0.0); glMultiTexCoord2f(WF_TEXTURE1, tex_start + 0.0,     0.0); glMultiTexCoord2f(WF_TEXTURE2, tex_start + 0.0,     0.0); glMultiTexCoord2f(WF_TEXTURE3, tex_start + 0.0,     0.0); glVertex2d(x1, top);
+					glMultiTexCoord2f(WF_TEXTURE0, tex_start + tex_pct, 0.0); glMultiTexCoord2f(WF_TEXTURE1, tex_start + tex_pct, 0.0); glMultiTexCoord2f(WF_TEXTURE2, tex_start + tex_pct, 0.0); glMultiTexCoord2f(WF_TEXTURE3, tex_start + tex_pct, 0.0); glVertex2d(x2, top);
+					glMultiTexCoord2f(WF_TEXTURE0, tex_start + tex_pct, 1.0); glMultiTexCoord2f(WF_TEXTURE1, tex_start + tex_pct, 1.0); glMultiTexCoord2f(WF_TEXTURE2, tex_start + tex_pct, 1.0); glMultiTexCoord2f(WF_TEXTURE3, tex_start + tex_pct, 1.0); glVertex2d(x2, bot);
+					glMultiTexCoord2f(WF_TEXTURE0, tex_start + 0.0,     1.0); glMultiTexCoord2f(WF_TEXTURE1, tex_start + 0.0,     1.0); glMultiTexCoord2f(WF_TEXTURE2, tex_start + 0.0,     1.0); glMultiTexCoord2f(WF_TEXTURE3, tex_start + 0.0,     1.0); glVertex2d(x1, bot);
+					glEnd();
+				} end_draw_to_fbo;
+			} else gwarn("fbo not allocated");
+		}
+		gl_warn("fbo");
+	}
+}
+#endif
+
+
 static void
 wf_actor_allocate_block(WaveformActor* a, int b)
 {
+	// load resources (textures) required for display of the block.
+
 	g_return_if_fail(b >= 0);
 
 	Waveform* w = a->waveform;
@@ -352,14 +438,14 @@ wf_actor_allocate_block(WaveformActor* a, int b)
 		}else{
 			gwarn("removing invalid texture...");
 			texture_cache_remove(w, b);
-			//TODO gldelete texture?
+			//TODO gldelete texture? mostly likely wont help.
 			int c; for(c=0;c<WF_RIGHT;c++) blocks->peak_texture[c].main[b] = blocks->peak_texture[c].neg[b] = 0;
 		}
 	}
 
 	int texture_id = blocks->peak_texture[c].main[b] = texture_cache_assign_new((WaveformBlock){a->waveform, b});
 
-	if(a->canvas->use_shaders){
+	if(a->canvas->use_1d_textures){
 		guint* peak_texture[4] = {
 			&blocks->peak_texture[WF_LEFT ].main[b],
 			&blocks->peak_texture[WF_LEFT ].neg[b],
@@ -378,12 +464,19 @@ wf_actor_allocate_block(WaveformActor* a, int b)
 		}
 
 		wf_actor_load_texture1d(w, w->textures, b);
+
+#if defined (USE_FBO) && defined (multipass)
+		if(a->canvas->use_shaders)
+			block_to_fbo(a, b, blocks, 256);
+#endif
 	}else{
 		dbg(1, "* %i: texture=%i", b, texture_id);
-		AlphaBuf* alphabuf = wf_alphabuf_new(w, b, 1, false);
+		AlphaBuf* alphabuf = wf_alphabuf_new(w, b, 1, false, TEX_BORDER);
 		wf_canvas_load_texture_from_alphabuf(a->canvas, texture_id, alphabuf);
 		wf_alphabuf_free(alphabuf);
 	}
+
+	gl_warn("(end)");
 }
 
 
@@ -403,7 +496,7 @@ wf_actor_allocate_block_low(WaveformActor* a, int b)
 
 	int texture_id = blocks->peak_texture[c].main[b] = texture_cache_assign_new((WaveformBlock){a->waveform, b | WF_TEXTURE_CACHE_LORES_MASK});
 
-	if(a->canvas->use_shaders){
+	if(a->canvas->use_1d_textures){
 		guint* peak_texture[4] = {
 			&blocks->peak_texture[WF_LEFT ].main[b],
 			&blocks->peak_texture[WF_LEFT ].neg[b],
@@ -422,9 +515,12 @@ wf_actor_allocate_block_low(WaveformActor* a, int b)
 		}
 
 		wf_actor_load_texture1d(w, w->textures_lo, b);
+#if defined (USE_FBO) && defined (multipass)
+		block_to_fbo(a, b, blocks, 1024);
+#endif
 	}else{
 		dbg(1, "* %i: texture=%i", b, texture_id);
-		AlphaBuf* alphabuf = wf_alphabuf_new(w, b, WF_PEAK_STD_TO_LO, false);
+		AlphaBuf* alphabuf = wf_alphabuf_new(w, b, WF_PEAK_STD_TO_LO, false, TEX_BORDER);
 		wf_canvas_load_texture_from_alphabuf(a->canvas, texture_id, alphabuf);
 		wf_alphabuf_free(alphabuf);
 	}
@@ -667,6 +763,10 @@ _wf_actor_load_missing_blocks(WaveformActor* a)
 		int b; for(b=viewport_start_block;b<=viewport_end_block;b++){
 			wf_actor_allocate_block(a, b);
 		}
+
+#ifdef USE_FBO
+		if(a->canvas->use_shaders && !fbo_test) fbo_test = fbo_new_test();
+#endif
 	}
 
 	if(resolution1 == 1024 || resolution2 == 1024){
@@ -692,6 +792,7 @@ _wf_actor_load_missing_blocks(WaveformActor* a)
 			wf_actor_allocate_block_low(a, b);
 		}
 	}
+	gl_warn("");
 }
 
 
@@ -701,7 +802,7 @@ wf_actor_allocate(WaveformActor* a, WfRectangle* rect)
 	g_return_if_fail(a);
 	g_return_if_fail(rect);
 	WfActorPriv* _a = a->priv;
-	PF;
+	gl_warn("pre");
 
 	if(rect->len == a->rect.len && rect->left == a->rect.left && rect->height == a->rect.height && rect->top == a->rect.top) return;
 
@@ -728,7 +829,7 @@ wf_actor_allocate(WaveformActor* a, WfRectangle* rect)
 #endif
 	//				dbg(1, "%.2f --> %.2f", animatable->start_val.f, animatable->val.f);
 
-	if(a->canvas->draw){ //we control painting so can animate.
+	if(a->canvas->draw){ //we can initiate painting so can animate.
 
 		GList* l = _a->transitions;
 		for(;l;l=l->next){
@@ -744,95 +845,41 @@ wf_actor_allocate(WaveformActor* a, WfRectangle* rect)
 
 		wf_animation_start(animation);
 	}
-}
-
-
-typedef struct
-{
-	float r;
-	float g;
-	float b;
-} ColourFloat;
-
-//TODO move (is dupe)
-static void
-colour_rgba_to_float(ColourFloat* colour, uint32_t rgba)
-{
-	//returned values are in the range 0.0 to 1.0;
-
-	g_return_if_fail(colour);
-
-	colour->r = (float)((rgba & 0xff000000) >> 24) / 0xff;
-	colour->g = (float)((rgba & 0x00ff0000) >> 16) / 0xff;
-	colour->b = (float)((rgba & 0x0000ff00) >>  8) / 0xff;
-}
-
-
-static void
-_wf_actor_set_uniforms(float peaks_per_pixel, float top, float bottom, uint32_t _fg_colour, int n_channels)
-{
-#if 0
-	dbg(1, "peaks_per_pixel=%.2f top=%.2f bottom=%.2f n_channels=%i", peaks_per_pixel, top, bottom, n_channels);
-#endif
-
-	GLuint offsetLoc = glGetUniformLocation(sh_main.program, "peaks_per_pixel");
-	glUniform1f(offsetLoc, peaks_per_pixel);
-
-	offsetLoc = glGetUniformLocation(sh_main.program, "bottom");
-	glUniform1f(offsetLoc, bottom);
-
-	offsetLoc = glGetUniformLocation(sh_main.program, "top");
-	glUniform1f(offsetLoc, top);
-
-	glUniform1i(glGetUniformLocation(sh_main.program, "n_channels"), n_channels);
-
-	float fg_colour[4] = {0.0, 0.0, 0.0, ((float)(_fg_colour & 0xff)) / 0x100};
-	rgba_to_float(_fg_colour, &fg_colour[0], &fg_colour[1], &fg_colour[2]);
-	glUniform4fv(glGetUniformLocation(sh_main.program, "fg_colour"), 1, fg_colour);
+	gl_warn("gl error");
 }
 
 
 static inline void
-_set_gl_state_for_block(WaveformCanvas* wfc, Waveform* w, WfGlBlock* textures, int b, ColourFloat fg, float alpha)
+_set_gl_state_for_block(WaveformCanvas* wfc, Waveform* w, WfGlBlock* textures, int b, WfColourFloat fg, float alpha)
 {
 	g_return_if_fail(b < textures->size);
 
-	if(wfc->use_shaders){
+	if(wfc->use_1d_textures){
 		int c = 0;
-		glActiveTexture(GL_TEXTURE0);
-		glBindTexture(GL_TEXTURE_1D, textures->peak_texture[c].main[b]);
-
-		glActiveTexture(GL_TEXTURE1);
-		glBindTexture(GL_TEXTURE_1D, textures->peak_texture[c].neg[b]);
-		glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
-		glEnable(GL_BLEND);
-		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+		//dbg(0, "tex=%i", textures->peak_texture[c].main[b]);
+		//dbg(0, "%i %i %i", textures->peak_texture[c].main[0], textures->peak_texture[c].main[1], textures->peak_texture[c].main[2]);
+		texture_unit_use_texture(wfc->texture_unit[0], textures->peak_texture[c].main[b]);
+		texture_unit_use_texture(wfc->texture_unit[1], textures->peak_texture[c].neg[b]);
 
 		if(w->textures->peak_texture[WF_RIGHT].main){
-			glActiveTexture(GL_TEXTURE2);
-			glBindTexture(GL_TEXTURE_1D, textures->peak_texture[WF_RIGHT].main[b]);
-			glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
-			glEnable(GL_BLEND);
-			glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-
-			glActiveTexture(GL_TEXTURE3);
-			glBindTexture(GL_TEXTURE_1D, textures->peak_texture[WF_RIGHT].neg[b]);
-			glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
-			glEnable(GL_BLEND);
-			glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+			texture_unit_use_texture(wfc->texture_unit[2], textures->peak_texture[WF_RIGHT].main[b]);
+			texture_unit_use_texture(wfc->texture_unit[3], textures->peak_texture[WF_RIGHT].neg[b]);
 		}
 
-		glActiveTexture(GL_TEXTURE0);
+		glActiveTexture(WF_TEXTURE0);
 	}else
 		use_texture(textures->peak_texture[0].main[b]);
 
 	gl_warn("cannot bind texture: block=%i: %i", b, textures->peak_texture[0].main[b]);
 
 	glColor4f(fg.r, fg.g, fg.b, alpha); //seems we have to set colour _after_ binding... ?
+
+	gl_warn("gl error");
 }
 
 
-static inline float get_peaks_per_pixel(WaveformCanvas* wfc, WfSampleRegion* region, WfRectangle* rect, int resolution)
+static inline float
+get_peaks_per_pixel(WaveformCanvas* wfc, WfSampleRegion* region, WfRectangle* rect, int resolution)
 {
 	//eg: for 51200 frame sample 256pixels wide: n_peaks=51200/256=200, ppp=200/256=0.8
 
@@ -849,6 +896,10 @@ wf_actor_paint(WaveformActor* actor)
 {
 	//-must have called gdk_gl_drawable_gl_begin() first.
 	//-it is assumed that all textures have been loaded.
+					gl_warn("pre");
+
+	//note: there is some benefit in quantising the x positions (eg for subpixel consistency),
+	//but to preserve relative actor positions it must be done at the canvas level.
 
 	WaveformCanvas* wfc = actor->canvas;
 	g_return_if_fail(wfc);
@@ -868,11 +919,14 @@ wf_actor_paint(WaveformActor* actor)
 
 	int resolution = get_resolution(zoom);
 
-	ColourFloat fg;
-	colour_rgba_to_float(&fg, actor->fg_colour);
-	ColourFloat bg;
-	colour_rgba_to_float(&bg, actor->bg_colour);
+	WfColourFloat fg;
+	wf_colour_rgba_to_float(&fg, actor->fg_colour);
+	WfColourFloat bg;
+	wf_colour_rgba_to_float(&bg, actor->bg_colour);
+//#if defined (USE_FBO) && defined (multipass)
+//#else
 	float alpha = ((float)(actor->fg_colour & 0xff)) / 256.0;
+//#endif
 
 	if(w->num_peaks){
 		WfGlBlock* textures = resolution == 1024 ? w->textures_lo : w->textures;
@@ -892,7 +946,21 @@ wf_actor_paint(WaveformActor* actor)
 		double first_offset_px = wf_actor_samples2gl(zoom, first_offset);
 
 		double _block_wid = wf_actor_samples2gl(zoom, samples_per_texture);
+#if defined (USE_FBO) && defined (multipass)
 		if(wfc->use_shaders){
+			//set gl state
+
+			wfc->priv->shaders.vertical->uniform.fg_colour = actor->fg_colour;
+			wfc->priv->shaders.vertical->uniform.peaks_per_pixel = get_peaks_per_pixel(wfc, &region, &rect, resolution);
+			//TODO the vertical shader needs to check _all_ the available texture values to get true peak.
+			wf_canvas_use_program_(wfc, &vertical.shader);
+
+					glDisable(GL_TEXTURE_1D);
+					glEnable(GL_TEXTURE_2D);
+					glActiveTexture(GL_TEXTURE0);
+		}
+#else
+		if(wfc->use_1d_textures){
 			wf_canvas_use_program(wfc, sh_main.program);
 
 			//uniforms: (must be done on each paint because some vars are actor-specific)
@@ -900,11 +968,8 @@ wf_actor_paint(WaveformActor* actor)
 			dbg(2, "vpwidth=%.2f region_len=%i region_n_peaks=%.2f peaks_per_pixel=%.2f", (viewport.right - viewport.left), region.len, ((float)region.len / WF_PEAK_TEXTURE_SIZE), peaks_per_pixel);
 			float bottom = rect.top + rect.height;
 			int n_channels = textures->peak_texture[WF_RIGHT].main ? 2 : 1;
-			_wf_actor_set_uniforms(peaks_per_pixel, rect.top, bottom, actor->fg_colour, n_channels);
+			wfc->priv->shaders.peak_shader.set_uniforms(peaks_per_pixel, rect.top, bottom, actor->fg_colour, n_channels);
 		}
-#undef INTEGER_BLOCK_WIDTH //no, we cannot do this as it changes the zoom, destroying alignment with other items. Instead the user should ensure that the zoom tracks WF_SAMPLES_PER_TEXTURE
-#ifdef INTEGER_BLOCK_WIDTH
-		_block_wid = ceil(_block_wid);
 #endif
 
 		if(resolution >= 256){
@@ -914,14 +979,13 @@ wf_actor_paint(WaveformActor* actor)
 				if(!textures->peak_texture[WF_LEFT].main[b]){ n++; if(wf_debug) gwarn("texture not loaded: b=%i", b); }
 			}
 			if(n) gwarn("%i textures not loaded", n);
+		glEnable(wfc->use_1d_textures ? GL_TEXTURE_1D : GL_TEXTURE_2D);
 		}
 
-		glEnable(wfc->use_shaders ? GL_TEXTURE_1D : GL_TEXTURE_2D);
 
 		//for hi-res mode:
 		//block_region specifies the a sample range within the current block
 		WfSampleRegion block_region = {region.start % WF_PEAK_BLOCK_SIZE, WF_PEAK_BLOCK_SIZE - region.start % WF_PEAK_BLOCK_SIZE};
-//dbg(0, "firstfraction=%.2f", ((float)block_region.len) / WF_PEAK_BLOCK_SIZE);
 		WfSampleRegion block_region_v_hi = {region.start, WF_PEAK_BLOCK_SIZE - region.start % WF_PEAK_BLOCK_SIZE};
 
 		double x = rect.left + (viewport_start_block - region_start_block) * _block_wid - first_offset_px; // x is now the start of the first block (can be before part start when inset is present)
@@ -943,31 +1007,6 @@ wf_actor_paint(WaveformActor* actor)
 					if(audio->n_blocks){
 						WfBuf16* buf = audio->buf16[b];
 						if(buf){
-#if 0
-							{
-								//find the sample corresponding to viewport left.
-								double part_inset_px = wf_actor_samples2gl(zoom, region.start);
-								double file_start_px = rect.left - part_inset_px;
-								//double block_wid = wf_actor_samples2gl(zoom, WF_SAMPLES_PER_TEXTURE);
-								double block_start_px = file_start_px + _block_wid * b;
-								double block_end_px = block_start_px + _block_wid;
-								uint64_t block_region_end = block_region.start + block_region.len;
-
-								//float s2p = (viewport.right - viewport.left) / block_region.len; //wrong
-								//dbg(1, "zoom=%f s2p=%.4f", zoom, s2p);
-								if(block_start_px <= viewport.left && block_end_px >= viewport.right){
-									//dbg(1, "viewport contains single block");
-								}
-												WfRectangle block_rect = {0.0, rect.top, _block_wid, rect.height/w->n_channels};
-
-int64_t left_samples = block_rect.left / zoom;
-dbg(1, "left=%f samples=%f %Li", block_rect.left, block_rect.left / zoom, left_samples);
-								dbg(1, "* block_px=%.2f-->%.2f block_region=%Lu-->%Lu viewport_region=%.2f-->%.2f(samples)",
-									block_start_px, block_end_px,
-									block_region.start, block_region_end,
-									(float)block_region.start - ((float)block_rect.left / zoom), ((float)block_region_end) * viewport.right / block_end_px);
-							}
-#endif
 							//TODO might these prevent further blocks at different res? difficult to notice as they are usually the same.
 							wf_canvas_use_program(wfc, 0);
 							glDisable(GL_BLEND);
@@ -1007,7 +1046,6 @@ dbg(1, "left=%f samples=%f %Li", block_rect.left, block_rect.left / zoom, left_s
 							if(peakbuf->buf[c]){
 								//dbg(1, "peakbuf: %i:%i: %i", b, c, ((short*)peakbuf->buf[c])[0]);
 								//WfRectangle block_rect = {x, rect.top + c * rect.height/2, _block_wid, rect.height / w->n_channels};
-//if(is_first) dbg(0, "  first. block_region.start=%Li region.start=%Li(%Li)", block_region.start, region.start, region.start % WF_PEAK_BLOCK_SIZE);
 								WfRectangle block_rect = {is_first
 										? x + (block_region.start - region.start % WF_PEAK_BLOCK_SIZE) * zoom
 										: x,
@@ -1042,8 +1080,7 @@ dbg(1, "left=%f samples=%f %Li", block_rect.left, block_rect.left / zoom, left_s
 
 				// standard res and low res
 				case 256 ... 4095:
-					_set_gl_state_for_block(wfc, w, textures, b, fg, alpha);
-
+;
 					double block_wid = _block_wid;
 					double tex_pct = 1.0; //use the whole texture
 					double tex_start = 0.0;
@@ -1086,14 +1123,31 @@ dbg(1, "left=%f samples=%f %Li", block_rect.left, block_rect.left / zoom, left_s
 					dbg (2, "%i: is_last=%i x=%.2f wid=%.2f/%.2f tex_pct=%.3f tex_start=%.2f", b, is_last, x, block_wid, _block_wid, tex_pct, tex_start);
 					if(tex_pct > 1.0 || tex_pct < 0.0) gwarn("tex_pct! %.2f", tex_pct);
 					double tex_x = x + ((is_first && first_offset) ? first_offset_px : 0);
-					glPushMatrix();
+
+#if defined (USE_FBO) && defined (multipass)
+					if(wfc->use_shaders){
+						//rendering from 2d texture not 1d
+						WfFBO* fbo = true ? textures->fbo[b] : fbo_test;
+						use_texture(fbo->texture);
+					}else{
+						_set_gl_state_for_block(wfc, w, textures, b, fg, alpha);
+					}
+#else
+					_set_gl_state_for_block(wfc, w, textures, b, fg, alpha);
+#endif
+
+//					glPushMatrix();
 //					glTranslatef(0, 0, part->track->track_num * TRACK_SPACING_Z);
 					glBegin(GL_QUADS);
-					if(wfc->use_shaders){
-						glMultiTexCoord2f(GL_TEXTURE0, tex_start + 0.0,     0.0); glMultiTexCoord2f(GL_TEXTURE1, tex_start + 0.0,     0.0); glMultiTexCoord2f(GL_TEXTURE2, tex_start + 0.0,     0.0); glMultiTexCoord2f(GL_TEXTURE3, tex_start + 0.0,     0.0); glVertex2d(tex_x + 0.0,       rect.top);
-						glMultiTexCoord2f(GL_TEXTURE0, tex_start + tex_pct, 0.0); glMultiTexCoord2f(GL_TEXTURE1, tex_start + tex_pct, 0.0); glMultiTexCoord2f(GL_TEXTURE2, tex_start + tex_pct, 0.0); glMultiTexCoord2f(GL_TEXTURE3, tex_start + tex_pct, 0.0); glVertex2d(tex_x + block_wid, rect.top);
-						glMultiTexCoord2f(GL_TEXTURE0, tex_start + tex_pct, 1.0); glMultiTexCoord2f(GL_TEXTURE1, tex_start + tex_pct, 1.0); glMultiTexCoord2f(GL_TEXTURE2, tex_start + tex_pct, 1.0); glMultiTexCoord2f(GL_TEXTURE3, tex_start + tex_pct, 1.0); glVertex2d(tex_x + block_wid, rect.top + rect.height);
-						glMultiTexCoord2f(GL_TEXTURE0, tex_start + 0.0,     1.0); glMultiTexCoord2f(GL_TEXTURE1, tex_start + 0.0,     1.0); glMultiTexCoord2f(GL_TEXTURE2, tex_start + 0.0,     1.0); glMultiTexCoord2f(GL_TEXTURE3, tex_start + 0.0,     1.0); glVertex2d(tex_x + 0.0,       rect.top + rect.height);
+#if defined (USE_FBO) && defined (multipass)
+					if(false){
+#else
+					if(wfc->use_1d_textures){
+#endif
+						glMultiTexCoord2f(WF_TEXTURE0, tex_start + 0.0,     0.0); glMultiTexCoord2f(WF_TEXTURE1, tex_start + 0.0,     0.0); glMultiTexCoord2f(WF_TEXTURE2, tex_start + 0.0,     0.0); glMultiTexCoord2f(WF_TEXTURE3, tex_start + 0.0,     0.0); glVertex2d(tex_x + 0.0,       rect.top);
+						glMultiTexCoord2f(WF_TEXTURE0, tex_start + tex_pct, 0.0); glMultiTexCoord2f(WF_TEXTURE1, tex_start + tex_pct, 0.0); glMultiTexCoord2f(WF_TEXTURE2, tex_start + tex_pct, 0.0); glMultiTexCoord2f(WF_TEXTURE3, tex_start + tex_pct, 0.0); glVertex2d(tex_x + block_wid, rect.top);
+						glMultiTexCoord2f(WF_TEXTURE0, tex_start + tex_pct, 1.0); glMultiTexCoord2f(WF_TEXTURE1, tex_start + tex_pct, 1.0); glMultiTexCoord2f(WF_TEXTURE2, tex_start + tex_pct, 1.0); glMultiTexCoord2f(WF_TEXTURE3, tex_start + tex_pct, 1.0); glVertex2d(tex_x + block_wid, rect.top + rect.height);
+						glMultiTexCoord2f(WF_TEXTURE0, tex_start + 0.0,     1.0); glMultiTexCoord2f(WF_TEXTURE1, tex_start + 0.0,     1.0); glMultiTexCoord2f(WF_TEXTURE2, tex_start + 0.0,     1.0); glMultiTexCoord2f(WF_TEXTURE3, tex_start + 0.0,     1.0); glVertex2d(tex_x + 0.0,       rect.top + rect.height);
 					}else{
 						glTexCoord2d(tex_start + 0.0,     0.0); glVertex2d(tex_x + 0.0,       rect.top);
 						glTexCoord2d(tex_start + tex_pct, 0.0); glVertex2d(tex_x + block_wid, rect.top);
@@ -1101,9 +1155,10 @@ dbg(1, "left=%f samples=%f %Li", block_rect.left, block_rect.left / zoom, left_s
 						glTexCoord2d(tex_start + 0.0,     1.0); glVertex2d(tex_x + 0.0,       rect.top + rect.height);
 					}
 					glEnd();
-					glPopMatrix();
-					if(gl_error) gwarn("gl error! block=%i", b);
+//					glPopMatrix();
+					gl_warn("block=%i", b);
 
+#if 0
 #ifdef WF_SHOW_RMS
 					double bot = rect.top + rect.height;
 					double top = rect->top;
@@ -1129,14 +1184,16 @@ dbg(1, "left=%f samples=%f %Li", block_rect.left, block_rect.left / zoom, left_s
 						glPopMatrix();
 					}
 #endif
+#endif
 					break;
 
 				default:
 					break;
 			} // end resolution switch
 
+#if 0
 #undef DEBUG_BLOCKS
-//#define DEBUG_BLOCKS
+#define DEBUG_BLOCKS
 #ifdef DEBUG_BLOCKS
 			double bot = rect.top + rect.height;
 			wf_canvas_use_program(wfc, 0);
@@ -1152,23 +1209,21 @@ dbg(1, "left=%f samples=%f %Li", block_rect.left, block_rect.left / zoom, left_s
 				glVertex3f(x ,             rect.top + 1, 0);    glVertex3f(x,              bot - 1,      0);
 			glEnd();
 			glColor3f(1.0, 1.0, 1.0);
-			glEnable(wfc->use_shaders ? GL_TEXTURE_1D : GL_TEXTURE_2D);
+			glEnable(wfc->use_1d_textures ? GL_TEXTURE_1D : GL_TEXTURE_2D);
 			wf_canvas_use_program(wfc, sh_main.program); //TODO move
 #endif
+#endif
 			x += _block_wid;
-//uint64_t o = block_region.start;
-			//block_region.start = (block_region.start / WF_PEAK_BLOCK_SIZE + 1) * WF_PEAK_BLOCK_SIZE;
-			block_region.start = 0; //all blocks except first start at 0?
+			block_region.start = 0; //all blocks except first start at 0
 			block_region.len = WF_PEAK_BLOCK_SIZE;
 			block_region_v_hi.start = (block_region_v_hi.start / WF_PEAK_BLOCK_SIZE + 1) * WF_PEAK_BLOCK_SIZE;
 			block_region_v_hi.len   = WF_PEAK_BLOCK_SIZE - block_region_v_hi.start % WF_PEAK_BLOCK_SIZE;
-//dbg(1, "block_region_start: %Lu --> %Lu", o, block_region.start);
 			is_first = false;
 		}
 	}
 	wf_canvas_use_program(wfc, 0);
 
-	if(gl_error) gwarn("gl error!");
+	gl_warn("gl error!");
 }
 
 
@@ -1246,8 +1301,8 @@ wf_actor_load_texture1d(Waveform* w, WfGlBlock* blocks, int blocknum)
 		int          tex_id;
 		guchar*      buf;
 	} d[2] = {
-		{GL_TEXTURE0, blocks->peak_texture[WF_LEFT].main[blocknum], buf.positive},
-		{GL_TEXTURE1, blocks->peak_texture[WF_LEFT].neg [blocknum], buf.negative},
+		{WF_TEXTURE0, blocks->peak_texture[WF_LEFT].main[blocknum], buf.positive},
+		{WF_TEXTURE1, blocks->peak_texture[WF_LEFT].neg [blocknum], buf.negative},
 	};
 
 	void _load_texture(struct _d* d)
@@ -1255,8 +1310,8 @@ wf_actor_load_texture1d(Waveform* w, WfGlBlock* blocks, int blocknum)
 		glActiveTexture(d->tex_unit);
 glEnable(GL_TEXTURE_1D);
 		glBindTexture(GL_TEXTURE_1D, d->tex_id);
-		dbg (2, "loading texture1D... texture_id=%u", d->tex_id);
-		if(gl_error) gwarn("gl error: bind failed: unit=%i buf=%p tid=%i", d->tex_unit, d->buf, d->tex_id);
+		dbg (1, "loading texture1D... texture_id=%u", d->tex_id);
+		gl_warn("gl error: bind failed: unit=%i buf=%p tid=%i", d->tex_unit, d->buf, d->tex_id);
 		if(!glIsTexture(d->tex_id)) gwarn ("invalid texture: texture_id=%u", d->tex_id);
 		glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_WRAP_S, GL_CLAMP);
 		//glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
@@ -1269,13 +1324,13 @@ glEnable(GL_TEXTURE_1D);
 //glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 		glTexImage1D(GL_TEXTURE_1D, 0, GL_ALPHA8, WF_PEAK_TEXTURE_SIZE, 0, GL_ALPHA, GL_UNSIGNED_BYTE, d->buf);
 
-		if(gl_error) gwarn("gl error: unit=%i buf=%p tid=%i", d->tex_unit, d->buf, d->tex_id);
+		gl_warn("unit=%i buf=%p tid=%i", d->tex_unit, d->buf, d->tex_id);
 	}
 
 	int v; for(v=0;v<2;v++){
 		_load_texture(&d[v]);
 	}
-	if(gl_error) gwarn("lhs. gl error!");
+	gl_warn("loading textures failed (lhs)");
 
 	if(blocks->peak_texture[WF_RIGHT].main && blocks->peak_texture[WF_RIGHT].main[blocknum]){                //stereo
 		if(blocks == w->textures)
@@ -1284,18 +1339,18 @@ glEnable(GL_TEXTURE_1D);
 			make_texture_data_low(w, WF_RIGHT, &buf);
 
 		struct _d stuff[WF_MAX_CH] = {
-			{GL_TEXTURE2, blocks->peak_texture[WF_RIGHT].main[blocknum], buf.positive},
-			{GL_TEXTURE3, blocks->peak_texture[WF_RIGHT].neg [blocknum], buf.negative},
+			{WF_TEXTURE2, blocks->peak_texture[WF_RIGHT].main[blocknum], buf.positive},
+			{WF_TEXTURE3, blocks->peak_texture[WF_RIGHT].neg [blocknum], buf.negative},
 		};
 		int u; for(u=0;u<2;u++){
 			_load_texture(&stuff[u]);
 		}
-		if(gl_error) gwarn("rhs. gl error!");
+		gl_warn("rhs");
 	}
 
-	glActiveTexture(GL_TEXTURE0);
+	glActiveTexture(WF_TEXTURE0);
 
-	if(gl_error) gwarn("gl error!");
+	gl_warn("done");
 }
 
 
@@ -1307,20 +1362,6 @@ wf_actor_start_transition(WaveformActor* a, WfAnimatable* animatable)
 	animatable->val.i = a->canvas->draw
 		? animatable->start_val.i
 		: *animatable->model_val.i;
-}
-
-
-static void
-rgba_to_float(uint32_t rgba, float* r, float* g, float* b)
-{
-	double _r = (rgba & 0xff000000) >> 24;
-	double _g = (rgba & 0x00ff0000) >> 16;
-	double _b = (rgba & 0x0000ff00) >>  8;
-
-	*r = _r / 0xff;
-	*g = _g / 0xff;
-	*b = _b / 0xff;
-	dbg (3, "%08x --> %.2f %.2f %.2f", rgba, *r, *g, *b);
 }
 
 

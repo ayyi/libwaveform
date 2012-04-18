@@ -24,7 +24,7 @@ struct _alpha_buf {
 	int        buf_size;
 };
 
-AlphaBuf*  wf_alphabuf_new             (Waveform*, int blocknum, int scale, gboolean is_rms);
+AlphaBuf*  wf_alphabuf_new             (Waveform*, int blocknum, int scale, gboolean is_rms, int border);
 void       wf_alphabuf_free            (AlphaBuf*);
 GdkPixbuf* wf_alphabuf_to_pixbuf       (AlphaBuf*);
 

@@ -34,6 +34,11 @@
 
 #define MONO 1
 
+#define WF_SAMPLES_PER_TEXTURE (256 * 256 - 10)   //dupe of private def in actor.c
+#define LONG_SECTION  (WF_SAMPLES_PER_TEXTURE / 4)
+#define SHORT_SECTION (WF_SAMPLES_PER_TEXTURE / 4)
+
+
 void compute_sinewave (double* buf, int n_frames);
 void compute_noise    (int count, double** input, double** output);
 void compute_kps      (int count, double** input, double** output);
@@ -292,7 +297,7 @@ class Impulse
 	void compute (int n_chans, double** input, double** output)
 	{
 		for (int c=0; c<n_chans; c++) {
-			output[0][c] = !(a % 10);
+			output[0][c] = !(a % 256);
 		}
 		a++;
 	}
@@ -330,7 +335,6 @@ int main(int argc, char* argv[])
 
 		case 'c':
 			n_channels = atoi(optarg);
-			//printf("n_channels=%i\n", n_channels);
 			break;
 
 		case 'v':
@@ -382,10 +386,10 @@ int main(int argc, char* argv[])
 		double time = f * duration / n_frames;
 		double val = sin(2.0 * M_PI * time * freq);
 
-		int fade_in = 16384;
+		int fade_in = LONG_SECTION;
 		if(f<fade_in) val *= ((float)f)/fade_in;
 
-		int fade_out = 16384;
+		int fade_out = LONG_SECTION;
 		if(n_frames - f < fade_out) val *= ((float)n_frames -f)/fade_out;
 
 		for(c=0;c<n_channels;c++){
@@ -393,7 +397,7 @@ int main(int argc, char* argv[])
 		}
 	}
 	compute_sinewave(buffer, 16384);
-	ff += 16384;
+	ff += LONG_SECTION;
 
 	double* input[2] = {NULL, NULL};
 	double* output[n_channels];// = {buffer + 16384 * n_channels, buffer + 16384 * n_channels};
@@ -411,7 +415,7 @@ int main(int argc, char* argv[])
 			output[0][c] = output_f[0][c];
 		}
 	}
-	ff += 16384;
+	ff += LONG_SECTION;
 	cpgrs.release = 0.01; // <----
 	for(int a=0;a<16384;a++){
 		int c; for(c=0;c<n_channels;c++){
@@ -422,7 +426,7 @@ int main(int argc, char* argv[])
 			output[0][c] = output_f[0][c];
 		}
 	}
-	ff += 16384;
+	ff += LONG_SECTION;
 	cpgrs.release = 0.01;  // <----
 	cpgrs.freq = 100.0;    // lower freq
 	for(int a=0;a<16384;a++){
@@ -434,10 +438,20 @@ int main(int argc, char* argv[])
 			output[0][c] = output_f[0][c];
 		}
 	}
-	ff += 16384;
+	ff += LONG_SECTION;
+
+	impulse.init();
+	for(int a=0;a<SHORT_SECTION;a++){
+		int c; for(c=0;c<n_channels;c++){
+			output[c] = buffer + (ff + a) * n_channels + c;
+		}
+		impulse.compute(n_channels, (double**)input, (double**)output);
+	}
+	ff += SHORT_SECTION;
+
 	cpgrs.release = 0.01; // <----
 	cpgrs.freq = 2.0;     // low freq
-	for(int a=0;a<16384;a++){
+	for(int a=0;a<LONG_SECTION;a++){
 		int c; for(c=0;c<n_channels;c++){
 			output[c] = buffer + ff * n_channels + a * n_channels + c;
 		}
@@ -446,7 +460,7 @@ int main(int argc, char* argv[])
 			output[0][c] = output_f[0][c];
 		}
 	}
-	ff += 16384;
+	ff += LONG_SECTION;
 	cpgrs.freq = 440.0;
 	cpgrs.attack = 1.0f; // <----
 	cpgrs.release = 1.0f; // <----
@@ -461,6 +475,7 @@ int main(int argc, char* argv[])
 		}
 	}
 	ff += 16384;
+
 	cpgrs.freq = 2000.0;
 	cpgrs.attack = 1.0f; // <----
 	cpgrs.release = 1.0f; // <----
@@ -538,8 +553,8 @@ int main(int argc, char* argv[])
 		}
 		kps.compute(n_channels, (double**)input, (double**)output);
 	}
-
 	ff += 8192;
+
 	kps.init();
 	kps.gain = 0.5;
 	for(a=0;a<8192;a++){
@@ -548,8 +563,8 @@ int main(int argc, char* argv[])
 		}
 		kps.compute(n_channels, (double**)input, (double**)output);
 	}
-
 	ff += 8192;
+
 	kps.init();
 	for(a=0;a<8192;a++){
 		int c; for(c=0;c<n_channels;c++){
@@ -557,8 +572,8 @@ int main(int argc, char* argv[])
 		}
 		kps.compute(n_channels, (double**)input, (double**)output);
 	}
-
 	ff += 8192;
+
 	kps.init();
 	kps.gain = 0.5;
 	for(a=0;a<8192;a++){
@@ -567,16 +582,25 @@ int main(int argc, char* argv[])
 		}
 		kps.compute(n_channels, (double**)input, (double**)output);
 	}
+	ff += 8192;
 
 	//---
 
-	ff += 8192;
 	for(a=0;a<16384;a++){
 		int c; for(c=0;c<n_channels;c++){
 			output[c] = buffer + ff * n_channels + a * n_channels + c;
 		}
 		pink.compute(n_channels, (double**)input, (double**)output);
 	}
+
+	impulse.init();
+	for(a=0;a<8192;a++){
+		int c; for(c=0;c<n_channels;c++){
+			output[c] = buffer + (ff + a) * n_channels + c;
+		}
+		impulse.compute(n_channels, (double**)input, (double**)output);
+	}
+	ff += 8192;
 
 	//------------------- save --------------------
 

@@ -28,13 +28,14 @@
 #include <sys/time.h>
 #include <sndfile.h>
 #include <glib.h>
-#include "waveform/utils.h"
 #include "waveform/peak.h"
+#include "waveform/utils.h"
 #include "waveform/loaders/ardour.h"
 #include "waveform/loaders/riff.h"
 #include "waveform/texture_cache.h"
 #include "waveform/audio.h"
 #include "waveform/alphabuf.h"
+#include "waveform/fbo.h"
 #include "waveform/peakgen.h"
 
 static gpointer waveform_parent_class = NULL;
@@ -88,7 +89,7 @@ waveform_construct (GType object_type)
 
 
 Waveform*
-waveform_new(const char* filename)
+waveform_new (const char* filename)
 {
 	wf_get_instance();
 
@@ -122,25 +123,10 @@ waveform_instance_init (Waveform* self)
 
 
 static void
-__finalize(Waveform* w)
+__finalize (Waveform* w)
 {
 	PF0;
 	if(g_hash_table_size(wf->peak_cache) && !g_hash_table_remove(wf->peak_cache, w)) gwarn("failed to remove waveform from peak_cache");
-
-#if 0
-	void wf_wav_cache_free(WfWavCache* cache)
-	{
-		if(!cache) return;
-
-		if(cache->buf){
-			int c; for(c=0;c<WF_STEREO;c++) if(cache->buf->buf[c]) g_free(cache->buf->buf[c]);
-			g_free(cache->buf);
-		}
-		g_free(cache);
-	}
-
-	wf_wav_cache_free(w->cache);
-#endif
 
 	int i; for(i=0;i<WF_MAX_CH;i++){
 		if(w->priv->peak.buf[i]) g_free(w->priv->peak.buf[i]);
@@ -166,12 +152,32 @@ __finalize(Waveform* w)
 				if(textures->peak_texture[c].main) g_free(textures->peak_texture[c].main);
 				if(textures->peak_texture[c].neg) g_free(textures->peak_texture[c].neg);
 			}
+			if(textures->fbo){
+				int b; for(b=0;b<textures->size;b++); if(textures->fbo[b]) fbo_free(textures->fbo[b]);
+				g_free(textures->fbo);
+			}
 			g_free(textures);
 			*_textures = NULL;
 		}
 	}
 	free_textures(&w->textures);
 	free_textures(&w->textures_lo);
+
+	void free_textures_hi(Waveform* w)
+	{
+		GHashTableIter iter;
+		gpointer key, value;
+		g_hash_table_iter_init (&iter, w->textures_hi->textures);
+		while (g_hash_table_iter_next (&iter, &key, &value)){
+			//int block = key;
+			WfTextureHi* texture = value;
+			waveform_texture_hi_free(texture);
+		}
+
+		g_hash_table_destroy(w->textures_hi->textures);
+		g_free0(w->textures_hi);
+	}
+	free_textures_hi(w);
 #endif
 
 	waveform_audio_free(w);
@@ -239,6 +245,7 @@ wf_texture_array_new(int size, int n_channels)
 		textures->peak_texture[WF_RIGHT].main = g_new0(unsigned, textures->size);
 		textures->peak_texture[WF_RIGHT].neg = g_new0(unsigned, textures->size);
 	}
+	textures->fbo = g_new0(WfFBO*, textures->size); //note: only an array of _pointers_
 	return textures;
 }
 
@@ -336,7 +343,6 @@ waveform_load_peak(Waveform* w, const char* peak_file, int ch_num)
 		extern void glGenTextures(size_t n, uint32_t* textures);
 		glGenTextures(w->textures->size, w->textures->rms_texture); //note currently doesnt use the texture_cache
 #endif
-#warning TODO destroy hash_table
 		w->textures_hi = g_new0(WfTexturesHi, 1);
 		w->textures_hi->textures = g_hash_table_new(g_int_hash, g_int_equal);
 	}
@@ -499,28 +505,34 @@ alphabuf_draw_line(AlphaBuf* pixbuf, DRect* pts, double line_width, GdkColor* co
 
 
 void
-waveform_peak_to_alphabuf(Waveform* w, AlphaBuf* a, int scale, int* start, int* end, GdkColor* colour, uint32_t colour_bg)
+waveform_peak_to_alphabuf(Waveform* w, AlphaBuf* a, int scale, int* start, int* end, GdkColor* colour, uint32_t colour_bg, int border)
 {
 	/*
 	 renders a peakfile (loaded into the buffer given by waveform->buf) onto the given 8 bit alpha-map buffer.
 
 	 -the given buffer is for a single block only.
-	 Can be simplified. Eg, the antialiasing should be removed.
 
 	 @param start - if set, we start rendering at this value in the source buffer.
 	 @param end   - if set, source buffer index to stop rendering at.
 	                Is allowed to be bigger than the output buf width.
+	 @border      - nothing will be drawn within this number of pixels from the alphabuf left and right edges.
+TODO wrong - should be filled with data from adjacent blocks
+	                To facilitate drawing the border, the Alphabuf must be 2xborder wider than the requested draw range.
+	                TODO ensure that the data to fill the RHS border is loaded (only applies to hi-res mode)
 
-	 further optimisation:
-	 -dont scan pixels above the peaks. Should we record the overall file peak level?
+	 TODO
+	   -can be simplified. Eg, the antialiasing should be removed.
+	   -further optimisation: dont scan pixels above the peaks. Should we record the overall file peak level?
 	*/
 
 	g_return_if_fail(a);
 	g_return_if_fail(w);
 	g_return_if_fail(w->priv->peak.buf[0]);
 
+#if 0
 	struct timeval time_start, time_stop;
 	gettimeofday(&time_start, NULL);
+#endif
 
 	WfPeakSample sample;
 	short min;                //negative peak value for each pixel.
@@ -531,22 +543,28 @@ waveform_peak_to_alphabuf(Waveform* w, AlphaBuf* a, int scale, int* start, int* 
 	int height      = a->height;
 	g_return_if_fail(width && height);
 	guchar* pixels  = a->buf;
-	int rowstride   = width;
-	int n_channels  = 1;
+	int rowstride   = a->width;
 	int ch_height   = height / n_chans;
 	int vscale      = (256*128*2) / ch_height;
 
-	int px=0;                    //pixel count starting at the lhs of the Part.
-	int j,y;
-	int src_start=0;             //index into the source buffer for each sample pt.
-	int src_stop =0;   
+	int px = 0;                  //pixel count starting at the lhs of the Part.
+	int j, y;
+	int src_start = 0;           //index into the source buffer for each sample pt.
+	int src_stop  = 0;   
 
 	double xmag = 1.0 * scale; //making xmag smaller increases the visual magnification.
 	                 //-the bigger the mag, the less samples we need to skip.
 	                 //-as we're only dealing with smaller peak files, we need to adjust by the RATIO.
 
+//------------------------------
+	//if start if not specified, we start at 0.
+	//       -however in this case, the output is N pixels to the right?
+	//        ie the source is N earlier?
+	//if start _is_ specified, we start at s or s-4 ? ***
+					int src_offset = start ? 0 : -TEX_BORDER;
 	int px_start = start ? *start : 0;
 	int px_stop  = *end;//   ? MIN(*end, width) : width;
+//------------------------------
 	dbg (1, "start=%i end=%i", px_start, px_stop);
 	//dbg (1, "width=%i height=%i", width, height);
 
@@ -561,9 +579,10 @@ waveform_peak_to_alphabuf(Waveform* w, AlphaBuf* a, int scale, int* start, int* 
 		int line_index = 0;
 
 		for(px=px_start;px<px_stop;px++){
-			src_start = ((int)( px   * xmag));
+			src_start = ((int)( px   * xmag)) + src_offset;
 			src_stop  = ((int)((px+1)* xmag));
 			//printf("%i ", src_start);
+			if(src_start < 0){ dbg(0, "skipping..."); continue; }
 
 			struct _line* previous_line = &line[(line_index  ) % 3];
 			struct _line* current_line  = &line[(line_index+1) % 3];
@@ -587,8 +606,8 @@ waveform_peak_to_alphabuf(Waveform* w, AlphaBuf* a, int scale, int* start, int* 
 
 					if(n_sub_px < 4){
 						//FIXME these supixels are not evenly distributed when > 4 available, as we currently only use the first 4.
-						lmax[n_sub_px] = (ch_height * sample.positive) / (256*128*2);
-						lmin[n_sub_px] =-(ch_height * sample.negative) / (256*128*2); //lmin contains positive values.
+						lmax[n_sub_px] = sample.positive / vscale;
+						lmin[n_sub_px] =-sample.negative / vscale; //lmin contains positive values.
 					}
 					n_sub_px++;
 				}
@@ -612,8 +631,8 @@ waveform_peak_to_alphabuf(Waveform* w, AlphaBuf* a, int scale, int* start, int* 
 				}
 
 				//scale the values to the part height:
-				min = (min * ch_height) / (256*128*2);
-				max = (max * ch_height) / (256*128*2);
+				min /= vscale;
+				max /= vscale;
 
 				sort_(k, lmax, MIN(n_sub_px, 4));
 
@@ -639,7 +658,6 @@ waveform_peak_to_alphabuf(Waveform* w, AlphaBuf* a, int scale, int* start, int* 
 				alpha = 0xff;
 				v = mid;
 				for(s=0;s<MIN(n_sub_px, 4);s++){
-					//for(y=v;y>mid-k[s];y--) next_line->a[y] = alpha;
 					for(y=v;y>mid-k[s];y--) line_write(next_line, y, alpha);
 					v=mid-k[s];
 					alpha = (alpha * 2) / 3;
@@ -648,8 +666,8 @@ waveform_peak_to_alphabuf(Waveform* w, AlphaBuf* a, int scale, int* start, int* 
 				for(y=mid-k[s-1]-1;y>0;y--) line_write(next_line, y, 0);
 				//printf("%.1f %i ", xf, height/2+min);
 
-				//debugging:
 #if 0
+				//debugging:
 				for(y=height/2;y<height;y++){
 					int b = MIN((current_line->a[y] * 3)/4 + previous_line->a[y]/6 + next_line->a[y]/6, 0xff);
 					if(!b){ dbg_max = MAX(y, dbg_max); break; }
@@ -659,7 +677,7 @@ waveform_peak_to_alphabuf(Waveform* w, AlphaBuf* a, int scale, int* start, int* 
 				//draw the lines:
 				int blur = 6; //bigger value gives less blurring.
 				for(y=0;y<ch_height;y++){
-					int p = ch*ch_height*rowstride + (ch_height - y -1)*rowstride + n_channels*(px-px_start);
+					int p = ch*ch_height*rowstride + (ch_height - y -1)*rowstride + (px - px_start)/* + border*/;
 					if(p > rowstride*height || p < 0){ gerr ("p! %i > %i px=%i y=%i row=%i rowstride=%i=%i", p, 3*width*height, px, y, height-y-1, rowstride, 3*width); return; }
 
 					a = MIN((current_line->a[y] * 3)/4 + previous_line->a[y]/blur + next_line->a[y]/blur, 0xff);
@@ -683,6 +701,8 @@ waveform_peak_to_alphabuf(Waveform* w, AlphaBuf* a, int scale, int* start, int* 
 
 	//printf("%s(): done. drawn: %i of %i stop=%i\n", __func__, line_done_count, width, src_stop);
 
+#if 0
+	struct timeval time_stop;
 	gettimeofday(&time_stop, NULL);
 	time_t secs = time_stop.tv_sec - time_start.tv_sec;
 	suseconds_t usec;
@@ -693,6 +713,7 @@ waveform_peak_to_alphabuf(Waveform* w, AlphaBuf* a, int scale, int* start, int* 
 		usec = time_stop.tv_usec + 1000000 - time_start.tv_usec;
 	}
 	//printf("%s(): start=%03i: %lu:%06lu\n", __func__, px_start, secs, usec);
+#endif
 }
 
 
@@ -714,8 +735,10 @@ waveform_rms_to_alphabuf(Waveform* pool_item, AlphaBuf* pixbuf, int* start, int*
 	int fg_blu = colour->blue  >> 8;
 	*/
 
-	struct timeval time_start, time_stop;
+#if 0
+	struct timeval time_start;
 	gettimeofday(&time_start, NULL);
+#endif
 
 	if(samples_per_px < 0.001) gerr ("samples_per_pix=%f", samples_per_px);
 	WfPeakSample sample;
@@ -953,6 +976,7 @@ if(!n_chans){ gerr("n_chans"); n_chans = 1; }
 		dbg (2, "done. xmag=%.2f drawn: %i of %i src=%i-->%i", xmag, line_index, width, ((int)( px_start * xmag * 0)), src_stop);
 	} //end channel
 
+#if 0
 	gettimeofday(&time_stop, NULL);
 	time_t secs = time_stop.tv_sec - time_start.tv_sec;
 	suseconds_t usec;
@@ -962,6 +986,7 @@ if(!n_chans){ gerr("n_chans"); n_chans = 1; }
 		secs -= 1;
 		usec = time_stop.tv_usec + 1000000 - time_start.tv_usec;
 	}
+#endif
 }
 
 
@@ -1296,12 +1321,12 @@ waveform_peak_to_pixbuf_async(Waveform* w, GdkPixbuf* pixbuf, WfSampleRegion* re
 		int               n_blocks_done;
 	} C;
 	C* c = g_new0(C, 1);
-	c->waveform = w;
-	c->region = *region;
-	c->colour = colour;
+	c->waveform  = w;
+	c->region    = *region;
+	c->colour    = colour;
 	c->bg_colour = bg_colour;
-	c->pixbuf = pixbuf;
-	c->callback = callback;
+	c->pixbuf    = pixbuf;
+	c->callback  = callback;
 	c->user_data = user_data;
 
 	void _waveform_peak_to_pixbuf__done(C* c)
@@ -2042,6 +2067,22 @@ waveform_print_blocks(Waveform* w)
 		}
 	} else printf("  LOW: not allocated\n");
 	printf("}\n");
+}
+
+
+WfTextureHi*
+waveform_texture_hi_new()
+{
+	return g_new0(WfTextureHi, 1);
+}
+
+
+void
+waveform_texture_hi_free(WfTextureHi* th)
+{
+	g_return_if_fail(th);
+
+	//int c; for(c=0;c<WF_MAX_CH;c++) g_free(&th->t[c]); no, these dont need to be free'd.
 }
 
 

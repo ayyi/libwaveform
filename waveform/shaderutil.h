@@ -14,9 +14,10 @@
   along with this program; if not, write to the Free Software
   Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 */
-#ifndef SHADER_UTIL_H
-#define SHADER_UTIL_H
+#ifndef __shader_util_h__
+#define __shader_util_h__
 
+#ifdef __gl_h_
 typedef struct uniform_info
 {
    const char* name;
@@ -29,9 +30,9 @@ typedef struct uniform_info
 #define END_OF_UNIFORMS   { NULL, 0, GL_NONE, { 0, 0, 0, 0 }, -1 }
 
 typedef struct {
-	char*  vertex_file;
-	char*  fragment_file;
-	GLuint program;       // compiled program
+	char*        vertex_file;
+	char*        fragment_file;
+	GLuint       program;       // compiled program
 	UniformInfo* uniforms;
 } Shader;
 
@@ -45,4 +46,5 @@ extern GLuint    link_shaders2       (GLuint vert_shader_1, GLuint frag_shader_1
 extern void      uniforms_init       (GLuint program, struct uniform_info uniforms[]);
 
 
-#endif /* SHADER_UTIL_H */
+#endif // __gl_h_
+#endif // __shader_util_h__

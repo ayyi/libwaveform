@@ -4,10 +4,12 @@
 - both texture mode and shader modes have spurious lines.
 - documentation
 - peak.c / peak.h need renaming (split?)
+- left and right are swapped in some cases.
 
 later:
 
 - add api to handle changes to the wave for editor apps.
+- rms display
 - lv2
 - grid lines
 - cairo / clutter
@@ -21,3 +23,4 @@ later:
 - better testing of audio cache full behaviour.
 - check that hi-res painting falls back to lo res while waiting for audio to load.
 - implement usage of textures in hi res mode.
+- maybe include the shaders as part of the library object instead of being separate files.

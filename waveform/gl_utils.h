@@ -34,6 +34,24 @@ extern gboolean __wf_drawing;
 	(__wf_drawing = FALSE);
 #define ASSERT_DRAWING g_return_if_fail(__wf_drawing);
 
-void use_texture(int texture);
+extern GLenum _wf_ge;
+#define gl_error ((_wf_ge = glGetError()) != GL_NO_ERROR)
+#define gl_warn(A, ...) { \
+		if(gl_error){ \
+		print_gl_error(__func__, _wf_ge, A, ##__VA_ARGS__); \
+	}}
+
+struct _texture_unit
+{
+	GLenum unit;
+	int    texture;
+};
+
+void         use_texture              (int texture);
+
+TextureUnit* texture_unit_new         (GLenum unit);
+void         texture_unit_use_texture (TextureUnit*, int texture);
+
+void         print_gl_error           (const char* func, int err, const char* format, ...);
 
 #endif //__waveform_gl_utils_h__

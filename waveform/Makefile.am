@@ -23,6 +23,7 @@ libwaveform_la_SOURCES = \
 	view.c view.h \
 	canvas.c canvas.h \
 	actor.c actor.h \
+	shader.c shader.h \
 	alphabuf.c alphabuf.h \
 	grid.c grid.h \
 	animator.c animator.h \
@@ -30,6 +31,7 @@ libwaveform_la_SOURCES = \
 	texture_cache.c texture_cache.h \
 	hi_res.c hi_res.h \
 	audio.c audio.h \
+	fbo.c fbo.h \
 	gl_ext.c gl_ext.h \
 	utils.c utils.h
 

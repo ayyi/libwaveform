@@ -9,4 +9,9 @@
 -fixed position of first block at hi res with inset.
 -added pkgconfig file.
 20120401
--improved shader texture sampling: add pseudo window fn and 2x oversampling
+-improved shader texture sampling: added pseudo window fn and 2x oversampling.
+20120407
+-added impulse section to test wav.
+-initial support for texture overlapping.
+-added initial support for rendering to frame buffer objects.
+-added additional test program actor_plus to demonstrate more complex display.

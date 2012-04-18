@@ -39,7 +39,6 @@
 #include "waveform/canvas.h"
 #include "waveform/actor.h"
 #include "waveform/grid.h"
-#include "waveform/gl_ext.h"
 
 struct _grid
 {
@@ -83,7 +82,7 @@ wf_grid_paint(WaveformCanvas* canvas, WfSampleRegion* viewport_samples, WfViewPo
 //			glNormal3f(0, 0, 1);
 			glDisable(GL_TEXTURE_1D);
 			glDisable(GL_TEXTURE_2D);
-											//glActiveTexture(GL_TEXTURE0);
+											//glActiveTexture(WF_TEXTURE0);
 			//glDisable(GL_BLEND);
 											glLineWidth(1);
 											glColor4f(0.5, 0.5, 1.0, 0.25);

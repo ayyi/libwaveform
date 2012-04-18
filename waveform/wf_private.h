@@ -27,6 +27,13 @@
 #define WF_PEAK_STD_TO_LO 16
 #define WF_PEAK_RATIO_LOW (WF_PEAK_RATIO * WF_PEAK_STD_TO_LO) // the number of samples per entry in a low res peakbuf.
 
+#define WF_TEXTURE0 GL_TEXTURE1 //0 is not used
+#define WF_TEXTURE1 GL_TEXTURE2
+#define WF_TEXTURE2 GL_TEXTURE3
+#define WF_TEXTURE3 GL_TEXTURE4
+
+#define TEX_BORDER 0
+
 typedef struct _texture_cache TextureCache;
 
 enum
@@ -73,6 +80,7 @@ struct __gl_block
 		unsigned*      main;
 		unsigned*      neg;               // only used in shader mode.
 	}                  peak_texture[WF_MAX_CH];
+	WfFBO**            fbo;
 #ifdef WF_SHOW_RMS
 	unsigned*          rms_texture;
 #endif
@@ -132,13 +140,16 @@ void           waveform_peakbuf_regen      (Waveform*, int block_num, int min_ou
 int            waveform_get_n_audio_blocks (Waveform*);
 void           waveform_print_blocks       (Waveform*);
 
-void           waveform_peak_to_alphabuf   (Waveform*, AlphaBuf*, int scale, int* start, int* end, GdkColor* colour, uint32_t colour_bg);
+void           waveform_peak_to_alphabuf   (Waveform*, AlphaBuf*, int scale, int* start, int* end, GdkColor* colour, uint32_t colour_bg, int border);
 void           waveform_rms_to_alphabuf    (Waveform*, AlphaBuf*, int* start, int* end, double samples_per_px, GdkColor* colour, uint32_t colour_bg);
 
 WfGlBlock*     wf_texture_array_new        (int size, int n_channels);
 
 void           waveform_audio_free         (Waveform*);
 gboolean       waveform_load_audio_block   (Waveform*, int block_num);
+
+WfTextureHi*   waveform_texture_hi_new     ();
+void           waveform_texture_hi_free    (WfTextureHi*);
 
 void           wf_actor_init           ();
 WaveformActor* wf_actor_new            (Waveform*);

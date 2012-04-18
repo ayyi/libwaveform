@@ -52,7 +52,7 @@ _alphabuf_new(int width, int height)
 
 
 AlphaBuf*
-wf_alphabuf_new(Waveform* waveform, int blocknum, int scale, gboolean is_rms)
+wf_alphabuf_new(Waveform* waveform, int blocknum, int scale, gboolean is_rms, int border)
 {
 	//copy part of the audio peakfile to an Alphabuf suitable for use as a GL texture.
 	// @param blocknum - if -1, use the whole peakfile.
@@ -96,7 +96,7 @@ wf_alphabuf_new(Waveform* waveform, int blocknum, int scale, gboolean is_rms)
 	}else{
 
 		uint32_t bg_colour = 0x00000000;
-		waveform_peak_to_alphabuf(waveform, buf, scale, &px_start, &px_stop, &fg_colour, bg_colour);
+		waveform_peak_to_alphabuf(waveform, buf, scale, &px_start, &px_stop, &fg_colour, bg_colour, border);
 	}
 
 #if 0

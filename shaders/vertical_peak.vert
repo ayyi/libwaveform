@@ -15,15 +15,10 @@
   Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 */
 
-//varying vec2 MCposition;
+varying vec2 MCposition;
 
 void main() 
 {
-   gl_TexCoord[0] = gl_MultiTexCoord1;
-   gl_TexCoord[1] = gl_MultiTexCoord2;
-   gl_TexCoord[2] = gl_MultiTexCoord3;
-   gl_TexCoord[3] = gl_MultiTexCoord4;
-   //MCposition = gl_Vertex.xy;
-   //vec3 ecPosition = vec3(gl_ModelViewMatrix * gl_Vertex); //TODO
+   gl_TexCoord[0] = gl_MultiTexCoord0;
    gl_Position = ftransform();
 }

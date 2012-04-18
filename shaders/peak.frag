@@ -27,7 +27,7 @@ uniform float bottom;
 uniform vec4 fg_colour;
 uniform int n_channels;
 
-varying vec2 MCposition;        //TODO get coords for current object, not window
+//varying vec2 MCposition;        //TODO get coords for current object, not window
 
 void main(void)
 {

@@ -52,7 +52,8 @@
 
 #define bool gboolean
 
-static void set_log_handlers();
+static void  set_log_handlers();
+static char* find_wav();
 
 #define WAV "test/data/mono_1.wav"
 //#define WAV "test/data/stereo_1.wav"
@@ -83,7 +84,7 @@ main (int argc, char *argv[])
 
 	gtk_widget_show_all(window);
 
-	char* filename = g_build_filename(g_get_current_dir(), WAV, NULL);
+	char* filename = find_wav();
 	waveform_view_load_file(waveform, filename);
 	g_free(filename);
 
@@ -101,12 +102,12 @@ main (int argc, char *argv[])
 				break;
 			case GDK_KEY_Left:
 			case GDK_KEY_KP_Left:
-				dbg(0, "left");
+				dbg(1, "left");
 				waveform_view_set_start(waveform, waveform->start_frame - n_visible_frames / 10);
 				break;
 			case GDK_KEY_Right:
 			case GDK_KEY_KP_Right:
-				dbg(0, "right");
+				dbg(1, "right");
 				waveform_view_set_start(waveform, waveform->start_frame + n_visible_frames / 10);
 				break;
 			case GDK_KP_Enter:
@@ -121,7 +122,7 @@ main (int argc, char *argv[])
 			case GDK_Delete:
 				break;
 			default:
-				dbg(0, "%i", event->keyval);
+				dbg(1, "%i", event->keyval);
 				break;
 		}
 		return TRUE;
@@ -167,6 +168,19 @@ set_log_handlers()
 	int i; for(i=0;i<G_N_ELEMENTS(domain);i++){
 		g_log_set_handler (domain[i], G_LOG_LEVEL_MASK | G_LOG_FLAG_FATAL | G_LOG_FLAG_RECURSION, log_handler, NULL);
 	}
+}
+
+
+static char*
+find_wav()
+{
+	char* filename = g_build_filename(g_get_current_dir(), WAV, NULL);
+	if(g_file_test(filename, G_FILE_TEST_EXISTS)){
+		return filename;
+	}
+	g_free(filename);
+	filename = g_build_filename(g_get_current_dir(), "../", WAV, NULL);
+	return filename;
 }
 
 

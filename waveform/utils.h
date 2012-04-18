@@ -48,12 +48,17 @@ extern int wf_debug;
 #define g_list_free0(var) ((var == NULL) ? NULL : (var = (g_list_free (var), NULL)))
 #define call(FN, A, ...) if(FN) (FN)(A, ##__VA_ARGS__)
 #endif
+#include "waveform/typedefs.h"
 
 void       wf_debug_printf         (const char* func, int level, const char* format, ...);
 void       deinterleave            (float* src, float** dest, uint64_t n_frames);
 void       deinterleave16          (short* src, short** dest, uint64_t n_frames);
 int        wf_power_of_two         (int);
 float      wf_int2db               (short);
+#ifdef __wf_private__
+void       wf_colour_rgba_to_float (WfColourFloat*, uint32_t rgba);
+void       wf_rgba_to_float        (uint32_t rgba, float* r, float* g, float* b);
+#endif
 
 #endif
 

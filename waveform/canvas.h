@@ -17,10 +17,14 @@
 #ifndef __waveform_canvas_h__
 #define __waveform_canvas_h__
 #include "waveform/typedefs.h"
+#include "waveform/shader.h"
+
+typedef struct _wf_canvas_priv WfCanvasPriv;
 
 struct _waveform_canvas {
 	gboolean       show_rms;
 	gboolean       use_shaders;
+	gboolean       use_1d_textures;
 
 	void           (*draw)(WaveformCanvas*, gpointer);
 	gpointer       draw_data;
@@ -32,10 +36,23 @@ struct _waveform_canvas {
 	float          rotation;
 	float          v_gain;
 
+	WfCanvasPriv*  priv;
 	int           _draw_depth;
 	int           _program;
 	guint         _queued;
+	TextureUnit*   texture_unit[4];
 };
+
+#ifdef __wf_canvas_priv__
+struct _wf_canvas_priv {
+	struct {
+		PeakShader*     peak;
+		BloomShader*    vertical;
+		BloomShader*    horizontal;
+		AlphaMapShader* tex2d;
+	}              shaders;
+};
+#endif
 
 struct _vp { double left, top, right, bottom; }; 
 
@@ -51,6 +68,9 @@ void            wf_canvas_remove_actor              (WaveformCanvas*, WaveformAc
 void            wf_canvas_queue_redraw              (WaveformCanvas*);
 void            wf_canvas_load_texture_from_alphabuf(WaveformCanvas*, int texture_id, AlphaBuf*);
 void            wf_canvas_use_program               (WaveformCanvas*, int);
+#ifdef __gl_h_
+void            wf_canvas_use_program_              (WaveformCanvas*, Shader*);
+#endif
 
 #define wf_canvas_free0(A) (wf_canvas_free(A), A = NULL)
 

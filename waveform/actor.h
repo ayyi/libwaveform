@@ -20,8 +20,6 @@
 #include "canvas.h"
 #include "peak.h"
 
-#define WF_SAMPLES_PER_TEXTURE (WF_PEAK_RATIO * WF_PEAK_TEXTURE_SIZE)
-
 #define HAVE_NON_SQUARE_TEXTURES //TODO add runtime detection
 
 typedef struct

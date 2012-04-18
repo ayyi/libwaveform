@@ -1,7 +1,7 @@
 
 if BUILD_TESTS
 
-bin_PROGRAMS = waveform_test view_test actor_test frame_rate resources write_wav
+noinst_PROGRAMS = waveform_test view_test actor_test actor_plus frame_rate resources write_wav
 
 AM_CFLAGS = \
 	-O0 \
@@ -30,6 +30,10 @@ actor_test_SOURCES = \
 	ayyi_utils.c ayyi_utils.h \
 	actor_test.c
 
+actor_plus_SOURCES = \
+	ayyi_utils.c ayyi_utils.h \
+	actor_plus.c
+
 frame_rate_SOURCES = \
 	ayyi_utils.c ayyi_utils.h \
 	frame_rate.c
@@ -49,6 +53,10 @@ view_test_LDADD = \
 	$(TEST_LDFLAGS)
 
 actor_test_LDADD = \
+	$(OPENGL_LDFLAGS) \
+	$(TEST_LDFLAGS)
+
+actor_plus_LDADD = \
 	$(OPENGL_LDFLAGS) \
 	$(TEST_LDFLAGS)
 

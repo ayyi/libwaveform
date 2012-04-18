@@ -144,12 +144,18 @@ get_gl_extensions()
    glRenderbufferStorage_func = (PFNGLRENDERBUFFERSTORAGEPROC) glutGetProcAddress("glRenderbufferStorage");
    glGetRenderbufferParameteriv_func = (PFNGLGETRENDERBUFFERPARAMETERIVPROC) glutGetProcAddress("glGetRenderbufferParameteriv");
    glIsFramebuffer_func = (PFNGLISFRAMEBUFFERPROC) glutGetProcAddress("glIsFramebuffer");
+#endif
    glBindFramebuffer = (PFNGLBINDFRAMEBUFFERPROC) glutGetProcAddress("glBindFramebuffer");
+#if 0
    glDeleteFramebuffers_func = (PFNGLDELETEFRAMEBUFFERSPROC) glutGetProcAddress("glDeleteFramebuffers");
+#endif
    glGenFramebuffers = (PFNGLGENFRAMEBUFFERSPROC) glutGetProcAddress("glGenFramebuffers");
    glCheckFramebufferStatus = (PFNGLCHECKFRAMEBUFFERSTATUSPROC) glutGetProcAddress("glCheckFramebufferStatus");
+#if 0
    glFramebufferTexture1D_func = (PFNGLFRAMEBUFFERTEXTURE1DPROC) glutGetProcAddress("glFramebufferTexture1D");
-   glFramebufferTexture2D_func = (PFNGLFRAMEBUFFERTEXTURE2DPROC) glutGetProcAddress("glFramebufferTexture2D");
+#endif
+   glFramebufferTexture2D = (PFNGLFRAMEBUFFERTEXTURE2DPROC) glutGetProcAddress("glFramebufferTexture2D");
+#if 0
    glFramebufferTexture3D_func = (PFNGLFRAMEBUFFERTEXTURE3DPROC) glutGetProcAddress("glFramebufferTexture3D");
    glFramebufferRenderbuffer_func = (PFNGLFRAMEBUFFERRENDERBUFFERPROC) glutGetProcAddress("glFramebufferRenderbuffer");
    glGetFramebufferAttachmentParameteriv_func = (PFNGLGETFRAMEBUFFERATTACHMENTPARAMETERIVPROC) glutGetProcAddress("glGetFramebufferAttachmentParameteriv");

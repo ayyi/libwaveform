@@ -31,6 +31,10 @@ typedef struct _texture_hi      WfTextureHi;
 typedef struct _waveform_priv   WaveformPriv;
 typedef struct _audio_data      WfAudioData;
 typedef struct _vp              WfViewPort; 
+typedef struct _texture_unit    TextureUnit; 
+typedef struct _colour_float    WfColourFloat;
+typedef struct _fbo             WfFBO;
+typedef struct _wf_shader       WfShader;
 
 
 #endif //__waveform_typedefs_h__

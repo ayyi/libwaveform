@@ -249,7 +249,7 @@ test_alphabuf()
 	int scale[] = {1, WF_PEAK_STD_TO_LO};
 	int b; for(b=0;b<2;b++){
 		int s; for(s=0;s<G_N_ELEMENTS(scale);s++){
-			AlphaBuf* alphabuf = wf_alphabuf_new(w, b, scale[s], false);
+			AlphaBuf* alphabuf = wf_alphabuf_new(w, b, scale[s], false, 0);
 			assert(alphabuf, "alphabuf create failed");
 			assert(alphabuf->buf, "alphabuf has no buf");
 			assert(alphabuf->buf_size, "alphabuf size not set");

@@ -22,19 +22,15 @@ static int __draw_depth = 0;
 
 
 static void
-gl_init(WaveformView* view)
+waveform_view_gl_init(WaveformView* view)
 {
+	PF;
+
 	if(gl_initialised) return;
 
 	WF_START_DRAW {
 
-		if(wf_get_instance()->pref_use_shaders && !shaders_supported()){
-			printf("gl shaders not supported. expect reduced functionality.\n");
-			wf_canvas_use_program(view->priv->canvas, 0);
-			view->priv->canvas->use_shaders = false;
-		}
-		printf("GL_RENDERER = %s\n", (const char*)glGetString(GL_RENDERER));
-
+//TODO move to wf_canvas_init_gl()
 		GLboolean npotTexturesAvailable = GL_FALSE;
 		if(GL_ARB_texture_non_power_of_two){
 			if(wf_debug) printf("non_power_of_two textures are available.\n");
@@ -47,15 +43,6 @@ gl_init(WaveformView* view)
 	} END_DRAW
 
 	gl_initialised = true;
-}
-
-
-static void
-waveform_view_gl_init(WaveformView* view)
-{
-	PF;
-
-	gl_init(view);
 
 #ifdef WF_USE_TEXTURE_CACHE
 	texture_cache_gen();
@@ -110,7 +97,7 @@ draw(WaveformView* view)
 							viewport->bottom = a->rect.top + a->rect.height;
 						}
 					}
-	if(/*false && */view->priv->show_grid){
+	if(view->priv->show_grid){
 		WfViewPort viewport; wf_actor_get_viewport(actor, &viewport);
 
 		WfSampleRegion region = {view->start_frame, w->n_frames};
