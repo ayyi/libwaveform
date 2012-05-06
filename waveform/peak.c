@@ -153,7 +153,7 @@ __finalize (Waveform* w)
 				if(textures->peak_texture[c].neg) g_free(textures->peak_texture[c].neg);
 			}
 			if(textures->fbo){
-				int b; for(b=0;b<textures->size;b++); if(textures->fbo[b]) fbo_free(textures->fbo[b]);
+				int b; for(b=0;b<textures->size;b++) if(textures->fbo[b]) fbo_free(textures->fbo[b]);
 				g_free(textures->fbo);
 			}
 			g_free(textures);
