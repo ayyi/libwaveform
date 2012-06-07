@@ -3,8 +3,6 @@
 
   contains code generated with Faust (http://faust.grame.fr)
 
-  "Constant-Peak-Gain Resonator Synth" by Julius Smith
-
   ---------------------------------------------------------------
 
   copyright (C) 2012 Tim Orford <tim@orford.org>
@@ -31,10 +29,12 @@
 #include <malloc.h>
 #include <getopt.h>
 #include <sndfile.h>
+#include "cpgrs.h"
 
 #define MONO 1
 
-#define WF_SAMPLES_PER_TEXTURE (256 * 256 - 10)   //dupe of private def in actor.c
+#define TEX_BORDER 0
+#define WF_SAMPLES_PER_TEXTURE (256 * 256 - TEX_BORDER)   //dupe of private def in actor.c
 #define LONG_SECTION  (WF_SAMPLES_PER_TEXTURE / 4)
 #define SHORT_SECTION (WF_SAMPLES_PER_TEXTURE / 4)
 
@@ -42,6 +42,8 @@
 void compute_sinewave (double* buf, int n_frames);
 void compute_noise    (int count, double** input, double** output);
 void compute_kps      (int count, double** input, double** output);
+
+CPGRS cpgrs;
 
 
 int
@@ -178,108 +180,6 @@ class KPS
 KPS kps;
 
 
-template <int N> inline float  faustpower(float x)   { return powf(x,N); } 
-template <int N> inline double faustpower(double x)  { return pow(x,N); }
-template <int N> inline int    faustpower(int x)     { return faustpower<N/2>(x) * faustpower<N-N/2>(x); } 
-template <>      inline int    faustpower<0>(int x)  { return 1; }
-template <>      inline int    faustpower<1>(int x)  { return x; }
-
-class CPGRS
-{
-  public:
-	float     gain;          // gain
-	float     attack;        // interface->addHorizontalSlider("attack",  &fslider4, 0.01f, 0.0f, 1.0f, 0.001f);
-	float     sustain;       // interface->addHorizontalSlider("sustain", &fslider1, 0.5f, 0.0f, 1.0f, 0.01f);
-	float     release;       // interface->addHorizontalSlider("release", &fslider2, 0.2f, 0.0f, 1.0f, 0.001f);
-	float     decay;         // interface->addHorizontalSlider("decay",   &fslider3, 0.3f, 0.0f, 1.0f, 0.001f);
-	float     freq;          // "freq", 4.4e+02f, 2e+01f, 2e+04f, 1.0f
-
-  private:
-	float     fSamplingFreq;
-	float     filter_bandwidth; // 2-filter: addHorizontalSlider("bandwidth (Hz)", &fslider0, 1e+02f, 2e+01f, 2e+04f, 1e+01f);
-	float     fConst0;
-	float     fConst1;
-	float     on_off_button; // gate (on/off)
-	int       iRec1[2];
-	float     fRec2[2];
-	int       iRec3[2];
-	float     fVec0[3];
-	float     fRec0[3];
-
-	int       t;
-
-  public:
-
-	void init()
-	{
-		t = 0;
-
-		gain    = 8.0;
-		sustain = 0.5f;
-		release = 0.2f;
-		decay   = 0.3f;
-		attack  = 0.01f;
-
-		fSamplingFreq = 44100;
-		filter_bandwidth = 1e+02f;
-		fConst0 = (3.141592653589793f / fSamplingFreq);
-		freq = 4.4e+02f;
-		fConst1 = (6.283185307179586f / fSamplingFreq);
-		on_off_button = 0.0;
-		for (int i=0; i<2; i++) iRec1[i] = 0;
-		for (int i=0; i<2; i++) fRec2[i] = 0;
-		for (int i=0; i<2; i++) iRec3[i] = 0;
-		for (int i=0; i<3; i++) fVec0[i] = 0;
-		for (int i=0; i<3; i++) fRec0[i] = 0;
-	}
-#if 0
-	virtual int getNumInputs()  { return 0; }
-	virtual int getNumOutputs() { return 1; }
-#endif
-	void compute (int count, float** input, float** output)
-	{
-		if(!(t % 4096)) on_off_button = !on_off_button;
-
-		float   fSlow0 = expf((0 - (fConst0 * filter_bandwidth)));
-		float   fSlow1 = (2 * cosf((fConst1 * freq)));
-		float   fSlow2 = on_off_button;
-		int     iSlow3 = (fSlow2 > 0);
-		int     iSlow4 = (fSlow2 <= 0);
-		float   fSlow5 = sustain;
-		float   fSlow6 = (sustain + (0.001f * (fSlow5 == 0.0f)));
-		float   fSlow7 = release;
-		float   fSlow8 = (1 - (1.0f / powf((1e+03f * fSlow6),(1.0f / ((fSlow7 == 0.0f) + (fSamplingFreq * fSlow7))))));
-		float   fSlow9 = decay;
-		float   fSlow10 = (1 - powf(fSlow6,(1.0f / ((fSlow9 == 0.0f) + (fSamplingFreq * fSlow9)))));
-		float   fSlow11 = attack;
-		float   fSlow12 = (1.0f / ((fSlow11 == 0.0f) + (fSamplingFreq * fSlow11)));
-		float   fSlow13 = (4.656612875245797e-10f * gain);
-		float   fSlow14 = (0.5f * (1 - faustpower<2>(fSlow0)));
-		float*  output0 = output[0];
-		for (int i=0; i<count; i++) {
-			iRec1[0] = (iSlow3 & (iRec1[1] | (fRec2[1] >= 1)));
-			int iTemp0 = (iSlow4 & (fRec2[1] > 0));
-			fRec2[0] = (((iTemp0 == 0) | (fRec2[1] >= 1e-06f)) * ((fSlow12 * (((iRec1[1] == 0) & iSlow3) & (fRec2[1] < 1))) + (fRec2[1] * ((1 - (fSlow10 * (iRec1[1] & (fRec2[1] > fSlow5)))) - (fSlow8 * iTemp0)))));
-			iRec3[0] = (12345 + (1103515245 * iRec3[1]));
-			float fTemp1 = (fSlow13 * (iRec3[0] * fRec2[0]));
-			fVec0[0] = fTemp1;
-			fRec0[0] = ((fSlow14 * (fVec0[0] - fVec0[2])) + (fSlow0 * ((fSlow1 * fRec0[1]) - (fSlow0 * fRec0[2]))));
-			output0[i] = (float)fRec0[0];
-
-			// post processing
-			fRec0[2] = fRec0[1]; fRec0[1] = fRec0[0];
-			fVec0[2] = fVec0[1]; fVec0[1] = fVec0[0];
-			iRec3[1] = iRec3[0];
-			fRec2[1] = fRec2[0];
-			iRec1[1] = iRec1[0];
-		}
-
-		t++;
-	}
-};
-CPGRS cpgrs;
-
-
 class Impulse
 {
 	int a;
@@ -297,7 +197,7 @@ class Impulse
 	void compute (int n_chans, double** input, double** output)
 	{
 		for (int c=0; c<n_chans; c++) {
-			output[0][c] = !(a % 256);
+			output[0][c] = !(a % 2048);
 		}
 		a++;
 	}
@@ -396,7 +296,7 @@ int main(int argc, char* argv[])
 			buffer[f * n_channels + c] = val;
 		}
 	}
-	compute_sinewave(buffer, 16384);
+	compute_sinewave(buffer, LONG_SECTION);
 	ff += LONG_SECTION;
 
 	double* input[2] = {NULL, NULL};
@@ -406,7 +306,7 @@ int main(int argc, char* argv[])
 
 	float* output_f[n_channels];
 	cpgrs.init();
-	for(int a=0;a<16384;a++){
+	for(int a=0;a<LONG_SECTION;a++){
 		int c; for(c=0;c<n_channels;c++){
 			output[c] = buffer + ff * n_channels + a * n_channels + c;
 		}
@@ -429,7 +329,7 @@ int main(int argc, char* argv[])
 	ff += LONG_SECTION;
 	cpgrs.release = 0.01;  // <----
 	cpgrs.freq = 100.0;    // lower freq
-	for(int a=0;a<16384;a++){
+	for(int a=0;a<LONG_SECTION;a++){
 		int c; for(c=0;c<n_channels;c++){
 			output[c] = buffer + ff * n_channels + a * n_channels + c;
 		}
@@ -465,7 +365,7 @@ int main(int argc, char* argv[])
 	cpgrs.attack = 1.0f; // <----
 	cpgrs.release = 1.0f; // <----
 	cpgrs.gain = 32.0;
-	for(int a=0;a<16384;a++){
+	for(int a=0;a<LONG_SECTION;a++){
 		int c; for(c=0;c<n_channels;c++){
 			output[c] = buffer + ff * n_channels + a * n_channels + c;
 		}
@@ -474,13 +374,13 @@ int main(int argc, char* argv[])
 			output[0][c] = output_f[0][c];
 		}
 	}
-	ff += 16384;
+	ff += LONG_SECTION;
 
 	cpgrs.freq = 2000.0;
 	cpgrs.attack = 1.0f; // <----
 	cpgrs.release = 1.0f; // <----
 	cpgrs.gain = 16.0;
-	for(int a=0;a<16384;a++){
+	for(int a=0;a<LONG_SECTION;a++){
 		int c; for(c=0;c<n_channels;c++){
 			output[c] = buffer + ff * n_channels + a * n_channels + c;
 		}
@@ -489,7 +389,7 @@ int main(int argc, char* argv[])
 			output[0][c] = output_f[0][c];
 		}
 	}
-	ff += 16384;
+	ff += LONG_SECTION;
 
 	//---
 
@@ -586,7 +486,7 @@ int main(int argc, char* argv[])
 
 	//---
 
-	for(a=0;a<16384;a++){
+	for(a=0;a<LONG_SECTION;a++){
 		int c; for(c=0;c<n_channels;c++){
 			output[c] = buffer + ff * n_channels + a * n_channels + c;
 		}
@@ -632,7 +532,6 @@ int main(int argc, char* argv[])
 fail:
 	free(buffer);
 	return -1;
-
 }
 
 

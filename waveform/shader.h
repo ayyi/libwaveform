@@ -4,6 +4,11 @@
 
 struct _wf_shader
 {
+	char*        vertex_file;
+	char*        fragment_file;
+	uint32_t     program;       // compiled program
+	UniformInfo* uniforms;
+	void         (*set_uniforms_)();
 };
 
 #ifdef __gl_h_
@@ -19,6 +24,18 @@ typedef struct {
 typedef struct {
 	Shader    shader;
 	void      (*set_uniforms)();
+	struct U {
+		uint32_t fg_colour;
+		float    top;
+		float    bottom;
+		int      n_channels;
+		float    peaks_per_pixel;
+	}         uniform;
+} HiResShader;
+
+typedef struct {
+	Shader    shader;
+	void      (*set_uniforms)();
 	struct {
 		uint32_t fg_colour;
 		float    peaks_per_pixel;
@@ -26,12 +43,18 @@ typedef struct {
 } BloomShader;
 
 typedef struct {
-	Shader       shader;
-	void         (*set_uniforms)();
+	WfShader     shader;
 	struct {
 		uint32_t fg_colour;
 	}            uniform;
 } AlphaMapShader;
+
+typedef struct {
+	WfShader     shader;
+	struct {
+		uint32_t fg_colour;
+	}            uniform;
+} RulerShader;
 #endif
 
 void wf_shaders_init();

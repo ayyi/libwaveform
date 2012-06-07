@@ -35,6 +35,7 @@ typedef struct _texture_unit    TextureUnit;
 typedef struct _colour_float    WfColourFloat;
 typedef struct _fbo             WfFBO;
 typedef struct _wf_shader       WfShader;
+typedef struct _uniform_info    UniformInfo;
 
 
 #endif //__waveform_typedefs_h__

@@ -14,7 +14,13 @@
   along with this program; if not, write to the Free Software
   Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 */
-#include "waveform/actor.h"
 
-void     draw_wave_buffer_hi   (Waveform*, WfSampleRegion, WfRectangle*, Peakbuf*, int chan, float v_gain, uint32_t rgba);
-void     draw_wave_buffer_v_hi (Waveform*, WfSampleRegion, WfRectangle*, WfViewPort*, WfBuf16*, int chan, float v_gain, uint32_t rgba);
+varying vec2 MCposition;
+varying vec2 ecPosition;
+
+void main() 
+{
+   MCposition = gl_Vertex.xy;
+   ecPosition = (gl_ModelViewMatrix * gl_Vertex).xy;
+   gl_Position = ftransform();
+}

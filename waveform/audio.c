@@ -334,6 +334,7 @@ waveform_load_audio_async(Waveform* waveform, int block_num, int n_tiers_needed)
 
 	void peakbuf_queue_for_regen(Waveform* waveform, int block_num, int min_output_tiers)
 	{
+		PF;
 		WF* wf = wf_get_instance();
 
 		PeakbufQueueItem* item = g_new0(PeakbufQueueItem, 1);
@@ -362,6 +363,7 @@ waveform_load_audio_async(Waveform* waveform, int block_num, int n_tiers_needed)
 			if(waveform_load_audio_block(peak->waveform, peak->block_num)){
 				waveform_peakbuf_regen(peak->waveform, peak->block_num, peak->min_output_tiers);
 
+				dbg(1, "--->");
 				g_signal_emit_by_name(peak->waveform, "peakdata-ready", peak->block_num);
 			}
 

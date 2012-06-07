@@ -180,7 +180,7 @@ link_shaders2(GLuint vertShader, GLuint fragShader1, GLuint vertShader2, GLuint 
 
 
 void
-uniforms_init(GLuint program, struct uniform_info uniforms[])
+uniforms_init(GLuint program, struct _uniform_info uniforms[])
 {
 	GLuint i;
 	dbg(1, "program=%u", program);

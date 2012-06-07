@@ -50,17 +50,17 @@ struct _peakbuf1 {
 
 struct _waveform_priv
 {
-	WfPeakBuf          peak;
-	WfAudioData*       audio_data;// tiered hi-res data for peaks.
-	gint              _property1; // just testing
+	WfPeakBuf       peak;
+	WfAudioData*    audio_data;     // tiered hi-res data for peaks.
+	gint           _property1;      // just testing
 };
 
 struct _wf
 {
-	int           peak_mem_size;
-	GHashTable*   peak_cache;
-	PeakLoader    load_peak;
-	TextureCache* texture_cache;
+	int             peak_mem_size;
+	GHashTable*     peak_cache;
+	PeakLoader      load_peak;
+	TextureCache*   texture_cache;
 
 	struct
 	{
@@ -69,44 +69,45 @@ struct _wf
 		int         access_counter;
 	} audio;
 
-	gboolean      pref_use_shaders;
-	GAsyncQueue*  msg_queue;
+	gboolean        pref_use_shaders;
+	GAsyncQueue*    msg_queue;
 };
 
-struct __gl_block
+//TODO refactor based on _texture_hi (eg reverse order of indexing)
+struct __gl_block                         // WfGlBlock
 {
-	int                size;
+	int             size;
 	struct {
-		unsigned*      main;
-		unsigned*      neg;               // only used in shader mode.
-	}                  peak_texture[WF_MAX_CH];
-	WfFBO**            fbo;
+		unsigned*   main;                 // array of texture id
+		unsigned*   neg;                  // array of texture id - only used in shader mode.
+	}               peak_texture[WF_MAX_CH];
+	WfFBO**         fbo;
 #ifdef WF_SHOW_RMS
-	unsigned*          rms_texture;
+	unsigned*       rms_texture;
 #endif
-	double             last_fraction;     // the fraction of the last block that is actually used.
+	double          last_fraction;        // the fraction of the last block that is actually used.
 };
 
 struct _t
 {
-	unsigned*          main;
-	unsigned*          neg;
+	unsigned        main;                 // texture id
+	unsigned        neg;
 };
 
-struct _texture_hi
+struct _texture_hi                        // WfTexturesHi
 {
 	struct _t t[WF_MAX_CH];
 };
 
 struct _textures_hi
 {
-	GHashTable*        textures;
+	GHashTable*     textures;             // maps: blocknum => WfTextureHi.
 };
 
 typedef struct _buf_stereo
 {
-	float*     buf[WF_STEREO];
-	guint      size;             // number of floats, NOT bytes
+	float*          buf[WF_STEREO];
+	guint           size;                 // number of floats, NOT bytes
 } WfBuf;
 
 typedef struct _waveform_block

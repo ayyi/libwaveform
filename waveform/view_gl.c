@@ -14,7 +14,6 @@
   along with this program; if not, write to the Free Software
   Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 */
-#include "waveform/hi_res.h"
 
 extern WF* wf;
 
@@ -61,7 +60,6 @@ waveform_view_gl_init(WaveformView* view)
 static void
 draw(WaveformView* view)
 {
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	Waveform* w = view->waveform;
 	WaveformActor* actor = view->priv->actor;
 
@@ -109,6 +107,8 @@ draw(WaveformView* view)
 static void
 waveform_view_gl_on_allocate(WaveformView* view)
 {
+	if(!view->priv->actor) return;
+
 				//extern void _wf_set_last_fraction(Waveform*);
 				//_wf_set_last_fraction(view->waveform);
 

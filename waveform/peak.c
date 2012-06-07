@@ -152,10 +152,13 @@ __finalize (Waveform* w)
 				if(textures->peak_texture[c].main) g_free(textures->peak_texture[c].main);
 				if(textures->peak_texture[c].neg) g_free(textures->peak_texture[c].neg);
 			}
+#ifdef USE_FBO
 			if(textures->fbo){
+																						dbg(0, "textures=%p textures->fbo=%p", textures, textures->fbo);
 				int b; for(b=0;b<textures->size;b++) if(textures->fbo[b]) fbo_free(textures->fbo[b]);
 				g_free(textures->fbo);
 			}
+#endif
 			g_free(textures);
 			*_textures = NULL;
 		}
@@ -189,7 +192,7 @@ __finalize (Waveform* w)
 static void
 waveform_finalize (GObject* obj)
 {
-	PF0;
+	PF;
 	Waveform* w = WAVEFORM(obj);
 	__finalize(w);
 	G_OBJECT_CLASS (waveform_parent_class)->finalize (obj);

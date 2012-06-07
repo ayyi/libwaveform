@@ -32,10 +32,6 @@
 #include "waveform/loaders/riff.h"
 #include "waveform/utils.h"
 #include "waveform/texture_cache.h"
-#if 0
-#include "waveform/audio.h"
-#include "waveform/peakgen.h"
-#endif
 
 WF* wf = NULL;
 

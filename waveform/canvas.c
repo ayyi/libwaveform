@@ -58,8 +58,10 @@
 static void   wf_canvas_init_gl (WaveformCanvas*);
 
 extern PeakShader peak_shader;
+extern HiResShader hires_shader;
 extern BloomShader horizontal, vertical;
 extern AlphaMapShader tex2d;
+extern RulerShader ruler;
 
 
 static void
@@ -176,9 +178,11 @@ wf_canvas_init_gl(WaveformCanvas* wfc)
 		if(wfc->use_shaders){
 			wf_shaders_init();
 			wfc->priv->shaders.peak = &peak_shader;
+			wfc->priv->shaders.hires = &hires_shader;
 			wfc->priv->shaders.vertical = &vertical;
 			wfc->priv->shaders.horizontal = &horizontal;
 			wfc->priv->shaders.tex2d = &tex2d;
+			wfc->priv->shaders.ruler = &ruler;
 		}
 
 	} WAVEFORM_END_DRAW(wfc);
@@ -220,9 +224,9 @@ wf_canvas_add_new_actor(WaveformCanvas* wfc, Waveform* w)
 void
 wf_canvas_remove_actor(WaveformCanvas* wfc, WaveformActor* actor)
 {
-	PF0;
-	waveform_unref0(actor->waveform);
-	g_free(actor);
+	PF;
+	g_object_unref(actor->waveform);
+	wf_actor_free(actor);
 }
 
 
@@ -384,11 +388,15 @@ wf_canvas_use_program_(WaveformCanvas* wfc, Shader* shader)
 		if(shader == (Shader*)&peak_shader){
 			//peak_shader.set_uniforms(peaks_per_pixel, rect.top, bottom, actor->fg_colour, n_channels);
 		}
+		if(shader == (Shader*)&hires_shader){
+			hires_shader.set_uniforms();
+		}
 		if(shader == (Shader*)&vertical){
 			vertical.set_uniforms();
 		}
-		if(shader == (Shader*)&tex2d){
-			tex2d.set_uniforms();
+		if(shader == (WfShader*)&ruler || shader == (WfShader*)&tex2d){
+WfShader* s = (WfShader*)shader;
+			s->set_uniforms_();
 		}
 	}
 }

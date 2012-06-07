@@ -40,8 +40,6 @@
 
 extern BloomShader horizontal, vertical;
 
-#undef USE_FBO
-#define USE_FBO
 #ifdef USE_FBO
 
 WfFBO* fbo0 = NULL;
@@ -151,7 +149,7 @@ make_fbo(GLuint texture)
 WfFBO*
 fbo_new_test()
 {
-	GLuint create_background()
+	GLuint _wf_create_background()
 	{
 		//create an alpha-map gradient texture for use as background
 
@@ -169,7 +167,7 @@ fbo_new_test()
 		GLuint bg_textures;
 		glGenTextures(1, &bg_textures);
 		if(glGetError() != GL_NO_ERROR){ gerr ("couldnt create bg_texture."); return 0; }
-		dbg(0, "bg_texture=%i", bg_textures);
+		dbg(2, "bg_texture=%i", bg_textures);
 
 		int pixel_format = GL_ALPHA;
 		glBindTexture  (GL_TEXTURE_2D, bg_textures);
@@ -182,7 +180,7 @@ fbo_new_test()
 
 		return bg_textures;
 	}
-	WfFBO* fbo = fbo_new(create_background());
+	WfFBO* fbo = fbo_new(_wf_create_background());
 	return fbo;
 }
 

@@ -55,7 +55,7 @@ struct _app
 	int timeout;
 } app;
 
-#define GL_WIDTH 256.0
+#define GL_WIDTH 300.0
 #define GL_HEIGHT 256.0
 #define HBORDER (GL_WIDTH / 32.0)
 #define VBORDER 8
@@ -93,6 +93,7 @@ static void start_zoom         (float target_zoom);
 static void toggle_animate     ();
 static void create_background  ();
 static void background_paint   (GtkWidget*);
+static void ruler_paint        (GtkWidget*);
 uint64_t    get_time           ();
 static char*find_wav           ();
 
@@ -222,6 +223,7 @@ draw(GtkWidget* widget)
 {
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	background_paint(widget);
+	ruler_paint(widget);
 
 	//TODO why does GL_DEPTH_TEST mess with the background painting?
 	//glEnable(GL_DEPTH_TEST);
@@ -443,17 +445,41 @@ background_paint(GtkWidget* widget)
 
 	wfc->priv->shaders.tex2d->uniform.fg_colour = 0x0000ffff;
 	wf_canvas_use_program_(wfc, (Shader*)wfc->priv->shaders.tex2d);
-	//wf_canvas_use_program_(wfc, 0);
 
-	glBegin(GL_QUADS);
 	double top = -VBORDER;
 	double bot = GL_HEIGHT + VBORDER;
 	double x1 = -HBORDER;
 	double x2 = widget->allocation.width + HBORDER;
+	glBegin(GL_QUADS);
 	glTexCoord2d(1.0, 1.0); glVertex2d(x1, top);
 	glTexCoord2d(0.0, 1.0); glVertex2d(x2, top);
 	glTexCoord2d(0.0, 0.0); glVertex2d(x2, bot);
 	glTexCoord2d(1.0, 0.0); glVertex2d(x1, bot);
+	glEnd();
+}
+
+
+static void
+ruler_paint(GtkWidget* widget)
+{
+	if(!wfc->use_shaders) return;
+
+					//glColor4f(1.0, 1.0, 1.0, 1.0);
+
+	wfc->priv->shaders.ruler->uniform.fg_colour = 0xffffff7f;
+	wf_canvas_use_program_(wfc, (Shader*)wfc->priv->shaders.ruler);
+
+	double top = GL_HEIGHT * 0.5;
+	double bot = GL_HEIGHT;
+	double x1 = 0;
+	double x2 = GL_WIDTH;
+	//dbg(0, "%.2f %.2f", top, bot);
+
+	glBegin(GL_QUADS);
+	glVertex2d(x1, top);
+	glVertex2d(x2, top);
+	glVertex2d(x2, bot);
+	glVertex2d(x1, bot);
 	glEnd();
 }
 

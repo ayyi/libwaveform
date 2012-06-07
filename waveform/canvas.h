@@ -47,9 +47,11 @@ struct _waveform_canvas {
 struct _wf_canvas_priv {
 	struct {
 		PeakShader*     peak;
+		HiResShader*    hires;
 		BloomShader*    vertical;
 		BloomShader*    horizontal;
 		AlphaMapShader* tex2d;
+		RulerShader*    ruler;
 	}              shaders;
 };
 #endif

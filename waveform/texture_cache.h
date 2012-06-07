@@ -32,10 +32,8 @@ void  texture_cache_init            ();
 void  texture_cache_gen             ();
 guint texture_cache_get             (int);
 int   texture_cache_lookup          (WaveformBlock);
-int   texture_cache_get_new         ();
 int   texture_cache_find_empty      ();
-void  texture_cache_assign          (int, WaveformBlock);
-guint texture_cache_assign_new      (WaveformBlock);
+guint texture_cache_assign_new      (TextureCache*, WaveformBlock);
 void  texture_cache_remove          (Waveform*, int);
 void  texture_cache_remove_waveform (Waveform*);
 

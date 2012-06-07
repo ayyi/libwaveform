@@ -33,12 +33,14 @@
 #include "waveform/texture_cache.h"
 
 #define WF_TEXTURE_ALLOCATION_INCREMENT 20
-#define WF_TEXTURE_MAX                  1024 //never allocate more than this (1024 textures equiv to ~6mins)
+#define WF_TEXTURE_MAX                  1024 //never allocate more than this (1024 textures equiv to ~6mins audio at medium res)
 
 #ifdef WF_USE_TEXTURE_CACHE
 static int time_stamp = 0;
 static TextureCache* c;
 
+static int  texture_cache_get_new          ();
+static void texture_cache_assign           (TextureCache*, int, WaveformBlock);
 static int  texture_cache_steal            ();
 static void texture_cache_print            ();
 static int  texture_cache_lookup_idx       (WaveformBlock);
@@ -127,22 +129,22 @@ texture_cache_shrink(int idx)
 
 
 guint
-texture_cache_assign_new (WaveformBlock wfb)
+texture_cache_assign_new (TextureCache* cache, WaveformBlock wfb)
 {
 	int t = texture_cache_get_new();
 	int texture_id = texture_cache_get(t);
-	texture_cache_assign(t, wfb);
+	texture_cache_assign(cache, t, wfb);
 	return texture_id;
 }
 
 
-void
-texture_cache_assign(int t, WaveformBlock wb)
+static void
+texture_cache_assign(TextureCache* cache, int t, WaveformBlock wb)
 {
 	g_return_if_fail(t >= 0);
 	g_return_if_fail(t < c->t->len);
 
-	Texture* tx = &g_array_index(wf_get_instance()->texture_cache->t, Texture, t);
+	Texture* tx = &g_array_index(cache->t, Texture, t);
 	tx->wb = wb;
 	tx->time_stamp = time_stamp++;
 	dbg(2, "t=%i b=%i time=%i", t, wb.block, time_stamp);
@@ -278,7 +280,7 @@ texture_cache_lookup_idx_by_id(guint id)
 }
 
 
-int
+static int
 texture_cache_get_new()
 {
 	int t = texture_cache_find_empty();

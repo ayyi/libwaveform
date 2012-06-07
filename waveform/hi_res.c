@@ -33,7 +33,6 @@
 #include <GL/glxext.h>
 #include <gtkglext-1.0/gdk/gdkgl.h>
 #include <gtkglext-1.0/gtk/gtkgl.h>
-//#include "waveform/gl_ext.h"
 #include "waveform/utils.h"
 #include "waveform/canvas.h"
 #include "waveform/actor.h"
@@ -121,8 +120,7 @@ draw_wave_buffer_hi(Waveform* w, WfSampleRegion region, WfRectangle* rect, Peakb
 		double y1 = ((double)data[WF_PEAK_VALUES_PER_SAMPLE * p_    ]) * v_gain * (rect->height / 2.0) / (1 << 15);
 		double y2 = ((double)data[WF_PEAK_VALUES_PER_SAMPLE * p_ + 1]) * v_gain * (rect->height / 2.0) / (1 << 15);
 
-		_draw_line(x, rect->top + rect->height / 2, x, rect->top - y1 + rect->height / 2, r, g, b, alpha);
-		_draw_line(x, rect->top + rect->height / 2, x, rect->top - y2 + rect->height / 2, r, g, b, alpha);
+		_draw_line(x, rect->top - y1 + rect->height / 2, x, rect->top - y2 + rect->height / 2, r, g, b, alpha);
 //if(p == 4095)
 //		_draw_line(rect->left + x, 0, rect->left + x, rect->height, r, g, b, 1.0);
 

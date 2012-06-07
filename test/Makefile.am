@@ -1,7 +1,7 @@
 
 if BUILD_TESTS
 
-noinst_PROGRAMS = waveform_test view_test actor_test actor_plus frame_rate resources write_wav
+noinst_PROGRAMS = waveform_test view_test actor_test actor_plus hires_test frame_rate resources write_wav write_short
 
 AM_CFLAGS = \
 	-O0 \
@@ -34,6 +34,10 @@ actor_plus_SOURCES = \
 	ayyi_utils.c ayyi_utils.h \
 	actor_plus.c
 
+hires_test_SOURCES = \
+	ayyi_utils.c ayyi_utils.h \
+	hires_test.c
+
 frame_rate_SOURCES = \
 	ayyi_utils.c ayyi_utils.h \
 	frame_rate.c
@@ -43,7 +47,12 @@ resources_SOURCES = \
 	resources.c
 
 write_wav_SOURCES = \
+	cpgrs.cc cpgrs.h \
 	write_wav.cpp
+
+write_short_SOURCES = \
+	cpgrs.cc cpgrs.h \
+	write_short.cc
 
 waveform_test_LDADD = \
 	$(TEST_LDFLAGS)
@@ -67,9 +76,13 @@ LDADD = \
 write_wav_LDADD = \
 	$(TEST_LDFLAGS)
 
+write_short_LDADD = \
+	$(TEST_LDFLAGS)
+
 BUILT_SOURCES = test_data
 
 test_data: Makefile
+	@make write_wav
 	@if [[ ! -d data ]]; then mkdir data; fi
 	@if [ ! -e "data/mono_1.wav" ] || [ "./write_wav" -nt "data/mono_1.wav" ]; then \
 		./write_wav data/mono_1.wav; \

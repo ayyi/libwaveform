@@ -36,8 +36,10 @@
 #include "waveform/shader.h"
 
 static void  _peak_shader_set_uniforms (float peaks_per_pixel, float top, float bottom, uint32_t _fg_colour, int n_channels);
+static void  _hires_set_uniforms       ();
 static void  _vertical_set_uniforms    ();
 static void  _alphamap_set_uniforms    ();
+static void  _ruler_set_uniforms       ();
 
 PeakShader peak_shader = {{"peak.vert", "peak.frag", 0}, _peak_shader_set_uniforms};
 static UniformInfo uniforms[] = {
@@ -45,6 +47,15 @@ static UniformInfo uniforms[] = {
    {"tex1d_neg", 1, GL_INT,   { 2, 0, 0, 0 }, -1}, // LHS -ve - 1 corresponds to glActiveTexture(WF_TEXTURE1);
    {"tex1d_3",   1, GL_INT,   { 3, 0, 0, 0 }, -1}, // RHS +ve WF_TEXTURE2
    {"tex1d_4",   1, GL_INT,   { 4, 0, 0, 0 }, -1}, // RHS -ve WF_TEXTURE3
+   END_OF_UNIFORMS
+};
+
+HiResShader hires_shader = {{"hires.vert", "hires.frag", 0}, _hires_set_uniforms};
+static UniformInfo uniforms_hr[] = {
+   {"tex1d",     1, GL_INT,   { 1, 0, 0, 0 }, -1},
+   {"tex1d_neg", 1, GL_INT,   { 2, 0, 0, 0 }, -1},
+   {"tex1d_3",   1, GL_INT,   { 3, 0, 0, 0 }, -1},
+   {"tex1d_4",   1, GL_INT,   { 4, 0, 0, 0 }, -1},
    END_OF_UNIFORMS
 };
 
@@ -61,12 +72,16 @@ static UniformInfo uniforms3[] = {
 };
 
 //used for background
-AlphaMapShader tex2d = {{"alpha_map.vert", "alpha_map.frag", 0}, _alphamap_set_uniforms};
+AlphaMapShader tex2d = {{"alpha_map.vert", "alpha_map.frag", 0, NULL, _alphamap_set_uniforms}};
 static UniformInfo uniforms4[] = {
    {"tex2d",     1, GL_INT,   { 0, 0, 0, 0 }, -1},
    END_OF_UNIFORMS
 };
 
+RulerShader ruler = {{"ruler.vert", "ruler.frag", 0, NULL, _ruler_set_uniforms}};
+static UniformInfo uniforms5[] = {
+   END_OF_UNIFORMS
+};
 
 static void
 _peak_shader_set_uniforms(float peaks_per_pixel, float top, float bottom, uint32_t _fg_colour, int n_channels)
@@ -96,6 +111,23 @@ _peak_shader_set_uniforms(float peaks_per_pixel, float top, float bottom, uint32
 
 
 static void
+_hires_set_uniforms()
+{
+	Shader* shader = &hires_shader.shader;
+	struct U* u = &((HiResShader*)shader)->uniform;
+
+	float fg_colour[4] = {0.0, 0.0, 0.0, ((float)(hires_shader.uniform.fg_colour & 0xff)) / 0x100};
+	wf_rgba_to_float(hires_shader.uniform.fg_colour, &fg_colour[0], &fg_colour[1], &fg_colour[2]);
+	glUniform4fv(glGetUniformLocation(shader->program, "fg_colour"), 1, fg_colour);
+
+	glUniform1f(glGetUniformLocation(shader->program, "top"),             u->top);
+	glUniform1f(glGetUniformLocation(shader->program, "bottom"),          u->bottom);
+	glUniform1i(glGetUniformLocation(shader->program, "n_channels"),      u->n_channels);
+	glUniform1f(glGetUniformLocation(shader->program, "peaks_per_pixel"), u->peaks_per_pixel);
+}
+
+
+static void
 _vertical_set_uniforms()
 {
 	Shader* shader = &vertical.shader;
@@ -113,6 +145,19 @@ _alphamap_set_uniforms()
 	float fg_colour[4] = {0.0, 0.0, 0.0, ((float)(tex2d.uniform.fg_colour & 0xff)) / 0x100};
 	wf_rgba_to_float(tex2d.uniform.fg_colour, &fg_colour[0], &fg_colour[1], &fg_colour[2]);
 	glUniform4fv(glGetUniformLocation(tex2d.shader.program, "fg_colour"), 1, fg_colour);
+}
+
+
+static void
+_ruler_set_uniforms()
+{
+	WfShader* shader = &ruler.shader;
+
+	float fg_colour[4] = {0.0, 0.0, 0.0, ((float)(ruler.uniform.fg_colour & 0xff)) / 0x100};
+	wf_rgba_to_float(ruler.uniform.fg_colour, &fg_colour[0], &fg_colour[1], &fg_colour[2]);
+	glUniform4fv(glGetUniformLocation(ruler.shader.program, "fg_colour"), 1, fg_colour);
+
+	glUniform1f(glGetUniformLocation(shader->program, "beats_per_pixel"), 0.10);
 }
 
 
@@ -145,9 +190,11 @@ void
 wf_shaders_init()
 {
 	create_program(&peak_shader.shader, uniforms);
+	create_program(&hires_shader.shader, uniforms_hr);
 	create_program(&horizontal.shader, uniforms2);
 	create_program(&vertical.shader, uniforms3);
 	create_program(&tex2d.shader, uniforms4);
+	create_program(&ruler.shader, uniforms5);
 }
 
 

@@ -124,6 +124,7 @@ AC_SUBST(LV2_CFLAGS)
 
 dnl AM_CONDITIONAL(ENABLE_GDK_PIXBUF, test "yes" != "no")
 AC_DEFINE(USE_GDK_PIXBUF, 1, [enable support for Gdk Pixbuf])
+AC_DEFINE(USE_FBO, 1, [enable support for opengl framebuffer objects for offscreen rendering])
 
 dnl ------------------ test progs ------------------------
 
