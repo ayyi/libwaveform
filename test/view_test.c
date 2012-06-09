@@ -80,6 +80,7 @@ main (int argc, char *argv[])
 	WaveformCanvas* wfc = waveform_view_get_canvas(waveform);
 	wf_canvas_set_use_shaders(wfc, false);
 	#endif
+	gtk_widget_set_size_request((GtkWidget*)waveform, 256, 128);
 	gtk_container_add((GtkContainer*)window, (GtkWidget*)waveform);
 
 	gtk_widget_show_all(window);

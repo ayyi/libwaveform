@@ -444,7 +444,7 @@ background_paint(GtkWidget* widget)
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
 	wfc->priv->shaders.tex2d->uniform.fg_colour = 0x0000ffff;
-	wf_canvas_use_program_(wfc, (Shader*)wfc->priv->shaders.tex2d);
+	wf_canvas_use_program_(wfc, (WfShader*)wfc->priv->shaders.tex2d);
 
 	double top = -VBORDER;
 	double bot = GL_HEIGHT + VBORDER;
@@ -467,7 +467,7 @@ ruler_paint(GtkWidget* widget)
 					//glColor4f(1.0, 1.0, 1.0, 1.0);
 
 	wfc->priv->shaders.ruler->uniform.fg_colour = 0xffffff7f;
-	wf_canvas_use_program_(wfc, (Shader*)wfc->priv->shaders.ruler);
+	wf_canvas_use_program_(wfc, (WfShader*)wfc->priv->shaders.ruler);
 
 	double top = GL_HEIGHT * 0.5;
 	double bot = GL_HEIGHT;

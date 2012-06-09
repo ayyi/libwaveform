@@ -22,8 +22,7 @@ typedef struct {
 } PeakShader;
 
 typedef struct {
-	Shader    shader;
-	void      (*set_uniforms)();
+	WfShader  shader;
 	struct U {
 		uint32_t fg_colour;
 		float    top;

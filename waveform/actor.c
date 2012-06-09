@@ -554,10 +554,12 @@ wf_actor_allocate_block_low(WaveformActor* a, int b)
 		blocks->peak_texture[c].neg[b] = texture_cache_assign_new (wf->texture_cache, (WaveformBlock){a->waveform, b | WF_TEXTURE_CACHE_LORES_MASK});
 
 		if(a->waveform->priv->peak.buf[WF_RIGHT]){
-			int i; for(i=2;i<4;i++){
-				*peak_texture[i] = texture_cache_assign_new (wf->texture_cache, (WaveformBlock){a->waveform, b | WF_TEXTURE_CACHE_LORES_MASK});
+			if(peak_texture[2]){
+				int i; for(i=2;i<4;i++){
+					*peak_texture[i] = texture_cache_assign_new (wf->texture_cache, (WaveformBlock){a->waveform, b | WF_TEXTURE_CACHE_LORES_MASK});
+				}
+				dbg(1, "rhs: %i: texture=%i %i %i %i", b, *peak_texture[0], *peak_texture[1], *peak_texture[2], *peak_texture[3]);
 			}
-			dbg(1, "rhs: %i: texture=%i %i %i %i", b, *peak_texture[0], *peak_texture[1], *peak_texture[2], *peak_texture[3]);
 		}else{
 			dbg(1, "* %i: textures=%i,%i (rhs peak.buf not loaded)", b, texture_id, *peak_texture[1]);
 		}
@@ -887,6 +889,8 @@ wf_actor_allocate(WaveformActor* a, WfRectangle* rect)
 
 	dbg(1, "rect: %.2f --> %.2f", rect->left, rect->left + rect->len);
 
+	if(a->waveform->offline) return; //TODO try and load from existing peakfile.
+
 	_wf_actor_load_missing_blocks(a);
 
 	GList* animatables = NULL;
@@ -1091,7 +1095,7 @@ wf_actor_paint(WaveformActor* actor)
 	double zoom = rect.len / region.len;
 
 	int mode = get_mode(zoom);
-dbg(0, "mode=%s", modes[mode].name);
+dbg(1, "mode=%s", modes[mode].name);
 
 	WfColourFloat fg;
 	wf_colour_rgba_to_float(&fg, actor->fg_colour);
@@ -1104,7 +1108,7 @@ dbg(0, "mode=%s", modes[mode].name);
 
 	if(w->num_peaks){
 		WfGlBlock* textures = mode == MODE_LOW ? w->textures_lo : w->textures;
-		g_return_if_fail(textures);
+		if(!textures) return; //in hi-res mode, textures are loaded asynchronously and may not be ready yet
 
 		int samples_per_texture = WF_SAMPLES_PER_TEXTURE * (mode == MODE_LOW ? WF_PEAK_STD_TO_LO : 1);
 
@@ -1149,11 +1153,13 @@ dbg(0, "mode=%s", modes[mode].name);
 
 		if(mode <= MODE_MED){
 			//check textures are loaded
-			int n = 0;
-			int b; for(b=viewport_start_block;b<=viewport_end_block;b++){
-				if(!textures->peak_texture[WF_LEFT].main[b]){ n++; if(wf_debug) gwarn("texture not loaded: b=%i", b); }
+			if(wf_debug > 1){ //textures may initially not be loaded, so don't show this warning too much
+				int n = 0;
+				int b; for(b=viewport_start_block;b<=viewport_end_block;b++){
+					if(!textures->peak_texture[WF_LEFT].main[b]){ n++; gwarn("texture not loaded: b=%i", b); }
+				}
+				if(n) gwarn("%i textures not loaded", n);
 			}
-			if(n) gwarn("%i textures not loaded", n);
 		glEnable(wfc->use_1d_textures ? GL_TEXTURE_1D : GL_TEXTURE_2D);
 		}
 
@@ -1305,7 +1311,9 @@ dbg(0, "mode=%s", modes[mode].name);
 					if(wfc->use_shaders){
 						//rendering from 2d texture not 1d
 						WfFBO* fbo = true ? textures->fbo[b] : fbo_test;
-						use_texture(fbo->texture);
+						if(fbo){ //seems that the fbo may not be created initially...
+							use_texture(fbo->texture);
+						}
 					}else{
 						_set_gl_state_for_block(wfc, w, textures, b, fg, alpha);
 					}

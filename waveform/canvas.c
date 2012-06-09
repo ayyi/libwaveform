@@ -378,7 +378,7 @@ wf_canvas_use_program(WaveformCanvas* wfc, int program)
 
 
 void
-wf_canvas_use_program_(WaveformCanvas* wfc, Shader* shader)
+wf_canvas_use_program_(WaveformCanvas* wfc, WfShader* shader)
 {
 	int program = shader ? shader->program : 0;
 
@@ -389,13 +389,8 @@ wf_canvas_use_program_(WaveformCanvas* wfc, Shader* shader)
 		//TODO do for all shaders
 		if(shader == (Shader*)&peak_shader){
 			//peak_shader.set_uniforms(peaks_per_pixel, rect.top, bottom, actor->fg_colour, n_channels);
-		}
-		if(shader == (Shader*)&hires_shader){
-			hires_shader.set_uniforms();
-		}
-		if(shader == (WfShader*)&ruler || shader == (WfShader*)&tex2d || (WfShader*)shader == (WfShader*)&vertical){
-WfShader* s = (WfShader*)shader;
-			s->set_uniforms_();
+		}else{
+			shader->set_uniforms_();
 		}
 	}
 }

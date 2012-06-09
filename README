@@ -5,12 +5,14 @@ Libwaveform attempts to provide versatile easy-to-use display
 of audio waveforms for Gtk+-2 applications.
 
 efficiency:
+
 	* audio and peak data is handled in blocks to get reasonable performance with large files.
 	* opengl hardware features are used where available.
 	* multi-level caching.
 	* in many cases drawing can be done repeatedly with virtually no cpu load.
 
 multi-level caching is provided:
+
 	* peak files are saved to disk roughly following freedeskop.org standards.
 	* ardour session peak files are also supported.
 	* peak files are cached in ram at multiple resolutions.
@@ -19,12 +21,14 @@ multi-level caching is provided:
 	* peaks are stored as OpenGl 1D textures for use with shader programs.
 
 There are 4 main ways of using libwaveform:
+
 	1- the WaveformView Gtk widget
 	2- with GtkGLExt using the WaveformActor interface
 	3- rendering to a GdkPixbuf
 	4- rendering to an Alphabuf
 
 Requirements:
+
 	- Gtk2
 	- GtkGLExt
 	- libsndfile
@@ -36,6 +40,8 @@ Status
 
 Testing:
 Has been tested mostly on Radeon RV530 with Gallium 0.4, and also Intel 945.
+Radeon HD 5000 has issues at very hi res which look like driver bugs though this is not confirmed.
+Nvidia 8400 has been found to mostly work (Nouveau), though some issues are being investigated.
 Much more testing is needed.
 
 If you are able to help testing, please start with running test/view_test.

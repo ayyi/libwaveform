@@ -1,5 +1,5 @@
 - check pixbuf inset at hi res
-- test with Nouveau driver
+- fix hires segfault with Nouveau driver
 - test pkgconfig file
 - both texture mode and shader modes have spurious lines.
 - documentation
@@ -15,7 +15,6 @@ later:
 - cairo / clutter
 - vgain
 - iso mode
-- use textures in hi-res mode
 - api:
 	- n_frames property - should we guarantee that it is always correctly set?
 	- wf_get_audio_async -- review api
@@ -24,3 +23,4 @@ later:
 - check that hi-res painting falls back to lo res while waiting for audio to load.
 - implement usage of textures in hi res mode.
 - maybe include the shaders as part of the library object instead of being separate files.
+- texture purging is too agressive? for browser applications, textures shouldnt be removed as soon as the Waveform is free'd.

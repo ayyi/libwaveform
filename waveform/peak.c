@@ -168,6 +168,8 @@ __finalize (Waveform* w)
 
 	void free_textures_hi(Waveform* w)
 	{
+		if(!w->textures_hi) return;
+
 		GHashTableIter iter;
 		gpointer key, value;
 		g_hash_table_iter_init (&iter, w->textures_hi->textures);
@@ -274,6 +276,8 @@ waveform_get_sf_data(Waveform* w)
 	SNDFILE* sndfile;
 	SF_INFO sfinfo;
 	sfinfo.format = 0;
+	//sfinfo.channels = 0;
+memset(&sfinfo, 0, sizeof(SF_INFO));
 	if(!(sndfile = sf_open(w->filename, SFM_READ, &sfinfo))){
 		if(!g_file_test(w->filename, G_FILE_TEST_EXISTS)){
 			gwarn("file open failure. no such file: %s", w->filename);
@@ -303,15 +307,19 @@ waveform_get_n_frames(Waveform* w)
 int
 waveform_get_n_channels(Waveform* w)
 {
+	// libwaveform can only handle mono or stereo files,
+	// so this will never return > 2 even if the file is
+	// multichannel.
+
 	g_return_val_if_fail(w, 0);
 
-	if(w->n_frames) return w->n_channels;
+	if(w->n_frames) return MIN(2, w->n_channels);
 
 	if(w->offline) return 0;
 
 	waveform_get_sf_data(w);
 
-	return w->n_channels;
+	return MIN(2, w->n_channels);
 }
 
 

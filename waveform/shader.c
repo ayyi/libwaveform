@@ -50,7 +50,7 @@ static UniformInfo uniforms[] = {
    END_OF_UNIFORMS
 };
 
-HiResShader hires_shader = {{"hires.vert", "hires.frag", 0}, _hires_set_uniforms};
+HiResShader hires_shader = {{"hires.vert", "hires.frag", 0, NULL, _hires_set_uniforms}};
 static UniformInfo uniforms_hr[] = {
    {"tex1d",     1, GL_INT,   { 1, 0, 0, 0 }, -1},
    {"tex1d_neg", 1, GL_INT,   { 2, 0, 0, 0 }, -1},
@@ -113,7 +113,7 @@ _peak_shader_set_uniforms(float peaks_per_pixel, float top, float bottom, uint32
 static void
 _hires_set_uniforms()
 {
-	Shader* shader = &hires_shader.shader;
+	WfShader* shader = &hires_shader.shader;
 	struct U* u = &((HiResShader*)shader)->uniform;
 
 	float fg_colour[4] = {0.0, 0.0, 0.0, ((float)(hires_shader.uniform.fg_colour & 0xff)) / 0x100};

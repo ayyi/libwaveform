@@ -123,7 +123,6 @@ construct ()
 {
 	WaveformView* self = (WaveformView*) g_object_new (TYPE_WAVEFORM_VIEW, NULL);
 	gtk_widget_add_events ((GtkWidget*) self, (gint) ((GDK_BUTTON_PRESS_MASK | GDK_BUTTON_RELEASE_MASK) | GDK_POINTER_MOTION_MASK));
-	gtk_widget_set_size_request ((GtkWidget*) self, 200, 100);
 	//GdkGLConfig* glconfig = gdk_gl_config_new_by_mode (GDK_GL_MODE_RGB | GDK_GL_MODE_DOUBLE);
 	if(!gtk_widget_set_gl_capability((GtkWidget*)self, glconfig, gl_context, DIRECT, GDK_GL_RGBA_TYPE)){
 		gwarn("failed to set gl capability");
@@ -140,7 +139,7 @@ WaveformView*
 waveform_view_new (Waveform* waveform)
 {
 	PF;
-	int width = 256, height = 128;
+	int width = 256, height = 64;
 
 	g_return_val_if_fail(glconfig || __init(), NULL);
 

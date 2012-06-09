@@ -71,7 +71,7 @@ void            wf_canvas_queue_redraw              (WaveformCanvas*);
 void            wf_canvas_load_texture_from_alphabuf(WaveformCanvas*, int texture_id, AlphaBuf*);
 void            wf_canvas_use_program               (WaveformCanvas*, int);
 #ifdef __gl_h_
-void            wf_canvas_use_program_              (WaveformCanvas*, Shader*);
+void            wf_canvas_use_program_              (WaveformCanvas*, WfShader*);
 #endif
 
 #define wf_canvas_free0(A) (wf_canvas_free(A), A = NULL)

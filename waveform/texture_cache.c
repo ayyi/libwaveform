@@ -213,7 +213,7 @@ texture_cache_unassign(WaveformBlock wb)
 		g_return_if_fail(tx);
 		tx->wb = (WaveformBlock){NULL, 0};
 		tx->time_stamp = 0;
-		dbg(0, "t=%i", t);
+		dbg(1, "t=%i", t);
 		i++;
 		g_return_if_fail(i < 4);
 
@@ -377,7 +377,7 @@ texture_cache_remove_waveform(Waveform* waveform) //tmp? should probably only be
 		texture_cache_unassign((WaveformBlock){waveform, b});
 	}
 
-	texture_cache_print();
+	if(wf_debug) texture_cache_print();
 }
 
 
