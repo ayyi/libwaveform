@@ -33,3 +33,5 @@ install-data-local:
 			$(INSTALL_DATA) $$shader $(DESTDIR)$(shaderdir); \
 		fi \
 	done;
+
+CLEANFILES = waveform.pc

@@ -113,7 +113,7 @@ wf_animation_remove(WfAnimation* animation)
 	}
 	g_list_free0(animation->members);
 
-	g_source_remove(animation->timer);
+	if(animation->timer) g_source_remove(animation->timer);
 	animation->timer = 0;
 	animations = g_list_remove(animations, animation);
 	g_free(animation);
@@ -144,6 +144,39 @@ wf_animation_start(WfAnimation* animation)
 {
 	g_return_if_fail(animation);
 
+	void print_animation()
+	{
+		GList* l = animation->members;
+		dbg(0, "animation=%p n_members=%i", animation, g_list_length(l));
+		for(;l;l=l->next){
+			Blah* blah = l->data;
+			GList* k = blah->transitions;
+			dbg(0, "  actor=%p n_transitions=%i", blah->actor, g_list_length(k));
+			for(;k;k=k->next){
+				WfAnimatable* animatable = k->data;
+				dbg(0, "     animatable=%p type=%i %p %.2f", animatable, animatable->type, animatable->model_val.f, *animatable->model_val.f);
+			}
+		}
+	}
+	if(wf_debug > 1) print_animation();
+
+	int count_animatables()
+	{
+		int n = 0;
+		GList* l = animation->members;
+		for(;l;l=l->next){
+			GList* k = ((Blah*)l->data)->transitions;
+			for(;k;k=k->next) n++;
+		}
+		return n;
+	}
+
+	if(!count_animatables()){
+		wf_animation_remove(animation);
+		//cannot call on_finish because there are no member actors
+		return;
+	}
+
 	uint64_t _get_time()
 	{
 		struct timeval start;
@@ -165,10 +198,10 @@ wf_animation_start(WfAnimation* animation)
 			Blah* blah = l->data;
 			WaveformActor* a = blah->actor;
 
-			GList* l = blah->transitions;
-			if(!l) gwarn("actor member has no transitions");
-			for(;l;l=l->next){
-				WfAnimatable* animatable = l->data;
+			GList* k = blah->transitions;
+			if(!k) gwarn("actor member has no transitions");
+			for(;k;k=k->next){
+				WfAnimatable* animatable = k->data;
 				if(animatable->type == WF_INT){
 					animatable->val.i = animation->frame_i(animation, animatable, time);
 					dbg(2, "actor=%p val=%u", a, animatable->val);
@@ -186,8 +219,9 @@ wf_animation_start(WfAnimation* animation)
 		}
 		return TIMER_CONTINUE;
 	}
-	wf_transition_frame(animation); // !!!!!! not sure it is safe to do this - members not added yet?
-	animation->timer = g_timeout_add(40, wf_transition_frame, animation);
+	if(wf_transition_frame(animation)){ // !!!!!! not sure it is safe to do this - members not added yet?
+		animation->timer = g_timeout_add(40, wf_transition_frame, animation);
+	}
 }
 
 

@@ -59,13 +59,13 @@ static UniformInfo uniforms_hr[] = {
    END_OF_UNIFORMS
 };
 
-BloomShader horizontal = {{"horizontal.vert", "horizontal.frag", 0}, NULL};
+BloomShader horizontal = {{"horizontal.vert", "horizontal.frag", 0, NULL, NULL}};
 static UniformInfo uniforms2[] = {
    {"tex2d",     1, GL_INT,   { 0, 0, 0, 0 }, -1}, // 0 corresponds to glActiveTexture(GL_TEXTURE0);
    END_OF_UNIFORMS
 };
 
-BloomShader vertical = {{"vertical_peak.vert", "vertical_peak.frag", 0}, _vertical_set_uniforms};
+BloomShader vertical = {{"vertical_peak.vert", "vertical_peak.frag", 0, NULL, _vertical_set_uniforms}};
 static UniformInfo uniforms3[] = {
    {"tex2d",     1, GL_INT,   { 0, 0, 0, 0 }, -1}, // 0 corresponds to glActiveTexture(GL_TEXTURE0);
    END_OF_UNIFORMS
@@ -130,7 +130,7 @@ _hires_set_uniforms()
 static void
 _vertical_set_uniforms()
 {
-	Shader* shader = &vertical.shader;
+	WfShader* shader = &vertical.shader;
 	float fg_colour[4] = {0.0, 0.0, 0.0, ((float)(vertical.uniform.fg_colour & 0xff)) / 0x100};
 	wf_rgba_to_float(vertical.uniform.fg_colour, &fg_colour[0], &fg_colour[1], &fg_colour[2]);
 	glUniform4fv(glGetUniformLocation(shader->program, "fg_colour"), 1, fg_colour);

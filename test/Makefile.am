@@ -90,6 +90,9 @@ test_data: Makefile
 	@if [ ! -e "data/stereo_1.wav" ] || [ "./write_wav" -nt "data/stereo_1.wav" ]; then \
 		./write_wav --channels=2 data/stereo_1.wav; \
 	fi;
+	@if [ ! -e "data/short.wav" ] || [ "./write_short" -nt "data/short.wav" ]; then \
+		./write_short data/short.wav; \
+	fi;
 
 endif
 

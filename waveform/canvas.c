@@ -215,6 +215,8 @@ wf_canvas_add_new_actor(WaveformCanvas* wfc, Waveform* w)
 {
 	g_return_val_if_fail(wfc, NULL);
 
+	g_object_ref(w);
+
 	WaveformActor* a = wf_actor_new(w);
 	a->canvas = wfc;
 	return a;
@@ -391,10 +393,7 @@ wf_canvas_use_program_(WaveformCanvas* wfc, Shader* shader)
 		if(shader == (Shader*)&hires_shader){
 			hires_shader.set_uniforms();
 		}
-		if(shader == (Shader*)&vertical){
-			vertical.set_uniforms();
-		}
-		if(shader == (WfShader*)&ruler || shader == (WfShader*)&tex2d){
+		if(shader == (WfShader*)&ruler || shader == (WfShader*)&tex2d || (WfShader*)shader == (WfShader*)&vertical){
 WfShader* s = (WfShader*)shader;
 			s->set_uniforms_();
 		}

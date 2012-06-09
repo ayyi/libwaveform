@@ -59,6 +59,8 @@ main (int argc, char *argv[])
 	g_log_set_handler ("GLib", G_LOG_LEVEL_MASK | G_LOG_FLAG_FATAL | G_LOG_FLAG_RECURSION, log_handler, NULL);
 	set_log_handlers();
 
+	wf_debug = 1;
+
 	gtk_init(&argc, &argv);
 	GtkWidget* window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
 
@@ -74,6 +76,7 @@ main (int argc, char *argv[])
 
 	void load_wave(const char* wav)
 	{
+		PF;
 		char* filename = g_build_filename(g_get_current_dir(), wav, NULL);
 		waveform_view_load_file(waveform, filename);
 		g_free(filename);

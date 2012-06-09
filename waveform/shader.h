@@ -34,8 +34,7 @@ typedef struct {
 } HiResShader;
 
 typedef struct {
-	Shader    shader;
-	void      (*set_uniforms)();
+	WfShader  shader;
 	struct {
 		uint32_t fg_colour;
 		float    peaks_per_pixel;

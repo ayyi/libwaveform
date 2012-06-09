@@ -104,14 +104,15 @@ static MakeTextureData
 #warning texture size 4096 will be too high for Intel
 struct _draw_mode
 {
+	char             name[4];
 	int              resolution;
 	int              texture_size;      // mostly applies to 1d textures. 2d textures have non-square issues.
 	MakeTextureData* make_texture_data; // might not be needed after all
 } modes[N_MODES] = {
-	{1024, WF_PEAK_TEXTURE_SIZE,      NULL},
-	{256,  WF_PEAK_TEXTURE_SIZE,      NULL},
-	{16,   WF_PEAK_TEXTURE_SIZE * 16, NULL}, // texture size chosen so that blocks are the same as in medium res
-	{1,    WF_PEAK_TEXTURE_SIZE,      NULL},
+	{"LOW", 1024, WF_PEAK_TEXTURE_SIZE,      NULL},
+	{"MED",  256, WF_PEAK_TEXTURE_SIZE,      NULL},
+	{"HI",    16, WF_PEAK_TEXTURE_SIZE * 16, NULL}, // texture size chosen so that blocks are the same as in medium res
+	{"V_HI",   1, WF_PEAK_TEXTURE_SIZE,      NULL},
 };
 #define HI_RESOLUTION modes[MODE_HI].resolution
 #define RES_MED modes[MODE_MED].resolution
@@ -146,6 +147,8 @@ wf_actor_init()
 WaveformActor*
 wf_actor_new(Waveform* w)
 {
+	if(wf_debug > 1) gwarn("%s----------------------%s", "\x1b[1;33m", "\x1b[0;39m");
+
 	uint32_t get_frame(int time)
 	{
 		return 0;
@@ -867,10 +870,18 @@ wf_actor_allocate(WaveformActor* a, WfRectangle* rect)
 
 	if(rect->len == a->rect.len && rect->left == a->rect.left && rect->height == a->rect.height && rect->top == a->rect.top) return;
 
+	gboolean is_new = a->rect.len == 0.0;
+
 	a->priv->animatable.start.start_val.i = a->region.start;
 	a->priv->animatable.len.start_val.i = MAX(1, a->region.len);
 	a->priv->animatable.rect_left.start_val.f = a->rect.left;
 	a->priv->animatable.rect_len.start_val.f = MAX(1, a->rect.len);
+
+	if(is_new){
+		//dont use a transition for a new actor
+		a->priv->animatable.rect_len.val.f = rect->len;
+		a->priv->animatable.rect_len.start_val.f = rect->len;
+	}
 
 	a->rect = *rect;
 
@@ -878,15 +889,18 @@ wf_actor_allocate(WaveformActor* a, WfRectangle* rect)
 
 	_wf_actor_load_missing_blocks(a);
 
-	WfAnimatable* animatable2 = &_a->animatable.rect_left;
-	WfAnimatable* animatable = &_a->animatable.rect_len;
+	GList* animatables = NULL;
+	if(_a->animatable.rect_left.start_val.f != *_a->animatable.rect_left.model_val.f) animatables = g_list_prepend(animatables, &_a->animatable.rect_left);
+	if(_a->animatable.rect_len.start_val.f != *_a->animatable.rect_len.model_val.f) animatables = g_list_prepend(animatables, &_a->animatable.rect_len);
 #if 0
 	animatable->val.i = a->canvas->draw
 		? animatable->start_val.i
 		: *animatable->model_val.i;
 #else
-	wf_actor_start_transition(a, animatable2);
-	wf_actor_start_transition(a, animatable); //TODO this fn needs refactoring - doesnt do much now
+	GList* l = animatables; //ownership is transferred to the WfAnimation.
+	for(;l;l=l->next){
+		wf_actor_start_transition(a, (WfAnimatable*)l->data); //TODO this fn needs refactoring - doesnt do much now
+	}
 #endif
 	//				dbg(1, "%.2f --> %.2f", animatable->start_val.f, animatable->val.f);
 
@@ -894,17 +908,20 @@ wf_actor_allocate(WaveformActor* a, WfRectangle* rect)
 
 		GList* l = _a->transitions;
 		for(;l;l=l->next){
-			wf_animation_remove_animatable((WfAnimation*)l->data, animatable);
-			wf_animation_remove_animatable((WfAnimation*)l->data, animatable2);
+			//only remove animatables we are replacing. others need to finish.
+			//****** except we start a new animation!
+			GList* k = animatables;
+			for(;k;k=k->next){
+				wf_animation_remove_animatable((WfAnimation*)l->data, (WfAnimatable*)k->data);
+			}
 		}
 
-		WfAnimation* animation = wf_animation_add_new(wf_actor_on_animation_finished);
-		a->priv->transitions = g_list_append(a->priv->transitions, animation);
-		GList* animatables = g_list_append(NULL, &a->priv->animatable.rect_len);
-		animatables = g_list_append(animatables, animatable2);
-		wf_transition_add_member(animation, a, animatables);
-
-		wf_animation_start(animation);
+		if(animatables){
+			WfAnimation* animation = wf_animation_add_new(wf_actor_on_animation_finished);
+			_a->transitions = g_list_append(_a->transitions, animation);
+			wf_transition_add_member(animation, a, animatables);
+			wf_animation_start(animation);
+		}
 	}
 	gl_warn("gl error");
 }
@@ -1074,7 +1091,7 @@ wf_actor_paint(WaveformActor* actor)
 	double zoom = rect.len / region.len;
 
 	int mode = get_mode(zoom);
-dbg(0, "mode=%i", mode);
+dbg(0, "mode=%s", modes[mode].name);
 
 	WfColourFloat fg;
 	wf_colour_rgba_to_float(&fg, actor->fg_colour);
@@ -1087,6 +1104,7 @@ dbg(0, "mode=%i", mode);
 
 	if(w->num_peaks){
 		WfGlBlock* textures = mode == MODE_LOW ? w->textures_lo : w->textures;
+		g_return_if_fail(textures);
 
 		int samples_per_texture = WF_SAMPLES_PER_TEXTURE * (mode == MODE_LOW ? WF_PEAK_STD_TO_LO : 1);
 
@@ -1474,7 +1492,7 @@ wf_actor_load_texture1d(Waveform* w, Mode mode, WfGlBlock* blocks, int blocknum)
 		glActiveTexture(d->tex_unit);
 glEnable(GL_TEXTURE_1D);
 		glBindTexture(GL_TEXTURE_1D, d->tex_id);
-		dbg (1, "loading texture1D... texture_id=%u", d->tex_id);
+		dbg (2, "loading texture1D... texture_id=%u", d->tex_id);
 		gl_warn("gl error: bind failed: unit=%i buf=%p tid=%i", d->tex_unit, d->buf, d->tex_id);
 		if(!glIsTexture(d->tex_id)) gwarn ("invalid texture: texture_id=%u", d->tex_id);
 		glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_WRAP_S, GL_CLAMP);
@@ -1554,10 +1572,10 @@ _wf_actor_load_texture_hi(WaveformActor* a, int block)
 	double zoom_start = a->priv->animatable.rect_len.val.f / a->priv->animatable.len.val.i;
 	if(zoom_start == 0.0) zoom_start = zoom_end;
 	//dbg(1, "zoom=%.4f-->%.4f (%.4f)", zoom_start, zoom_end, ZOOM_MED);
-	int resolution1 = get_resolution(zoom_start);
-	int resolution2 = get_resolution(zoom_end);
+	int mode1 = get_mode(zoom_start);
+	int mode2 = get_mode(zoom_end);
 
-	if(resolution1 == HI_RESOLUTION || resolution2 == HI_RESOLUTION){
+	if(mode1 == MODE_HI || mode2 == MODE_HI){
 		dbg(1, "hi-res b=%i", block);
 		//TODO check this block is within current viewport
 
