@@ -2,6 +2,12 @@
 #define __wf_shader_h__
 #include "waveform/shaderutil.h"
 
+typedef struct _wf_shader_text
+{
+	char*        vert;
+	char*        frag;
+} WfShaderText;
+
 struct _wf_shader
 {
 	char*        vertex_file;
@@ -9,11 +15,12 @@ struct _wf_shader
 	uint32_t     program;       // compiled program
 	UniformInfo* uniforms;
 	void         (*set_uniforms_)();
+	WfShaderText*text;
 };
 
 #ifdef __gl_h_
 typedef struct {
-	Shader    shader;
+	WfShader  shader;
 	void      (*set_uniforms)(float peaks_per_pixel, float top, float bottom, uint32_t _fg_colour, int n_channels);
 	struct {
 		float peaks_per_pixel;

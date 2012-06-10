@@ -1,4 +1,4 @@
-SUBDIRS = waveform test
+SUBDIRS = shaders waveform test
 
 AM_CFLAGS = \
 	-DG_LOG_DOMAIN=\"Waveform\" \
@@ -10,22 +10,25 @@ AM_CFLAGS = \
 	$(OPENGL_CFLAGS)
 
 SHADERS = \
-	shaders/horizontal.vert \
-	shaders/horizontal.frag \
-	shaders/alpha_map.vert \
-	shaders/alpha_map.frag
-
-EXTRA_DIST = \
 	shaders/peak.vert \
 	shaders/peak.frag \
 	shaders/vertical.vert \
 	shaders/vertical.frag \
+	shaders/horizontal.vert \
+	shaders/horizontal.frag \
+	shaders/alpha_map.vert \
+	shaders/alpha_map.frag \
+	shaders/hires.vert \
+	shaders/hires.frag
+
+EXTRA_DIST = \
 	$(SHADERS) \
 	package/gentoo/media-libs/libwaveform/libwaveform-0.1.0.ebuild
 
 shaderdir = $(datadir)/$(PACKAGE)/shaders
 
-install-data-local:
+## shaders are now compiled in, so no longer need to be installed
+Xinstall-data-local:
 	@$(NORMAL_INSTALL)
 	$(mkinstalldirs) $(DESTDIR)$(shaderdir); \
 	for shader in shaders/peak.vert shaders/peak.frag shaders/vertical.vert shaders/vertical.frag $(SHADERS); do \
@@ -34,4 +37,5 @@ install-data-local:
 		fi \
 	done;
 
-CLEANFILES = waveform.pc
+CLEANFILES = waveform.pc \
+	shaders/shaders.c

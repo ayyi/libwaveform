@@ -283,7 +283,7 @@ glDisable(GL_BLEND);
 		glEnd();
 /*
 */
-		wf_canvas_use_program(actor->canvas, 0);
+		wf_canvas_use_program_(actor->canvas, NULL);
 	}
 	gl_warn("gl error");
 }

@@ -148,7 +148,7 @@ wf_canvas_set_use_shaders(WaveformCanvas* wfc, gboolean val)
 
 	if(wfc){
 		if(!val){
-			wf_canvas_use_program(wfc, 0);
+			wf_canvas_use_program_(wfc, NULL);
 			wfc->use_1d_textures = false;
 		}
 		wfc->use_shaders = val;
@@ -169,7 +169,7 @@ wf_canvas_init_gl(WaveformCanvas* wfc)
 
 		if(wf_get_instance()->pref_use_shaders && !shaders_supported()){
 			printf("gl shaders not supported. expect reduced functionality.\n");
-			wf_canvas_use_program(wfc, 0);
+			wf_canvas_use_program_(wfc, NULL);
 			wfc->use_shaders = false;
 			wfc->use_1d_textures = false;
 		}
@@ -387,10 +387,10 @@ wf_canvas_use_program_(WaveformCanvas* wfc, WfShader* shader)
 		glUseProgram(wfc->_program = program);
 
 		//TODO do for all shaders
-		if(shader == (Shader*)&peak_shader){
+		if(shader == (WfShader*)&peak_shader){
 			//peak_shader.set_uniforms(peaks_per_pixel, rect.top, bottom, actor->fg_colour, n_channels);
 		}else{
-			shader->set_uniforms_();
+			if(shader) shader->set_uniforms_();
 		}
 	}
 }

@@ -1,0 +1,38 @@
+#!/bin/sh
+
+out=shaders.c
+echo "" > $out
+
+#echo '#define peak_frag " \' > $out
+#cpp -P peak.frag | sed -e "s/$/ \\\/" >> $out
+#echo '"' >> $out
+#echo '' >> $out
+#echo '#define peak_vert " \' >> $out
+#cpp -P peak.vert | sed -e "s/$/ \\\/" >> $out
+#echo '"' >> $out
+
+function a {
+	echo '' >> $out
+	echo 'WfShaderText '$1'_text = {" \' >> $out
+	cpp -P $1.vert | sed -e "s/$/ \\\/" >> $out
+	echo '",' >> $out
+	echo '" \' >> $out
+	cpp -P $1.frag | sed -e "s/$/ \\\/" >> $out
+	echo '"' >> $out
+	echo '};' >> $out
+}
+
+a "peak"
+a "horizontal"
+a "vertical"
+a "hires"
+a "alpha_map"
+a "ruler"
+
+#echo 'WfShaderText peak_text = {" \' >> $out
+#cpp -P peak.vert | sed -e "s/$/ \\\/" >> $out
+#echo '",' >> $out
+#echo '" \' >> $out
+#cpp -P peak.frag | sed -e "s/$/ \\\/" >> $out
+#echo '"' >> $out
+#echo '};' >> $out

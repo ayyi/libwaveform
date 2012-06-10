@@ -65,8 +65,8 @@
 #define USE_MIPMAPPING
 #undef USE_MIPMAPPING
 
-extern Shader sh_main;
-extern Shader shader2;
+extern WfShader sh_main;
+extern WfShader shader2;
 extern BloomShader vertical;
 
 struct _actor_priv
@@ -1405,7 +1405,7 @@ dbg(1, "mode=%s", modes[mode].name);
 			is_first = false;
 		}
 	}
-	wf_canvas_use_program(wfc, 0);
+	wf_canvas_use_program_(wfc, NULL);
 
 	gl_warn("(@ paint end)");
 }
