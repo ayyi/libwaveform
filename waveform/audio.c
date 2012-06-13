@@ -43,8 +43,10 @@ typedef void   (*WfCallback)    (gpointer user_data);
 
 typedef struct _queue_item
 {
+	Waveform*        waveform;
 	WfCallback       callback;
 	void*            user_data;
+	gboolean         cancelled;
 } QueueItem;
 
 #define MAX_AUDIO_CACHE_SIZE (1 << 23) // words, NOT bytes.
@@ -57,7 +59,7 @@ static void        audio_cache_print  ();
 void
 waveform_audio_free(Waveform* waveform)
 {
-	PF0;
+	PF;
 	g_return_if_fail(waveform);
 
 	WfAudioData* audio = waveform->priv->audio_data;
@@ -85,7 +87,7 @@ waveform_load_audio_block(Waveform* waveform, int block_num)
 
 	g_return_val_if_fail(waveform, false);
 	WfAudioData* audio = waveform->priv->audio_data;
-	g_return_val_if_fail(audio->buf16, false);
+	g_return_val_if_fail(audio && audio->buf16, false);
 
 	SF_INFO sfinfo;
 	SNDFILE* sffile;
@@ -234,7 +236,14 @@ file_load_thread(gpointer data)
 		gboolean do_callback(gpointer _item)
 		{
 			QueueItem* item = _item;
-			call(item->callback, item->user_data);
+			if(!item->cancelled){
+				call(item->callback, item->user_data);
+			}else{
+				dbg(0, "job cancelled. not calling callback");
+				g_free(item->user_data);
+			}
+			WF* wf = wf_get_instance();
+			wf->jobs = g_list_remove(wf->jobs, item);
 			g_free(item);
 			return IDLE_STOP;
 		}
@@ -292,6 +301,7 @@ waveform_load_audio_async(Waveform* waveform, int block_num, int n_tiers_needed)
 
 	//TODO should use same api as g_file_read_async ? uses GAsyncReadyCallback
 
+	PF;
 	g_return_val_if_fail(waveform->priv->audio_data, NULL);
 	g_return_val_if_fail(block_num < waveform_get_n_audio_blocks(waveform), NULL);
 	WfAudioData* audio = waveform->priv->audio_data;
@@ -313,23 +323,14 @@ waveform_load_audio_async(Waveform* waveform, int block_num, int n_tiers_needed)
 	have_thread = true;
 
 	void
-	_queue_work(WfCallback callback, gpointer user_data)
+	_queue_work(Waveform* waveform, WfCallback callback, gpointer user_data)
 	{
 		QueueItem* item = g_new0(QueueItem, 1);
+		item->waveform = waveform;
 		item->callback = callback;
 		item->user_data = user_data;
 
-#if 0
-		wf_get_instance()->work_queue = g_list_append(wf_get_instance()->work_queue, item);
-
-		if(peak_idle) return;
-
-		//we cant use a hi priority idle here as it prevents the canvas from being updated.
-		peak_idle = g_idle_add((GSourceFunc)peakbuf_on_idle, NULL);
-#else
-		WF* wf = wf_get_instance();
-#endif
-		g_async_queue_push(wf->msg_queue, item);
+		wf_push_job(item);
 	}
 
 	void peakbuf_queue_for_regen(Waveform* waveform, int block_num, int min_output_tiers)
@@ -346,19 +347,24 @@ waveform_load_audio_async(Waveform* waveform, int block_num, int n_tiers_needed)
 		if(!audio->buf16){
 			audio->buf16 = g_malloc0(sizeof(void*) * waveform_get_n_audio_blocks(waveform));
 		}
-		if(!audio->buf16[block_num]){
-			audio->buf16[block_num] = g_new0(WfBuf16, 1);
-			audio->buf16[block_num]->size = WF_PEAK_BLOCK_SIZE;
-			int c; for(c=0;c<waveform_get_n_channels(waveform);c++){
-				audio->buf16[block_num]->buf[c] = audio_cache_malloc(waveform, block_num);
-				audio->buf16[block_num]->stamp = ++wf->audio.access_counter;
-			}
-		}
-		dbg(1, "block=%i tot_audio_mem=%ukB", block_num, wf->audio.mem_size / 1024);
 
 		void callback(gpointer item)
 		{
 			PeakbufQueueItem* peak = item;
+			WF* wf = wf_get_instance();
+			Waveform* waveform = peak->waveform;
+			WfAudioData* audio = peak->waveform->priv->audio_data;
+			int block_num = peak->block_num;
+
+			if(!audio->buf16[block_num]){
+				audio->buf16[block_num] = g_new0(WfBuf16, 1);
+				audio->buf16[block_num]->size = WF_PEAK_BLOCK_SIZE;
+				int c; for(c=0;c<waveform_get_n_channels(waveform);c++){
+					audio->buf16[block_num]->buf[c] = audio_cache_malloc(waveform, block_num);
+					audio->buf16[block_num]->stamp = ++wf->audio.access_counter;
+				}
+			}
+			dbg(1, "block=%i tot_audio_mem=%ukB", block_num, wf->audio.mem_size / 1024);
 
 			if(waveform_load_audio_block(peak->waveform, peak->block_num)){
 				waveform_peakbuf_regen(peak->waveform, peak->block_num, peak->min_output_tiers);
@@ -369,12 +375,25 @@ waveform_load_audio_async(Waveform* waveform, int block_num, int n_tiers_needed)
 
 			g_free(item);
 		}
-		_queue_work(callback, item);
+		_queue_work(waveform, callback, item);
 	}
 
 	if(!peakbuf_is_present(waveform, block_num)) peakbuf_queue_for_regen(waveform, block_num, n_tiers_needed);
 
 	return NULL;
+}
+
+
+void
+wf_cancel_jobs(Waveform* waveform)
+{
+	WF* wf = wf_get_instance();
+	GList* l = wf->jobs;
+	for(;l;l=l->next){
+		QueueItem* i = l->data;
+		if(i->waveform == waveform) i->cancelled = true;
+	}
+	dbg(2, "n_jobs=%i", g_list_length(wf->jobs));
 }
 
 

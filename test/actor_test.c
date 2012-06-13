@@ -94,10 +94,6 @@ uint64_t    get_time           ();
 int
 main (int argc, char *argv[])
 {
-#if 0
-	if(sizeof(off_t) != 8){ gerr("sizeof(off_t)=%i\n", sizeof(off_t)); return EXIT_FAILURE; }
-#endif
-
 	set_log_handlers();
 
 	wf_debug = 1;
@@ -110,19 +106,6 @@ main (int argc, char *argv[])
 	}
 
 	GtkWidget* window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
-
-#if 0
-	void window_on_realise(GtkWidget* widget, gpointer user_data)
-	{
-		dbg(2, "...");
-		static bool window_init_done = false;
-		if(!GTK_WIDGET_REALIZED (widget)) return;
-		if(window_init_done) return;
-
-		window_init_done = true;
-	}
-	g_signal_connect(window, "realize", G_CALLBACK(window_on_realise), NULL);
-#endif
 
 	canvas = gtk_drawing_area_new();
 	gtk_widget_set_can_focus(canvas, true);

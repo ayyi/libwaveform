@@ -71,6 +71,7 @@ struct _wf
 
 	gboolean        pref_use_shaders;
 	GAsyncQueue*    msg_queue;
+	GList*          jobs;
 };
 
 //TODO refactor based on _texture_hi (eg reverse order of indexing)
@@ -132,8 +133,10 @@ typedef struct _peak_sample
 typedef struct _drect { double x1, y1, x2, y2; } DRect;
 
 
-WF*            wf_get_instance         ();
-uint32_t       wf_peakbuf_get_max_size (int n_tiers);
+WF*            wf_get_instance             ();
+void           wf_push_job                 (gpointer);
+void           wf_cancel_jobs              (Waveform*);
+uint32_t       wf_peakbuf_get_max_size     (int n_tiers);
 
 short*         waveform_peak_malloc        (Waveform*, uint32_t bytes);
 Peakbuf*       waveform_get_peakbuf_n      (Waveform*, int);

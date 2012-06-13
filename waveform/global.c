@@ -55,3 +55,11 @@ wf_get_instance()
 }
 
 
+void
+wf_push_job(gpointer item)
+{
+	g_async_queue_push(wf->msg_queue, item);
+	wf->jobs = g_list_append(wf->jobs, item);
+}
+
+

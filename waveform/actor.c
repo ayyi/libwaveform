@@ -661,7 +661,7 @@ int region_end_block = MIN(_end_block, waveform_get_n_audio_blocks(waveform) - 1
 		int b; for(b=region_start_block;b<=region_end_block-1;b++){ //note we dont check the last block which can be partially outside the viewport
 			float block_end_px = file_start_px + (b + 1) * block_wid;
 			//dbg(1, " %i: block_px: %.1f --> %.1f", b, block_end_px - (int)block_wid, block_end_px);
-			if(block_end_px > viewport_px->right) dbg(1, "end %i clipped by viewport at block %i. vp.right=%.2f block_end=%.1f", region_end_block, MAX(0, b/* - 1*/), viewport_px->right, block_end_px);
+			if(block_end_px > viewport_px->right) dbg(2, "end %i clipped by viewport at block %i. vp.right=%.2f block_end=%.1f", region_end_block, MAX(0, b/* - 1*/), viewport_px->right, block_end_px);
 			if(block_end_px > viewport_px->right) return MAX(0, b/* - 1*/);
 		}
 
@@ -986,13 +986,16 @@ block_hires_shader(WaveformActor* actor, int b, double _block_wid, gboolean is_f
 	Waveform* w = actor->waveform; 
 
 	WfTextureHi* texture = g_hash_table_lookup(actor->waveform->textures_hi->textures, &b);
-	g_return_if_fail(texture);
+	if(!texture){
+		dbg(1, "texture not available");
+		return;
+	}
 	glEnable(GL_TEXTURE_1D);
 	int c;for(c=0;c<waveform_get_n_channels(w);c++){
 		texture_unit_use_texture(wfc->texture_unit[0 + 2 * c], texture->t[c].main);
 		texture_unit_use_texture(wfc->texture_unit[1 + 2 * c], texture->t[c].neg);
 	}
-	dbg(2, "%i: textures: %u %u ok=%i,%i", b, texture->t[WF_LEFT].main, texture->t[WF_LEFT].neg, glIsTexture(texture->t[WF_LEFT].main), glIsTexture(texture->t[WF_LEFT].neg));
+	dbg(1, "%i: textures: %u %u ok=%i,%i", b, texture->t[WF_LEFT].main, texture->t[WF_LEFT].neg, glIsTexture(texture->t[WF_LEFT].main), glIsTexture(texture->t[WF_LEFT].neg));
 	gl_warn("texture assign");
 	glActiveTexture(GL_TEXTURE0);
 
@@ -1078,6 +1081,7 @@ wf_actor_paint(WaveformActor* actor)
 	//note: there is some benefit in quantising the x positions (eg for subpixel consistency),
 	//but to preserve relative actor positions it must be done at the canvas level.
 
+	g_return_if_fail(actor);
 	WaveformCanvas* wfc = actor->canvas;
 	g_return_if_fail(wfc);
 	g_return_if_fail(actor);
@@ -1497,6 +1501,8 @@ wf_actor_load_texture1d(Waveform* w, Mode mode, WfGlBlock* blocks, int blocknum)
 
 	void _load_texture(struct _d* d)
 	{
+		//copy the data to the hardware texture
+
 		glActiveTexture(d->tex_unit);
 glEnable(GL_TEXTURE_1D);
 		glBindTexture(GL_TEXTURE_1D, d->tex_id);
@@ -1554,7 +1560,7 @@ make_texture_data_hi(Waveform* w, int ch, IntBufHi* buf, int blocknum)
 	int f; for(f=0;f<texture_size;f++){
 		int i = f * WF_PEAK_VALUES_PER_SAMPLE;
 		if(i >= peakbuf->size){
-			dbg(1, "end of peak: %i b=%i n_sec=%.3f", peakbuf->size, blocknum, ((float)((texture_size * blocknum + f) * WF_PEAK_RATIO))/44100); break;
+			dbg(2, "end of peak: %i b=%i n_sec=%.3f", peakbuf->size, blocknum, ((float)((texture_size * blocknum + f) * WF_PEAK_RATIO))/44100); break;
 		}
 
 		short* p = peakbuf->buf[ch];
@@ -1572,6 +1578,8 @@ make_texture_data_hi(Waveform* w, int ch, IntBufHi* buf, int blocknum)
 static void
 _wf_actor_load_texture_hi(WaveformActor* a, int block)
 {
+	// audio data for this block _must_ already be loaded
+
 	/*
 	WfViewPort viewport; wf_actor_get_viewport(actor, &viewport);
 	*/
@@ -1590,13 +1598,13 @@ _wf_actor_load_texture_hi(WaveformActor* a, int block)
 		WfTextureHi* texture = g_hash_table_lookup(a->waveform->textures_hi->textures, &block);
 		if(!texture){
 			texture = waveform_texture_hi_new();
-			dbg(2, "inserting... %u", texture->t[WF_LEFT].main);
+			dbg(1, "inserting...");
 			uint32_t* key = (uint32_t*)g_malloc(sizeof(uint32_t));
 			*key = block;
 			g_hash_table_insert(a->waveform->textures_hi->textures, key, texture);
 			wf_actor_allocate_block_hi(a, block);
 		}
-		else dbg(2, "already have texture");
+		else dbg(1, "already have texture. t=%i", texture->t[WF_LEFT].main);
 		if(wf_debug > 1) _wf_actor_print_hires_textures(a);
 
 		if(a->canvas->draw) wf_canvas_queue_redraw(a->canvas);
@@ -1618,13 +1626,14 @@ wf_actor_start_transition(WaveformActor* a, WfAnimatable* animatable)
 static void
 _wf_actor_print_hires_textures(WaveformActor* a)
 {
+	dbg(0, "");
 	GHashTableIter iter;
 	gpointer key, value;
 	g_hash_table_iter_init (&iter, a->waveform->textures_hi->textures);
 	while (g_hash_table_iter_next (&iter, &key, &value)){
 		int b = *((int*)key);
 		//WfTextureHi* th = value;
-		dbg(0, "  b=%i", b);
+		printf("  b=%i\n", b);
 	}
 }
 

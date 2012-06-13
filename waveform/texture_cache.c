@@ -47,6 +47,7 @@ static int  texture_cache_lookup_idx       (WaveformBlock);
 static int  texture_cache_lookup_idx_by_id (guint);
 static void texture_cache_unassign         (WaveformBlock);
 static void texture_cache_shrink           (int);
+static int  texture_cache_count_used       ();
 
 
 void
@@ -81,7 +82,7 @@ texture_cache_gen()
 #endif
 
 	int size = c->t->len + WF_TEXTURE_ALLOCATION_INCREMENT;
-	if(size > WF_TEXTURE_MAX){ gwarn("texture allocation full"); return; }
+	if(size > WF_TEXTURE_MAX){ gwarn("texture allocation full"); texture_cache_print(); return; }
 	c->t = g_array_set_size(c->t, size);
 
 #if 1
@@ -204,6 +205,7 @@ texture_cache_unassign(WaveformBlock wb)
 {
 	g_return_if_fail(wb.waveform);
 
+	dbg(2, "block=%i", wb.block);
 	int i = 0;
 	int t;
 	while((t = texture_cache_lookup_idx(wb)) > -1){
@@ -213,12 +215,9 @@ texture_cache_unassign(WaveformBlock wb)
 		g_return_if_fail(tx);
 		tx->wb = (WaveformBlock){NULL, 0};
 		tx->time_stamp = 0;
-		dbg(1, "t=%i", t);
+		dbg(2, "t=%i removed", t);
 		i++;
-		g_return_if_fail(i < 4);
-
-		tx = &g_array_index(c->t, Texture, t);
-		dbg(3, "      b=%i", tx->wb.block);
+		g_return_if_fail(i <= 4);
 	}
 
 	texture_cache_queue_clean();
@@ -338,7 +337,7 @@ texture_cache_steal()
 				&blocks->peak_texture[1].neg[wb->block]
 			};
 			int i; for(i=0;i<4;i++){
-				if(*peak_texture[i] == ((Texture*)&g_array_index(c->t, Texture, n))->id) return i;
+				if(peak_texture[i] && *peak_texture[i] == ((Texture*)&g_array_index(c->t, Texture, n))->id) return i;
 			}
 			return -1;
 		}
@@ -372,12 +371,34 @@ texture_cache_remove(Waveform* w, int b)
 void
 texture_cache_remove_waveform(Waveform* waveform) //tmp? should probably only be called by wf_unref()
 {
-	WfGlBlock* blocks = waveform->textures;
-	int b; for(b=0;b<=blocks->size;b++){
+	int size0 = texture_cache_count_used();
+
+	//TODO this first loop can be very long. dont do this when just using low res textures.
+	int b; for(b=0;b<=waveform->textures->size;b++){
 		texture_cache_unassign((WaveformBlock){waveform, b});
 	}
+	if(waveform->textures_lo){
+		for(b=0;b<=waveform->textures_lo->size;b++){
+			texture_cache_unassign((WaveformBlock){waveform, b | WF_TEXTURE_CACHE_LORES_MASK});
+		}
+	}
 
+	dbg(2, "size=%i n_removed=%i", c->t->len, size0 - texture_cache_count_used());
 	if(wf_debug) texture_cache_print();
+}
+
+
+static int
+texture_cache_count_used()
+{
+	int n_used = 0;
+	if(c->t->len){
+		int i; for(i=0;i<c->t->len;i++){
+			Texture* t = &g_array_index(c->t, Texture, i);
+			if(t->wb.waveform) n_used++;
+		}
+	}
+	return n_used;
 }
 
 

@@ -125,24 +125,17 @@ waveform_instance_init (Waveform* self)
 static void
 __finalize (Waveform* w)
 {
-	PF0;
+	PF;
+
+	wf_cancel_jobs(w);
+
 	if(g_hash_table_size(wf->peak_cache) && !g_hash_table_remove(wf->peak_cache, w)) gwarn("failed to remove waveform from peak_cache");
 
 	int i; for(i=0;i<WF_MAX_CH;i++){
 		if(w->priv->peak.buf[i]) g_free(w->priv->peak.buf[i]);
 	}
-#if 0
-	if(w->textures){
-		texture_cache_remove(w);
 
-		int c; for(c=0;c<WF_MAX_CH;c++){
-			if(w->textures->peak_texture[c].main) g_free(w->textures->peak_texture[c].main);
-			if(w->textures->peak_texture[c].neg) g_free(w->textures->peak_texture[c].neg);
-		}
-		g_free(w->textures);
-	}
-#else
-	if(w->textures) texture_cache_remove_waveform(w); //TODO this doesnt yet clear lo-res textures.
+	if(w->textures || w->textures_lo) texture_cache_remove_waveform(w);
 
 	void free_textures(WfGlBlock** _textures)
 	{
@@ -154,7 +147,6 @@ __finalize (Waveform* w)
 			}
 #ifdef USE_FBO
 			if(textures->fbo){
-																						dbg(0, "textures=%p textures->fbo=%p", textures, textures->fbo);
 				int b; for(b=0;b<textures->size;b++) if(textures->fbo[b]) fbo_free(textures->fbo[b]);
 				g_free(textures->fbo);
 			}
@@ -183,7 +175,6 @@ __finalize (Waveform* w)
 		g_free0(w->textures_hi);
 	}
 	free_textures_hi(w);
-#endif
 
 	waveform_audio_free(w);
 	g_free(w->priv);
@@ -280,7 +271,7 @@ waveform_get_sf_data(Waveform* w)
 memset(&sfinfo, 0, sizeof(SF_INFO));
 	if(!(sndfile = sf_open(w->filename, SFM_READ, &sfinfo))){
 		if(!g_file_test(w->filename, G_FILE_TEST_EXISTS)){
-			gwarn("file open failure. no such file: %s", w->filename);
+			if(wf_debug) gwarn("file open failure. no such file: %s", w->filename);
 		}else{
 			gwarn("file open failure.");
 		}
@@ -1340,7 +1331,7 @@ waveform_peak_to_pixbuf_async(Waveform* w, GdkPixbuf* pixbuf, WfSampleRegion* re
 	c->callback  = callback;
 	c->user_data = user_data;
 
-	void _waveform_peak_to_pixbuf__done(C* c)
+	void _waveform_peak_to_pixbuf__load_done(C* c)
 	{
 		PF;
 		double samples_per_px = c->region.len / gdk_pixbuf_get_width(c->pixbuf);
@@ -1361,7 +1352,7 @@ waveform_peak_to_pixbuf_async(Waveform* w, GdkPixbuf* pixbuf, WfSampleRegion* re
 //TODO no, we cannot load the whole file at once!! render each block separately
 		if(c->n_blocks_done >= waveform_get_n_audio_blocks(c->waveform)){
 			g_signal_handler_disconnect((gpointer)c->waveform, c->ready_handler);
-			_waveform_peak_to_pixbuf__done(c);
+			_waveform_peak_to_pixbuf__load_done(c);
 		}
 	}
 
@@ -1369,7 +1360,9 @@ waveform_peak_to_pixbuf_async(Waveform* w, GdkPixbuf* pixbuf, WfSampleRegion* re
 	gboolean hires_mode = ((samples_per_px / WF_PEAK_RATIO) < 1.0);
 	if(hires_mode){
 		WfAudioData* audio = w->priv->audio_data;
-		if(!audio->buf16){
+		if(audio->buf16){
+			if(!audio->buf16[0]) return; // already requested load, but not yet arrived.
+		}else{
 			c->ready_handler = g_signal_connect (w, "peakdata-ready", (GCallback)_on_peakdata_ready, c);
 			int n_tiers_needed = 3; //TODO
 			int b; for(b=0;b<waveform_get_n_audio_blocks(w);b++){
@@ -1380,7 +1373,7 @@ waveform_peak_to_pixbuf_async(Waveform* w, GdkPixbuf* pixbuf, WfSampleRegion* re
 		}
 	}
 
-	_waveform_peak_to_pixbuf__done(c);
+	_waveform_peak_to_pixbuf__load_done(c);
 }
 
 

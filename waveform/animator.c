@@ -129,7 +129,7 @@ wf_animation_remove_animatable(WfAnimation* animation, WfAnimatable* animatable)
 		Blah* blah = m->data;
 		if(g_list_find(blah->transitions, animatable)){
 			//remove the animatable from the old animation
-			dbg(1, "       already animating: 'start'");
+			dbg(2, "       already animating: 'start'");
 			animatable->start_val.i = animatable->val.i;
 
 			if(!(blah->transitions = g_list_remove(blah->transitions, animatable))) wf_animation_remove(animation);

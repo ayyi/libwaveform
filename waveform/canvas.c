@@ -63,6 +63,11 @@ extern BloomShader horizontal, vertical;
 extern AlphaMapShader tex2d;
 extern RulerShader ruler;
 
+#define TRACK_ACTORS // for debugging only.
+#ifdef TRACK_ACTORS
+GList* actors = NULL;
+#endif
+
 
 static void
 wf_canvas_init(WaveformCanvas* wfc)
@@ -219,6 +224,9 @@ wf_canvas_add_new_actor(WaveformCanvas* wfc, Waveform* w)
 
 	WaveformActor* a = wf_actor_new(w);
 	a->canvas = wfc;
+#ifdef TRACK_ACTORS
+	actors = g_list_append(actors, a);
+#endif
 	return a;
 }
 
@@ -227,8 +235,16 @@ void
 wf_canvas_remove_actor(WaveformCanvas* wfc, WaveformActor* actor)
 {
 	PF;
-	g_object_unref(actor->waveform);
+	Waveform* w = actor->waveform;
+
 	wf_actor_free(actor);
+#ifdef TRACK_ACTORS
+	if(!g_list_find(actors, actor)) gwarn("actor not found! %p", actor);
+	actors = g_list_remove(actors, actor);
+	if(actors) dbg(0, "n_actors=%i", g_list_length(actors));
+#endif
+
+	if(w) g_object_unref(w);
 }
 
 

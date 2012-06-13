@@ -167,9 +167,12 @@ waveform_view_new (Waveform* waveform)
 
 
 static void
-_post_init (WaveformView* view)
+_waveform_view_set_actor (WaveformView* view)
 {
 	WaveformActor* actor = view->priv->actor;
+
+	int width = waveform_view_get_width(view);
+	wf_actor_allocate(actor, &(WfRectangle){0, 0, width, GL_HEIGHT});
 
 	void _waveform_view_on_draw(WaveformCanvas* wfc, gpointer _view)
 	{
@@ -184,58 +187,78 @@ _post_init (WaveformView* view)
 void
 waveform_view_load_file (WaveformView* view, const char* filename)
 {
+	WaveformViewPrivate* _view = view->priv;
+
+	if(_view->actor){
+		wf_canvas_remove_actor(_view->canvas, _view->actor);
+		_view->actor = NULL;
+	}
+	else dbg(2, " ... no actor");
 	if(view->waveform){
-		wf_canvas_remove_actor(view->priv->canvas, view->priv->actor);
 		g_object_unref(view->waveform);
 	}
+
 	view->waveform = waveform_new(filename);
 
-	gboolean waveform_view_load_file_on_idle(gpointer _view)
+	typedef struct
 	{
-		WaveformView* view = _view;
+		WaveformView* view;
+		Waveform*     waveform;
+	} C;
+	C* c = g_new0(C, 1);
+	c->view = view;
+	c->waveform = view->waveform;
+
+	gboolean waveform_view_load_file_on_idle(gpointer _c)
+	{
+		C* c = _c;
+		WaveformView* view = c->view;
 		g_return_val_if_fail(view, IDLE_STOP);
 
-		if(!canvas_init_done) waveform_view_init_drawable(view);
+		if(c->waveform == view->waveform){
+			if(!canvas_init_done) waveform_view_init_drawable(view);
 
-		WaveformActor* actor = view->priv->actor = wf_canvas_add_new_actor(view->priv->canvas, view->waveform);
-		wf_actor_set_region(actor, &(WfSampleRegion){0, waveform_get_n_frames(view->waveform)});
+			WaveformActor* actor = view->priv->actor = wf_canvas_add_new_actor(c->view->priv->canvas, c->view->waveform);
+			wf_actor_set_region(actor, &(WfSampleRegion){0, waveform_get_n_frames(c->view->waveform)});
 
-		waveform_load(view->waveform);
+			waveform_load(c->view->waveform);
 
-		int width = waveform_view_get_width(view);
-		WfRectangle rect = {0, 0, width, GL_HEIGHT};
-		wf_actor_allocate(actor, &rect);
+			_waveform_view_set_actor(c->view);
 
-		gtk_widget_queue_draw((GtkWidget*)view);
-
-		_post_init(view);
-
+			gtk_widget_queue_draw((GtkWidget*)c->view);
+		}else{
+			dbg(2, "waveform changed. ignoring...");
+		}
+		g_free(c);
 		return IDLE_STOP;
 	}
-	g_idle_add(waveform_view_load_file_on_idle, view);
+	g_idle_add(waveform_view_load_file_on_idle, c);
 }
 
 
 void
 waveform_view_set_waveform (WaveformView* view, Waveform* waveform)
 {
-	PF0;
+	PF;
+	WaveformViewPrivate* _view = view->priv;
+
 	if(__wf_drawing) gwarn("set_waveform called while already drawing");
+	wf_canvas_remove_actor(view->priv->canvas, view->priv->actor);
+	_view->actor = NULL;
 	if(view->waveform){
-		wf_canvas_remove_actor(view->priv->canvas, view->priv->actor);
 		g_object_unref(view->waveform);
 	}
+	gboolean need_init = !canvas_init_done;
 	if(!canvas_init_done) waveform_view_init_drawable(view);
+
 	view->waveform = g_object_ref(waveform);
 	view->zoom = 1.0;
 	view->priv->actor = wf_canvas_add_new_actor(view->priv->canvas, waveform);
 	wf_actor_set_region(view->priv->actor, &(WfSampleRegion){0, waveform_get_n_frames(view->waveform)});
 
-	int width = waveform_view_get_width(view);
-	wf_actor_allocate(view->priv->actor, &(WfRectangle){0, 0, width, GL_HEIGHT});
+	_waveform_view_set_actor(view);
 
-	waveform_view_set_projection((GtkWidget*)view);
-	_post_init(view);
+	if(need_init) waveform_view_set_projection((GtkWidget*)view);
 	gtk_widget_queue_draw((GtkWidget*)view);
 }
 
