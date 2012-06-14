@@ -434,7 +434,7 @@ get_buf_info(const Waveform* w, int block_num, struct _buf_info* b, int ch)
 	if(hires_mode){
 		WfAudioData* audio = w->priv->audio_data;
 		if(audio->buf16){
-			b->buf = audio->buf16[block_num]->buf[ch];
+			b->buf = waveform_get_peakbuf_n((Waveform*)w, block_num)->buf[ch];
 			g_return_val_if_fail(b->buf, false);
 			b->len = audio->buf16[block_num]->size;
 			//dbg(2, "HI block=%i len=%i %i", block_num, b->len, b->len / WF_PEAK_VALUES_PER_SAMPLE);
@@ -1366,8 +1366,9 @@ waveform_peak_to_pixbuf_async(Waveform* w, GdkPixbuf* pixbuf, WfSampleRegion* re
 			c->ready_handler = g_signal_connect (w, "peakdata-ready", (GCallback)_on_peakdata_ready, c);
 			int n_tiers_needed = 3; //TODO
 			int b; for(b=0;b<waveform_get_n_audio_blocks(w);b++){
-				WfBuf16* buf = waveform_load_audio_async(w, b, n_tiers_needed);
-				if(buf) _on_peakdata_ready(w, b, c);
+				if(waveform_load_audio_async(w, b, n_tiers_needed)){
+					_on_peakdata_ready(w, b, c);
+				}
 			}
 			return;
 		}
@@ -1480,7 +1481,7 @@ waveform_peak_to_pixbuf_full(Waveform* waveform, GdkPixbuf* pixbuf, uint32_t reg
 
 	int n_tiers = hires_mode ? /*peakbuf->n_tiers*/4 : 0; //TODO
 	//note n_tiers is 1, not zero in lowres mode. (??!)
-	dbg(1, "samples_per_px=%.2f", samples_per_px);
+	dbg(2, "samples_per_px=%.2f", samples_per_px);
 	dbg(2, "n_tiers=%i <<=%i", n_tiers, 1 << n_tiers);
 
 	int ch; for(ch=0;ch<n_chans;ch++){
@@ -1490,8 +1491,8 @@ waveform_peak_to_pixbuf_full(Waveform* waveform, GdkPixbuf* pixbuf, uint32_t reg
 		struct _buf_info b; 
 		g_return_if_fail(get_buf_info(waveform, hires_block, &b, ch));
 
-		int src_start=0;             // frames or peakbuf idx. multiply by 2 to get the index into the source buffer for each sample pt.
-		int src_stop =0;   
+		int src_start = 0;           // frames or peakbuf idx. multiply by 2 to get the index into the source buffer for each sample pt.
+		int src_stop  = 0;
 
 		line_clear(&line[0]);
 		int line_index = 0;
@@ -1504,11 +1505,12 @@ waveform_peak_to_pixbuf_full(Waveform* waveform, GdkPixbuf* pixbuf, uint32_t reg
 
 		uint32_t region_inset_ = hires_mode ? region_inset : region_inset / WF_PEAK_RATIO;
 
+		double xmag_ = hires_mode ? xmag * (1 << (n_tiers)) : xmag * 1.0;
+
 		int i  = 0;
 		int px = 0;                    // pixel count starting at the lhs of the Part.
 		for(px=px_start;px<px_stop;px++){
 			i++;
-			double xmag_ = hires_mode ? xmag * (1 << (n_tiers-1)) : xmag * 1.0;
 
 			//note: units for src_start are *frames*.
 
@@ -1522,19 +1524,21 @@ waveform_peak_to_pixbuf_full(Waveform* waveform, GdkPixbuf* pixbuf, uint32_t reg
 			//subtract block using buffer index:
 			src_start = ((int)((px  ) * xmag_)) + region_inset_ - block_offset;
 			src_stop  = ((int)((px+1) * xmag_)) + region_inset_ - block_offset;
-			if(src_start == src_stop){ printf("^"); fflush(stdout); }
-			if((px==px_start) && hires_mode){
-				double percent = 2 * 100 * (((int)(px * xmag_)) + region_inset - (wf_peakbuf_get_max_size(n_tiers) * hires_block) / WF_PEAK_VALUES_PER_SAMPLE) / b.len;
-				dbg(2, "reading from buf=%i=%.2f%% stop=%i buflen=%i blocklen=%i", src_start, percent, src_stop, b.len, wf_peakbuf_get_max_size(n_tiers));
-			}
-			if(src_stop > b.len_frames && hires_mode){
-				dbg(2, "**** block change needed!");
-				Peakbuf* peakbuf = waveform_get_peakbuf_n(waveform, hires_block + 1);
-				g_return_if_fail(peakbuf);
-				if(!get_buf_info(waveform, hires_block, &b, ch)){ break; }//TODO if this is multichannel, we need to go back to previous peakbuf - should probably have 2 peakbufs...
-				block_offset = block_offset2;
-				src_start = ((int)((px  ) * xmag_)) + region_inset - block_offset;
-				src_stop  = ((int)((px+1) * xmag_)) + region_inset - block_offset;
+			if(src_start == src_stop){ printf("^"); fflush(stdout); } // src data not hi enough resolution
+			if(hires_mode){
+				if(wf_debug && (px == px_start)){
+					double percent = 2 * 100 * (((int)(px * xmag_)) + region_inset - (wf_peakbuf_get_max_size(n_tiers) * hires_block) / WF_PEAK_VALUES_PER_SAMPLE) / b.len;
+					dbg(1, "reading from buf=%i=%.2f%% stop=%i buflen=%i blocklen=%i", src_start, percent, src_stop, b.len, wf_peakbuf_get_max_size(n_tiers));
+				}
+				if(src_stop > b.len_frames){
+					dbg(1, "**** block change needed!");
+					Peakbuf* peakbuf = waveform_get_peakbuf_n(waveform, hires_block + 1);
+					g_return_if_fail(peakbuf);
+					if(!get_buf_info(waveform, hires_block, &b, ch)){ break; }//TODO if this is multichannel, we need to go back to previous peakbuf - should probably have 2 peakbufs...
+					block_offset = block_offset2;
+					src_start = ((int)((px  ) * xmag_)) + region_inset - block_offset;
+					src_stop  = ((int)((px+1) * xmag_)) + region_inset - block_offset;
+				}
 			}
 			dbg(3, "srcidx: %i - %i", src_start, src_stop);
 

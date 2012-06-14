@@ -22,17 +22,17 @@ multi-level caching is provided:
 
 There are 4 main ways of using libwaveform:
 
-	1- the WaveformView Gtk widget
-	2- with GtkGLExt using the WaveformActor interface
-	3- rendering to a GdkPixbuf
-	4- rendering to an Alphabuf
+1- the WaveformView Gtk widget
+2- with GtkGLExt using the WaveformActor interface
+3- rendering to a GdkPixbuf
+4- rendering to an Alphabuf
 
 Requirements:
 
-	- Gtk2
-	- GtkGLExt
-	- libsndfile
-	- OpenGl (recomended)
+- Gtk2
+- GtkGLExt
+- libsndfile
+- OpenGl (recomended)
 
 
 Status

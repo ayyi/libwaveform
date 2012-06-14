@@ -346,6 +346,7 @@ waveform_load_audio_async(Waveform* waveform, int block_num, int n_tiers_needed)
 		WfAudioData* audio = waveform->priv->audio_data;
 		if(!audio->buf16){
 			audio->buf16 = g_malloc0(sizeof(void*) * waveform_get_n_audio_blocks(waveform));
+			//the fact that this is now allocated indicates that a request has been initiated.
 		}
 
 		void callback(gpointer item)
@@ -357,7 +358,7 @@ waveform_load_audio_async(Waveform* waveform, int block_num, int n_tiers_needed)
 			int block_num = peak->block_num;
 
 			if(!audio->buf16[block_num]){
-				audio->buf16[block_num] = g_new0(WfBuf16, 1);
+				audio->buf16[block_num] = g_new0(WfBuf16, 1); // this is used as a flag to indicate that the audio is now valid.
 				audio->buf16[block_num]->size = WF_PEAK_BLOCK_SIZE;
 				int c; for(c=0;c<waveform_get_n_channels(waveform);c++){
 					audio->buf16[block_num]->buf[c] = audio_cache_malloc(waveform, block_num);
