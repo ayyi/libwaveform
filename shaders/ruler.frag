@@ -16,48 +16,48 @@
 */
 
 uniform float beats_per_pixel;
-//uniform float glheight;         //these are gl coordinates, not screen pixels.
-uniform float top;
-uniform float bottom;
+//uniform float top;
+//uniform float bottom;
 uniform vec4 fg_colour;
 
-varying vec2 MCposition;        //TODO get coords for current object, not window
+varying vec2 MCposition;
 varying vec2 ecPosition;
 
 void main(void)
 {
-	//float object_height = (bottom - top) / 256.0; //transform to texture coords
-	//float height = 1.0;
-	//float mid = object_height / 2.0;
-	/*
-	vec2 peak = peaks[int(MCposition.x)];
-	float colour = 0.0;
-	gl_FragColor = vec4(colour);
-	*/
-
-	//float y = MCposition.y / 256.0;
-	//float y = (MCposition.y - top) / (bottom - top);
+	//for coordinate calculations to work the quad must be positioned using glTranslatef(), with x1=0, y1=0.
 
 	vec4 c = vec4(1.0) * fg_colour;
+	float alpha = c[3];
+	c[3] = 0.0;
 
 	float pixels_per_beat = 1.0 / beats_per_pixel;
-	/*
-	   x= 0 0.0 0.0
-	   x= 1 0.1 0.1
-	   x= 2 0.2 0.2
-	   x=11 1.1 0.1
-	*/
+	float pixels_per_bar = pixels_per_beat * 4.0;
+
 	//note: frag coords are offset 0.5 pixels from the centre of the pixel.
 	//      gl_FragCoord has lower-left origin.
 	//          layout(origin_upper_left) in vec4 gl_FragCoord;
 	//          layout(pixel_center_integer) in vec4 gl_FragCoord;
-	if(fract((ecPosition.x -0.5) / pixels_per_beat) > 0.05) c[3] = 0.0;
+//	if(fract((ecPosition.x -0.5) / pixels_per_beat) > 0.05) c[3] = 0.0;
 	//gl_FragCoord works better when model projection is not the same the view.
-	//-if they the projectsions are the same, gl_FragCoord will give same results as ecPosition ?
+	//-if the projections are the same, gl_FragCoord will give same results as ecPosition ?
 	//if(fract((gl_FragCoord.x -0.5 ) / pixels_per_beat) > 0.05) c[3] = 0.0;
 
-	gl_FragColor = c;
+	//larger bar marks
+	if(MCposition.y < 50.0){
+		float m = floor(mod((MCposition.x - 0.5), pixels_per_bar));
+		float val = smoothstep(0.0, 0.5, m);
+		val = 1.0 - val * smoothstep(pixels_per_bar, pixels_per_bar - 0.5, m);
+		c[3] = alpha * val;
+	}
+	//small beat marks
+	if(MCposition.y < 10.0){
+		float m = floor(mod((MCposition.x - 0.5), pixels_per_beat));
+		float val = smoothstep(0.0, 0.5, m);
+		val = 1.0 - val * smoothstep(pixels_per_beat, pixels_per_beat - 0.5, m);
+		c[3] = alpha * val;
+	}
 
-	//if(gl_TexCoord[0].x == 0.0) gl_FragColor = vec4(1.0, val, 0.0, 1.0);
+	gl_FragColor = c;
 }
 

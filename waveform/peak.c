@@ -501,7 +501,7 @@ waveform_peak_malloc(Waveform* w, uint32_t bytes)
 
 
 static void
-alphabuf_draw_line(AlphaBuf* pixbuf, DRect* pts, double line_width, GdkColor* colour)
+alphabuf_draw_line(AlphaBuf* pixbuf, WfDRect* pts, double line_width, GdkColor* colour)
 {
 }
 
@@ -689,7 +689,7 @@ TODO wrong - should be filled with data from adjacent blocks
 			}else{
 				//no more source data available - as the pixmap is clear, we have nothing much to do.
 				//gdk_draw_line(GDK_DRAWABLE(pixmap), gc, px, 0, px, height);//x1, y1, x2, y2
-				DRect pts = {px, 0, px, ch_height};
+				WfDRect pts = {px, 0, px, ch_height};
 				alphabuf_draw_line(a, &pts, 1.0, colour);
 			}
 			//next = srcidx + 1;
@@ -962,7 +962,7 @@ if(!n_chans){ gerr("n_chans"); n_chans = 1; }
 			}else{
 				//no more source data available - as the pixmap is clear, we have nothing much to do.
 				//gdk_draw_line(GDK_DRAWABLE(pixmap), gc, px, 0, px, height);//x1, y1, x2, y2
-				DRect pts = {px, 0, px, ch_height};
+				WfDRect pts = {px, 0, px, ch_height};
 				alphabuf_draw_line(pixbuf, &pts, 1.0, colour);
 //				warn_no_src_data(pool_item, b.len, src_stop);
 				printf("*"); fflush(stdout);
@@ -1272,7 +1272,7 @@ waveform_find_max_audio_level(Waveform* w)
 #ifdef USE_GDK_PIXBUF
 
 static void
-pixbuf_draw_line(cairo_t* cr, DRect* pts, double line_width, uint32_t colour)
+pixbuf_draw_line(cairo_t* cr, WfDRect* pts, double line_width, uint32_t colour)
 {
 	//TODO set colour, or remove arg
 	if(pts->y1 == pts->y2) return;
@@ -1481,7 +1481,7 @@ waveform_peak_to_pixbuf_full(Waveform* waveform, GdkPixbuf* pixbuf, uint32_t reg
 
 	int n_tiers = hires_mode ? /*peakbuf->n_tiers*/4 : 0; //TODO
 	//note n_tiers is 1, not zero in lowres mode. (??!)
-	dbg(2, "samples_per_px=%.2f", samples_per_px);
+	dbg(0, "samples_per_px=%.2f", samples_per_px);
 	dbg(2, "n_tiers=%i <<=%i", n_tiers, 1 << n_tiers);
 
 	int ch; for(ch=0;ch<n_chans;ch++){
@@ -1662,7 +1662,7 @@ waveform_peak_to_pixbuf_full(Waveform* waveform, GdkPixbuf* pixbuf, uint32_t reg
 			}else{
 				//no more source data available - as the pixmap is clear, we have nothing much to do.
 				//gdk_draw_line(GDK_DRAWABLE(pixmap), gc, px, 0, px, height);//x1, y1, x2, y2
-				DRect pts = {px, 0, px, ch_height};
+				WfDRect pts = {px, 0, px, ch_height};
 				pixbuf_draw_line(cairo, &pts, 1.0, colour);
 				warn_no_src_data(waveform, b.len, src_stop);
 				printf("*"); fflush(stdout);
@@ -2022,7 +2022,7 @@ waveform_rms_to_pixbuf(Waveform* w, GdkPixbuf* pixbuf, uint32_t src_inset, int* 
 			}else{
 				//no more source data available - as the pixmap is clear, we have nothing much to do.
 				//gdk_draw_line(GDK_DRAWABLE(pixmap), gc, px, 0, px, height);//x1, y1, x2, y2
-				DRect pts = {px, 0, px, ch_height};
+				WfDRect pts = {px, 0, px, ch_height};
 				pixbuf_draw_line(cairo, &pts, 1.0, 0xffff00ff);
 				warn_no_src_data(w, b.len, src_stop);
 				printf("*"); fflush(stdout);

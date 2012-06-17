@@ -109,20 +109,9 @@ waveform_view_gl_on_allocate(WaveformView* view)
 {
 	if(!view->priv->actor) return;
 
-				//extern void _wf_set_last_fraction(Waveform*);
-				//_wf_set_last_fraction(view->waveform);
-
 	int width = waveform_view_get_width(view);
 	WfRectangle rect = {0, 0, width, GL_HEIGHT};
 	wf_actor_allocate(view->priv->actor, &rect);
-#if 0
-	int start_block_num = 0;
-	int end_block_num = view->waveform->gl_blocks->size - 1; //TODO check zoom etc
-
-	int b; for(b=start_block_num;b<=end_block_num;b++){
-		waveform_view_load_block(view, b);
-	}
-#endif
 
 	wf_canvas_set_viewport(view->priv->canvas, NULL);
 }

@@ -27,6 +27,7 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <string.h>
+#include <math.h>
 #include <getopt.h>
 #include <time.h>
 #include <unistd.h>
@@ -116,7 +117,7 @@ main (int argc, char *argv[])
 
 	canvas = gtk_drawing_area_new();
 	gtk_widget_set_can_focus(canvas, true);
-	gtk_widget_set_size_request(GTK_WIDGET(canvas), 320, 128);
+	gtk_widget_set_size_request(GTK_WIDGET(canvas), GL_WIDTH + 2 * HBORDER, 128);
 	gtk_widget_set_gl_capability(canvas, glconfig, NULL, 1, GDK_GL_RGBA_TYPE);
 	gtk_widget_add_events (canvas, GDK_POINTER_MOTION_MASK | GDK_BUTTON_PRESS_MASK | GDK_BUTTON_RELEASE_MASK);
 	gtk_container_add((GtkContainer*)window, (GtkWidget*)canvas);
@@ -210,10 +211,11 @@ setup_projection(GtkWidget* widget)
 
 	//double hborder = GL_WIDTH / 32;
 
-	double left = -HBORDER;
-	double right = GL_WIDTH + HBORDER;
+	double left = -((int)HBORDER);
+	double right = vw + left;            //now tracks the allocation so we can get consistent ruler markings.
 	double bottom = GL_HEIGHT + VBORDER;
 	double top = -VBORDER;
+	//dbg(0, "ortho: width=%.2f", right - left);
 	glOrtho (left, right, bottom, top, 10.0, -100.0);
 }
 
@@ -221,16 +223,15 @@ setup_projection(GtkWidget* widget)
 static void
 draw(GtkWidget* widget)
 {
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	background_paint(widget);
 	ruler_paint(widget);
 
 	//TODO why does GL_DEPTH_TEST mess with the background painting?
 	//glEnable(GL_DEPTH_TEST);
 
-	glPushMatrix(); /* modelview matrix */
+	//glPushMatrix(); /* modelview matrix */
 		int i; for(i=0;i<G_N_ELEMENTS(a);i++) if(a[i]) wf_actor_paint(a[i]);
-	glPopMatrix();
+	//glPopMatrix();
 
 #undef SHOW_BOUNDING_BOX
 #ifdef SHOW_BOUNDING_BOX
@@ -337,7 +338,7 @@ on_allocate(GtkWidget* widget, GtkAllocation* allocation, gpointer user_data)
 	setup_projection(widget);
 
 	//optimise drawing by telling the canvas which area is visible
-	wf_canvas_set_viewport(wfc, &(WfViewPort){0, 0, GL_WIDTH, GL_HEIGHT});
+	wf_canvas_set_viewport(wfc, &(WfViewPort){0, 0, allocation->width - ((int)HBORDER), GL_HEIGHT});
 
 	start_zoom(zoom);
 }
@@ -362,7 +363,7 @@ start_zoom(float target_zoom)
 		if(a[i]) wf_actor_allocate(a[i], &(WfRectangle){
 			0.0,
 			i * GL_HEIGHT / 2,
-			GL_WIDTH * target_zoom,
+			(canvas->allocation.width - ((int)HBORDER) * 2) * target_zoom,
 			GL_HEIGHT / 2 * 0.95
 		});
 }
@@ -376,7 +377,8 @@ toggle_animate()
 	{
 		static uint64_t frame = 0;
 		static uint64_t t0    = 0;
-		if(!frame) t0 = get_time();
+		if(!frame)
+			t0 = get_time();
 		else{
 			uint64_t time = get_time();
 			if(!(frame % 1000))
@@ -431,20 +433,28 @@ create_background()
 static void
 background_paint(GtkWidget* widget)
 {
-	if(!wfc->use_shaders){
+	if(wfc->use_shaders){
+		glEnable(GL_TEXTURE_2D);
+		glActiveTexture(GL_TEXTURE0);
+		if(!glIsTexture(bg_textures[0])) gwarn("not texture");
+		glBindTexture(GL_TEXTURE_2D, bg_textures[0]);
+
+		wfc->priv->shaders.tex2d->uniform.fg_colour = 0x0000ffff;
+		wf_canvas_use_program_(wfc, (WfShader*)wfc->priv->shaders.tex2d);
+
+	}else{
 		glColor4f(1.0, 0.7, 0.0, 1.0);
+
+		glEnable(GL_TEXTURE_2D);
+				glActiveTexture(GL_TEXTURE0);
+				if(!glIsTexture(bg_textures[0])) gwarn("not texture");
+		glBindTexture(GL_TEXTURE_2D, bg_textures[0]);
+				glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
+				glEnable(GL_BLEND);
+		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+		wf_canvas_use_program_(wfc, 0);
 	}
-
-	glEnable(GL_TEXTURE_2D);
-			glActiveTexture(GL_TEXTURE0);
-			if(!glIsTexture(bg_textures[0])) gwarn("not texture");
-	glBindTexture(GL_TEXTURE_2D, bg_textures[0]);
-			glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
-			glEnable(GL_BLEND);
-	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-
-	wfc->priv->shaders.tex2d->uniform.fg_colour = 0x0000ffff;
-	wf_canvas_use_program_(wfc, (WfShader*)wfc->priv->shaders.tex2d);
 
 	double top = -VBORDER;
 	double bot = GL_HEIGHT + VBORDER;
@@ -464,23 +474,45 @@ ruler_paint(GtkWidget* widget)
 {
 	if(!wfc->use_shaders) return;
 
-					//glColor4f(1.0, 1.0, 1.0, 1.0);
+	double width = canvas->allocation.width - 2 * ((int)HBORDER);
 
 	wfc->priv->shaders.ruler->uniform.fg_colour = 0xffffff7f;
+	wfc->priv->shaders.ruler->uniform.beats_per_pixel = 0.1 * (GL_WIDTH / width) / zoom;
 	wf_canvas_use_program_(wfc, (WfShader*)wfc->priv->shaders.ruler);
 
-	double top = GL_HEIGHT * 0.5;
-	double bot = GL_HEIGHT;
-	double x1 = 0;
-	double x2 = GL_WIDTH;
-	//dbg(0, "%.2f %.2f", top, bot);
+#if 0 //shader debugging
+	{
+		float smoothstep(float edge0, float edge1, float x)
+		{
+			float t = CLAMP((x - edge0) / (edge1 - edge0), 0.0, 1.0);
+			return t * t * (3.0 - 2.0 * t);
+		}
 
+		float pixels_per_beat = 1.0 / wfc->priv->shaders.ruler->uniform.beats_per_pixel;
+		dbg(0, "ppb=%.2f", pixels_per_beat);
+		int x; for(x=0;x<30;x++){
+			float m = (x * 100) % ((int)pixels_per_beat * 100);
+			float m_ = x - pixels_per_beat * floor(x / pixels_per_beat);
+			printf("  %.2f %.2f %.2f\n", m / 100, m_, smoothstep(0.0, 0.5, m_));
+		}
+	}
+#endif
+
+	double top = 0;//GL_HEIGHT * 0.5;
+	double bot = GL_HEIGHT * 0.5;
+	double x1 = 0;
+	double x2 = width;
+
+	glPushMatrix();
+	glScalef(1.0, -1.0, 1.0);           // inverted vertically to make alignment of marks to bottom easier in the shader
+	glTranslatef(0.0, -GL_HEIGHT, 0.0); // making more negative moves downward
 	glBegin(GL_QUADS);
 	glVertex2d(x1, top);
 	glVertex2d(x2, top);
 	glVertex2d(x2, bot);
 	glVertex2d(x1, bot);
 	glEnd();
+	glPopMatrix();
 }
 
 

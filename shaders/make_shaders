@@ -3,14 +3,6 @@
 out=shaders.c
 echo "" > $out
 
-#echo '#define peak_frag " \' > $out
-#cpp -P peak.frag | sed -e "s/$/ \\\/" >> $out
-#echo '"' >> $out
-#echo '' >> $out
-#echo '#define peak_vert " \' >> $out
-#cpp -P peak.vert | sed -e "s/$/ \\\/" >> $out
-#echo '"' >> $out
-
 function a {
 	echo '' >> $out
 	echo 'WfShaderText '$1'_text = {" \' >> $out
@@ -28,11 +20,5 @@ a "vertical"
 a "hires"
 a "alpha_map"
 a "ruler"
+a "texture_2d"
 
-#echo 'WfShaderText peak_text = {" \' >> $out
-#cpp -P peak.vert | sed -e "s/$/ \\\/" >> $out
-#echo '",' >> $out
-#echo '" \' >> $out
-#cpp -P peak.frag | sed -e "s/$/ \\\/" >> $out
-#echo '"' >> $out
-#echo '};' >> $out

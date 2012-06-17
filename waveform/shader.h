@@ -58,6 +58,7 @@ typedef struct {
 	WfShader     shader;
 	struct {
 		uint32_t fg_colour;
+		float    beats_per_pixel;
 	}            uniform;
 } RulerShader;
 #endif

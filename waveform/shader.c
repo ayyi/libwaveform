@@ -80,6 +80,9 @@ static UniformInfo uniforms4[] = {
    END_OF_UNIFORMS
 };
 
+//plain 2d texture
+AlphaMapShader tex2d_b = {{NULL, NULL, 0, NULL, _alphamap_set_uniforms, &texture_2d_text}};
+
 RulerShader ruler = {{NULL, NULL, 0, NULL, _ruler_set_uniforms, &ruler_text}};
 static UniformInfo uniforms5[] = {
    END_OF_UNIFORMS
@@ -159,7 +162,7 @@ _ruler_set_uniforms()
 	wf_rgba_to_float(ruler.uniform.fg_colour, &fg_colour[0], &fg_colour[1], &fg_colour[2]);
 	glUniform4fv(glGetUniformLocation(ruler.shader.program, "fg_colour"), 1, fg_colour);
 
-	glUniform1f(glGetUniformLocation(shader->program, "beats_per_pixel"), 0.10);
+	glUniform1f(glGetUniformLocation(shader->program, "beats_per_pixel"), ((RulerShader*)shader)->uniform.beats_per_pixel);
 }
 
 
@@ -200,6 +203,7 @@ wf_shaders_init()
 	create_program(&horizontal.shader, uniforms2);
 	create_program(&vertical.shader, uniforms3);
 	create_program(&tex2d.shader, uniforms4);
+	create_program(&tex2d_b.shader, uniforms4);
 	create_program(&ruler.shader, uniforms5);
 }
 

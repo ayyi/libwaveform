@@ -60,7 +60,7 @@ static void   wf_canvas_init_gl (WaveformCanvas*);
 extern PeakShader peak_shader;
 extern HiResShader hires_shader;
 extern BloomShader horizontal, vertical;
-extern AlphaMapShader tex2d;
+extern AlphaMapShader tex2d, tex2d_b;
 extern RulerShader ruler;
 
 #define TRACK_ACTORS // for debugging only.
@@ -187,6 +187,7 @@ wf_canvas_init_gl(WaveformCanvas* wfc)
 			wfc->priv->shaders.vertical = &vertical;
 			wfc->priv->shaders.horizontal = &horizontal;
 			wfc->priv->shaders.tex2d = &tex2d;
+			wfc->priv->shaders.tex2d_b = &tex2d_b;
 			wfc->priv->shaders.ruler = &ruler;
 		}
 

@@ -1099,7 +1099,7 @@ wf_actor_paint(WaveformActor* actor)
 	double zoom = rect.len / region.len;
 
 	int mode = get_mode(zoom);
-dbg(1, "mode=%s", modes[mode].name);
+//dbg(1, "mode=%s", modes[mode].name);
 
 	WfColourFloat fg;
 	wf_colour_rgba_to_float(&fg, actor->fg_colour);
@@ -1144,7 +1144,7 @@ dbg(1, "mode=%s", modes[mode].name);
 		}
 #else
 		if(wfc->use_1d_textures){
-			wf_canvas_use_program(wfc, ((Shader*)wfc->priv->shaders.peak)->program);
+			wf_canvas_use_program(wfc, ((WfShader*)wfc->priv->shaders.peak)->program);
 
 			//uniforms: (must be done on each paint because some vars are actor-specific)
 			float peaks_per_pixel = get_peaks_per_pixel(wfc, &region, &rect, mode);

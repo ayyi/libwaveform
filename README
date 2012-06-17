@@ -22,10 +22,10 @@ multi-level caching is provided:
 
 There are 4 main ways of using libwaveform:
 
-1- the WaveformView Gtk widget
-2- with GtkGLExt using the WaveformActor interface
-3- rendering to a GdkPixbuf
-4- rendering to an Alphabuf
+1. the WaveformView Gtk widget
+2. with GtkGLExt using the WaveformActor interface
+3. rendering to a GdkPixbuf
+4. rendering to an Alphabuf
 
 Requirements:
 
@@ -115,9 +115,11 @@ They do not use much texture memory but are not as efficient
 as using shaders.
 
 eg to create a texture for use with Clutter:
+```c
 	Waveform* waveform = waveform_load_new("myfile.wav");
 	AlphaBuf* a = waveform_alphabuf_new(waveform, -1, FALSE);
 	texture = cogl_texture_new_from_data(a->width, a->height, COGL_TEXTURE_NONE, COGL_PIXEL_FORMAT_A_8, COGL_PIXEL_FORMAT_ANY, a->width, a->buf);
+```
 
 The above creates a texture for the whole file.
 This is not appropriate for large files.

@@ -130,7 +130,7 @@ typedef struct _peak_sample
 	short negative;
 } WfPeakSample;
 
-typedef struct _drect { double x1, y1, x2, y2; } DRect;
+typedef struct _wf_drect { double x1, y1, x2, y2; } WfDRect;
 
 
 WF*            wf_get_instance             ();

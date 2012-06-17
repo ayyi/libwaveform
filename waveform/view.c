@@ -465,15 +465,15 @@ waveform_view_init_drawable (WaveformView* view)
 
 
 static void
-waveform_view_allocate (GtkWidget* base, GdkRectangle* allocation)
+waveform_view_allocate (GtkWidget* widget, GdkRectangle* allocation)
 {
 	PF;
 	g_return_if_fail (allocation);
 
-	WaveformView* wv = (WaveformView*)base;
-	base->allocation = (GtkAllocation)(*allocation);
-	if ((GTK_WIDGET_FLAGS (base) & GTK_REALIZED) == 0) return;
-	gdk_window_move_resize(base->window, base->allocation.x, base->allocation.y, base->allocation.width, base->allocation.height);
+	WaveformView* wv = (WaveformView*)widget;
+	widget->allocation = (GtkAllocation)(*allocation);
+	if ((GTK_WIDGET_FLAGS (widget) & GTK_REALIZED) == 0) return;
+	gdk_window_move_resize(widget->window, widget->allocation.x, widget->allocation.y, widget->allocation.width, widget->allocation.height);
 
 	if(!canvas_init_done) waveform_view_init_drawable(wv);
 
@@ -481,7 +481,7 @@ waveform_view_allocate (GtkWidget* base, GdkRectangle* allocation)
 
 	waveform_view_gl_on_allocate(wv);
 
-	waveform_view_set_projection(base);
+	waveform_view_set_projection(widget);
 }
 
 
