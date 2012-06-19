@@ -318,7 +318,6 @@ static void
 peakbuf_set_n_tiers(Peakbuf* peakbuf, int n_tiers, int resolution)
 {
 	if(n_tiers < 1 || n_tiers > MAX_TIERS){ gwarn("n_tiers out of range: %i", n_tiers); n_tiers = MAX_TIERS; }
-	peakbuf->n_tiers = n_tiers;
 	peakbuf->resolution = resolution;
 	dbg(2, "n_tiers=%i", n_tiers);
 }
@@ -406,7 +405,7 @@ waveform_peakbuf_regen(Waveform* waveform, int block_num, int min_tiers)
 	if(!buf){
 		//peakbuf->size = peakbuf_get_max_size_by_resolution(output_resolution);
 		//peakbuf->size = wf_peakbuf_get_max_size(output_tiers);
-		dbg(2, "buf->size=%i blocksize=%i", peakbuf->size, WF_PEAK_BLOCK_SIZE * WF_PEAK_VALUES_PER_SAMPLE / io_ratio);
+		dbg(0, "buf->size=%i blocksize=%i", peakbuf->size, WF_PEAK_BLOCK_SIZE * WF_PEAK_VALUES_PER_SAMPLE / io_ratio);
 		peakbuf->size = audio->buf16[block_num]->size * WF_PEAK_VALUES_PER_SAMPLE / io_ratio;
 		if(is_last_block(waveform, block_num)){
 			dbg(2, "is_last_block. (%i)", block_num);

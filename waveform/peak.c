@@ -1410,7 +1410,6 @@ waveform_peak_to_pixbuf_full(Waveform* waveform, GdkPixbuf* pixbuf, uint32_t reg
 
 	g_return_if_fail(pixbuf);
 	g_return_if_fail(waveform);
-	dbg(2, "inset=%i", region_inset);
 
 	gboolean hires_mode = ((samples_per_px / WF_PEAK_RATIO) < 1.0);
 
@@ -1420,7 +1419,6 @@ waveform_peak_to_pixbuf_full(Waveform* waveform, GdkPixbuf* pixbuf, uint32_t reg
 	int fg_red = (colour    & 0xff000000) >> 24;
 	int fg_grn = (colour    & 0x00ff0000) >> 16;
 	int fg_blu = (colour    & 0x0000ff00) >>  8;
-	//printf("%s(): bg=%x r=%x g=%x b=%x \n", __func__, colour_bg, bg_red, bg_grn bg_blu);
 
 #if 0
 	struct timeval time_start, time_stop;
@@ -1451,12 +1449,13 @@ waveform_peak_to_pixbuf_full(Waveform* waveform, GdkPixbuf* pixbuf, uint32_t reg
 
 	if (height > MAX_PART_HEIGHT) gerr ("part too tall. not enough memory allocated.");
 	int ch_height = height / n_chans;
-	int vscale = (256*128*2) / ch_height;
+	int vscale = (256 * 128 * 2) / ch_height;
 
 	int px_start = start ? *start : 0;
 	int px_stop  = end   ? MIN(*end, width) : width;
-	dbg (1, "px_start=%i px_end=%i", px_start, px_stop);
+	dbg (2, "px_start=%i px_end=%i", px_start, px_stop);
 
+	int n_tiers = 0; //note n_tiers is 1, not zero in lowres mode. (??!)
 	int hires_block = -1;
 	int src_px_start = 0;
 	if(hires_mode){
@@ -1466,23 +1465,26 @@ waveform_peak_to_pixbuf_full(Waveform* waveform, GdkPixbuf* pixbuf, uint32_t reg
 		dbg(1, "hires: offset=%i", src_px_start);
 
 		WfAudioData* audio = waveform->priv->audio_data;
-		if(!audio->buf16){
-			int n_tiers_needed = 3; //TODO
+		if(audio->buf16){
+			//n_tiers = audio->n_tiers_present; //no, this is the resolution of the audio, not the peakbuf
+			n_tiers = 4; //TODO use peakbuf->resolution instead.
+		}else{
+			int n_tiers_needed = 4;
 			waveform_load_audio_async(waveform, hires_block, n_tiers_needed);
 			return;
 		}
 	}
 
+	dbg(2, "samples_per_px=%.2f", samples_per_px);
+
 	//xmag defines how many 'samples' we need to skip to get the next pixel.
 	//making xmag smaller increases the visual magnification.
 	//-the bigger the mag, the less samples we need to skip.
 	//-as we're only dealing with smaller peak files, we need to adjust by WF_PEAK_RATIO.
-	double xmag = samples_per_px / (WF_PEAK_RATIO * WF_PEAK_VALUES_PER_SAMPLE);
 
-	int n_tiers = hires_mode ? /*peakbuf->n_tiers*/4 : 0; //TODO
-	//note n_tiers is 1, not zero in lowres mode. (??!)
-	dbg(0, "samples_per_px=%.2f", samples_per_px);
-	dbg(2, "n_tiers=%i <<=%i", n_tiers, 1 << n_tiers);
+	double xmag = samples_per_px / ((hires_mode ? (1 << n_tiers) : WF_PEAK_RATIO));
+//dbg(0, "xmag=%.2f xmag*width=%.2f n_frames/16=%Lu", xmag, xmag * width, waveform_get_n_frames(waveform) / 16);
+//dbg(0, "xmag should be: %.2f", (((float)waveform_get_n_frames(waveform))/* * WF_PEAK_VALUES_PER_SAMPLE */ / 16.0) / width);
 
 	int ch; for(ch=0;ch<n_chans;ch++){
 		//we use the same part of Line for each channel, it is then render it to the pixbuf with a channel offset.
@@ -1505,8 +1507,6 @@ waveform_peak_to_pixbuf_full(Waveform* waveform, GdkPixbuf* pixbuf, uint32_t reg
 
 		uint32_t region_inset_ = hires_mode ? region_inset : region_inset / WF_PEAK_RATIO;
 
-		double xmag_ = hires_mode ? xmag * (1 << (n_tiers)) : xmag * 1.0;
-
 		int i  = 0;
 		int px = 0;                    // pixel count starting at the lhs of the Part.
 		for(px=px_start;px<px_stop;px++){
@@ -1518,16 +1518,16 @@ waveform_peak_to_pixbuf_full(Waveform* waveform, GdkPixbuf* pixbuf, uint32_t reg
 			//src_stop  = ((int)((px+1)* xmag * (1 << n_tiers))) + region_inset;
 
 			//subtract block using pixel value:
-			//src_start = ((int)((px-src_px_start  ) * xmag_)) + region_inset;// - peakbuf_get_len_samples() * peakbuf->block_num;
-			//src_stop  = ((int)((px-src_px_start+1) * xmag_)) + region_inset;// - peakbuf_get_len_samples() * peakbuf->block_num;
+			//src_start = ((int)((px-src_px_start  ) * xmag)) + region_inset;// - peakbuf_get_len_samples() * peakbuf->block_num;
+			//src_stop  = ((int)((px-src_px_start+1) * xmag)) + region_inset;// - peakbuf_get_len_samples() * peakbuf->block_num;
 
 			//subtract block using buffer index:
-			src_start = ((int)((px  ) * xmag_)) + region_inset_ - block_offset;
-			src_stop  = ((int)((px+1) * xmag_)) + region_inset_ - block_offset;
+			src_start = ((int)((px  ) * xmag)) + region_inset_ - block_offset;
+			src_stop  = ((int)((px+1) * xmag)) + region_inset_ - block_offset;
 			if(src_start == src_stop){ printf("^"); fflush(stdout); } // src data not hi enough resolution
 			if(hires_mode){
 				if(wf_debug && (px == px_start)){
-					double percent = 2 * 100 * (((int)(px * xmag_)) + region_inset - (wf_peakbuf_get_max_size(n_tiers) * hires_block) / WF_PEAK_VALUES_PER_SAMPLE) / b.len;
+					double percent = 2 * 100 * (((int)(px * xmag)) + region_inset - (wf_peakbuf_get_max_size(n_tiers) * hires_block) / WF_PEAK_VALUES_PER_SAMPLE) / b.len;
 					dbg(1, "reading from buf=%i=%.2f%% stop=%i buflen=%i blocklen=%i", src_start, percent, src_stop, b.len, wf_peakbuf_get_max_size(n_tiers));
 				}
 				if(src_stop > b.len_frames){
@@ -1536,8 +1536,8 @@ waveform_peak_to_pixbuf_full(Waveform* waveform, GdkPixbuf* pixbuf, uint32_t reg
 					g_return_if_fail(peakbuf);
 					if(!get_buf_info(waveform, hires_block, &b, ch)){ break; }//TODO if this is multichannel, we need to go back to previous peakbuf - should probably have 2 peakbufs...
 					block_offset = block_offset2;
-					src_start = ((int)((px  ) * xmag_)) + region_inset - block_offset;
-					src_stop  = ((int)((px+1) * xmag_)) + region_inset - block_offset;
+					src_start = ((int)((px  ) * xmag)) + region_inset - block_offset;
+					src_stop  = ((int)((px+1) * xmag)) + region_inset - block_offset;
 				}
 			}
 			dbg(3, "srcidx: %i - %i", src_start, src_stop);
@@ -1554,7 +1554,6 @@ waveform_peak_to_pixbuf_full(Waveform* waveform, GdkPixbuf* pixbuf, uint32_t reg
 			int mid = ch_height / 2;
 
 			int j, y;
-//src_stop must not be in audio_frames at STD res!
 			if(src_stop < b.len_frames){
 				min = 0; max = 0;
 				int sub_px = 0;
@@ -1675,7 +1674,7 @@ waveform_peak_to_pixbuf_full(Waveform* waveform, GdkPixbuf* pixbuf, uint32_t reg
 			//printf("line_index=%i %i %i %i\n", line_index, (line_index  ) % 3, (line_index+1) % 3, (line_index+2) % 3);
 		}
 
-		dbg (1, "done. xmag=%.2f drawn: %i of %i src=%i-->%i", xmag, line_index, width, ((int)(px_start * xmag * n_tiers)) + region_inset, src_stop);
+		dbg (1, "done. xmag=%.2f drawn: %i of %i src=%i-->%i", xmag, line_index, width, ((int)(px_start * xmag)) + region_inset, src_stop);
 	} //end channel
 
 #if 0
@@ -1774,7 +1773,7 @@ waveform_rms_to_pixbuf(Waveform* w, GdkPixbuf* pixbuf, uint32_t src_inset, int* 
 
 	//if (height > MAX_PART_HEIGHT) gerr ("part too tall. not enough memory allocated.");
 	int ch_height = height / n_chans;
-	int vscale = (256*128*2) / ch_height;
+	int vscale = (256 * 128 * 2) / ch_height;
 
 	int px_start = start ? *start : 0;
 	int px_stop  = end   ? MIN(*end, width) : width;
@@ -1796,16 +1795,18 @@ waveform_rms_to_pixbuf(Waveform* w, GdkPixbuf* pixbuf, uint32_t src_inset, int* 
 		dbg(1, "hires: offset=%i", src_px_start);
 	}
 
-	//xmag defines how many 'samples' we need to skip to get the next pixel.
-	//making xmag smaller increases the visual magnification.
-	//-the bigger the mag, the less samples we need to skip.
-	//-as we're only dealing with smaller peak files, we need to adjust by WF_PEAK_RATIO.
-	double xmag = samples_per_px / (WF_PEAK_RATIO * WF_PEAK_VALUES_PER_SAMPLE);
-
 	int n_tiers = hires_mode ? /*peakbuf->n_tiers*/4 : 0; //TODO
 	//note n_tiers is 1, not zero in lowres mode. (??!)
 	dbg(2, "samples_per_px=%.2f", samples_per_px);
 	dbg(2, "n_tiers=%i <<=%i", n_tiers, 1 << n_tiers);
+
+	//xmag defines how many 'samples' we need to skip to get the next pixel.
+	//making xmag smaller increases the visual magnification.
+	//-the bigger the mag, the less samples we need to skip.
+	//-as we're only dealing with smaller peak files, we need to adjust by WF_PEAK_RATIO.
+	double xmag = samples_per_px / (WF_PEAK_RATIO);
+
+	double xmag_ = hires_mode ? xmag * (1 << n_tiers) : xmag * 1.0;
 
 	int ch; for(ch=0;ch<n_chans;ch++){
 		//we use the same part of Line for each channel, it is then render it to the pixbuf with a channel offset.
@@ -1858,7 +1859,6 @@ waveform_rms_to_pixbuf(Waveform* w, GdkPixbuf* pixbuf, uint32_t src_inset, int* 
 		int px = 0;                    // pixel count starting at the lhs of the Part.
 		for(px=px_start;px<px_stop;px++){
 			i++;
-			double xmag_ = hires_mode ? xmag * (1 << (n_tiers-1)) : xmag * 1.0;
 
 			//note: units for src_start are *frames*.
 

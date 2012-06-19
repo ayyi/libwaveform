@@ -87,17 +87,6 @@ struct _WaveformClass {
 	GObjectClass parent_class;
 };
 
-//a single hires peak block
-struct _peakbuf {
-	int        block_num;
-	int        size;             // the number of shorts allocated. 2 shorts per value (plus + minus)
-	int        res;
-	int        n_tiers;          // deprecated. use resolution instead.
-	int        resolution;       // 1 corresponds to full resolution (though peakbufs never have resolution of 1 as then the audio data is accessed directly)
-	void*      buf[WF_STEREO];
-	int        maxlevel;         // mostly just for debugging
-};
-
 typedef struct _buf_stereo_16
 {
 	short*     buf[WF_STEREO];
@@ -131,6 +120,7 @@ RmsBuf*    waveform_load_rms_file      (Waveform*, int ch);
 WfBuf16*   waveform_load_audio_async   (Waveform*, int block_num, int n_tiers_needed);
 short      waveform_find_max_audio_level(Waveform*);
 
+//TODO use #ifndef __GTK_H__
 #ifdef USE_GDK_PIXBUF
 #include <gtk/gtk.h>
 //#else

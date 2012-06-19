@@ -17,10 +17,12 @@
 #ifndef __wf_private_h__
 #define __wf_private_h__
 
+#ifndef __GTK_H__
 #ifdef USE_GDK_PIXBUF
 #include <gtk/gtk.h>
 #else
 #define GdkColor void
+#endif
 #endif
 
 #define WF_CACHE_BUF_SIZE (1 << 15)
@@ -46,6 +48,17 @@ enum
 struct _peakbuf1 {
 	int        size;             // the number of shorts allocated.
 	short*     buf[WF_MAX_CH];   // holds the complete peakfile. The second pointer is only used for stereo files.
+};
+
+//a single hires peak block
+struct _peakbuf {
+	int        block_num;
+	int        size;             // the number of shorts allocated. 2 shorts per value (plus + minus)
+	int        res;
+	//int        n_tiers;          // deprecated. use resolution instead.
+	int        resolution;       // 1 corresponds to full resolution (though peakbufs never have resolution of 1 as then the audio data is accessed directly)
+	void*      buf[WF_STEREO];
+	int        maxlevel;         // mostly just for debugging
 };
 
 struct _waveform_priv

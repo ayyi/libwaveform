@@ -69,7 +69,6 @@ waveform_audio_free(Waveform* waveform)
 			if(buf16){
 				audio_cache_free(waveform, b);
 				g_free0(buf16);
-				//audio->buf16[b] = NULL;
 			}
 		}
 		g_free(audio->buf16);

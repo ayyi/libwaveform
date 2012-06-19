@@ -102,7 +102,7 @@ draw_wave_buffer_hi(Waveform* w, WfSampleRegion region, WfRectangle* rect, Peakb
 	float region_len = region.len;
 	short* data = peakbuf->buf[chan];
 
-	int io_ratio = (peakbuf->n_tiers == 4 || peakbuf->n_tiers == 3) ? 16 : 1; //TODO
+	int io_ratio = (peakbuf->resolution == 16 || peakbuf->resolution == 8) ? 16 : 1; //TODO
 	int x = 0;
 	int p = 0;
 	int p_ = region.start / io_ratio;
