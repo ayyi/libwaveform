@@ -29,7 +29,7 @@
 #include <sys/ipc.h>
 #include <sys/shm.h>
 #include <signal.h>
-#include <glib.h>
+#include <gtk/gtk.h>
 #include <glib-object.h>
 #include "waveform/utils.h"
 #include "test/ayyi_utils.h"
@@ -39,9 +39,9 @@ static void log_handler(const gchar*, GLogLevelFlags, const gchar*, gpointer);
 
 int      n_failed = 0;
 int      n_passed = 0;
-extern bool     abort_on_fail;
-extern bool     passed;
-extern int      test_finished;
+gboolean abort_on_fail  = true;
+gboolean passed         = false;
+int      test_finished  = false;  //current test has finished. Go onto the next test.
 int      current_test = -1;
 extern char     current_test_name[];
 extern gpointer tests[];
@@ -141,6 +141,70 @@ log_handler(const gchar* log_domain, GLogLevelFlags log_level, const gchar* mess
       printf("log_handler(): level=%i %s\n", log_level, message);
       break;
   }
+}
+
+
+void
+add_key_handler(GtkWindow* window, WaveformView* waveform, Key keys[])
+{
+	//list of keys must be terminated with a key of value zero.
+
+	static KeyHold key_hold = {0, NULL};
+	static bool key_down = false;
+	static GHashTable* key_handlers = NULL;
+
+	key_handlers = g_hash_table_new(g_int_hash, g_int_equal);
+	int i = 0; while(true){
+		Key* key = &keys[i];
+		if(i > 100 || !key->key) break;
+		g_hash_table_insert(key_handlers, &key->key, key->handler);
+		i++;
+	}
+
+	gboolean key_hold_on_timeout(gpointer user_data)
+	{
+		WaveformView* waveform = user_data;
+		if(key_hold.handler) key_hold.handler(waveform);
+		return TIMER_CONTINUE;
+	}
+
+	gboolean key_press(GtkWidget* widget, GdkEventKey* event, gpointer user_data)
+	{
+		WaveformView* waveform = user_data;
+
+		if(key_down){
+			// key repeat
+			return true;
+		}
+		key_down = true;
+
+		KeyHandler* handler = g_hash_table_lookup(key_handlers, &event->keyval);
+		if(handler){
+			if(key_hold.timer) gwarn("timer already started");
+			key_hold.timer = g_timeout_add(100, key_hold_on_timeout, waveform);
+			key_hold.handler = handler;
+	
+			handler(waveform);
+		}
+		else dbg(1, "%i", event->keyval);
+
+		return true;
+	}
+
+	gboolean key_release(GtkWidget* widget, GdkEventKey* event, gpointer user_data)
+	{
+		PF0;
+		if(!key_down) gwarn("key_down not set");
+		key_down = false;
+		g_source_remove(key_hold.timer);
+		key_hold.timer = 0;
+
+		return true;
+	}
+
+	g_signal_connect(window, "key-press-event", G_CALLBACK(key_press), waveform);
+	g_signal_connect(window, "key-release-event", G_CALLBACK(key_release), waveform);
+
 }
 
 

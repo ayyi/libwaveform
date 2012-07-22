@@ -16,31 +16,24 @@
 
   ---------------------------------------------------------------
 
+  This provides an optional private mini animation framework for WfActors.
 
-  use cases:
-	single:
-		one waveform.
-		properties: start, end (zoom is derived from these)
-	daw:
-		multiple waveforms, and other objects.
-		-we really _cannot_ draw all the objects, so:
-			-the animator must be shared. ! no wont work: libwaveform is not an animation framework.
-				*** TODO so animation API is all private?
-			-use external animator:
-				-custom - not ideal.
-				-clutter - if we add a clutter mode, can say that animations only work in this mode.
-			-use both internal and external animator. *** daws have to use external animator. ***
+  Properties that can be animated: start, end (zoom is derived from these)
 
-	==> so we use optional internal animator.
+  Where an external animation framework is available, it should be used
+  in preference, eg Clutter (TODO).
 
-	-what happens if we start a zoom while in the middle of panning?
+  In cases where the canvas is shared with other objects, this animator
+  cannot be used. The application must provide its own animator.
+
+  -what happens if we start a zoom while in the middle of panning?
 		-with a single fixed length Transition, the first op will slow down after second starts
 		-parallel Transitions:
 			-what happens if 2nd op contains same property as first?
 				-probably ok to remove this prop from first op (cannot have same prop in 2 simultaneous Transitions).
 				 Dont see any other option here.
 
-	-ok, so canvas owns a list of Transitions, each with a list of Actors.
+	-ok, so the canvas owns a list of Transitions, each with a list of Actors.
 
  */
 #define __wf_private__

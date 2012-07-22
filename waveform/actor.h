@@ -39,6 +39,7 @@ struct _waveform_actor {
 	WfRectangle     rect;
 	uint32_t        fg_colour;
 	uint32_t        bg_colour;
+	float           z;         // render position on z-axis.
 
 	WfActorPriv*    priv;
 };
@@ -48,6 +49,5 @@ void            wf_actor_set_region                       (WaveformActor*, WfSam
 void            wf_actor_set_colour                       (WaveformActor*, uint32_t fg_colour, uint32_t bg_colour);
 void            wf_actor_allocate                         (WaveformActor*, WfRectangle*);
 void            wf_actor_paint                            (WaveformActor*);
-void            wf_actor_paint_hi                         (WaveformActor*); //tmp
 
 #endif //__waveform_actor_h__

@@ -59,6 +59,7 @@ typedef struct {
 	struct {
 		uint32_t fg_colour;
 		float    beats_per_pixel;
+		float    viewport_left;
 	}            uniform;
 } RulerShader;
 #endif

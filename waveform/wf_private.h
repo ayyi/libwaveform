@@ -161,6 +161,7 @@ void           waveform_peak_to_alphabuf   (Waveform*, AlphaBuf*, int scale, int
 void           waveform_rms_to_alphabuf    (Waveform*, AlphaBuf*, int* start, int* end, double samples_per_px, GdkColor* colour, uint32_t colour_bg);
 
 WfGlBlock*     wf_texture_array_new        (int size, int n_channels);
+void           wf_texture_array_add_ch     (WfGlBlock*, int);
 
 void           waveform_audio_free         (Waveform*);
 gboolean       waveform_load_audio_block   (Waveform*, int block_num);

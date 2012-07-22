@@ -88,17 +88,6 @@ waveform_load_audio_block(Waveform* waveform, int block_num)
 	WfAudioData* audio = waveform->priv->audio_data;
 	g_return_val_if_fail(audio && audio->buf16, false);
 
-	SF_INFO sfinfo;
-	SNDFILE* sffile;
-	sfinfo.format = 0;
-
-	if(!(sffile = sf_open(waveform->filename, SFM_READ, &sfinfo))){
-		gwarn ("not able to open input file %s.", waveform->filename);
-		puts(sf_strerror(NULL));
-		return false;
-	}
-	gboolean is_float = ((sfinfo.format & SF_FORMAT_SUBMASK) == SF_FORMAT_FLOAT);
-
 	//int n_frames = sfinfo.frames;
 	//guint n_peaks = ((n_frames * 1 ) / WF_PEAK_RATIO) << audio->n_tiers_present;
 
@@ -113,39 +102,75 @@ waveform_load_audio_block(Waveform* waveform, int block_num)
 	//  tier 8:  0,  1, ...
 	int spacing = WF_PEAK_RATIO >> (audio->n_tiers_present - 1);
 
-	//dbg(1, "tot_frames=%i n_blocks=%i", sfinfo.frames, waveform_get_n_audio_blocks(waveform));
 	uint64_t start_pos =  block_num      * WF_PEAK_BLOCK_SIZE;
 	uint64_t end_pos   = (block_num + 1) * WF_PEAK_BLOCK_SIZE;
+
+	int n_chans = waveform_get_n_channels(waveform);
+	g_return_val_if_fail(n_chans, false);
+
+	SF_INFO sfinfo;
+	SNDFILE* sffile;
+	sfinfo.format = 0;
+
+	if(!(sffile = sf_open(waveform->filename, SFM_READ, &sfinfo))){
+		gwarn ("not able to open input file %s.", waveform->filename);
+		puts(sf_strerror(NULL));
+		return false;
+	}
+
 	if(start_pos > sfinfo.frames){ gerr("startpos too too high. %Li > %Li block=%i", start_pos, sfinfo.frames, block_num); return false; }
 	if(end_pos > sfinfo.frames){ dbg(1, "*** last block?"); end_pos = sfinfo.frames; }
 	sf_seek(sffile, start_pos, SEEK_SET);
 	dbg(1, "block=%i/%i tiers_present=%i spacing=%i start=%Li end=%Li", block_num, waveform_get_n_audio_blocks(waveform), audio->n_tiers_present, spacing, start_pos, end_pos);
 
-	int n_chans = waveform_get_n_channels(waveform);
-	g_return_val_if_fail(n_chans, false);
-
-	sf_count_t read_len = MIN(audio->buf16[block_num]->size, end_pos - start_pos); //1st of these isnt needed?
+	sf_count_t n_frames = MIN(audio->buf16[block_num]->size, end_pos - start_pos); //1st of these isnt needed?
 	WfBuf16* buf = audio->buf16[block_num];
 	g_return_val_if_fail(buf && buf->buf[WF_LEFT], false);
 
-	sf_count_t n_frames = read_len;
+	gboolean sf_read_float_to_short(SNDFILE* sffile, WfBuf16* buf, int ch, sf_count_t n_frames)
+	{
+		float readbuf[buf->size];
+		sf_count_t readcount;
+		if((readcount = sf_readf_float(sffile, readbuf, n_frames)) < n_frames){
+			gwarn("unexpected EOF: %s", waveform->filename);
+			gwarn("                start_frame=%Li n_frames=%Lu/%Lu read=%Li", start_pos, n_frames, sfinfo.frames, readcount);
+			return false;
+		}
+
+		//convert to short
+		int j; for(j=0;j<readcount;j++){
+			buf->buf[ch][j] = readbuf[j] * (1 << 15);
+		}
+
+		return true;
+	}
+
 	sf_count_t readcount;
 	switch(sfinfo.channels){
 		case WF_MONO:
+			;gboolean is_float = ((sfinfo.format & SF_FORMAT_SUBMASK) == SF_FORMAT_FLOAT);
 			if(is_float){
 				//FIXME temporary? sndfile is supposed to automatically convert between formats??!
 
-				float readbuf[buf->size];
-				if((readcount = sf_readf_float(sffile, readbuf, n_frames)) < n_frames){
-					gwarn("unexpected EOF: %s", waveform->filename);
-					gwarn("                start_frame=%Li n_frames=%Lu/%Lu read=%Li", start_pos, n_frames, sfinfo.frames, readcount);
-				}
+				sf_read_float_to_short(sffile, buf, WF_LEFT, n_frames);
 
-				//convert to short
-				int j; for(j=0;j<readcount;j++){
-					buf->buf[WF_LEFT][j] = readbuf[j] * (1 << 15);
-				}
+				if(waveform->is_split){
+					dbg(0, ">>> is_split! file=%s", waveform->filename);
+					char rhs[256];
+					if(wf_get_filename_for_other_channel(waveform->filename, rhs, 256)){
+						dbg(0, "  %s", rhs);
 
+						if(sf_close(sffile)) gwarn ("bad file close.");
+						if(!(sffile = sf_open(rhs, SFM_READ, &sfinfo))){
+							gwarn ("not able to open input file %s.", rhs);
+							puts(sf_strerror(NULL));
+							return false;
+						}
+						sf_seek(sffile, start_pos, SEEK_SET);
+
+						sf_read_float_to_short(sffile, buf, WF_RIGHT, n_frames);
+					}
+				}
 			}else{
 				if((readcount = sf_readf_short(sffile, buf->buf[WF_LEFT], n_frames)) < n_frames){
 					gwarn("unexpected EOF: %s", waveform->filename);
@@ -183,7 +208,7 @@ waveform_load_audio_block(Waveform* waveform, int block_num)
 		default:
 			break;
 	}
-	dbg(2, "read %Lu frames", read_len);
+	dbg(2, "read %Lu frames", n_frames);
 	if(sf_error(sffile)) gwarn("read error");
 	if(sf_close(sffile)) gwarn ("bad file close.");
 
@@ -348,7 +373,7 @@ waveform_load_audio_async(Waveform* waveform, int block_num, int n_tiers_needed)
 			//the fact that this is now allocated indicates that a request has been initiated.
 		}
 
-		void callback(gpointer item)
+		void run_queue_item(gpointer item)
 		{
 			PeakbufQueueItem* peak = item;
 			WF* wf = wf_get_instance();
@@ -375,7 +400,7 @@ waveform_load_audio_async(Waveform* waveform, int block_num, int n_tiers_needed)
 
 			g_free(item);
 		}
-		_queue_work(waveform, callback, item);
+		_queue_work(waveform, run_queue_item, item);
 	}
 
 	if(!peakbuf_is_present(waveform, block_num)) peakbuf_queue_for_regen(waveform, block_num, n_tiers_needed);

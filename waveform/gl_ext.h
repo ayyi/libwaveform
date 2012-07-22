@@ -52,8 +52,8 @@ PFNGLUNIFORM4FVPROC glUniform4fv;
 #if 0
 static PFNGLUNIFORMMATRIX2FVPROC glUniformMatrix2fv_func = NULL;
 static PFNGLUNIFORMMATRIX3FVPROC glUniformMatrix3fv_func = NULL;
-static PFNGLUNIFORMMATRIX4FVPROC glUniformMatrix4fv_func = NULL;
 #endif
+PFNGLUNIFORMMATRIX4FVPROC glUniformMatrix4fv;
 
 typedef void (APIENTRYP PFNGLUSEPROGRAMPROC) (GLuint program);
 PFNGLUSEPROGRAMPROC glUseProgram;
@@ -67,7 +67,9 @@ static PFNGLVERTEXATTRIB2FVPROC glVertexAttrib2fv_func = NULL;
 static PFNGLVERTEXATTRIB3FVPROC glVertexAttrib3fv_func = NULL;
 static PFNGLVERTEXATTRIB4FVPROC glVertexAttrib4fv_func = NULL;
 static PFNGLVERTEXATTRIBPOINTERPROC glVertexAttribPointer_func = NULL;
-static PFNGLENABLEVERTEXATTRIBARRAYPROC glEnableVertexAttribArray_func = NULL;
+#endif
+PFNGLENABLEVERTEXATTRIBARRAYPROC glEnableVertexAttribArray;
+#if 0
 static PFNGLDISABLEVERTEXATTRIBARRAYPROC glDisableVertexAttribArray_func = NULL;
 
 /* OpenGL 2.1 */

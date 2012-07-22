@@ -49,6 +49,7 @@
 #include <gdk/gdkkeysyms.h>
 #include "waveform/view.h"
 #include "test/ayyi_utils.h"
+#include "common.h"
 
 #define bool gboolean
 
@@ -58,6 +59,31 @@ static char* find_wav();
 #define WAV "test/data/mono_1.wav"
 //#define WAV "test/data/stereo_1.wav"
 
+KeyHandler
+	zoom_in,
+	zoom_out,
+	scroll_left,
+	scroll_right,
+	quit;
+
+extern bool key_down;
+extern KeyHold key_hold;
+
+Key keys[] = {
+	{GDK_KEY_Left,  scroll_left},
+	{GDK_KEY_Right, scroll_right},
+	{61,            zoom_in},
+	{45,            zoom_out},
+	{GDK_KP_Enter,  NULL},
+	{(char)'<',     NULL},
+	{(char)'>',     NULL},
+	{GDK_Delete,    NULL},
+	{113,           quit},
+	{0},
+};
+
+gpointer tests[] = {};
+
 
 int
 main (int argc, char *argv[])
@@ -66,7 +92,7 @@ main (int argc, char *argv[])
 
 	set_log_handlers();
 
-	wf_debug = 1;
+	wf_debug = 0;
 
 	gtk_init(&argc, &argv);
 	GtkWidget* window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
@@ -89,47 +115,7 @@ main (int argc, char *argv[])
 	waveform_view_load_file(waveform, filename);
 	g_free(filename);
 
-	gboolean key_press(GtkWidget* widget, GdkEventKey* event, gpointer user_data)
-	{
-		WaveformView* waveform = user_data;
-		int n_visible_frames = ((float)waveform->waveform->n_frames) / waveform->zoom;
-
-		switch(event->keyval){
-			case 61:
-				waveform_view_set_zoom(waveform, waveform->zoom * 1.5);
-				break;
-			case 45:
-				waveform_view_set_zoom(waveform, waveform->zoom / 1.5);
-				break;
-			case GDK_KEY_Left:
-			case GDK_KEY_KP_Left:
-				dbg(1, "left");
-				waveform_view_set_start(waveform, waveform->start_frame - n_visible_frames / 10);
-				break;
-			case GDK_KEY_Right:
-			case GDK_KEY_KP_Right:
-				dbg(1, "right");
-				waveform_view_set_start(waveform, waveform->start_frame + n_visible_frames / 10);
-				break;
-			case GDK_KP_Enter:
-				break;
-			case (char)'<':
-				break;
-			case '>':
-				break;
-			case 113:
-				exit(EXIT_SUCCESS);
-				break;
-			case GDK_Delete:
-				break;
-			default:
-				dbg(1, "%i", event->keyval);
-				break;
-		}
-		return TRUE;
-	}
-
-	g_signal_connect(window, "key-press-event", G_CALLBACK(key_press), waveform);
+	add_key_handler((GtkWindow*)window, waveform, &keys);
 
 	gboolean window_on_delete(GtkWidget* widget, GdkEvent* event, gpointer user_data){
 		gtk_main_quit();
@@ -140,6 +126,42 @@ main (int argc, char *argv[])
 	gtk_main();
 
 	return EXIT_SUCCESS;
+}
+
+
+void
+quit(WaveformView* waveform)
+{
+	exit(EXIT_SUCCESS);
+}
+
+
+void
+zoom_in(WaveformView* waveform)
+{
+	waveform_view_set_zoom(waveform, waveform->zoom * 1.5);
+}
+
+
+void
+zoom_out(WaveformView* waveform)
+{
+	waveform_view_set_zoom(waveform, waveform->zoom / 1.5);
+}
+
+
+void
+scroll_left(WaveformView* waveform)
+{
+	int n_visible_frames = ((float)waveform->waveform->n_frames) / waveform->zoom;
+	waveform_view_set_start(waveform, waveform->start_frame - n_visible_frames / 10);
+}
+
+
+void scroll_right(WaveformView* waveform)
+{
+	int n_visible_frames = ((float)waveform->waveform->n_frames) / waveform->zoom;
+	waveform_view_set_start(waveform, waveform->start_frame + n_visible_frames / 10);
 }
 
 

@@ -309,7 +309,7 @@ peakbuf_allocate(Peakbuf* peakbuf, int c)
 	peak_mem_size += (peakbuf->size * sizeof(short));
 
 	//dbg(0, "short=%i", sizeof(short));
-	dbg(1, "b=%i: size=%i tot_peak_mem=%ikB", peakbuf->block_num, peakbuf->size, peak_mem_size / 1024);
+	dbg(1, "c=%i b=%i: size=%i tot_peak_mem=%ikB", c, peakbuf->block_num, peakbuf->size, peak_mem_size / 1024);
 	return peakbuf->buf[c];
 }
 
@@ -405,12 +405,14 @@ waveform_peakbuf_regen(Waveform* waveform, int block_num, int min_tiers)
 	if(!buf){
 		//peakbuf->size = peakbuf_get_max_size_by_resolution(output_resolution);
 		//peakbuf->size = wf_peakbuf_get_max_size(output_tiers);
-		dbg(0, "buf->size=%i blocksize=%i", peakbuf->size, WF_PEAK_BLOCK_SIZE * WF_PEAK_VALUES_PER_SAMPLE / io_ratio);
+		dbg(2, "buf->size=%i blocksize=%i", peakbuf->size, WF_PEAK_BLOCK_SIZE * WF_PEAK_VALUES_PER_SAMPLE / io_ratio);
 		peakbuf->size = audio->buf16[block_num]->size * WF_PEAK_VALUES_PER_SAMPLE / io_ratio;
+		/*
 		if(is_last_block(waveform, block_num)){
 			dbg(2, "is_last_block. (%i)", block_num);
 			//if(block_num == 0) peakbuf->size = pool_item->samplecount / PEAK_BLOCK_TO_GRAPHICS_BLOCK * PEAK_TILE_SIZE;
 		}
+		*/
 		//dbg(0, "block_num=%i of %i. allocating buffer... %i %i %i", block_num, pool_item->hires_peaks->len, PEAK_BLOCK_TO_GRAPHICS_BLOCK, PEAK_TILE_SIZE, (256 >> (output_resolution-1)));
 		int c; for(c=0;c<waveform_get_n_channels(waveform);c++){
 			buf = peakbuf_allocate(peakbuf, c);

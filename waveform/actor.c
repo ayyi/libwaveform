@@ -49,7 +49,6 @@
 #include "waveform/gl_ext.h"
 #ifdef USE_FBO
 #define multipass
-//#undef multipass
 #endif
 
 #define WF_SAMPLES_PER_TEXTURE (WF_PEAK_RATIO * WF_PEAK_TEXTURE_SIZE - TEX_BORDER)
@@ -209,7 +208,7 @@ wf_actor_free(WaveformActor* a)
 
 	if(a->waveform){
 		g_signal_handler_disconnect((gpointer)a->waveform, a->priv->peakdata_ready_handler);
-		a->waveform = waveform_unref0(a->waveform);
+		waveform_unref0(a->waveform);
 	}
 	g_free(a->priv);
 	g_free(a);
@@ -1325,7 +1324,8 @@ wf_actor_paint(WaveformActor* actor)
 					_set_gl_state_for_block(wfc, w, textures, b, fg, alpha);
 #endif
 
-//					glTranslatef(0, 0, part->track->track_num * TRACK_SPACING_Z);
+					glPushMatrix();
+					glTranslatef(0, 0, actor->z);
 					glBegin(GL_QUADS);
 #if defined (USE_FBO) && defined (multipass)
 					if(false){
@@ -1343,6 +1343,7 @@ wf_actor_paint(WaveformActor* actor)
 						glTexCoord2d(tex_start + 0.0,     1.0); glVertex2d(tex_x + 0.0,       rect.top + rect.height);
 					}
 					glEnd();
+					glPopMatrix();
 					gl_warn("block=%i", b);
 
 #if 0
@@ -1359,16 +1360,12 @@ wf_actor_paint(WaveformActor* actor)
 						glColor4f(bg.r, bg.g, bg.b, 0.5);
 
 						dbg (2, "rms: %i: is_last=%i x=%.2f wid=%.2f tex_pct=%.2f", i, is_last, x, block_wid, tex_pct);
-						glPushMatrix();
-	//TODO use wfc->rotation
-	//				glTranslatef(0, 0, part->track->track_num * TRACK_SPACING_Z);
 						glBegin(GL_QUADS);
 						glTexCoord2d(tex_start + 0.0,     0.0); glVertex2d(tex_x + 0.0,       top);
 						glTexCoord2d(tex_start + tex_pct, 0.0); glVertex2d(tex_x + block_wid, top);
 						glTexCoord2d(tex_start + tex_pct, 1.0); glVertex2d(tex_x + block_wid, bot);
 						glTexCoord2d(tex_start + 0.0,     1.0); glVertex2d(tex_x + 0.0,       bot);
 						glEnd();
-						glPopMatrix();
 					}
 #endif
 #endif
@@ -1422,7 +1419,6 @@ wf_actor_paint(WaveformActor* actor)
 static void
 wf_actor_load_texture1d(Waveform* w, Mode mode, WfGlBlock* blocks, int blocknum)
 {
-	//WfGlBlock* blocks = w->textures;
 
 	if(blocks) dbg(2, "%i: %i %i %i %i", blocknum,
 		blocks->peak_texture[0].main[blocknum],
@@ -1439,6 +1435,8 @@ wf_actor_load_texture1d(Waveform* w, Mode mode, WfGlBlock* blocks, int blocknum)
 
 	void make_texture_data(Waveform* w, int ch, struct _buf* buf)
 	{
+		//copy peak data into a temporary buffer, translating from 16 bit to 8 bit
+
 		WfPeakBuf* peak = &w->priv->peak;
 		int f; for(f=0;f<WF_PEAK_TEXTURE_SIZE;f++){
 			int i = (WF_PEAK_TEXTURE_SIZE * blocknum + f) * WF_PEAK_VALUES_PER_SAMPLE;

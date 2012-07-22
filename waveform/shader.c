@@ -163,6 +163,7 @@ _ruler_set_uniforms()
 	glUniform4fv(glGetUniformLocation(ruler.shader.program, "fg_colour"), 1, fg_colour);
 
 	glUniform1f(glGetUniformLocation(shader->program, "beats_per_pixel"), ((RulerShader*)shader)->uniform.beats_per_pixel);
+	glUniform1f(glGetUniformLocation(shader->program, "viewport_left"), ((RulerShader*)shader)->uniform.viewport_left);
 }
 
 

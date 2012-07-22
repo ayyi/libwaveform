@@ -1,3 +1,4 @@
+#include "waveform/typedefs.h"
 
 //#define mono_wav_fixture "/usr/share/games/alienarena/data1/sound/items/damage.wav"
 #define mono_wav_fixture "/usr/share/sounds/alsa/Front_Center.wav"
@@ -22,6 +23,20 @@ struct _app
 	int            n_passed;
 } app;
 
+typedef void (KeyHandler)(WaveformView*);
+
+typedef struct
+{
+	int         key;
+	KeyHandler* handler;
+} Key;
+
+typedef struct
+{
+	guint          timer;
+	KeyHandler*    handler;
+} KeyHold;
+
 typedef void (*Test)    ();
 
 void test_init          (gpointer tests[], int);
@@ -33,6 +48,9 @@ int  get_random_int     (int max);
 
 void errprintf4         (char* format, ...);
 
+#ifdef __GTK_H__
+void add_key_handler    (GtkWindow*, WaveformView*, Key[]);
+#endif
 
 #define START_TEST \
 	static int step = 0;\

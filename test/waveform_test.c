@@ -45,9 +45,9 @@ typedef void (TestFn)();
 TestFn test_peakgen, test_audiodata, test_audio_cache, test_alphabuf;
 
 #define STOP false;
-gboolean   abort_on_fail  = true;
-gboolean   passed         = false;
-int        test_finished  = false;  //current test has finished. Go onto the next test.
+//extern bool     abort_on_fail;
+extern bool     passed;
+extern int      test_finished;
 char       current_test_name[64];
 
 gpointer   tests[] = {

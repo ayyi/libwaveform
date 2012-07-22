@@ -66,6 +66,7 @@ struct _Waveform
 	char*              filename;          // either full path, or relative to cwd.
 	uint64_t           n_frames;          // audio file size
 	int                n_channels;
+	gboolean           is_split;          // true for split stereo files
 
 	gboolean           offline;
 

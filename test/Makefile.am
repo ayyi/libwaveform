@@ -24,6 +24,7 @@ waveform_test_SOURCES = \
 
 view_test_SOURCES = \
 	ayyi_utils.c ayyi_utils.h \
+	common.c common.h \
 	view_test.c
 
 actor_test_SOURCES = \
@@ -83,6 +84,7 @@ BUILT_SOURCES = test_data
 
 test_data: Makefile
 	@make write_wav
+	@make write_short
 	@if [[ ! -d data ]]; then mkdir data; fi
 	@if [ ! -e "data/mono_1.wav" ] || [ "./write_wav" -nt "data/mono_1.wav" ]; then \
 		./write_wav data/mono_1.wav; \

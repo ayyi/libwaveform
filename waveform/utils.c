@@ -135,3 +135,40 @@ wf_rgba_to_float(uint32_t rgba, float* r, float* g, float* b)
 }
 
 
+gboolean
+wf_get_filename_for_other_channel(const char* filename, char* other, int n_chars)
+{
+	//return the filename of the other half of a split stereo pair.
+
+	g_strlcpy(other, filename, n_chars);
+
+	gchar* p = g_strrstr(other, "%L.");
+	if(p){
+		*(p+1) = 'R';
+		dbg (3, "pair=%s", other);
+		return TRUE;
+	}
+
+	p = g_strrstr(other, "%R.");
+	if(p){
+		*(p+1) = 'L';
+		return TRUE;
+	}
+
+	p = g_strrstr(other, "-L.");
+	if(p){
+		*(p+1) = 'R';
+		return TRUE;
+	}
+
+	p = g_strrstr(other, "-R.");
+	if(p){
+		*(p+1) = 'L';
+		return TRUE;
+	}
+
+    other[0] = '\0';
+	return FALSE;
+}
+
+

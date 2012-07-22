@@ -83,7 +83,6 @@ wf_canvas_init(WaveformCanvas* wfc)
 	wfc->texture_unit[3] = texture_unit_new(WF_TEXTURE3);
 	wfc->use_1d_textures = wfc->use_shaders;
 	if(wfc->use_shaders) wf_canvas_init_gl(wfc);
-	//memset(&wfc->peak_shader, 0, sizeof(PeakShader));
 }
 
 
@@ -386,6 +385,7 @@ void
 wf_canvas_use_program(WaveformCanvas* wfc, int program)
 {
 	//deprecated. use fn below.
+PF0;
 
 	if(wfc->use_shaders && (program != wfc->_program)){
 		dbg(2, "%i", program);

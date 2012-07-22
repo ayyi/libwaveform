@@ -35,6 +35,9 @@ static int peak_byte_depth = 4; //ardour peak files use floats.
 static size_t get_n_words(Waveform*, const char* peakfile);
 
 
+/*
+ *  load the contents of a peak file from an Ardour project.
+ */
 int
 wf_load_ardour_peak(Waveform* wv, const char* peak_file, size_t size)
 {
@@ -70,6 +73,7 @@ wf_load_ardour_peak(Waveform* wv, const char* peak_file, size_t size)
 	int ch_num = wv->priv->peak.buf[0] ? 1 : 0; //this makes too many assumptions. better to pass explicitly as argument.
 	wv->priv->peak.buf[ch_num] = buf;
 	wv->priv->peak.size = n_frames * WF_PEAK_VALUES_PER_SAMPLE;
+
 #ifdef ENABLE_CHECKS
 	int k; for(k=0;k<n_frames;k++){
 		if(wv->priv->peak.buf[0][2*k + 0] < 0.0){ gwarn("positive peak not positive"); break; }
@@ -77,7 +81,6 @@ wf_load_ardour_peak(Waveform* wv, const char* peak_file, size_t size)
 	}
 #endif
   out:
-	//g_free(fullpath);
 
 	return 1;
 }
@@ -92,7 +95,6 @@ get_n_words(Waveform* wv, const char* peakfile)
 	sf_count_t n_frames = waveform_get_n_frames(wv);
 
 	dbg(2, "n_frames=%u n_peaks=%Lu", (unsigned)n_frames, (size_t)(ceil(((float)n_frames) / WF_PEAK_RATIO)));
-	//return n_frames / WF_PEAK_RATIO + ((n_frames % WF_PEAK_RATIO) ? 1 : 0);
 	return ceil(((float)n_frames) / WF_PEAK_RATIO);
 }
 

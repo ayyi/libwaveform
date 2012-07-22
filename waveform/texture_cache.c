@@ -300,7 +300,7 @@ texture_cache_find_empty()
 	int t; for(t=0;t<c->t->len;t++){
 		Texture* tx = &g_array_index(c->t, Texture, t);
 		if(!tx->wb.waveform){
-			dbg(2, "%i", t);
+			dbg(3, "%i", t);
 			return t;
 		}
 	}

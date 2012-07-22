@@ -16,8 +16,8 @@
 */
 
 uniform float beats_per_pixel;
+uniform float viewport_left;
 //uniform float top;
-//uniform float bottom;
 uniform vec4 fg_colour;
 
 varying vec2 MCposition;
@@ -43,20 +43,37 @@ void main(void)
 	//-if the projections are the same, gl_FragCoord will give same results as ecPosition ?
 	//if(fract((gl_FragCoord.x -0.5 ) / pixels_per_beat) > 0.05) c[3] = 0.0;
 
-	//larger bar marks
-	if(MCposition.y < 50.0){
-		float m = floor(mod((MCposition.x - 0.5), pixels_per_bar));
-		float val = smoothstep(0.0, 0.5, m);
-		val = 1.0 - val * smoothstep(pixels_per_bar, pixels_per_bar - 0.5, m);
-		c[3] = alpha * val;
+
+	float interval = 0.0;
+	if(MCposition.y < 3.0){
+		interval = (pixels_per_beat < 1.5)
+			? pixels_per_beat * 4.0
+			: (pixels_per_beat < 6.0)
+				? pixels_per_beat
+				: (pixels_per_beat < 24.0)
+					? pixels_per_beat / 4.0   //semiquaver
+					: pixels_per_beat / 16.0;
+
+	}else if(MCposition.y < 10.0){
+		interval = (pixels_per_beat < 1.5)
+			? pixels_per_beat * 16.0
+			: (pixels_per_beat < 6.0)
+				? pixels_per_beat * 4.0 //every bar
+				: pixels_per_beat;
+
+	}else if(MCposition.y < 50.0){
+		//full size lines are every bar, unless zoomed out then only show every 4 bars.
+		interval  = (pixels_per_beat < 1.5)
+			? pixels_per_bar * 16.0
+			: (pixels_per_beat < 6.0)
+				? pixels_per_bar * 4.0 //only show every 4 bars
+				: pixels_per_bar;
 	}
-	//small beat marks
-	if(MCposition.y < 10.0){
-		float m = floor(mod((MCposition.x - 0.5), pixels_per_beat));
-		float val = smoothstep(0.0, 0.5, m);
-		val = 1.0 - val * smoothstep(pixels_per_beat, pixels_per_beat - 0.5, m);
-		c[3] = alpha * val;
-	}
+
+	float m = floor(mod((MCposition.x - 0.5 + viewport_left), interval));
+	float val = smoothstep(0.0, 0.5, m);
+	val = 1.0 - val * smoothstep(interval, interval - 0.5, m);
+	c[3] = alpha * val;
 
 	gl_FragColor = c;
 }

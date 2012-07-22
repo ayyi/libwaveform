@@ -148,7 +148,9 @@ waveform_view_new (Waveform* waveform)
 
 	view->waveform = waveform ? g_object_ref(waveform) : NULL;
 
+#ifdef HAVE_GTK_2_18
 	gtk_widget_set_can_focus(widget, TRUE);
+#endif
 	gtk_widget_set_size_request(widget, width, height);
 
 	gboolean waveform_view_load_new_on_idle(gpointer _view)

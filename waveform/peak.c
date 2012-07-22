@@ -142,8 +142,7 @@ __finalize (Waveform* w)
 		WfGlBlock* textures = *_textures;
 		if(textures){
 			int c; for(c=0;c<WF_MAX_CH;c++){
-				if(textures->peak_texture[c].main) g_free(textures->peak_texture[c].main);
-				if(textures->peak_texture[c].neg) g_free(textures->peak_texture[c].neg);
+				if(textures->peak_texture[c].main) g_free(textures->peak_texture[c].main); // pos and neg are a single allocation
 			}
 #ifdef USE_FBO
 			if(textures->fbo){
@@ -234,15 +233,22 @@ wf_texture_array_new(int size, int n_channels)
 {
 	WfGlBlock* textures = g_new0(WfGlBlock, 1);
 	textures->size = size;
-	dbg(1, "creating glbocks... num_blocks=%i", textures->size);
-	textures->peak_texture[0].main = g_new0(unsigned, textures->size);
-	textures->peak_texture[0].neg = g_new0(unsigned, textures->size);
-	if(n_channels > 1){
-		textures->peak_texture[WF_RIGHT].main = g_new0(unsigned, textures->size);
-		textures->peak_texture[WF_RIGHT].neg = g_new0(unsigned, textures->size);
+	dbg(1, "creating glbocks: num_blocks=%i n_ch=%i", textures->size, n_channels);
+	int c; for(c=0;c<n_channels;c++){
+		wf_texture_array_add_ch(textures, c);
 	}
 	textures->fbo = g_new0(WfFBO*, textures->size); //note: only an array of _pointers_
 	return textures;
+}
+
+
+void
+wf_texture_array_add_ch(WfGlBlock* textures, int c)
+{
+	dbg(2, "adding glbocks: c=%i num_blocks=%i ch=%i", c, textures->size);
+	unsigned* a = g_new0(unsigned, textures->size * 2); // single allocation for both pos and neg
+	textures->peak_texture[c].main = a;
+	textures->peak_texture[c].neg  = a + textures->size;
 }
 
 
@@ -266,9 +272,7 @@ waveform_get_sf_data(Waveform* w)
 {
 	SNDFILE* sndfile;
 	SF_INFO sfinfo;
-	sfinfo.format = 0;
-	//sfinfo.channels = 0;
-memset(&sfinfo, 0, sizeof(SF_INFO));
+	memset(&sfinfo, 0, sizeof(SF_INFO));
 	if(!(sndfile = sf_open(w->filename, SFM_READ, &sfinfo))){
 		if(!g_file_test(w->filename, G_FILE_TEST_EXISTS)){
 			if(wf_debug) gwarn("file open failure. no such file: %s", w->filename);
@@ -280,7 +284,7 @@ memset(&sfinfo, 0, sizeof(SF_INFO));
 	sf_close(sndfile);
 
 	w->n_frames = sfinfo.frames;
-	w->n_channels = sfinfo.channels;
+	w->n_channels = w->n_channels ? w->n_channels : sfinfo.channels; // sfinfo is not correct in the case of split stereo files.
 }
 
 
@@ -315,12 +319,17 @@ waveform_get_n_channels(Waveform* w)
 
 
 /*
- *  @param ch_num - must be 0 or 1. Should be 0 unless loading rhs for split file.
- *
  *  Load the pre-existing peak file from disk into a buffer.
  *
- *  This function can be used to add an additional channel to an existing Waveform
+ *  It is usually preferable to use waveform_load() instead,
+ *  which will transparently manage the creation and loading of the peakfile.
+ *  but this fn can be called explicitly if you have a pre-existing peakfile in
+ *  a non-standard location.
+ *
+ *  Can be used to add an additional channel to an existing Waveform
  *  where the audio consists of split files.
+ *
+ *  @param ch_num - must be 0 or 1. Should be 0 unless loading rhs for split file.
  */
 gboolean
 waveform_load_peak(Waveform* w, const char* peak_file, int ch_num)
@@ -330,6 +339,8 @@ waveform_load_peak(Waveform* w, const char* peak_file, int ch_num)
 
 	size_t size = 0;
 	int n_channels = wf->load_peak(w, peak_file, size); //not currently passing the size. If we decide not to use it, this arg should be removed.
+
+	if(ch_num) w->n_channels = MAX(w->n_channels, ch_num + 1); // for split stereo files
 
 	w->num_peaks = w->priv->peak.size / WF_PEAK_VALUES_PER_SAMPLE;
 	dbg(1, "ch=%i num_peaks=%i", ch_num, w->num_peaks);
@@ -347,7 +358,10 @@ waveform_load_peak(Waveform* w, const char* peak_file, int ch_num)
 #endif
 		w->textures_hi = g_new0(WfTexturesHi, 1);
 		w->textures_hi->textures = g_hash_table_new(g_int_hash, g_int_equal);
+	}else{
+		wf_texture_array_add_ch(w->textures, WF_RIGHT);
 	}
+	//waveform_print_blocks(w);
 
 	waveform_set_last_fraction(w);
 
@@ -1434,7 +1448,7 @@ waveform_peak_to_pixbuf_full(Waveform* waveform, GdkPixbuf* pixbuf, uint32_t reg
 	if(!pool_item->source_id){ gerr ("bad core source id: %Lu.", pool_item->source_id[0]); return; }
 #endif
 
-	dbg(2, "peak_gain=%.2f", gain);
+	dbg(3, "peak_gain=%.2f", gain);
 
 	int n_chans      = waveform_get_n_channels(waveform);
 
@@ -1453,7 +1467,7 @@ waveform_peak_to_pixbuf_full(Waveform* waveform, GdkPixbuf* pixbuf, uint32_t reg
 
 	int px_start = start ? *start : 0;
 	int px_stop  = end   ? MIN(*end, width) : width;
-	dbg (2, "px_start=%i px_end=%i", px_start, px_stop);
+	dbg (3, "px_start=%i px_end=%i", px_start, px_stop);
 
 	int n_tiers = 0; //note n_tiers is 1, not zero in lowres mode. (??!)
 	int hires_block = -1;
@@ -1462,7 +1476,7 @@ waveform_peak_to_pixbuf_full(Waveform* waveform, GdkPixbuf* pixbuf, uint32_t reg
 		uint64_t start_frame = px_start * samples_per_px;
 		hires_block = start_frame / WF_PEAK_BLOCK_SIZE;
 		src_px_start = (hires_block * wf_get_peakbuf_len_frames()) / samples_per_px; //if not 1st block, the src buffer address is smaller.
-		dbg(1, "hires: offset=%i", src_px_start);
+		dbg(2, "hires: offset=%i", src_px_start);
 
 		WfAudioData* audio = waveform->priv->audio_data;
 		if(audio->buf16){
@@ -1475,7 +1489,7 @@ waveform_peak_to_pixbuf_full(Waveform* waveform, GdkPixbuf* pixbuf, uint32_t reg
 		}
 	}
 
-	dbg(2, "samples_per_px=%.2f", samples_per_px);
+	dbg(3, "samples_per_px=%.2f", samples_per_px);
 
 	//xmag defines how many 'samples' we need to skip to get the next pixel.
 	//making xmag smaller increases the visual magnification.
@@ -1488,7 +1502,7 @@ waveform_peak_to_pixbuf_full(Waveform* waveform, GdkPixbuf* pixbuf, uint32_t reg
 
 	int ch; for(ch=0;ch<n_chans;ch++){
 		//we use the same part of Line for each channel, it is then render it to the pixbuf with a channel offset.
-		dbg (2, "ch=%i", ch);
+		dbg (3, "ch=%i", ch);
 
 		struct _buf_info b; 
 		g_return_if_fail(get_buf_info(waveform, hires_block, &b, ch));
@@ -1528,7 +1542,7 @@ waveform_peak_to_pixbuf_full(Waveform* waveform, GdkPixbuf* pixbuf, uint32_t reg
 			if(hires_mode){
 				if(wf_debug && (px == px_start)){
 					double percent = 2 * 100 * (((int)(px * xmag)) + region_inset - (wf_peakbuf_get_max_size(n_tiers) * hires_block) / WF_PEAK_VALUES_PER_SAMPLE) / b.len;
-					dbg(1, "reading from buf=%i=%.2f%% stop=%i buflen=%i blocklen=%i", src_start, percent, src_stop, b.len, wf_peakbuf_get_max_size(n_tiers));
+					dbg(2, "reading from buf=%i=%.2f%% stop=%i buflen=%i blocklen=%i", src_start, percent, src_stop, b.len, wf_peakbuf_get_max_size(n_tiers));
 				}
 				if(src_stop > b.len_frames){
 					dbg(1, "**** block change needed!");
@@ -1540,7 +1554,7 @@ waveform_peak_to_pixbuf_full(Waveform* waveform, GdkPixbuf* pixbuf, uint32_t reg
 					src_stop  = ((int)((px+1) * xmag)) + region_inset - block_offset;
 				}
 			}
-			dbg(3, "srcidx: %i - %i", src_start, src_stop);
+			dbg(4, "srcidx: %i - %i", src_start, src_stop);
 
 			struct _line* previous_line = &line[(line_index  ) % 3];
 			struct _line* current_line  = &line[(line_index+1) % 3];
@@ -1736,7 +1750,7 @@ waveform_rms_to_pixbuf(Waveform* w, GdkPixbuf* pixbuf, uint32_t src_inset, int* 
 
 	g_return_if_fail(pixbuf);
 	g_return_if_fail(w);
-	dbg(2, "inset=%i", src_inset);
+	dbg(3, "inset=%i", src_inset);
 
 	gboolean hires_mode = ((samples_per_px / WF_PEAK_RATIO) < 1.0);
 	if(hires_mode) return;
@@ -1777,7 +1791,7 @@ waveform_rms_to_pixbuf(Waveform* w, GdkPixbuf* pixbuf, uint32_t src_inset, int* 
 
 	int px_start = start ? *start : 0;
 	int px_stop  = end   ? MIN(*end, width) : width;
-	dbg (2, "px_start=%i px_end=%i", px_start, px_stop);
+	dbg (3, "px_start=%i px_end=%i", px_start, px_stop);
 
 /*
 	int src_px_start = 0;
@@ -1792,13 +1806,13 @@ waveform_rms_to_pixbuf(Waveform* w, GdkPixbuf* pixbuf, uint32_t src_inset, int* 
 		uint64_t start_frame = px_start * samples_per_px;
 		hires_block = start_frame / WF_PEAK_BLOCK_SIZE;
 		src_px_start = (hires_block * wf_get_peakbuf_len_frames()) / samples_per_px; //if not 1st block, the src buffer address is smaller.
-		dbg(1, "hires: offset=%i", src_px_start);
+		dbg(2, "hires: offset=%i", src_px_start);
 	}
 
 	int n_tiers = hires_mode ? /*peakbuf->n_tiers*/4 : 0; //TODO
 	//note n_tiers is 1, not zero in lowres mode. (??!)
-	dbg(2, "samples_per_px=%.2f", samples_per_px);
-	dbg(2, "n_tiers=%i <<=%i", n_tiers, 1 << n_tiers);
+	dbg(3, "samples_per_px=%.2f", samples_per_px);
+	dbg(3, "n_tiers=%i <<=%i", n_tiers, 1 << n_tiers);
 
 	//xmag defines how many 'samples' we need to skip to get the next pixel.
 	//making xmag smaller increases the visual magnification.
@@ -1810,7 +1824,7 @@ waveform_rms_to_pixbuf(Waveform* w, GdkPixbuf* pixbuf, uint32_t src_inset, int* 
 
 	int ch; for(ch=0;ch<n_chans;ch++){
 		//we use the same part of Line for each channel, it is then render it to the pixbuf with a channel offset.
-		dbg (2, "ch=%i", ch);
+		dbg (3, "ch=%i", ch);
 
 		//-----------------------------------------
 
@@ -1872,7 +1886,7 @@ waveform_rms_to_pixbuf(Waveform* w, GdkPixbuf* pixbuf, uint32_t src_inset, int* 
 				dbg(2, "reading from buf=%i=%.2f%% stop=%i buflen=%i blocklen=%i", src_start, percent, src_stop, b.len, wf_peakbuf_get_max_size(n_tiers));
 			}
 			if(src_stop > b.len_frames && hires_mode){
-        dbg(1, "**** block change needed!");
+        dbg(2, "**** block change needed!");
         Peakbuf* peakbuf = waveform_get_peakbuf_n(w, hires_block + 1);
         g_return_if_fail(peakbuf);
         if(!get_rms_buf_info(rb->buf, rb->size, &b, ch)){ break; }//TODO if this is multichannel, we need to go back to previous peakbuf - should probably have 2 peakbufs...
@@ -2062,11 +2076,15 @@ waveform_print_blocks(Waveform* w)
 
 	printf("%s {\n", __func__);
 	WfGlBlock* blocks = w->textures;
-	int c = 0;
 	printf("  std:\n");
 	int b; for(b=0;b<5;b++){
-		printf("    %i: %2i %2i\n", b, blocks->peak_texture[c].main[b], blocks->peak_texture[c].neg[b]);
+		printf("    %i: %2i %2i %2i %2i\n", b,
+			blocks->peak_texture[WF_LEFT].main[b],
+			blocks->peak_texture[WF_LEFT].neg[b], 
+			blocks->peak_texture[WF_RIGHT].main ? blocks->peak_texture[WF_RIGHT].main[b] : -1,
+			blocks->peak_texture[WF_RIGHT].neg  ? blocks->peak_texture[WF_RIGHT].neg[b]  : -1);
 	}
+	int c = 0;
 	blocks = w->textures_lo;
 	if(blocks){
 		printf("  LOW:\n");

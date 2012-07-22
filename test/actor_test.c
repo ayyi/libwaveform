@@ -108,10 +108,12 @@ main (int argc, char *argv[])
 	GtkWidget* window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
 
 	canvas = gtk_drawing_area_new();
-	gtk_widget_set_can_focus(canvas, true);
-	gtk_widget_set_size_request(GTK_WIDGET(canvas), 320, 128);
-	gtk_widget_set_gl_capability(canvas, glconfig, NULL, 1, GDK_GL_RGBA_TYPE);
-	gtk_widget_add_events (canvas, GDK_POINTER_MOTION_MASK | GDK_BUTTON_PRESS_MASK | GDK_BUTTON_RELEASE_MASK);
+#ifdef HAVE_GTK_2_18
+	gtk_widget_set_can_focus     (canvas, true);
+#endif
+	gtk_widget_set_size_request  (canvas, 320, 128);
+	gtk_widget_set_gl_capability (canvas, glconfig, NULL, 1, GDK_GL_RGBA_TYPE);
+	gtk_widget_add_events        (canvas, GDK_POINTER_MOTION_MASK | GDK_BUTTON_PRESS_MASK | GDK_BUTTON_RELEASE_MASK);
 	gtk_container_add((GtkContainer*)window, (GtkWidget*)canvas);
 	g_signal_connect((gpointer)canvas, "realize",       G_CALLBACK(on_canvas_realise), NULL);
 	g_signal_connect((gpointer)canvas, "size-allocate", G_CALLBACK(on_allocate), NULL);

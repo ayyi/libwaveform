@@ -40,7 +40,6 @@ G_BEGIN_DECLS
 #define IS_WAVEFORM_VIEW_CLASS(klass) (G_TYPE_CHECK_CLASS_TYPE ((klass), TYPE_WAVEFORM_VIEW))
 #define WAVEFORM_VIEW_GET_CLASS(obj) (G_TYPE_INSTANCE_GET_CLASS ((obj), TYPE_WAVEFORM_VIEW, WaveformViewClass))
 
-typedef struct _WaveformView WaveformView;
 typedef struct _WaveformViewClass WaveformViewClass;
 typedef struct _WaveformViewPrivate WaveformViewPrivate;
 
