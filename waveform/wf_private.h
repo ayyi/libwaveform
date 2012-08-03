@@ -82,7 +82,6 @@ struct _wf
 		int         access_counter;
 	} audio;
 
-	gboolean        pref_use_shaders;
 	GAsyncQueue*    msg_queue;
 	GList*          jobs;
 };

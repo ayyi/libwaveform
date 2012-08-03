@@ -89,13 +89,31 @@ fi;
 
 dnl -opengl----------------------------------------------
 
-AM_CONDITIONAL(ENABLE_OPENGL, test "yes" = "yes")
-enable_opengl="yes"
-OPENGL_CFLAGS=`pkg-config --cflags-only-I gtkglext-1.0`
-OPENGL_LDFLAGS=`pkg-config --libs-only-l gtkglext-1.0`
+AC_ARG_ENABLE(
+	[opengl],
+	[  --disable-opengl        dont use the opengl canvas],
+	[
+		AC_MSG_WARN([opengl preference specifically disabled])
+		enable_opengl="no"
+	],
+	[
+		dnl AC_MSG_WARN([opengl option not specified. will try and use...])
+		if `pkg-config gtkglext-1.0`; then 
+			enable_opengl="yes"
+			OPENGL_CFLAGS=`pkg-config --cflags-only-I gtkglext-1.0`
+			OPENGL_LDFLAGS=`pkg-config --libs-only-l gtkglext-1.0`
+			AC_DEFINE(USE_OPENGL, 1, Opengl features are enabled)
+			AC_DEFINE(USE_FBO, 1, [enable support for opengl framebuffer objects for offscreen rendering])
+			AC_DEFINE(WF_USE_TEXTURE_CACHE, 1, [cannot currently disable if opengl used])
+		else
+			enable_opengl="no"
+		fi
+	]
+)
+
+AM_CONDITIONAL(ENABLE_OPENGL, test $enable_opengl = "yes")
 AC_SUBST(OPENGL_CFLAGS)
 AC_SUBST(OPENGL_LDFLAGS)
-AC_DEFINE(USE_OPENGL, 1, Opengl features are enabled)
 
 dnl -----------------------------------------------------
 
@@ -131,7 +149,6 @@ AC_SUBST(LV2_CFLAGS)
 
 dnl AM_CONDITIONAL(ENABLE_GDK_PIXBUF, test "yes" != "no")
 AC_DEFINE(USE_GDK_PIXBUF, 1, [enable support for Gdk Pixbuf])
-AC_DEFINE(USE_FBO, 1, [enable support for opengl framebuffer objects for offscreen rendering])
 
 dnl ------------------ test progs ------------------------
 
@@ -148,6 +165,7 @@ AM_CFLAGS="$CFLAGS -pipe -fmessage-length=139 -fdiagnostics-show-location=every-
 AC_CONFIG_FILES([waveform.pc])
 AC_CONFIG_FILES([Makefile])
 AC_CONFIG_FILES([
+agl/Makefile
 waveform/Makefile
 test/Makefile
 ])
@@ -155,7 +173,8 @@ AC_OUTPUT
 
 AC_MSG_RESULT([])
 AC_MSG_RESULT([Libwaveform:])
+AC_MSG_RESULT([Building opengl:          $enable_opengl])
 AC_MSG_RESULT([Building tests:           $enable_test])
-AC_MSG_RESULT([Building lv2:             $enable_lv2])
+AC_MSG_RESULT([Building lv2:             $enable_lv2 (TODO)])
 AC_MSG_RESULT([])
 

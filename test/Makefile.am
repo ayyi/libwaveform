@@ -1,7 +1,9 @@
 
 if BUILD_TESTS
 
+if ENABLE_OPENGL
 noinst_PROGRAMS = waveform_test view_test actor_test actor_plus hires_test frame_rate resources write_wav write_short
+endif
 
 AM_CFLAGS = \
 	-O0 \
@@ -13,6 +15,7 @@ AM_CFLAGS = \
 
 TEST_LDFLAGS = \
 	$(top_srcdir)/waveform/.libs/libwaveform.a \
+	$(top_srcdir)/agl/.libs/libagl.a \
 	$(GTK_LDFLAGS) \
 	$(SNDFILE_LIBS) \
 	$(OPENGL_LDFLAGS)
@@ -29,6 +32,7 @@ view_test_SOURCES = \
 
 actor_test_SOURCES = \
 	ayyi_utils.c ayyi_utils.h \
+	common.c common.h \
 	actor_test.c
 
 actor_plus_SOURCES = \

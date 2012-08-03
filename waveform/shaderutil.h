@@ -18,6 +18,8 @@
 #define __shader_util_h__
 
 #ifdef __gl_h_
+#include "agl/utils.h"
+
 struct _uniform_info
 {
    const char* name;
@@ -29,7 +31,6 @@ struct _uniform_info
 
 #define END_OF_UNIFORMS   { NULL, 0, GL_NONE, { 0, 0, 0, 0 }, -1 }
 
-extern GLboolean shaders_supported   ();
 extern GLuint    compile_shader_text (GLenum shaderType, const char* text);
 extern GLuint    compile_shader_file (GLenum shaderType, const char* filename);
 extern GLuint    link_shaders        (GLuint vertShader, GLuint fragShader);

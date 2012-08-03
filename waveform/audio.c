@@ -100,7 +100,8 @@ waveform_load_audio_block(Waveform* waveform, int block_num)
 	//  tier 6:  0,  4, ...
 	//  tier 7:  0,  2, ...
 	//  tier 8:  0,  1, ...
-	int spacing = WF_PEAK_RATIO >> (audio->n_tiers_present - 1);
+
+	//int spacing = WF_PEAK_RATIO >> (audio->n_tiers_present - 1);
 
 	uint64_t start_pos =  block_num      * WF_PEAK_BLOCK_SIZE;
 	uint64_t end_pos   = (block_num + 1) * WF_PEAK_BLOCK_SIZE;
@@ -121,7 +122,7 @@ waveform_load_audio_block(Waveform* waveform, int block_num)
 	if(start_pos > sfinfo.frames){ gerr("startpos too too high. %Li > %Li block=%i", start_pos, sfinfo.frames, block_num); return false; }
 	if(end_pos > sfinfo.frames){ dbg(1, "*** last block?"); end_pos = sfinfo.frames; }
 	sf_seek(sffile, start_pos, SEEK_SET);
-	dbg(1, "block=%i/%i tiers_present=%i spacing=%i start=%Li end=%Li", block_num, waveform_get_n_audio_blocks(waveform), audio->n_tiers_present, spacing, start_pos, end_pos);
+	dbg(1, "block=%i/%i start=%Li end=%Li", block_num, waveform_get_n_audio_blocks(waveform), start_pos, end_pos);
 
 	sf_count_t n_frames = MIN(audio->buf16[block_num]->size, end_pos - start_pos); //1st of these isnt needed?
 	WfBuf16* buf = audio->buf16[block_num];
@@ -155,10 +156,10 @@ waveform_load_audio_block(Waveform* waveform, int block_num)
 				sf_read_float_to_short(sffile, buf, WF_LEFT, n_frames);
 
 				if(waveform->is_split){
-					dbg(0, ">>> is_split! file=%s", waveform->filename);
+					dbg(2, "is_split! file=%s", waveform->filename);
 					char rhs[256];
 					if(wf_get_filename_for_other_channel(waveform->filename, rhs, 256)){
-						dbg(0, "  %s", rhs);
+						dbg(3, "  %s", rhs);
 
 						if(sf_close(sffile)) gwarn ("bad file close.");
 						if(!(sffile = sf_open(rhs, SFM_READ, &sfinfo))){
@@ -346,8 +347,23 @@ waveform_load_audio_async(Waveform* waveform, int block_num, int n_tiers_needed)
 	}
 	have_thread = true;
 
-	void
-	_queue_work(Waveform* waveform, WfCallback callback, gpointer user_data)
+	gboolean is_queued(Waveform* waveform, int block_num)
+	{
+		WF* wf = wf_get_instance();
+		GList* l = wf->jobs;
+		for(;l;l=l->next){
+			QueueItem* i = l->data;
+			PeakbufQueueItem* item = i->user_data;
+			if(item->waveform == waveform && item->block_num == block_num){
+				dbg(0, "already queued");
+				gwarn("never get here");
+				return true;
+			}
+		}
+		return false;
+	}
+
+	void _queue_work(Waveform* waveform, WfCallback callback, gpointer user_data)
 	{
 		QueueItem* item = g_new0(QueueItem, 1);
 		item->waveform = waveform;
@@ -357,10 +373,12 @@ waveform_load_audio_async(Waveform* waveform, int block_num, int n_tiers_needed)
 		wf_push_job(item);
 	}
 
-	void peakbuf_queue_for_regen(Waveform* waveform, int block_num, int min_output_tiers)
+	void wf_peakbuf_queue_for_regen(Waveform* waveform, int block_num, int min_output_tiers)
 	{
 		PF;
 		WF* wf = wf_get_instance();
+
+		if(is_queued(waveform, block_num)) return;
 
 		PeakbufQueueItem* item = g_new0(PeakbufQueueItem, 1);
 		item->waveform         = waveform;
@@ -371,6 +389,7 @@ waveform_load_audio_async(Waveform* waveform, int block_num, int n_tiers_needed)
 		if(!audio->buf16){
 			audio->buf16 = g_malloc0(sizeof(void*) * waveform_get_n_audio_blocks(waveform));
 			//the fact that this is now allocated indicates that a request has been initiated.
+			//(for this waveform, but not necesarily for this block)
 		}
 
 		void run_queue_item(gpointer item)
@@ -403,7 +422,7 @@ waveform_load_audio_async(Waveform* waveform, int block_num, int n_tiers_needed)
 		_queue_work(waveform, run_queue_item, item);
 	}
 
-	if(!peakbuf_is_present(waveform, block_num)) peakbuf_queue_for_regen(waveform, block_num, n_tiers_needed);
+	if(!peakbuf_is_present(waveform, block_num)) wf_peakbuf_queue_for_regen(waveform, block_num, n_tiers_needed);
 
 	return NULL;
 }

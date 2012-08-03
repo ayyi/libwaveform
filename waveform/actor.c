@@ -513,7 +513,7 @@ wf_actor_allocate_block_med(WaveformActor* a, int b)
 		wf_actor_load_texture1d(w, MODE_MED, w->textures, b);
 
 #if defined (USE_FBO) && defined (multipass)
-		if(a->canvas->use_shaders)
+		if(agl_get_instance()->use_shaders)
 			block_to_fbo(a, b, blocks, 256);
 #endif
 	}else{
@@ -830,7 +830,7 @@ dbg(1, "HI-RES");
 		}
 
 #ifdef USE_FBO
-		if(a->canvas->use_shaders && !fbo_test) fbo_test = fbo_new_test();
+		if(agl_get_instance()->use_shaders && !fbo_test) fbo_test = fbo_new_test();
 #endif
 	}
 
@@ -1080,6 +1080,7 @@ wf_actor_paint(WaveformActor* actor)
 	//note: there is some benefit in quantising the x positions (eg for subpixel consistency),
 	//but to preserve relative actor positions it must be done at the canvas level.
 
+	AGl* agl = agl_get_instance();
 	g_return_if_fail(actor);
 	WaveformCanvas* wfc = actor->canvas;
 	g_return_if_fail(wfc);
@@ -1129,7 +1130,7 @@ wf_actor_paint(WaveformActor* actor)
 
 		double _block_wid = wf_actor_samples2gl(zoom, samples_per_texture);
 #if defined (USE_FBO) && defined (multipass)
-		if(wfc->use_shaders){
+		if(agl->use_shaders){
 			//set gl state
 
 			wfc->priv->shaders.vertical->uniform.fg_colour = actor->fg_colour;
@@ -1213,7 +1214,7 @@ wf_actor_paint(WaveformActor* actor)
 				case MODE_HI:
 					;Peakbuf* peakbuf = waveform_get_peakbuf_n(w, b);
 					if(peakbuf){
-						if(wfc->use_shaders){
+						if(agl->use_shaders){
 							block_hires_shader(actor, b, _block_wid, is_first, is_last, first_offset, samples_per_texture, rect, region, region_end_block, zoom, x, first_offset_px);
 							block_done = true; //TODO should really use the fall-through code to apply the textures
 						}else{
@@ -1311,7 +1312,7 @@ wf_actor_paint(WaveformActor* actor)
 					double tex_x = x + ((is_first && first_offset) ? first_offset_px : 0);
 
 #if defined (USE_FBO) && defined (multipass)
-					if(wfc->use_shaders){
+					if(agl->use_shaders){
 						//rendering from 2d texture not 1d
 						WfFBO* fbo = true ? textures->fbo[b] : fbo_test;
 						if(fbo){ //seems that the fbo may not be created initially...
@@ -1590,19 +1591,18 @@ _wf_actor_load_texture_hi(WaveformActor* a, int block)
 	int mode2 = get_mode(zoom_end);
 
 	if(mode1 == MODE_HI || mode2 == MODE_HI){
-		dbg(1, "hi-res b=%i", block);
 		//TODO check this block is within current viewport
 
 		WfTextureHi* texture = g_hash_table_lookup(a->waveform->textures_hi->textures, &block);
 		if(!texture){
 			texture = waveform_texture_hi_new();
-			dbg(1, "inserting...");
+			dbg(1, "b=%i: inserting...", block);
 			uint32_t* key = (uint32_t*)g_malloc(sizeof(uint32_t));
 			*key = block;
 			g_hash_table_insert(a->waveform->textures_hi->textures, key, texture);
 			wf_actor_allocate_block_hi(a, block);
 		}
-		else dbg(1, "already have texture. t=%i", texture->t[WF_LEFT].main);
+		else dbg(1, "b=%i: already have texture. t=%i", block, texture->t[WF_LEFT].main);
 		if(wf_debug > 1) _wf_actor_print_hires_textures(a);
 
 		if(a->canvas->draw) wf_canvas_queue_redraw(a->canvas);

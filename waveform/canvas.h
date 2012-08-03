@@ -23,7 +23,7 @@ typedef struct _wf_canvas_priv WfCanvasPriv;
 
 struct _waveform_canvas {
 	gboolean       show_rms;
-	gboolean       use_shaders;
+	//gboolean       use_shaders; // is now global
 	gboolean       use_1d_textures;
 
 	void           (*draw)(WaveformCanvas*, gpointer);

@@ -43,8 +43,6 @@ typedef struct _WaveformClass WaveformClass;
 
 #define WF_PEAK_BLOCK_SIZE (256 * 256)
 
-#define WF_USE_TEXTURE_CACHE           // not currently possible to disable the texture cache
-
 typedef int (*PeakLoader)(Waveform*, const char*, size_t);
 
 enum

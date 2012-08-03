@@ -28,11 +28,11 @@
 #include <math.h>
 #include <gtk/gtk.h>
 #include <GL/gl.h>
-#include <GL/glu.h>
 #include <GL/glx.h>
 #include <GL/glxext.h>
 #include <gtkglext-1.0/gdk/gdkgl.h>
 #include <gtkglext-1.0/gtk/gtkgl.h>
+//#include "agl/utils.h"
 #include "waveform/utils.h"
 #include "waveform/peak.h"
 #include "waveform/texture_cache.h"
@@ -74,15 +74,16 @@ wf_canvas_init(WaveformCanvas* wfc)
 {
 	wfc->priv = g_new0(WfCanvasPriv, 1);
 
-	wfc->use_shaders = wf_get_instance()->pref_use_shaders;
+	gboolean use_shaders = agl_get_instance()->use_shaders;
+
 	wfc->sample_rate = 44100;
 	wfc->v_gain = 1.0;
 	wfc->texture_unit[0] = texture_unit_new(WF_TEXTURE0);
 	wfc->texture_unit[1] = texture_unit_new(WF_TEXTURE1);
 	wfc->texture_unit[2] = texture_unit_new(WF_TEXTURE2);
 	wfc->texture_unit[3] = texture_unit_new(WF_TEXTURE3);
-	wfc->use_1d_textures = wfc->use_shaders;
-	if(wfc->use_shaders) wf_canvas_init_gl(wfc);
+	wfc->use_1d_textures = use_shaders;
+	if(use_shaders) wf_canvas_init_gl(wfc);
 }
 
 
@@ -148,14 +149,15 @@ void
 wf_canvas_set_use_shaders(WaveformCanvas* wfc, gboolean val)
 {
 	PF;
-	wf_get_instance()->pref_use_shaders = val;
+	AGl* agl = agl_get_instance();
+	agl->pref_use_shaders = val;
 
 	if(wfc){
 		if(!val){
 			wf_canvas_use_program_(wfc, NULL);
 			wfc->use_1d_textures = false;
 		}
-		wfc->use_shaders = val;
+		agl->use_shaders = val;
 	}
 }
 
@@ -166,20 +168,21 @@ wf_canvas_init_gl(WaveformCanvas* wfc)
 	if(!glAttachShader) wf_actor_init();
 
 	WfCanvasPriv* priv = wfc->priv;
+	AGl* agl = agl_get_instance();
 
 	if(priv->shaders.peak){ gwarn("already done"); return; }
 
 	WAVEFORM_START_DRAW(wfc) {
 
-		if(wf_get_instance()->pref_use_shaders && !shaders_supported()){
+		if(agl->pref_use_shaders && !agl_shaders_supported()){
 			printf("gl shaders not supported. expect reduced functionality.\n");
 			wf_canvas_use_program_(wfc, NULL);
-			wfc->use_shaders = false;
+			agl->use_shaders = false;
 			wfc->use_1d_textures = false;
 		}
 		printf("GL_RENDERER = %s\n", (const char*)glGetString(GL_RENDERER));
 
-		if(wfc->use_shaders){
+		if(agl->use_shaders){
 			wf_shaders_init();
 			wfc->priv->shaders.peak = &peak_shader;
 			wfc->priv->shaders.hires = &hires_shader;
@@ -234,7 +237,7 @@ wf_canvas_add_new_actor(WaveformCanvas* wfc, Waveform* w)
 void
 wf_canvas_remove_actor(WaveformCanvas* wfc, WaveformActor* actor)
 {
-	PF;
+	PF0;
 	Waveform* w = actor->waveform;
 
 	wf_actor_free(actor);
@@ -385,9 +388,8 @@ void
 wf_canvas_use_program(WaveformCanvas* wfc, int program)
 {
 	//deprecated. use fn below.
-PF0;
 
-	if(wfc->use_shaders && (program != wfc->_program)){
+	if(agl_get_instance()->use_shaders && (program != wfc->_program)){
 		dbg(2, "%i", program);
 		glUseProgram(wfc->_program = program);
 	}
@@ -399,16 +401,19 @@ wf_canvas_use_program_(WaveformCanvas* wfc, WfShader* shader)
 {
 	int program = shader ? shader->program : 0;
 
-	if(wfc->use_shaders && (program != wfc->_program)){
+	if(!agl_get_instance()->use_shaders) return;
+
+	if(program != wfc->_program){
 		dbg(2, "%i", program);
 		glUseProgram(wfc->_program = program);
+	}
 
-		//TODO do for all shaders
-		if(shader == (WfShader*)&peak_shader){
-			//peak_shader.set_uniforms(peaks_per_pixel, rect.top, bottom, actor->fg_colour, n_channels);
-		}else{
-			if(shader) shader->set_uniforms_();
-		}
+	//it remains to be seen whether automatic setting of uniforms gives us enough control.
+	//TODO do for all shaders
+	if(shader == (WfShader*)&peak_shader){
+		//peak_shader.set_uniforms(peaks_per_pixel, rect.top, bottom, actor->fg_colour, n_channels);
+	}else{
+		if(shader) shader->set_uniforms_();
 	}
 }
 

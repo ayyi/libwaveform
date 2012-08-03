@@ -135,7 +135,9 @@ __finalize (Waveform* w)
 		if(w->priv->peak.buf[i]) g_free(w->priv->peak.buf[i]);
 	}
 
+#ifdef USE_OPENGL
 	if(w->textures || w->textures_lo) texture_cache_remove_waveform(w);
+#endif
 
 	void free_textures(WfGlBlock** _textures)
 	{

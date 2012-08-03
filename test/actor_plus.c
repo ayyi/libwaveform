@@ -184,7 +184,7 @@ gl_init()
 
 	START_DRAW {
 
-		if(!shaders_supported()){
+		if(!agl_shaders_supported()){
 			gwarn("shaders not supported");
 		}
 		printf("GL_RENDERER = %s\n", (const char*)glGetString(GL_RENDERER));
@@ -433,7 +433,8 @@ create_background()
 static void
 background_paint(GtkWidget* widget)
 {
-	if(wfc->use_shaders){
+	AGl* agl = agl_get_instance();
+	if(agl->use_shaders){
 		glEnable(GL_TEXTURE_2D);
 		glActiveTexture(GL_TEXTURE0);
 		if(!glIsTexture(bg_textures[0])) gwarn("not texture");
@@ -472,7 +473,7 @@ background_paint(GtkWidget* widget)
 static void
 ruler_paint(GtkWidget* widget)
 {
-	if(!wfc->use_shaders) return;
+	if(!agl_get_instance()->use_shaders) return;
 
 	double width = canvas->allocation.width - 2 * ((int)HBORDER);
 

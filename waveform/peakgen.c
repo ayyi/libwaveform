@@ -455,7 +455,7 @@ waveform_peakbuf_regen(Waveform* waveform, int block_num, int min_tiers)
 		}
 		*/
 	}
-	dbg(1, "maxlevel=%i,%i (%.3fdB)", totplus, totmin, wf_int2db(MAX(totplus, -totmin)));
+	dbg(2, "maxlevel=%i,%i (%.3fdB)", totplus, totmin, wf_int2db(MAX(totplus, -totmin)));
 
 	peakbuf_set_n_tiers(peakbuf, output_tiers, output_resolution);
 }

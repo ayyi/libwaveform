@@ -44,7 +44,6 @@ wf_get_instance()
 		wf->peak_cache = g_hash_table_new(g_direct_hash, g_direct_equal);
 		wf->audio.cache = g_hash_table_new(g_direct_hash, g_direct_equal);
 		wf->load_peak = wf_load_riff_peak; //set the default loader
-		wf->pref_use_shaders = true;
 		wf->msg_queue = g_async_queue_new();
 
 #ifdef WF_USE_TEXTURE_CACHE

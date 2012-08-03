@@ -1,4 +1,7 @@
-SUBDIRS = shaders waveform test
+if ENABLE_OPENGL
+OPENGL_SUBDIRS = agl shaders
+endif
+SUBDIRS = $(OPENGL_SUBDIRS) waveform test
 
 AM_CFLAGS = \
 	-DG_LOG_DOMAIN=\"Waveform\" \
@@ -23,6 +26,8 @@ SHADERS = \
 
 EXTRA_DIST = \
 	$(SHADERS) \
+	shaders/Makefile \
+	shaders/make_shaders \
 	package/gentoo/media-libs/libwaveform/libwaveform-0.1.0.ebuild
 
 shaderdir = $(datadir)/$(PACKAGE)/shaders

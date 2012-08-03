@@ -1,6 +1,24 @@
 #!/bin/bash
 
+shaders=(peak horizontal vertical hires alpha_map ruler texture_2d);
 out=shaders.c
+
+if [[ -s $out ]]; then
+	#file already exists, check age
+	need_regen=false
+	for s in "${shaders[@]}"; do
+		if [[ $s.frag -nt $out ]]; then
+			need_regen=true
+		fi
+		if [[ $s.vert -nt $out ]]; then
+			need_regen=true
+		fi
+	done
+
+	if [[ $need_regen == false ]]; then exit; fi;
+fi;
+
+echo "regenerating shaders.c ..."
 echo "" > $out
 
 function a {
@@ -14,11 +32,7 @@ function a {
 	echo '};' >> $out
 }
 
-a "peak"
-a "horizontal"
-a "vertical"
-a "hires"
-a "alpha_map"
-a "ruler"
-a "texture_2d"
+for s in "${shaders[@]}"; do
+	a $s
+done
 
