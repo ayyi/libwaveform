@@ -23,8 +23,8 @@ typedef struct _wf_canvas_priv WfCanvasPriv;
 
 struct _waveform_canvas {
 	gboolean       show_rms;
-	//gboolean       use_shaders; // is now global
 	gboolean       use_1d_textures;
+	gboolean       enable_animations;
 
 	void           (*draw)(WaveformCanvas*, gpointer);
 	gpointer       draw_data;
@@ -72,7 +72,7 @@ void            wf_canvas_queue_redraw              (WaveformCanvas*);
 void            wf_canvas_load_texture_from_alphabuf(WaveformCanvas*, int texture_id, AlphaBuf*);
 void            wf_canvas_use_program               (WaveformCanvas*, int);
 #ifdef __gl_h_
-void            wf_canvas_use_program_              (WaveformCanvas*, WfShader*);
+void            wf_canvas_use_program_              (WaveformCanvas*, AGlShader*);
 #endif
 
 #define wf_canvas_free0(A) (wf_canvas_free(A), A = NULL)

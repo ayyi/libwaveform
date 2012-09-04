@@ -1,9 +1,6 @@
 /*
   Demonstration of the libwaveform WaveformActor interface
-
-  Several waveforms are drawn onto a single canvas with
-  different colours and zoom levels. The canvas can be zoomed
-  and panned.
+  showing a 3d presentation of a list of waveforms.
 
   ---------------------------------------------------------------
 
@@ -43,9 +40,11 @@
 #include "agl/utils.h"
 #include "waveform/waveform.h"
 #include "waveform/actor.h"
+#define __wf_private__
+#include "waveform/animator.h"
 #include "test/ayyi_utils.h"
 
-struct _app
+struct
 {
 	int timeout;
 } app;
@@ -54,6 +53,10 @@ struct _app
 #define GL_HEIGHT 256.0
 #define VBORDER 8
 #define bool gboolean
+
+//float rotate[3] = {45.0, 45.0, 45.0};
+float rotate[3] = {30.0, 30.0, 30.0};
+float isometric_rotation[3] = {35.264f, 45.0f, 0.0f};
 
 GdkGLConfig*    glconfig       = NULL;
 GdkGLDrawable*  gl_drawable    = NULL;
@@ -64,7 +67,9 @@ WaveformCanvas* wfc            = NULL;
 Waveform*       w1             = NULL;
 Waveform*       w2             = NULL;
 WaveformActor*  a[]            = {NULL, NULL, NULL, NULL};
+int             a_front        = 3;
 float           zoom           = 1.0;
+float           dz             = 20.0;
 gpointer        tests[]        = {};
 
 static void set_log_handlers   ();
@@ -74,6 +79,8 @@ static bool on_expose          (GtkWidget*, GdkEventExpose*, gpointer);
 static void on_canvas_realise  (GtkWidget*, gpointer);
 static void on_allocate        (GtkWidget*, GtkAllocation*, gpointer);
 static void start_zoom         (float target_zoom);
+static void forward            ();
+static void backward           ();
 static void toggle_animate     ();
 uint64_t    get_time           ();
 
@@ -83,9 +90,9 @@ main (int argc, char *argv[])
 {
 	set_log_handlers();
 
-	wf_debug = 1;
+	wf_debug = 0;
 
-	memset(&app, 0, sizeof(struct _app));
+	memset(&app, 0, sizeof(app));
 
 	gtk_init(&argc, &argv);
 	if(!(glconfig = gdk_gl_config_new_by_mode(GDK_GL_MODE_RGBA | GDK_GL_MODE_DEPTH | GDK_GL_MODE_DOUBLE))){
@@ -120,12 +127,20 @@ main (int argc, char *argv[])
 			case GDK_KEY_Left:
 			case GDK_KEY_KP_Left:
 				dbg(0, "left");
-				//waveform_view_set_start(waveform, waveform->start_frame - 8192 / waveform->zoom);
 				break;
 			case GDK_KEY_Right:
 			case GDK_KEY_KP_Right:
 				dbg(0, "right");
-				//waveform_view_set_start(waveform, waveform->start_frame + 8192 / waveform->zoom);
+				break;
+			case GDK_KEY_Up:
+			case GDK_KEY_KP_Up:
+				dbg(0, "up");
+				forward();
+				break;
+			case GDK_KEY_Down:
+			case GDK_KEY_KP_Down:
+				dbg(0, "down");
+				backward();
 				break;
 			case (char)'a':
 				toggle_animate();
@@ -159,24 +174,6 @@ main (int argc, char *argv[])
 
 
 static void
-gl_init()
-{
-	if(gl_initialised) return;
-
-	START_DRAW {
-
-		if(!agl_shaders_supported()){
-			gwarn("shaders not supported");
-		}
-		printf("GL_RENDERER = %s\n", (const char*)glGetString(GL_RENDERER));
-
-	} END_DRAW
-
-	gl_initialised = true;
-}
-
-
-static void
 setup_projection(GtkWidget* widget)
 {
 	int vx = 0;
@@ -194,7 +191,13 @@ setup_projection(GtkWidget* widget)
 	double right = GL_WIDTH + hborder;
 	double bottom = GL_HEIGHT + VBORDER;
 	double top = -VBORDER;
-	glOrtho (left, right, bottom, top, 10.0, -100.0);
+	glOrtho (left, right, bottom, top, 512.0, -512.0);
+
+	glMatrixMode(GL_MODELVIEW);
+	glLoadIdentity();
+	glRotatef(rotate[0], 1.0f, 0.0f, 0.0f);
+	glRotatef(rotate[1], 0.0f, 1.0f, 0.0f);
+	glScalef(1.0f, 1.0f, -1.0f);
 }
 
 
@@ -205,7 +208,10 @@ draw(GtkWidget* widget)
 	glEnable(GL_BLEND); glEnable(GL_DEPTH_TEST); glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
 	glPushMatrix(); /* modelview matrix */
-		int i; for(i=0;i<G_N_ELEMENTS(a);i++) if(a[i]) wf_actor_paint(a[i]);
+		int i; for(i=0;i<G_N_ELEMENTS(a);i++){
+			WaveformActor* actor = a[(i + a_front + 1) % G_N_ELEMENTS(a)];
+			if(actor) wf_actor_paint(actor);
+		}
 	glPopMatrix();
 
 #undef SHOW_BOUNDING_BOX
@@ -257,7 +263,7 @@ on_canvas_realise(GtkWidget* _canvas, gpointer user_data)
 	gl_drawable = gtk_widget_get_gl_drawable(canvas);
 	gl_context  = gtk_widget_get_gl_context(canvas);
 
-	gl_init();
+	gl_initialised = true;
 
 	wfc = wf_canvas_new(gl_context, gl_drawable);
 	//wf_canvas_set_use_shaders(wfc, false);
@@ -278,17 +284,18 @@ on_canvas_realise(GtkWidget* _canvas, gpointer user_data)
 	};
 
 	uint32_t colours[4][2] = {
-		{0xffffff77, 0x0000ffff},
-		{0x66eeffff, 0x0000ffff},
-		{0xffdd66ff, 0x0000ffff},
-		{0x66ff66ff, 0x0000ffff},
+		{0x66eeffff, 0x0000ffff}, // blue
+		{0xffffff77, 0x0000ffff}, // grey
+		{0xffdd66ff, 0x0000ffff}, // orange
+		{0x66ff66ff, 0x0000ffff}, // green
 	};
 
 	int i; for(i=0;i<G_N_ELEMENTS(a);i++){
 		a[i] = wf_canvas_add_new_actor(wfc, w1);
 
-		wf_actor_set_region(a[i], &region[i]);
-		wf_actor_set_colour(a[i], colours[i][0], colours[i][1]);
+		wf_actor_set_region (a[i], &region[i]);
+		wf_actor_set_colour (a[i], colours[i][0], colours[i][1]);
+		wf_actor_set_z      (a[i], i * dz);
 	}
 
 	on_allocate(canvas, &canvas->allocation, user_data);
@@ -324,6 +331,20 @@ _easing(int step, float start, float end)
 
 
 static void
+set_position(int i, int j)
+{
+	#define Y_FACTOR 0.0f //0.5f //currently set to zero to simplify changing stack order
+
+	if(a[i]) wf_actor_allocate(a[i], &(WfRectangle){
+		40.0,
+		((float)j) * GL_HEIGHT * Y_FACTOR / 4 + 10.0f,
+		GL_WIDTH * zoom,
+		GL_HEIGHT / 4 * 0.95
+	});
+}
+
+
+static void
 start_zoom(float target_zoom)
 {
 	//when zooming in, the Region is preserved so the box gets bigger. Drawing is clipped by the Viewport.
@@ -331,13 +352,57 @@ start_zoom(float target_zoom)
 	PF0;
 	zoom = MAX(0.1, target_zoom);
 
-	int i; for(i=0;i<G_N_ELEMENTS(a);i++)
-		if(a[i]) wf_actor_allocate(a[i], &(WfRectangle){
-			0.0,
-			i * GL_HEIGHT / 4,
-			GL_WIDTH * target_zoom,
-			GL_HEIGHT / 4 * 0.95
-		});
+	int i; for(i=0;i<G_N_ELEMENTS(a);i++) set_position(i, i);
+}
+
+
+static void
+forward()
+{
+	void fade_out_done(WaveformActor* actor, gpointer user_data)
+	{
+		gboolean fade_out_really_done(WaveformActor* actor)
+		{
+			wfc->enable_animations = false;
+			wf_actor_set_z(actor, 0);
+			wfc->enable_animations = true;
+			wf_actor_fade_in(actor, NULL, 1.0f, NULL, NULL);
+			set_position(a_front, 0); //move to back
+
+			if(--a_front < 0) a_front = G_N_ELEMENTS(a) - 1;
+			return IDLE_STOP;
+		}
+		g_idle_add((GSourceFunc)fade_out_really_done, actor); //TODO fix issues with overlapping transitions.
+	}
+
+	int i; for(i=0;i<G_N_ELEMENTS(a);i++) wf_actor_set_z(a[i], a[i]->z + dz);
+	dbg(1, "a_front=%i", a_front);
+	wf_actor_fade_out(a[a_front], fade_out_done, NULL);
+}
+
+
+static void
+backward()
+{
+	void fade_out_done(WaveformActor* actor, gpointer user_data)
+	{
+		gboolean fade_out_really_done(WaveformActor* actor)
+		{
+			wfc->enable_animations = false;
+			wf_actor_set_z(actor, dz * (G_N_ELEMENTS(a) - 1));
+			wfc->enable_animations = true;
+			wf_actor_fade_in(actor, NULL, 1.0f, NULL, NULL);
+			set_position(a_front, G_N_ELEMENTS(a) - 1); //move to front
+
+			if(++a_front > G_N_ELEMENTS(a) - 1) a_front = 0;
+			return IDLE_STOP;
+		}
+		g_idle_add((GSourceFunc)fade_out_really_done, actor); //TODO fix issues with overlapping transitions.
+	}
+
+	int i; for(i=0;i<G_N_ELEMENTS(a);i++) wf_actor_set_z(a[i], a[i]->z - dz);
+	dbg(1, "a_front=%i", a_front);
+	wf_actor_fade_out(a[(a_front + 1) % G_N_ELEMENTS(a)], fade_out_done, NULL);
 }
 
 
@@ -356,16 +421,12 @@ toggle_animate()
 				dbg(0, "rate=%.2f fps", ((float)frame) / ((float)(time - t0)) / 1000.0);
 
 			if(!(frame % 8)){
-				float v = (frame % 16) ? 2.0 : 1.0/2.0;
-				if(v > 16.0) v = 1.0;
-				start_zoom(v);
+				forward();
 			}
 		}
 		frame++;
 		return IDLE_CONTINUE;
 	}
-	//g_idle_add(on_idle, NULL);
-	//g_idle_add_full(G_PRIORITY_LOW, on_idle, NULL, NULL);
 	g_timeout_add(50, on_idle, NULL);
 }
 

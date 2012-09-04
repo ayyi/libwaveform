@@ -31,6 +31,7 @@ typedef struct
 } WfRectangle;
 
 typedef struct _actor_priv WfActorPriv;
+typedef void    (*WaveformActorFn) (WaveformActor*, gpointer);
 
 struct _waveform_actor {
 	WaveformCanvas* canvas;   //TODO decide if this is a good idea or not. confusing but reduces fn args.
@@ -48,6 +49,9 @@ void            wf_actor_free                             (WaveformActor*);
 void            wf_actor_set_region                       (WaveformActor*, WfSampleRegion*);
 void            wf_actor_set_colour                       (WaveformActor*, uint32_t fg_colour, uint32_t bg_colour);
 void            wf_actor_allocate                         (WaveformActor*, WfRectangle*);
+void            wf_actor_set_z                            (WaveformActor*, float);
+void            wf_actor_fade_out                         (WaveformActor*, WaveformActorFn, gpointer);
+void            wf_actor_fade_in                          (WaveformActor*, void* /*WfAnimatable* */, float, WaveformActorFn, gpointer);
 void            wf_actor_paint                            (WaveformActor*);
 
 #endif //__waveform_actor_h__

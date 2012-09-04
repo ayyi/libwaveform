@@ -70,7 +70,7 @@ wf_load_ardour_peak(Waveform* wv, const char* peak_file, size_t size)
 	dbg(1, "peaks:");
 	for (i=0;i<20;i++) printf("  %i %i\n", buf[2 * i], buf[2 * i + 1]);
 #endif
-	int ch_num = wv->priv->peak.buf[0] ? 1 : 0; //this makes too many assumptions. better to pass explicitly as argument.
+	int ch_num = wv->priv->peak.buf[WF_LEFT] ? 1 : 0; //this makes too many assumptions. better to pass explicitly as argument.
 	wv->priv->peak.buf[ch_num] = buf;
 	wv->priv->peak.size = n_frames * WF_PEAK_VALUES_PER_SAMPLE;
 
@@ -94,7 +94,7 @@ get_n_words(Waveform* wv, const char* peakfile)
 
 	sf_count_t n_frames = waveform_get_n_frames(wv);
 
-	dbg(2, "n_frames=%u n_peaks=%Lu", (unsigned)n_frames, (size_t)(ceil(((float)n_frames) / WF_PEAK_RATIO)));
+	dbg(3, "n_frames=%u n_peaks=%Lu", (unsigned)n_frames, (size_t)(ceil(((float)n_frames) / WF_PEAK_RATIO)));
 	return ceil(((float)n_frames) / WF_PEAK_RATIO);
 }
 

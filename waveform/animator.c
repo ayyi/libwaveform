@@ -18,7 +18,9 @@
 
   This provides an optional private mini animation framework for WfActors.
 
-  Properties that can be animated: start, end (zoom is derived from these)
+  WaveformActor has internal support for animating the following properties:
+  region start and end, and start and end position onscreen
+  (zoom is derived from these)
 
   Where an external animation framework is available, it should be used
   in preference, eg Clutter (TODO).
@@ -26,14 +28,31 @@
   In cases where the canvas is shared with other objects, this animator
   cannot be used. The application must provide its own animator.
 
-  -what happens if we start a zoom while in the middle of panning?
-		-with a single fixed length Transition, the first op will slow down after second starts
-		-parallel Transitions:
-			-what happens if 2nd op contains same property as first?
-				-probably ok to remove this prop from first op (cannot have same prop in 2 simultaneous Transitions).
-				 Dont see any other option here.
+  The canvas has a list of Transitions, each with a list of WfActor's.
+  For each actor there is a list of WfAnimatable's, each of which transitions
+  from a start to an end value for a particular property such as the start point. 
+  The WfAnimatable has a value type that must be either integer or float.
 
-	-ok, so the canvas owns a list of Transitions, each with a list of Actors.
+  Each WfAnimation has its own clock and finish-callback.
+
+  use cases:
+	-what happens if a pan is requested while already panning?
+		-this property is removed from first transition (should not have same
+		 prop in 2 simultaneous Transitions), and a new one is started.
+		 The new start value is taken from the current transient value, not the model value.
+	-what happens if we start a zoom while in the middle of panning?
+		(ie 2 independent transitions)
+		-with a single fixed length Transition, the first op will slow down after second starts
+		-parallel Transitions are needed.
+			-what happens if 2nd op contains same property as first?
+
+		In most of the examples given, zoom is faked by modifying the same
+		properties as with panning (rect_left and rect_len), so in these cases,
+		parallel transitions cannot be used so the result will not be optimal.
+		However there is nothing to prevent real zoom being used by modifying
+		the projection. The canvas projection is deliberately out of scope for
+		Canvas and Actor interface. (The WaveformView widget does however take
+		control of the projection.)
 
  */
 #define __wf_private__
@@ -59,10 +78,11 @@ GList* animations = NULL;
 
 
 WfAnimation*
-wf_animation_add_new(void (*on_finished)(WaveformActor*, WfAnimation*))
+wf_animation_add_new(WaveformActorAnimationFn on_finished, gpointer user_data)
 {
 	WfAnimation* animation = g_new0(WfAnimation, 1);
 	animation->on_finish = on_finished;
+	animation->user_data = user_data;
 	animation->frame_i = transition_linear;
 	animation->frame_f = transition_linear_f;
 	animations = g_list_append(animations, animation);
@@ -81,10 +101,10 @@ wf_transition_add_member(WfAnimation* animation, WaveformActor* actor, GList* an
 	g_return_if_fail(!g_list_find(animation->members, actor));
 	g_return_if_fail(animatables);
 
-	Blah* blah = g_new0(Blah, 1);
-	blah->actor = actor;
-	blah->transitions = animatables;
-	animation->members = g_list_append(animation->members, blah);
+	WfAnimActor* member = g_new0(WfAnimActor, 1);
+	member->actor = actor;
+	member->transitions = animatables;
+	animation->members = g_list_append(animation->members, member);
 
 	WfAnimatable* animatable = animatables->data;
 	if(animatable->type == WF_INT)
@@ -99,9 +119,9 @@ wf_animation_remove(WfAnimation* animation)
 {
 	GList* l = animation->members;
 	for(;l;l=l->next){
-		Blah* blah = l->data;
+		WfAnimActor* blah = l->data;
+		animation->on_finish(blah->actor, animation, animation->user_data); //arg3 is unnecesary
 		g_list_free0(blah->transitions);
-		animation->on_finish(blah->actor, animation);
 		g_free(blah);
 	}
 	g_list_free0(animation->members);
@@ -119,13 +139,13 @@ wf_animation_remove_animatable(WfAnimation* animation, WfAnimatable* animatable)
 	GList* m = animation->members;
 	dbg(2, "  animation=%p n_members=%i", animation, g_list_length(m));
 	for(;m;m=m->next){
-		Blah* blah = m->data;
-		if(g_list_find(blah->transitions, animatable)){
+		WfAnimActor* actor = m->data;
+		if(g_list_find(actor->transitions, animatable)){
 			//remove the animatable from the old animation
 			dbg(2, "       already animating: 'start'");
 			animatable->start_val.i = animatable->val.i;
 
-			if(!(blah->transitions = g_list_remove(blah->transitions, animatable))) wf_animation_remove(animation);
+			if(!(actor->transitions = g_list_remove(actor->transitions, animatable))) wf_animation_remove(animation);
 			break;
 		}
 	}
@@ -142,9 +162,9 @@ wf_animation_start(WfAnimation* animation)
 		GList* l = animation->members;
 		dbg(0, "animation=%p n_members=%i", animation, g_list_length(l));
 		for(;l;l=l->next){
-			Blah* blah = l->data;
-			GList* k = blah->transitions;
-			dbg(0, "  actor=%p n_transitions=%i", blah->actor, g_list_length(k));
+			WfAnimActor* actor = l->data;
+			GList* k = actor->transitions;
+			dbg(0, "  actor=%p n_transitions=%i", actor->actor, g_list_length(k));
 			for(;k;k=k->next){
 				WfAnimatable* animatable = k->data;
 				dbg(0, "     animatable=%p type=%i %p %.2f", animatable, animatable->type, animatable->model_val.f, *animatable->model_val.f);
@@ -158,7 +178,7 @@ wf_animation_start(WfAnimation* animation)
 		int n = 0;
 		GList* l = animation->members;
 		for(;l;l=l->next){
-			GList* k = ((Blah*)l->data)->transitions;
+			GList* k = ((WfAnimActor*)l->data)->transitions;
 			for(;k;k=k->next) n++;
 		}
 		return n;
@@ -188,7 +208,7 @@ wf_animation_start(WfAnimation* animation)
 		WfAnimation* animation = _animation;
 		GList* l = animation->members;
 		for(;l;l=l->next){
-			Blah* blah = l->data;
+			WfAnimActor* blah = l->data;
 			WaveformActor* a = blah->actor;
 
 			GList* k = blah->transitions;

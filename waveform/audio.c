@@ -356,7 +356,7 @@ waveform_load_audio_async(Waveform* waveform, int block_num, int n_tiers_needed)
 			PeakbufQueueItem* item = i->user_data;
 			if(item->waveform == waveform && item->block_num == block_num){
 				dbg(0, "already queued");
-				gwarn("never get here");
+				gwarn("never get here"); //actually it is possible to get here using test_view while zooming in/out
 				return true;
 			}
 		}

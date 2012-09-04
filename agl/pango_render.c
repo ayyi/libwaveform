@@ -43,7 +43,7 @@
 								#define __wf_canvas_priv__
 #include "waveform/waveform.h" // tmp
 #include "waveform/actor.h"    // tmp
-#include "waveform/gl_ext.h"   // tmp
+#include "agl/ext.h"
 #endif
 
 #include "agl/pango_render.h"
@@ -795,7 +795,7 @@ gl_texture_quad (gint x1, gint x2, gint y1, gint y2, Fixed tx1, Fixed ty1, Fixed
 
 #ifdef USE_SHADERS
 	if(agl_get_instance()->use_shaders){
-		wf_canvas_use_program_(PGRC->wfc, (WfShader*)PGRC->wfc->priv->shaders.tex2d);
+		wf_canvas_use_program_(PGRC->wfc, (AGlShader*)PGRC->wfc->priv->shaders.tex2d);
 	}
 #endif
   glBegin (GL_QUADS);

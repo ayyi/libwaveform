@@ -23,7 +23,7 @@ echo "" > $out
 
 function a {
 	echo '' >> $out
-	echo 'WfShaderText '$1'_text = {" \' >> $out
+	echo 'AGlShaderText '$1'_text = {" \' >> $out
 	cpp -P $1.vert | sed -e "s/$/ \\\/" >> $out
 	echo '",' >> $out
 	echo '" \' >> $out

@@ -38,7 +38,7 @@
 #include "waveform/peakgen.h"
 
 #include "waveform/gl_utils.h"
-#include "waveform/shaderutil.h"
+#include "agl/utils.h"
 #include "waveform/utils.h"
 #include "waveform/texture_cache.h"
 #include "waveform/actor.h"
@@ -111,6 +111,10 @@ __init ()
 }
 
 
+/*
+ *  For use where the widget needs to share an opengl context with other items.
+ *  Should be called before any widgets are instantiated.
+ */
 void
 waveform_view_set_gl (GdkGLContext* _gl_context)
 {
@@ -566,7 +570,9 @@ waveform_view_set_projection(GtkWidget* widget)
 }
 
 
-
+/*
+ *  Returns the underlying canvas that the WaveformView is using.
+ */
 WaveformCanvas*
 waveform_view_get_canvas(WaveformView* view)
 {

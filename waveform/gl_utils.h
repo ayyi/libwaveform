@@ -47,7 +47,7 @@ struct _texture_unit
 	int    texture;
 };
 
-void         use_texture              (int texture);
+void         use_texture              (GLuint texture);
 
 TextureUnit* texture_unit_new         (GLenum unit);
 void         texture_unit_use_texture (TextureUnit*, int texture);

@@ -25,31 +25,33 @@ typedef struct _animatable_property
 {
 	union {uint32_t  i; float  f;} val;
 	union {uint32_t  i; float  f;} start_val;
-	union {uint32_t* i; float* f;} model_val;
+	union {uint32_t* i; float* f;} model_val; // target (end) value
 	//union {uint32_t* i; float* f;} min;
 	WfPropType type;
 } WfAnimatable;
 
-typedef struct _blah
+typedef struct _anim_actor
 {
 	WaveformActor* actor;
 	GList*         transitions; // list of WfAnimatable*
-	//void           (*actor_free)(WaveformActor*); //the actor can free stuff in this callback
-} Blah;
+} WfAnimActor;
 
 typedef struct _animation WfAnimation;
+typedef void  (*WaveformActorAnimationFn)    (WaveformActor*, WfAnimation*, gpointer);
+
 struct _animation
 {
 	uint64_t  start;
 	uint64_t  end;
 	uint32_t  (*frame_i)(WfAnimation*, WfAnimatable*, int time);
 	float     (*frame_f)(WfAnimation*, WfAnimatable*, int time);
-	GList*    members;    // list of Blah*
+	GList*    members;    // list of WfAnimActor*
 	guint     timer;
-	void      (*on_finish)(WaveformActor*, WfAnimation*); //the actor can free stuff in this callback
+	WaveformActorAnimationFn on_finish; //the actor can free stuff in this callback
+	gpointer  user_data;
 };
 
-WfAnimation* wf_animation_add_new           (void (*on_finished)(WaveformActor*, WfAnimation*));
+WfAnimation* wf_animation_add_new           (WaveformActorAnimationFn, gpointer);
 void         wf_transition_add_member       (WfAnimation*, WaveformActor*, GList* animatables);
 void         wf_animation_remove            (WfAnimation*);
 void         wf_animation_remove_animatable (WfAnimation*, WfAnimatable*);

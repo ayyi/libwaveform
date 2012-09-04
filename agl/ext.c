@@ -6,8 +6,7 @@
 #include <GL/glu.h>
 #include <GL/glx.h>
 #include <GL/glxext.h>
-#include "waveform/gl_ext.h"
-#include "waveform/utils.h"
+#include "agl/ext.h"
 
 #define glutGetProcAddress(x) (*glXGetProcAddressARB)((const GLubyte*)x) //TODO check glXGetProcAddress is exported by nvidia
 void
@@ -51,7 +50,7 @@ get_gl_extensions()
    glUniform1f = (PFNGLUNIFORM1FPROC) glutGetProcAddress("glUniform1f");
    glUniform2f_func = (PFNGLUNIFORM2FPROC) glutGetProcAddress("glUniform2f");
    glUniform3f_func = (PFNGLUNIFORM3FPROC) glutGetProcAddress("glUniform3f");
-   glUniform4f_func = (PFNGLUNIFORM4FPROC) glutGetProcAddress("glUniform4f");
+   glUniform4f = (PFNGLUNIFORM4FPROC) glutGetProcAddress("glUniform4f");
    glUniform1fv = (PFNGLUNIFORM1FVPROC) glutGetProcAddress("glUniform1fv");
    glUniform2fv = (PFNGLUNIFORM2FVPROC) glutGetProcAddress("glUniform2fv");
    glUniform3fv = (PFNGLUNIFORM3FVPROC) glutGetProcAddress("glUniform3fv");

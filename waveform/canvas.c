@@ -32,17 +32,15 @@
 #include <GL/glxext.h>
 #include <gtkglext-1.0/gdk/gdkgl.h>
 #include <gtkglext-1.0/gtk/gtkgl.h>
-//#include "agl/utils.h"
+#include "agl/ext.h"
 #include "waveform/utils.h"
 #include "waveform/peak.h"
 #include "waveform/texture_cache.h"
-#include "waveform/shaderutil.h"
 #include "waveform/gl_utils.h"
 #include "waveform/actor.h"
 #include "waveform/canvas.h"
 #include "waveform/alphabuf.h"
 #include "waveform/shader.h"
-#include "waveform/gl_ext.h"
 
 #define WAVEFORM_START_DRAW(wa) \
 	if(wa->_draw_depth) gwarn("START_DRAW: already drawing"); \
@@ -76,6 +74,7 @@ wf_canvas_init(WaveformCanvas* wfc)
 
 	gboolean use_shaders = agl_get_instance()->use_shaders;
 
+	wfc->enable_animations = true;
 	wfc->sample_rate = 44100;
 	wfc->v_gain = 1.0;
 	wfc->texture_unit[0] = texture_unit_new(WF_TEXTURE0);
@@ -83,7 +82,7 @@ wf_canvas_init(WaveformCanvas* wfc)
 	wfc->texture_unit[2] = texture_unit_new(WF_TEXTURE2);
 	wfc->texture_unit[3] = texture_unit_new(WF_TEXTURE3);
 	wfc->use_1d_textures = use_shaders;
-	if(use_shaders) wf_canvas_init_gl(wfc);
+	wf_canvas_init_gl(wfc);
 }
 
 
@@ -165,6 +164,13 @@ wf_canvas_set_use_shaders(WaveformCanvas* wfc, gboolean val)
 static void
 wf_canvas_init_gl(WaveformCanvas* wfc)
 {
+	if(!agl_get_instance()->use_shaders){
+		WAVEFORM_START_DRAW(wfc) {
+			printf("GL_RENDERER = %s\n", (const char*)glGetString(GL_RENDERER));
+		} WAVEFORM_END_DRAW(wfc);
+		return;
+	}
+
 	if(!glAttachShader) wf_actor_init();
 
 	WfCanvasPriv* priv = wfc->priv;
@@ -200,8 +206,9 @@ wf_canvas_init_gl(WaveformCanvas* wfc)
 void
 wf_canvas_set_viewport(WaveformCanvas* wfc, WfViewPort* _viewport)
 {
-	//@param viewport - optional. Used to optimise drawing where some of the rect lies outside the viewport. Does not apply clipping.
-	//                  *** new policy *** units are not pixels, they are gl units.
+	//@param viewport - optional. Used to optimise drawing where some of the rect lies outside the viewport.
+	//                  Does not apply clipping.
+	//                  units are not pixels, they are gl units.
 	//                  TODO clarify: can only be omitted if canvas displays only one region?
 	//                                ... no, not true. dont forget, the display is not set here, we only store the viewport property.
 
@@ -390,27 +397,27 @@ wf_canvas_use_program(WaveformCanvas* wfc, int program)
 	//deprecated. use fn below.
 
 	if(agl_get_instance()->use_shaders && (program != wfc->_program)){
-		dbg(2, "%i", program);
+		dbg(3, "%i", program);
 		glUseProgram(wfc->_program = program);
 	}
 }
 
 
 void
-wf_canvas_use_program_(WaveformCanvas* wfc, WfShader* shader)
+wf_canvas_use_program_(WaveformCanvas* wfc, AGlShader* shader)
 {
 	int program = shader ? shader->program : 0;
 
 	if(!agl_get_instance()->use_shaders) return;
 
 	if(program != wfc->_program){
-		dbg(2, "%i", program);
+		dbg(3, "%i", program);
 		glUseProgram(wfc->_program = program);
 	}
 
 	//it remains to be seen whether automatic setting of uniforms gives us enough control.
 	//TODO do for all shaders
-	if(shader == (WfShader*)&peak_shader){
+	if(shader == (AGlShader*)&peak_shader){
 		//peak_shader.set_uniforms(peaks_per_pixel, rect.top, bottom, actor->fg_colour, n_channels);
 	}else{
 		if(shader) shader->set_uniforms_();

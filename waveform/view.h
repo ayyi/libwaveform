@@ -58,6 +58,7 @@ struct _WaveformViewClass {
 
 GType           waveform_view_get_type      () G_GNUC_CONST;
 void            waveform_view_set_gl        (GdkGLContext*);
+
 WaveformView*   waveform_view_new           (Waveform*);
 void            waveform_view_load_file     (WaveformView*, const char*); //be careful, it force loads, even if already loaded.
 void            waveform_view_set_waveform  (WaveformView*, Waveform*);
@@ -66,6 +67,7 @@ void            waveform_view_set_start     (WaveformView*, int64_t);
 void            waveform_view_set_colour    (WaveformView*, uint32_t fg, uint32_t bg);
 void            waveform_view_set_show_rms  (WaveformView*, gboolean);
 void            waveform_view_set_show_grid (WaveformView*, gboolean);
+
 WaveformCanvas* waveform_view_get_canvas    (WaveformView*);
 
 

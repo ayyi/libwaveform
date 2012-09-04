@@ -44,7 +44,6 @@
 #include <gtk/gtk.h>
 #include <gdk/gdkkeysyms.h>
 #include "waveform/waveform.h"
-#include "waveform/shaderutil.h"
 #include "waveform/actor.h"
 #include "waveform/fbo.h"
 #include "test/ayyi_utils.h"
@@ -441,7 +440,7 @@ background_paint(GtkWidget* widget)
 		glBindTexture(GL_TEXTURE_2D, bg_textures[0]);
 
 		wfc->priv->shaders.tex2d->uniform.fg_colour = 0x0000ffff;
-		wf_canvas_use_program_(wfc, (WfShader*)wfc->priv->shaders.tex2d);
+		wf_canvas_use_program_(wfc, (AGlShader*)wfc->priv->shaders.tex2d);
 
 	}else{
 		glColor4f(1.0, 0.7, 0.0, 1.0);
@@ -479,7 +478,7 @@ ruler_paint(GtkWidget* widget)
 
 	wfc->priv->shaders.ruler->uniform.fg_colour = 0xffffff7f;
 	wfc->priv->shaders.ruler->uniform.beats_per_pixel = 0.1 * (GL_WIDTH / width) / zoom;
-	wf_canvas_use_program_(wfc, (WfShader*)wfc->priv->shaders.ruler);
+	wf_canvas_use_program_(wfc, (AGlShader*)wfc->priv->shaders.ruler);
 
 #if 0 //shader debugging
 	{

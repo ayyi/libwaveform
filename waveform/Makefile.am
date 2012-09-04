@@ -24,8 +24,7 @@ OPENGL_SOURCES = \
 	animator.c animator.h \
 	texture_cache.c texture_cache.h \
 	hi_res.c hi_res.h \
-	fbo.c fbo.h \
-	gl_ext.c gl_ext.h
+	fbo.c fbo.h
 endif
 
 libwaveform_la_SOURCES = \
@@ -34,7 +33,6 @@ libwaveform_la_SOURCES = \
 	peak.c peak.h \
 	loaders/ardour.c loaders/ardour.h \
 	loaders/riff.c loaders/riff.h \
-	shaderutil.c shaderutil.h \
 	$(OPENGL_SOURCES) \
 	peakgen.c peakgen.h \
 	audio.c audio.h \
@@ -54,9 +52,7 @@ pkginclude_HEADERS = \
 	canvas.h \
 	hi_res.h \
 	utils.h \
-	shaderutil.h \
 	gl_utils.h \
-	gl_ext.h \
 	wf_private.h
 
 CLEANFILES =

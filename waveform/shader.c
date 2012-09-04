@@ -28,9 +28,10 @@
 #include <GL/glxext.h>
 #include <gtkglext-1.0/gdk/gdkgl.h>
 #include <gtkglext-1.0/gtk/gtkgl.h>
+#include "agl/ext.h"
+#include "agl/utils.h"
 #include "waveform/utils.h"
 #include "waveform/peak.h"
-#include "waveform/gl_ext.h"
 #include "waveform/gl_utils.h"
 #include "waveform/canvas.h"
 #include "waveform/shader.h"
@@ -44,7 +45,7 @@ static void  _alphamap_set_uniforms    ();
 static void  _ruler_set_uniforms       ();
 
 PeakShader peak_shader = {{NULL, NULL, 0, NULL, NULL, &peak_text}, _peak_shader_set_uniforms};
-static UniformInfo uniforms[] = {
+static AGlUniformInfo uniforms[] = {
    {"tex1d",     1, GL_INT,   { 1, 0, 0, 0 }, -1}, // LHS +ve - 0 corresponds to glActiveTexture(WF_TEXTURE0);
    {"tex1d_neg", 1, GL_INT,   { 2, 0, 0, 0 }, -1}, // LHS -ve - 1 corresponds to glActiveTexture(WF_TEXTURE1);
    {"tex1d_3",   1, GL_INT,   { 3, 0, 0, 0 }, -1}, // RHS +ve WF_TEXTURE2
@@ -53,7 +54,7 @@ static UniformInfo uniforms[] = {
 };
 
 HiResShader hires_shader = {{NULL, NULL, 0, NULL, _hires_set_uniforms, &hires_text}};
-static UniformInfo uniforms_hr[] = {
+static AGlUniformInfo uniforms_hr[] = {
    {"tex1d",     1, GL_INT,   { 1, 0, 0, 0 }, -1},
    {"tex1d_neg", 1, GL_INT,   { 2, 0, 0, 0 }, -1},
    {"tex1d_3",   1, GL_INT,   { 3, 0, 0, 0 }, -1},
@@ -62,20 +63,20 @@ static UniformInfo uniforms_hr[] = {
 };
 
 BloomShader horizontal = {{NULL, NULL, 0, NULL, NULL, &horizontal_text}};
-static UniformInfo uniforms2[] = {
+static AGlUniformInfo uniforms2[] = {
    {"tex2d",     1, GL_INT,   { 0, 0, 0, 0 }, -1}, // 0 corresponds to glActiveTexture(GL_TEXTURE0);
    END_OF_UNIFORMS
 };
 
 BloomShader vertical = {{NULL, NULL, 0, NULL, _vertical_set_uniforms, &vertical_text}};
-static UniformInfo uniforms3[] = {
+static AGlUniformInfo uniforms3[] = {
    {"tex2d",     1, GL_INT,   { 0, 0, 0, 0 }, -1}, // 0 corresponds to glActiveTexture(GL_TEXTURE0);
    END_OF_UNIFORMS
 };
 
 //used for background
 AlphaMapShader tex2d = {{NULL, NULL, 0, NULL, _alphamap_set_uniforms, &alpha_map_text}};
-static UniformInfo uniforms4[] = {
+static AGlUniformInfo uniforms4[] = {
    {"tex2d",     1, GL_INT,   { 0, 0, 0, 0 }, -1},
    END_OF_UNIFORMS
 };
@@ -84,7 +85,7 @@ static UniformInfo uniforms4[] = {
 AlphaMapShader tex2d_b = {{NULL, NULL, 0, NULL, _alphamap_set_uniforms, &texture_2d_text}};
 
 RulerShader ruler = {{NULL, NULL, 0, NULL, _ruler_set_uniforms, &ruler_text}};
-static UniformInfo uniforms5[] = {
+static AGlUniformInfo uniforms5[] = {
    END_OF_UNIFORMS
 };
 
@@ -97,7 +98,7 @@ _peak_shader_set_uniforms(float peaks_per_pixel, float top, float bottom, uint32
 	dbg(1, "peaks_per_pixel=%.2f top=%.2f bottom=%.2f n_channels=%i", peaks_per_pixel, top, bottom, n_channels);
 #endif
 
-	WfShader* shader = &peak_shader.shader;
+	AGlShader* shader = &peak_shader.shader;
 	GLuint offsetLoc = glGetUniformLocation(shader->program, "peaks_per_pixel");
 	glUniform1f(offsetLoc, peaks_per_pixel);
 
@@ -118,7 +119,7 @@ _peak_shader_set_uniforms(float peaks_per_pixel, float top, float bottom, uint32
 static void
 _hires_set_uniforms()
 {
-	WfShader* shader = &hires_shader.shader;
+	AGlShader* shader = &hires_shader.shader;
 	struct U* u = &((HiResShader*)shader)->uniform;
 
 	float fg_colour[4] = {0.0, 0.0, 0.0, ((float)(hires_shader.uniform.fg_colour & 0xff)) / 0x100};
@@ -135,7 +136,7 @@ _hires_set_uniforms()
 static void
 _vertical_set_uniforms()
 {
-	WfShader* shader = &vertical.shader;
+	AGlShader* shader = &vertical.shader;
 	float fg_colour[4] = {0.0, 0.0, 0.0, ((float)(vertical.uniform.fg_colour & 0xff)) / 0x100};
 	wf_rgba_to_float(vertical.uniform.fg_colour, &fg_colour[0], &fg_colour[1], &fg_colour[2]);
 	glUniform4fv(glGetUniformLocation(shader->program, "fg_colour"), 1, fg_colour);
@@ -156,7 +157,7 @@ _alphamap_set_uniforms()
 static void
 _ruler_set_uniforms()
 {
-	WfShader* shader = &ruler.shader;
+	AGlShader* shader = &ruler.shader;
 
 	float fg_colour[4] = {0.0, 0.0, 0.0, ((float)(ruler.uniform.fg_colour & 0xff)) / 0x100};
 	wf_rgba_to_float(ruler.uniform.fg_colour, &fg_colour[0], &fg_colour[1], &fg_colour[2]);
@@ -167,45 +168,16 @@ _ruler_set_uniforms()
 }
 
 
-static GLuint
-create_program(/*WaveformCanvas* wfc, */WfShader* sh, UniformInfo* uniforms)
-{
-	GLuint vert_shader = sh->vertex_file
-		? compile_shader_file(GL_VERTEX_SHADER, sh->vertex_file)
-		: compile_shader_text(GL_VERTEX_SHADER, sh->text->vert);
-	GLuint frag_shader = sh->fragment_file
-		? compile_shader_file(GL_FRAGMENT_SHADER, sh->fragment_file)
-		: compile_shader_text(GL_FRAGMENT_SHADER, sh->text->frag);
-
-	GLint status;
-	glGetShaderiv(frag_shader, GL_COMPILE_STATUS, &status);
-	if (status != GL_TRUE){
-		printf("shader compile error! %i\n", status);
-	}
-
-	GLuint program = sh->program = link_shaders(vert_shader, frag_shader);
-	dbg(2, "%u %u program=%u", vert_shader, frag_shader, program);
-
-	glUseProgram(program);
-
-	uniforms_init(program, uniforms);
-
-	sh->uniforms = uniforms;
-
-	return program;
-}
-
-
 void
 wf_shaders_init()
 {
-	create_program(&peak_shader.shader, uniforms);
-	create_program(&hires_shader.shader, uniforms_hr);
-	create_program(&horizontal.shader, uniforms2);
-	create_program(&vertical.shader, uniforms3);
-	create_program(&tex2d.shader, uniforms4);
-	create_program(&tex2d_b.shader, uniforms4);
-	create_program(&ruler.shader, uniforms5);
+	agl_create_program(&peak_shader.shader, uniforms);
+	agl_create_program(&hires_shader.shader, uniforms_hr);
+	agl_create_program(&horizontal.shader, uniforms2);
+	agl_create_program(&vertical.shader, uniforms3);
+	agl_create_program(&tex2d.shader, uniforms4);
+	agl_create_program(&tex2d_b.shader, uniforms4);
+	agl_create_program(&ruler.shader, uniforms5);
 }
 
 

@@ -93,24 +93,35 @@ AC_ARG_ENABLE(
 	[opengl],
 	[  --disable-opengl        dont use the opengl canvas],
 	[
-		AC_MSG_WARN([opengl preference specifically disabled])
-		enable_opengl="no"
+		case "$enableval" in
+			"yes")
+				enable_opengl="yes"
+				;;
+			"no")
+				AC_MSG_WARN([opengl preference specifically disabled])
+				enable_opengl="no"
+				;;
+			*)
+				AC_MSG_ERROR([must use --enable-dbus(=yes/no) or --disable-dbus])
+				;;
+		esac
 	],
 	[
-		dnl AC_MSG_WARN([opengl option not specified. will try and use...])
+		AC_MSG_WARN([opengl option not specified. will try and use...])
 		if `pkg-config gtkglext-1.0`; then 
 			enable_opengl="yes"
-			OPENGL_CFLAGS=`pkg-config --cflags-only-I gtkglext-1.0`
-			OPENGL_LDFLAGS=`pkg-config --libs-only-l gtkglext-1.0`
-			AC_DEFINE(USE_OPENGL, 1, Opengl features are enabled)
-			AC_DEFINE(USE_FBO, 1, [enable support for opengl framebuffer objects for offscreen rendering])
-			AC_DEFINE(WF_USE_TEXTURE_CACHE, 1, [cannot currently disable if opengl used])
 		else
 			enable_opengl="no"
 		fi
 	]
 )
-
+if test "x$enable_opengl" = "xyes" ; then
+	OPENGL_CFLAGS=`pkg-config --cflags-only-I gtkglext-1.0`
+	OPENGL_LDFLAGS=`pkg-config --libs-only-l gtkglext-1.0`
+	AC_DEFINE(USE_OPENGL, 1, [Opengl features are enabled])
+	AC_DEFINE(USE_FBO, 1, [enable support for opengl framebuffer objects for offscreen rendering])
+	AC_DEFINE(WF_USE_TEXTURE_CACHE, 1, [cannot currently disable if opengl used])
+fi
 AM_CONDITIONAL(ENABLE_OPENGL, test $enable_opengl = "yes")
 AC_SUBST(OPENGL_CFLAGS)
 AC_SUBST(OPENGL_LDFLAGS)

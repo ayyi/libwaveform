@@ -3,7 +3,6 @@
 
 WfFBO* fbo_new   (guint texture);
 void   fbo_free  (WfFBO*);
-void   fbo_print (WaveformActor*, int x, int y, double scale, uint32_t colour, int alpha);
 WfFBO* fbo_new_test();
 
 struct _fbo {

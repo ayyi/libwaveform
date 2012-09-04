@@ -36,7 +36,7 @@ int
 wf_load_riff_peak(Waveform* wv, const char* peak_file, size_t size)
 {
 	g_return_val_if_fail(wv, 0);
-	PF;
+	PF2;
 
 	SNDFILE* sndfile;
 	SF_INFO sfinfo;
@@ -58,8 +58,8 @@ wf_load_riff_peak(Waveform* wv, const char* peak_file, size_t size)
 	g_return_val_if_fail(sfinfo.channels <= 2, 0);
 
 	sf_count_t n_frames = sfinfo.frames / WF_PEAK_VALUES_PER_SAMPLE;
-	dbg(1, "n_channels=%i n_frames=%Li n_bytes=%Li n_blocks=%i", sfinfo.channels, n_frames, sfinfo.frames * peak_byte_depth * sfinfo.channels, (int)(ceil((float)n_frames / WF_PEAK_TEXTURE_SIZE)));
-	dbg(1, "secs=%.3f %.3f", ((float)(n_frames)) / 44100, ((float)(n_frames * WF_PEAK_RATIO)) / 44100);
+	dbg(2, "n_channels=%i n_frames=%Li n_bytes=%Li n_blocks=%i", sfinfo.channels, n_frames, sfinfo.frames * peak_byte_depth * sfinfo.channels, (int)(ceil((float)n_frames / WF_PEAK_TEXTURE_SIZE)));
+	dbg(2, "secs=%.3f %.3f", ((float)(n_frames)) / 44100, ((float)(n_frames * WF_PEAK_RATIO)) / 44100);
 
 	uint32_t bytes = sfinfo.frames * peak_byte_depth * WF_PEAK_VALUES_PER_SAMPLE;
 
@@ -105,7 +105,7 @@ wf_load_riff_peak(Waveform* wv, const char* peak_file, size_t size)
 		g_free(read_buf);
 	}
 	wv->priv->peak.size = n_frames * WF_PEAK_VALUES_PER_SAMPLE;
-	dbg(1, "peak.size=%i", wv->priv->peak.size);
+	dbg(2, "peak.size=%i", wv->priv->peak.size);
 #ifdef ENABLE_CHECKS
 	int k; for(k=0;k<10;k++){
 		if(wv->priv->peak.buf[0][2*k + 0] < 0.0){ gwarn("positive peak not positive"); break; }

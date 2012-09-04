@@ -34,7 +34,7 @@ GLenum _wf_ge = 0;
 
 
 void
-use_texture(int texture)
+use_texture(GLuint texture)
 {
 	//note: 2d texture
 

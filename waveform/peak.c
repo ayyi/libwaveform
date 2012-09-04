@@ -131,8 +131,8 @@ __finalize (Waveform* w)
 
 	if(g_hash_table_size(wf->peak_cache) && !g_hash_table_remove(wf->peak_cache, w)) gwarn("failed to remove waveform from peak_cache");
 
-	int i; for(i=0;i<WF_MAX_CH;i++){
-		if(w->priv->peak.buf[i]) g_free(w->priv->peak.buf[i]);
+	int c; for(c=0;c<WF_MAX_CH;c++){
+		if(w->priv->peak.buf[c]) g_free(w->priv->peak.buf[c]);
 	}
 
 #ifdef USE_OPENGL
@@ -247,7 +247,7 @@ wf_texture_array_new(int size, int n_channels)
 void
 wf_texture_array_add_ch(WfGlBlock* textures, int c)
 {
-	dbg(2, "adding glbocks: c=%i num_blocks=%i ch=%i", c, textures->size);
+	dbg(2, "adding glbocks: c=%i num_blocks=%i", c, textures->size);
 	unsigned* a = g_new0(unsigned, textures->size * 2); // single allocation for both pos and neg
 	textures->peak_texture[c].main = a;
 	textures->peak_texture[c].neg  = a + textures->size;
@@ -337,7 +337,13 @@ gboolean
 waveform_load_peak(Waveform* w, const char* peak_file, int ch_num)
 {
 	g_return_val_if_fail(w, false);
-	g_return_val_if_fail(ch_num <= 2, false);
+	g_return_val_if_fail(ch_num <= WF_MAX_CH, false);
+
+	//check is not previously loaded
+	if(w->priv->peak.buf[ch_num]){
+		dbg(2, "already loaded. clearing...");
+		g_free0(w->priv->peak.buf[ch_num]);
+	}
 
 	size_t size = 0;
 	int n_channels = wf->load_peak(w, peak_file, size); //not currently passing the size. If we decide not to use it, this arg should be removed.
@@ -361,7 +367,7 @@ waveform_load_peak(Waveform* w, const char* peak_file, int ch_num)
 		w->textures_hi = g_new0(WfTexturesHi, 1);
 		w->textures_hi->textures = g_hash_table_new(g_int_hash, g_int_equal);
 	}else{
-		wf_texture_array_add_ch(w->textures, WF_RIGHT);
+		if(ch_num) wf_texture_array_add_ch(w->textures, WF_RIGHT);
 	}
 	//waveform_print_blocks(w);
 
@@ -500,17 +506,19 @@ waveform_peak_malloc(Waveform* w, uint32_t bytes)
 	wf->peak_mem_size += bytes;
 	g_hash_table_insert(wf->peak_cache, w, w); //is removed in __finalize()
 
-	//(debug) check cache size
-	int total_size = 0;
-	GHashTableIter iter;
-	gpointer key, value;
-	g_hash_table_iter_init (&iter, wf->peak_cache);
-	while (g_hash_table_iter_next (&iter, &key, &value)){
-		Waveform* w = value;
-		if(w->priv->peak.buf[0]) total_size += w->priv->peak.size;
-		if(w->priv->peak.buf[1]) total_size += w->priv->peak.size;
+	// check cache size
+	if(wf_debug > 1){
+		int total_size = 0;
+		GHashTableIter iter;
+		gpointer key, value;
+		g_hash_table_iter_init (&iter, wf->peak_cache);
+		while (g_hash_table_iter_next (&iter, &key, &value)){
+			Waveform* w = value;
+			if(w->priv->peak.buf[0]) total_size += w->priv->peak.size;
+			if(w->priv->peak.buf[1]) total_size += w->priv->peak.size;
+		}
+		dbg(2, "peak cache: size=%ik", total_size/1024);
 	}
-	dbg(2, "peak cache: size=%ik", total_size/1024);
 
 	return buf;
 }
@@ -583,7 +591,7 @@ TODO wrong - should be filled with data from adjacent blocks
 	int px_start = start ? *start : 0;
 	int px_stop  = *end;//   ? MIN(*end, width) : width;
 //------------------------------
-	dbg (1, "start=%i end=%i", px_start, px_stop);
+	dbg (2, "start=%i end=%i", px_start, px_stop);
 	//dbg (1, "width=%i height=%i", width, height);
 
 	if(width < px_stop - px_start){ gwarn("alphabuf too small? %i < %i", width, px_stop - px_start); return; }
@@ -2078,8 +2086,9 @@ waveform_print_blocks(Waveform* w)
 
 	printf("%s {\n", __func__);
 	WfGlBlock* blocks = w->textures;
+	printf("        L+ L- R+ R-\n");
 	printf("  std:\n");
-	int b; for(b=0;b<5;b++){
+	int b; for(b=0;b<MIN(5, blocks->size);b++){
 		printf("    %i: %2i %2i %2i %2i\n", b,
 			blocks->peak_texture[WF_LEFT].main[b],
 			blocks->peak_texture[WF_LEFT].neg[b], 

@@ -1,26 +1,10 @@
 #ifndef __wf_shader_h__
 #define __wf_shader_h__
-#include "waveform/shaderutil.h"
-
-typedef struct _wf_shader_text
-{
-	char*        vert;
-	char*        frag;
-} WfShaderText;
-
-struct _wf_shader
-{
-	char*        vertex_file;
-	char*        fragment_file;
-	uint32_t     program;       // compiled program
-	UniformInfo* uniforms;
-	void         (*set_uniforms_)();
-	WfShaderText*text;
-};
-
 #ifdef __gl_h_
+#include "agl/utils.h"
+
 typedef struct {
-	WfShader  shader;
+	AGlShader shader;
 	void      (*set_uniforms)(float peaks_per_pixel, float top, float bottom, uint32_t _fg_colour, int n_channels);
 	struct {
 		float peaks_per_pixel;
@@ -29,7 +13,7 @@ typedef struct {
 } PeakShader;
 
 typedef struct {
-	WfShader  shader;
+	AGlShader shader;
 	struct U {
 		uint32_t fg_colour;
 		float    top;
@@ -40,7 +24,7 @@ typedef struct {
 } HiResShader;
 
 typedef struct {
-	WfShader  shader;
+	AGlShader shader;
 	struct {
 		uint32_t fg_colour;
 		float    peaks_per_pixel;
@@ -48,14 +32,14 @@ typedef struct {
 } BloomShader;
 
 typedef struct {
-	WfShader     shader;
+	AGlShader    shader;
 	struct {
 		uint32_t fg_colour;
 	}            uniform;
 } AlphaMapShader;
 
 typedef struct {
-	WfShader     shader;
+	AGlShader    shader;
 	struct {
 		uint32_t fg_colour;
 		float    beats_per_pixel;

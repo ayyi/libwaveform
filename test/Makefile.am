@@ -2,7 +2,7 @@
 if BUILD_TESTS
 
 if ENABLE_OPENGL
-noinst_PROGRAMS = waveform_test view_test actor_test actor_plus hires_test frame_rate resources write_wav write_short
+noinst_PROGRAMS = waveform_test view_test actor_test actor_plus group hires_test frame_rate resources write_wav write_short
 endif
 
 AM_CFLAGS = \
@@ -20,6 +20,10 @@ TEST_LDFLAGS = \
 	$(SNDFILE_LIBS) \
 	$(OPENGL_LDFLAGS)
 
+COMMON_SOURCES = \
+	common.c common.h \
+	ayyi_utils.c ayyi_utils.h
+
 waveform_test_SOURCES = \
 	common.c common.h \
 	ayyi_utils.c ayyi_utils.h \
@@ -31,13 +35,16 @@ view_test_SOURCES = \
 	view_test.c
 
 actor_test_SOURCES = \
-	ayyi_utils.c ayyi_utils.h \
-	common.c common.h \
+	$(COMMON_SOURCES) \
 	actor_test.c
 
 actor_plus_SOURCES = \
 	ayyi_utils.c ayyi_utils.h \
 	actor_plus.c
+
+group_SOURCES = \
+	$(COMMON_SOURCES) \
+	group.c
 
 hires_test_SOURCES = \
 	ayyi_utils.c ayyi_utils.h \

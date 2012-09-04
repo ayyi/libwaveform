@@ -28,12 +28,11 @@
 #include <GL/glxext.h>
 #include <gtkglext-1.0/gdk/gdkgl.h>
 #include <gtkglext-1.0/gtk/gtkgl.h>
+#include "agl/ext.h"
 #include "waveform/utils.h"
 #include "waveform/gl_utils.h"
 #include "waveform/peak.h"
 #include "waveform/texture_cache.h"
-#include "waveform/shaderutil.h"
-#include "waveform/gl_ext.h"
 #include "waveform/canvas.h"
 #include "waveform/actor.h"
 #include "waveform/fbo.h"
@@ -80,7 +79,7 @@ fbo_new(GLuint texture)
 	fbo->height = 256;
 	fbo->texture = texture ? texture : make_texture(fbo->width);
 	fbo->id = make_fbo(fbo->texture);
-	dbg(1, "fb=%i texture=%i", fbo->id, fbo->texture);
+	dbg(2, "fb=%i texture=%i", fbo->id, fbo->texture);
 
 	glBindFramebuffer(GL_FRAMEBUFFER_EXT, fbo->id);
 
@@ -185,7 +184,9 @@ fbo_new_test()
 }
 
 
-void fbo_print(WaveformActor* actor, int x, int y, double scale, uint32_t colour, int alpha)
+#if 0
+void
+fbo_print(WaveformActor* actor, int x, int y, double scale, uint32_t colour, int alpha)
 {
 	Waveform* w = actor->waveform;
 	WfGlBlock* textures = w->textures;
@@ -281,11 +282,11 @@ glDisable(GL_BLEND);
 		glTexCoord2d(0.0, 0.0); glVertex2d(x1, bot);
 		glTexCoord2d(1.0, 0.0); glVertex2d(x2, bot);
 		glEnd();
-/*
-*/
+
 		wf_canvas_use_program_(actor->canvas, NULL);
 	}
 	gl_warn("gl error");
 }
+#endif
 #endif //use_fbo
 
