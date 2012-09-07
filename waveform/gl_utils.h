@@ -19,15 +19,17 @@
 
 #ifdef __waveform_gl_utils_c__
 gboolean __wf_drawing = FALSE;
+int __draw_depth = 0;
 #else
 extern gboolean __wf_drawing;
+extern int __draw_depth;
 #endif
 #define WF_START_DRAW \
 	if(__wf_drawing){ gwarn("START_DRAW: already drawing"); } \
 	__draw_depth++; \
 	__wf_drawing = TRUE; \
 	if ((__draw_depth > 1) || gdk_gl_drawable_gl_begin (view->priv->canvas->gl_drawable, view->priv->canvas->gl_context)) {
-#define END_DRAW \
+#define WF_END_DRAW \
 	__draw_depth--; \
 	if(!__draw_depth) gdk_gl_drawable_gl_end(view->priv->canvas->gl_drawable); \
 	} else { gwarn("!! gl_begin fail"); } \

@@ -42,6 +42,7 @@ static void  _peak_shader_set_uniforms (float peaks_per_pixel, float top, float 
 static void  _hires_set_uniforms       ();
 static void  _vertical_set_uniforms    ();
 static void  _alphamap_set_uniforms    ();
+static void  _ass_set_uniforms         ();
 static void  _ruler_set_uniforms       ();
 
 PeakShader peak_shader = {{NULL, NULL, 0, NULL, NULL, &peak_text}, _peak_shader_set_uniforms};
@@ -77,6 +78,12 @@ static AGlUniformInfo uniforms3[] = {
 //used for background
 AlphaMapShader tex2d = {{NULL, NULL, 0, NULL, _alphamap_set_uniforms, &alpha_map_text}};
 static AGlUniformInfo uniforms4[] = {
+   {"tex2d",     1, GL_INT,   { 0, 0, 0, 0 }, -1},
+   END_OF_UNIFORMS
+};
+
+AlphaMapShader ass = {{NULL, NULL, 0, NULL, _ass_set_uniforms, &ass_text}};
+static AGlUniformInfo uniforms6[] = {
    {"tex2d",     1, GL_INT,   { 0, 0, 0, 0 }, -1},
    END_OF_UNIFORMS
 };
@@ -153,6 +160,15 @@ _alphamap_set_uniforms()
 	glUniform4fv(glGetUniformLocation(tex2d.shader.program, "fg_colour"), 1, fg_colour);
 }
 
+static void
+_ass_set_uniforms()
+{
+	float fg_colour[4] = {0.0, 0.0, 0.0, ((float)(ass.uniform.fg_colour & 0xff)) / 0x100};
+	wf_rgba_to_float(ass.uniform.fg_colour, &fg_colour[0], &fg_colour[1], &fg_colour[2]);
+	glUniform4fv(glGetUniformLocation(ass.shader.program, "fg_colour"), 1, fg_colour);
+}
+
+
 
 static void
 _ruler_set_uniforms()
@@ -178,6 +194,7 @@ wf_shaders_init()
 	agl_create_program(&tex2d.shader, uniforms4);
 	agl_create_program(&tex2d_b.shader, uniforms4);
 	agl_create_program(&ruler.shader, uniforms5);
+	agl_create_program(&ass.shader, uniforms6);
 }
 
 

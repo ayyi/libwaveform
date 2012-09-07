@@ -15,20 +15,19 @@
 #define TIMER_STOP FALSE
 #define call(FN, A, ...) if(FN) (FN)(A, ##__VA_ARGS__)
 
-#ifdef __common_c__
-gboolean __drawing = FALSE;
-#else
-extern gboolean __drawing;
+#ifndef __common_c__
+extern gboolean __wf_drawing;
 #endif
 #define START_DRAW \
-	if(__drawing) gwarn("START_DRAW: already drawing"); \
-	__drawing = TRUE; \
-	if (gdk_gl_drawable_gl_begin (gl_drawable, gl_context)) {
+	if(__wf_drawing){ gwarn("START_DRAW: already drawing"); } \
+	__draw_depth++; \
+	__wf_drawing = TRUE; \
+	if ((__draw_depth > 1) || gdk_gl_drawable_gl_begin (gl_drawable, gl_context)) {
 #define END_DRAW \
-	gdk_gl_drawable_gl_end(gl_drawable); \
-	} else gwarn("!! gl_begin fail")\
-	(__drawing = FALSE);
-#define ASSERT_DRAWING g_return_if_fail(__drawing);
+	__draw_depth--; \
+	if(!__draw_depth) gdk_gl_drawable_gl_end(gl_drawable); \
+	} else { gwarn("!! gl_begin fail"); } \
+	(__wf_drawing = FALSE);
 
 void        errprintf                (char* fmt, ...);
 void        errprintf2               (const char* func, char* format, ...);

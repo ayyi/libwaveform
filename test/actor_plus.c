@@ -46,6 +46,7 @@
 #include "waveform/waveform.h"
 #include "waveform/actor.h"
 #include "waveform/fbo.h"
+#include "waveform/gl_utils.h"
 #include "test/ayyi_utils.h"
 
 #define WAV "test/data/mono_1.wav"
@@ -71,17 +72,6 @@ Waveform*       w1             = NULL;
 WaveformActor*  a[]            = {NULL};//{NULL, NULL, NULL};
 float           zoom           = 1.0;
 GLuint          bg_textures[2] = {0, 0};
-
-gboolean __drawing = FALSE;
-#define START_DRAW \
-	if(__drawing) gwarn("START_DRAW: already drawing"); \
-	__drawing = TRUE; \
-	if (gdk_gl_drawable_gl_begin (gl_drawable, gl_context)) {
-#define END_DRAW \
-	gdk_gl_drawable_gl_end(gl_drawable); \
-	} else gwarn("!! gl_begin fail")\
-	(__drawing = FALSE);
-#define ASSERT_DRAWING g_return_if_fail(__drawing);
 
 static void set_log_handlers   ();
 static void setup_projection   (GtkWidget*);

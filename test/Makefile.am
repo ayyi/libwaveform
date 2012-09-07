@@ -1,8 +1,12 @@
 
 if BUILD_TESTS
 
+if BUILD_TESTS
+ASSPROGRAMS = ass
+endif
+
 if ENABLE_OPENGL
-noinst_PROGRAMS = waveform_test view_test actor_test actor_plus group hires_test frame_rate resources write_wav write_short
+noinst_PROGRAMS = waveform_test view_test actor_test actor_plus group hires_test $(ASSPROGRAMS) frame_rate resources write_wav write_short
 endif
 
 AM_CFLAGS = \
@@ -11,7 +15,8 @@ AM_CFLAGS = \
 	-I$(top_srcdir) \
 	-I$(top_srcdir)/libs \
 	$(OPENGL_CFLAGS) \
-	$(GTK_CFLAGS)
+	$(GTK_CFLAGS) \
+	$(LIBASS_CFLAGS)
 
 TEST_LDFLAGS = \
 	$(top_srcdir)/waveform/.libs/libwaveform.a \
@@ -25,13 +30,11 @@ COMMON_SOURCES = \
 	ayyi_utils.c ayyi_utils.h
 
 waveform_test_SOURCES = \
-	common.c common.h \
-	ayyi_utils.c ayyi_utils.h \
+	$(COMMON_SOURCES) \
 	waveform_test.c
 
 view_test_SOURCES = \
-	ayyi_utils.c ayyi_utils.h \
-	common.c common.h \
+	$(COMMON_SOURCES) \
 	view_test.c
 
 actor_test_SOURCES = \
@@ -45,6 +48,8 @@ actor_plus_SOURCES = \
 group_SOURCES = \
 	$(COMMON_SOURCES) \
 	group.c
+
+ass_SOURCES = $(COMMON_SOURCES) ass.c
 
 hires_test_SOURCES = \
 	ayyi_utils.c ayyi_utils.h \
@@ -79,6 +84,11 @@ actor_test_LDADD = \
 
 actor_plus_LDADD = \
 	$(OPENGL_LDFLAGS) \
+	$(TEST_LDFLAGS)
+
+ass_LDADD = \
+	$(OPENGL_LDFLAGS) \
+	$(LIBASS_LDFLAGS) \
 	$(TEST_LDFLAGS)
 
 LDADD = \

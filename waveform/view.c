@@ -421,7 +421,7 @@ waveform_view_on_expose (GtkWidget* widget, GdkEventExpose* event)
 		draw(view);
 
 		gdk_gl_drawable_swap_buffers(view->priv->canvas->gl_drawable);
-	} END_DRAW
+	} WF_END_DRAW
 
 	return true;
 }

@@ -1,6 +1,5 @@
 /*
-  Demonstration of the libwaveform WaveformActor interface
-  showing a 3d presentation of a list of waveforms.
+  Demonstration of overlaying text on a waveform window.
 
   ---------------------------------------------------------------
 
@@ -21,6 +20,7 @@
 
 */
 #define __ayyi_private__
+#define __wf_canvas_priv__
 #include "config.h"
 #include <stdlib.h>
 #include <stdint.h>
@@ -37,6 +37,7 @@
 #include <GL/gl.h>
 #include <gtk/gtk.h>
 #include <gdk/gdkkeysyms.h>
+#include <ass.h>
 #include "agl/utils.h"
 #include "waveform/waveform.h"
 #include "waveform/actor.h"
@@ -51,13 +52,14 @@ struct
 } app;
 
 #define GL_WIDTH 256.0
-#define GL_HEIGHT 256.0
+#define GL_HEIGHT 128.0
+#define TEXT_WIDTH "512"
+#define TEXT_HEIGHT "64"
+	const int frame_w = 512;
+	const int frame_h =  64;
 #define VBORDER 8
 #define bool gboolean
-
-//float rotate[3] = {45.0, 45.0, 45.0};
-float rotate[3] = {30.0, 30.0, 30.0};
-float isometric_rotation[3] = {35.264f, 45.0f, 0.0f};
+#define WAV "test/data/mono_1.wav"
 
 GdkGLConfig*    glconfig       = NULL;
 GdkGLDrawable*  gl_drawable    = NULL;
@@ -67,11 +69,30 @@ GtkWidget*      canvas         = NULL;
 WaveformCanvas* wfc            = NULL;
 Waveform*       w1             = NULL;
 Waveform*       w2             = NULL;
-WaveformActor*  a[]            = {NULL, NULL, NULL, NULL};
-int             a_front        = 3;
+WaveformActor*  actor          = NULL;
 float           zoom           = 1.0;
 float           dz             = 20.0;
+GLuint          ass_textures[] = {0, 0};
 gpointer        tests[]        = {};
+
+char* script = 
+	"[Script Info]\n"
+	"ScriptType: v4.00+\n"
+	"PlayResX: " TEXT_WIDTH "\n"
+	"PlayResY: " TEXT_HEIGHT "\n"
+	"ScaledBorderAndShadow: yes\n"
+	"[V4+ Styles]\n"
+	"Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding\n"
+	"Style: Default,Fontin Sans Rg,40,&H000000FF,&HFF0000FF,&H00FF0000,&H00000000,-1,0,0,0,100,100,0,0,1,2.5,0,1,2,2,2,1\n"
+	"[Events]\n"
+	"Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\n"
+	"Dialogue: 0,0:00:00.00,0:00:15.00,Default,,0000,0000,0000,," WAV " \n";
+
+typedef struct
+{
+    int width, height, stride;
+    unsigned char* buf;      // 8 bit alphamap
+} image_t;
 
 static void set_log_handlers   ();
 static void setup_projection   (GtkWidget*);
@@ -80,10 +101,45 @@ static bool on_expose          (GtkWidget*, GdkEventExpose*, gpointer);
 static void on_canvas_realise  (GtkWidget*, gpointer);
 static void on_allocate        (GtkWidget*, GtkAllocation*, gpointer);
 static void start_zoom         (float target_zoom);
-static void forward            ();
-static void backward           ();
 static void toggle_animate     ();
+static void render_text        ();
+static void blend_single       (image_t*, ASS_Image*);
 uint64_t    get_time           ();
+
+ASS_Library* ass_library;
+ASS_Renderer* ass_renderer;
+
+
+void
+msg_callback(int level, const char* fmt, va_list va, void* data)
+{
+    if (level > 6) return;
+    printf("libass: ");
+    vprintf(fmt, va);
+    printf("\n");
+}
+
+
+static void
+init(int frame_w, int frame_h)
+{
+    ass_library = ass_library_init();
+    if (!ass_library) {
+        printf("ass_library_init failed!\n");
+        exit(EXIT_FAILURE);
+    }
+
+    ass_set_message_cb(ass_library, msg_callback, NULL);
+
+    ass_renderer = ass_renderer_init(ass_library);
+    if (!ass_renderer) {
+        printf("ass_renderer_init failed!\n");
+        exit(EXIT_FAILURE);
+    }
+
+    ass_set_frame_size(ass_renderer, frame_w, frame_h);
+    ass_set_fonts(ass_renderer, NULL, "Sans", 1, NULL, 1);
+}
 
 
 int
@@ -106,10 +162,11 @@ main (int argc, char *argv[])
 #ifdef HAVE_GTK_2_18
 	gtk_widget_set_can_focus     (canvas, true);
 #endif
-	gtk_widget_set_size_request  (canvas, 320, 128);
+	gtk_widget_set_size_request  (canvas, 480, 64);
 	gtk_widget_set_gl_capability (canvas, glconfig, NULL, 1, GDK_GL_RGBA_TYPE);
 	gtk_widget_add_events        (canvas, GDK_POINTER_MOTION_MASK | GDK_BUTTON_PRESS_MASK | GDK_BUTTON_RELEASE_MASK);
 	gtk_container_add((GtkContainer*)window, (GtkWidget*)canvas);
+
 	g_signal_connect((gpointer)canvas, "realize",       G_CALLBACK(on_canvas_realise), NULL);
 	g_signal_connect((gpointer)canvas, "size-allocate", G_CALLBACK(on_allocate), NULL);
 	g_signal_connect((gpointer)canvas, "expose_event",  G_CALLBACK(on_expose), NULL);
@@ -132,16 +189,6 @@ main (int argc, char *argv[])
 			case GDK_KEY_Right:
 			case GDK_KEY_KP_Right:
 				dbg(0, "right");
-				break;
-			case GDK_KEY_Up:
-			case GDK_KEY_KP_Up:
-				dbg(0, "up");
-				forward();
-				break;
-			case GDK_KEY_Down:
-			case GDK_KEY_KP_Down:
-				dbg(0, "down");
-				backward();
 				break;
 			case (char)'a':
 				toggle_animate();
@@ -168,9 +215,73 @@ main (int argc, char *argv[])
 	}
 	g_signal_connect(window, "delete-event", G_CALLBACK(window_on_delete), NULL);
 
+	render_text();
+
 	gtk_main();
 
 	return EXIT_SUCCESS;
+}
+
+
+static void
+render_text()
+{
+	init(frame_w, frame_h);
+	ASS_Track* track = ass_read_memory(ass_library, g_strdup(script), strlen(script), NULL);
+	if (!track) {
+		printf("track init failed!\n");
+		exit(EXIT_FAILURE);
+	}
+
+	// ASS_Image is a list of alphamaps each with a uint32 RGBA colour/alpha
+	ASS_Image* img = ass_render_frame(ass_renderer, track, 100, NULL);
+
+	// ass output will be composited into this buffer.
+	// 16bits per pixel for use with GL_LUMINANCE8_ALPHA8 mode.
+	#define N_CHANNELS 2 // luminance + alpha
+	image_t out = {frame_w, frame_h, frame_w * N_CHANNELS, NULL };
+	out.buf = g_new0(guchar, frame_w * out.height * N_CHANNELS);
+
+#if 0 //BACKGROUND
+	int width  = out.width;
+	int height = out.height;
+	int y; for(y=0;y<height;y++){
+		int x; for(x=0;x<width;x++){
+			*(out.buf + y * width + x) = ((x+y) * 0xff) / (width * 2);
+		}
+	}
+#else
+	//clear the background to border colour for better antialiasing at edges
+	int x, y; for(y=0;y<out.height;y++){
+		for(x=0;x<out.width;x++){
+			*(out.buf + y * out.stride + N_CHANNELS * x) = 0xff; //TODO should be border colour.
+		}
+	}
+#endif
+
+	ASS_Image* i = img;
+	int cnt = 0;
+	for(;i;i=i->next,cnt++){
+		blend_single(&out, i); //is each one of these a single glyph?
+	}
+	printf("%d images blended\n", cnt);
+
+	{
+		glGenTextures(1, ass_textures);
+		if(gl_error){ gerr ("couldnt create ass_texture."); exit(EXIT_FAILURE); }
+
+		int pixel_format = GL_LUMINANCE_ALPHA;
+		glBindTexture  (GL_TEXTURE_2D, ass_textures[0]);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_LUMINANCE8_ALPHA8, out.width, out.height, 0, pixel_format, GL_UNSIGNED_BYTE, out.buf);
+		gl_warn("gl error binding ass texture");
+	}
+
+	ass_free_track(track);
+	ass_renderer_done(ass_renderer);
+	ass_library_done(ass_library);
+	g_free(out.buf);
 }
 
 
@@ -193,12 +304,6 @@ setup_projection(GtkWidget* widget)
 	double bottom = GL_HEIGHT + VBORDER;
 	double top = -VBORDER;
 	glOrtho (left, right, bottom, top, 512.0, -512.0);
-
-	glMatrixMode(GL_MODELVIEW);
-	glLoadIdentity();
-	glRotatef(rotate[0], 1.0f, 0.0f, 0.0f);
-	glRotatef(rotate[1], 0.0f, 1.0f, 0.0f);
-	glScalef(1.0f, 1.0f, -1.0f);
 }
 
 
@@ -209,11 +314,34 @@ draw(GtkWidget* widget)
 	glEnable(GL_BLEND); glEnable(GL_DEPTH_TEST); glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
 	glPushMatrix(); /* modelview matrix */
-		int i; for(i=0;i<G_N_ELEMENTS(a);i++){
-			WaveformActor* actor = a[(i + a_front + 1) % G_N_ELEMENTS(a)];
-			if(actor) wf_actor_paint(actor);
-		}
+		if(actor) wf_actor_paint(actor);
 	glPopMatrix();
+
+	//text:
+	AGl* agl = agl_get_instance();
+	if(agl->use_shaders){
+		glEnable(GL_TEXTURE_2D);
+		glActiveTexture(GL_TEXTURE0);
+		glBindTexture(GL_TEXTURE_2D, ass_textures[0]);
+		if(!glIsTexture(ass_textures[0])) gwarn("not texture");
+
+		wfc->priv->shaders.ass->uniform.fg_colour = 0xffffffff;
+
+		wf_canvas_use_program_(wfc, (AGlShader*)wfc->priv->shaders.ass);
+
+		float w = GL_WIDTH;
+		float h = frame_h;
+		float x1 = 0.0f;
+		float y1 = GL_HEIGHT - h;
+		float x2 = x1 + w;
+		float y2 = y1 + h;
+		glBegin(GL_QUADS);
+		glTexCoord2d(0.0, 0.0); glVertex3d(x1, y1, -1);
+		glTexCoord2d(1.0, 0.0); glVertex3d(x2, y1, -1);
+		glTexCoord2d(1.0, 1.0); glVertex3d(x2, y2, -1);
+		glTexCoord2d(0.0, 1.0); glVertex3d(x1, y2, -1);
+		glEnd();
+	}
 
 #undef SHOW_BOUNDING_BOX
 #ifdef SHOW_BOUNDING_BOX
@@ -271,33 +399,22 @@ on_canvas_realise(GtkWidget* _canvas, gpointer user_data)
 
 	canvas_init_done = true;
 
-	char* filename = g_build_filename(g_get_current_dir(), "test/data/mono_1.wav", NULL);
+	char* filename = g_build_filename(g_get_current_dir(), WAV, NULL);
 	w1 = waveform_load_new(filename);
 	g_free(filename);
 
 	int n_frames = waveform_get_n_frames(w1);
 
-	WfSampleRegion region[] = {
-		{0,            n_frames    },
-		{0,            n_frames / 2},
-		{n_frames / 4, n_frames / 4},
-		{n_frames / 2, n_frames / 2},
+	WfSampleRegion region = {
+		0,            n_frames,
 	};
 
-	uint32_t colours[4][2] = {
-		{0x66eeffff, 0x0000ffff}, // blue
-		{0xffffff77, 0x0000ffff}, // grey
-		{0xffdd66ff, 0x0000ffff}, // orange
-		{0x66ff66ff, 0x0000ffff}, // green
-	};
+	uint32_t colours[2] = {0x3399ffff, 0x0000ffff}; // blue
 
-	int i; for(i=0;i<G_N_ELEMENTS(a);i++){
-		a[i] = wf_canvas_add_new_actor(wfc, w1);
+	actor = wf_canvas_add_new_actor(wfc, w1);
 
-		wf_actor_set_region (a[i], &region[i]);
-		wf_actor_set_colour (a[i], colours[i][0], colours[i][1]);
-		wf_actor_set_z      (a[i], i * dz);
-	}
+	wf_actor_set_region (actor, &region);
+	wf_actor_set_colour (actor, colours[0], colours[1]);
 
 	on_allocate(canvas, &canvas->allocation, user_data);
 
@@ -324,6 +441,37 @@ on_allocate(GtkWidget* widget, GtkAllocation* allocation, gpointer user_data)
 }
 
 
+#define _r(c)  ( (c)>>24)
+#define _g(c)  (((c)>>16)&0xFF)
+#define _b(c)  (((c)>> 8)&0xFF)
+#define _a(c)  (((c)    )&0xFF)
+
+static void
+blend_single(image_t* frame, ASS_Image* img)
+{
+	// composite img onto frame
+
+	int x, y;
+	unsigned char opacity = 255 - _a(img->color);
+	unsigned char b = _b(img->color);
+	dbg(2, "  %ix%i stride=%i x=%i", img->w, img->h, img->stride, img->dst_x);
+
+	#define LUMINANCE_CHANNEL (x * N_CHANNELS)
+	#define ALPHA_CHANNEL (x * N_CHANNELS + 1)
+	unsigned char* src = img->bitmap;
+	unsigned char* dst = frame->buf + img->dst_y * frame->stride + img->dst_x * N_CHANNELS;
+	for (y = 0; y < img->h; ++y) {
+		for (x = 0; x < img->w; ++x) {
+			unsigned k = ((unsigned) src[x]) * opacity / 255;
+			dst[LUMINANCE_CHANNEL] = (k * b + (255 - k) * dst[LUMINANCE_CHANNEL]) / 255;
+			dst[ALPHA_CHANNEL] = (k * 255 + (255 - k) * dst[ALPHA_CHANNEL]) / 255;
+		}
+		src += img->stride;
+		dst += frame->stride;
+	}
+}
+
+
 float
 _easing(int step, float start, float end)
 {
@@ -332,78 +480,17 @@ _easing(int step, float start, float end)
 
 
 static void
-set_position(int i, int j)
-{
-	#define Y_FACTOR 0.0f //0.5f //currently set to zero to simplify changing stack order
-
-	if(a[i]) wf_actor_allocate(a[i], &(WfRectangle){
-		40.0,
-		((float)j) * GL_HEIGHT * Y_FACTOR / 4 + 10.0f,
-		GL_WIDTH * zoom,
-		GL_HEIGHT / 4 * 0.95
-	});
-}
-
-
-static void
 start_zoom(float target_zoom)
 {
-	//when zooming in, the Region is preserved so the box gets bigger. Drawing is clipped by the Viewport.
-
-	PF0;
+	PF;
 	zoom = MAX(0.1, target_zoom);
 
-	int i; for(i=0;i<G_N_ELEMENTS(a);i++) set_position(i, i);
-}
-
-
-static void
-forward()
-{
-	void fade_out_done(WaveformActor* actor, gpointer user_data)
-	{
-		gboolean fade_out_really_done(WaveformActor* actor)
-		{
-			wfc->enable_animations = false;
-			wf_actor_set_z(actor, 0);
-			wfc->enable_animations = true;
-			wf_actor_fade_in(actor, NULL, 1.0f, NULL, NULL);
-			set_position(a_front, 0); //move to back
-
-			if(--a_front < 0) a_front = G_N_ELEMENTS(a) - 1;
-			return IDLE_STOP;
-		}
-		g_idle_add((GSourceFunc)fade_out_really_done, actor); //TODO fix issues with overlapping transitions.
-	}
-
-	int i; for(i=0;i<G_N_ELEMENTS(a);i++) wf_actor_set_z(a[i], a[i]->z + dz);
-	dbg(1, "a_front=%i", a_front);
-	wf_actor_fade_out(a[a_front], fade_out_done, NULL);
-}
-
-
-static void
-backward()
-{
-	void fade_out_done(WaveformActor* actor, gpointer user_data)
-	{
-		gboolean fade_out_really_done(WaveformActor* actor)
-		{
-			wfc->enable_animations = false;
-			wf_actor_set_z(actor, dz * (G_N_ELEMENTS(a) - 1));
-			wfc->enable_animations = true;
-			wf_actor_fade_in(actor, NULL, 1.0f, NULL, NULL);
-			set_position(a_front, G_N_ELEMENTS(a) - 1); //move to front
-
-			if(++a_front > G_N_ELEMENTS(a) - 1) a_front = 0;
-			return IDLE_STOP;
-		}
-		g_idle_add((GSourceFunc)fade_out_really_done, actor); //TODO fix issues with overlapping transitions.
-	}
-
-	int i; for(i=0;i<G_N_ELEMENTS(a);i++) wf_actor_set_z(a[i], a[i]->z - dz);
-	dbg(1, "a_front=%i", a_front);
-	wf_actor_fade_out(a[(a_front + 1) % G_N_ELEMENTS(a)], fade_out_done, NULL);
+	if(actor) wf_actor_allocate(actor, &(WfRectangle){
+		0.0f,
+		0.0f,
+		GL_WIDTH * zoom,
+		GL_HEIGHT * 0.95
+	});
 }
 
 
@@ -422,7 +509,6 @@ toggle_animate()
 				dbg(0, "rate=%.2f fps", ((float)frame) / ((float)(time - t0)) / 1000.0);
 
 			if(!(frame % 8)){
-				forward();
 			}
 		}
 		frame++;

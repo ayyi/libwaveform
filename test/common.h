@@ -6,13 +6,9 @@
 //#define mono_wav_fixture "/usr/share/hydrogen/data/click.wav"
 //#define stereo_wav_fixture "/usr/share/games/alienarena/data1/sound/music/dm-dynamo.ogg"
 #define stereo_wav_fixture "/root/cache/src/xbmc-9.11/skin/PM3.HD/sounds/shutter.wav"
-#define vst_plugin_fixture "SaffireEQMono"
-#define MIN_TRACKS 1 //server crashes if no tracks?
 #define bool gboolean
 #define TIMER_CONTINUE TRUE
 #define TIMER_STOP FALSE
-//#define false FALSE
-//#define true TRUE
 
 extern int current_test;
 

@@ -158,6 +158,19 @@ AM_CONDITIONAL(ENABLE_LV2, test "$enable_lv2" != "no")
 AC_SUBST(LV2_LDFLAGS)
 AC_SUBST(LV2_CFLAGS)
 
+AS_IF([test "$enable_libass" != "no"], [
+	PKG_CHECK_MODULES(LIBASS, libass, [AC_DEFINE(USE_LIBASS, 1, Use libass for text display) enable_libass="yes"],[
+	enable_libass="no"])
+])
+AM_CONDITIONAL(ENABLE_LIBASS, test "$enable_libass" = "yes")
+AC_SUBST(LIBASS_CFLAGS)
+dnl the libass pc file seems to be missing one dir:
+if test "$enable_libass" = "yes"; then
+	LIBASS_CFLAGS=${LIBASS_CFLAGS}" -I/usr/include/ass"
+	LIBASS_LDFLAGS=${LIBASS_LIBS}
+	AC_SUBST(LIBASS_LDFLAGS)
+fi
+
 dnl AM_CONDITIONAL(ENABLE_GDK_PIXBUF, test "yes" != "no")
 AC_DEFINE(USE_GDK_PIXBUF, 1, [enable support for Gdk Pixbuf])
 
@@ -185,6 +198,7 @@ AC_OUTPUT
 AC_MSG_RESULT([])
 AC_MSG_RESULT([Libwaveform:])
 AC_MSG_RESULT([Building opengl:          $enable_opengl])
+AC_MSG_RESULT([Building libass:          $enable_libass])
 AC_MSG_RESULT([Building tests:           $enable_test])
 AC_MSG_RESULT([Building lv2:             $enable_lv2 (TODO)])
 AC_MSG_RESULT([])

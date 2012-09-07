@@ -17,8 +17,6 @@
 
 extern WF* wf;
 
-static int __draw_depth = 0;
-
 
 static void
 waveform_view_gl_init(WaveformView* view)
@@ -39,7 +37,7 @@ waveform_view_gl_init(WaveformView* view)
 			fprintf(stderr, "Framebuffer effects will be lower resolution (lower quality).\n\n" );
 		}
 
-	} END_DRAW
+	} WF_END_DRAW
 
 	gl_initialised = true;
 
