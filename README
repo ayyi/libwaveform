@@ -4,14 +4,14 @@ Overview
 Libwaveform attempts to provide versatile easy-to-use display
 of audio waveforms for Gtk+-2 applications.
 
-efficiency:
+Efficiency:
 
 * audio and peak data is handled in blocks to get reasonable performance with large files.
 * opengl hardware features are used where available.
 * multi-level caching.
 * in many cases drawing can be done repeatedly with virtually no cpu load.
 
-multi-level caching is provided:
+Multi-level caching is provided:
 
 * peak files are saved to disk roughly following freedeskop.org standards.
 * ardour session peak files are also supported.
@@ -31,7 +31,7 @@ Requirements:
 
 - Gtk2
 - GtkGLExt
-- libsndfile
+- Libsndfile
 - OpenGl (recomended)
 
 
@@ -61,8 +61,10 @@ The widget will show the complete audio file and can be panned and zoomed
 down to sample level.
 
 To use the widget:
+```c
 	WaveformView* waveform = waveform_view_new(NULL);
 	waveform_view_load_file(waveform, "myfile.wav");
+```
 (then pack and show as normal)	
 
 For a demonstration of usage, see: test/view_test.c
@@ -82,7 +84,9 @@ Currently shaders are not used at high zoom - this is a TODO item.
 
 WaveformActor's share a common WfCanvas object.
 The canvas has the following directly setable properties:
+```c
 	uint32_t sample_rate
+```
 
 In order to remain versatile, the WfCanvas is very minimal.
 For example it has no concept of time or tempo (positions are
@@ -93,7 +97,9 @@ For a demonstration of usage, see: test/actor_test.c
 Support for different peak formats is provided by 'loaders'. As
 well as the default peak file loader, an Ardour session loader is
 provided:
+```c
 	waveform_set_peak_loader(wf_load_ardour_peak);
+```
 or you can specify your own.
 
 
