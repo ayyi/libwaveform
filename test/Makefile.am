@@ -6,7 +6,7 @@ ASSPROGRAMS = ass
 endif
 
 if ENABLE_OPENGL
-noinst_PROGRAMS = waveform_test view_test actor_test actor_plus group hires_test $(ASSPROGRAMS) frame_rate resources write_wav write_short
+noinst_PROGRAMS = waveform_test view_test actor_test actor_plus group hires_test $(ASSPROGRAMS) frame_rate resources write_wav write_short write_block
 endif
 
 AM_CFLAGS = \
@@ -71,6 +71,9 @@ write_short_SOURCES = \
 	cpgrs.cc cpgrs.h \
 	write_short.cc
 
+write_block_SOURCES = \
+	write_block.cc
+
 waveform_test_LDADD = \
 	$(TEST_LDFLAGS)
 
@@ -103,7 +106,7 @@ write_short_LDADD = \
 
 BUILT_SOURCES = test_data
 
-test_data: Makefile
+test_data: Makefile write_block.cc
 	@make write_wav
 	@make write_short
 	@if [[ ! -d data ]]; then mkdir data; fi
@@ -115,6 +118,15 @@ test_data: Makefile
 	fi;
 	@if [ ! -e "data/short.wav" ] || [ "./write_short" -nt "data/short.wav" ]; then \
 		./write_short data/short.wav; \
+	fi;
+	@if [ ! -e "data/1_block.wav" ] || [ "./write_block" -nt "data/1_block.wav" ]; then \
+		./write_block data/1_block.wav; \
+	fi;
+	@if [ ! -e "data/2_blocks.wav" ] || [ "./write_block" -nt "data/2_blocks.wav" ]; then \
+		./write_block --numblocks=2 data/2_blocks.wav; \
+	fi;
+	@if [ ! -e "data/3_blocks.wav" ] || [ "./write_block" -nt "data/3_blocks.wav" ]; then \
+		./write_block --numblocks=3 data/3_blocks.wav; \
 	fi;
 
 endif

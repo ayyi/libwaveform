@@ -61,24 +61,19 @@
 #define multipass
 #endif
 
-#define WF_SAMPLES_PER_TEXTURE (WF_PEAK_RATIO * WF_PEAK_TEXTURE_SIZE - TEX_BORDER)
+#define WF_SAMPLES_PER_TEXTURE (WF_PEAK_RATIO * (WF_PEAK_TEXTURE_SIZE - 2 * TEX_BORDER))
 
 /*
-	XXX
+	TODO Mipmapping
 
-	Mipmapping is needed (when shaders not available) because without it,
-	peaks can be missed at small zoom, and can be too blurry.
+	For both the shader and non-shader case, it would be useful to have
+	mipmapping to have proper visibility of short term peaks and/or to reduce
+	the number of (oversampled) texture lookups. How to fix the problem
+	that we need to preserve the height of the texture to not lose vertical detail?
 
-	However, it is problematic:
-	- doesnt work with non-square textures (is supposed to; possible driver issues)
-	- small x size reduces y resolution - doesnt look good.
  */
 #define USE_MIPMAPPING
 #undef USE_MIPMAPPING
-
-extern AGlShader sh_main;
-extern AGlShader shader2;
-extern BloomShader vertical;
 
 struct _actor_priv
 {
@@ -144,7 +139,10 @@ static void   wf_actor_load_texture1d        (Waveform*, Mode, WfGlBlock*, int b
 static void  _wf_actor_load_texture_hi       (WaveformActor*, int b);
 static void  _wf_actor_print_hires_textures  (WaveformActor*);
 static inline int   get_resolution           (double zoom);
+static inline float get_peaks_per_pixel_i    (WaveformCanvas*, WfSampleRegion*, WfRectangle*, int mode);
 static inline float get_peaks_per_pixel      (WaveformCanvas*, WfSampleRegion*, WfRectangle*, int mode);
+static inline void _draw_block               (float tex_start, float tex_pct, float x, float y, float width, float height);
+static inline void _draw_block_from_1d       (float tex_start, float tex_pct, float x, float y, float width, float height);
 #if defined (USE_FBO) && defined (multipass)
 static void   block_to_fbo                   (WaveformActor*, int b, WfGlBlock*, int resolution);
 #endif
@@ -383,10 +381,7 @@ wf_actor_get_last_visible_block(WfSampleRegion* region, WfRectangle* rect, doubl
 static void
 block_to_fbo(WaveformActor* a, int b, WfGlBlock* blocks, int resolution)
 {
-#if 0 //nothing special to do
-	if(resolution == 1024){ //LO mode
-	}
-#endif
+	// create a new fbo for the given block and render to it using the raw 1d peak data.
 
 	g_return_if_fail(!blocks->fbo[b]);
 	blocks->fbo[b] = fbo_new(0);
@@ -394,9 +389,6 @@ block_to_fbo(WaveformActor* a, int b, WfGlBlock* blocks, int resolution)
 		WaveformCanvas* wfc = a->canvas;
 		WaveformActor* actor = a;
 		WfGlBlock* textures = blocks;
-		WfSampleRegion region = {actor->priv->animatable.start.val.i, actor->priv->animatable.len.val.i}; //tmp
-		WfRectangle rect = {actor->rect.left, actor->rect.top, actor->priv->animatable.rect_len.val.f, actor->rect.height};
-		WfViewPort viewport; wf_actor_get_viewport(actor, &viewport); //TODO is just 0-256?
 
 		if(a->canvas->use_1d_textures){
 			WfFBO* fbo = blocks->fbo[b];
@@ -408,40 +400,71 @@ block_to_fbo(WaveformActor* a, int b, WfGlBlock* blocks, int resolution)
 
 					{
 						//set shader program
-						PeakShader* peak_shader = wfc->priv->shaders.peak;
-						wf_canvas_use_program(wfc, peak_shader->shader.program);
-
-						//uniforms:
-						float peaks_per_pixel = 1.0;//get_peaks_per_pixel(wfc, &region, &rect, get_resolution(rect.len / region.len));
-								viewport.right = 256;
-						dbg(2, "vpwidth=%.2f region_len=%i region_n_peaks=%.2f peaks_per_pixel=%.2f", (viewport.right - viewport.left), region.len, ((float)region.len / WF_PEAK_TEXTURE_SIZE), peaks_per_pixel);
-						float bottom = rect.top + rect.height;
-						int n_channels = textures->peak_texture[WF_RIGHT].main ? 2 : 1;
-						peak_shader->set_uniforms(peaks_per_pixel, rect.top, bottom, 0xffffffff, n_channels);
+						PeakShader* peak_shader = wfc->priv->shaders.peak_nonscaling;
+						peak_shader->uniform.n_channels = textures->peak_texture[WF_RIGHT].main ? 2 : 1;
+						wf_canvas_use_program_(wfc, &peak_shader->shader);
 					}
 
 					glEnable(GL_TEXTURE_1D);
 					int c = 0;
-					texture_unit_use_texture(a->canvas->texture_unit[0], textures->peak_texture[c].main[b]);
-					texture_unit_use_texture(a->canvas->texture_unit[1], textures->peak_texture[c].neg[b]);
+					texture_unit_use_texture(wfc->texture_unit[0], textures->peak_texture[c].main[b]);
+					texture_unit_use_texture(wfc->texture_unit[1], textures->peak_texture[c].neg[b]);
 					if(a->waveform->priv->peak.buf[WF_RIGHT]){
 						c = 1;
 						texture_unit_use_texture(a->canvas->texture_unit[2], textures->peak_texture[c].main[b]);
 						texture_unit_use_texture(a->canvas->texture_unit[3], textures->peak_texture[c].neg[b]);
 					}
 
+					//must introduce the overlap as early as possible in the pipeline. It is introduced during the copy from peakbuf to 1d texture.
+					//-here only a 1:1 copy is needed.
+
 					double top = 0;
 					double bot = fbo->height;
-					double x1 = 0;
-					double x2 = fbo->width;
-											double tex_start = 0, tex_pct = 1.0; //TODO
+					double x1 = 0;// + TEX_BORDER;
+					double x2 = fbo->width;// - TEX_BORDER;
+
+					double src_start = 0;//TEX_BORDER / 256.0;
+					double tex_pct = 1.0;//(256.0 - 2.0 * TEX_BORDER) / 256.0;
+
 					glBegin(GL_QUADS);
-					glMultiTexCoord2f(WF_TEXTURE0, tex_start + 0.0,     0.0); glMultiTexCoord2f(WF_TEXTURE1, tex_start + 0.0,     0.0); glMultiTexCoord2f(WF_TEXTURE2, tex_start + 0.0,     0.0); glMultiTexCoord2f(WF_TEXTURE3, tex_start + 0.0,     0.0); glVertex2d(x1, top);
-					glMultiTexCoord2f(WF_TEXTURE0, tex_start + tex_pct, 0.0); glMultiTexCoord2f(WF_TEXTURE1, tex_start + tex_pct, 0.0); glMultiTexCoord2f(WF_TEXTURE2, tex_start + tex_pct, 0.0); glMultiTexCoord2f(WF_TEXTURE3, tex_start + tex_pct, 0.0); glVertex2d(x2, top);
-					glMultiTexCoord2f(WF_TEXTURE0, tex_start + tex_pct, 1.0); glMultiTexCoord2f(WF_TEXTURE1, tex_start + tex_pct, 1.0); glMultiTexCoord2f(WF_TEXTURE2, tex_start + tex_pct, 1.0); glMultiTexCoord2f(WF_TEXTURE3, tex_start + tex_pct, 1.0); glVertex2d(x2, bot);
-					glMultiTexCoord2f(WF_TEXTURE0, tex_start + 0.0,     1.0); glMultiTexCoord2f(WF_TEXTURE1, tex_start + 0.0,     1.0); glMultiTexCoord2f(WF_TEXTURE2, tex_start + 0.0,     1.0); glMultiTexCoord2f(WF_TEXTURE3, tex_start + 0.0,     1.0); glVertex2d(x1, bot);
+					glMultiTexCoord2f(WF_TEXTURE0, src_start + 0.0,     0.0); glMultiTexCoord2f(WF_TEXTURE1, src_start + 0.0,     0.0); glMultiTexCoord2f(WF_TEXTURE2, src_start + 0.0,     0.0); glMultiTexCoord2f(WF_TEXTURE3, src_start + 0.0,     0.0); glVertex2d(x1, top);
+					glMultiTexCoord2f(WF_TEXTURE0, src_start + tex_pct, 0.0); glMultiTexCoord2f(WF_TEXTURE1, src_start + tex_pct, 0.0); glMultiTexCoord2f(WF_TEXTURE2, src_start + tex_pct, 0.0); glMultiTexCoord2f(WF_TEXTURE3, src_start + tex_pct, 0.0); glVertex2d(x2, top);
+					glMultiTexCoord2f(WF_TEXTURE0, src_start + tex_pct, 1.0); glMultiTexCoord2f(WF_TEXTURE1, src_start + tex_pct, 1.0); glMultiTexCoord2f(WF_TEXTURE2, src_start + tex_pct, 1.0); glMultiTexCoord2f(WF_TEXTURE3, src_start + tex_pct, 1.0); glVertex2d(x2, bot);
+					glMultiTexCoord2f(WF_TEXTURE0, src_start + 0.0,     1.0); glMultiTexCoord2f(WF_TEXTURE1, src_start + 0.0,     1.0); glMultiTexCoord2f(WF_TEXTURE2, src_start + 0.0,     1.0); glMultiTexCoord2f(WF_TEXTURE3, src_start + 0.0,     1.0); glVertex2d(x1, bot);
 					glEnd();
 				} end_draw_to_fbo;
+#if USE_FX
+				//now process the first fbo onto the fx_fbo
+
+				if(blocks->fx_fbo[b]) gwarn("expected empty");
+				WfFBO* fx_fbo = blocks->fx_fbo[b] = fbo_new(0);
+				if(fx_fbo){
+					dbg(1, "%i: rendering to fx fbo. from: id=%i texture=%u - to: texture=%u", b, fbo->id, fbo->texture, fx_fbo->texture);
+					draw_to_fbo(fx_fbo) {
+						glClearColor(1.0, 1.0, 1.0, 0.0); //background colour must be same as foreground for correct antialiasing
+						glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+
+						use_texture(fbo->texture);
+
+						BloomShader* shader = wfc->priv->shaders.vertical;
+						shader->uniform.fg_colour = 0xffffffff;
+						shader->uniform.peaks_per_pixel = 256; // peaks_per_pixel not used by this shader
+						wf_canvas_use_program_(wfc, &shader->shader);
+
+						double top = 0;
+						double bot = fbo->height;
+						double x1 = 0;
+						double x2 = fbo->width;
+						double tex_pct = 1.0; //TODO check
+						glBegin(GL_QUADS);
+						glTexCoord2d(0.0,     0.0); glVertex2d(x1, top);
+						glTexCoord2d(tex_pct, 0.0); glVertex2d(x2, top);
+						glTexCoord2d(tex_pct, 1.0); glVertex2d(x2, bot);
+						glTexCoord2d(0.0,     1.0); glVertex2d(x1, bot);
+						glEnd();
+					} end_draw_to_fbo;
+				}
+#endif
 			} else gwarn("fbo not allocated");
 		}
 		gl_warn("fbo");
@@ -494,6 +517,7 @@ wf_actor_allocate_block_med(WaveformActor* a, int b)
 			//gwarn("waveform texture already assigned for block %i: %i", b, blocks->peak_texture[c].main[b]);
 			return;
 		}else{
+			//if we get here something has gone badly wrong. Most likely unrecoverable.
 			gwarn("removing invalid texture...");
 			texture_cache_remove(w, b);
 			//TODO gldelete texture? mostly likely wont help.
@@ -514,7 +538,7 @@ wf_actor_allocate_block_med(WaveformActor* a, int b)
 
 		if(a->waveform->priv->peak.buf[WF_RIGHT]){
 			int i; for(i=2;i<4;i++){
-g_return_if_fail(peak_texture[i]);
+				//g_return_if_fail(peak_texture[i]);
 				*peak_texture[i] = texture_cache_assign_new (wf->texture_cache, (WaveformBlock){a->waveform, b});
 			}
 			dbg(1, "rhs: %i: texture=%i %i %i %i", b, *peak_texture[0], *peak_texture[1], *peak_texture[2], *peak_texture[3]);
@@ -856,7 +880,8 @@ _wf_actor_load_missing_blocks(WaveformActor* a)
 
 		Waveform* w = a->waveform;
 		if(!w->textures_lo){
-			w->textures_lo = wf_texture_array_new(w->num_peaks / (WF_PEAK_STD_TO_LO * WF_PEAK_TEXTURE_SIZE) + ((w->num_peaks % (WF_PEAK_STD_TO_LO * WF_PEAK_TEXTURE_SIZE)) ? 1 : 0), w->n_channels);
+#warning check TEX_BORDER effect not multiplied in WF_PEAK_STD_TO_LO transformation
+			w->textures_lo = wf_texture_array_new(w->num_peaks / (WF_PEAK_STD_TO_LO * WF_TEXTURE_VISIBLE_SIZE) + ((w->num_peaks % (WF_PEAK_STD_TO_LO * WF_TEXTURE_VISIBLE_SIZE)) ? 1 : 0), w->n_channels);
 		}
 
 		WfSampleRegion region = {a->priv->animatable.start.val.i, a->priv->animatable.len.val.i};
@@ -1107,7 +1132,7 @@ _set_gl_state_for_block(WaveformCanvas* wfc, Waveform* w, WfGlBlock* textures, i
 
 
 static inline float
-get_peaks_per_pixel(WaveformCanvas* wfc, WfSampleRegion* region, WfRectangle* rect, int mode)
+get_peaks_per_pixel_i(WaveformCanvas* wfc, WfSampleRegion* region, WfRectangle* rect, int mode)
 {
 	//eg: for 51200 frame sample 256pixels wide: n_peaks=51200/256=200, ppp=200/256=0.8
 
@@ -1120,11 +1145,27 @@ get_peaks_per_pixel(WaveformCanvas* wfc, WfSampleRegion* region, WfRectangle* re
 }
 
 
+static inline float
+get_peaks_per_pixel(WaveformCanvas* wfc, WfSampleRegion* region, WfRectangle* rect, int mode)
+{
+	//as above but not rounded to nearest integer value
+
+	float region_width_px = wf_canvas_gl_to_px(wfc, rect->len);
+	if(mode == MODE_HI) region_width_px /= 16; //this gives the correct result but dont know why.
+	float peaks_per_pixel = ((float)region->len / WF_PEAK_TEXTURE_SIZE) / region_width_px;
+	dbg(2, "region_width_px=%.2f peaks_per_pixel=%.2f (%.2f)", region_width_px, peaks_per_pixel, ((float)region->len / WF_PEAK_TEXTURE_SIZE) / region_width_px);
+	if(mode == MODE_LOW) peaks_per_pixel /= 16;
+	return peaks_per_pixel;
+}
+
+
 static inline void
 block_hires_shader(WaveformActor* actor, int b, double _block_wid, gboolean is_first, gboolean is_last, int first_offset, int samples_per_texture, WfRectangle rect, WfSampleRegion region, int region_end_block, double zoom, double x, double first_offset_px)
 {
-	//1d textures?
+	//render the 1d peak textures onto a 2d block.
+
 	//if we dont subdivide the blocks, size will be 256 x 16 = 4096 - should be ok.
+	//-it works but is the large texture size causing performance issues?
 
 	gl_warn("pre");
 
@@ -1140,14 +1181,14 @@ block_hires_shader(WaveformActor* actor, int b, double _block_wid, gboolean is_f
 	int c;for(c=0;c<waveform_get_n_channels(w);c++){
 		texture_unit_use_texture(wfc->texture_unit[0 + 2 * c], texture->t[c].main);
 		texture_unit_use_texture(wfc->texture_unit[1 + 2 * c], texture->t[c].neg);
+		dbg(2, "%i: textures: %u %u ok=%i,%i", b, texture->t[c].main, texture->t[c].neg, glIsTexture(texture->t[c].main), glIsTexture(texture->t[c].neg));
 	}
-	dbg(1, "%i: textures: %u %u ok=%i,%i", b, texture->t[WF_LEFT].main, texture->t[WF_LEFT].neg, glIsTexture(texture->t[WF_LEFT].main), glIsTexture(texture->t[WF_LEFT].neg));
 	gl_warn("texture assign");
 	glActiveTexture(GL_TEXTURE0);
 
 	HiResShader* hires_shader = wfc->priv->shaders.hires;
 	hires_shader->uniform.fg_colour = actor->fg_colour;
-	hires_shader->uniform.peaks_per_pixel = get_peaks_per_pixel(wfc, &region, &rect, MODE_HI);
+	hires_shader->uniform.peaks_per_pixel = get_peaks_per_pixel_i(wfc, &region, &rect, MODE_HI);
 	//dbg(0, "peaks_per_pixel=%.2f", hires_shader->uniform.peaks_per_pixel);
 	hires_shader->uniform.top = rect.top;
 	hires_shader->uniform.bottom = rect.top + rect.height;
@@ -1185,7 +1226,7 @@ block_hires_shader(WaveformActor* actor, int b, double _block_wid, gboolean is_f
 							if(b * _block_wid > distance_from_file_start_to_region_end){ gwarn("!!"); return; }
 						}
 
-						if(b == w->textures->size - 1) dbg(1, "last sample block. fraction=%.2f", w->textures->last_fraction);
+						if(b == w->textures->size - 1) dbg(2, "last sample block. fraction=%.2f", w->textures->last_fraction);
 						//TODO check what happens here if we allow non-square textures
 						tex_pct = block_wid / _block_wid;
 					}
@@ -1201,11 +1242,7 @@ block_hires_shader(WaveformActor* actor, int b, double _block_wid, gboolean is_f
 #else
 	if(wfc->use_1d_textures){
 #endif
-//dbg(0, "  x: %.2f --> %.2f", tex_x, tex_x + block_wid);
-		glMultiTexCoord2f(WF_TEXTURE0, tex_start + 0.0,     0.0); glMultiTexCoord2f(WF_TEXTURE1, tex_start + 0.0,     0.0); glMultiTexCoord2f(WF_TEXTURE2, tex_start + 0.0,     0.0); glMultiTexCoord2f(WF_TEXTURE3, tex_start + 0.0,     0.0); glVertex2d(tex_x + 0.0,       rect.top);
-		glMultiTexCoord2f(WF_TEXTURE0, tex_start + tex_pct, 0.0); glMultiTexCoord2f(WF_TEXTURE1, tex_start + tex_pct, 0.0); glMultiTexCoord2f(WF_TEXTURE2, tex_start + tex_pct, 0.0); glMultiTexCoord2f(WF_TEXTURE3, tex_start + tex_pct, 0.0); glVertex2d(tex_x + block_wid, rect.top);
-		glMultiTexCoord2f(WF_TEXTURE0, tex_start + tex_pct, 1.0); glMultiTexCoord2f(WF_TEXTURE1, tex_start + tex_pct, 1.0); glMultiTexCoord2f(WF_TEXTURE2, tex_start + tex_pct, 1.0); glMultiTexCoord2f(WF_TEXTURE3, tex_start + tex_pct, 1.0); glVertex2d(tex_x + block_wid, rect.top + rect.height);
-		glMultiTexCoord2f(WF_TEXTURE0, tex_start + 0.0,     1.0); glMultiTexCoord2f(WF_TEXTURE1, tex_start + 0.0,     1.0); glMultiTexCoord2f(WF_TEXTURE2, tex_start + 0.0,     1.0); glMultiTexCoord2f(WF_TEXTURE3, tex_start + 0.0,     1.0); glVertex2d(tex_x + 0.0,       rect.top + rect.height);
+		_draw_block_from_1d(tex_start, tex_pct, tex_x, rect.top, block_wid, rect.height);
 	}else{
 		gerr("TODO 2d textures in MODE_HI");
 		glTexCoord2d(tex_start + 0.0,     0.0); glVertex2d(tex_x + 0.0,       rect.top);
@@ -1217,12 +1254,45 @@ block_hires_shader(WaveformActor* actor, int b, double _block_wid, gboolean is_f
 }
 
 
+static inline void
+_draw_block(float tex_start, float tex_pct, float tex_x, float top, float width, float height)
+{
+	//the purpose of this fn is to hide the effect of the texture border.
+
+	//TODO it might be better to not have tex_pct as an arg, but use eg n_pix instead?
+
+//												dbg(0, "width=%.2f tex_pct=%.3f %.3f start=%.3f", width, tex_pct, tex_pct * (256.0 - 2.0 * TEX_BORDER) / 256.0, tex_start + TEX_BORDER / 256.0);
+
+	tex_start += TEX_BORDER / 256.0;
+	tex_pct *= (256.0 - 2.0 * TEX_BORDER) / 256.0;
+
+	glTexCoord2d(tex_start + 0.0,     0.0); glVertex2d(tex_x + 0.0,   top);
+	glTexCoord2d(tex_start + tex_pct, 0.0); glVertex2d(tex_x + width, top);
+	glTexCoord2d(tex_start + tex_pct, 1.0); glVertex2d(tex_x + width, top + height);
+	glTexCoord2d(tex_start + 0.0,     1.0); glVertex2d(tex_x + 0.0,   top + height);
+}
+
+
+static inline void
+_draw_block_from_1d(float tex_start, float tex_pct, float x, float y, float width, float height)
+{
+	#define TSIZE (256.0 * 16.0) //FIXME currently only works for hi-res
+
+	tex_start += (TEX_BORDER * 16) / TSIZE;
+	tex_pct *= (TSIZE - 2.0 * (TEX_BORDER * 16)) / TSIZE;
+
+	glMultiTexCoord2f(WF_TEXTURE0, tex_start + 0.0,     0.0); glMultiTexCoord2f(WF_TEXTURE1, tex_start + 0.0,     0.0); glMultiTexCoord2f(WF_TEXTURE2, tex_start + 0.0,     0.0); glMultiTexCoord2f(WF_TEXTURE3, tex_start + 0.0,     0.0); glVertex2d(x + 0.0,   y);
+	glMultiTexCoord2f(WF_TEXTURE0, tex_start + tex_pct, 0.0); glMultiTexCoord2f(WF_TEXTURE1, tex_start + tex_pct, 0.0); glMultiTexCoord2f(WF_TEXTURE2, tex_start + tex_pct, 0.0); glMultiTexCoord2f(WF_TEXTURE3, tex_start + tex_pct, 0.0); glVertex2d(x + width, y);
+	glMultiTexCoord2f(WF_TEXTURE0, tex_start + tex_pct, 1.0); glMultiTexCoord2f(WF_TEXTURE1, tex_start + tex_pct, 1.0); glMultiTexCoord2f(WF_TEXTURE2, tex_start + tex_pct, 1.0); glMultiTexCoord2f(WF_TEXTURE3, tex_start + tex_pct, 1.0); glVertex2d(x + width, y + height);
+	glMultiTexCoord2f(WF_TEXTURE0, tex_start + 0.0,     1.0); glMultiTexCoord2f(WF_TEXTURE1, tex_start + 0.0,     1.0); glMultiTexCoord2f(WF_TEXTURE2, tex_start + 0.0,     1.0); glMultiTexCoord2f(WF_TEXTURE3, tex_start + 0.0,     1.0); glVertex2d(x + 0.0,   y + height);
+}
+
+
 void
 wf_actor_paint(WaveformActor* actor)
 {
 	//-must have called gdk_gl_drawable_gl_begin() first.
 	//-it is assumed that all textures have been loaded.
-					gl_warn("pre");
 
 	//note: there is some benefit in quantising the x positions (eg for subpixel consistency),
 	//but to preserve relative actor positions it must be done at the canvas level.
@@ -1231,7 +1301,6 @@ wf_actor_paint(WaveformActor* actor)
 	g_return_if_fail(actor);
 	WaveformCanvas* wfc = actor->canvas;
 	g_return_if_fail(wfc);
-	g_return_if_fail(actor);
 	WfActorPriv* _a = actor->priv;
 	Waveform* w = actor->waveform; 
 	if(w->offline) return;
@@ -1247,7 +1316,7 @@ wf_actor_paint(WaveformActor* actor)
 	double zoom = rect.len / region.len;
 
 	int mode = get_mode(zoom);
-//dbg(1, "mode=%s", modes[mode].name);
+	//dbg(1, "mode=%s", modes[mode].name);
 
 	WfColourFloat fg;
 	wf_colour_rgba_to_float(&fg, actor->fg_colour);
@@ -1263,7 +1332,7 @@ wf_actor_paint(WaveformActor* actor)
 		int samples_per_texture = WF_SAMPLES_PER_TEXTURE * (mode == MODE_LOW ? WF_PEAK_STD_TO_LO : 1);
 
 		int region_start_block   = region.start / samples_per_texture;
-		int region_end_block     = (region.start + region.len) / samples_per_texture;
+		int region_end_block     = (region.start + region.len) / samples_per_texture - (!((region.start + region.len) % samples_per_texture) ? 1 : 0);
 		int viewport_start_block = wf_actor_get_first_visible_block(&region, zoom, &rect, &viewport);
 		int viewport_end_block   = wf_actor_get_last_visible_block (&region, &rect, zoom, &viewport, textures);
 		if(region_end_block > textures->size -1){ gwarn("region too long? region_end_block=%i n_blocks=%i region.len=%i", region_end_block, textures->size, region.len); region_end_block = w->textures->size -1; }
@@ -1278,10 +1347,18 @@ wf_actor_paint(WaveformActor* actor)
 #if defined (USE_FBO) && defined (multipass)
 		if(agl->use_shaders){
 			//set gl state
+#ifdef USE_FX
+			BloomShader* shader = wfc->priv->shaders.horizontal;
+			shader->uniform.fg_colour = (actor->fg_colour & 0xffffff00) + MIN(0xff, 0x100 * _a->animatable.opacity.val.f);
+			shader->uniform.peaks_per_pixel = get_peaks_per_pixel(wfc, &region, &rect, mode) / 1.0;
+			wf_canvas_use_program_(wfc, &shader->shader);
+#else
+			BloomShader* shader = wfc->priv->shaders.vertical;
 			wfc->priv->shaders.vertical->uniform.fg_colour = (actor->fg_colour & 0xffffff00) + MIN(0xff, 0x100 * _a->animatable.opacity.val.f);
-			wfc->priv->shaders.vertical->uniform.peaks_per_pixel = get_peaks_per_pixel(wfc, &region, &rect, mode);
+			wfc->priv->shaders.vertical->uniform.peaks_per_pixel = get_peaks_per_pixel_i(wfc, &region, &rect, mode);
 			//TODO the vertical shader needs to check _all_ the available texture values to get true peak.
-			wf_canvas_use_program_(wfc, &vertical.shader);
+			wf_canvas_use_program_(wfc, &shader->shader);
+#endif
 
 					glDisable(GL_TEXTURE_1D);
 					glEnable(GL_TEXTURE_2D);
@@ -1289,10 +1366,10 @@ wf_actor_paint(WaveformActor* actor)
 		}
 #else
 		if(wfc->use_1d_textures){
-			wf_canvas_use_program(wfc, ((WfShader*)wfc->priv->shaders.peak)->program);
+			wf_canvas_use_program_(wfc, (AGlShader*)wfc->priv->shaders.peak);
 
 			//uniforms: (must be done on each paint because some vars are actor-specific)
-			float peaks_per_pixel = get_peaks_per_pixel(wfc, &region, &rect, mode);
+			float peaks_per_pixel = get_peaks_per_pixel_i(wfc, &region, &rect, mode);
 			dbg(2, "vpwidth=%.2f region_len=%i region_n_peaks=%.2f peaks_per_pixel=%.2f", (viewport.right - viewport.left), region.len, ((float)region.len / WF_PEAK_TEXTURE_SIZE), peaks_per_pixel);
 			float bottom = rect.top + rect.height;
 			int n_channels = textures->peak_texture[WF_RIGHT].main ? 2 : 1;
@@ -1364,49 +1441,49 @@ wf_actor_paint(WaveformActor* actor)
 							block_done = true; //TODO should really use the fall-through code to apply the textures
 						}else{
 
-						dbg(2, "  b=%i x=%.2f", b, x);
+							dbg(2, "  b=%i x=%.2f", b, x);
 
-						//TODO might these prevent further blocks at different res? difficult to notice as they are usually the same.
-						wf_canvas_use_program(wfc, 0);
-						glDisable(GL_BLEND);
-						//glEnable(GL_BLEND);
-						//glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-						glDisable(GL_TEXTURE_2D);
-						glDisable(GL_TEXTURE_1D);
+							//TODO might these prevent further blocks at different res? difficult to notice as they are usually the same.
+							wf_canvas_use_program(wfc, 0);
+							glDisable(GL_BLEND);
+							//glEnable(GL_BLEND);
+							//glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+							glDisable(GL_TEXTURE_2D);
+							glDisable(GL_TEXTURE_1D);
 
-						int c; for(c=0;c<w->n_channels;c++){
-							if(peakbuf->buf[c]){
-								//dbg(1, "peakbuf: %i:%i: %i", b, c, ((short*)peakbuf->buf[c])[0]);
-								//WfRectangle block_rect = {x, rect.top + c * rect.height/2, _block_wid, rect.height / w->n_channels};
-								WfRectangle block_rect = {is_first
-										? x + (block_region.start - region.start % WF_PEAK_BLOCK_SIZE) * zoom
-										: x,
-									rect.top + c * rect.height/2, _block_wid, rect.height / w->n_channels};
-								if(is_first){
-									float first_fraction =((float)block_region.len) / WF_PEAK_BLOCK_SIZE;
-									block_rect.left += (WF_PEAK_BLOCK_SIZE - WF_PEAK_BLOCK_SIZE * first_fraction) * zoom;
-								}
-								//WfRectangle block_rect = {x + (region.start % WF_PEAK_BLOCK_SIZE) * zoom, rect.top + c * rect.height/2, _block_wid, rect.height / w->n_channels};
-								dbg(2, "  HI: %i: rect=%.2f-->%.2f", b, block_rect.left, block_rect.left + block_rect.len);
-
-								if(is_last){
-									if(b < region_end_block){
-										// end is offscreen. last block is not smaller.
-										// reducing the block size here would be an optimisation rather than essential
-									}else{
-										// last block of region (not truncated by viewport).
-										//block_region.len = region.len - b * WF_PEAK_BLOCK_SIZE;
-										block_region.len = region.len % WF_PEAK_BLOCK_SIZE;
-										//block_rect.len = _block_wid * ((float)block_region.len) / WF_PEAK_BLOCK_SIZE;
-										dbg(2, "REGIONLAST: %i/%i region.len=%i ratio=%.2f rect=%.2f %.2f", b, region_end_block, block_region.len, ((float)block_region.len) / WF_PEAK_BLOCK_SIZE, block_rect.left, block_rect.len);
+							int c; for(c=0;c<w->n_channels;c++){
+								if(peakbuf->buf[c]){
+									//dbg(1, "peakbuf: %i:%i: %i", b, c, ((short*)peakbuf->buf[c])[0]);
+									//WfRectangle block_rect = {x, rect.top + c * rect.height/2, _block_wid, rect.height / w->n_channels};
+									WfRectangle block_rect = {is_first
+											? x + (block_region.start - region.start % WF_PEAK_BLOCK_SIZE) * zoom
+											: x,
+										rect.top + c * rect.height/2, _block_wid, rect.height / w->n_channels};
+									if(is_first){
+										float first_fraction =((float)block_region.len) / WF_PEAK_BLOCK_SIZE;
+										block_rect.left += (WF_PEAK_BLOCK_SIZE - WF_PEAK_BLOCK_SIZE * first_fraction) * zoom;
 									}
+									//WfRectangle block_rect = {x + (region.start % WF_PEAK_BLOCK_SIZE) * zoom, rect.top + c * rect.height/2, _block_wid, rect.height / w->n_channels};
+									dbg(2, "  HI: %i: rect=%.2f-->%.2f", b, block_rect.left, block_rect.left + block_rect.len);
+
+									if(is_last){
+										if(b < region_end_block){
+											// end is offscreen. last block is not smaller.
+											// reducing the block size here would be an optimisation rather than essential
+										}else{
+											// last block of region (not truncated by viewport).
+											//block_region.len = region.len - b * WF_PEAK_BLOCK_SIZE;
+											block_region.len = region.len % WF_PEAK_BLOCK_SIZE;
+											//block_rect.len = _block_wid * ((float)block_region.len) / WF_PEAK_BLOCK_SIZE;
+											dbg(2, "REGIONLAST: %i/%i region.len=%i ratio=%.2f rect=%.2f %.2f", b, region_end_block, block_region.len, ((float)block_region.len) / WF_PEAK_BLOCK_SIZE, block_rect.left, block_rect.len);
+										}
+									}
+									block_rect.len = block_region.len * zoom; // always
+									draw_wave_buffer_hi(w, block_region, &block_rect, peakbuf, c, wfc->v_gain, actor->fg_colour);
 								}
-								block_rect.len = block_region.len * zoom; //always!
-								draw_wave_buffer_hi(w, block_region, &block_rect, peakbuf, c, wfc->v_gain, actor->fg_colour);
+								else dbg(1, "buf not ready: %i", c);
 							}
-							else dbg(1, "buf not ready: %i", c);
-						}
-						block_done = true; //hi res was succussful. no more painting needed for this block.
+							block_done = true; //hi res was succussful. no more painting needed for this block.
 						} //end if use_shaders
 					}
 					if(block_done) break;
@@ -1459,7 +1536,13 @@ wf_actor_paint(WaveformActor* actor)
 #if defined (USE_FBO) && defined (multipass)
 					if(agl->use_shaders){
 						//rendering from 2d texture not 1d
-						WfFBO* fbo = true ? textures->fbo[b] : fbo_test;
+						WfFBO* fbo = false
+							? fbo_test
+#ifdef USE_FX
+							: textures->fx_fbo[b]
+								? textures->fx_fbo[b]
+#endif
+								: textures->fbo[b];
 						if(fbo){ //seems that the fbo may not be created initially...
 							use_texture(fbo->texture);
 						}
@@ -1478,15 +1561,12 @@ wf_actor_paint(WaveformActor* actor)
 #else
 					if(wfc->use_1d_textures){
 #endif
-						glMultiTexCoord2f(WF_TEXTURE0, tex_start + 0.0,     0.0); glMultiTexCoord2f(WF_TEXTURE1, tex_start + 0.0,     0.0); glMultiTexCoord2f(WF_TEXTURE2, tex_start + 0.0,     0.0); glMultiTexCoord2f(WF_TEXTURE3, tex_start + 0.0,     0.0); glVertex2d(tex_x + 0.0,       rect.top);
+						glMultiTexCoord2f(WF_TEXTURE0, tex_start,           0.0); glMultiTexCoord2f(WF_TEXTURE1, tex_start,           0.0); glMultiTexCoord2f(WF_TEXTURE2, tex_start + 0.0,     0.0); glMultiTexCoord2f(WF_TEXTURE3, tex_start + 0.0,     0.0); glVertex2d(tex_x + 0.0,       rect.top);
 						glMultiTexCoord2f(WF_TEXTURE0, tex_start + tex_pct, 0.0); glMultiTexCoord2f(WF_TEXTURE1, tex_start + tex_pct, 0.0); glMultiTexCoord2f(WF_TEXTURE2, tex_start + tex_pct, 0.0); glMultiTexCoord2f(WF_TEXTURE3, tex_start + tex_pct, 0.0); glVertex2d(tex_x + block_wid, rect.top);
 						glMultiTexCoord2f(WF_TEXTURE0, tex_start + tex_pct, 1.0); glMultiTexCoord2f(WF_TEXTURE1, tex_start + tex_pct, 1.0); glMultiTexCoord2f(WF_TEXTURE2, tex_start + tex_pct, 1.0); glMultiTexCoord2f(WF_TEXTURE3, tex_start + tex_pct, 1.0); glVertex2d(tex_x + block_wid, rect.top + rect.height);
 						glMultiTexCoord2f(WF_TEXTURE0, tex_start + 0.0,     1.0); glMultiTexCoord2f(WF_TEXTURE1, tex_start + 0.0,     1.0); glMultiTexCoord2f(WF_TEXTURE2, tex_start + 0.0,     1.0); glMultiTexCoord2f(WF_TEXTURE3, tex_start + 0.0,     1.0); glVertex2d(tex_x + 0.0,       rect.top + rect.height);
 					}else{
-						glTexCoord2d(tex_start + 0.0,     0.0); glVertex2d(tex_x + 0.0,       rect.top);
-						glTexCoord2d(tex_start + tex_pct, 0.0); glVertex2d(tex_x + block_wid, rect.top);
-						glTexCoord2d(tex_start + tex_pct, 1.0); glVertex2d(tex_x + block_wid, rect.top + rect.height);
-						glTexCoord2d(tex_start + 0.0,     1.0); glVertex2d(tex_x + 0.0,       rect.top + rect.height);
+						_draw_block(tex_start, tex_pct, tex_x, rect.top, block_wid, rect.height);
 					}
 					glEnd();
 					glPopMatrix();
@@ -1530,7 +1610,6 @@ wf_actor_paint(WaveformActor* actor)
 			wf_canvas_use_program(wfc, 0);
 			glDisable(GL_TEXTURE_2D);
 			glDisable(GL_TEXTURE_1D);
-//					glDisable(GL_BLEND);
 			glColor4f(1.0, 0.0, 1.0, 1.0);
 			glLineWidth(2);
 			glBegin(GL_LINES);
@@ -1582,10 +1661,12 @@ wf_actor_load_texture1d(Waveform* w, Mode mode, WfGlBlock* blocks, int blocknum)
 	void make_texture_data(Waveform* w, int ch, struct _buf* buf)
 	{
 		//copy peak data into a temporary buffer, translating from 16 bit to 8 bit
+		// -src: peak buffer covering whole file (16bit)
+		// -dest: temp buffer for single block (8bit) - will be loaded directly into a gl texture.
 
 		WfPeakBuf* peak = &w->priv->peak;
 		int f; for(f=0;f<WF_PEAK_TEXTURE_SIZE;f++){
-			int i = (WF_PEAK_TEXTURE_SIZE * blocknum + f) * WF_PEAK_VALUES_PER_SAMPLE;
+			int i = ((WF_PEAK_TEXTURE_SIZE - 2 * TEX_BORDER) * blocknum + f - TEX_BORDER) * WF_PEAK_VALUES_PER_SAMPLE;
 			if(i >= peak->size){
 #if 0
 				int j; for(j=0;j<5;j++){
@@ -1595,11 +1676,17 @@ wf_actor_load_texture1d(Waveform* w, Mode mode, WfGlBlock* blocks, int blocknum)
 					printf("  %i %i=%i %i\n", i, i -2*j -2, peak->buf[ch][i -2*j -2 ], peak->buf[ch][i -2*j -1]);
 				}
 #endif
-				dbg(1, "end of peak: %i b=%i n_sec=%.3f", peak->size, blocknum, ((float)((WF_PEAK_TEXTURE_SIZE * blocknum + f) * WF_PEAK_RATIO))/44100); break;
-			}
+				buf->positive[f] = 0;
+				buf->negative[f] = 0;
+				if(i == peak->size) dbg(1, "end of peak: %i b=%i n_sec=%.3f", peak->size, blocknum, ((float)((WF_PEAK_TEXTURE_SIZE * blocknum + f) * WF_PEAK_RATIO))/44100);// break;
 
-			buf->positive[f] =  peak->buf[ch][i  ] >> 8;
-			buf->negative[f] = -peak->buf[ch][i+1] >> 8;
+			}else if(i >= 0){ //TODO change the loop start point instead (TEX_BORDER)
+				buf->positive[f] =  peak->buf[ch][i  ] >> 8;
+				buf->negative[f] = -peak->buf[ch][i+1] >> 8;
+			}else{
+				buf->positive[f] = 0;
+				buf->negative[f] = 0;
+			}
 		}
 	}
 
@@ -1609,8 +1696,9 @@ wf_actor_load_texture1d(Waveform* w, Mode mode, WfGlBlock* blocks, int blocknum)
 
 		WfPeakBuf* peak = &w->priv->peak;
 		int f; for(f=0;f<WF_PEAK_TEXTURE_SIZE;f++){
-			int i = (WF_PEAK_TEXTURE_SIZE * blocknum + f) * WF_PEAK_VALUES_PER_SAMPLE * WF_PEAK_STD_TO_LO;
+			int i = ((WF_PEAK_TEXTURE_SIZE  - 2 * TEX_BORDER) * blocknum + f  - TEX_BORDER) * WF_PEAK_VALUES_PER_SAMPLE * WF_PEAK_STD_TO_LO;
 			if(i >= peak->size) break;
+			if(i < 0) continue;        //TODO change the loop start point instead (TEX_BORDER)
 
 			WfPeakSample p = {0, 0};
 			int j; for(j=0;j<WF_PEAK_STD_TO_LO;j++){
@@ -1658,10 +1746,9 @@ glEnable(GL_TEXTURE_1D);
 		glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_WRAP_T, GL_CLAMP);
 		glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 		//
-		//using MAG LINEAR smooths nicely but can reduce the peak.
+		//using MAG LINEAR smooths nicely but can reduce the opacity of peaks too much.
 		//
 		glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-//glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
 		glTexImage1D(GL_TEXTURE_1D, 0, GL_ALPHA8, modes[mode].texture_size, 0, GL_ALPHA, GL_UNSIGNED_BYTE, d->buf);
 
@@ -1698,24 +1785,38 @@ glEnable(GL_TEXTURE_1D);
 static void
 make_texture_data_hi(Waveform* w, int ch, IntBufHi* buf, int blocknum)
 {
+	//data is transformed from the Waveform hi-res peakbuf into IntBufHi* buf.
+
 	dbg(1, "b=%i", blocknum);
 	int texture_size = modes[MODE_HI].texture_size;
 	Peakbuf* peakbuf = waveform_get_peakbuf_n(w, blocknum);
-	int f; for(f=0;f<texture_size;f++){
-		int i = f * WF_PEAK_VALUES_PER_SAMPLE;
+#define TEX_BORDER_HI (TEX_BORDER * 16.0)
+int i__;
+	int o = TEX_BORDER_HI; for(;o<texture_size;o++){
+		int i = (o - TEX_BORDER_HI) * WF_PEAK_VALUES_PER_SAMPLE;
 		if(i >= peakbuf->size){
-			dbg(2, "end of peak: %i b=%i n_sec=%.3f", peakbuf->size, blocknum, ((float)((texture_size * blocknum + f) * WF_PEAK_RATIO))/44100); break;
+			dbg(2, "end of peak: %i b=%i n_sec=%.3f", peakbuf->size, blocknum, ((float)((texture_size * blocknum + o) * WF_PEAK_RATIO))/44100); break;
 		}
+i__ = i;
 
 		short* p = peakbuf->buf[ch];
-		buf->positive[f] =  p[i  ] >> 8;
-		buf->negative[f] = -p[i+1] >> 8;
+		buf->positive[o] =  p[i  ] >> 8;
+		buf->negative[o] = -p[i+1] >> 8;
 	}
+					dbg(0, "stopped at: i=%i o=%i", i__, o);
 #if 0
 	int j; for(j=0;j<20;j++){
 		printf("  %2i: %5i %5i %5u %5u\n", j, ((short*)peakbuf->buf[ch])[2*j], ((short*)peakbuf->buf[ch])[2*j +1], (guint)(buf->positive[j] * 0x100), (guint)(buf->negative[j] * 0x100));
 	}
 #endif
+				/*
+				//int k; for(k=0;k<20;k++){
+				//	buf->positive[k] = 100;
+				//}
+				int k; for(k=0;k<100;k++){
+					buf->positive[texture_size - 1 - k] = 80;
+				}
+				*/
 }
 
 

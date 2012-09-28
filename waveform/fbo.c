@@ -64,10 +64,7 @@ fbo_new(GLuint texture)
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 		glTexImage2D(GL_TEXTURE_2D, 0, 4, size, size, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
-		//glTexImage2D(GL_TEXTURE_2D, 1, GL_RGB, fbo0->width/2, fbo0->height/2, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
 		//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, TextureLevel);
-		//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-		//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 		//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_BASE_LEVEL, TextureLevel);
 		glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
 
@@ -88,7 +85,7 @@ fbo_new(GLuint texture)
 
 	/*
 	glPushAttrib(GL_VIEWPORT_BIT);
-	glViewport(0, 0, fbo0->width, fbo0->height);
+	glViewport(0, 0, fbo->width, fbo->height);
 
 	//draw something into the fbo
 	glClearColor(0.0, 1.0, 0.0, 0.5);
@@ -179,7 +176,50 @@ fbo_new_test()
 
 		return bg_textures;
 	}
-	WfFBO* fbo = fbo_new(_wf_create_background());
+
+	GLuint _wf_create_background_rgba()
+	{
+		//create an alpha-map gradient texture for use as background
+
+		glEnable(GL_TEXTURE_2D);
+
+		int width = 256;
+		int height = 256;
+		int rowstride = 256 * 4;
+		char* pbuf = g_new0(char, width * height * 4);
+		int y; for(y=0;y<height;y++){
+			int x; for(x=0;x<width;x++){
+				*(pbuf + y * rowstride + 4 * x    ) = ((x+y) * 0xff) / (width * 2);
+				*(pbuf + y * rowstride + 4 * x + 1) = ((x+y) * 0xff) / (width * 2);
+				*(pbuf + y * rowstride + 4 * x + 2) = ((x+y) * 0xff) / (width * 2);
+				*(pbuf + y * rowstride + 4 * x + 3) = ((x+y) * 0xff) / (width * 2);
+
+				if(x == 64 || x == 65 || x == 66 || x == 67){
+					*(pbuf + y * rowstride + 4 * x + 1) = 0;
+					*(pbuf + y * rowstride + 4 * x + 2) = 0;
+					*(pbuf + y * rowstride + 4 * x + 3) = 0;
+				}
+			}
+		}
+
+		GLuint bg_textures;
+		glGenTextures(1, &bg_textures);
+		if(glGetError() != GL_NO_ERROR){ gerr ("couldnt create bg_texture."); return 0; }
+		dbg(2, "bg_texture=%i", bg_textures);
+
+		int pixel_format = GL_RGBA;
+		glBindTexture  (GL_TEXTURE_2D, bg_textures);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, pixel_format, GL_UNSIGNED_BYTE, pbuf);
+		if(glGetError() != GL_NO_ERROR) gwarn("gl error binding bg texture!");
+
+		g_free(pbuf);
+
+		return bg_textures;
+	}
+	//WfFBO* fbo = fbo_new(_wf_create_background());
+	WfFBO* fbo = fbo_new(_wf_create_background_rgba());
 	return fbo;
 }
 

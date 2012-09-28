@@ -120,6 +120,7 @@ if test "x$enable_opengl" = "xyes" ; then
 	OPENGL_LDFLAGS=`pkg-config --libs-only-l gtkglext-1.0`
 	AC_DEFINE(USE_OPENGL, 1, [Opengl features are enabled])
 	AC_DEFINE(USE_FBO, 1, [enable support for opengl framebuffer objects for offscreen rendering])
+	AC_DEFINE(USE_FX, 1, [enable a single additional pre-zoom shader fx pass])
 	AC_DEFINE(WF_USE_TEXTURE_CACHE, 1, [cannot currently disable if opengl used])
 fi
 AM_CONDITIONAL(ENABLE_OPENGL, test $enable_opengl = "yes")

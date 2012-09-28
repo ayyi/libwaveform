@@ -198,7 +198,7 @@ add_key_handler(GtkWindow* window, WaveformView* waveform, Key keys[])
 		if(!key_down){ /* gwarn("key_down not set"); */ return true; } //sometimes happens at startup
 
 		key_down = false;
-		g_source_remove(key_hold.timer);
+		if(key_hold.timer) g_source_remove(key_hold.timer);
 		key_hold.timer = 0;
 
 		return true;
@@ -206,7 +206,6 @@ add_key_handler(GtkWindow* window, WaveformView* waveform, Key keys[])
 
 	g_signal_connect(window, "key-press-event", G_CALLBACK(key_press), waveform);
 	g_signal_connect(window, "key-release-event", G_CALLBACK(key_release), waveform);
-
 }
 
 

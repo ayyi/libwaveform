@@ -65,7 +65,7 @@ To use the widget:
 	WaveformView* waveform = waveform_view_new(NULL);
 	waveform_view_load_file(waveform, "myfile.wav");
 ```
-(then pack and show as normal)	
+(then pack and show the widget as normal)	
 
 For a demonstration of usage, see: test/view_test.c
 

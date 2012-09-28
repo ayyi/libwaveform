@@ -39,8 +39,10 @@
 #include "shaders/shaders.c"
 
 static void  _peak_shader_set_uniforms (float peaks_per_pixel, float top, float bottom, uint32_t _fg_colour, int n_channels);
+static void  _peak_nonscaling_set_uniforms ();
 static void  _hires_set_uniforms       ();
 static void  _vertical_set_uniforms    ();
+static void  _horizontal_set_uniforms  ();
 static void  _alphamap_set_uniforms    ();
 static void  _ass_set_uniforms         ();
 static void  _ruler_set_uniforms       ();
@@ -54,6 +56,17 @@ static AGlUniformInfo uniforms[] = {
    END_OF_UNIFORMS
 };
 
+#ifdef USE_FBO
+PeakShader peak_nonscaling = {{NULL, NULL, 0, NULL, _peak_nonscaling_set_uniforms, &peak_nonscaling_text}};
+static AGlUniformInfo uniforms1[] = {
+   {"tex1d",     1, GL_INT,   { 1, 0, 0, 0 }, -1}, // LHS +ve - 0 corresponds to glActiveTexture(WF_TEXTURE0);
+   {"tex1d_0neg",1, GL_INT,   { 2, 0, 0, 0 }, -1}, // LHS -ve - 1 corresponds to glActiveTexture(WF_TEXTURE1);
+   {"tex1d_3",   1, GL_INT,   { 3, 0, 0, 0 }, -1}, // RHS +ve WF_TEXTURE2
+   {"tex1d_4",   1, GL_INT,   { 4, 0, 0, 0 }, -1}, // RHS -ve WF_TEXTURE3
+   END_OF_UNIFORMS
+};
+#endif
+
 HiResShader hires_shader = {{NULL, NULL, 0, NULL, _hires_set_uniforms, &hires_text}};
 static AGlUniformInfo uniforms_hr[] = {
    {"tex1d",     1, GL_INT,   { 1, 0, 0, 0 }, -1},
@@ -63,7 +76,7 @@ static AGlUniformInfo uniforms_hr[] = {
    END_OF_UNIFORMS
 };
 
-BloomShader horizontal = {{NULL, NULL, 0, NULL, NULL, &horizontal_text}};
+BloomShader horizontal = {{NULL, NULL, 0, NULL, _horizontal_set_uniforms, &horizontal_text}};
 static AGlUniformInfo uniforms2[] = {
    {"tex2d",     1, GL_INT,   { 0, 0, 0, 0 }, -1}, // 0 corresponds to glActiveTexture(GL_TEXTURE0);
    END_OF_UNIFORMS
@@ -124,6 +137,15 @@ _peak_shader_set_uniforms(float peaks_per_pixel, float top, float bottom, uint32
 
 
 static void
+_peak_nonscaling_set_uniforms()
+{
+	AGlShader* shader = &peak_nonscaling.shader;
+
+	glUniform1i(glGetUniformLocation(shader->program, "n_channels"), ((PeakShader*)shader)->uniform.n_channels);
+}
+
+
+static void
 _hires_set_uniforms()
 {
 	AGlShader* shader = &hires_shader.shader;
@@ -153,12 +175,26 @@ _vertical_set_uniforms()
 
 
 static void
+_horizontal_set_uniforms()
+{
+	AGlShader* shader = &horizontal.shader;
+	//dbg(0, "ppp=%.2f", ((BloomShader*)shader)->uniform.peaks_per_pixel);
+	float fg_colour[4] = {0.0, 0.0, 0.0, ((float)(horizontal.uniform.fg_colour & 0xff)) / 0x100};
+	wf_rgba_to_float(horizontal.uniform.fg_colour, &fg_colour[0], &fg_colour[1], &fg_colour[2]);
+	glUniform4fv(glGetUniformLocation(shader->program, "fg_colour"), 1, fg_colour);
+
+	glUniform1f(glGetUniformLocation(shader->program, "peaks_per_pixel"), ((BloomShader*)shader)->uniform.peaks_per_pixel);
+}
+
+
+static void
 _alphamap_set_uniforms()
 {
 	float fg_colour[4] = {0.0, 0.0, 0.0, ((float)(tex2d.uniform.fg_colour & 0xff)) / 0x100};
 	wf_rgba_to_float(tex2d.uniform.fg_colour, &fg_colour[0], &fg_colour[1], &fg_colour[2]);
 	glUniform4fv(glGetUniformLocation(tex2d.shader.program, "fg_colour"), 1, fg_colour);
 }
+
 
 static void
 _ass_set_uniforms()
@@ -167,7 +203,6 @@ _ass_set_uniforms()
 	wf_rgba_to_float(ass.uniform.fg_colour, &fg_colour[0], &fg_colour[1], &fg_colour[2]);
 	glUniform4fv(glGetUniformLocation(ass.shader.program, "fg_colour"), 1, fg_colour);
 }
-
 
 
 static void
@@ -188,6 +223,9 @@ void
 wf_shaders_init()
 {
 	agl_create_program(&peak_shader.shader, uniforms);
+#ifdef USE_FBO
+	agl_create_program(&peak_nonscaling.shader, uniforms1);
+#endif
 	agl_create_program(&hires_shader.shader, uniforms_hr);
 	agl_create_program(&horizontal.shader, uniforms2);
 	agl_create_program(&vertical.shader, uniforms3);

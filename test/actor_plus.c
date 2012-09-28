@@ -488,8 +488,8 @@ ruler_paint(GtkWidget* widget)
 	}
 #endif
 
-	double top = 0;//GL_HEIGHT * 0.5;
-	double bot = GL_HEIGHT * 0.5;
+	double top = 0;
+	double bot = GL_HEIGHT * 0.25;
 	double x1 = 0;
 	double x2 = width;
 

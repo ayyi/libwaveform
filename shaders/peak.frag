@@ -31,18 +31,6 @@ uniform int n_channels;
 void main(void)
 {
 	float object_height = (bottom - top) / 256.0; //transform to texture coords
-	//float height = 1.0;
-	//float mid = object_height / 2.0;
-	/*
-	vec2 peak = peaks[int(MCposition.x)];
-	float colour = 0.0;
-	if (MCposition.y > mid) {
-		if (MCposition.y - mid < peak.x) colour = 1.0;
-	} else {
-		if (-MCposition.y + mid < peak.y) colour = 1.0;
-	}
-	gl_FragColor = vec4(colour);
-	*/
 
 	//float val = texture1D(tex1d, gl_TexCoord[0].s).a * MCposition.y / gl_height;
 
@@ -56,7 +44,8 @@ void main(void)
 		mid = 0.25;
 		h = 0.5;
 	}
-	float over_sample = 2.0;
+	//if we are not doing any scaling, oversampling is unnecessary? (as this is very common, perhaps should have a separate simplified shader.)
+	float over_sample = (peaks_per_pixel == 1.0) ? 1.0 : 2.0;
 	d = d / over_sample;
 	float alpha_range = 0.5;
 	//float y = MCposition.y / 256.0;
@@ -69,14 +58,38 @@ void main(void)
 	float aa = alpha_range / (peaks_per_pixel * over_sample);
 	int n = int(max(1, peaks_per_pixel * over_sample)) + 2;
 
-	float window[32];
-	for(i=0;i<32;i++) window[n] = 1.0;
+	// warning
+	// this value must be updated if 'over_sample' or max value of 'peaks_per_pixel' change.
+	// value of 16 is based on oversample=2 and max peaks_per_pixel of 8
+	const int N_WIN = 16;
+	n = int(min(n, N_WIN));
+	float window[N_WIN];
+		// r300 driver cannot initialise an array in a loop!
+		window[ 2] = 1.0;
+		window[ 3] = 1.0;
+		window[ 4] = 1.0;
+		window[ 5] = 1.0;
+		window[ 6] = 1.0;
+		window[ 7] = 1.0;
+		window[ 8] = 1.0;
+		window[ 9] = 1.0;
+		window[10] = 1.0;
+		window[11] = 1.0;
+		window[12] = 1.0;
+		window[13] = 1.0;
+	if(n > 3){
 	window[  0] = 0.25;
 	window[  1] = 0.75;
 	window[n-2] = 0.75;
 	window[n-1] = 0.25;
+	}else{
+		window[  0] = 1.00;
+		window[  1] = 1.00;
+		window[  2] = 0.00;
+	}
 
-	int c;for(c=0;c<n_channels;c++){
+	int c_max = int(min(n_channels, 2));
+	int c;for(c=0;c<c_max;c++){
 		float mid_ = (c == 0) ? mid : mid_rhs;
 		if((c == 0 && y < h) || (c == 1 && y > h)){
 			for(i=0;i<n;i++){
@@ -103,20 +116,5 @@ void main(void)
 	//if(gl_TexCoord[0].y > 0.495 && gl_TexCoord[0].y < 0.505) gl_FragColor = vec4(1.0, 0.0, 0.0, 0.75);
 
 	//if(gl_TexCoord[0].x == 0.0) gl_FragColor = vec4(1.0, val, 0.0, 1.0);
-
-	/*
-	if (y > mid) {
-		float y_ = y - mid;   //range: 0.0 - 0.5
-		float y__ = 2.0 * y_; //range: 0.0 - 1.0
-		peak_pstv = texture1D(tex1d, gl_TexCoord[0].x -1.0 * d).a;
-		if(y_ < peak_pstv * h){
-			float peak_ = 2.0 * peak_pstv; // normalised to 0.0 - 1.0
-			float di = 4.0 * (peak_ - y__) + 0.25;
-			gl_FragColor = vec4(val) * fg_colour + vec4(clamp(di, 0.0, 1.0), 0.0, 0.0, 1.0);
-		}
-	} else {
-		//gl_FragColor = vec4(val) * fg_colour;
-	}
-	*/
 }
 

@@ -56,8 +56,12 @@
 static void  set_log_handlers();
 static char* find_wav();
 
-#define WAV "test/data/mono_1.wav"
-//#define WAV "test/data/stereo_1.wav"
+#define WAV \
+	"test/data/mono_1.wav"
+//	"test/data/stereo_1.wav"
+//	"test/data/1_block.wav"
+//	"test/data/3_blocks.wav"
+//	"test/data/2_blocks.wav"
 
 KeyHandler
 	zoom_in,

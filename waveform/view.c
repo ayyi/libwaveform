@@ -46,9 +46,7 @@
 #include "waveform/view.h"
 
 #define DIRECT 1
-#define GL_WIDTH 256.0 //TODO
-#define GL_HEIGHT 256.0 //TODO
-#define VBORDER 0
+#define GL_HEIGHT 256.0 //TODO (this is the height of the texture, so is maybe ok)
 
 static GdkGLConfig*   glconfig = NULL;
 static GdkGLContext*  gl_context = NULL;
@@ -182,8 +180,7 @@ _waveform_view_set_actor (WaveformView* view)
 
 	void _waveform_view_on_draw(WaveformCanvas* wfc, gpointer _view)
 	{
-		WaveformView* view = _view;
-		gtk_widget_queue_draw((GtkWidget*)view);
+		gtk_widget_queue_draw((GtkWidget*)_view);
 	}
 	actor->canvas->draw = _waveform_view_on_draw;
 	actor->canvas->draw_data = view;
@@ -564,8 +561,8 @@ waveform_view_set_projection(GtkWidget* widget)
 
 	double left = -hborder;
 	double right = width + hborder;
-	double top   = GL_HEIGHT + VBORDER;
-	double bottom = -VBORDER;
+	double top   = GL_HEIGHT;
+	double bottom = 0.0;
 	glOrtho (left, right, bottom, top, 10.0, -100.0);
 }
 
@@ -586,7 +583,7 @@ waveform_view_get_width(WaveformView* view)
 {
 	GtkWidget* widget = (GtkWidget*)view;
 
-	return GTK_WIDGET_REALIZED(widget) ? widget->allocation.width : GL_WIDTH;
+	return GTK_WIDGET_REALIZED(widget) ? widget->allocation.width : 256;
 }
 
 

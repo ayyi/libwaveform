@@ -44,14 +44,6 @@ waveform_view_gl_init(WaveformView* view)
 #ifdef WF_USE_TEXTURE_CACHE
 	texture_cache_gen();
 #endif
-
-#if 0
-#ifdef USE_FBO
-	START_DRAW {
-		if(!fbo0) create_fbo();
-	} END_DRAW
-#endif
-#endif
 }
 
 

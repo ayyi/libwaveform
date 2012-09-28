@@ -47,6 +47,9 @@ struct _waveform_canvas {
 struct _wf_canvas_priv {
 	struct {
 		PeakShader*     peak;
+//#ifdef USE_FBO // cannot use this unless is really private
+		PeakShader*     peak_nonscaling;
+//#endif
 		HiResShader*    hires;
 		BloomShader*    vertical;
 		BloomShader*    horizontal;

@@ -247,12 +247,11 @@ on_expose(GtkWidget* widget, GdkEventExpose* event, gpointer user_data)
 }
 
 
-static gboolean canvas_init_done = false;
 static void
 on_canvas_realise(GtkWidget* _canvas, gpointer user_data)
 {
 	PF;
-	if(canvas_init_done) return;
+	if(wfc) return;
 	if(!GTK_WIDGET_REALIZED (canvas)) return;
 
 	gl_drawable = gtk_widget_get_gl_drawable(canvas);
@@ -262,8 +261,6 @@ on_canvas_realise(GtkWidget* _canvas, gpointer user_data)
 
 	wfc = wf_canvas_new(gl_context, gl_drawable);
 	//wf_canvas_set_use_shaders(wfc, false);
-
-	canvas_init_done = true;
 
 	char* filename = g_build_filename(g_get_current_dir(), "test/data/mono_1.wav", NULL);
 	w1 = waveform_load_new(filename);

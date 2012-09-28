@@ -151,6 +151,12 @@ __finalize (Waveform* w)
 				int b; for(b=0;b<textures->size;b++) if(textures->fbo[b]) fbo_free(textures->fbo[b]);
 				g_free(textures->fbo);
 			}
+#ifdef USE_FX
+			if(textures->fx_fbo){
+				int b; for(b=0;b<textures->size;b++) if(textures->fx_fbo[b]) fbo_free(textures->fx_fbo[b]);
+				g_free(textures->fx_fbo);
+			}
+#endif
 #endif
 			g_free(textures);
 			*_textures = NULL;
@@ -240,6 +246,9 @@ wf_texture_array_new(int size, int n_channels)
 		wf_texture_array_add_ch(textures, c);
 	}
 	textures->fbo = g_new0(WfFBO*, textures->size); //note: only an array of _pointers_
+#ifdef USE_FX
+	textures->fx_fbo = g_new0(WfFBO*, textures->size);
+#endif
 	return textures;
 }
 
@@ -356,7 +365,7 @@ waveform_load_peak(Waveform* w, const char* peak_file, int ch_num)
 	int i; for (i=0;i<20;i++) printf("      %i %i\n", w->priv->peak.buf[0][2 * i], w->priv->peak.buf[0][2 * i + 1]);
 #endif
 	if(!w->textures){
-		w->textures = wf_texture_array_new(w->num_peaks / WF_PEAK_TEXTURE_SIZE + ((w->num_peaks % WF_PEAK_TEXTURE_SIZE) ? 1 : 0), (ch_num == 1 || n_channels == 2) ? 2 : 1);
+		w->textures = wf_texture_array_new(w->num_peaks / WF_TEXTURE_VISIBLE_SIZE + ((w->num_peaks % WF_TEXTURE_VISIBLE_SIZE) ? 1 : 0), (ch_num == 1 || n_channels == 2) ? 2 : 1);
 #ifdef WF_SHOW_RMS
 		gerr("rms TODO");
 		w->textures->rms_texture = g_new0(unsigned, w->textures->size);
@@ -492,8 +501,8 @@ get_rms_buf_info(const char* buf, guint len, struct _rms_buf_info* b, int ch)
 static void
 waveform_set_last_fraction(Waveform* waveform)
 {
-	int width = WF_PEAK_TEXTURE_SIZE;
-	int width_ = waveform->num_peaks % WF_PEAK_TEXTURE_SIZE;
+	int width = WF_TEXTURE_VISIBLE_SIZE;
+	int width_ = waveform->num_peaks % WF_TEXTURE_VISIBLE_SIZE;
 	waveform->textures->last_fraction = (double)width_ / (double)width;
 	//dbg(1, "num_peaks=%i last_fraction=%.2f", waveform->num_peaks, waveform->textures->last_fraction);
 }
@@ -531,20 +540,16 @@ alphabuf_draw_line(AlphaBuf* pixbuf, WfDRect* pts, double line_width, GdkColor* 
 
 
 void
-waveform_peak_to_alphabuf(Waveform* w, AlphaBuf* a, int scale, int* start, int* end, GdkColor* colour, uint32_t colour_bg, int border)
+waveform_peak_to_alphabuf(Waveform* w, AlphaBuf* a, int scale, int* start, int* end, GdkColor* colour)
 {
 	/*
-	 renders a peakfile (loaded into the buffer given by waveform->buf) onto the given 8 bit alpha-map buffer.
+	 renders a peakfile (pre-loaded into WfPeakBuf* waveform->priv->peak) onto the given 8 bit alpha-map buffer.
 
 	 -the given buffer is for a single block only.
 
 	 @param start - if set, we start rendering at this value in the source buffer.
 	 @param end   - if set, source buffer index to stop rendering at.
 	                Is allowed to be bigger than the output buf width.
-	 @border      - nothing will be drawn within this number of pixels from the alphabuf left and right edges.
-TODO wrong - should be filled with data from adjacent blocks
-	                To facilitate drawing the border, the Alphabuf must be 2xborder wider than the requested draw range.
-	                TODO ensure that the data to fill the RHS border is loaded (only applies to hi-res mode)
 
 	 TODO
 	   -can be simplified. Eg, the antialiasing should be removed.
@@ -582,19 +587,15 @@ TODO wrong - should be filled with data from adjacent blocks
 	                 //-the bigger the mag, the less samples we need to skip.
 	                 //-as we're only dealing with smaller peak files, we need to adjust by the RATIO.
 
-//------------------------------
-	//if start if not specified, we start at 0.
-	//       -however in this case, the output is N pixels to the right?
-	//        ie the source is N earlier?
-	//if start _is_ specified, we start at s or s-4 ? ***
-					int src_offset = start ? 0 : -TEX_BORDER;
+	int src_offset = 0;
 	int px_start = start ? *start : 0;
 	int px_stop  = *end;//   ? MIN(*end, width) : width;
-//------------------------------
 	dbg (2, "start=%i end=%i", px_start, px_stop);
 	//dbg (1, "width=%i height=%i", width, height);
 
 	if(width < px_stop - px_start){ gwarn("alphabuf too small? %i < %i", width, px_stop - px_start); return; }
+
+//int last_src = 0;
 
 	int ch; for(ch=0;ch<n_chans;ch++){
 
@@ -607,6 +608,7 @@ TODO wrong - should be filled with data from adjacent blocks
 		for(px=px_start;px<px_stop;px++){
 			src_start = ((int)( px   * xmag)) + src_offset;
 			src_stop  = ((int)((px+1)* xmag));
+//last_src = src_stop;
 			//printf("%i ", src_start);
 			if(src_start < 0){ dbg(0, "skipping..."); continue; }
 
@@ -621,7 +623,7 @@ TODO wrong - should be filled with data from adjacent blocks
 
 			int mid = ch_height / 2;
 
-			if(src_stop < b.len/2){
+			if(src_stop <= b.len/2){
 				min = 0; max = 0;
 				int n_sub_px = 0;
 				for(j=src_start;j<src_stop;j++){ //iterate over all the source samples for this pixel.
@@ -629,6 +631,7 @@ TODO wrong - should be filled with data from adjacent blocks
 					sample.negative = b.buf[2*j +1];
 					if(sample.positive > max) max = sample.positive;
 					if(sample.negative < min) min = sample.negative;
+//if((j > 240 && j<250) || j>490) dbg(0, "  s=%i %i %i", j, (int)max, (int)(-min));
 
 					if(n_sub_px < 4){
 						//FIXME these supixels are not evenly distributed when > 4 available, as we currently only use the first 4.
@@ -715,6 +718,7 @@ TODO wrong - should be filled with data from adjacent blocks
 				//gdk_draw_line(GDK_DRAWABLE(pixmap), gc, px, 0, px, height);//x1, y1, x2, y2
 				WfDRect pts = {px, 0, px, ch_height};
 				alphabuf_draw_line(a, &pts, 1.0, colour);
+//gwarn("!");
 			}
 			//next = srcidx + 1;
 			//xf += WF_PEAK_RATIO * WF_PEAK_VALUES_PER_SAMPLE / samples_per_px;
@@ -724,6 +728,7 @@ TODO wrong - should be filled with data from adjacent blocks
 			//printf("line_index=%i %i %i %i\n", line_index, (line_index  ) % 3, (line_index+1) % 3, (line_index+2) % 3);
 		}
 	}
+//dbg(0, "last_src=%i x=%i", last_src, px);
 
 	//printf("%s(): done. drawn: %i of %i stop=%i\n", __func__, line_done_count, width, src_stop);
 

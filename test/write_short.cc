@@ -105,7 +105,7 @@ int main(int argc, char* argv[])
 		fprintf(stderr, "No output filename specified\n");
 		return print_help();
 	}
-	printf("Generating 150ms test tone\n");
+	printf("Generating 150ms test wav\n");
 
 	double duration    = 150;   // milliseconds
 	int    sample_rate = 44100; // frames / second

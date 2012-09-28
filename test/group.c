@@ -205,7 +205,6 @@ setup_projection(GtkWidget* widget)
 static void
 draw(GtkWidget* widget)
 {
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	glEnable(GL_BLEND); glEnable(GL_DEPTH_TEST); glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
 	glPushMatrix(); /* modelview matrix */
@@ -280,7 +279,7 @@ on_canvas_realise(GtkWidget* _canvas, gpointer user_data)
 	WfSampleRegion region[] = {
 		{0,            n_frames    },
 		{0,            n_frames / 2},
-		{n_frames / 4, n_frames / 4},
+		{n_frames / 4, n_frames / 16},
 		{n_frames / 2, n_frames / 2},
 	};
 

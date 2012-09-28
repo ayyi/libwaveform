@@ -103,8 +103,8 @@ waveform_load_audio_block(Waveform* waveform, int block_num)
 
 	//int spacing = WF_PEAK_RATIO >> (audio->n_tiers_present - 1);
 
-	uint64_t start_pos =  block_num      * WF_PEAK_BLOCK_SIZE;
-	uint64_t end_pos   = (block_num + 1) * WF_PEAK_BLOCK_SIZE;
+	uint64_t start_pos = block_num * (WF_PEAK_BLOCK_SIZE - 2.0 * TEX_BORDER * 256.0);
+	uint64_t end_pos   = start_pos + WF_PEAK_BLOCK_SIZE;
 
 	int n_chans = waveform_get_n_channels(waveform);
 	g_return_val_if_fail(n_chans, false);
@@ -120,7 +120,7 @@ waveform_load_audio_block(Waveform* waveform, int block_num)
 	}
 
 	if(start_pos > sfinfo.frames){ gerr("startpos too too high. %Li > %Li block=%i", start_pos, sfinfo.frames, block_num); return false; }
-	if(end_pos > sfinfo.frames){ dbg(1, "*** last block?"); end_pos = sfinfo.frames; }
+	if(end_pos > sfinfo.frames){ dbg(1, "*** last block: end_pos=%Lu max=%Lu", end_pos, sfinfo.frames); end_pos = sfinfo.frames; }
 	sf_seek(sffile, start_pos, SEEK_SET);
 	dbg(1, "block=%i/%i start=%Li end=%Li", block_num, waveform_get_n_audio_blocks(waveform), start_pos, end_pos);
 

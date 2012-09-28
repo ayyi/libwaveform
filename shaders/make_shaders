@@ -1,6 +1,6 @@
 #!/bin/bash
 
-shaders=(peak horizontal vertical hires alpha_map ruler texture_2d ass);
+shaders=(peak peak_nonscaling horizontal vertical hires alpha_map ruler texture_2d ass);
 out=shaders.c
 
 if [[ -s $out ]]; then

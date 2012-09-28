@@ -25,7 +25,7 @@ typedef struct _peakbuf1        WfPeakBuf;
 typedef struct _buf             RmsBuf;
 typedef struct _waveform_canvas WaveformCanvas;
 typedef struct _waveform_actor  WaveformActor;
-typedef struct __gl_block       WfGlBlock;
+typedef struct _wf_texture_list WfGlBlock;
 typedef struct _textures_hi     WfTexturesHi;
 typedef struct _texture_hi      WfTextureHi;
 typedef struct _waveform_priv   WaveformPriv;

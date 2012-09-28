@@ -264,7 +264,7 @@ int main(int argc, char* argv[])
 		fprintf(stderr, "Output filename required\n");
 		return print_help();
 	}
-	printf("Generating 10s test tone\n");
+	printf("Generating 10s test wav\n");
 
 	double freq        = 440;   // hz
 	double duration    = 10;    // seconds

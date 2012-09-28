@@ -55,9 +55,10 @@
 
 static void   wf_canvas_init_gl (WaveformCanvas*);
 
-extern PeakShader peak_shader;
+extern PeakShader peak_shader, peak_nonscaling;
 extern HiResShader hires_shader;
-extern BloomShader horizontal, vertical;
+extern BloomShader horizontal;
+extern BloomShader vertical;
 extern AlphaMapShader tex2d, tex2d_b, ass;
 extern RulerShader ruler;
 
@@ -113,6 +114,8 @@ wf_canvas_new(GdkGLContext* gl_context, GdkGLDrawable* gl_drawable)
 WaveformCanvas*
 wf_canvas_new_from_widget(GtkWidget* widget)
 {
+	PF;
+
 	GdkGLDrawable* gl_drawable = gtk_widget_get_gl_drawable(widget);
 	if(!gl_drawable){
 		dbg(2, "cannot get drawable");
@@ -150,6 +153,7 @@ wf_canvas_set_use_shaders(WaveformCanvas* wfc, gboolean val)
 	PF;
 	AGl* agl = agl_get_instance();
 	agl->pref_use_shaders = val;
+	if(!val) agl->use_shaders = false; //TODO check
 
 	if(wfc){
 		if(!val){
@@ -191,6 +195,9 @@ wf_canvas_init_gl(WaveformCanvas* wfc)
 		if(agl->use_shaders){
 			wf_shaders_init();
 			wfc->priv->shaders.peak = &peak_shader;
+#ifdef USE_FBO
+			wfc->priv->shaders.peak_nonscaling = &peak_nonscaling;
+#endif
 			wfc->priv->shaders.hires = &hires_shader;
 			wfc->priv->shaders.vertical = &vertical;
 			wfc->priv->shaders.horizontal = &horizontal;
@@ -226,6 +233,9 @@ wf_canvas_set_viewport(WaveformCanvas* wfc, WfViewPort* _viewport)
 }
 
 
+/*
+ *  The actor is owned by the canvas and will be freed on calling wf_canvas_remove_actor()
+ */
 WaveformActor*
 wf_canvas_add_new_actor(WaveformCanvas* wfc, Waveform* w)
 {
@@ -245,14 +255,14 @@ wf_canvas_add_new_actor(WaveformCanvas* wfc, Waveform* w)
 void
 wf_canvas_remove_actor(WaveformCanvas* wfc, WaveformActor* actor)
 {
-	PF0;
+	PF;
 	Waveform* w = actor->waveform;
 
 	wf_actor_free(actor);
 #ifdef TRACK_ACTORS
 	if(!g_list_find(actors, actor)) gwarn("actor not found! %p", actor);
 	actors = g_list_remove(actors, actor);
-	if(actors) dbg(0, "n_actors=%i", g_list_length(actors));
+	if(actors) dbg(1, "n_actors=%i", g_list_length(actors));
 #endif
 
 	if(w) g_object_unref(w);
@@ -364,15 +374,13 @@ wf_canvas_load_texture_from_alphabuf(WaveformCanvas* wa, int texture_name, Alpha
 #else
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 #endif
+		// if TEX_BORDER is used, clamping will make no difference as we dont reach the edge of the texture.
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 		//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST); //note using this stops gaps between blocks.
-		//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP); //prevent wrapping
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); //prevent wrapping
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); // prevent wrapping. GL_CLAMP_TO_EDGE uses the nearest texture value, and will not fade to the border colour like GL_CLAMP
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP); //prevent wrapping
 
 		glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
-		//glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_DECAL);
-		//glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_COMBINE);
 		if(!glIsTexture(texture_name)) gwarn("texture not loaded! %i", texture_name);
 	} WAVEFORM_END_DRAW(wa);
 }
@@ -417,12 +425,7 @@ wf_canvas_use_program_(WaveformCanvas* wfc, AGlShader* shader)
 	}
 
 	//it remains to be seen whether automatic setting of uniforms gives us enough control.
-	//TODO do for all shaders
-	if(shader == (AGlShader*)&peak_shader){
-		//peak_shader.set_uniforms(peaks_per_pixel, rect.top, bottom, actor->fg_colour, n_channels);
-	}else{
-		if(shader) shader->set_uniforms_();
-	}
+	if(shader && shader->set_uniforms_) shader->set_uniforms_();
 }
 
 

@@ -9,6 +9,7 @@ typedef struct {
 	struct {
 		float peaks_per_pixel;
 		float fg_colour[4];
+		int   n_channels;
 	}         uniform;
 } PeakShader;
 
