@@ -336,6 +336,9 @@ texture_cache_steal()
 				&blocks->peak_texture[1].main[wb->block],
 				&blocks->peak_texture[1].neg[wb->block]
 			};
+
+			g_return_val_if_fail(&g_array_index(c->t, Texture, n), -1); // tmp to debug segfault with line below
+
 			int i; for(i=0;i<4;i++){
 				if(peak_texture[i] && *peak_texture[i] == ((Texture*)&g_array_index(c->t, Texture, n))->id) return i;
 			}

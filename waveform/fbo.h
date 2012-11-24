@@ -1,16 +1,10 @@
 #ifndef __wf_fbo_h__
 #define __wf_fbo_h__
+#include "agl/fbo.h"
 
-WfFBO* fbo_new   (guint texture);
-void   fbo_free  (WfFBO*);
-WfFBO* fbo_new_test();
-
-struct _fbo {
-	guint id;
-	guint texture;
-	int   width;
-	int   height;
-};
+AglFBO* fbo_new      (guint texture);
+void    fbo_free     (AglFBO*);
+AglFBO* fbo_new_test ();
 
 #define draw_to_fbo(F) \
 	glMatrixMode(GL_PROJECTION); \

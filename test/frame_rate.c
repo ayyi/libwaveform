@@ -3,9 +3,14 @@
   Test program to measure framerates using the libwaveform WaveformView
   widget.
 
-  Actually, because widget painting is done in an idle, it is not
-  easy to measure maximum framerate, however full screen drawing while
-  continuously animating doesnt use more than 1% cpu (radeon 500)
+  Redraws are requested at 100Hz and the resultant number of draws
+  is counted.
+
+  On budget hardware, full screen drawing while continuously animating
+  doesnt report more than 1% cpu usage, even when frame-rate drops.
+  With all effects enabled, framerate drops to 18fps at fullscreen,
+  though this is due entirely to the shader fx.
+  (2012.10.05).
 
   --------------------------------------------------------------
 
@@ -50,7 +55,7 @@ static uint64_t get_time         ();
 
 
 int
-main (int argc, char *argv[])
+main (int argc, char* argv[])
 {
 	if(sizeof(off_t) != 8){ gerr("sizeof(off_t)=%i\n", sizeof(off_t)); return EXIT_FAILURE; }
 
@@ -111,15 +116,9 @@ main (int argc, char *argv[])
 	}
 
 	g_signal_connect(window, "key-press-event", G_CALLBACK(key_press), waveform);
+	g_signal_connect(window, "delete-event", G_CALLBACK(gtk_main_quit), NULL);
 
-	gboolean window_on_delete(GtkWidget* widget, GdkEvent* event, gpointer user_data){
-		gtk_main_quit();
-		return false;
-	}
-	g_signal_connect(window, "delete-event", G_CALLBACK(window_on_delete), NULL);
-
-//#if 0 //using an idle doesnt work as drawing never happens
-	gboolean on_idle(gpointer _waveform)
+	gboolean on_timeout(gpointer _waveform)
 	{
 		WaveformView* waveform = _waveform;
 
@@ -128,22 +127,20 @@ main (int argc, char *argv[])
 		if(!frame) t0 = get_time();
 		else{
 			uint64_t time = get_time();
-			if(!(frame % 1000))
-				dbg(0, "rate=%.2f fps", ((float)frame) / ((float)(time - t0)) / 1000.0);
+			if(!(frame % 200))
+				printf("rate=%.1f fps\n", ((float)frame / ((float)time - t0)) * 1000.0);
 
 			if(!(frame % 8)){
 				float v = (frame % 16) ? 1.5 : 2.0/3.0;
 				if(v > 16.0) v = 1.0;
 				waveform_view_set_zoom(waveform, waveform->zoom * v);
 			}
+			gtk_widget_queue_draw(waveform);
 		}
 		frame++;
 		return IDLE_CONTINUE;
 	}
-	//g_idle_add(on_idle, NULL);
-//#endif
-	//g_idle_add_full(G_PRIORITY_LOW, on_idle, NULL, NULL);
-	g_timeout_add(50, on_idle, waveform);
+	g_timeout_add(15, on_timeout, waveform);
 
 	gtk_main();
 

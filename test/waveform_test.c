@@ -41,24 +41,17 @@
 #include "test/ayyi_utils.h"
 #include "test/common.h"
 
-typedef void (TestFn)();
 TestFn test_peakgen, test_audiodata, test_audio_cache, test_alphabuf;
 
-#define STOP false;
-//extern bool     abort_on_fail;
-extern bool     passed;
-extern int      test_finished;
-char       current_test_name[64];
-
-gpointer   tests[] = {
+gpointer tests[] = {
 	test_peakgen,
 	test_audiodata,
 	test_audio_cache,
 	test_alphabuf,
 };
 
-
 #define WAV "test/data/mono_1.wav"
+
 
 int
 main (int argc, char *argv[])
@@ -67,29 +60,9 @@ main (int argc, char *argv[])
 
 	test_init(tests, G_N_ELEMENTS(tests));
 
-	gboolean fn(gpointer user_data)
-	{
-		next_test();
-
-		return IDLE_STOP;
-	}
-	g_idle_add(fn, NULL);
 	g_main_loop_run (g_main_loop_new (NULL, 0));
 
 	exit(1);
-}
-
-
-static void reset_timeout(int ms)
-{
-	if(app.timeout) g_source_remove (app.timeout);
-
-	bool on_test_timeout(gpointer _user_data)
-	{
-		FAIL_TEST_TIMER("TEST TIMEOUT\n");
-		return TIMER_STOP;
-	}
-	app.timeout = g_timeout_add(ms, on_test_timeout, NULL);
 }
 
 

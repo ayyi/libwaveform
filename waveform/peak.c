@@ -245,9 +245,9 @@ wf_texture_array_new(int size, int n_channels)
 	int c; for(c=0;c<n_channels;c++){
 		wf_texture_array_add_ch(textures, c);
 	}
-	textures->fbo = g_new0(WfFBO*, textures->size); //note: only an array of _pointers_
+	textures->fbo = g_new0(AglFBO*, textures->size); //note: only an array of _pointers_
 #ifdef USE_FX
-	textures->fx_fbo = g_new0(WfFBO*, textures->size);
+	textures->fx_fbo = g_new0(AglFBO*, textures->size);
 #endif
 	return textures;
 }

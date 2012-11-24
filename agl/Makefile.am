@@ -13,6 +13,7 @@ libagl_la_SOURCES = \
 	pango_render.c pango_render.h \
 	pango_font.c pango_font.h \
 	ext.c ext.h \
+	fbo.h \
 	utils.c utils.h
 
 pkginclude_HEADERS = \

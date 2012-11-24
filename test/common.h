@@ -38,6 +38,7 @@ typedef void (*Test)    ();
 void test_init          (gpointer tests[], int);
 void next_test          ();
 void test_finished_     ();
+void reset_timeout      (int ms);
 
 bool get_random_boolean ();
 int  get_random_int     (int max);
@@ -101,3 +102,12 @@ void add_key_handler    (GtkWindow*, WaveformView*, Key[]);
 #define FAIL_IF_ERROR \
 	if(error && *error) FAIL_TEST((*error)->message);
 
+typedef void (TestFn)();
+
+#ifdef __common_c__
+char       current_test_name[64];
+#else
+extern gboolean passed;
+extern int      test_finished;
+extern char     current_test_name[];
+#endif

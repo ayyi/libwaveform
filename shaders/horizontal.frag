@@ -24,6 +24,7 @@ void main(void)
 	m[3] = 8.00;
 	float mm = 1.0;
 	if(true || sum.r < 1.0 || (sum.a < 1.0)){ // TODO why enabling this test gives wrong results?
+	//if(false){
 		//oversampling with 1 pixel linear window function
 		if(peaks_per_pixel > m[0]){
 			mm = 2.0;

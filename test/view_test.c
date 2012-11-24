@@ -107,7 +107,17 @@ main (int argc, char *argv[])
 	waveform_view_set_show_grid(waveform, true);
 	#endif
 	#if 0
-	WaveformCanvas* wfc = waveform_view_get_canvas(waveform);
+	gboolean on_idle(gpointer data)
+	{
+		WaveformView* v = data;
+		WaveformCanvas* wfc = waveform_view_get_canvas(v);
+		g_return_val_if_fail(wfc, true);
+		wfc->blend = false;
+		return IDLE_STOP;
+	}
+	g_idle_add(on_idle, waveform);
+	#endif
+	#if 0
 	wf_canvas_set_use_shaders(wfc, false);
 	#endif
 	gtk_widget_set_size_request((GtkWidget*)waveform, 256, 128);

@@ -147,7 +147,7 @@ static inline void _draw_block_from_1d       (float tex_start, float tex_pct, fl
 static void   block_to_fbo                   (WaveformActor*, int b, WfGlBlock*, int resolution);
 #endif
 
-static WfFBO* fbo_test = NULL;
+static AglFBO* fbo_test = NULL;
 
 void
 wf_actor_init()
@@ -391,7 +391,7 @@ block_to_fbo(WaveformActor* a, int b, WfGlBlock* blocks, int resolution)
 		WfGlBlock* textures = blocks;
 
 		if(a->canvas->use_1d_textures){
-			WfFBO* fbo = blocks->fbo[b];
+			AglFBO* fbo = blocks->fbo[b];
 			if(fbo){
 				draw_to_fbo(fbo) {
 					WfColourFloat fg; wf_colour_rgba_to_float(&fg, actor->fg_colour);
@@ -437,7 +437,7 @@ block_to_fbo(WaveformActor* a, int b, WfGlBlock* blocks, int resolution)
 				//now process the first fbo onto the fx_fbo
 
 				if(blocks->fx_fbo[b]) gwarn("expected empty");
-				WfFBO* fx_fbo = blocks->fx_fbo[b] = fbo_new(0);
+				AglFBO* fx_fbo = blocks->fx_fbo[b] = fbo_new(0);
 				if(fx_fbo){
 					dbg(1, "%i: rendering to fx fbo. from: id=%i texture=%u - to: texture=%u", b, fbo->id, fbo->texture, fx_fbo->texture);
 					draw_to_fbo(fx_fbo) {
@@ -1288,6 +1288,15 @@ _draw_block_from_1d(float tex_start, float tex_pct, float x, float y, float widt
 }
 
 
+// temporary - performance testing
+static void
+use_texture_no_blend(GLuint texture)
+{
+	glBindTexture(GL_TEXTURE_2D, texture);
+	glDisable(GL_BLEND);
+}
+
+
 void
 wf_actor_paint(WaveformActor* actor)
 {
@@ -1536,7 +1545,7 @@ wf_actor_paint(WaveformActor* actor)
 #if defined (USE_FBO) && defined (multipass)
 					if(agl->use_shaders){
 						//rendering from 2d texture not 1d
-						WfFBO* fbo = false
+						AglFBO* fbo = false
 							? fbo_test
 #ifdef USE_FX
 							: textures->fx_fbo[b]
@@ -1544,7 +1553,10 @@ wf_actor_paint(WaveformActor* actor)
 #endif
 								: textures->fbo[b];
 						if(fbo){ //seems that the fbo may not be created initially...
-							use_texture(fbo->texture);
+							if(wfc->blend)
+								use_texture(fbo->texture);
+							else
+								use_texture_no_blend(fbo->texture);
 						}
 					}else{
 						_set_gl_state_for_block(wfc, w, textures, b, fg, alpha);

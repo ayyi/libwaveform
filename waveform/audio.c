@@ -307,22 +307,25 @@ file_load_thread(gpointer data)
 }
 
 
+/*
+ * load part of the audio into a ram buffer.
+ * -a signal will be emitted once the load is complete.
+ *
+ * warning: a vary large file cannot be loaded into ram all at once.
+ * if the audio file is too big for the cache, then multiple parallel calls may fail.
+ * -requests should be done sequentially to avoid this.
+ * TODO this would be helped if the buffer was not allocated until queue processing.
+ *
+ */
 WfBuf16*
 waveform_load_audio_async(Waveform* waveform, int block_num, int n_tiers_needed)
 {
-	//load part of the audio into a ram buffer.
-	//-a signal will be emitted once the load is complete.
-
 	//if the audio is already loaded, it will be returned imediately
 	//and nothing further done.
 	// *** Having two return paths is bad and is subject to change.
 
 	//if the file is local we access it directly, otherwise send a msg.
 	//-for now, we assume the file is local.
-
-	//if the audio file is too big for the cache, then multiple parallel calls may fail.
-	//-requests should be done sequentially to avoid this.
-	// TODO this would be helped if the buffer was not allocated until queue processing.
 
 	//TODO should use same api as g_file_read_async ? uses GAsyncReadyCallback
 
@@ -355,8 +358,10 @@ waveform_load_audio_async(Waveform* waveform, int block_num, int n_tiers_needed)
 			QueueItem* i = l->data;
 			PeakbufQueueItem* item = i->user_data;
 			if(item->waveform == waveform && item->block_num == block_num){
-				dbg(0, "already queued");
-				gwarn("never get here"); //actually it is possible to get here using test_view while zooming in/out
+				dbg(1, "already queued");
+				//gwarn("never get here");
+				//actually it is possible to get here using test_view while zooming in/out
+				//or when there are lots of views of the same waveform
 				return true;
 			}
 		}
@@ -376,7 +381,6 @@ waveform_load_audio_async(Waveform* waveform, int block_num, int n_tiers_needed)
 	void wf_peakbuf_queue_for_regen(Waveform* waveform, int block_num, int min_output_tiers)
 	{
 		PF;
-		WF* wf = wf_get_instance();
 
 		if(is_queued(waveform, block_num)) return;
 
@@ -437,7 +441,8 @@ wf_cancel_jobs(Waveform* waveform)
 		QueueItem* i = l->data;
 		if(i->waveform == waveform) i->cancelled = true;
 	}
-	dbg(2, "n_jobs=%i", g_list_length(wf->jobs));
+	int n_jobs = g_list_length(wf->jobs);
+	dbg(n_jobs ? 1 : 2, "n_jobs=%i", n_jobs);
 }
 
 
@@ -510,17 +515,18 @@ audio_cache_free(Waveform* w, int block)
 	WfAudioData* audio = w->priv->audio_data;
 	WfBuf16* buf16 = audio->buf16[block];
 	if(buf16){
-		if(!g_hash_table_remove(wf->audio.cache, buf16)) gwarn("failed to remove waveform from audio_cache");
+		// the cache may already have been cleared if the cache is full
+		if(!g_hash_table_remove(wf->audio.cache, buf16)) dbg(2, "%i: failed to remove waveform block from audio_cache", block);
 		if(buf16->buf[WF_LEFT]){
 			wf->audio.mem_size -= buf16->size;
 			//dbg(1, "b=%i clearing left... size=%i", block, buf16->size);
 			g_free0(buf16->buf[WF_LEFT]);
 		}
-		else { gwarn("left buffer empty"); }
+		else { dbg(2, "%i: left buffer empty", block); }
 
 		if(buf16->buf[WF_RIGHT]){
 			wf->audio.mem_size -= buf16->size;
-			dbg(1, "b=%i clearing right...", block);
+			dbg(2, "b=%i clearing right...", block);
 			g_free0(buf16->buf[WF_RIGHT]);
 		}
 	}
@@ -533,9 +539,10 @@ audio_cache_print()
 {
 	WF* wf = wf_get_instance();
 
-	char str[32];
-	memset(str, ' ', 31);
-	str[31] = '\0';
+	#define STRLEN 64 // this is not long enough to show the whole cache.
+	char str[STRLEN];
+	memset(str, ' ', STRLEN - 1);
+	str[STRLEN - 1] = '\0';
 
 	int total_size = 0;
 	int total_mem = 0;
@@ -552,8 +559,10 @@ audio_cache_print()
 			//if(buf->buf[c]) printf("    %i %p\n", c, buf->buf[c]);
 			if(buf->buf[c]) total_mem += WF_PEAK_BLOCK_SIZE;
 		}
-		if(i < 16 && buf->buf[WF_LEFT])  str[2*i    ] = 'L';
-		if(i < 16 && buf->buf[WF_RIGHT]) str[2*i + 1] = 'R';
+		if(i < STRLEN / 2 - 1){
+			if(buf->buf[WF_LEFT])  str[2*i    ] = 'L';
+			if(buf->buf[WF_RIGHT]) str[2*i + 1] = 'R';
+		}
 
 		total_size++;
 		i++;

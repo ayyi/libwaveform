@@ -28,11 +28,17 @@
 #include <GL/glext.h>
 #include <GL/glx.h>
 #include <glib.h>
+#include <pango/pangofc-font.h>
+#include <pango/pangofc-fontmap.h>
 #include "agl/ext.h"
+#include "agl/pango_render.h"
 #include "agl/utils.h"
 
 #define gwarn(A, ...) g_warning("%s(): "A, __func__, ##__VA_ARGS__);
 #define dbg(A, B, ...) wf_debug_printf(__func__, A, B, ##__VA_ARGS__)
+
+static gboolean font_is_scalable(PangoContext*, const char* font_name);
+
 
 AGl* agl = NULL;
 
@@ -52,6 +58,11 @@ GLboolean
 agl_shaders_supported()
 {
 	const char* version = (const char*)glGetString(GL_VERSION);
+	if(!version){
+		gwarn("cannot get gl version. incorrect mode?");
+		agl->use_shaders = FALSE;
+		return GL_FALSE;
+	}
 	if (version[0] == '2' && version[1] == '.') {
 		return GL_TRUE;
 	}
@@ -65,6 +76,7 @@ agl_shaders_supported()
 	}
 	return GL_TRUE;
 #endif
+	agl->use_shaders = FALSE;
 	return GL_FALSE;
 }
 
@@ -223,37 +235,157 @@ agl_link_shaders(GLuint vertShader, GLuint fragShader)
 }
 
 
-GLuint
-agl_link_shaders2(GLuint vertShader, GLuint fragShader1, GLuint vertShader2, GLuint fragShader2)
+void
+agl_rect(float x, float y, float w, float h)
 {
-   GLuint program = glCreateProgram();
+	glBegin(GL_QUADS);
+	glVertex2f(x,     y);
+	glVertex2f(x + w, y);
+	glVertex2f(x + w, y + h);
+	glVertex2f(x,     y + h);
+	glEnd();
+}
 
-   assert(vertShader || fragShader1);
 
-   if (vertShader)
-      glAttachShader(program, vertShader);
-   if (fragShader1)
-      glAttachShader(program, fragShader1);
-   if (vertShader2)
-      glAttachShader(program, vertShader2);
-   if (fragShader2)
-      glAttachShader(program, fragShader2);
-   glLinkProgram(program);
+static PangoFontDescription* font_desc = NULL;
 
-   /* check link */
-   {
-      GLint stat;
-      glGetProgramiv(program, GL_LINK_STATUS, &stat);
-      if (!stat) {
-         GLchar log[1000];
-         GLsizei len;
-         glGetProgramInfoLog(program, 1000, &len, log);
-         fprintf(stderr, "Shader link error:\n%s\n", log);
-         return 0;
-      }
-   }
+void
+agl_set_font(char* font_string)
+{
+	if(font_desc) pango_font_description_free(font_desc);
+	font_desc = pango_font_description_from_string(font_string);
 
-   return program;
+	PangoGlRendererClass* PGRC = g_type_class_peek(PANGO_TYPE_GL_RENDERER);
+
+	if(!PGRC->context){
+		PangoFontMap* fontmap = pango_gl_font_map_new();
+		//pango_gl_font_map_set_resolution (PANGO_GL_FONT_MAP(fontmap), 96.0);
+		PGRC->context = pango_gl_font_map_create_context(PANGO_GL_FONT_MAP(fontmap));
+	}
+
+	dbg(0, "%s", font_string);
+	// for some reason there seems to be an issue with pixmap fonts
+	if(!font_is_scalable(PGRC->context, pango_font_description_get_family(font_desc))){
+		strcpy(font_string, "Sans 7");
+		pango_font_description_free(font_desc);
+		font_desc = pango_font_description_from_string(font_string);
+	}
+	dbg(2, "%s", font_string);
+
+	pango_font_description_set_weight(font_desc, PANGO_WEIGHT_SEMIBOLD); //TODO
+}
+
+
+void
+agl_print(int x, int y, double z, uint32_t colour, const char *fmt, ...)
+{
+	if(!fmt) return;
+
+	va_list args;
+	va_start(args, fmt);
+	gchar* text = g_strdup_vprintf(fmt, args);
+	va_end(args); //text now contains the string.
+
+	gboolean first_time = FALSE;
+	PangoGlRendererClass* PGRC = g_type_class_peek(PANGO_TYPE_GL_RENDERER);
+#if 0
+	if(!PGRC->context){
+		first_time = TRUE;
+		PangoFontMap* fontmap = pango_gl_font_map_new();
+		//pango_gl_font_map_set_resolution (PANGO_GL_FONT_MAP(fontmap), 96.0);
+		PGRC->context = pango_gl_font_map_create_context(PANGO_GL_FONT_MAP(fontmap));
+	}
+#endif
+
+	PangoLayout* layout = pango_layout_new (PGRC->context);
+	pango_layout_set_text (layout, text, -1);
+
+#if 0
+	if(!font_desc){
+		char font_string[64];
+		get_font_string(font_string, -3); //TODO why do we have to set this so small to get a reasonable font size?
+		font_desc = pango_font_description_from_string(font_string);
+
+		if(!font_is_scalable(PGRC->context, pango_font_description_get_family(font_desc))){
+			strcpy(font_string, "Sans 7");
+			pango_font_description_free(font_desc);
+			font_desc = pango_font_description_from_string(font_string);
+		}
+		dbg(2, "%s", font_string);
+
+		pango_font_description_set_weight(font_desc, PANGO_WEIGHT_SEMIBOLD); //TODO
+	}
+#endif
+
+	pango_layout_set_font_description(layout, font_desc);
+
+#if 0
+	PangoFontMap* fontmap = pango_context_get_font_map (_context);
+	PangoRenderer* renderer = pango_gl_font_map_get_renderer (PANGO_GL_FONT_MAP (fontmap));
+#endif
+
+	//------------------------------
+
+	/*
+	WfColourFloat cf;
+	colour_rgba_to_float(&cf, colour);
+	Colour32 c32 = {MIN(0xffU, cf.r * 256.0), MIN(0xffU, cf.g * 256.0), MIN(0xffU, cf.b * 256.0), colour & 0xffU};
+	*/
+	//pango_renderer_draw_layout (renderer, layout, 10 * PANGO_SCALE, -20 * PANGO_SCALE);
+	pango_gl_render_layout (layout, x, y, z, (Colour32*)&colour, 0);
+	//pango_gl_render_layout (layout, x, y, z, &c32, 0);
+
+#ifdef TEST
+	//prints the whole texture with all glyphs.
+	pango_gl_debug_textures();
+#endif
+
+	glPixelStorei (GL_UNPACK_ROW_LENGTH, 0); //reset back to the default value
+}
+
+
+static gboolean
+font_is_scalable(PangoContext* context, const char* font_name)
+{
+	//scalable fonts dont list sizes, so if the font has a size list, we assume it is not scalable.
+	//TODO surely there is a better way to find a font than iterating over every system font?
+
+	gboolean scalable = TRUE;
+
+	gchar* family_name = g_ascii_strdown(font_name, -1);
+	dbg(2, "looking for: %s", family_name);
+
+	PangoFontMap* fontmap = pango_context_get_font_map(context);
+	PangoFontFamily** families = NULL;
+	int n_families = 0;
+	pango_font_map_list_families(fontmap, &families, &n_families);
+	int i; for(i=0;i<n_families;i++){
+		PangoFontFamily* family = families[i];
+		//dbg(0, "family=%s", pango_font_family_get_name(family));
+		if(!strcmp(family_name, pango_font_family_get_name(family))){
+			PangoFontFace** faces;
+			int n_faces;
+			pango_font_family_list_faces(family, &faces, &n_faces);
+			int j; for(j=0;j<n_faces;j++){
+				PangoFontFace* face = faces[j];
+				dbg(3, " %s", pango_font_face_get_face_name(face));
+				int* sizes = NULL;
+				int n_sizes = 0;
+				pango_font_face_list_sizes(face, &sizes, &n_sizes);
+				if(n_sizes){
+					int i; for(i=0;i<n_sizes;i++){
+						scalable = FALSE;
+						break;
+					}
+					g_free(sizes);
+				}
+			}
+			if(faces) g_free(faces);
+		}
+	}
+	g_free(family_name);
+	dbg(2, "scalable=%i", scalable);
+	return scalable;
 }
 
 

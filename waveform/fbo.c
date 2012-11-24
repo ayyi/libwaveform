@@ -41,11 +41,11 @@ extern BloomShader horizontal, vertical;
 
 #ifdef USE_FBO
 
-WfFBO* fbo0 = NULL;
+static AglFBO* fbo0 = NULL;
 
 static GLuint make_fbo(GLuint texture);
 
-WfFBO*
+AglFBO*
 fbo_new(GLuint texture)
 {
 	//if texture is zero, a new texture will be created.
@@ -71,7 +71,7 @@ fbo_new(GLuint texture)
 		return texture;
 	}
 
-	WfFBO* fbo = g_new0(WfFBO, 1);
+	AglFBO* fbo = g_new0(AglFBO, 1);
 	fbo->width = 256;
 	fbo->height = 256;
 	fbo->texture = texture ? texture : make_texture(fbo->width);
@@ -113,7 +113,7 @@ fbo_new(GLuint texture)
 
 
 void
-fbo_free(WfFBO* fbo)
+fbo_free(AglFBO* fbo)
 {
 	glDeleteTextures(1, &fbo->texture);
 	fbo->texture = 0;
@@ -142,7 +142,7 @@ make_fbo(GLuint texture)
 }
 
 
-WfFBO*
+AglFBO*
 fbo_new_test()
 {
 	GLuint _wf_create_background()
@@ -218,8 +218,8 @@ fbo_new_test()
 
 		return bg_textures;
 	}
-	//WfFBO* fbo = fbo_new(_wf_create_background());
-	WfFBO* fbo = fbo_new(_wf_create_background_rgba());
+	//AglFBO* fbo = fbo_new(_wf_create_background());
+	AglFBO* fbo = fbo_new(_wf_create_background_rgba());
 	return fbo;
 }
 

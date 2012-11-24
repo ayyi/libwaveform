@@ -25,6 +25,8 @@
 #endif
 #endif
 
+#include "agl/fbo.h"
+
 #define WF_CACHE_BUF_SIZE (1 << 15)
 #define WF_PEAK_STD_TO_LO 16
 #define WF_PEAK_RATIO_LOW (WF_PEAK_RATIO * WF_PEAK_STD_TO_LO) // the number of samples per entry in a low res peakbuf.
@@ -95,9 +97,9 @@ struct _wf_texture_list                   // WfGlBlock - used at STD and LOW res
 		unsigned*   main;                 // array of texture id
 		unsigned*   neg;                  // array of texture id - only used in shader mode.
 	}               peak_texture[WF_MAX_CH];
-	WfFBO**         fbo;
+	AglFBO**        fbo;
 #ifdef USE_FX
-	WfFBO**         fx_fbo;
+	AglFBO**        fx_fbo;
 #endif
 #ifdef WF_SHOW_RMS
 	unsigned*       rms_texture;

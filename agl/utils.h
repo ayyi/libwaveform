@@ -30,8 +30,6 @@ struct _uniform_info
    GLint       location;  // filled in by agl_uniforms_init()
 };
 
-#define END_OF_UNIFORMS   { NULL, 0, GL_NONE, { 0, 0, 0, 0 }, -1 }
-
 AGl*      agl_get_instance        ();
 GLboolean agl_shaders_supported   ();
 GLuint    agl_create_program      (AGlShader*, AGlUniformInfo*);
@@ -39,7 +37,9 @@ GLuint    agl_compile_shader_text (GLenum shaderType, const char* text);
 GLuint    agl_compile_shader_file (GLenum shaderType, const char* filename);
 void      agl_uniforms_init       (GLuint program, AGlUniformInfo uniforms[]);
 GLuint    agl_link_shaders        (GLuint vertShader, GLuint fragShader);
-GLuint    agl_link_shaders2       (GLuint vert_shader_1, GLuint frag_shader_1, GLuint vert_shader_2, GLuint frag_shader_2);
+void      agl_rect                (float x, float y, float w, float h);
+void      agl_set_font            (char* font_string);
+void      agl_print               (int x, int y, double z, uint32_t colour, const char* fmt, ...);
 
 
 struct _agl
@@ -47,5 +47,7 @@ struct _agl
 	gboolean        pref_use_shaders;
 	gboolean        use_shaders;
 };
+
+#define END_OF_UNIFORMS   { NULL, 0, GL_NONE, { 0, 0, 0, 0 }, -1 }
 
 #endif //__gl_utils_h__

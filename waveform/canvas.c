@@ -76,6 +76,7 @@ wf_canvas_init(WaveformCanvas* wfc)
 	gboolean use_shaders = agl_get_instance()->use_shaders;
 
 	wfc->enable_animations = true;
+	wfc->blend = true;
 	wfc->sample_rate = 44100;
 	wfc->v_gain = 1.0;
 	wfc->texture_unit[0] = texture_unit_new(WF_TEXTURE0);
@@ -187,7 +188,6 @@ wf_canvas_init_gl(WaveformCanvas* wfc)
 		if(agl->pref_use_shaders && !agl_shaders_supported()){
 			printf("gl shaders not supported. expect reduced functionality.\n");
 			wf_canvas_use_program_(wfc, NULL);
-			agl->use_shaders = false;
 			wfc->use_1d_textures = false;
 		}
 		printf("GL_RENDERER = %s\n", (const char*)glGetString(GL_RENDERER));
@@ -255,6 +255,7 @@ wf_canvas_add_new_actor(WaveformCanvas* wfc, Waveform* w)
 void
 wf_canvas_remove_actor(WaveformCanvas* wfc, WaveformActor* actor)
 {
+	g_return_if_fail(actor);
 	PF;
 	Waveform* w = actor->waveform;
 

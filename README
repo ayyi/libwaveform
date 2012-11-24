@@ -39,7 +39,7 @@ Status
 ------
 
 Testing:
-Has been tested mostly on Radeon RV530 with Gallium 0.4, and also Intel 945.
+Has been tested mostly on Radeon RV530 and RV620 with Gallium 0.4, and also Intel 945.
 Radeon HD 5000 has issues at very hi res which look like driver bugs though this is not confirmed.
 Nvidia 8400 has been found to mostly work (Nouveau), though some issues are being investigated.
 Much more testing is needed.

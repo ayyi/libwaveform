@@ -59,7 +59,6 @@ static int __n_tests = 0;
 //------------------
 
 
-
 void
 test_init(gpointer tests[], int n_tests)
 {
@@ -78,6 +77,9 @@ test_init(gpointer tests[], int n_tests)
 
 	g_thread_init(NULL);
 	g_type_init();
+
+	gboolean fn(gpointer user_data) { next_test(); return IDLE_STOP; }
+	g_idle_add(fn, NULL);
 }
 
 
@@ -206,6 +208,20 @@ add_key_handler(GtkWindow* window, WaveformView* waveform, Key keys[])
 
 	g_signal_connect(window, "key-press-event", G_CALLBACK(key_press), waveform);
 	g_signal_connect(window, "key-release-event", G_CALLBACK(key_release), waveform);
+}
+
+
+void
+reset_timeout(int ms)
+{
+	if(app.timeout) g_source_remove (app.timeout);
+
+	bool on_test_timeout(gpointer _user_data)
+	{
+		FAIL_TEST_TIMER("TEST TIMEOUT\n");
+		return TIMER_STOP;
+	}
+	app.timeout = g_timeout_add(ms, on_test_timeout, NULL);
 }
 
 

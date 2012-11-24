@@ -33,7 +33,6 @@ typedef struct _audio_data      WfAudioData;
 typedef struct _vp              WfViewPort; 
 typedef struct _texture_unit    TextureUnit; 
 typedef struct _colour_float    WfColourFloat;
-typedef struct _fbo             WfFBO;
 typedef struct _WaveformView    WaveformView;
 
 

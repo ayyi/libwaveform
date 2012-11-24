@@ -1,7 +1,7 @@
 /*
   Demonstration of the libwaveform WaveformActor interface
 
-  Similar to actor.c but with additional features, eg background.
+  Similar to actor.c but with additional features, eg background, ruler.
 
   ---------------------------------------------------------------
 
@@ -60,6 +60,8 @@ struct _app
 #define GL_HEIGHT 256.0
 #define HBORDER (GL_WIDTH / 32.0)
 #define VBORDER 8
+//#define HBORDER 0
+//#define VBORDER 0
 #define bool gboolean
 
 GdkGLConfig*    glconfig       = NULL;

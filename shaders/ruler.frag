@@ -68,11 +68,25 @@ void main(void)
 			: (pixels_per_beat < 6.0)
 				? pixels_per_bar * 4.0 //only show every 4 bars
 				: pixels_per_bar;
+	/*
+	}else if(MCposition.y < 50.0){
+		if(mod(MCposition.x - 0.5, 10.0) < 0.9){
+			c[3] = alpha;
+		}else{
+			c[3] = 0.0;
+		}
+		gl_FragColor = c;
+		return;
+	*/
 	}
 
-	float m = floor(mod((MCposition.x - 0.5 + viewport_left), interval));
-	float val = smoothstep(0.0, 0.5, m);
-	val = 1.0 - val * smoothstep(interval, interval - 0.5, m);
+	float m = floor(mod((MCposition.x - 0.0 + viewport_left), interval));
+	//float m = mod((MCposition.x - 0.0 + viewport_left), interval);
+	//m is now an integer value between: 0...interval
+	//-quantising the value means that the lines are of consistent width and brightness, at the expense of even spacing.
+	//float val = smoothstep(0.0, 1.0, m);
+	//val = 1.0 - val * smoothstep(interval, interval - 1.0, m);
+	float val = m < 1.0 ? 1.0 : 0.0;
 	c[3] = alpha * val;
 
 	gl_FragColor = c;

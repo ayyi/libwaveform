@@ -25,6 +25,7 @@ struct _waveform_canvas {
 	gboolean       show_rms;
 	gboolean       use_1d_textures;
 	gboolean       enable_animations;
+	gboolean       blend;              // true by default - set to false to increase performance if using without background (doesnt make much difference).
 
 	void           (*draw)(WaveformCanvas*, gpointer);
 	gpointer       draw_data;

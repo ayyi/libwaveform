@@ -6,7 +6,7 @@ ASSPROGRAMS = ass
 endif
 
 if ENABLE_OPENGL
-noinst_PROGRAMS = waveform_test view_test actor_test actor_plus group hires_test $(ASSPROGRAMS) frame_rate resources write_wav write_short write_block
+noinst_PROGRAMS = waveform_test view_test actor_test actor_plus group hires_test $(ASSPROGRAMS) frame_rate resources write_wav write_short write_block large_files
 endif
 
 AM_CFLAGS = \
@@ -63,6 +63,10 @@ resources_SOURCES = \
 	ayyi_utils.c ayyi_utils.h \
 	resources.c
 
+large_files_SOURCES = \
+	$(COMMON_SOURCES) \
+	large_files.c
+
 write_wav_SOURCES = \
 	cpgrs.cc cpgrs.h \
 	write_wav.cpp
@@ -109,6 +113,7 @@ BUILT_SOURCES = test_data
 test_data: Makefile write_block.cc
 	@make write_wav
 	@make write_short
+	@make write_block
 	@if [[ ! -d data ]]; then mkdir data; fi
 	@if [ ! -e "data/mono_1.wav" ] || [ "./write_wav" -nt "data/mono_1.wav" ]; then \
 		./write_wav data/mono_1.wav; \
