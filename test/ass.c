@@ -41,6 +41,7 @@
 #include "agl/utils.h"
 #include "waveform/waveform.h"
 #include "waveform/actor.h"
+#include "waveform/ass.h"
 #define __wf_private__
 #include "waveform/animator.h"
 #include "waveform/gl_utils.h"
@@ -106,8 +107,9 @@ static void render_text        ();
 static void blend_single       (image_t*, ASS_Image*);
 uint64_t    get_time           ();
 
-ASS_Library* ass_library;
-ASS_Renderer* ass_renderer;
+#warning TODO
+static ASS_Library* ass_library;
+static ASS_Renderer* ass_renderer;
 
 
 void
@@ -325,9 +327,10 @@ draw(GtkWidget* widget)
 		glBindTexture(GL_TEXTURE_2D, ass_textures[0]);
 		if(!glIsTexture(ass_textures[0])) gwarn("not texture");
 
-		wfc->priv->shaders.ass->uniform.fg_colour = 0xffffffff;
+		wf_shaders.ass->uniform.colour1 = 0xffffffff;
+		wf_shaders.ass->uniform.colour2 = 0xff0000ff;
 
-		wf_canvas_use_program_(wfc, (AGlShader*)wfc->priv->shaders.ass);
+		agl_use_program((AGlShader*)wf_shaders.ass);
 
 		float w = GL_WIDTH;
 		float h = frame_h;

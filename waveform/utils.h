@@ -16,6 +16,7 @@
 */
 #ifndef __waveform_utils_h__
 #define __waveform_utils_h__
+#include "stdint.h"
 #ifndef __utils_c__
 extern int wf_debug;
 #endif
@@ -50,14 +51,17 @@ extern int wf_debug;
 #endif
 #include "waveform/typedefs.h"
 
-void       wf_debug_printf         (const char* func, int level, const char* format, ...);
-void       deinterleave            (float* src, float** dest, uint64_t n_frames);
-void       deinterleave16          (short* src, short** dest, uint64_t n_frames);
-int        wf_power_of_two         (int);
-float      wf_int2db               (short);
+void       wf_debug_printf            (const char* func, int level, const char* format, ...);
+void       wf_deinterleave            (float* src, float** dest, uint64_t n_frames);
+void       wf_deinterleave16          (short* src, short** dest, uint64_t n_frames);
+float      wf_int2db                  (short);
+#ifdef __GTK_H__
+uint32_t   wf_get_gtk_fg_color        (GtkWidget*, GtkStateType);
+uint32_t   wf_get_gtk_text_color      (GtkWidget*, GtkStateType);
+#endif
 #ifdef __wf_private__
-void       wf_colour_rgba_to_float (WfColourFloat*, uint32_t rgba);
-void       wf_rgba_to_float        (uint32_t rgba, float* r, float* g, float* b);
+void       wf_colour_rgba_to_float    (WfColourFloat*, uint32_t rgba);
+void       wf_rgba_to_float           (uint32_t rgba, float* r, float* g, float* b);
 bool       wf_get_filename_for_other_channel(const char* filename, char* other, int n_chars);
 #endif
 

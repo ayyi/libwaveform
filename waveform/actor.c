@@ -172,6 +172,7 @@ wf_actor_new(Waveform* w)
 	a->priv = g_new0(WfActorPriv, 1);
 	WfActorPriv* _a = a->priv;
 
+	a->vzoom = 1.0;
 	wf_actor_set_colour(a, 0xffffffff, 0x000000ff);
 	a->waveform = g_object_ref(w);
 
@@ -384,7 +385,7 @@ block_to_fbo(WaveformActor* a, int b, WfGlBlock* blocks, int resolution)
 	// create a new fbo for the given block and render to it using the raw 1d peak data.
 
 	g_return_if_fail(!blocks->fbo[b]);
-	blocks->fbo[b] = fbo_new(0);
+	blocks->fbo[b] = agl_fbo_new(256, 256, 0);
 	{
 		WaveformCanvas* wfc = a->canvas;
 		WaveformActor* actor = a;
@@ -402,7 +403,7 @@ block_to_fbo(WaveformActor* a, int b, WfGlBlock* blocks, int resolution)
 						//set shader program
 						PeakShader* peak_shader = wfc->priv->shaders.peak_nonscaling;
 						peak_shader->uniform.n_channels = textures->peak_texture[WF_RIGHT].main ? 2 : 1;
-						wf_canvas_use_program_(wfc, &peak_shader->shader);
+						agl_use_program(&peak_shader->shader);
 					}
 
 					glEnable(GL_TEXTURE_1D);
@@ -437,7 +438,7 @@ block_to_fbo(WaveformActor* a, int b, WfGlBlock* blocks, int resolution)
 				//now process the first fbo onto the fx_fbo
 
 				if(blocks->fx_fbo[b]) gwarn("expected empty");
-				AglFBO* fx_fbo = blocks->fx_fbo[b] = fbo_new(0);
+				AglFBO* fx_fbo = blocks->fx_fbo[b] = agl_fbo_new(256, 256, 0);
 				if(fx_fbo){
 					dbg(1, "%i: rendering to fx fbo. from: id=%i texture=%u - to: texture=%u", b, fbo->id, fbo->texture, fx_fbo->texture);
 					draw_to_fbo(fx_fbo) {
@@ -449,7 +450,7 @@ block_to_fbo(WaveformActor* a, int b, WfGlBlock* blocks, int resolution)
 						BloomShader* shader = wfc->priv->shaders.vertical;
 						shader->uniform.fg_colour = 0xffffffff;
 						shader->uniform.peaks_per_pixel = 256; // peaks_per_pixel not used by this shader
-						wf_canvas_use_program_(wfc, &shader->shader);
+						agl_use_program(&shader->shader);
 
 						double top = 0;
 						double bot = fbo->height;
@@ -1102,6 +1103,17 @@ wf_actor_fade_in(WaveformActor* a, void* /* WfAnimatable* */ _animatable, float 
 }
 
 
+void
+wf_actor_set_vzoom(WaveformActor* a, float vzoom)
+{
+	#define MAX_VZOOM 4
+	g_return_if_fail(vzoom < 1.0 || vzoom > MAX_VZOOM);
+	a->vzoom = vzoom;
+
+	wf_actor_paint(a); // temp, probably wrong
+}
+
+
 static inline void
 _set_gl_state_for_block(WaveformCanvas* wfc, Waveform* w, WfGlBlock* textures, int b, WfColourFloat fg, float alpha)
 {
@@ -1194,7 +1206,7 @@ block_hires_shader(WaveformActor* actor, int b, double _block_wid, gboolean is_f
 	hires_shader->uniform.bottom = rect.top + rect.height;
 	hires_shader->uniform.n_channels = waveform_get_n_channels(w);
 
-	wf_canvas_use_program_(wfc, &hires_shader->shader);
+	agl_use_program(&hires_shader->shader);
 
 	WfColourFloat fg;
 	wf_colour_rgba_to_float(&fg, actor->fg_colour);
@@ -1360,13 +1372,13 @@ wf_actor_paint(WaveformActor* actor)
 			BloomShader* shader = wfc->priv->shaders.horizontal;
 			shader->uniform.fg_colour = (actor->fg_colour & 0xffffff00) + MIN(0xff, 0x100 * _a->animatable.opacity.val.f);
 			shader->uniform.peaks_per_pixel = get_peaks_per_pixel(wfc, &region, &rect, mode) / 1.0;
-			wf_canvas_use_program_(wfc, &shader->shader);
+			agl_use_program(&shader->shader);
 #else
 			BloomShader* shader = wfc->priv->shaders.vertical;
 			wfc->priv->shaders.vertical->uniform.fg_colour = (actor->fg_colour & 0xffffff00) + MIN(0xff, 0x100 * _a->animatable.opacity.val.f);
 			wfc->priv->shaders.vertical->uniform.peaks_per_pixel = get_peaks_per_pixel_i(wfc, &region, &rect, mode);
 			//TODO the vertical shader needs to check _all_ the available texture values to get true peak.
-			wf_canvas_use_program_(wfc, &shader->shader);
+			agl_use_program(&shader->shader);
 #endif
 
 					glDisable(GL_TEXTURE_1D);
@@ -1375,7 +1387,7 @@ wf_actor_paint(WaveformActor* actor)
 		}
 #else
 		if(wfc->use_1d_textures){
-			wf_canvas_use_program_(wfc, (AGlShader*)wfc->priv->shaders.peak);
+			agl_use_program((AGlShader*)wfc->priv->shaders.peak);
 
 			//uniforms: (must be done on each paint because some vars are actor-specific)
 			float peaks_per_pixel = get_peaks_per_pixel_i(wfc, &region, &rect, mode);
@@ -1422,7 +1434,7 @@ wf_actor_paint(WaveformActor* actor)
 						WfBuf16* buf = audio->buf16[b];
 						if(buf){
 							//TODO might these prevent further blocks at different res? difficult to notice as they are usually the same.
-							wf_canvas_use_program(wfc, 0);
+							wf_canvas_use_program(0);
 							glDisable(GL_BLEND);
 							glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 							glDisable(GL_TEXTURE_2D);
@@ -1453,7 +1465,7 @@ wf_actor_paint(WaveformActor* actor)
 							dbg(2, "  b=%i x=%.2f", b, x);
 
 							//TODO might these prevent further blocks at different res? difficult to notice as they are usually the same.
-							wf_canvas_use_program(wfc, 0);
+							wf_canvas_use_program(0);
 							glDisable(GL_BLEND);
 							//glEnable(GL_BLEND);
 							//glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -1618,8 +1630,7 @@ wf_actor_paint(WaveformActor* actor)
 #define DEBUG_BLOCKS
 #ifdef DEBUG_BLOCKS
 			double bot = rect.top + rect.height;
-			int pr = wfc->_program;
-			wf_canvas_use_program(wfc, 0);
+			wf_canvas_use_program(0);
 			glDisable(GL_TEXTURE_2D);
 			glDisable(GL_TEXTURE_1D);
 			glColor4f(1.0, 0.0, 1.0, 1.0);
@@ -1632,7 +1643,6 @@ wf_actor_paint(WaveformActor* actor)
 			glEnd();
 			glColor3f(1.0, 1.0, 1.0);
 			glEnable(wfc->use_1d_textures ? GL_TEXTURE_1D : GL_TEXTURE_2D);
-			wf_canvas_use_program(wfc, pr); //TODO move ?
 #endif
 #endif
 			x += _block_wid;
@@ -1643,7 +1653,7 @@ wf_actor_paint(WaveformActor* actor)
 			is_first = false;
 		}
 	}
-	wf_canvas_use_program_(wfc, NULL);
+	agl_use_program(NULL);
 
 	gl_warn("(@ paint end)");
 }
@@ -1815,7 +1825,7 @@ i__ = i;
 		buf->positive[o] =  p[i  ] >> 8;
 		buf->negative[o] = -p[i+1] >> 8;
 	}
-					dbg(0, "stopped at: i=%i o=%i", i__, o);
+					dbg(1, "stopped at: i=%i o=%i", i__, o);
 #if 0
 	int j; for(j=0;j<20;j++){
 		printf("  %2i: %5i %5i %5u %5u\n", j, ((short*)peakbuf->buf[ch])[2*j], ((short*)peakbuf->buf[ch])[2*j +1], (guint)(buf->positive[j] * 0x100), (guint)(buf->negative[j] * 0x100));

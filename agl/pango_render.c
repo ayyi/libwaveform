@@ -100,7 +100,7 @@ static void draw_glyph               (PangoRenderer*, PangoFont*, PangoGlyph, do
 static void gl_texture_set_filters   (GLenum target, GLenum min_filter, GLenum max_filter);
 static void gl_texture_set_alignment (GLenum target, guint alignment, guint row_length);
 static void gl_texture_quad          (gint x1, gint x2, gint y1, gint y2, Fixed tx1, Fixed ty1, Fixed tx2, Fixed ty2);
-void        gl_enable                (gulong flags);
+extern void agl_enable               (gulong flags);
 void        gl_trapezoid             (gint y1, gint x11, gint x21, gint y2, gint x12, gint x22);
 
 typedef struct {
@@ -538,7 +538,7 @@ draw_trapezoid (PangoRenderer   *renderer_,
     }
 
   /* Turn texturing off */
-  gl_enable (GL_ENABLE_BLEND);
+  agl_enable (GL_ENABLE_BLEND);
 
   gl_trapezoid ((gint) y01,
 		  (gint) x11,
@@ -548,7 +548,7 @@ draw_trapezoid (PangoRenderer   *renderer_,
 		  (gint) x22);
 
   /* Turn it back on again */
-  gl_enable (GL_ENABLE_TEXTURE_2D|GL_ENABLE_BLEND);
+  agl_enable (GL_ENABLE_TEXTURE_2D|GL_ENABLE_BLEND);
 }
 
 void
@@ -690,18 +690,18 @@ prepare_run (PangoRenderer *renderer, PangoLayoutRun *run)
       col.blue  ^= 0xffU;
     }
 
-	AGl* agl = agl_get_instance();
 #ifdef USE_SHADERS
+	AGl* agl = agl_get_instance();
 	if(agl->use_shaders){
 		//PGRC->wfc->priv->shaders.tex2d->uniform.fg_colour = *((uint32_t*)&col); // gives wrong colour.
-		PGRC->wfc->priv->shaders.tex2d->uniform.fg_colour = (col.red << 24) + (col.green << 16) + (col.blue << 8) + col.alpha;
+		agl->text_shader->uniform.fg_colour = (col.red << 24) + (col.green << 16) + (col.blue << 8) + col.alpha;
 	}else{
+#endif
+		//cogl_color(&col);
 		glColor4ub (col.red, col.green, col.blue, col.alpha);
+		//dbg(0, "color=%x %x %x %x", col.red, col.green, col.blue, col.alpha);
+#ifdef USE_SHADERS
 	}
-#else
-	//cogl_color(&col);
-	glColor4ub (col.red, col.green, col.blue, col.alpha);
-	//dbg(0, "color=%x %x %x %x", col.red, col.green, col.blue, col.alpha);
 #endif
 }
 
@@ -712,7 +712,7 @@ gl_pango_draw_begin (PangoRenderer *renderer_)
 
   renderer->cur_tex = 0;
 
-  gl_enable (GL_ENABLE_TEXTURE_2D | GL_ENABLE_BLEND);
+  agl_enable (GL_ENABLE_TEXTURE_2D | GL_ENABLE_BLEND);
 
 #if 0
   (also commented out in clutter)
@@ -724,7 +724,7 @@ gl_pango_draw_begin (PangoRenderer *renderer_)
   glEnable (GL_ALPHA_TEST);
   glAlphaFunc (GL_GREATER, 0.01f);
 #endif
-  if(glGetError() != GL_NO_ERROR) gwarn("gl error!");
+  gl_warn("");
 }
 
 static void
@@ -735,7 +735,7 @@ gl_pango_draw_end (PangoRenderer *renderer_)
 
   if (renderer->cur_tex) glEnd ();
   */
-  if(glGetError() != GL_NO_ERROR) gwarn("gl error!");
+  gl_warn("");
 }
 
 static void
@@ -778,10 +778,10 @@ gl_texture_quad (gint x1, gint x2, gint y1, gint y2, Fixed tx1, Fixed ty1, Fixed
 
   //dbg(4, "%.2f %.2f %.2f %.2f", txf1, tyf1, txf2, tyf2);
 
-  //gl_enable (GL_ENABLE_BLEND);//no textures
+  //agl_enable (GL_ENABLE_BLEND);//no textures
 #undef USE_GL_ENABLE //wont work unless we use it everywhere - flags will be wrong.
 #ifdef USE_GL_ENABLE
-  gl_enable (GL_ENABLE_TEXTURE_2D|GL_ENABLE_BLEND);
+  agl_enable (GL_ENABLE_TEXTURE_2D|GL_ENABLE_BLEND);
 #else
   glEnable(GL_TEXTURE_2D);
   /*
@@ -795,7 +795,7 @@ gl_texture_quad (gint x1, gint x2, gint y1, gint y2, Fixed tx1, Fixed ty1, Fixed
 
 #ifdef USE_SHADERS
 	if(agl_get_instance()->use_shaders){
-		wf_canvas_use_program_(PGRC->wfc, (AGlShader*)PGRC->wfc->priv->shaders.tex2d);
+		agl_use_program((AGlShader*)agl_get_instance()->text_shader);
 	}
 #endif
   glBegin (GL_QUADS);
@@ -804,73 +804,6 @@ gl_texture_quad (gint x1, gint x2, gint y1, gint y2, Fixed tx1, Fixed ty1, Fixed
   glTexCoord2f (txf1, tyf1); glVertex2i (x1, y1);
   glTexCoord2f (txf2, tyf1); glVertex2i (x2, y1);
   glEnd ();
-}
-
-void
-gl_enable (gulong flags)
-{
-  /* This function essentially caches glEnable state() in the
-   * hope of lessening number GL traffic.
-  */
-  if (flags & GL_ENABLE_BLEND)
-    {
-      if (!(__enable_flags & GL_ENABLE_BLEND))
-        {
-          glEnable (GL_BLEND);
-          glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-        }
-      __enable_flags |= GL_ENABLE_BLEND;
-    }
-  else if (__enable_flags & GL_ENABLE_BLEND)
-    {
-      glDisable (GL_BLEND);
-      __enable_flags &= ~GL_ENABLE_BLEND;
-    }
-
-  if (flags & GL_ENABLE_TEXTURE_2D)
-    {
-      if (!(__enable_flags & GL_ENABLE_TEXTURE_2D))
-        glEnable (GL_TEXTURE_2D);
-      __enable_flags |= GL_ENABLE_TEXTURE_2D;
-    }
-  else if (__enable_flags & GL_ENABLE_TEXTURE_2D)
-    {
-      glDisable (GL_TEXTURE_2D);
-      __enable_flags &= ~GL_ENABLE_TEXTURE_2D;
-    }
-
-#ifdef GL_TEXTURE_RECTANGLE_ARB
-  if (flags & GL_ENABLE_TEXTURE_RECT)
-    {
-      if (!(__enable_flags & GL_ENABLE_TEXTURE_RECT))
-	  glEnable (GL_TEXTURE_RECTANGLE_ARB);
-      __enable_flags |= GL_ENABLE_TEXTURE_RECT;
-    }
-  else if (__enable_flags & GL_ENABLE_TEXTURE_RECT)
-    {
-      glDisable (GL_TEXTURE_RECTANGLE_ARB);
-      __enable_flags &= ~GL_ENABLE_TEXTURE_RECT;
-    }
-#endif
-
-  if (flags & GL_ENABLE_ALPHA_TEST)
-    {
-      if (!(__enable_flags & GL_ENABLE_ALPHA_TEST))
-        glEnable (GL_ALPHA_TEST);
-
-      __enable_flags |= GL_ENABLE_ALPHA_TEST;
-    }
-  else if (__enable_flags & GL_ENABLE_ALPHA_TEST)
-    {
-      glDisable (GL_ALPHA_TEST);
-      __enable_flags &= ~GL_ENABLE_ALPHA_TEST;
-    }
-
-#if 0
-  if (__enable_flags & GL_ENABLE_BLEND)      dbg(0, "blend is enabled.");
-  if (__enable_flags & GL_ENABLE_TEXTURE_2D) dbg(0, "texture is enabled.");
-  if (__enable_flags & GL_ENABLE_ALPHA_TEST) dbg(0, "alpha_test is enabled."); else dbg(0, "alpha_test is NOT enabled.");
-#endif
 }
 
 void

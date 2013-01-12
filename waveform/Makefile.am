@@ -1,5 +1,9 @@
 SUBDIRS =
 
+if ENABLE_LIBASS
+ASS_SOURCES = view_plus.c view_plus.h
+endif
+
 AM_CFLAGS = \
 	-DG_LOG_DOMAIN=\"Waveform\" \
 	-D_FILE_OFFSET_BITS=64 \
@@ -8,6 +12,7 @@ AM_CFLAGS = \
 	-I$(top_srcdir) \
 	-I$(top_srcdir)/src \
 	$(GTK_CFLAGS) \
+	$(LIBASS_CFLAGS) \
 	$(OPENGL_CFLAGS)
 
 lib_LTLIBRARIES = libwaveform.la
@@ -24,7 +29,8 @@ OPENGL_SOURCES = \
 	animator.c animator.h \
 	texture_cache.c texture_cache.h \
 	hi_res.c hi_res.h \
-	fbo.c fbo.h
+	fbo.c fbo.h \
+	$(ASS_SOURCES)
 endif
 
 libwaveform_la_SOURCES = \
@@ -39,7 +45,8 @@ libwaveform_la_SOURCES = \
 	utils.c utils.h
 
 EXTRA_DIST = \
-	view_gl.c
+	view_gl.c \
+	view_plus_gl.c
 
 pkginclude_HEADERS = \
 	waveform.h \

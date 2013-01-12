@@ -47,7 +47,6 @@ static void  _alphamap_set_uniforms    ();
 static void  _ass_set_uniforms         ();
 static void  _ruler_set_uniforms       ();
 
-PeakShader peak_shader = {{NULL, NULL, 0, NULL, NULL, &peak_text}, _peak_shader_set_uniforms};
 static AGlUniformInfo uniforms[] = {
    {"tex1d",     1, GL_INT,   { 1, 0, 0, 0 }, -1}, // LHS +ve - 0 corresponds to glActiveTexture(WF_TEXTURE0);
    {"tex1d_neg", 1, GL_INT,   { 2, 0, 0, 0 }, -1}, // LHS -ve - 1 corresponds to glActiveTexture(WF_TEXTURE1);
@@ -55,9 +54,9 @@ static AGlUniformInfo uniforms[] = {
    {"tex1d_4",   1, GL_INT,   { 4, 0, 0, 0 }, -1}, // RHS -ve WF_TEXTURE3
    END_OF_UNIFORMS
 };
+PeakShader peak_shader = {{NULL, NULL, 0, uniforms, NULL, &peak_text}, _peak_shader_set_uniforms};
 
 #ifdef USE_FBO
-PeakShader peak_nonscaling = {{NULL, NULL, 0, NULL, _peak_nonscaling_set_uniforms, &peak_nonscaling_text}};
 static AGlUniformInfo uniforms1[] = {
    {"tex1d",     1, GL_INT,   { 1, 0, 0, 0 }, -1}, // LHS +ve - 0 corresponds to glActiveTexture(WF_TEXTURE0);
    {"tex1d_0neg",1, GL_INT,   { 2, 0, 0, 0 }, -1}, // LHS -ve - 1 corresponds to glActiveTexture(WF_TEXTURE1);
@@ -65,9 +64,9 @@ static AGlUniformInfo uniforms1[] = {
    {"tex1d_4",   1, GL_INT,   { 4, 0, 0, 0 }, -1}, // RHS -ve WF_TEXTURE3
    END_OF_UNIFORMS
 };
+PeakShader peak_nonscaling = {{NULL, NULL, 0, uniforms1, _peak_nonscaling_set_uniforms, &peak_nonscaling_text}};
 #endif
 
-HiResShader hires_shader = {{NULL, NULL, 0, NULL, _hires_set_uniforms, &hires_text}};
 static AGlUniformInfo uniforms_hr[] = {
    {"tex1d",     1, GL_INT,   { 1, 0, 0, 0 }, -1},
    {"tex1d_neg", 1, GL_INT,   { 2, 0, 0, 0 }, -1},
@@ -75,39 +74,44 @@ static AGlUniformInfo uniforms_hr[] = {
    {"tex1d_4",   1, GL_INT,   { 4, 0, 0, 0 }, -1},
    END_OF_UNIFORMS
 };
+HiResShader hires_shader = {{NULL, NULL, 0, uniforms_hr, _hires_set_uniforms, &hires_text}};
 
-BloomShader horizontal = {{NULL, NULL, 0, NULL, _horizontal_set_uniforms, &horizontal_text}};
 static AGlUniformInfo uniforms2[] = {
    {"tex2d",     1, GL_INT,   { 0, 0, 0, 0 }, -1}, // 0 corresponds to glActiveTexture(GL_TEXTURE0);
    END_OF_UNIFORMS
 };
+BloomShader horizontal = {{NULL, NULL, 0, uniforms2, _horizontal_set_uniforms, &horizontal_text}};
 
-BloomShader vertical = {{NULL, NULL, 0, NULL, _vertical_set_uniforms, &vertical_text}};
 static AGlUniformInfo uniforms3[] = {
    {"tex2d",     1, GL_INT,   { 0, 0, 0, 0 }, -1}, // 0 corresponds to glActiveTexture(GL_TEXTURE0);
    END_OF_UNIFORMS
 };
+BloomShader vertical = {{NULL, NULL, 0, uniforms3, _vertical_set_uniforms, &vertical_text}};
 
-//used for background
+//used for background, text
+#if 0 //moved
 AlphaMapShader tex2d = {{NULL, NULL, 0, NULL, _alphamap_set_uniforms, &alpha_map_text}};
 static AGlUniformInfo uniforms4[] = {
    {"tex2d",     1, GL_INT,   { 0, 0, 0, 0 }, -1},
    END_OF_UNIFORMS
 };
+#endif
+extern AlphaMapShader tex2d;
+extern AGlUniformInfo uniforms4[];
 
-AlphaMapShader ass = {{NULL, NULL, 0, NULL, _ass_set_uniforms, &ass_text}};
 static AGlUniformInfo uniforms6[] = {
    {"tex2d",     1, GL_INT,   { 0, 0, 0, 0 }, -1},
    END_OF_UNIFORMS
 };
+AssShader ass = {{NULL, NULL, 0, uniforms6, _ass_set_uniforms, &ass_text}};
 
 //plain 2d texture
-AlphaMapShader tex2d_b = {{NULL, NULL, 0, NULL, _alphamap_set_uniforms, &texture_2d_text}};
+AlphaMapShader tex2d_b = {{NULL, NULL, 0, uniforms4, _alphamap_set_uniforms, &texture_2d_text}};
 
-RulerShader ruler = {{NULL, NULL, 0, NULL, _ruler_set_uniforms, &ruler_text}};
 static AGlUniformInfo uniforms5[] = {
    END_OF_UNIFORMS
 };
+RulerShader ruler = {{NULL, NULL, 0, uniforms5, _ruler_set_uniforms, &ruler_text}};
 
 static void
 _peak_shader_set_uniforms(float peaks_per_pixel, float top, float bottom, uint32_t _fg_colour, int n_channels)
@@ -187,6 +191,7 @@ _horizontal_set_uniforms()
 }
 
 
+#if 0
 static void
 _alphamap_set_uniforms()
 {
@@ -194,14 +199,19 @@ _alphamap_set_uniforms()
 	wf_rgba_to_float(tex2d.uniform.fg_colour, &fg_colour[0], &fg_colour[1], &fg_colour[2]);
 	glUniform4fv(glGetUniformLocation(tex2d.shader.program, "fg_colour"), 1, fg_colour);
 }
+#endif
 
 
 static void
 _ass_set_uniforms()
 {
-	float fg_colour[4] = {0.0, 0.0, 0.0, ((float)(ass.uniform.fg_colour & 0xff)) / 0x100};
-	wf_rgba_to_float(ass.uniform.fg_colour, &fg_colour[0], &fg_colour[1], &fg_colour[2]);
-	glUniform4fv(glGetUniformLocation(ass.shader.program, "fg_colour"), 1, fg_colour);
+	float colour1[4] = {0.0, 0.0, 0.0, ((float)(ass.uniform.colour1 & 0xff)) / 0x100};
+	wf_rgba_to_float(ass.uniform.colour1, &colour1[0], &colour1[1], &colour1[2]);
+	glUniform4fv(glGetUniformLocation(ass.shader.program, "colour1"), 1, colour1);
+
+	float colour2[4] = {0.0, 0.0, 0.0, ((float)(ass.uniform.colour2 & 0xff)) / 0x100};
+	wf_rgba_to_float(ass.uniform.colour2, &colour2[0], &colour2[1], &colour2[2]);
+	glUniform4fv(glGetUniformLocation(ass.shader.program, "colour2"), 1, colour2);
 }
 
 
@@ -222,17 +232,21 @@ _ruler_set_uniforms()
 void
 wf_shaders_init()
 {
-	agl_create_program(&peak_shader.shader, uniforms);
+	agl_shaders_init();
+
+	agl_create_program(&peak_shader.shader);
 #ifdef USE_FBO
-	agl_create_program(&peak_nonscaling.shader, uniforms1);
+	agl_create_program(&peak_nonscaling.shader);
 #endif
-	agl_create_program(&hires_shader.shader, uniforms_hr);
-	agl_create_program(&horizontal.shader, uniforms2);
-	agl_create_program(&vertical.shader, uniforms3);
-	agl_create_program(&tex2d.shader, uniforms4);
-	agl_create_program(&tex2d_b.shader, uniforms4);
-	agl_create_program(&ruler.shader, uniforms5);
-	agl_create_program(&ass.shader, uniforms6);
+	agl_create_program(&hires_shader.shader);
+	agl_create_program(&horizontal.shader);
+	agl_create_program(&vertical.shader);
+	//agl_create_program(&tex2d.shader);
+	agl_create_program(&tex2d_b.shader);
+	agl_create_program(&ruler.shader);
+	agl_create_program(&ass.shader);
+
+	wf_shaders.ass = &ass;
 }
 
 

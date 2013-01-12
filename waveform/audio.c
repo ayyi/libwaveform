@@ -203,7 +203,7 @@ waveform_load_audio_block(Waveform* waveform, int block_num)
 			memset(w->cache->buf->buf[1], 0, WF_CACHE_BUF_SIZE);
 			#endif
 
-			deinterleave16(read_buf, buf->buf, n_frames);
+			wf_deinterleave16(read_buf, buf->buf, n_frames);
 			}
 			break;
 		default:

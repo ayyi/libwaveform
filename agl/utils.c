@@ -32,13 +32,39 @@
 #include <pango/pangofc-fontmap.h>
 #include "agl/ext.h"
 #include "agl/pango_render.h"
+#include "agl/shader.h"
 #include "agl/utils.h"
 
+#include "shaders/shaders.c"
+
+extern void wf_debug_printf (const char* func, int level, const char* format, ...); //TODO, perhaps just remove custom debugging messages...
 #define gwarn(A, ...) g_warning("%s(): "A, __func__, ##__VA_ARGS__);
 #define dbg(A, B, ...) wf_debug_printf(__func__, A, B, ##__VA_ARGS__)
 
+static gulong __enable_flags = 0;
+#define GL_ENABLE_BLEND        (1<<1)
+#define GL_ENABLE_TEXTURE_2D   (1<<2)
+#define GL_ENABLE_ALPHA_TEST   (1<<3)
+#define GL_ENABLE_TEXTURE_RECT (1<<4)
+
+int _program = 0;
+GLenum _wf_ge = 0;
+
 static gboolean font_is_scalable(PangoContext*, const char* font_name);
 
+void  _alphamap_set_uniforms    ();
+AGlUniformInfo uniforms4[] = {
+   {"tex2d",     1, GL_INT,   { 0, 0, 0, 0 }, -1},
+   END_OF_UNIFORMS
+};
+AlphaMapShader tex2d = {{NULL, NULL, 0, uniforms4, _alphamap_set_uniforms, &alpha_map_text}};
+void
+_alphamap_set_uniforms()
+{
+	float fg_colour[4] = {0.0, 0.0, 0.0, ((float)(tex2d.uniform.fg_colour & 0xff)) / 0x100};
+	wf_rgba_to_float(tex2d.uniform.fg_colour, &fg_colour[0], &fg_colour[1], &fg_colour[2]);
+	glUniform4fv(glGetUniformLocation(tex2d.shader.program, "fg_colour"), 1, fg_colour);
+}
 
 AGl* agl = NULL;
 
@@ -53,6 +79,73 @@ agl_get_instance()
 	return agl;
 }
 
+
+void
+agl_enable (gulong flags)
+{
+  /* This function essentially caches glEnable state() in the
+   * hope of lessening number GL traffic.
+  */
+  if (flags & GL_ENABLE_BLEND)
+    {
+      if (!(__enable_flags & GL_ENABLE_BLEND))
+        {
+          glEnable (GL_BLEND);
+          glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+        }
+      __enable_flags |= GL_ENABLE_BLEND;
+    }
+  else if (__enable_flags & GL_ENABLE_BLEND)
+    {
+      glDisable (GL_BLEND);
+      __enable_flags &= ~GL_ENABLE_BLEND;
+    }
+
+  if (flags & GL_ENABLE_TEXTURE_2D)
+    {
+      if (!(__enable_flags & GL_ENABLE_TEXTURE_2D))
+        glEnable (GL_TEXTURE_2D);
+      __enable_flags |= GL_ENABLE_TEXTURE_2D;
+    }
+  else if (__enable_flags & GL_ENABLE_TEXTURE_2D)
+    {
+      glDisable (GL_TEXTURE_2D);
+      __enable_flags &= ~GL_ENABLE_TEXTURE_2D;
+    }
+
+#ifdef GL_TEXTURE_RECTANGLE_ARB
+  if (flags & GL_ENABLE_TEXTURE_RECT)
+    {
+      if (!(__enable_flags & GL_ENABLE_TEXTURE_RECT))
+	  glEnable (GL_TEXTURE_RECTANGLE_ARB);
+      __enable_flags |= GL_ENABLE_TEXTURE_RECT;
+    }
+  else if (__enable_flags & GL_ENABLE_TEXTURE_RECT)
+    {
+      glDisable (GL_TEXTURE_RECTANGLE_ARB);
+      __enable_flags &= ~GL_ENABLE_TEXTURE_RECT;
+    }
+#endif
+
+  if (flags & GL_ENABLE_ALPHA_TEST)
+    {
+      if (!(__enable_flags & GL_ENABLE_ALPHA_TEST))
+        glEnable (GL_ALPHA_TEST);
+
+      __enable_flags |= GL_ENABLE_ALPHA_TEST;
+    }
+  else if (__enable_flags & GL_ENABLE_ALPHA_TEST)
+    {
+      glDisable (GL_ALPHA_TEST);
+      __enable_flags &= ~GL_ENABLE_ALPHA_TEST;
+    }
+
+#if 0
+  if (__enable_flags & GL_ENABLE_BLEND)      dbg(0, "blend is enabled.");
+  if (__enable_flags & GL_ENABLE_TEXTURE_2D) dbg(0, "texture is enabled.");
+  if (__enable_flags & GL_ENABLE_ALPHA_TEST) dbg(0, "alpha_test is enabled."); else dbg(0, "alpha_test is NOT enabled.");
+#endif
+}
 
 GLboolean
 agl_shaders_supported()
@@ -81,8 +174,20 @@ agl_shaders_supported()
 }
 
 
+void
+agl_shaders_init()
+{
+	// initialise internal shader programs
+	// must not be called until we have and are inside DRAW
+
+	agl_create_program(&tex2d.shader);
+	agl->text_shader = &tex2d;
+	dbg(2, "text_shader=%i", tex2d.shader.program);
+}
+
+
 GLuint
-agl_create_program(AGlShader* sh, AGlUniformInfo* uniforms)
+agl_create_program(AGlShader* sh)
 {
 	GLuint vert_shader = sh->vertex_file
 		? agl_compile_shader_file(GL_VERTEX_SHADER, sh->vertex_file)
@@ -95,6 +200,7 @@ agl_create_program(AGlShader* sh, AGlUniformInfo* uniforms)
 	glGetShaderiv(frag_shader, GL_COMPILE_STATUS, &status);
 	if (status != GL_TRUE){
 		printf("shader compile error! %i\n", status);
+//		return 0;
 	}
 
 	GLuint program = sh->program = agl_link_shaders(vert_shader, frag_shader);
@@ -102,9 +208,8 @@ agl_create_program(AGlShader* sh, AGlUniformInfo* uniforms)
 
 	glUseProgram(program);
 
+	AGlUniformInfo* uniforms = sh->uniforms;
 	agl_uniforms_init(program, uniforms);
-
-	sh->uniforms = uniforms;
 
 	return program;
 }
@@ -174,6 +279,7 @@ agl_uniforms_init(GLuint program, struct _uniform_info uniforms[])
 {
 	GLuint i;
 	dbg(1, "program=%u", program);
+	if(!uniforms) return;
 
 	for (i = 0; uniforms[i].name; i++) {
 		uniforms[i].location = glGetUniformLocation(program, uniforms[i].name);
@@ -252,10 +358,19 @@ static PangoFontDescription* font_desc = NULL;
 void
 agl_set_font(char* font_string)
 {
+	static gboolean renderer_inited = FALSE;
+	void renderer_init()
+	{
+		g_type_class_unref (g_type_class_ref (PANGO_TYPE_GL_RENDERER));
+		renderer_inited = TRUE;
+	}
+	if(!renderer_inited) renderer_init();
+
 	if(font_desc) pango_font_description_free(font_desc);
 	font_desc = pango_font_description_from_string(font_string);
 
 	PangoGlRendererClass* PGRC = g_type_class_peek(PANGO_TYPE_GL_RENDERER);
+	g_return_if_fail(PGRC);
 
 	if(!PGRC->context){
 		PangoFontMap* fontmap = pango_gl_font_map_new();
@@ -263,14 +378,14 @@ agl_set_font(char* font_string)
 		PGRC->context = pango_gl_font_map_create_context(PANGO_GL_FONT_MAP(fontmap));
 	}
 
-	dbg(0, "%s", font_string);
+	dbg(1, "requested: %s", font_string);
 	// for some reason there seems to be an issue with pixmap fonts
 	if(!font_is_scalable(PGRC->context, pango_font_description_get_family(font_desc))){
 		strcpy(font_string, "Sans 7");
 		pango_font_description_free(font_desc);
 		font_desc = pango_font_description_from_string(font_string);
 	}
-	dbg(2, "%s", font_string);
+	dbg(1, "using: %s", font_string);
 
 	pango_font_description_set_weight(font_desc, PANGO_WEIGHT_SEMIBOLD); //TODO
 }
@@ -286,7 +401,9 @@ agl_print(int x, int y, double z, uint32_t colour, const char *fmt, ...)
 	gchar* text = g_strdup_vprintf(fmt, args);
 	va_end(args); //text now contains the string.
 
+#if 0
 	gboolean first_time = FALSE;
+#endif
 	PangoGlRendererClass* PGRC = g_type_class_peek(PANGO_TYPE_GL_RENDERER);
 #if 0
 	if(!PGRC->context){
@@ -388,4 +505,133 @@ font_is_scalable(PangoContext* context, const char* font_name)
 	return scalable;
 }
 
+
+void
+wf_canvas_use_program(int program)
+{
+	//deprecated. use fn below.
+
+	if(agl_get_instance()->use_shaders && (program != _program)){
+		dbg(3, "%i", program);
+		glUseProgram(_program = program);
+	}
+}
+
+
+void
+agl_use_program(AGlShader* shader)
+{
+	int program = shader ? shader->program : 0;
+
+	if(!agl_get_instance()->use_shaders) return;
+
+	if(program != _program){
+		dbg(3, "%i", program);
+		glUseProgram(_program = program);
+	}
+
+	//it remains to be seen whether automatic setting of uniforms gives us enough control.
+	if(shader && shader->set_uniforms_) shader->set_uniforms_();
+}
+
+
+void agl_enable_stencil(float x, float y, float w, float h)
+{
+	glClear(GL_DEPTH_BUFFER_BIT);
+	glEnable(GL_STENCIL_TEST);
+	glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
+	glDepthMask(GL_FALSE);
+	glStencilFunc(GL_NEVER, 1, 0xFF);
+	glStencilOp(GL_REPLACE, GL_KEEP, GL_KEEP);  // draw 1s on test fail (always)
+
+	// draw stencil pattern
+	glStencilMask(0xFF);
+	glClear(GL_STENCIL_BUFFER_BIT);  // needs mask=0xFF
+
+	glPushMatrix();
+	glTranslatef(x, y, 0.0f);
+	glBegin(GL_QUADS);
+	glVertex2f(0, 0);
+	glVertex2f(0, h);
+	glVertex2f(w, h);
+	glVertex2f(w, 0);
+	glEnd();
+	glPopMatrix();
+
+	glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+	glDepthMask(GL_TRUE);
+	glStencilMask(0x00);
+
+	// draw where stencil's value is 0
+	//glStencilFunc(GL_EQUAL, 0, 0xFF);
+	/* (nothing to draw) */
+
+	// draw only where stencil's value is 1
+	glStencilFunc(GL_EQUAL, 1, 0xFF);
+}
+
+
+void agl_disable_stencil()
+{
+	glDisable(GL_STENCIL_TEST);
+}
+
+
+int
+agl_power_of_two(guint a)
+{
+	// return the next power of two up from the given value.
+
+	int i = 0;
+	int orig = a;
+	a = MAX(1, a - 1);
+	while(a){
+		a = a >> 1;
+		i++;
+	}
+	dbg (2, "%i -> %i", orig, 1 << i);
+	return 1 << i;
+}
+
+
+void
+agl_print_error(const char* func, int __ge, const char* format, ...)
+{
+	char str[256];
+	char* e_str = NULL;
+
+	switch(__ge) {
+		case GL_INVALID_OPERATION:
+			e_str = "GL_INVALID_OPERATION";
+			break;
+		case GL_INVALID_VALUE:
+			e_str = "GL_INVALID_VALUE";
+			break;
+		case GL_INVALID_ENUM:
+			e_str = "GL_INVALID_ENUM";
+			break;
+		case GL_STACK_OVERFLOW:
+			e_str = "GL_STACK_OVERFLOW ";
+			break;
+		case GL_OUT_OF_MEMORY:
+			e_str = "GL_OUT_OF_MEMORY";
+			break;
+		case GL_STACK_UNDERFLOW:
+			e_str = "GL_STACK_UNDERFLOW";
+			break;
+		case GL_NO_ERROR:
+			e_str = "GL_NO_ERROR";
+			break;
+		default:
+			fprintf(stderr, "%i ", __ge); //TODO
+			break;
+	}
+
+    va_list args;
+    va_start(args, format);
+	vsprintf(str, format, args);
+    va_end(args);
+
+	g_warning("%s(): %s %s", func, e_str, str);
+}
 

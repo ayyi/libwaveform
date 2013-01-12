@@ -13,12 +13,12 @@ Efficiency:
 
 Multi-level caching is provided:
 
-* peak files are saved to disk roughly following freedeskop.org standards.
-* ardour session peak files are also supported.
+* peak files are saved to disk roughly following freedeskop.org standards. (Ardour session peak files are also supported.)
 * peak files are cached in ram at multiple resolutions.
 * audio is cached in ram for use at high resolutions.
 * peaks are stored as OpenGl 2D textures in graphics hardware.
 * peaks are stored as OpenGl 1D textures for use with shader programs.
+* rendered and filtered images are stored as OpenGl FBO's.
 
 There are 4 main ways of using libwaveform:
 
@@ -39,13 +39,13 @@ Status
 ------
 
 Testing:
-Has been tested mostly on Radeon RV530 and RV620 with Gallium 0.4, and also Intel 945.
+Has been fully tested with Gallium 0.4 on Radeon RV530, RV620 and Cedar and Intel 945.
 Radeon HD 5000 has issues at very hi res which look like driver bugs though this is not confirmed.
 Nvidia 8400 has been found to mostly work (Nouveau), though some issues are being investigated.
 Much more testing is needed.
 
 If you are able to help testing, please start with running test/view_test.
-To compile this program you need to run configure with '--enable-test'.
+To compile the test programs you need to run configure with '--enable-test'.
 
 Basic functionality should all be in place now, but most areas
 need improving. Feedback is needed on functionality, api, documentation,
@@ -100,7 +100,7 @@ provided:
 ```c
 	waveform_set_peak_loader(wf_load_ardour_peak);
 ```
-or you can specify your own.
+or you can specify your own loader.
 
 
 GdkPixbuf

@@ -39,7 +39,6 @@ struct _waveform_canvas {
 
 	WfCanvasPriv*  priv;
 	int           _draw_depth;
-	int           _program;
 	guint         _queued;
 	TextureUnit*   texture_unit[4];
 };
@@ -56,7 +55,6 @@ struct _wf_canvas_priv {
 		BloomShader*    horizontal;
 		AlphaMapShader* tex2d;
 		AlphaMapShader* tex2d_b;
-		AlphaMapShader* ass;
 		RulerShader*    ruler;
 	}              shaders;
 };
@@ -75,10 +73,6 @@ WaveformActor*  wf_canvas_add_new_actor             (WaveformCanvas*, Waveform*)
 void            wf_canvas_remove_actor              (WaveformCanvas*, WaveformActor*);
 void            wf_canvas_queue_redraw              (WaveformCanvas*);
 void            wf_canvas_load_texture_from_alphabuf(WaveformCanvas*, int texture_id, AlphaBuf*);
-void            wf_canvas_use_program               (WaveformCanvas*, int);
-#ifdef __gl_h_
-void            wf_canvas_use_program_              (WaveformCanvas*, AGlShader*);
-#endif
 
 #define wf_canvas_free0(A) (wf_canvas_free(A), A = NULL)
 

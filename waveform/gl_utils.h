@@ -16,6 +16,7 @@
 */
 #ifndef __waveform_gl_utils_h__
 #define __waveform_gl_utils_h__
+#include "waveform/typedefs.h"
 
 #ifdef __waveform_gl_utils_c__
 gboolean __wf_drawing = FALSE;
@@ -36,13 +37,6 @@ extern int __draw_depth;
 	(__wf_drawing = FALSE);
 #define ASSERT_DRAWING g_return_if_fail(__wf_drawing);
 
-extern GLenum _wf_ge;
-#define gl_error ((_wf_ge = glGetError()) != GL_NO_ERROR)
-#define gl_warn(A, ...) { \
-		if(gl_error){ \
-		print_gl_error(__func__, _wf_ge, A, ##__VA_ARGS__); \
-	}}
-
 struct _texture_unit
 {
 	GLenum unit;
@@ -53,7 +47,5 @@ void         use_texture              (GLuint texture);
 
 TextureUnit* texture_unit_new         (GLenum unit);
 void         texture_unit_use_texture (TextureUnit*, int texture);
-
-void         print_gl_error           (const char* func, int err, const char* format, ...);
 
 #endif //__waveform_gl_utils_h__

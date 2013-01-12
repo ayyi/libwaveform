@@ -158,7 +158,7 @@ wf_canvas_set_use_shaders(WaveformCanvas* wfc, gboolean val)
 
 	if(wfc){
 		if(!val){
-			wf_canvas_use_program_(wfc, NULL);
+			agl_use_program(NULL);
 			wfc->use_1d_textures = false;
 		}
 		agl->use_shaders = val;
@@ -171,7 +171,7 @@ wf_canvas_init_gl(WaveformCanvas* wfc)
 {
 	if(!agl_get_instance()->use_shaders){
 		WAVEFORM_START_DRAW(wfc) {
-			printf("GL_RENDERER = %s\n", (const char*)glGetString(GL_RENDERER));
+			if(wf_debug) printf("GL_RENDERER = %s\n", (const char*)glGetString(GL_RENDERER));
 		} WAVEFORM_END_DRAW(wfc);
 		return;
 	}
@@ -187,10 +187,10 @@ wf_canvas_init_gl(WaveformCanvas* wfc)
 
 		if(agl->pref_use_shaders && !agl_shaders_supported()){
 			printf("gl shaders not supported. expect reduced functionality.\n");
-			wf_canvas_use_program_(wfc, NULL);
+			agl_use_program(NULL);
 			wfc->use_1d_textures = false;
 		}
-		printf("GL_RENDERER = %s\n", (const char*)glGetString(GL_RENDERER));
+		if(wf_debug) printf("GL_RENDERER = %s\n", (const char*)glGetString(GL_RENDERER));
 
 		if(agl->use_shaders){
 			wf_shaders_init();
@@ -203,7 +203,6 @@ wf_canvas_init_gl(WaveformCanvas* wfc)
 			wfc->priv->shaders.horizontal = &horizontal;
 			wfc->priv->shaders.tex2d = &tex2d;
 			wfc->priv->shaders.tex2d_b = &tex2d_b;
-			wfc->priv->shaders.ass = &ass;
 			wfc->priv->shaders.ruler = &ruler;
 		}
 
@@ -398,35 +397,6 @@ void
 wf_canvas_set_rotation(WaveformCanvas* wfc, float rotation)
 {
 	dbg(0, "TODO");
-}
-
-
-void
-wf_canvas_use_program(WaveformCanvas* wfc, int program)
-{
-	//deprecated. use fn below.
-
-	if(agl_get_instance()->use_shaders && (program != wfc->_program)){
-		dbg(3, "%i", program);
-		glUseProgram(wfc->_program = program);
-	}
-}
-
-
-void
-wf_canvas_use_program_(WaveformCanvas* wfc, AGlShader* shader)
-{
-	int program = shader ? shader->program : 0;
-
-	if(!agl_get_instance()->use_shaders) return;
-
-	if(program != wfc->_program){
-		dbg(3, "%i", program);
-		glUseProgram(wfc->_program = program);
-	}
-
-	//it remains to be seen whether automatic setting of uniforms gives us enough control.
-	if(shader && shader->set_uniforms_) shader->set_uniforms_();
 }
 
 

@@ -93,7 +93,7 @@ wf_alphabuf_new(Waveform* waveform, int blocknum, int scale, gboolean is_rms, in
 			int width_ = waveform->num_peaks % (WF_PEAK_TEXTURE_SIZE - 2 * overlap);
 			if(!width_) width_ = width;
 			dbg(2, "is_last: width_=%i", width_);
-			width      = wf_power_of_two(width_ -1); //TODO wf_power_of_two fails for 256
+			width = agl_power_of_two(width_ -1);
 			x_stop  = MIN(waveform->num_peaks, x_start + width_);
 		}
 		dbg (0, "block_num=%i width=%i px_start=%i px_stop=%i (%i)", blocknum, width, x_start, x_stop, x_stop - x_start);

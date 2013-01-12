@@ -51,6 +51,15 @@ struct _WaveformView {
 	WaveformViewPrivate* priv;
 };
 
+#ifdef __waveform_view_private__
+struct _WaveformViewPrivate {
+	gboolean        gl_init_done;
+	WaveformCanvas* canvas;
+	WaveformActor*  actor;
+	gboolean        show_grid;
+};
+#endif
+
 struct _WaveformViewClass {
 	GtkDrawingAreaClass parent_class;
 };
@@ -64,6 +73,7 @@ void            waveform_view_load_file     (WaveformView*, const char*); //be c
 void            waveform_view_set_waveform  (WaveformView*, Waveform*);
 void            waveform_view_set_zoom      (WaveformView*, float);
 void            waveform_view_set_start     (WaveformView*, int64_t);
+void            waveform_view_set_region    (WaveformView*, int64_t, int64_t);
 void            waveform_view_set_colour    (WaveformView*, uint32_t fg, uint32_t bg);
 void            waveform_view_set_show_rms  (WaveformView*, gboolean);
 void            waveform_view_set_show_grid (WaveformView*, gboolean);

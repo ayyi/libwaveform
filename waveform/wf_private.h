@@ -24,7 +24,6 @@
 #define GdkColor void
 #endif
 #endif
-
 #include "agl/fbo.h"
 
 #define WF_CACHE_BUF_SIZE (1 << 15)

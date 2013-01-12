@@ -15,3 +15,8 @@
 -initial support for texture overlapping.
 -added initial support for rendering to frame buffer objects.
 -added additional test program actor_plus to demonstrate more complex display.
+[...]
+20130111
+-improved support for decorative text
+-made fbo's variable size
+-moved some functions from libwaveform to libagl

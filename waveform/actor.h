@@ -40,6 +40,7 @@ struct _waveform_actor {
 	WfRectangle     rect;
 	uint32_t        fg_colour;
 	uint32_t        bg_colour;
+	float           vzoom;     // vertical zoom. default 1.0
 	float           z;         // render position on z-axis.
 
 	WfActorPriv*    priv;
@@ -52,6 +53,7 @@ void            wf_actor_allocate                         (WaveformActor*, WfRec
 void            wf_actor_set_z                            (WaveformActor*, float);
 void            wf_actor_fade_out                         (WaveformActor*, WaveformActorFn, gpointer);
 void            wf_actor_fade_in                          (WaveformActor*, void* /*WfAnimatable* */, float, WaveformActorFn, gpointer);
+void            wf_actor_set_vzoom                        (WaveformActor*, float);
 void            wf_actor_paint                            (WaveformActor*);
 
 #endif //__waveform_actor_h__

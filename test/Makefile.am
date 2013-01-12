@@ -1,8 +1,8 @@
 
 if BUILD_TESTS
 
-if BUILD_TESTS
-ASSPROGRAMS = ass
+if ENABLE_LIBASS
+ASSPROGRAMS = ass view_plus_test
 endif
 
 if ENABLE_OPENGL
@@ -36,6 +36,10 @@ waveform_test_SOURCES = \
 view_test_SOURCES = \
 	$(COMMON_SOURCES) \
 	view_test.c
+
+view_plus_test_SOURCES = \
+	$(COMMON_SOURCES) \
+	view_plus_test.c
 
 actor_test_SOURCES = \
 	$(COMMON_SOURCES) \
@@ -84,6 +88,9 @@ waveform_test_LDADD = \
 view_test_LDADD = \
 	$(OPENGL_LDFLAGS) \
 	$(TEST_LDFLAGS)
+
+view_plus_test_LDADD = \
+	$(ass_LDADD)
 
 actor_test_LDADD = \
 	$(OPENGL_LDFLAGS) \
@@ -136,5 +143,5 @@ test_data: Makefile write_block.cc
 
 endif
 
-EXTRA_DIST =
+EXTRA_DIST = 
 

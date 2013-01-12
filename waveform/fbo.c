@@ -1,5 +1,5 @@
 /*
-  copyright (C) 2012 Tim Orford <tim@orford.org>
+  copyright (C) 2013 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -37,108 +37,17 @@
 #include "waveform/actor.h"
 #include "waveform/fbo.h"
 
-extern BloomShader horizontal, vertical;
+extern BloomShader vertical;
 
 #ifdef USE_FBO
 
 static AglFBO* fbo0 = NULL;
-
-static GLuint make_fbo(GLuint texture);
-
-AglFBO*
-fbo_new(GLuint texture)
-{
-	//if texture is zero, a new texture will be created.
-
-	GLuint make_texture(int size)
-	{
-					glEnable(GL_TEXTURE_2D);
-					glActiveTexture(GL_TEXTURE0);
-					glEnable(GL_TEXTURE_2D);
-		dbg(2, "creating fbo texture...");
-
-		GLuint texture;
-		glGenTextures(1, &texture);
-		glBindTexture(GL_TEXTURE_2D, texture);
-
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-		glTexImage2D(GL_TEXTURE_2D, 0, 4, size, size, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
-		//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, TextureLevel);
-		//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_BASE_LEVEL, TextureLevel);
-		glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
-
-		return texture;
-	}
-
-	AglFBO* fbo = g_new0(AglFBO, 1);
-	fbo->width = 256;
-	fbo->height = 256;
-	fbo->texture = texture ? texture : make_texture(fbo->width);
-	fbo->id = make_fbo(fbo->texture);
-	dbg(2, "fb=%i texture=%i", fbo->id, fbo->texture);
-
-	glBindFramebuffer(GL_FRAMEBUFFER_EXT, fbo->id);
-
-	GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER_EXT);
-	if (status != GL_FRAMEBUFFER_COMPLETE_EXT) gwarn("framebuffer incomplete");
-
-	/*
-	glPushAttrib(GL_VIEWPORT_BIT);
-	glViewport(0, 0, fbo->width, fbo->height);
-
-	//draw something into the fbo
-	glClearColor(0.0, 1.0, 0.0, 0.5);
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
-
-	glColor3f(0, 1, 0);
-	glDisable(GL_TEXTURE_2D);
-	glDisable(GL_BLEND);
-	float s = 256.0;
-	glBegin(GL_POLYGON);
-	glVertex2f(-s,  0.0);
-	glVertex2f( 0.0, -s);
-	glVertex2f( s,  0.0);
-	glVertex2f( 0.0,  s);
-	glEnd();
-
-	glPopAttrib(); //restore viewport
-	*/
-
-	glBindFramebuffer(GL_FRAMEBUFFER_EXT, 0); // rebind the normal framebuffer
-
-	gl_warn("fbo_new");
-	return fbo;
-}
-
 
 void
 fbo_free(AglFBO* fbo)
 {
 	glDeleteTextures(1, &fbo->texture);
 	fbo->texture = 0;
-}
-
-
-static GLuint
-make_fbo(GLuint texture)
-{
-
-					glActiveTexture(GL_TEXTURE0);
-					glEnable(GL_TEXTURE_2D);
-	dbg(2, "generating framebuffer...");
-	g_return_val_if_fail(glGenFramebuffers, 0);
-	GLuint fb;
-	glGenFramebuffers(1, &fb);
-	glBindFramebuffer(GL_FRAMEBUFFER_EXT, fb);
-
-	dbg(2, "attaching texture %u to fbo...", texture);
-	int texture_level = 0;
-	glFramebufferTexture2D(GL_FRAMEBUFFER_EXT, GL_COLOR_ATTACHMENT0_EXT, GL_TEXTURE_2D, texture, texture_level);
-
-	glBindFramebuffer(GL_FRAMEBUFFER_EXT, 0); // rebind the normal framebuffer
-
-	return fb;
 }
 
 
@@ -219,7 +128,7 @@ fbo_new_test()
 		return bg_textures;
 	}
 	//AglFBO* fbo = fbo_new(_wf_create_background());
-	AglFBO* fbo = fbo_new(_wf_create_background_rgba());
+	AglFBO* fbo = agl_fbo_new(256, 256, _wf_create_background_rgba());
 	return fbo;
 }
 
@@ -237,7 +146,7 @@ fbo_print(WaveformActor* actor, int x, int y, double scale, uint32_t colour, int
 	glEnable(GL_TEXTURE_2D);
 					glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-	if(!fbo0) fbo0 = fbo_new(0);
+	if(!fbo0) fbo0 = agl_fbo_new(256, 256, 0);
 
 	void draw_test_to_fbo()
 	{

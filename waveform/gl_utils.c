@@ -30,7 +30,6 @@
 #include "waveform/gl_utils.h"
 
 static TextureUnit* active_texture_unit = NULL;
-GLenum _wf_ge = 0;
 
 
 void
@@ -68,45 +67,4 @@ texture_unit_use_texture(TextureUnit* unit, int texture)
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 }
 
-
-void
-print_gl_error(const char* func, int __ge, const char* format, ...)
-{
-	char str[256];
-	char* e_str = NULL;
-
-	switch(__ge) {
-		case GL_INVALID_OPERATION:
-			e_str = "GL_INVALID_OPERATION";
-			break;
-		case GL_INVALID_VALUE:
-			e_str = "GL_INVALID_VALUE";
-			break;
-		case GL_INVALID_ENUM:
-			e_str = "GL_INVALID_ENUM";
-			break;
-		case GL_STACK_OVERFLOW:
-			e_str = "GL_STACK_OVERFLOW ";
-			break;
-		case GL_OUT_OF_MEMORY:
-			e_str = "GL_OUT_OF_MEMORY";
-			break;
-		case GL_STACK_UNDERFLOW:
-			e_str = "GL_STACK_UNDERFLOW";
-			break;
-		case GL_NO_ERROR:
-			e_str = "GL_NO_ERROR";
-			break;
-		default:
-			fprintf(stderr, "%i ", __ge); //TODO
-			break;
-	}
-
-    va_list args;
-    va_start(args, format);
-	vsprintf(str, format, args);
-    va_end(args);
-
-	g_warning("%s(): %s %s", func, e_str, str);
-}
 

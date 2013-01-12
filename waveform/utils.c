@@ -53,7 +53,7 @@ wf_debug_printf(const char* func, int level, const char* format, ...)
 
 
 void
-deinterleave(float* src, float** dest, uint64_t n_frames)
+wf_deinterleave(float* src, float** dest, uint64_t n_frames)
 {
 	int f; for(f=0;f<n_frames;f++){
 		int c; for(c=0;c<WF_STEREO;c++){
@@ -64,29 +64,13 @@ deinterleave(float* src, float** dest, uint64_t n_frames)
 
 
 void
-deinterleave16(short* src, short** dest, uint64_t n_frames)
+wf_deinterleave16(short* src, short** dest, uint64_t n_frames)
 {
 	int f; for(f=0;f<n_frames;f++){
 		int c; for(c=0;c<WF_STEREO;c++){
 			dest[c][f] = src[f * WF_STEREO + c];
 		}
 	}
-}
-
-
-int
-wf_power_of_two(int a)
-{
-	// return the next power of two up from the given value.
-
-	int i = 0;
-	int orig = a;
-	while(a){
-		a = a >> 1;
-		i++;
-	}
-	dbg (2, "%i -> %i", orig, 1 << i);
-	return 1 << i;
 }
 
 
@@ -105,6 +89,34 @@ wf_int2db(short x)
 	}
 
 	return y;
+}
+
+
+static uint32_t
+color_gdk_to_rgba(GdkColor* color)
+{
+	return ((color->red / 0x100) << 24) + ((color->green / 0x100) << 16) + ((color->blue / 0x100) << 8) + 0xff;
+}
+
+
+//perhaps make all gtk stuff private to the widgets
+uint32_t
+wf_get_gtk_fg_color(GtkWidget* widget, GtkStateType state)
+{
+	GtkStyle* style = gtk_widget_get_style(widget);
+	//GdkColor fg = style->fg[state];
+	return color_gdk_to_rgba(&style->fg[state]);
+}
+
+
+uint32_t
+wf_get_gtk_text_color(GtkWidget* widget, GtkStateType state)
+{
+	GtkStyle* style = gtk_style_copy(gtk_widget_get_style(widget));
+	GdkColor c = style->text[state];
+	g_object_unref(style);
+
+	return color_gdk_to_rgba(&c);
 }
 
 

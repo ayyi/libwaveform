@@ -21,6 +21,7 @@
 
 */
 #define __wf_private__
+#define __waveform_view_private__
 #include "config.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -54,13 +55,6 @@ static gboolean       gl_initialised = FALSE;
 
 #define _g_free0(var) (var = (g_free (var), NULL))
 #define _g_object_unref0(var) ((var == NULL) ? NULL : (var = (g_object_unref (var), NULL)))
-
-struct _WaveformViewPrivate {
-	gboolean        gl_init_done;
-	WaveformCanvas* canvas;
-	WaveformActor*  actor;
-	gboolean        show_grid;
-};
 
 static int      waveform_view_get_width            (WaveformView*);
 
@@ -281,6 +275,7 @@ waveform_view_set_zoom (WaveformView* view, float zoom)
 }
 
 
+#warning waveform_view_set_start: TODO why does length depend on zoom?
 void
 waveform_view_set_start (WaveformView* view, int64_t start_frame)
 {
@@ -293,6 +288,26 @@ waveform_view_set_start (WaveformView* view, int64_t start_frame)
 		length
 	});
 	if(!view->priv->actor->canvas->draw) gtk_widget_queue_draw((GtkWidget*)view);
+}
+
+
+void
+waveform_view_set_region (WaveformView* view, int64_t start_frame, int64_t end_frame)
+{
+	uint32_t max_len = waveform_get_n_frames(view->waveform) - start_frame;
+	uint32_t length = MIN(max_len, end_frame - start_frame);
+
+	view->start_frame = CLAMP(start_frame, 0, (int64_t)waveform_get_n_frames(view->waveform) - 10);
+	view->zoom = waveform_view_get_width(view) / length;
+	dbg(1, "start=%Lu", view->start_frame);
+
+	if(view->priv->actor){
+		wf_actor_set_region(view->priv->actor, &(WfSampleRegion){
+			view->start_frame,
+			length
+		});
+		if(!view->priv->actor->canvas->draw) gtk_widget_queue_draw((GtkWidget*)view);
+	}
 }
 
 
@@ -357,7 +372,7 @@ waveform_view_realize (GtkWidget* base)
 static void
 waveform_view_unrealize (GtkWidget* widget)
 {
-	PF0;
+	PF;
 	WaveformView* self = (WaveformView*)widget;
 	gdk_window_set_user_data (widget->window, NULL);
 
@@ -412,6 +427,9 @@ waveform_view_on_expose (GtkWidget* widget, GdkEventExpose* event)
 	if(!gl_initialised) return true;
 
 	WF_START_DRAW {
+		// needed for the case of shared contexts, where one of the other contexts modifies the projection.
+		waveform_view_set_projection(widget);
+
 		glClearColor(0.0, 0.0, 0.0, 1.0);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -523,7 +541,7 @@ waveform_view_finalize (GObject* obj)
 	WaveformView* view = WAVEFORM_VIEW(obj);
 	//_g_free0 (self->priv->_filename);
 	//TODO free actor?
-	waveform_unref0(view->waveform); //TODO should be done in dispose?
+	if(view->waveform) waveform_unref0(view->waveform); //TODO should be done in dispose?
 	G_OBJECT_CLASS (waveform_view_parent_class)->finalize(obj);
 }
 

@@ -1,7 +1,8 @@
 #ifndef __wf_shader_h__
 #define __wf_shader_h__
+#include "agl/typedefs.h"
 #ifdef __gl_h_
-#include "agl/utils.h"
+#include "agl/shader.h"
 
 typedef struct {
 	AGlShader shader;
@@ -36,18 +37,25 @@ typedef struct {
 	AGlShader    shader;
 	struct {
 		uint32_t fg_colour;
-	}            uniform;
-} AlphaMapShader;
-
-typedef struct {
-	AGlShader    shader;
-	struct {
-		uint32_t fg_colour;
 		float    beats_per_pixel;
 		float    viewport_left;
 	}            uniform;
 } RulerShader;
+
+struct _ass_shader {
+	AGlShader    shader;
+	struct {
+		uint32_t colour1;
+		uint32_t colour2;
+	}            uniform;
+};
+
 #endif
+
+struct _wf_shaders {
+	AssShader* ass;
+} wf_shaders;
+
 
 void wf_shaders_init();
 

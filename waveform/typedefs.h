@@ -34,6 +34,9 @@ typedef struct _vp              WfViewPort;
 typedef struct _texture_unit    TextureUnit; 
 typedef struct _colour_float    WfColourFloat;
 typedef struct _WaveformView    WaveformView;
+typedef struct _WaveformViewPlus WaveformViewPlus;
+typedef struct _wf_shaders       WfShaders;
+typedef struct _ass_shader       AssShader;
 
 
 #endif //__waveform_typedefs_h__

@@ -135,7 +135,7 @@ main (int argc, char* argv[])
 				if(v > 16.0) v = 1.0;
 				waveform_view_set_zoom(waveform, waveform->zoom * v);
 			}
-			gtk_widget_queue_draw(waveform);
+			gtk_widget_queue_draw((GtkWidget*)waveform);
 		}
 		frame++;
 		return IDLE_CONTINUE;

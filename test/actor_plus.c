@@ -432,7 +432,7 @@ background_paint(GtkWidget* widget)
 		glBindTexture(GL_TEXTURE_2D, bg_textures[0]);
 
 		wfc->priv->shaders.tex2d->uniform.fg_colour = 0x0000ffff;
-		wf_canvas_use_program_(wfc, (AGlShader*)wfc->priv->shaders.tex2d);
+		agl_use_program((AGlShader*)wfc->priv->shaders.tex2d);
 
 	}else{
 		glColor4f(1.0, 0.7, 0.0, 1.0);
@@ -445,7 +445,7 @@ background_paint(GtkWidget* widget)
 				glEnable(GL_BLEND);
 		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-		wf_canvas_use_program_(wfc, 0);
+		agl_use_program(0);
 	}
 
 	double top = -VBORDER;
@@ -470,7 +470,7 @@ ruler_paint(GtkWidget* widget)
 
 	wfc->priv->shaders.ruler->uniform.fg_colour = 0xffffff7f;
 	wfc->priv->shaders.ruler->uniform.beats_per_pixel = 0.1 * (GL_WIDTH / width) / zoom;
-	wf_canvas_use_program_(wfc, (AGlShader*)wfc->priv->shaders.ruler);
+	agl_use_program((AGlShader*)wfc->priv->shaders.ruler);
 
 #if 0 //shader debugging
 	{

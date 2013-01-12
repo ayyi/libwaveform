@@ -1,3 +1,5 @@
+SUBDIRS = shaders
+
 INCLUDES = \
 	-DG_LOG_DOMAIN=\"AGl\" \
 	-DPACKAGE_DATA_DIR=\""$(datadir)"\" \
@@ -13,7 +15,7 @@ libagl_la_SOURCES = \
 	pango_render.c pango_render.h \
 	pango_font.c pango_font.h \
 	ext.c ext.h \
-	fbo.h \
+	fbo.c fbo.h \
 	utils.c utils.h
 
 pkginclude_HEADERS = \
