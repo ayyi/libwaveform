@@ -16,7 +16,8 @@ libagl_la_SOURCES = \
 	pango_font.c pango_font.h \
 	ext.c ext.h \
 	fbo.c fbo.h \
-	utils.c utils.h
+	utils.c utils.h \
+	typedefs.h shader.h
 
 pkginclude_HEADERS = \
 	ext.h
@@ -25,5 +26,12 @@ BUILT_SOURCES =
 
 CLEANFILES =
 
-EXTRA_DIST =
+SHADERS = \
+	shaders/alpha_map.vert \
+	shaders/alpha_map.frag
+
+EXTRA_DIST = \
+	$(SHADERS) \
+	shaders/Makefile \
+	shaders/make_shaders
 

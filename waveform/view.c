@@ -240,8 +240,10 @@ waveform_view_set_waveform (WaveformView* view, Waveform* waveform)
 	WaveformViewPrivate* _view = view->priv;
 
 	if(__wf_drawing) gwarn("set_waveform called while already drawing");
-	wf_canvas_remove_actor(view->priv->canvas, view->priv->actor);
-	_view->actor = NULL;
+	if(_view->actor && _view->canvas){
+		wf_canvas_remove_actor(_view->canvas, _view->actor);
+		_view->actor = NULL;
+	}
 	if(view->waveform){
 		g_object_unref(view->waveform);
 	}

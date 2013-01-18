@@ -19,10 +19,16 @@ SHADERS = \
 	shaders/vertical.frag \
 	shaders/horizontal.vert \
 	shaders/horizontal.frag \
-	shaders/alpha_map.vert \
-	shaders/alpha_map.frag \
 	shaders/hires.vert \
-	shaders/hires.frag
+	shaders/hires.frag \
+	shaders/peak_nonscaling.vert \
+	shaders/peak_nonscaling.frag \
+	shaders/texture_2d.vert \
+	shaders/texture_2d.frag \
+	shaders/ruler.vert \
+	shaders/ruler.frag \
+	shaders/ass.vert \
+	shaders/ass.frag
 
 EXTRA_DIST = \
 	$(SHADERS) \

@@ -18,5 +18,6 @@
 [...]
 20130111
 -improved support for decorative text
+-added gtkwidget that includes support for text labels
 -made fbo's variable size
 -moved some functions from libwaveform to libagl
