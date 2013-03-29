@@ -10,5 +10,13 @@ struct _alphamap_shader {
 	}            uniform;
 };
 
+#ifdef __agl_utils_c__
+AGlUniformInfo agl_null_uniforms[] = {
+   END_OF_UNIFORMS
+};
+#else
+extern AGlUniformInfo agl_null_uniforms[];
+#endif
+
 #endif //__gl_h_
 #endif //__agl_shader_h__

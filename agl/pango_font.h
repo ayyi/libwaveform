@@ -42,5 +42,5 @@ void         _pango_gl_font_set_glyph_cache_destroy(PangoFont*, GDestroyNotify d
 void         _pango_gl_font_set_cache_glyph_data   (PangoFont*, int glyph_index, void* cached_glyph);
 
 /* HACK make this public to avoid a mass of re-implementation*/
-void          pango_fc_font_get_raw_extents        (PangoFcFont*, FT_Int32 load_flags, PangoGlyph      glyph, PangoRectangle *ink_rect, PangoRectangle *logical_rect);
+void          pango_fc_font_get_raw_extents        (PangoFcFont*, FT_Int32 load_flags, PangoGlyph glyph, PangoRectangle* ink_rect, PangoRectangle* logical_rect);
 

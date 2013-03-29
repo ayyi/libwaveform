@@ -1,5 +1,5 @@
 /*
-  copyright (C) 2012 Tim Orford <tim@orford.org>
+  copyright (C) 2012-2013 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -42,8 +42,6 @@ struct _texture_unit
 	GLenum unit;
 	int    texture;
 };
-
-void         use_texture              (GLuint texture);
 
 TextureUnit* texture_unit_new         (GLenum unit);
 void         texture_unit_use_texture (TextureUnit*, int texture);

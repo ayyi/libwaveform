@@ -184,6 +184,8 @@ _waveform_view_set_actor (WaveformView* view)
 void
 waveform_view_load_file (WaveformView* view, const char* filename)
 {
+	// if filename is NULL the display will be cleared.
+
 	WaveformViewPrivate* _view = view->priv;
 
 	if(_view->actor){
@@ -192,7 +194,12 @@ waveform_view_load_file (WaveformView* view, const char* filename)
 	}
 	else dbg(2, " ... no actor");
 	if(view->waveform){
-		g_object_unref(view->waveform);
+		_g_object_unref0(view->waveform);
+	}
+
+	if(!filename){
+		gtk_widget_queue_draw((GtkWidget*)view);
+		return;
 	}
 
 	view->waveform = waveform_new(filename);

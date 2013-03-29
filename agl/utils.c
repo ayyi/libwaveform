@@ -1,5 +1,5 @@
 /*
-  copyright (C) 2012 Tim Orford <tim@orford.org>
+  copyright (C) 2013 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -19,6 +19,7 @@
   copyright (C) 2008 Brian Paul
 
 */
+#define __agl_utils_c__
 #include "config.h"
 #include <assert.h>
 #include <stdio.h>
@@ -52,19 +53,33 @@ GLenum _wf_ge = 0;
 
 static gboolean font_is_scalable(PangoContext*, const char* font_name);
 
-void  _alphamap_set_uniforms    ();
+static void  _alphamap_set_uniforms    ();
 AGlUniformInfo uniforms4[] = {
    {"tex2d",     1, GL_INT,   { 0, 0, 0, 0 }, -1},
    END_OF_UNIFORMS
 };
 AlphaMapShader tex2d = {{NULL, NULL, 0, uniforms4, _alphamap_set_uniforms, &alpha_map_text}};
-void
+static void
 _alphamap_set_uniforms()
 {
 	float fg_colour[4] = {0.0, 0.0, 0.0, ((float)(tex2d.uniform.fg_colour & 0xff)) / 0x100};
-	wf_rgba_to_float(tex2d.uniform.fg_colour, &fg_colour[0], &fg_colour[1], &fg_colour[2]);
+	agl_rgba_to_float(tex2d.uniform.fg_colour, &fg_colour[0], &fg_colour[1], &fg_colour[2]);
 	glUniform4fv(glGetUniformLocation(tex2d.shader.program, "fg_colour"), 1, fg_colour);
 }
+
+//plain 2d texture
+static void _tex_set_uniforms();
+AlphaMapShader tex2d_b = {{NULL, NULL, 0, uniforms4, _tex_set_uniforms, &texture_2d_text}};
+//TODO if we pass the shader as arg we can reuse
+static void
+_tex_set_uniforms()
+{
+	float fg_colour[4] = {0.0, 0.0, 0.0, ((float)(tex2d_b.uniform.fg_colour & 0xff)) / 0x100};
+	agl_rgba_to_float(tex2d_b.uniform.fg_colour, &fg_colour[0], &fg_colour[1], &fg_colour[2]);
+	glUniform4fv(glGetUniformLocation(tex2d_b.shader.program, "fg_colour"), 1, fg_colour);
+}
+
+
 
 AGl* agl = NULL;
 
@@ -75,6 +90,7 @@ agl_get_instance()
 		agl = g_new0(AGl, 1);
 		agl->pref_use_shaders = TRUE;
 		agl->use_shaders = TRUE;
+		agl->shaders.texture = &tex2d_b;
 	}
 	return agl;
 }
@@ -177,10 +193,14 @@ agl_shaders_supported()
 void
 agl_shaders_init()
 {
-	// initialise internal shader programs
+	// initialise shader programs
 	// must not be called until we have and are inside DRAW
 
+	static gboolean done = FALSE;
+	if(done++) return;
+
 	agl_create_program(&tex2d.shader);
+	agl_create_program(&tex2d_b.shader);
 	agl->text_shader = &tex2d;
 	dbg(2, "text_shader=%i", tex2d.shader.program);
 }
@@ -353,41 +373,88 @@ agl_rect(float x, float y, float w, float h)
 }
 
 
-static PangoFontDescription* font_desc = NULL;
-
+//TODO not rect, should be x1, y1 etc
 void
-agl_set_font(char* font_string)
+agl_textured_rect(guint texture, float x, float y, float w, float h, AGlRect* _t)
 {
-	static gboolean renderer_inited = FALSE;
-	void renderer_init()
+	// to use the whole texture, pass NULL for _t
+
+	agl_use_texture(texture);
+
+	AGlRect t = _t ? *_t : (AGlRect){0.0, 0.0, 1.0, 1.0};
+
+	glBegin(GL_QUADS);
+	glTexCoord2d(t.x, t.y); glVertex2d(x,     y);
+	glTexCoord2d(t.w, t.y); glVertex2d(x + w, y);
+	glTexCoord2d(t.w, t.h); glVertex2d(x + w, y + h);
+	glTexCoord2d(t.x, t.h); glVertex2d(x,     y + h);
+	glEnd();
+}
+
+
+static PangoFontDescription* font_desc = NULL;
+static gboolean renderer_inited = FALSE;
+
+static PangoContext*
+get_context()
+{
+	PangoGlRendererClass* renderer_init()
 	{
 		g_type_class_unref (g_type_class_ref (PANGO_TYPE_GL_RENDERER));
-		renderer_inited = TRUE;
-	}
-	if(!renderer_inited) renderer_init();
 
+		PangoGlRendererClass* PGRC = g_type_class_peek(PANGO_TYPE_GL_RENDERER);
+
+		if(PGRC && !PGRC->context){
+			PangoFontMap* fontmap = pango_gl_font_map_new();
+			//pango_gl_font_map_set_resolution (PANGO_GL_FONT_MAP(fontmap), 96.0);
+			PGRC->context = pango_gl_font_map_create_context(PANGO_GL_FONT_MAP(fontmap));
+
+			renderer_inited = TRUE;
+		}
+
+		return PGRC;
+	}
+
+	PangoGlRendererClass* PGRC;
+	if(!renderer_inited) g_return_val_if_fail((PGRC = renderer_init()), NULL);
+	else PGRC = g_type_class_peek(PANGO_TYPE_GL_RENDERER);
+	return PGRC ? PGRC->context : NULL;
+}
+
+
+void
+agl_set_font(char* family, int size, PangoWeight weight)
+{
+	PangoContext* context = get_context();
+
+	if(font_desc) pango_font_description_free(font_desc);
+
+	font_desc = pango_font_description_new();
+	pango_font_description_set_family(font_desc, family);
+	pango_font_description_set_size(font_desc, size * PANGO_SCALE);
+	pango_font_description_set_weight(font_desc, weight);
+
+	// for some reason there seems to be an issue with pixmap fonts
+	if(!font_is_scalable(context, pango_font_description_get_family(font_desc))){
+		pango_font_description_set_family(font_desc, family);
+	}
+}
+
+
+void
+agl_set_font_string(char* font_string)
+{
 	if(font_desc) pango_font_description_free(font_desc);
 	font_desc = pango_font_description_from_string(font_string);
 
-	PangoGlRendererClass* PGRC = g_type_class_peek(PANGO_TYPE_GL_RENDERER);
-	g_return_if_fail(PGRC);
-
-	if(!PGRC->context){
-		PangoFontMap* fontmap = pango_gl_font_map_new();
-		//pango_gl_font_map_set_resolution (PANGO_GL_FONT_MAP(fontmap), 96.0);
-		PGRC->context = pango_gl_font_map_create_context(PANGO_GL_FONT_MAP(fontmap));
-	}
-
 	dbg(1, "requested: %s", font_string);
 	// for some reason there seems to be an issue with pixmap fonts
-	if(!font_is_scalable(PGRC->context, pango_font_description_get_family(font_desc))){
+	if(!font_is_scalable(get_context(), pango_font_description_get_family(font_desc))){
 		strcpy(font_string, "Sans 7");
-		pango_font_description_free(font_desc);
+		pango_font_description_free(font_desc); //TODO no, just set the family instead
 		font_desc = pango_font_description_from_string(font_string);
 	}
 	dbg(1, "using: %s", font_string);
-
-	pango_font_description_set_weight(font_desc, PANGO_WEIGHT_SEMIBOLD); //TODO
 }
 
 
@@ -467,6 +534,8 @@ font_is_scalable(PangoContext* context, const char* font_name)
 	//scalable fonts dont list sizes, so if the font has a size list, we assume it is not scalable.
 	//TODO surely there is a better way to find a font than iterating over every system font?
 
+	g_return_val_if_fail(context, FALSE);
+
 	gboolean scalable = TRUE;
 
 	gchar* family_name = g_ascii_strdown(font_name, -1);
@@ -478,7 +547,7 @@ font_is_scalable(PangoContext* context, const char* font_name)
 	pango_font_map_list_families(fontmap, &families, &n_families);
 	int i; for(i=0;i<n_families;i++){
 		PangoFontFamily* family = families[i];
-		//dbg(0, "family=%s", pango_font_family_get_name(family));
+		//dbg(0, "  family=%s", pango_font_family_get_name(family));
 		if(!strcmp(family_name, pango_font_family_get_name(family))){
 			PangoFontFace** faces;
 			int n_faces;
@@ -530,8 +599,19 @@ agl_use_program(AGlShader* shader)
 		glUseProgram(_program = program);
 	}
 
-	//it remains to be seen whether automatic setting of uniforms gives us enough control.
+	//it remains to be seen whether automatic setting of uniforms gives enough control.
 	if(shader && shader->set_uniforms_) shader->set_uniforms_();
+}
+
+
+void
+agl_use_texture(GLuint texture)
+{
+	//note: 2d texture
+
+	glBindTexture(GL_TEXTURE_2D, texture);
+	glEnable(GL_BLEND);
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 }
 
 
@@ -634,4 +714,19 @@ agl_print_error(const char* func, int __ge, const char* format, ...)
 
 	g_warning("%s(): %s %s", func, e_str, str);
 }
+
+
+void
+agl_rgba_to_float(uint32_t rgba, float* r, float* g, float* b)
+{
+	double _r = (rgba & 0xff000000) >> 24;
+	double _g = (rgba & 0x00ff0000) >> 16;
+	double _b = (rgba & 0x0000ff00) >>  8;
+
+	*r = _r / 0xff;
+	*g = _g / 0xff;
+	*b = _b / 0xff;
+	dbg (3, "%08x --> %.2f %.2f %.2f", rgba, *r, *g, *b);
+}
+
 

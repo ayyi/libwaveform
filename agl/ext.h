@@ -133,11 +133,13 @@ static PFNGLGENERATEMIPMAPEXTPROC glGenerateMipmapEXT_func;
 
 /* GL_ARB_framebuffer_object */
 static PFNGLISRENDERBUFFERPROC glIsRenderbuffer_func;
-static PFNGLBINDRENDERBUFFERPROC glBindRenderbuffer_func;
-static PFNGLDELETERENDERBUFFERSPROC glDeleteRenderbuffers_func;
-static PFNGLGENRENDERBUFFERSPROC glGenRenderbuffers_func;
-static PFNGLRENDERBUFFERSTORAGEPROC glRenderbufferStorage_func;
-static PFNGLGETRENDERBUFFERPARAMETERIVPROC glGetRenderbufferParameteriv_func;
+#endif
+PFNGLBINDRENDERBUFFERPROC glBindRenderbuffer;
+PFNGLDELETERENDERBUFFERSPROC glDeleteRenderbuffers;
+PFNGLGENRENDERBUFFERSPROC glGenRenderbuffers;
+PFNGLRENDERBUFFERSTORAGEPROC glRenderbufferStorage;
+PFNGLGETRENDERBUFFERPARAMETERIVPROC glGetRenderbufferParameteriv;
+#if 0
 static PFNGLISFRAMEBUFFERPROC glIsFramebuffer_func;
 #endif
 PFNGLBINDFRAMEBUFFERPROC glBindFramebuffer;
@@ -148,8 +150,10 @@ PFNGLFRAMEBUFFERTEXTURE1DPROC glFramebufferTexture1D;
 PFNGLFRAMEBUFFERTEXTURE2DPROC glFramebufferTexture2D;
 #if 0
 static PFNGLFRAMEBUFFERTEXTURE3DPROC glFramebufferTexture3D_func;
-static PFNGLFRAMEBUFFERRENDERBUFFERPROC glFramebufferRenderbuffer_func;
-static PFNGLGETFRAMEBUFFERATTACHMENTPARAMETERIVPROC glGetFramebufferAttachmentParameteriv_func;
+#endif
+PFNGLFRAMEBUFFERRENDERBUFFERPROC glFramebufferRenderbuffer;
+PFNGLGETFRAMEBUFFERATTACHMENTPARAMETERIVPROC glGetFramebufferAttachmentParameteriv;
+#if 0
 static PFNGLGENERATEMIPMAPPROC glGenerateMipmap_func;
 static PFNGLBLITFRAMEBUFFERPROC glBlitFramebuffer_func;
 static PFNGLRENDERBUFFERSTORAGEMULTISAMPLEPROC glRenderbufferStorageMultisample_func;

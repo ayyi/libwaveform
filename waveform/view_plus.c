@@ -247,7 +247,12 @@ waveform_view_plus_load_file (WaveformViewPlus* view, const char* filename)
 	}
 	else dbg(2, " ... no actor");
 	if(view->waveform){
-		g_object_unref(view->waveform);
+		_g_object_unref0(view->waveform);
+	}
+
+	if(!filename){
+		gtk_widget_queue_draw((GtkWidget*)view);
+		return;
 	}
 
 	view->waveform = waveform_new(filename);

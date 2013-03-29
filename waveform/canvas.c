@@ -59,7 +59,7 @@ extern PeakShader peak_shader, peak_nonscaling;
 extern HiResShader hires_shader;
 extern BloomShader horizontal;
 extern BloomShader vertical;
-extern AlphaMapShader tex2d, tex2d_b, ass;
+extern AlphaMapShader tex2d, ass;
 extern RulerShader ruler;
 
 #define TRACK_ACTORS // for debugging only.
@@ -93,10 +93,7 @@ wf_canvas_new(GdkGLContext* gl_context, GdkGLDrawable* gl_drawable)
 {
 	PF;
 
-	if(!glAttachShader){
-		wf_actor_init();
-		get_gl_extensions();
-	}
+	wf_actor_init();
 
 	WaveformCanvas* wfc = g_new0(WaveformCanvas, 1);
 	wfc->show_rms = true;
@@ -176,7 +173,7 @@ wf_canvas_init_gl(WaveformCanvas* wfc)
 		return;
 	}
 
-	if(!glAttachShader) wf_actor_init();
+	wf_actor_init();
 
 	WfCanvasPriv* priv = wfc->priv;
 	AGl* agl = agl_get_instance();
@@ -202,7 +199,6 @@ wf_canvas_init_gl(WaveformCanvas* wfc)
 			wfc->priv->shaders.vertical = &vertical;
 			wfc->priv->shaders.horizontal = &horizontal;
 			wfc->priv->shaders.tex2d = &tex2d;
-			wfc->priv->shaders.tex2d_b = &tex2d_b;
 			wfc->priv->shaders.ruler = &ruler;
 		}
 

@@ -38,7 +38,7 @@ waveform_view_plus_gl_init(WaveformViewPlus* view_plus)
 			fprintf(stderr, "Framebuffer effects will be lower resolution (lower quality).\n\n" );
 		}
 
-		agl_set_font("Roboto 10");
+		agl_set_font_string("Roboto 10");
 		waveform_view_plus_render_text(view_plus);
 		wf_shaders.ass->uniform.colour1 = view_plus->title_colour1;
 		wf_shaders.ass->uniform.colour2 = view_plus->title_colour2;

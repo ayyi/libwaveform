@@ -1,5 +1,5 @@
 /*
-  copyright (C) 2012 Tim Orford <tim@orford.org>
+  copyright (C) 2013 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -130,20 +130,6 @@ wf_colour_rgba_to_float(WfColourFloat* colour, uint32_t rgba)
 	colour->r = (float)((rgba & 0xff000000) >> 24) / 0xff;
 	colour->g = (float)((rgba & 0x00ff0000) >> 16) / 0xff;
 	colour->b = (float)((rgba & 0x0000ff00) >>  8) / 0xff;
-}
-
-
-void
-wf_rgba_to_float(uint32_t rgba, float* r, float* g, float* b)
-{
-	double _r = (rgba & 0xff000000) >> 24;
-	double _g = (rgba & 0x00ff0000) >> 16;
-	double _b = (rgba & 0x0000ff00) >>  8;
-
-	*r = _r / 0xff;
-	*g = _g / 0xff;
-	*b = _b / 0xff;
-	dbg (3, "%08x --> %.2f %.2f %.2f", rgba, *r, *g, *b);
 }
 
 

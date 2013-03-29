@@ -394,7 +394,7 @@ block_to_fbo(WaveformActor* a, int b, WfGlBlock* blocks, int resolution)
 		if(a->canvas->use_1d_textures){
 			AglFBO* fbo = blocks->fbo[b];
 			if(fbo){
-				draw_to_fbo(fbo) {
+				agl_draw_to_fbo(fbo) {
 					WfColourFloat fg; wf_colour_rgba_to_float(&fg, actor->fg_colour);
 					glClearColor(fg.r, fg.g, fg.b, 0.0); //background colour must be same as foreground for correct antialiasing
 					glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
@@ -433,7 +433,7 @@ block_to_fbo(WaveformActor* a, int b, WfGlBlock* blocks, int resolution)
 					glMultiTexCoord2f(WF_TEXTURE0, src_start + tex_pct, 1.0); glMultiTexCoord2f(WF_TEXTURE1, src_start + tex_pct, 1.0); glMultiTexCoord2f(WF_TEXTURE2, src_start + tex_pct, 1.0); glMultiTexCoord2f(WF_TEXTURE3, src_start + tex_pct, 1.0); glVertex2d(x2, bot);
 					glMultiTexCoord2f(WF_TEXTURE0, src_start + 0.0,     1.0); glMultiTexCoord2f(WF_TEXTURE1, src_start + 0.0,     1.0); glMultiTexCoord2f(WF_TEXTURE2, src_start + 0.0,     1.0); glMultiTexCoord2f(WF_TEXTURE3, src_start + 0.0,     1.0); glVertex2d(x1, bot);
 					glEnd();
-				} end_draw_to_fbo;
+				} agl_end_draw_to_fbo;
 #if USE_FX
 				//now process the first fbo onto the fx_fbo
 
@@ -441,11 +441,11 @@ block_to_fbo(WaveformActor* a, int b, WfGlBlock* blocks, int resolution)
 				AglFBO* fx_fbo = blocks->fx_fbo[b] = agl_fbo_new(256, 256, 0);
 				if(fx_fbo){
 					dbg(1, "%i: rendering to fx fbo. from: id=%i texture=%u - to: texture=%u", b, fbo->id, fbo->texture, fx_fbo->texture);
-					draw_to_fbo(fx_fbo) {
+					agl_draw_to_fbo(fx_fbo) {
 						glClearColor(1.0, 1.0, 1.0, 0.0); //background colour must be same as foreground for correct antialiasing
 						glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 
-						use_texture(fbo->texture);
+						agl_use_texture(fbo->texture);
 
 						BloomShader* shader = wfc->priv->shaders.vertical;
 						shader->uniform.fg_colour = 0xffffffff;
@@ -463,7 +463,7 @@ block_to_fbo(WaveformActor* a, int b, WfGlBlock* blocks, int resolution)
 						glTexCoord2d(tex_pct, 1.0); glVertex2d(x2, bot);
 						glTexCoord2d(0.0,     1.0); glVertex2d(x1, bot);
 						glEnd();
-					} end_draw_to_fbo;
+					} agl_end_draw_to_fbo;
 				}
 #endif
 			} else gwarn("fbo not allocated");
@@ -1133,7 +1133,7 @@ _set_gl_state_for_block(WaveformCanvas* wfc, Waveform* w, WfGlBlock* textures, i
 
 		glActiveTexture(WF_TEXTURE0);
 	}else
-		use_texture(textures->peak_texture[0].main[b]);
+		agl_use_texture(textures->peak_texture[0].main[b]);
 
 	gl_warn("cannot bind texture: block=%i: %i", b, textures->peak_texture[0].main[b]);
 
@@ -1566,7 +1566,7 @@ wf_actor_paint(WaveformActor* actor)
 								: textures->fbo[b];
 						if(fbo){ //seems that the fbo may not be created initially...
 							if(wfc->blend)
-								use_texture(fbo->texture);
+								agl_use_texture(fbo->texture);
 							else
 								use_texture_no_blend(fbo->texture);
 						}
@@ -1653,7 +1653,6 @@ wf_actor_paint(WaveformActor* actor)
 			is_first = false;
 		}
 	}
-	agl_use_program(NULL);
 
 	gl_warn("(@ paint end)");
 }

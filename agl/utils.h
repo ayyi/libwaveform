@@ -1,5 +1,6 @@
 #ifndef __agl_utils_h__
 #define __agl_utils_h__
+#include <pango/pango.h>
 #include "agl/typedefs.h"
 //#include "agl/shader.h"
 
@@ -31,6 +32,8 @@ struct _uniform_info
    GLint       location;  // filled in by agl_uniforms_init()
 };
 
+typedef struct {float x, y, w, h;} AGlRect;
+
 AGl*      agl_get_instance        ();
 void      agl_enable              (gulong flags);
 GLboolean agl_shaders_supported   ();
@@ -42,15 +45,20 @@ void      agl_uniforms_init       (GLuint program, AGlUniformInfo uniforms[]);
 GLuint    agl_link_shaders        (GLuint vertShader, GLuint fragShader);
 void      wf_canvas_use_program   (int);
 void      agl_use_program         (AGlShader*);
+void      agl_use_texture         (GLuint texture);
+
 void      agl_rect                (float x, float y, float w, float h);
+void      agl_textured_rect       (guint texture, float x, float y, float w, float h, AGlRect* tex_rect);
 void      agl_enable_stencil      (float x, float y, float w, float h);
 void      agl_disable_stencil     ();
 void      agl_print_error         (const char* func, int err, const char* format, ...);
 
-void      agl_set_font            (char* font_string);
+void      agl_set_font            (char* family, int size, PangoWeight);
+void      agl_set_font_string     (char* font_string);
 void      agl_print               (int x, int y, double z, uint32_t colour, const char* fmt, ...);
 
 int       agl_power_of_two        (guint);
+void      agl_rgba_to_float       (uint32_t rgba, float* r, float* g, float* b);
 
 
 struct _agl
@@ -58,6 +66,9 @@ struct _agl
 	gboolean        pref_use_shaders;
 	gboolean        use_shaders;
 	AlphaMapShader* text_shader;
+	struct {
+		AlphaMapShader* texture;
+	}               shaders;
 };
 
 #define END_OF_UNIFORMS   { NULL, 0, GL_NONE, { 0, 0, 0, 0 }, -1 }

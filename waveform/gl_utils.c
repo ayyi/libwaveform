@@ -32,17 +32,6 @@
 static TextureUnit* active_texture_unit = NULL;
 
 
-void
-use_texture(GLuint texture)
-{
-	//note: 2d texture
-
-	glBindTexture(GL_TEXTURE_2D, texture);
-	glEnable(GL_BLEND);
-	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-}
-
-
 TextureUnit*
 texture_unit_new(GLenum unit)
 {

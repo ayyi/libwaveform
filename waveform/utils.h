@@ -1,5 +1,5 @@
 /*
-  copyright (C) 2012 Tim Orford <tim@orford.org>
+  copyright (C) 2012-2013 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -61,7 +61,6 @@ uint32_t   wf_get_gtk_text_color      (GtkWidget*, GtkStateType);
 #endif
 #ifdef __wf_private__
 void       wf_colour_rgba_to_float    (WfColourFloat*, uint32_t rgba);
-void       wf_rgba_to_float           (uint32_t rgba, float* r, float* g, float* b);
 bool       wf_get_filename_for_other_channel(const char* filename, char* other, int n_chars);
 #endif
 

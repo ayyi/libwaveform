@@ -139,11 +139,13 @@ get_gl_extensions()
 
    /* GL_ARB_framebuffer_object */
    glIsRenderbuffer_func = (PFNGLISRENDERBUFFERPROC) glutGetProcAddress("glIsRenderbuffer");
-   glBindRenderbuffer_func = (PFNGLBINDRENDERBUFFERPROC) glutGetProcAddress("glBindRenderbuffer");
-   glDeleteRenderbuffers_func = (PFNGLDELETERENDERBUFFERSPROC) glutGetProcAddress("glDeleteRenderbuffers");
-   glGenRenderbuffers_func = (PFNGLGENRENDERBUFFERSPROC) glutGetProcAddress("glGenRenderbuffers");
-   glRenderbufferStorage_func = (PFNGLRENDERBUFFERSTORAGEPROC) glutGetProcAddress("glRenderbufferStorage");
-   glGetRenderbufferParameteriv_func = (PFNGLGETRENDERBUFFERPARAMETERIVPROC) glutGetProcAddress("glGetRenderbufferParameteriv");
+#endif
+   glBindRenderbuffer = (PFNGLBINDRENDERBUFFERPROC) glutGetProcAddress("glBindRenderbuffer");
+   glDeleteRenderbuffers = (PFNGLDELETERENDERBUFFERSPROC) glutGetProcAddress("glDeleteRenderbuffers");
+   glGenRenderbuffers = (PFNGLGENRENDERBUFFERSPROC) glutGetProcAddress("glGenRenderbuffers");
+   glRenderbufferStorage = (PFNGLRENDERBUFFERSTORAGEPROC) glutGetProcAddress("glRenderbufferStorage");
+   glGetRenderbufferParameteriv = (PFNGLGETRENDERBUFFERPARAMETERIVPROC) glutGetProcAddress("glGetRenderbufferParameteriv");
+#if 0
    glIsFramebuffer_func = (PFNGLISFRAMEBUFFERPROC) glutGetProcAddress("glIsFramebuffer");
 #endif
    glBindFramebuffer = (PFNGLBINDFRAMEBUFFERPROC) glutGetProcAddress("glBindFramebuffer");
@@ -156,8 +158,10 @@ get_gl_extensions()
    glFramebufferTexture2D = (PFNGLFRAMEBUFFERTEXTURE2DPROC) glutGetProcAddress("glFramebufferTexture2D");
 #if 0
    glFramebufferTexture3D_func = (PFNGLFRAMEBUFFERTEXTURE3DPROC) glutGetProcAddress("glFramebufferTexture3D");
-   glFramebufferRenderbuffer_func = (PFNGLFRAMEBUFFERRENDERBUFFERPROC) glutGetProcAddress("glFramebufferRenderbuffer");
-   glGetFramebufferAttachmentParameteriv_func = (PFNGLGETFRAMEBUFFERATTACHMENTPARAMETERIVPROC) glutGetProcAddress("glGetFramebufferAttachmentParameteriv");
+#endif
+   glFramebufferRenderbuffer = (PFNGLFRAMEBUFFERRENDERBUFFERPROC) glutGetProcAddress("glFramebufferRenderbuffer");
+   glGetFramebufferAttachmentParameteriv = (PFNGLGETFRAMEBUFFERATTACHMENTPARAMETERIVPROC) glutGetProcAddress("glGetFramebufferAttachmentParameteriv");
+#if 0
    glGenerateMipmap_func = (PFNGLGENERATEMIPMAPPROC) glutGetProcAddress("glGenerateMipmap");
    glBlitFramebuffer_func = (PFNGLBLITFRAMEBUFFERPROC) glutGetProcAddress("glBlitFramebuffer");
    glRenderbufferStorageMultisample_func = (PFNGLRENDERBUFFERSTORAGEMULTISAMPLEPROC) glutGetProcAddress("glRenderbufferStorageMultisample");
