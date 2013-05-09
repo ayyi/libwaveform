@@ -79,9 +79,21 @@ _tex_set_uniforms()
 	glUniform4fv(glGetUniformLocation(tex2d_b.shader.program, "fg_colour"), 1, fg_colour);
 }
 
+//plain colour shader
+static void _plain_set_uniforms();
+PlainShader plain = {{NULL, NULL, 0, NULL, _plain_set_uniforms, &plain_colour_text}, {0xff000077}};
+static void
+_plain_set_uniforms()
+{
+	//AGlShader* shader = &plain.shader;
+
+	float colour[4] = {0.0, 0.0, 0.0, ((float)(plain.uniform.colour & 0xff)) / 0x100};
+	agl_rgba_to_float(plain.uniform.colour, &colour[0], &colour[1], &colour[2]);
+	glUniform4fv(glGetUniformLocation(plain.shader.program, "colour"), 1, colour);
+}
 
 
-AGl* agl = NULL;
+static AGl* agl = NULL;
 
 AGl*
 agl_get_instance()
@@ -89,8 +101,9 @@ agl_get_instance()
 	if(!agl){
 		agl = g_new0(AGl, 1);
 		agl->pref_use_shaders = TRUE;
-		agl->use_shaders = TRUE;
+		agl->use_shaders = FALSE;        // not set until we an have active gl context based on the value of pref_use_shaders.
 		agl->shaders.texture = &tex2d_b;
+		agl->shaders.plain = &plain;
 	}
 	return agl;
 }
@@ -166,15 +179,21 @@ agl_enable (gulong flags)
 GLboolean
 agl_shaders_supported()
 {
+	agl_get_instance();
+
 	const char* version = (const char*)glGetString(GL_VERSION);
+
 	if(!version){
 		gwarn("cannot get gl version. incorrect mode?");
 		agl->use_shaders = FALSE;
 		return GL_FALSE;
 	}
+
 	if (version[0] == '2' && version[1] == '.') {
+		agl->use_shaders = TRUE;
 		return GL_TRUE;
 	}
+
 #if 0
 	else if (glutExtensionSupported("GL_ARB_vertex_shader")
 			&& glutExtensionSupported("GL_ARB_fragment_shader")
@@ -183,8 +202,8 @@ agl_shaders_supported()
 		fprintf(stderr, "Warning: Trying ARB GLSL instead of OpenGL 2.x.  This may not work.\n");
 		return GL_TRUE;
 	}
-	return GL_TRUE;
 #endif
+
 	agl->use_shaders = FALSE;
 	return GL_FALSE;
 }
@@ -201,7 +220,10 @@ agl_shaders_init()
 
 	agl_create_program(&tex2d.shader);
 	agl_create_program(&tex2d_b.shader);
-	agl->text_shader = &tex2d;
+	agl_create_program(&plain.shader);
+
+	agl->shaders.text = &tex2d;
+
 	dbg(2, "text_shader=%i", tex2d.shader.program);
 }
 
@@ -220,7 +242,7 @@ agl_create_program(AGlShader* sh)
 	glGetShaderiv(frag_shader, GL_COMPILE_STATUS, &status);
 	if (status != GL_TRUE){
 		printf("shader compile error! %i\n", status);
-//		return 0;
+		return 0;
 	}
 
 	GLuint program = sh->program = agl_link_shaders(vert_shader, frag_shader);
@@ -572,18 +594,6 @@ font_is_scalable(PangoContext* context, const char* font_name)
 	g_free(family_name);
 	dbg(2, "scalable=%i", scalable);
 	return scalable;
-}
-
-
-void
-wf_canvas_use_program(int program)
-{
-	//deprecated. use fn below.
-
-	if(agl_get_instance()->use_shaders && (program != _program)){
-		dbg(3, "%i", program);
-		glUseProgram(_program = program);
-	}
 }
 
 

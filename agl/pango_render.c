@@ -694,7 +694,7 @@ prepare_run (PangoRenderer *renderer, PangoLayoutRun *run)
 	AGl* agl = agl_get_instance();
 	if(agl->use_shaders){
 		//PGRC->wfc->priv->shaders.tex2d->uniform.fg_colour = *((uint32_t*)&col); // gives wrong colour.
-		agl->text_shader->uniform.fg_colour = (col.red << 24) + (col.green << 16) + (col.blue << 8) + col.alpha;
+		agl->shaders.text->uniform.fg_colour = (col.red << 24) + (col.green << 16) + (col.blue << 8) + col.alpha;
 	}else{
 #endif
 		//cogl_color(&col);
@@ -795,7 +795,7 @@ gl_texture_quad (gint x1, gint x2, gint y1, gint y2, Fixed tx1, Fixed ty1, Fixed
 
 #ifdef USE_SHADERS
 	if(agl_get_instance()->use_shaders){
-		agl_use_program((AGlShader*)agl_get_instance()->text_shader);
+		agl_use_program((AGlShader*)agl_get_instance()->shaders.text);
 	}
 #endif
   glBegin (GL_QUADS);

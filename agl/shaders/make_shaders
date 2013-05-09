@@ -1,6 +1,6 @@
 #!/bin/bash
 
-shaders=(alpha_map texture_2d);
+shaders=(plain_colour alpha_map texture_2d);
 out=shaders.c
 
 if [[ -s $out ]]; then

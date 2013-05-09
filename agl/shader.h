@@ -3,6 +3,13 @@
 #ifdef __gl_h_
 #include "agl/utils.h"
 
+struct _plain_shader {
+	AGlShader    shader;
+	struct {
+		uint32_t colour;
+	}            uniform;
+};
+
 struct _alphamap_shader {
 	AGlShader    shader;
 	struct {

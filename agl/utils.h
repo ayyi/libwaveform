@@ -1,8 +1,8 @@
 #ifndef __agl_utils_h__
 #define __agl_utils_h__
+#include <GL/gl.h>
 #include <pango/pango.h>
 #include "agl/typedefs.h"
-//#include "agl/shader.h"
 
 typedef struct _agl               AGl;
 typedef struct _uniform_info      AGlUniformInfo;
@@ -43,7 +43,6 @@ GLuint    agl_compile_shader_text (GLenum shaderType, const char* text);
 GLuint    agl_compile_shader_file (GLenum shaderType, const char* filename);
 void      agl_uniforms_init       (GLuint program, AGlUniformInfo uniforms[]);
 GLuint    agl_link_shaders        (GLuint vertShader, GLuint fragShader);
-void      wf_canvas_use_program   (int);
 void      agl_use_program         (AGlShader*);
 void      agl_use_texture         (GLuint texture);
 
@@ -65,9 +64,11 @@ struct _agl
 {
 	gboolean        pref_use_shaders;
 	gboolean        use_shaders;
-	AlphaMapShader* text_shader;
+	gboolean        have_npot_textures;
 	struct {
 		AlphaMapShader* texture;
+		PlainShader*    plain;
+		AlphaMapShader* text;
 	}               shaders;
 };
 
