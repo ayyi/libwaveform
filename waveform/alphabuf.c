@@ -127,6 +127,90 @@ wf_alphabuf_new(Waveform* waveform, int blocknum, int scale, gboolean is_rms, in
 }
 
 
+AlphaBuf*
+wf_alphabuf_new_hi(Waveform* waveform, int blocknum, int Xscale, gboolean is_rms, int overlap)
+{
+	//TODO merge back with wf_alphabuf_new()
+	// -width is different
+	// -calls waveform_peak_to_alphabuf_hi instead of waveform_peak_to_alphabuf
+
+	//copy part of the audio peakfile to an Alphabuf suitable for use as a GL texture.
+	// @param blocknum - if -1, use the whole peakfile.
+	// @param scale    - normally 1. If eg 16, then the alphabuf will have one line per 16 of the input.
+	// @param overlap  - the ends of the alphabuf will contain this much data from the adjacent blocks.
+	//                   TODO ensure that the data to fill the RHS border is loaded (only applies to hi-res mode)
+
+	/*
+	block overlapping ('/' denotes non-visible border area)
+
+	----------
+	      |//|      block N
+	----------
+	   ----------
+	   |//|         block N+1 - note that the start of this block is offset by 2 * BORDER from the end of the previous block
+	   ----------
+	*/
+	PF2;
+	g_return_val_if_fail(waveform->num_peaks, NULL);
+	GdkColor fg_colour = {0, 0xffff, 0xffff, 0xffff};
+
+	int x_start;
+	int x_stop;
+	int width;
+	if(blocknum == -1){
+		x_start = 0;
+		x_stop  = width = waveform->num_peaks;
+	}else{
+		int n_blocks = waveform_get_n_textures(waveform);
+		dbg(2, "block %i/%i", blocknum, n_blocks);
+		gboolean is_last = (blocknum == n_blocks - 1);
+
+		width = WF_PEAK_TEXTURE_SIZE * 16;
+		//TODO intel 945 has max texture size of 2048
+		width = WF_PEAK_TEXTURE_SIZE * 8;
+
+		x_start = - overlap;
+		x_stop  = x_start + width; // irrespective of overlap, the whole texture is used.
+
+		if(is_last){
+			int width_ = waveform->num_peaks % (WF_PEAK_TEXTURE_SIZE - 2 * overlap);
+			if(!width_) width_ = width;
+			dbg(2, "is_last: width_=%i", width_);
+			width = agl_power_of_two(width_ -1);
+			x_stop  = MIN(waveform->num_peaks, x_start + width_);
+		}
+		dbg (0, "block_num=%i width=%i px_start=%i px_stop=%i (%i)", blocknum, width, x_start, x_stop, x_stop - x_start);
+	}
+	AlphaBuf* buf = _alphabuf_new(width, is_rms ? WF_TEXTURE_HEIGHT / 2: WF_TEXTURE_HEIGHT);
+
+	if(is_rms){
+		#define SCALE_BODGE 2;
+		double samples_per_px = WF_PEAK_TEXTURE_SIZE * SCALE_BODGE;
+		uint32_t bg_colour = 0x00000000;
+		waveform_rms_to_alphabuf(waveform, buf, &x_start, &x_stop, samples_per_px, &fg_colour, bg_colour);
+	}else{
+
+		//x_start += 1; //TODO waveform_peak_to_alphabuf has a 1px offset.
+
+		memset(buf->buf, 0, buf->buf_size); //TODO only clear start of first block and end of last block
+		WfSampleRegion region = {x_start, x_stop - x_start};
+		waveform_peak_to_alphabuf_hi(waveform, buf, blocknum, region, &fg_colour);
+	}
+
+#if 0
+	//put dots in corner for debugging:
+	{
+		buf->buf [TEX_BORDER]                                  = 0xff;
+		buf->buf [buf->width - TEX_BORDER  - 1]                = 0xff;
+		buf->buf [buf->width * (buf->height - 1) + TEX_BORDER] = 0xff;
+		buf->buf [buf->buf_size - TEX_BORDER -1]               = 0xff;
+	}
+#endif
+
+	return buf;
+}
+
+
 void
 wf_alphabuf_free(AlphaBuf* a)
 {

@@ -19,6 +19,7 @@
 #include <glib.h>
 #include <glib-object.h>
 #include <gdk-pixbuf/gdk-pixbuf.h>
+#include "stdint.h"
 #include "waveform/typedefs.h"
 
 G_BEGIN_DECLS
@@ -41,7 +42,7 @@ typedef struct _WaveformClass WaveformClass;
 #define WF_SHOW_RMS
 #undef WF_SHOW_RMS
 
-#define WF_PEAK_BLOCK_SIZE (256 * 256)
+#define WF_PEAK_BLOCK_SIZE (256 * 256) // the number of audio frames per block (64k)
 
 typedef int (*PeakLoader)(Waveform*, const char*, size_t);
 
@@ -56,6 +57,14 @@ typedef struct
 	uint64_t start;              // sample frames
 	uint32_t len;                // sample frames
 } WfSampleRegion;
+
+typedef struct
+{
+	float left;
+	float top;
+	float len;
+	float height;
+} WfRectangle;
 
 struct _Waveform
 {

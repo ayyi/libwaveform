@@ -73,7 +73,7 @@ wf_canvas_init(WaveformCanvas* wfc)
 {
 	wfc->priv = g_new0(WfCanvasPriv, 1);
 
-	gboolean use_shaders = agl_get_instance()->use_shaders;
+	gboolean use_shaders = agl_get_instance()->pref_use_shaders;
 
 	wfc->enable_animations = true;
 	wfc->blend = true;
@@ -151,7 +151,7 @@ wf_canvas_set_use_shaders(WaveformCanvas* wfc, gboolean val)
 	PF;
 	AGl* agl = agl_get_instance();
 	agl->pref_use_shaders = val;
-	if(!val) agl->use_shaders = false; //TODO check
+	if(!val) agl->use_shaders = false;
 
 	if(wfc){
 		if(!val){
@@ -166,7 +166,10 @@ wf_canvas_set_use_shaders(WaveformCanvas* wfc, gboolean val)
 static void
 wf_canvas_init_gl(WaveformCanvas* wfc)
 {
-	if(!agl_get_instance()->use_shaders){
+	WfCanvasPriv* priv = wfc->priv;
+	AGl* agl = agl_get_instance();
+
+	if(!agl->pref_use_shaders){
 		WAVEFORM_START_DRAW(wfc) {
 			if(wf_debug) printf("GL_RENDERER = %s\n", (const char*)glGetString(GL_RENDERER));
 		} WAVEFORM_END_DRAW(wfc);
@@ -174,9 +177,6 @@ wf_canvas_init_gl(WaveformCanvas* wfc)
 	}
 
 	wf_actor_init();
-
-	WfCanvasPriv* priv = wfc->priv;
-	AGl* agl = agl_get_instance();
 
 	if(priv->shaders.peak){ gwarn("already done"); return; }
 
@@ -188,6 +188,14 @@ wf_canvas_init_gl(WaveformCanvas* wfc)
 			wfc->use_1d_textures = false;
 		}
 		if(wf_debug) printf("GL_RENDERER = %s\n", (const char*)glGetString(GL_RENDERER));
+
+		if(GL_ARB_texture_non_power_of_two){
+			if(wf_debug) printf("non_power_of_two textures are available.\n");
+			agl->have_npot_textures = true;
+		}else{
+			fprintf(stderr, "GL_ARB_texture_non_power_of_two extension is not available!\n" );
+			fprintf(stderr, "Framebuffer effects will be lower resolution (lower quality).\n\n" );
+		}
 
 		if(agl->use_shaders){
 			wf_shaders_init();
@@ -379,6 +387,8 @@ wf_canvas_load_texture_from_alphabuf(WaveformCanvas* wa, int texture_name, Alpha
 		glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
 		if(!glIsTexture(texture_name)) gwarn("texture not loaded! %i", texture_name);
 	} WAVEFORM_END_DRAW(wa);
+
+	gl_warn("copy to texture");
 }
 
 
@@ -393,6 +403,14 @@ void
 wf_canvas_set_rotation(WaveformCanvas* wfc, float rotation)
 {
 	dbg(0, "TODO");
+}
+
+
+void
+wf_canvas_set_gain(WaveformCanvas* wfc, float gain)
+{
+	wfc->v_gain = gain;
+	wf_canvas_queue_redraw(wfc);
 }
 
 

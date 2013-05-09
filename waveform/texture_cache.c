@@ -132,6 +132,11 @@ texture_cache_shrink(int idx)
 guint
 texture_cache_assign_new (TextureCache* cache, WaveformBlock wfb)
 {
+	if(wfb.block & WF_TEXTURE_CACHE_HIRES_MASK){
+		//temporarily use same cache
+		dbg(0, "HI RES");
+	}
+
 	int t = texture_cache_get_new();
 	int texture_id = texture_cache_get(t);
 	texture_cache_assign(cache, t, wfb);

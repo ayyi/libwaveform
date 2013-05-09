@@ -1,5 +1,5 @@
 /*
-  copyright (C) 2012 Tim Orford <tim@orford.org>
+  copyright (C) 2012-2013 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -28,12 +28,18 @@ typedef struct _animatable_property
 	union {uint32_t* i; float* f;} model_val; // target (end) value
 	//union {uint32_t* i; float* f;} min;
 	WfPropType type;
+#ifdef WF_DEBUG
+	char       name[16];
+#endif
 } WfAnimatable;
 
 typedef struct _anim_actor
 {
 	WaveformActor* actor;
 	GList*         transitions; // list of WfAnimatable*
+#ifdef WF_DEBUG
+	char           name[16];
+#endif
 } WfAnimActor;
 
 typedef struct _animation WfAnimation;
@@ -49,12 +55,15 @@ struct _animation
 	guint     timer;
 	WaveformActorAnimationFn on_finish; //the actor can free stuff in this callback
 	gpointer  user_data;
+
+	guint     id;               // for debugging only
+	guint     timeout;          // for debugging only
 };
 
 WfAnimation* wf_animation_add_new           (WaveformActorAnimationFn, gpointer);
 void         wf_transition_add_member       (WfAnimation*, WaveformActor*, GList* animatables);
 void         wf_animation_remove            (WfAnimation*);
-void         wf_animation_remove_animatable (WfAnimation*, WfAnimatable*);
+gboolean     wf_animation_remove_animatable (WfAnimation*, WfAnimatable*);
 void         wf_animation_start             (WfAnimation*);
 
 #endif

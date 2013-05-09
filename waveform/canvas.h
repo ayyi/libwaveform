@@ -25,7 +25,7 @@ struct _waveform_canvas {
 	gboolean       show_rms;
 	gboolean       use_1d_textures;
 	gboolean       enable_animations;
-	gboolean       blend;              // true by default - set to false to increase performance if using without background (doesnt make much difference).
+	gboolean       blend;              // true by default - set to false to increase performance if using without background (doesnt make much difference). Flag currently not honoured in all cases.
 
 	void           (*draw)(WaveformCanvas*, gpointer);
 	gpointer       draw_data;
@@ -68,6 +68,7 @@ void            wf_canvas_set_use_shaders           (WaveformCanvas*, gboolean);
 void            wf_canvas_set_viewport              (WaveformCanvas*, WfViewPort*);
 void            wf_canvas_set_share_list            (WaveformCanvas*);
 void            wf_canvas_set_rotation              (WaveformCanvas*, float);
+void            wf_canvas_set_gain                  (WaveformCanvas*, float);
 WaveformActor*  wf_canvas_add_new_actor             (WaveformCanvas*, Waveform*);
 void            wf_canvas_remove_actor              (WaveformCanvas*, WaveformActor*);
 void            wf_canvas_queue_redraw              (WaveformCanvas*);

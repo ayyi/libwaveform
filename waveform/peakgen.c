@@ -327,7 +327,7 @@ void
 waveform_peakbuf_regen(Waveform* waveform, int block_num, int min_tiers)
 {
 	// make a ram peakbuf for a single block.
-	//  -the needed audio file data is assumed to be already available.
+	//  -the needed audio file data is assumed to be already available nad loaded into the audio_data buffer.
 	// @min_tiers -specifies the _minimum_ resolution. The peakbuf produced may be of higher resolution than this.
 
 	// TODO caching: consider saving to disk, and using kernel caching. clear cache on exit.
@@ -432,8 +432,7 @@ waveform_peakbuf_regen(Waveform* waveform, int block_num, int min_tiers)
 		audio_buf->stamp = ++wf->audio.access_counter;
 		int i, p; for(i=0, p=0; p<WF_PEAK_BLOCK_SIZE; i++, p+= io_ratio){
 
-//#endif
-			process_data/*_real*/(&audio_buf->buf[c][p], io_ratio, 1, 0, (short*)&maxplus, (short*)&maxmin);
+			process_data(&audio_buf->buf[c][p], io_ratio, 1, 0, (short*)&maxplus, (short*)&maxmin);
 
 #if 0
 			short* dd = &audio_buf->buf[c][p];

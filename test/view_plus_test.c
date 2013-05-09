@@ -114,7 +114,7 @@ main (int argc, char *argv[])
 	waveform_view_plus_set_show_rms(waveform, false);
 	//waveform_view_plus_set_colour(waveform, 0xccccccff, 0x000000ff, 0x33aaffff, 0xffff00ff);
 	#if 0
-	waveform_view_set_show_grid(waveform, true);
+	waveform_view_set_show_grid((WaveformView*)waveform, true);
 	wf_canvas_set_use_shaders(wfc, false);
 	#endif
 	gtk_widget_set_size_request((GtkWidget*)waveform, 256, 128);

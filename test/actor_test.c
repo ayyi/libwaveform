@@ -37,7 +37,6 @@
 #include <sys/ipc.h>
 #include <sys/shm.h>
 #include <signal.h>
-#include <GL/gl.h>
 #include <gtk/gtk.h>
 #include <gdk/gdkkeysyms.h>
 #include "agl/utils.h"
@@ -66,6 +65,7 @@ Waveform*       w1             = NULL;
 Waveform*       w2             = NULL;
 WaveformActor*  a[]            = {NULL, NULL, NULL, NULL};
 float           zoom           = 1.0;
+float           vzoom          = 1.0;
 gpointer        tests[]        = {};
 
 static void set_log_handlers   ();
@@ -75,6 +75,8 @@ static bool on_expose          (GtkWidget*, GdkEventExpose*, gpointer);
 static void on_canvas_realise  (GtkWidget*, gpointer);
 static void on_allocate        (GtkWidget*, GtkAllocation*, gpointer);
 static void start_zoom         (float target_zoom);
+static void vzoom_up           ();
+static void vzoom_down         ();
 static void toggle_animate     ();
 uint64_t    get_time           ();
 
@@ -131,6 +133,12 @@ main (int argc, char *argv[])
 			case (char)'a':
 				toggle_animate();
 				break;
+			case (char)'w':
+				vzoom_up();
+				break;
+			case (char)'s':
+				vzoom_down();
+				break;
 			case GDK_KP_Enter:
 				break;
 			case 113:
@@ -169,7 +177,6 @@ gl_init()
 		if(!agl_shaders_supported()){
 			gwarn("shaders not supported");
 		}
-		printf("GL_RENDERER = %s\n", (const char*)glGetString(GL_RENDERER));
 
 	} END_DRAW
 
@@ -250,17 +257,17 @@ on_expose(GtkWidget* widget, GdkEventExpose* event, gpointer user_data)
 static void
 on_canvas_realise(GtkWidget* _canvas, gpointer user_data)
 {
-	PF;
 	if(wfc) return;
 	if(!GTK_WIDGET_REALIZED (canvas)) return;
 
 	gl_drawable = gtk_widget_get_gl_drawable(canvas);
 	gl_context  = gtk_widget_get_gl_context(canvas);
 
+	//agl_get_instance()->pref_use_shaders = false;
+
 	gl_init();
 
 	wfc = wf_canvas_new(gl_context, gl_drawable);
-	//wf_canvas_set_use_shaders(wfc, false);
 
 	char* filename = g_build_filename(g_get_current_dir(), "test/data/mono_1.wav", NULL);
 	w1 = waveform_load_new(filename);
@@ -336,6 +343,26 @@ start_zoom(float target_zoom)
 			GL_WIDTH * target_zoom,
 			GL_HEIGHT / 4 * 0.95
 		});
+}
+
+
+static void
+vzoom_up()
+{
+	vzoom *= 1.1;
+	zoom = MIN(vzoom, 100.0);
+	int i; for(i=0;i<G_N_ELEMENTS(a);i++)
+		if(a[i]) wf_actor_set_vzoom(a[i], vzoom);
+}
+
+
+static void
+vzoom_down()
+{
+	vzoom /= 1.1;
+	zoom = MAX(vzoom, 1.0);
+	int i; for(i=0;i<G_N_ELEMENTS(a);i++)
+		if(a[i]) wf_actor_set_vzoom(a[i], vzoom);
 }
 
 

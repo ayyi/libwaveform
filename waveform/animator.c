@@ -69,13 +69,23 @@
 #include "waveform/actor.h"
 #include "waveform/animator.h"
 
+#define WF_DEBUG_ANIMATOR
+
 extern void wf_canvas_queue_redraw (WaveformCanvas*);
 
 static uint32_t transition_linear       (WfAnimation*, WfAnimatable*, int time);
 static float    transition_linear_f     (WfAnimation*, WfAnimatable*, int time);
 
+#ifdef WF_DEBUG_ANIMATOR
 GList* animations = NULL;
+guint idx = 0;
+#endif
 
+#if 0
+static char white    [16] = "\x1b[0;39m";
+static char yellow   [16] = "\x1b[1;33m";
+static char green    [16] = "\x1b[1;32m";
+#endif
 
 WfAnimation*
 wf_animation_add_new(WaveformActorAnimationFn on_finished, gpointer user_data)
@@ -85,7 +95,10 @@ wf_animation_add_new(WaveformActorAnimationFn on_finished, gpointer user_data)
 	animation->user_data = user_data;
 	animation->frame_i = transition_linear;
 	animation->frame_f = transition_linear_f;
+#ifdef WF_DEBUG_ANIMATOR
+	animation->id = idx++;
 	animations = g_list_append(animations, animation);
+#endif
 
 	return animation;
 }
@@ -105,6 +118,9 @@ wf_transition_add_member(WfAnimation* animation, WaveformActor* actor, GList* an
 	member->actor = actor;
 	member->transitions = animatables;
 	animation->members = g_list_append(animation->members, member);
+#ifdef WF_DEBUG
+	g_strlcpy(member->name, name, 16);
+#endif
 
 	WfAnimatable* animatable = animatables->data;
 	if(animatable->type == WF_INT)
@@ -114,30 +130,90 @@ wf_transition_add_member(WfAnimation* animation, WaveformActor* actor, GList* an
 }
 
 
+#ifdef NOT_USED
+static int
+wf_animation_count_animatables(WfAnimation* animation)
+{
+	int n = 0;
+	GList* l = animation->members;
+	for(;l;l=l->next){
+		WfAnimActor* actor = l->data;
+		GList* k = actor->transitions;
+		for(;k;k=k->next){
+			//WfAnimatable* animatable = k->data;
+			//dbg(0, "     animatable=%p type=%i %p %.2f %s", animatable, animatable->type, animatable->model_val.f, *animatable->model_val.f, animatable->name);
+			n++;
+		}
+	}
+	return n;
+}
+
+
+static const char*
+wf_animation_list_animatables(WfAnimation* animation)
+{
+	static char str[256];
+	str[0] = '\0';
+
+	GList* l = animation->members;
+	for(;l;l=l->next){
+		WfAnimActor* actor = l->data;
+		GList* k = actor->transitions;
+		for(;k;k=k->next){
+			WfAnimatable* animatable = k->data;
+			//dbg(0, "     animatable=%p type=%i %p %.2f %s", animatable, animatable->type, animatable->model_val.f, *animatable->model_val.f, animatable->name);
+#ifdef WF_DEBUG
+			g_strlcpy(str + strlen(str), animatable->name, 16);
+			g_strlcpy(str + strlen(str), " ", 16);
+#endif
+		}
+	}
+	return str;
+}
+#endif
+
+
 void
 wf_animation_remove(WfAnimation* animation)
 {
 	GList* l = animation->members;
+//dbg(0, "destroying animation %s%p%s with %i members, %i animatables %s...", yellow, animation, white, g_list_length(l), wf_animation_count_animatables(animation), wf_animation_list_animatables(animation));
 	for(;l;l=l->next){
-		WfAnimActor* blah = l->data;
-		animation->on_finish(blah->actor, animation, animation->user_data); //arg3 is unnecesary
-		g_list_free0(blah->transitions);
-		g_free(blah);
+		WfAnimActor* aa = l->data;
+		animation->on_finish(aa->actor, animation, animation->user_data); //arg3 is unnecesary
+		g_list_free0(aa->transitions);
+		g_free(aa);
 	}
 	g_list_free0(animation->members);
 
 	if(animation->timer) g_source_remove(animation->timer);
 	animation->timer = 0;
+#ifdef WF_DEBUG_ANIMATOR
+	if(!g_list_find(animations, animation)){
+		dbg(0, "*** animation not found ***");
+		//return;
+	}
 	animations = g_list_remove(animations, animation);
+#endif
 	g_free(animation);
 }
 
 
-void
+gboolean
 wf_animation_remove_animatable(WfAnimation* animation, WfAnimatable* animatable)
 {
+	// returns true is the whole animation is removed.
+
+#ifdef WF_DEBUG_ANIMATOR
+	if(/*_debug_ &&*/ !g_list_find(animations, animation)){
+		dbg(0, "*** animation not found %p ***", animation);
+		//return false;
+	}
+#endif
 	GList* m = animation->members;
-	dbg(2, "  animation=%p n_members=%i", animation, g_list_length(m));
+	dbg(2, "animation=%p n_members=%i", animation, g_list_length(m));
+//dbg(0, "looking for: %s", animatable->name);
+//dbg(0, "animation=%p n_members=%i", animation, g_list_length(m));
 	for(;m;m=m->next){
 		WfAnimActor* actor = m->data;
 		if(g_list_find(actor->transitions, animatable)){
@@ -145,10 +221,18 @@ wf_animation_remove_animatable(WfAnimation* animation, WfAnimatable* animatable)
 			dbg(2, "       already animating: 'start'");
 			animatable->start_val.i = animatable->val.i;
 
-			if(!(actor->transitions = g_list_remove(actor->transitions, animatable))) wf_animation_remove(animation);
-			break;
+			if(!(actor->transitions = g_list_remove(actor->transitions, animatable))){
+				wf_animation_remove(animation);
+//dbg(0, "...animatable removed (%s) and animation removed <<", animatable->name);
+				return true;
+			}
+//			break;
+//dbg(0, "...animatable removed (%s) <<", animatable->name);
+			return false;
 		}
 	}
+//dbg(0, "%s not found <<", animatable->name);
+	return false;
 }
 
 
@@ -265,4 +349,21 @@ transition_linear_f(WfAnimation* animation, WfAnimatable* animatable, int time)
 	return  (1.0 - time_fraction) * orig_val + time_fraction * target_val;
 }
 
+
+#if 0
+static void print_animation(WfAnimation* animation)
+{
+	GList* l = animation->members;
+	dbg(0, "animation=%p n_members=%i", animation, g_list_length(l));
+	for(;l;l=l->next){
+		WfAnimActor* actor = l->data;
+		GList* k = actor->transitions;
+		dbg(0, "  actor=%p n_transitions=%i %s", actor->actor, g_list_length(k), actor->name);
+		for(;k;k=k->next){
+			WfAnimatable* animatable = k->data;
+			dbg(0, "     animatable=%p type=%i %p %.2f %s", animatable, animatable->type, animatable->model_val.f, *animatable->model_val.f, animatable->name);
+		}
+	}
+}
+#endif
 

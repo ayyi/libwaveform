@@ -77,8 +77,7 @@ wf_grid_paint(WaveformCanvas* canvas, WfSampleRegion* viewport_samples, WfViewPo
 //TODO doesnt work with blend when shaders enabled.
 //     perhaps shader has set the background alpha to zero?
 		glPushMatrix();
-			wf_canvas_use_program(0);
-//											glUseProgram(0);
+			agl_use_program(NULL);
 //			glNormal3f(0, 0, 1);
 			glDisable(GL_TEXTURE_1D);
 			glDisable(GL_TEXTURE_2D);

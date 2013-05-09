@@ -22,6 +22,7 @@
 #ifdef __wf_private__
 
 #define WF_TEXTURE_CACHE_LORES_MASK (1 << 23)
+#define WF_TEXTURE_CACHE_HIRES_MASK (1 << 22)
 
 struct _texture_cache
 {

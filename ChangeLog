@@ -25,3 +25,14 @@
 -added support for non-square fbo's
 -added support for stencil buffer masks in fbo's.
 -expanded api for font setting.
+20130504
+-fixes for non-shader non-texture hi-res mode.
+-added incomplete support for non-shader hi-res textures.
+-added test program showing a list of regions similar to a wav editor.
+-added fn to set gain for the canvas.
+-added gain controls to actor_test
+-fixed segfault in animation cancelling
+-fixed opacity and colour issues with non-shader rendering.
+20130505
+-fixed upside down shader rendering
+-added plain colour shader

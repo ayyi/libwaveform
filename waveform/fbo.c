@@ -210,7 +210,7 @@ fbo_print(WaveformActor* actor, int x, int y, double scale, uint32_t colour, int
 	//put the fbo onto the screen
 	{
 		if(true){
-			wf_canvas_use_program(actor->canvas, vertical.shader.program);
+			agl_use_program(actor->canvas, &vertical.shader);
 		}
 		glColor4f(1.0, 1.0, 1.0, alpha / 256.0);
 						glEnable(GL_TEXTURE_2D);
@@ -232,7 +232,7 @@ glDisable(GL_BLEND);
 		glTexCoord2d(1.0, 0.0); glVertex2d(x2, bot);
 		glEnd();
 
-		wf_canvas_use_program_(actor->canvas, NULL);
+		agl_use_program_(actor->canvas, NULL);
 	}
 	gl_warn("gl error");
 }

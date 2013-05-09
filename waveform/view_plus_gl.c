@@ -28,16 +28,6 @@ waveform_view_plus_gl_init(WaveformViewPlus* view_plus)
 
 	WF_START_DRAW {
 
-//TODO move to wf_canvas_init_gl()
-		GLboolean npotTexturesAvailable = GL_FALSE;
-		if(GL_ARB_texture_non_power_of_two){
-			if(wf_debug) printf("non_power_of_two textures are available.\n");
-			npotTexturesAvailable = GL_TRUE;
-		}else{
-			fprintf(stderr, "GL_ARB_texture_non_power_of_two extension is not available!\n" );
-			fprintf(stderr, "Framebuffer effects will be lower resolution (lower quality).\n\n" );
-		}
-
 		agl_set_font_string("Roboto 10");
 		waveform_view_plus_render_text(view_plus);
 		wf_shaders.ass->uniform.colour1 = view_plus->title_colour1;

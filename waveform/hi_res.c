@@ -49,6 +49,20 @@ _draw_line(int x1, int y1, int x2, int y2, float r, float g, float b, float a)
 	glColor4f(r, g, b, a);
 
 	glBegin(GL_LINES);
+	//TODO 0.1 offset was added to intel 945 - test on other hardware (check 1st peak is visible in hi-res mode)
+	glVertex2f(x1 + 0.1, y1); glVertex2f(x2 + 0.1, y2);
+	glEnd();
+}
+
+
+static void
+_draw_line_f(float x1, int y1, float x2, int y2, float r, float g, float b, float a)
+{
+	//dbg(2, "%2i %2i", x1, y1);
+	glLineWidth(1);
+	glColor4f(r, g, b, a);
+
+	glBegin(GL_LINES);
 	glVertex2f(x1, y1); glVertex2f(x2, y2);
 	glEnd();
 }
@@ -88,6 +102,11 @@ void
 draw_wave_buffer_hi(Waveform* w, WfSampleRegion region, WfRectangle* rect, Peakbuf* peakbuf, int chan, float v_gain, uint32_t rgba)
 {
 	//for use with peak data of alternative plus and minus peaks.
+	// -non-shader version
+
+	// x is integer which means lines are not evenly spaced and causes problems setting alpha.
+	// however using float x gives the same visual results (at least on intel 945)
+	// -the solution to this is probably to use textures.
 
 	//TODO change this to do multiple channels
 
@@ -106,8 +125,12 @@ draw_wave_buffer_hi(Waveform* w, WfSampleRegion region, WfRectangle* rect, Peakb
 	int x = 0;
 	int p = 0;
 	int p_ = region.start / io_ratio;
-//dbg(0, "width=%.2f region=%Li-->%Li xgain=%.2f n_tiers=%i", rect->len, region.start, region.start + (int64_t)region.len, rect->len / region_len, peakbuf->n_tiers);
+//dbg(0, "width=%.2f region=%Li-->%Li xgain=%.2f resolution=%i io_ratio=%i", rect->len, region.start, region.start + (int64_t)region.len, rect->len / region_len, peakbuf->resolution, io_ratio);
 //dbg(0, "x: %.2f --> %.2f", (((double)0) / region_len) * rect->len, (((double)4095) / region_len) * rect->len);
+	/*
+	if(!(region_end / io_ratio <= peakbuf->size / WF_PEAK_VALUES_PER_SAMPLE))
+		gwarn("end/ratio=%i size=%i - region.end should never exceed %i", ((int)region_end / io_ratio), peakbuf->size / WF_PEAK_VALUES_PER_SAMPLE, io_ratio * peakbuf->size / WF_PEAK_VALUES_PER_SAMPLE);
+	*/
 	g_return_if_fail(region_end / io_ratio <= peakbuf->size / WF_PEAK_VALUES_PER_SAMPLE);
 	while (p < region.len / io_ratio){
 									if(2 * p_ >= peakbuf->size) gwarn("s_=%i size=%i", p_, peakbuf->size);
@@ -115,7 +138,7 @@ draw_wave_buffer_hi(Waveform* w, WfSampleRegion region, WfRectangle* rect, Peakb
 		x = rect->left + (((double)p) / region_len) * rect->len * io_ratio;
 //if(!p) dbg(0, "x=%i", x);
 		if (x - rect->left >= rect->len) break;
-//if(p < 10) printf("    x=%i %2i %2i\n", x, data[2 * s], data[2 * p_ + 1]);
+//if(p < 10) printf("    x=%i %2i %2i\n", x, data[2 * p_], data[2 * p_ + 1]);
 
 		double y1 = ((double)data[WF_PEAK_VALUES_PER_SAMPLE * p_    ]) * v_gain * (rect->height / 2.0) / (1 << 15);
 		double y2 = ((double)data[WF_PEAK_VALUES_PER_SAMPLE * p_ + 1]) * v_gain * (rect->height / 2.0) / (1 << 15);
@@ -146,6 +169,7 @@ draw_wave_buffer_v_hi(Waveform* w, WfSampleRegion region, WfRectangle* rect, WfV
 	const float r = ((float)((rgba >> 24)       ))/0x100;
 	const float g = ((float)((rgba >> 16) & 0xff))/0x100;
 	const float b = ((float)((rgba >>  8) & 0xff))/0x100;
+	const float alpha = ((float)((rgba  ) & 0xff))/0x100;
 
 	const double zoom = rect->len / (double)region.len;
 	const int s0 = region.start % buf->size;
@@ -202,7 +226,8 @@ draw_wave_buffer_v_hi(Waveform* w, WfSampleRegion region, WfRectangle* rect, WfV
 		_draw_line(
 			oldx,   rect->top - oldy + rect->height / 2,
 			x,      rect->top -    y + rect->height / 2,
-			g, b, r, 1.0);
+			//g, b, r, alpha);
+			r, g, b, alpha); // colour order correct for intel 945 - why was it set otherwise?
 
 		oldx = x;
 		oldy = y;

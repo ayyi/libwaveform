@@ -1,5 +1,5 @@
 /*
-  copyright (C) 2012 Tim Orford <tim@orford.org>
+  copyright (C) 2012-2013 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -25,19 +25,7 @@ waveform_view_gl_init(WaveformView* view)
 
 	if(gl_initialised) return;
 
-	WF_START_DRAW {
-
-//TODO move to wf_canvas_init_gl()
-		GLboolean npotTexturesAvailable = GL_FALSE;
-		if(GL_ARB_texture_non_power_of_two){
-			if(wf_debug) printf("non_power_of_two textures are available.\n");
-			npotTexturesAvailable = GL_TRUE;
-		}else{
-			fprintf(stderr, "GL_ARB_texture_non_power_of_two extension is not available!\n" );
-			fprintf(stderr, "Framebuffer effects will be lower resolution (lower quality).\n\n" );
-		}
-
-	} WF_END_DRAW
+	//WF_START_DRAW { } WF_END_DRAW
 
 	gl_initialised = true;
 

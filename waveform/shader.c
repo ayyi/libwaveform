@@ -127,6 +127,7 @@ _peak_shader_set_uniforms(float peaks_per_pixel, float top, float bottom, uint32
 }
 
 
+#ifdef USE_FBO
 static void
 _peak_nonscaling_set_uniforms()
 {
@@ -134,6 +135,7 @@ _peak_nonscaling_set_uniforms()
 
 	glUniform1i(glGetUniformLocation(shader->program, "n_channels"), ((PeakShader*)shader)->uniform.n_channels);
 }
+#endif
 
 
 static void

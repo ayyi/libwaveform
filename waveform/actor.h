@@ -22,14 +22,6 @@
 
 #define HAVE_NON_SQUARE_TEXTURES //TODO add runtime detection
 
-typedef struct
-{
-	float left;
-	float top;
-	float len;
-	float height;
-} WfRectangle;
-
 typedef struct _actor_priv WfActorPriv;
 typedef void    (*WaveformActorFn) (WaveformActor*, gpointer);
 

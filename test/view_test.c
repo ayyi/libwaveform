@@ -47,6 +47,7 @@
 #include <signal.h>
 #include <gtk/gtk.h>
 #include <gdk/gdkkeysyms.h>
+#include "agl/utils.h"
 #include "waveform/view.h"
 #include "test/ayyi_utils.h"
 #include "common.h"
@@ -101,6 +102,10 @@ main (int argc, char *argv[])
 	gtk_init(&argc, &argv);
 	GtkWidget* window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
 
+	#if 0
+	agl_get_instance()->pref_use_shaders = false;
+	#endif
+
 	WaveformView* waveform = waveform_view_new(NULL);
 	waveform_view_set_show_rms(waveform, false);
 	#if 0
@@ -116,9 +121,6 @@ main (int argc, char *argv[])
 		return IDLE_STOP;
 	}
 	g_idle_add(on_idle, waveform);
-	#endif
-	#if 0
-	wf_canvas_set_use_shaders(wfc, false);
 	#endif
 	gtk_widget_set_size_request((GtkWidget*)waveform, 256, 128);
 	gtk_container_add((GtkContainer*)window, (GtkWidget*)waveform);

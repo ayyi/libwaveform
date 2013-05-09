@@ -1,5 +1,5 @@
 /*
-  copyright (C) 2012 Tim Orford <tim@orford.org>
+  copyright (C) 2012-2013 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -30,6 +30,7 @@
 #define WF_PEAK_STD_TO_LO 16
 #define WF_PEAK_RATIO_LOW (WF_PEAK_RATIO * WF_PEAK_STD_TO_LO) // the number of samples per entry in a low res peakbuf.
 #define WF_TEXTURE_VISIBLE_SIZE (WF_PEAK_TEXTURE_SIZE - 2 * TEX_BORDER)
+#define WF_SAMPLES_PER_TEXTURE (WF_PEAK_RATIO * (WF_PEAK_TEXTURE_SIZE - 2 * TEX_BORDER))
 
 #define WF_TEXTURE0 GL_TEXTURE1 //0 is not used
 #define WF_TEXTURE1 GL_TEXTURE2
@@ -47,7 +48,7 @@ enum
 	WF_MAX_CH
 };
 
-struct _peakbuf1 {
+struct _peakbuf1 {               // WfPeakBuf
 	int        size;             // the number of shorts allocated.
 	short*     buf[WF_MAX_CH];   // holds the complete peakfile. The second pointer is only used for stereo files.
 };
@@ -88,7 +89,7 @@ struct _wf
 	GList*          jobs;
 };
 
-//TODO refactor based on _texture_hi (eg reverse order of indexing)
+//TODO refactor based on _texture_hi (eg reverse order of indirection)
 struct _wf_texture_list                   // WfGlBlock - used at STD and LOW resolutions.
 {
 	int             size;
@@ -106,13 +107,26 @@ struct _wf_texture_list                   // WfGlBlock - used at STD and LOW res
 	double          last_fraction;        // the fraction of the last block that is actually used.
 };
 
+/*
+ *  Textures
+ *
+ *  for high-res textures, a hashtable is used to map the blocknum to the WfTextureHi object
+ *  for med and lo textures, the blocknum is stored as part of the Texture object
+ *
+ *  the texture cache is not currently used for hi-res textures though this was the intention
+ *  -a per actor list of textures is maintained. this gives quick access to an actors textures, but doesnt provide a list of ALL textures as no where is there a list of actors.
+ *     ** if this per-actor list is kept, we would need to add a global actor list.
+ *     alternatively, if we add a global hi-res texture cache, .....
+ *
+ *  ** TODO lookup how to have a hash table that uses WaveformBlock as key (both pointer and int)
+ */
 struct _t
 {
 	unsigned        main;                 // texture id
 	unsigned        neg;
 };
 
-struct _texture_hi                        // WfTexturesHi
+struct _texture_hi                        // WfTextureHi
 {
 	struct _t t[WF_MAX_CH];
 };
@@ -162,6 +176,7 @@ int            waveform_get_n_audio_blocks (Waveform*);
 void           waveform_print_blocks       (Waveform*);
 
 void           waveform_peak_to_alphabuf   (Waveform*, AlphaBuf*, int scale, int* start, int* end, GdkColor*);
+void           waveform_peak_to_alphabuf_hi(Waveform*, AlphaBuf*, int block, WfSampleRegion, GdkColor*);
 void           waveform_rms_to_alphabuf    (Waveform*, AlphaBuf*, int* start, int* end, double samples_per_px, GdkColor* colour, uint32_t colour_bg);
 
 WfGlBlock*     wf_texture_array_new        (int size, int n_channels);

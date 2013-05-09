@@ -547,8 +547,8 @@ waveform_peak_to_alphabuf(Waveform* w, AlphaBuf* a, int scale, int* start, int* 
 
 	 -the given buffer is for a single block only.
 
-	 @param start - if set, we start rendering at this value in the source buffer.
-	 @param end   - if set, source buffer index to stop rendering at.
+	 @param start - if set, we start rendering at this value in the dest buffer.
+	 @param end   - if set, dest buffer index to stop rendering at.
 	                Is allowed to be bigger than the output buf width.
 
 	 TODO
@@ -610,7 +610,7 @@ waveform_peak_to_alphabuf(Waveform* w, AlphaBuf* a, int scale, int* start, int* 
 			src_stop  = ((int)((px+1)* xmag));
 //last_src = src_stop;
 			//printf("%i ", src_start);
-			if(src_start < 0){ dbg(0, "skipping..."); continue; }
+			if(src_start < 0){ dbg(0, "skipping line..."); continue; }
 
 			struct _line* previous_line = &line[(line_index  ) % 3];
 			struct _line* current_line  = &line[(line_index+1) % 3];
@@ -749,6 +749,90 @@ waveform_peak_to_alphabuf(Waveform* w, AlphaBuf* a, int scale, int* start, int* 
 
 
 void
+waveform_peak_to_alphabuf_hi(Waveform* w, AlphaBuf* a, int block, WfSampleRegion region, GdkColor* colour)
+{
+	//copy from hi-res peakfile to hi-res alphabuf
+	//-region specifies the output range (not actually samples). TODO rename
+
+	//TODO start is -2 so we probably need to load from 2 peakbufs?
+
+	void _draw_line(AlphaBuf* ab, int x, int y1, int y2, float a, int ch, int ch_height)
+	{
+		int rowstride = ab->width; //probably.
+
+		int y; for(y=y1;y<y2;y++){
+			int p = ch*ch_height*rowstride + (ch_height - y -1)*rowstride + x/* + border*/;
+			if(p > rowstride*ab->height || p < 0){ gerr ("p! %i > %i px=%i y=%i row=%i rowstride=%i=%i", p, 3*ab->width*ab->height, x, y, ab->height-y-1, rowstride, 3*ab->width); return; }
+
+			ab->buf[p] = (int)(0xff * a) >> 8;
+		}
+	}
+
+	int chan = 0; //TODO
+	int n_chans = 1; //TODO
+	float v_gain = 1.0; // TODO
+
+	float alpha = 1.0;
+
+	Peakbuf* peakbuf = waveform_get_peakbuf_n(w, block);
+	WfRectangle rect = {0.0, 0.0, a->width, a->height};
+	int ch_height = WF_PEAK_TEXTURE_SIZE / n_chans;
+
+	int64_t region_end = region.start + (int64_t)region.len;
+
+	//float region_len = region.len;
+	short* data = peakbuf->buf[chan];
+
+	int io_ratio = (peakbuf->resolution == 16 || peakbuf->resolution == 8) ? 16 : 1; //TODO
+io_ratio = 1;
+	int x = 0;
+	int p = 0;
+	int p_ = region.start / io_ratio;
+	//dbg(0, "width=%.2f region=%Li-->%Li xgain=%.2f resolution=%i io_ratio=%i", rect.len, region.start, region.start + (int64_t)region.len, rect.len / region_len, peakbuf->resolution, io_ratio);
+	//dbg(0, "x: %.2f --> %.2f", (((double)0) / region_len) * rect.len, (((double)4095) / region_len) * rect.len);
+	g_return_if_fail(region_end / io_ratio <= peakbuf->size / WF_PEAK_VALUES_PER_SAMPLE);
+	while (p < a->width){
+									if(2 * p_ >= peakbuf->size) gwarn("s_=%i size=%i", p_, peakbuf->size);
+									g_return_if_fail(2 * p_ < peakbuf->size);
+		//x = rect.left + (((double)p) / region_len) * rect.len * io_ratio;
+//x = rect.left + (((double)p) / region_len) * rect.len * io_ratio;
+		x = p;
+//if(!p) dbg(0, "x=%i", x);
+		if (x - rect.left >= rect.len) break;
+//if(p < 10) printf("    x=%i %2i %2i\n", x, data[2 * p_], data[2 * p_ + 1]);
+
+		double y1 = ((double)data[WF_PEAK_VALUES_PER_SAMPLE * p_    ]) * v_gain * (rect.height / 2.0) / (1 << 15);
+		double y2 = ((double)data[WF_PEAK_VALUES_PER_SAMPLE * p_ + 1]) * v_gain * (rect.height / 2.0) / (1 << 15);
+
+#if 0
+		_draw_line(a, x, rect.top - y1 + rect.height / 2, rect.top - y2 + rect.height / 2, alpha, chan, ch_height);
+#else
+		int rowstride = a->width; //probably.
+
+		int y1_ = rect.top - y1 + rect.height / 2;
+		int y2_ = rect.top - y2 + rect.height / 2;
+//if(p < 10) printf("      y=%i-->%i\n", y1_, y2_);
+//int pp = p;
+		//int y; for(y=0;y<ch_height;y++){
+		int y; for(y=y1_;y<y2_;y++){
+			int p = chan*ch_height*rowstride + (ch_height - y -1)*rowstride + x/* + border*/;
+			if(p > rowstride*a->height || p < 0){ gerr ("p! %i > %i px=%i y=%i row=%i rowstride=%i=%i", p, 3*a->width*a->height, x, y, a->height-y-1, rowstride, 3*a->width); return; }
+
+			a->buf[p] = (int)(0xff * alpha);
+//if(pp < 10) printf("              y=%i \n", y);
+		}
+#endif
+//if(p == 4095)
+//		_draw_line(rect->left + x, 0, rect->left + x, rect->height, r, g, b, 1.0);
+
+		p++;
+		p_++;
+	}
+	dbg(2, "n_lines=%i x0=%.1f x=%i y=%.1f h=%.1f", p, rect.left, x, rect.top, rect.height);
+}
+
+
+void
 waveform_rms_to_alphabuf(Waveform* pool_item, AlphaBuf* pixbuf, int* start, int* end, double samples_per_px, GdkColor* colour, uint32_t colour_bg)
 {
 	/*
@@ -858,7 +942,9 @@ if(!n_chans){ gerr("n_chans"); n_chans = 1; }
 
 			//arrays holding subpixel levels.
 			short lmax[4] = {0,0,0,0};
+#if 0
 			short lmin[4] = {0,0,0,0};
+#endif
 			short k   [4] = {0,0,0,0}; //sorted copy of l.
 
 			int mid = ch_height / 2;
@@ -883,8 +969,10 @@ if(!n_chans){ gerr("n_chans"); n_chans = 1; }
 					if(sub_px < 4){
 						//FIXME these supixels are not evenly distributed when > 4 available.
 						lmax[sub_px] = (ch_height * sample.positive) / (256*128*2);
+#if 0
 						//lmin[sub_px] =-(ch_height * sample.negative) / (256*128*2); //lmin contains positive values.
 						lmin[sub_px] = lmax[sub_px];
+#endif
 					}
 					sub_px++;
 				}
@@ -1268,7 +1356,7 @@ waveform_get_n_audio_blocks(Waveform* w)
 		uint64_t n_frames = waveform_get_n_frames(w);
 
 		int xtra = (w->n_frames % WF_PEAK_BLOCK_SIZE) ? 1 : 0;
-		audio->n_blocks = n_frames / (WF_PEAK_BLOCK_SIZE/* * 256*/) + xtra;
+		audio->n_blocks = n_frames / WF_SAMPLES_PER_TEXTURE + xtra; // WF_SAMPLES_PER_TEXTURE takes border into account
 		dbg(2, "remainder=%i xtra=%i", remainder, xtra);
 
 		dbg(1, "setting samplecount=%Li xtra=%i n_blocks=%i",
