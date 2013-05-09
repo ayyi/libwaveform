@@ -6,7 +6,7 @@ ASSPROGRAMS = ass view_plus_test
 endif
 
 if ENABLE_OPENGL
-noinst_PROGRAMS = waveform_test view_test actor_test actor_plus group hires_test $(ASSPROGRAMS) frame_rate resources write_wav write_short write_block large_files
+noinst_PROGRAMS = waveform_test view_test actor_test actor_plus list group hires_test $(ASSPROGRAMS) frame_rate resources write_wav write_short write_block large_files
 endif
 
 AM_CFLAGS = \
@@ -48,6 +48,10 @@ actor_test_SOURCES = \
 actor_plus_SOURCES = \
 	ayyi_utils.c ayyi_utils.h \
 	actor_plus.c
+
+list_SOURCES = \
+	$(COMMON_SOURCES) \
+	list.c
 
 group_SOURCES = \
 	$(COMMON_SOURCES) \
