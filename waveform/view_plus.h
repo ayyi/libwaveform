@@ -79,6 +79,7 @@ void              waveform_view_plus_set_title     (WaveformViewPlus*, const cha
 void              waveform_view_plus_set_text      (WaveformViewPlus*, const char*);
 void              waveform_view_plus_set_zoom      (WaveformViewPlus*, float);
 void              waveform_view_plus_set_start     (WaveformViewPlus*, int64_t);
+void              waveform_view_plus_set_region    (WaveformViewPlus*, int64_t, int64_t);
 void              waveform_view_plus_set_colour    (WaveformViewPlus*, uint32_t fg, uint32_t bg, uint32_t title1, uint32_t title2);
 void              waveform_view_plus_set_show_rms  (WaveformViewPlus*, gboolean);
 void              waveform_view_plus_set_show_grid (WaveformViewPlus*, gboolean);

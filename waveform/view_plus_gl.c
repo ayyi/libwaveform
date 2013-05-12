@@ -1,5 +1,5 @@
 /*
-  copyright (C) 2012 Tim Orford <tim@orford.org>
+  copyright (C) 2012-2013 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -19,19 +19,16 @@ extern WF* wf;
 
 
 static void
-waveform_view_plus_gl_init(WaveformViewPlus* view_plus)
+waveform_view_plus_gl_init(WaveformViewPlus* view)
 {
 	PF;
-	WaveformView* view = (WaveformView*)view_plus;
-
 	if(gl_initialised) return;
 
 	WF_START_DRAW {
 
 		agl_set_font_string("Roboto 10");
-		waveform_view_plus_render_text(view_plus);
-		wf_shaders.ass->uniform.colour1 = view_plus->title_colour1;
-		wf_shaders.ass->uniform.colour2 = view_plus->title_colour2;
+		wf_shaders.ass->uniform.colour1 = view->title_colour1;
+		wf_shaders.ass->uniform.colour2 = view->title_colour2;
 
 	} WF_END_DRAW
 
@@ -46,8 +43,10 @@ waveform_view_plus_gl_init(WaveformViewPlus* view_plus)
 static void
 draw(WaveformViewPlus* view)
 {
+	WaveformViewPlusPrivate* v = view->priv;
 	Waveform* w = view->waveform;
 	WaveformActor* actor = view->priv->actor;
+	AGl* agl = agl_get_instance();
 
 #if 0 //white border
 	glPushMatrix(); /* modelview matrix */
@@ -55,7 +54,7 @@ draw(WaveformViewPlus* view)
 		glLineWidth(1);
 		glColor3f(1.0, 1.0, 1.0);
 
-		int wid = GL_WIDTH;
+		int wid = waveform_view_plus_get_width(view);;
 		int h   = waveform_view_plus_get_height(view);
 		glBegin(GL_LINES);
 		glVertex3f(0.0, 0.0, 1); glVertex3f(wid, 0.0, 1);
@@ -81,45 +80,42 @@ draw(WaveformViewPlus* view)
 							viewport->bottom = a->rect.top + a->rect.height;
 						}
 					}
-	if(view->priv->show_grid){
+	if(v->show_grid){
 		WfViewPort viewport; wf_actor_get_viewport(actor, &viewport);
 
 		WfSampleRegion region = {view->start_frame, w->n_frames};
 		wf_grid_paint(view->priv->canvas, &region, &viewport);
 	}
 
-	//text:
-	AGl* agl = agl_get_instance();
+	agl_print(2, waveform_view_plus_get_height(view) - 16, 0, view->text_colour, view->text);
+
+	if(!v->title_is_rendered) waveform_view_plus_render_text(view);
+
+	// title text:
 	if(agl->use_shaders){
 		glEnable(GL_TEXTURE_2D);
 		glActiveTexture(GL_TEXTURE0);
-		glBindTexture(GL_TEXTURE_2D, ass_textures[0]);
-		if(!glIsTexture(ass_textures[0])) gwarn("not texture");
-//glDisable(GL_BLEND);
 
 		agl_use_program((AGlShader*)wf_shaders.ass);
 
 		//texture size
-		float tw = agl_power_of_two(view->title_width);
 		float th = agl_power_of_two(view->title_height + view->title_y_offset);
 
-		float x1 = 0.0f;
-//dbg(0, "offset=%i", (int)th - view->title_height - view->title_y_offset);
-		//float y2 = waveform_view_plus_get_height(view) + (th - view->title_height - view->title_y_offset);
+#undef ALIGN_TOP
+#ifdef ALIGN_TOP
 		float y1 = -((int)th - view->title_height - view->title_y_offset);
-//dbg(0, "y1=%.2f", y1);
-		float y2 = y1 + th;// - view->title_height - view->title_y_offset);
-		float x2 = x1 + tw;
-//dbg(0, "h=%i th=%i diff=%i y1=%i y2=%i", view->title_height, (int)th, (int)th - view->title_height, (int)y1, (int)y2);
-		glBegin(GL_QUADS);
-		glTexCoord2d(0.0, 0.0); glVertex3d(x1, y1, -1);
-		glTexCoord2d(1.0, 0.0); glVertex3d(x2, y1, -1);
-		glTexCoord2d(1.0, 1.0); glVertex3d(x2, y2, -1);
-		glTexCoord2d(0.0, 1.0); glVertex3d(x1, y2, -1);
-		glEnd();
+		agl_textured_rect(v->ass_textures[0], waveform_view_plus_get_width(view) - view->title_width - 4.0f, y, view->title_width, th, &(AGlRect){0.0, 0.0, ((float)view->title_width) / v->title_texture_width, 1.0});
+#else
+		float y = waveform_view_plus_get_height(view) - th;
+		agl_textured_rect(v->ass_textures[0],
+			waveform_view_plus_get_width(view) - view->title_width - 4.0f,
+			y,
+			view->title_width,
+			th,
+			&(AGlRect){0.0, 0.0, ((float)view->title_width) / v->title_texture_width, 1.0}
+		);
+#endif
 	}
-
-	agl_print(2, waveform_view_plus_get_height(view) - 16, 0, view->text_colour, view->text);
 }
 
 

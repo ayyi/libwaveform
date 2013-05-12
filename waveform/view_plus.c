@@ -1,5 +1,5 @@
 /*
-  copyright (C) 2012 Tim Orford <tim@orford.org>
+  copyright (C) 2012-2013 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -52,6 +52,8 @@
 #define DEFAULT_HEIGHT 64
 #define DEFAULT_WIDTH 256
 
+static int           instance_count = 0;
+
 static GdkGLConfig*  glconfig = NULL;
 static GdkGLContext* gl_context = NULL;
 static gboolean      gl_initialised = FALSE;
@@ -60,10 +62,14 @@ static gboolean      gl_initialised = FALSE;
 #define _g_object_unref0(var) ((var == NULL) ? NULL : (var = (g_object_unref (var), NULL)))
 
 struct _WaveformViewPlusPrivate {
-	gboolean        gl_init_done;
 	WaveformCanvas* canvas;
 	WaveformActor*  actor;
 	gboolean        show_grid;
+	GLuint          ass_textures[1];
+	int             title_texture_width;
+
+	gboolean        gl_init_done;
+	gboolean        title_is_rendered;
 };
 
 static int      waveform_view_plus_get_width            (WaveformViewPlus*);
@@ -89,13 +95,16 @@ static void     waveform_view_plus_init_drawable        (WaveformViewPlus*);
 static void     waveform_view_plus_gl_on_allocate       (WaveformViewPlus*);
 static void     waveform_view_plus_render_text          (WaveformViewPlus*);
 
-static const int frame_w = 512;
-static const int frame_h =  64;
+static uint32_t color_gdk_to_rgba                       (GdkColor*);
+static uint32_t wf_get_gtk_base_color                   (GtkWidget*, GtkStateType, char alpha);
+
 #define FONT \
 	"Droid Sans"
 	//"Ubuntu"
 	//"Open Sans Rg"
 	//"Fontin Sans Rg"
+
+#define FONT_SIZE 18 //TODO
 
 char* script = 
 	"[Script Info]\n"
@@ -127,7 +136,6 @@ typedef struct
 
 ASS_Library*  ass_library = NULL;
 ASS_Renderer* ass_renderer = NULL;
-GLuint        ass_textures[] = {0, 0};
 
 #include "view_plus_gl.c"
 
@@ -301,8 +309,10 @@ waveform_view_plus_set_waveform (WaveformViewPlus* view, Waveform* waveform)
 	WaveformViewPlusPrivate* _view = view->priv;
 
 	if(__wf_drawing) gwarn("set_waveform called while already drawing");
-	wf_canvas_remove_actor(view->priv->canvas, view->priv->actor);
-	_view->actor = NULL;
+	if(_view->actor && _view->canvas){
+		wf_canvas_remove_actor(view->priv->canvas, view->priv->actor);
+		_view->actor = NULL;
+	}
 	if(view->waveform){
 		g_object_unref(view->waveform);
 	}
@@ -325,6 +335,7 @@ void
 waveform_view_plus_set_title(WaveformViewPlus* view, const char* title)
 {
 	view->title = g_strdup(title);
+	view->priv->title_is_rendered = false;
 	gtk_widget_queue_draw((GtkWidget*)view);
 }
 
@@ -368,14 +379,34 @@ waveform_view_plus_set_start (WaveformViewPlus* view, int64_t start_frame)
 
 
 void
-waveform_view_plus_set_colour(WaveformViewPlus* w, uint32_t fg, uint32_t bg, uint32_t text1, uint32_t text2)
+waveform_view_plus_set_region (WaveformViewPlus* view, int64_t start_frame, int64_t end_frame)
 {
-	w->fg_colour = fg;
-	w->bg_colour = bg;
-	if(w->priv->actor) wf_actor_set_colour(w->priv->actor, fg, bg);
+	uint32_t max_len = waveform_get_n_frames(view->waveform) - start_frame;
+	uint32_t length = MIN(max_len, end_frame - start_frame);
 
-	w->title_colour1 = text1;
-	w->title_colour2 = text2;
+	view->start_frame = CLAMP(start_frame, 0, (int64_t)waveform_get_n_frames(view->waveform) - 10);
+	view->zoom = waveform_view_plus_get_width(view) / length;
+	dbg(1, "start=%Lu", view->start_frame);
+
+	if(view->priv->actor){
+		wf_actor_set_region(view->priv->actor, &(WfSampleRegion){
+			view->start_frame,
+			length
+		});
+		if(!view->priv->actor->canvas->draw) gtk_widget_queue_draw((GtkWidget*)view);
+	}
+}
+
+
+void
+waveform_view_plus_set_colour(WaveformViewPlus* view, uint32_t fg, uint32_t bg, uint32_t text1, uint32_t text2)
+{
+	view->fg_colour = fg;
+	view->bg_colour = bg;
+	if(view->priv->actor) wf_actor_set_colour(view->priv->actor, fg, bg);
+
+	wf_shaders.ass->uniform.colour1 = view->title_colour1 = text1;
+	wf_shaders.ass->uniform.colour2 = view->title_colour2 = text2;
 }
 
 
@@ -541,9 +572,14 @@ waveform_view_plus_init_drawable (WaveformViewPlus* view)
 
 	if(!view->fg_colour)     view->fg_colour     = wf_get_gtk_fg_color(widget, GTK_STATE_NORMAL);
 	if(!view->title_colour1) view->title_colour1 = wf_get_gtk_text_color(widget, GTK_STATE_NORMAL);
-	if(!view->text_colour)   view->text_colour   = wf_get_gtk_text_color(widget, GTK_STATE_NORMAL);
+	if(!view->text_colour){
+		//TODO because the black background is not a theme colour we need to be careful to use a contrasting colour
+		if(false)
+			view->text_colour   = wf_get_gtk_text_color(widget, GTK_STATE_NORMAL);
+		else
+			view->text_colour   = wf_get_gtk_base_color(widget, GTK_STATE_NORMAL, 0xaa);
+	}
 	view->title_colour2 = 0x0000ffff; //FIXME
-	dbg(0, "colour=0x%x", view->title_colour1);
 
 	waveform_view_plus_gl_init(view);
 	waveform_view_plus_set_projection(widget);
@@ -612,7 +648,6 @@ waveform_view_plus_class_init (WaveformViewPlusClass * klass)
 			exit(EXIT_FAILURE);
 		}
 
-		ass_set_frame_size(ass_renderer, frame_w, frame_h);
 		ass_set_fonts(ass_renderer, NULL, "Sans", 1, NULL, 1);
 	}
 	ass_init();
@@ -628,6 +663,8 @@ waveform_view_plus_instance_init (WaveformViewPlus * self)
 	self->priv->canvas = NULL;
 	self->priv->actor = NULL;
 	self->priv->gl_init_done = FALSE;
+
+	instance_count++;
 }
 
 
@@ -639,8 +676,15 @@ waveform_view_plus_finalize (GObject* obj)
 	if(view->text)  _g_free0(view->text);
 	//_g_free0 (self->priv->_filename);
 	//TODO free actor?
-	waveform_unref0(view->waveform); //TODO should be done in dispose?
+	if(view->waveform) waveform_unref0(view->waveform); //TODO should be done in dispose?
 	G_OBJECT_CLASS (waveform_view_plus_parent_class)->finalize(obj);
+
+	if(!--instance_count){
+		ass_renderer_done(ass_renderer);
+		ass_library_done(ass_library);
+		ass_renderer = NULL;
+		ass_library = NULL;
+	}
 }
 
 
@@ -747,8 +791,26 @@ blend_single(image_t* frame, ASS_Image* img)
 static void
 waveform_view_plus_render_text(WaveformViewPlus* view)
 {
+	WaveformViewPlusPrivate* v = view->priv;
+
 	PF;
-	char* script_ = g_strdup_printf(script, frame_w, frame_h, 28, view->title);
+	if(v->title_is_rendered) gwarn("title is already rendered");
+
+	GError* error = NULL;
+	GRegexMatchFlags flags = 0;
+	static GRegex* regex = NULL;
+	if(!regex) regex = g_regex_new("[_]", 0, flags, &error);
+	gchar* str = g_regex_replace(regex, view->title, -1, 0, " ", flags, &error);
+
+	char* title = g_strdup_printf("%s", str);
+	g_free(str);
+
+	int fh = 32;
+	int fw = agl_power_of_two(strlen(title) * 20);
+	ass_set_frame_size(ass_renderer, fw, fh);
+
+	char* script_ = g_strdup_printf(script, fw, fh, FONT_SIZE, title);
+
 	//TODO this defines the height, but we dont yet know the height, so really we need to do a quick prerender.
 	ASS_Track* track = ass_read_memory(ass_library, script_, strlen(script_), NULL);
 	g_free(script_);
@@ -767,55 +829,91 @@ waveform_view_plus_render_text(WaveformViewPlus* view)
 		width  = MAX(width,  i->dst_x + i->w);
 		y_unused = MIN(y_unused, 64 - i->dst_y - i->h);
 	}
-	dbg(0, "width=%i height=%i y_unused=%i", width, height, y_unused);
+	//dbg(0, "width=%i height=%i y_unused=%i", width, height, y_unused);
 	view->title_width = width;
+	v->title_texture_width = fw;
 	view->title_height = height;
 	view->title_y_offset = y_unused;
 
 	// ass output will be composited into this buffer.
 	// 2 bytes per pixel for use with GL_LUMINANCE8_ALPHA8 mode.
-	int w = agl_power_of_two(width);
-	int h = agl_power_of_two(height + y_unused);
-	image_t out = {w, h, w * N_CHANNELS, g_new0(guchar, w * h * N_CHANNELS)};
+	//int w = agl_power_of_two(width);
+	//int h = agl_power_of_two(height + y_unused); //TODO
+	//dbg(0, "width: guess=%i actual=%i texture=%i", strlen(title) * 20, width, w);
+	image_t out = {fw, fh, fw * N_CHANNELS, g_new0(guchar, fw * fh * N_CHANNELS)};
 
-#if 0 //BACKGROUND
-	int width  = out.width;
-	int height = out.height;
-	int y; for(y=0;y<height;y++){
-		int x; for(x=0;x<width;x++){
-			*(out.buf + y * width + x) = ((x+y) * 0xff) / (width * 2);
-		}
-	}
-#else
 	//clear the background to border colour for better antialiasing at edges
+	// ...no, this is not needed.
+#if 0
 	int x, y; for(y=0;y<out.height;y++){
 		for(x=0;x<out.width;x++){
-			*(out.buf + y * out.stride + N_CHANNELS * x) = 0xff; //TODO should be border colour.
+			*(out.buf + y * out.stride + x * N_CHANNELS) = 0xff;
 		}
 	}
 #endif
 
 	int cnt = 0;
 	for(i=img;i;i=i->next,cnt++){
-		blend_single(&out, i); // each one of these is a single glyph
+		blend_single(&out, i); // blend each glyph onto the output buffer.
 	}
 	dbg(1, "%d images blended", cnt);
 
 	{
-		glGenTextures(1, ass_textures);
-		if(gl_error){ gerr ("couldnt create ass_texture."); return; }
+		if(!v->ass_textures[0]){
+			glGenTextures(1, v->ass_textures);
+			if(gl_error){ gerr ("couldnt create ass_texture."); return; } //TODO leaks
+		}
 
 		int pixel_format = GL_LUMINANCE_ALPHA;
-		glBindTexture  (GL_TEXTURE_2D, ass_textures[0]);
+		glBindTexture  (GL_TEXTURE_2D, v->ass_textures[0]);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 		glTexImage2D(GL_TEXTURE_2D, 0, GL_LUMINANCE8_ALPHA8, out.width, out.height, 0, pixel_format, GL_UNSIGNED_BYTE, out.buf);
-		gl_warn("gl error binding ass texture");
+		gl_warn("gl error using ass texture");
+
+#if 0
+		{
+			char* buf = g_new0(char, w * h * 4);
+			int stride = w * 4;
+			for(y=0;y<h;y++){
+				for(x=0;x<w;x++){
+					*(buf + y * stride + x * 4    ) = *(out.buf + y * out.stride + x * N_CHANNELS);
+					*(buf + y * stride + x * 4 + 1) = 0;//*(out.buf + y * out.stride + x * N_CHANNELS);
+					*(buf + y * stride + x * 4 + 2) = 0;//*(out.buf + y * out.stride + x * N_CHANNELS);
+					*(buf + y * stride + x * 4 + 3) = 0xff;
+				}
+			}
+			GdkPixbuf* pixbuf = gdk_pixbuf_new_from_data((const guchar*)buf, GDK_COLORSPACE_RGB, /*HAS_ALPHA_*/TRUE, 8, out.width, out.height, stride, NULL, NULL);
+			gdk_pixbuf_save(pixbuf, "tmp.png", "png", NULL, NULL);
+			g_object_unref(pixbuf);
+			g_free(buf);
+		}
+#endif
 	}
 
 	ass_free_track(track);
-	ass_renderer_done(ass_renderer);
-	ass_library_done(ass_library);
 	g_free(out.buf);
+	g_free(title);
+
+	v->title_is_rendered = true;
 }
+
+
+static uint32_t
+color_gdk_to_rgba(GdkColor* color)
+{
+	return ((color->red / 0x100) << 24) + ((color->green / 0x100) << 16) + ((color->blue / 0x100) << 8) + 0xff;
+}
+
+
+static uint32_t
+wf_get_gtk_base_color(GtkWidget* widget, GtkStateType state, char alpha)
+{
+	GtkStyle* style = gtk_style_copy(gtk_widget_get_style(widget));
+	GdkColor c = style->base[state];
+	g_object_unref(style);
+
+	return (color_gdk_to_rgba(&c) & 0xffffff00) | alpha;
+}
+
 

@@ -40,9 +40,10 @@
 
 #define USE_SHADERS
 #ifdef USE_SHADERS
-								#define __wf_canvas_priv__
-#include "waveform/waveform.h" // tmp
-#include "waveform/actor.h"    // tmp
+								#define __wf_canvas_priv__  // TODO
+								#define __wf_private__      // TODO
+#include "waveform/utils.h"
+#include "agl/shader.h"
 #include "agl/ext.h"
 #endif
 
@@ -312,7 +313,6 @@ temp_buffer (size_t size)
 static void
 render_box (Glyph *glyph, int width, int height, int top)
 {
-  PF;
   int i;
   int left = 0;
 
@@ -693,7 +693,6 @@ prepare_run (PangoRenderer *renderer, PangoLayoutRun *run)
 #ifdef USE_SHADERS
 	AGl* agl = agl_get_instance();
 	if(agl->use_shaders){
-		//PGRC->wfc->priv->shaders.tex2d->uniform.fg_colour = *((uint32_t*)&col); // gives wrong colour.
 		agl->shaders.text->uniform.fg_colour = (col.red << 24) + (col.green << 16) + (col.blue << 8) + col.alpha;
 	}else{
 #endif
