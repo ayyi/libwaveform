@@ -150,6 +150,7 @@ static inline void _draw_block               (float tex_start, float tex_pct, fl
 static inline void _draw_block_from_1d       (float tex_start, float tex_pct, float x, float y, float width, float height, int tsize);
 #if defined (USE_FBO) && defined (multipass)
 static void   block_to_fbo                   (WaveformActor*, int b, WfGlBlock*, int resolution);
+static void   wf_actor_canvas_finalize_notify         (gpointer, GObject*);
 #endif
 
 #ifdef USE_FBO
@@ -166,9 +167,11 @@ wf_actor_init()
 
 
 WaveformActor*
-wf_actor_new(Waveform* w)
+wf_actor_new(Waveform* w, WaveformCanvas* wfc)
 {
 	dbg(2, "%s-------------------------%s", "\x1b[1;33m", "\x1b[0;39m");
+
+	g_return_val_if_fail(wfc, NULL);
 
 	uint32_t get_frame(int time)
 	{
@@ -176,6 +179,7 @@ wf_actor_new(Waveform* w)
 	}
 
 	WaveformActor* a = g_new0(WaveformActor, 1);
+	a->canvas = wfc;
 	a->priv = g_new0(WfActorPriv, 1);
 	WfActorPriv* _a = a->priv;
 
@@ -237,6 +241,8 @@ wf_actor_new(Waveform* w)
 		_wf_actor_load_texture_hi((WaveformActor*)_actor, block);
 	}
 	_a->peakdata_ready_handler = g_signal_connect (w, "peakdata-ready", (GCallback)_wf_actor_on_peakdata_available, a);
+
+	g_object_weak_ref((GObject*)a->canvas, wf_actor_canvas_finalize_notify, a);
 	return a;
 }
 
@@ -249,10 +255,23 @@ wf_actor_free(WaveformActor* a)
 
 	if(a->waveform){
 		g_signal_handler_disconnect((gpointer)a->waveform, a->priv->peakdata_ready_handler);
+		a->priv->peakdata_ready_handler = 0;
+
+		g_object_weak_unref((GObject*)a->canvas, wf_actor_canvas_finalize_notify, a);
+
 		waveform_unref0(a->waveform);
 	}
 	g_free(a->priv);
 	g_free(a);
+}
+
+
+static void wf_actor_canvas_finalize_notify(gpointer _actor, GObject* was)
+{
+	//should not get here. the weak_ref is removed in wf_actor_free.
+
+	WaveformActor* a = (WaveformActor*)_actor;
+	gwarn("actor should have been freed before canvas finalize. actor=%p", a);
 }
 
 
@@ -1943,7 +1962,6 @@ wf_actor_paint(WaveformActor* actor)
 static void
 wf_actor_load_texture1d(Waveform* w, Mode mode, WfGlBlock* blocks, int blocknum)
 {
-
 	if(blocks) dbg(2, "%i: %i %i %i %i", blocknum,
 		blocks->peak_texture[0].main[blocknum],
 		blocks->peak_texture[0].neg[blocknum],

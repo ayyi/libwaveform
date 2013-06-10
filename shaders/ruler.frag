@@ -54,7 +54,7 @@ void main(void)
 					? pixels_per_beat / 4.0   //semiquaver
 					: pixels_per_beat / 16.0;
 
-	}else if(MCposition.y < 10.0){
+	}else if(MCposition.y < 8.0){
 		interval = (pixels_per_beat < 1.5)
 			? pixels_per_beat * 16.0
 			: (pixels_per_beat < 6.0)

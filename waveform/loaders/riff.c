@@ -50,7 +50,7 @@ wf_load_riff_peak(Waveform* wv, const char* peak_file, size_t size)
 		goto out;
 	}
 	if(!(sfinfo.format & SF_FORMAT_PCM_16)){
-		gwarn("not 16 bit");
+		gwarn("TESTME not 16 bit");
 	}
 	if(!(sfinfo.format & SF_FORMAT_WAV)){
 		gwarn("not wav format");

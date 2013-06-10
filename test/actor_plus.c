@@ -279,7 +279,6 @@ on_canvas_realise(GtkWidget* _canvas, gpointer user_data)
 
 	wfc = wf_canvas_new(gl_context, gl_drawable);
 	//wf_canvas_set_use_shaders(wfc, false);
-	//wfc->use_1d_textures = false;
 
 	canvas_init_done = true;
 

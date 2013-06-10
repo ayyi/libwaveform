@@ -75,7 +75,9 @@ test_init(gpointer tests[], int n_tests)
 	g_log_set_handler ("Ayyi", G_LOG_LEVEL_MASK | G_LOG_FLAG_FATAL | G_LOG_FLAG_RECURSION, log_handler, NULL);
 	g_log_set_handler ("Waveform", G_LOG_LEVEL_MASK | G_LOG_FLAG_FATAL | G_LOG_FLAG_RECURSION, log_handler, NULL);
 
+#if 0 // deprecated since glib 2.32
 	g_thread_init(NULL);
+#endif
 	g_type_init();
 
 	gboolean fn(gpointer user_data) { next_test(); return IDLE_STOP; }

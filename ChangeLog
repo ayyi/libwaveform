@@ -36,3 +36,7 @@
 20130505
 -fixed upside down shader rendering
 -added plain colour shader
+20130520
+-made WaveformCanvas a GObject
+20130608
+-better handling of unrealizing of the WaveformView widget

@@ -1,5 +1,5 @@
 /*
-  copyright (C) 2012 Tim Orford <tim@orford.org>
+  copyright (C) 2012-2013 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -16,12 +16,23 @@
 */
 #ifndef __waveform_canvas_h__
 #define __waveform_canvas_h__
+#include <glib.h>
+#include <glib-object.h>
 #include "waveform/typedefs.h"
 #include "waveform/shader.h"
+
+#define TYPE_WAVEFORM_CANVAS (waveform_canvas_get_type ())
+#define WAVEFORM_CANVAS(obj) (G_TYPE_CHECK_INSTANCE_CAST ((obj), TYPE_WAVEFORM_CANVAS, WaveformCanvas))
+#define WAVEFORM_CANVAS_CLASS(klass) (G_TYPE_CHECK_CLASS_CAST ((klass), TYPE_WAVEFORM_CANVAS, WaveformCanvasClass))
+#define IS_WAVEFORM_CANVAS(obj) (G_TYPE_CHECK_INSTANCE_TYPE ((obj), TYPE_WAVEFORM_CANVAS))
+#define IS_WAVEFORM_CANVAS_CLASS(klass) (G_TYPE_CHECK_CLASS_TYPE ((klass), TYPE_WAVEFORM_CANVAS))
+#define WAVEFORM_CANVAS_GET_CLASS(obj) (G_TYPE_INSTANCE_GET_CLASS ((obj), TYPE_WAVEFORM_CANVAS, WaveformCanvasClass))
 
 typedef struct _wf_canvas_priv WfCanvasPriv;
 
 struct _waveform_canvas {
+	GObject        parent_instance;
+
 	gboolean       show_rms;
 	gboolean       use_1d_textures;
 	gboolean       enable_animations;
@@ -58,6 +69,10 @@ struct _wf_canvas_priv {
 	}              shaders;
 };
 #endif
+
+struct _WaveformCanvasClass {
+	GObjectClass parent_class;
+};
 
 struct _vp { double left, top, right, bottom; }; 
 

@@ -51,15 +51,6 @@ struct _WaveformView {
 	WaveformViewPrivate* priv;
 };
 
-#ifdef __waveform_view_private__
-struct _WaveformViewPrivate {
-	gboolean        gl_init_done;
-	WaveformCanvas* canvas;
-	WaveformActor*  actor;
-	gboolean        show_grid;
-};
-#endif
-
 struct _WaveformViewClass {
 	GtkDrawingAreaClass parent_class;
 };

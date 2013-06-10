@@ -1,5 +1,5 @@
 /*
-  copyright (C) 2012 Tim Orford <tim@orford.org>
+  copyright (C) 2012-2013 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -53,7 +53,10 @@
 #define WAVEFORM_IS_DRAWING(wa) \
 	(wa->_draw_depth > 0)
 
-static void   wf_canvas_init_gl (WaveformCanvas*);
+static void wf_canvas_init_gl       (WaveformCanvas*);
+static void wf_canvas_class_init    (WaveformCanvasClass*);
+static void wf_canvas_instance_init (WaveformCanvas*);
+static void wf_canvas_finalize      (GObject*);
 
 extern PeakShader peak_shader, peak_nonscaling;
 extern HiResShader hires_shader;
@@ -66,6 +69,40 @@ extern RulerShader ruler;
 #ifdef TRACK_ACTORS
 GList* actors = NULL;
 #endif
+
+static gpointer waveform_canvas_parent_class = NULL;
+#define WAVEFORM_CANVAS_GET_PRIVATE(o) (G_TYPE_INSTANCE_GET_PRIVATE((o), TYPE_WAVEFORM_CANVAS, WfCanvasPriv))
+
+
+GType
+waveform_canvas_get_type()
+{
+	static volatile gsize waveform_canvas_type_id__volatile = 0;
+	if (g_once_init_enter (&waveform_canvas_type_id__volatile)) {
+		static const GTypeInfo g_define_type_info = { sizeof (WaveformCanvasClass), (GBaseInitFunc) NULL, (GBaseFinalizeFunc) NULL, (GClassInitFunc) wf_canvas_class_init, (GClassFinalizeFunc) NULL, NULL, sizeof (WaveformCanvas), 0, (GInstanceInitFunc) wf_canvas_instance_init, NULL };
+		GType waveform_canvas_type_id;
+		waveform_canvas_type_id = g_type_register_static (G_TYPE_OBJECT, "WaveformCanvas", &g_define_type_info, 0);
+		g_once_init_leave (&waveform_canvas_type_id__volatile, waveform_canvas_type_id);
+	}
+	return waveform_canvas_type_id__volatile;
+}
+
+
+static void
+wf_canvas_class_init(WaveformCanvasClass* klass)
+{
+	waveform_canvas_parent_class = g_type_class_peek_parent (klass);
+	//g_type_class_add_private (klass, sizeof (WaveformCanvasPrivate));
+	G_OBJECT_CLASS (klass)->finalize = wf_canvas_finalize;
+}
+
+
+//TODO merge with below
+static void
+wf_canvas_instance_init(WaveformCanvas* self)
+{
+	//self->priv = WAVEFORM_CANVAS_GET_PRIVATE (self); // does what exactly?
+}
 
 
 static void
@@ -89,13 +126,21 @@ wf_canvas_init(WaveformCanvas* wfc)
 
 
 WaveformCanvas*
+waveform_canvas_construct(GType object_type)
+{
+	WaveformCanvas* wfc = (WaveformCanvas*)g_object_new(object_type, NULL);
+	return wfc;
+}
+
+
+WaveformCanvas*
 wf_canvas_new(GdkGLContext* gl_context, GdkGLDrawable* gl_drawable)
 {
 	PF;
 
 	wf_actor_init();
 
-	WaveformCanvas* wfc = g_new0(WaveformCanvas, 1);
+	WaveformCanvas* wfc = waveform_canvas_construct(TYPE_WAVEFORM_CANVAS);
 	wfc->show_rms = true;
 	wfc->gl_context = gl_context;
 	wfc->gl_drawable = gl_drawable;
@@ -120,7 +165,7 @@ wf_canvas_new_from_widget(GtkWidget* widget)
 		return NULL;
 	}
 
-	WaveformCanvas* wfc = g_new0(WaveformCanvas, 1);
+	WaveformCanvas* wfc = waveform_canvas_construct(TYPE_WAVEFORM_CANVAS);
 	wfc->gl_drawable = gl_drawable; 
 	dbg(2, "got drawable");
 	wfc->gl_context = gtk_widget_get_gl_context(widget);
@@ -130,14 +175,24 @@ wf_canvas_new_from_widget(GtkWidget* widget)
 }
 
 
+static void
+wf_canvas_finalize(GObject* obj)
+{
+	WaveformCanvas* wfc = WAVEFORM_CANVAS (obj);
+
+	g_free(wfc->priv);
+
+	G_OBJECT_CLASS (waveform_canvas_parent_class)->finalize (obj);
+}
+
+
 void
 wf_canvas_free (WaveformCanvas* wfc)
 {
 	PF;
 	if(wfc->_queued){ g_source_remove(wfc->_queued); wfc->_queued = false; }
 	//if(wfc->priv->peak_shader) g_free(wfc->priv->peak_shader);
-	g_free(wfc->priv);
-	g_free(wfc);
+	wf_canvas_finalize((GObject*)wfc);
 }
 
 
@@ -199,15 +254,15 @@ wf_canvas_init_gl(WaveformCanvas* wfc)
 
 		if(agl->use_shaders){
 			wf_shaders_init();
-			wfc->priv->shaders.peak = &peak_shader;
+			priv->shaders.peak = &peak_shader;
 #ifdef USE_FBO
-			wfc->priv->shaders.peak_nonscaling = &peak_nonscaling;
+			priv->shaders.peak_nonscaling = &peak_nonscaling;
 #endif
-			wfc->priv->shaders.hires = &hires_shader;
-			wfc->priv->shaders.vertical = &vertical;
-			wfc->priv->shaders.horizontal = &horizontal;
-			wfc->priv->shaders.tex2d = &tex2d;
-			wfc->priv->shaders.ruler = &ruler;
+			priv->shaders.hires = &hires_shader;
+			priv->shaders.vertical = &vertical;
+			priv->shaders.horizontal = &horizontal;
+			priv->shaders.tex2d = &tex2d;
+			priv->shaders.ruler = &ruler;
 		}
 
 	} WAVEFORM_END_DRAW(wfc);
@@ -246,8 +301,7 @@ wf_canvas_add_new_actor(WaveformCanvas* wfc, Waveform* w)
 
 	g_object_ref(w);
 
-	WaveformActor* a = wf_actor_new(w);
-	a->canvas = wfc;
+	WaveformActor* a = wf_actor_new(w, wfc);
 #ifdef TRACK_ACTORS
 	actors = g_list_append(actors, a);
 #endif

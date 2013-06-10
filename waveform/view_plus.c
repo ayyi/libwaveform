@@ -29,6 +29,7 @@
 #include <string.h>
 #include <math.h>
 #include <gtk/gtk.h>
+#include <gdk/gdkkeysyms.h>
 #include <GL/gl.h>
 #include <GL/glu.h>
 #include <GL/glx.h>
@@ -56,10 +57,42 @@ static int           instance_count = 0;
 
 static GdkGLConfig*  glconfig = NULL;
 static GdkGLContext* gl_context = NULL;
-static gboolean      gl_initialised = FALSE;
+static gboolean      gl_initialised = false;
 
 #define _g_free0(var) (var = (g_free (var), NULL))
 #define _g_object_unref0(var) ((var == NULL) ? NULL : (var = (g_object_unref (var), NULL)))
+
+//-----------------------------------------
+
+typedef void (KeyHandler)(WaveformViewPlus*);
+
+typedef struct
+{
+	int         key;
+	KeyHandler* handler;
+} Key;
+
+typedef struct
+{
+	guint          timer;
+	KeyHandler*    handler;
+} KeyHold;
+
+static KeyHandler
+	zoom_in,
+	zoom_out,
+	scroll_left,
+	scroll_right;
+
+static Key keys[] = {
+	{GDK_KEY_Left,  scroll_left},
+	{GDK_KEY_Right, scroll_right},
+	{61,            zoom_in},
+	{45,            zoom_out},
+	{0},
+};
+
+//-----------------------------------------
 
 struct _WaveformViewPlusPrivate {
 	WaveformCanvas* canvas;
@@ -69,6 +102,7 @@ struct _WaveformViewPlusPrivate {
 	int             title_texture_width;
 
 	gboolean        gl_init_done;
+	gboolean        canvas_init_done;
 	gboolean        title_is_rendered;
 };
 
@@ -86,6 +120,8 @@ static gboolean waveform_view_plus_on_expose            (GtkWidget*, GdkEventExp
 static gboolean waveform_view_plus_button_press_event   (GtkWidget*, GdkEventButton*);
 static gboolean waveform_view_plus_button_release_event (GtkWidget*, GdkEventButton*);
 static gboolean waveform_view_plus_motion_notify_event  (GtkWidget*, GdkEventMotion*);
+static gboolean waveform_view_plus_focus_in_event       (GtkWidget*, GdkEventFocus*);
+static gboolean waveform_view_plus_focus_out_event      (GtkWidget*, GdkEventFocus*);
 static void     waveform_view_plus_realize              (GtkWidget*);
 static void     waveform_view_plus_unrealize            (GtkWidget*);
 static void     waveform_view_plus_allocate             (GtkWidget*, GdkRectangle*);
@@ -97,6 +133,8 @@ static void     waveform_view_plus_render_text          (WaveformViewPlus*);
 
 static uint32_t color_gdk_to_rgba                       (GdkColor*);
 static uint32_t wf_get_gtk_base_color                   (GtkWidget*, GtkStateType, char alpha);
+static void     add_key_handlers                        (GtkWindow*, WaveformViewPlus*, Key keys[]);
+static void     remove_key_handlers                     (GtkWindow*, WaveformViewPlus*);
 
 #define FONT \
 	"Droid Sans"
@@ -138,9 +176,6 @@ ASS_Library*  ass_library = NULL;
 ASS_Renderer* ass_renderer = NULL;
 
 #include "view_plus_gl.c"
-
-
-static gboolean canvas_init_done = false;
 
 
 static gboolean
@@ -212,7 +247,7 @@ waveform_view_plus_new (Waveform* waveform)
 	{
 		WaveformViewPlus* view = _view;
 		g_return_val_if_fail(view, IDLE_STOP);
-		if(!canvas_init_done){
+		if(!view->priv->canvas_init_done){
 			waveform_view_plus_init_drawable(view);
 			gtk_widget_queue_draw((GtkWidget*)view); //testing.
 		}
@@ -281,7 +316,7 @@ waveform_view_plus_load_file (WaveformViewPlus* view, const char* filename)
 		g_return_val_if_fail(view, IDLE_STOP);
 
 		if(c->waveform == view->waveform){
-			if(!canvas_init_done) waveform_view_plus_init_drawable(view);
+			if(!view->priv->canvas_init_done) waveform_view_plus_init_drawable(view);
 
 			WaveformActor* actor = view->priv->actor = wf_canvas_add_new_actor(c->view->priv->canvas, c->view->waveform);
 			wf_actor_set_region(actor, &(WfSampleRegion){0, waveform_get_n_frames(c->view->waveform)});
@@ -316,8 +351,8 @@ waveform_view_plus_set_waveform (WaveformViewPlus* view, Waveform* waveform)
 	if(view->waveform){
 		g_object_unref(view->waveform);
 	}
-	gboolean need_init = !canvas_init_done;
-	if(!canvas_init_done) waveform_view_plus_init_drawable(view);
+	gboolean need_init = !_view->canvas_init_done;
+	if(!_view->canvas_init_done) waveform_view_plus_init_drawable(view);
 
 	view->waveform = g_object_ref(waveform);
 	view->zoom = 1.0;
@@ -457,7 +492,7 @@ waveform_view_plus_realize (GtkWidget* base)
 	gtk_style_set_background (gtk_widget_get_style (base), base->window, GTK_STATE_NORMAL);
 	gdk_window_move_resize (base->window, base->allocation.x, base->allocation.y, base->allocation.width, base->allocation.height);
 
-	if(!canvas_init_done) waveform_view_plus_init_drawable(self);
+	if(!self->priv->canvas_init_done) waveform_view_plus_init_drawable(self);
 }
 
 
@@ -469,7 +504,7 @@ waveform_view_plus_unrealize (GtkWidget* widget)
 	gdk_window_set_user_data (widget->window, NULL);
 
 	wf_canvas_free0(self->priv->canvas);
-	canvas_init_done = false;
+	self->priv->canvas_init_done = false;
 }
 
 
@@ -516,7 +551,7 @@ waveform_view_plus_on_expose (GtkWidget* widget, GdkEventExpose* event)
 	g_return_val_if_fail (event, FALSE);
 
 	if(!GTK_WIDGET_REALIZED(widget)) return true;
-	if(!gl_initialised) return true;
+	if(!gl_initialised || !view->priv->canvas_init_done) return true;
 
 	WF_START_DRAW {
 		// needed for the case of shared contexts, where one of the other contexts modifies the projection.
@@ -535,11 +570,21 @@ waveform_view_plus_on_expose (GtkWidget* widget, GdkEventExpose* event)
 
 
 static gboolean
-waveform_view_plus_button_press_event (GtkWidget* base, GdkEventButton* event)
+waveform_view_plus_button_press_event (GtkWidget* widget, GdkEventButton* event)
 {
 	g_return_val_if_fail (event != NULL, false);
-	gboolean result = false;
-	return result;
+	gboolean handled = false;
+
+	switch (event->type){
+		case GDK_BUTTON_PRESS:
+			dbg(0, "GDK_BUTTON_PRESS");
+			gtk_widget_grab_focus(widget);
+			handled = true;
+			break;
+		default:
+			break;
+	}
+	return handled;
 }
 
 
@@ -558,6 +603,28 @@ waveform_view_plus_motion_notify_event (GtkWidget* widget, GdkEventMotion* event
 	g_return_val_if_fail(event, false);
 	gboolean result = false;
 	return result;
+}
+
+
+static gboolean
+waveform_view_plus_focus_in_event(GtkWidget* widget, GdkEventFocus* event)
+{
+	WaveformViewPlus* view = (WaveformViewPlus*)widget;
+
+	add_key_handlers((GtkWindow*)gtk_widget_get_toplevel(widget), view, keys);
+
+	return false;
+}
+
+
+static gboolean
+waveform_view_plus_focus_out_event(GtkWidget* widget, GdkEventFocus* event)
+{
+	WaveformViewPlus* view = (WaveformViewPlus*)widget;
+
+	remove_key_handlers((GtkWindow*)gtk_widget_get_toplevel(widget),  view);
+
+	return false;
 }
 
 
@@ -584,7 +651,7 @@ waveform_view_plus_init_drawable (WaveformViewPlus* view)
 	waveform_view_plus_gl_init(view);
 	waveform_view_plus_set_projection(widget);
 
-	canvas_init_done = true;
+	view->priv->canvas_init_done = true;
 }
 
 
@@ -594,16 +661,16 @@ waveform_view_plus_allocate (GtkWidget* widget, GdkRectangle* allocation)
 	PF;
 	g_return_if_fail (allocation);
 
-	WaveformViewPlus* wv = (WaveformViewPlus*)widget;
+	WaveformViewPlus* view = (WaveformViewPlus*)widget;
 	widget->allocation = (GtkAllocation)(*allocation);
 	if ((GTK_WIDGET_FLAGS (widget) & GTK_REALIZED) == 0) return;
 	gdk_window_move_resize(widget->window, widget->allocation.x, widget->allocation.y, widget->allocation.width, widget->allocation.height);
 
-	if(!canvas_init_done) waveform_view_plus_init_drawable(wv);
+	if(!view->priv->canvas_init_done) waveform_view_plus_init_drawable(view);
 
 	if(!gl_initialised) return;
 
-	waveform_view_plus_gl_on_allocate(wv);
+	waveform_view_plus_gl_on_allocate(view);
 
 	waveform_view_plus_set_projection(widget);
 }
@@ -619,6 +686,8 @@ waveform_view_plus_class_init (WaveformViewPlusClass * klass)
 	GTK_WIDGET_CLASS (klass)->button_press_event = waveform_view_plus_button_press_event;
 	GTK_WIDGET_CLASS (klass)->button_release_event = waveform_view_plus_button_release_event;
 	GTK_WIDGET_CLASS (klass)->motion_notify_event = waveform_view_plus_motion_notify_event;
+	GTK_WIDGET_CLASS (klass)->focus_in_event = waveform_view_plus_focus_in_event;
+	GTK_WIDGET_CLASS (klass)->focus_out_event = waveform_view_plus_focus_out_event;
 	GTK_WIDGET_CLASS (klass)->realize = waveform_view_plus_realize;
 	GTK_WIDGET_CLASS (klass)->unrealize = waveform_view_plus_unrealize;
 	GTK_WIDGET_CLASS (klass)->size_allocate = waveform_view_plus_allocate;
@@ -914,6 +983,108 @@ wf_get_gtk_base_color(GtkWidget* widget, GtkStateType state, char alpha)
 	g_object_unref(style);
 
 	return (color_gdk_to_rgba(&c) & 0xffffff00) | alpha;
+}
+
+
+static void
+add_key_handlers(GtkWindow* window, WaveformViewPlus* waveform, Key keys[])
+{
+	//list of keys must be terminated with a key of value zero.
+
+	static KeyHold key_hold = {0, NULL};
+	static bool key_down = false;
+
+	static GHashTable* key_handlers = NULL;
+	if(!key_handlers) key_handlers = g_hash_table_new(g_int_hash, g_int_equal);
+
+	int i = 0; while(true){
+		Key* key = &keys[i];
+		if(i > 100 || !key->key) break;
+		g_hash_table_insert(key_handlers, &key->key, key->handler);
+		i++;
+	}
+
+	gboolean key_hold_on_timeout(gpointer user_data)
+	{
+		WaveformViewPlus* waveform = user_data;
+		if(key_hold.handler) key_hold.handler(waveform);
+		return TIMER_CONTINUE;
+	}
+
+	gboolean key_press(GtkWidget* widget, GdkEventKey* event, gpointer user_data)
+	{
+		WaveformViewPlus* waveform = user_data;
+
+		if(key_down){
+			// key repeat
+			return true;
+		}
+		key_down = true;
+
+		KeyHandler* handler = g_hash_table_lookup(key_handlers, &event->keyval);
+		if(handler){
+			if(key_hold.timer) gwarn("timer already started");
+			key_hold.timer = g_timeout_add(100, key_hold_on_timeout, waveform);
+			key_hold.handler = handler;
+	
+			handler(waveform);
+		}
+		else dbg(1, "%i", event->keyval);
+
+		return true;
+	}
+
+	gboolean key_release(GtkWidget* widget, GdkEventKey* event, gpointer user_data)
+	{
+		PF0;
+		if(!key_down){ /* gwarn("key_down not set"); */ return true; } //sometimes happens at startup
+
+		key_down = false;
+		if(key_hold.timer) g_source_remove(key_hold.timer);
+		key_hold.timer = 0;
+
+		return true;
+	}
+
+	g_signal_connect(window, "key-press-event", G_CALLBACK(key_press), waveform);
+	g_signal_connect(window, "key-release-event", G_CALLBACK(key_release), waveform);
+}
+
+
+static void
+remove_key_handlers(GtkWindow* window, WaveformViewPlus* waveform)
+{
+	#warning TODO remove_key_handlers
+}
+
+
+static void
+scroll_left(WaveformViewPlus* view)
+{
+	int n_visible_frames = ((float)view->waveform->n_frames) / view->zoom;
+	waveform_view_plus_set_start(view, view->start_frame - n_visible_frames / 10);
+}
+
+
+static void
+scroll_right(WaveformViewPlus* view)
+{
+	int n_visible_frames = ((float)view->waveform->n_frames) / view->zoom;
+	waveform_view_plus_set_start(view, view->start_frame + n_visible_frames / 10);
+}
+
+
+static void
+zoom_in(WaveformViewPlus* view)
+{
+	waveform_view_plus_set_zoom(view, view->zoom * 1.5);
+}
+
+
+static void
+zoom_out(WaveformViewPlus* view)
+{
+	waveform_view_plus_set_zoom(view, view->zoom / 1.5);
 }
 
 

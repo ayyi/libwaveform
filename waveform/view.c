@@ -1,5 +1,5 @@
 /*
-  copyright (C) 2012 Tim Orford <tim@orford.org>
+  copyright (C) 2012-2013 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -47,16 +47,24 @@
 #include "waveform/view.h"
 
 #define DIRECT 1
-#define GL_HEIGHT 256.0 //TODO (this is the height of the texture, so is maybe ok)
+#define GL_HEIGHT 256.0 // same as the height of the waveform texture
 
 static GdkGLConfig*   glconfig = NULL;
 static GdkGLContext*  gl_context = NULL;
-static gboolean       gl_initialised = FALSE;
+static gboolean       gl_initialised = false;
 
 #define _g_free0(var) (var = (g_free (var), NULL))
 #define _g_object_unref0(var) ((var == NULL) ? NULL : (var = (g_object_unref (var), NULL)))
 
 static int      waveform_view_get_width            (WaveformView*);
+
+struct _WaveformViewPrivate {
+	gboolean        gl_init_done;
+	gboolean        canvas_init_done;
+	WaveformCanvas* canvas;
+	WaveformActor*  actor;
+	gboolean        show_grid;
+};
 
 #include "view_gl.c"
 
@@ -78,8 +86,6 @@ static void     waveform_view_finalize             (GObject*);
 static void     waveform_view_set_projection       (GtkWidget*);
 static void     waveform_view_init_drawable        (WaveformView*);
 static void     waveform_view_gl_on_allocate       (WaveformView*);
-
-static gboolean canvas_init_done = false;
 
 
 static gboolean
@@ -153,7 +159,7 @@ waveform_view_new (Waveform* waveform)
 	{
 		WaveformView* view = _view;
 		g_return_val_if_fail(view, IDLE_STOP);
-		if(!canvas_init_done){
+		if(!view->priv->canvas_init_done){
 			waveform_view_init_drawable(view);
 			gtk_widget_queue_draw((GtkWidget*)view); //testing.
 		}
@@ -220,7 +226,7 @@ waveform_view_load_file (WaveformView* view, const char* filename)
 		g_return_val_if_fail(view, IDLE_STOP);
 
 		if(c->waveform == view->waveform){
-			if(!canvas_init_done) waveform_view_init_drawable(view);
+			if(!view->priv->canvas_init_done) waveform_view_init_drawable(view);
 
 			WaveformActor* actor = view->priv->actor = wf_canvas_add_new_actor(c->view->priv->canvas, c->view->waveform);
 			wf_actor_set_region(actor, &(WfSampleRegion){0, waveform_get_n_frames(c->view->waveform)});
@@ -254,10 +260,10 @@ waveform_view_set_waveform (WaveformView* view, Waveform* waveform)
 	if(view->waveform){
 		g_object_unref(view->waveform);
 	}
-	gboolean need_init = !canvas_init_done;
-	if(!canvas_init_done) waveform_view_init_drawable(view);
+	gboolean need_init = !_view->canvas_init_done;
+	if(!_view->canvas_init_done) waveform_view_init_drawable(view);
 
-	view->waveform = g_object_ref(waveform);
+	view->waveform = g_object_ref(waveform); //TODO a reference is added in wf_canvas_add_new_actor so this is not really neccesary.
 	view->zoom = 1.0;
 	view->priv->actor = wf_canvas_add_new_actor(view->priv->canvas, waveform);
 	wf_actor_set_region(view->priv->actor, &(WfSampleRegion){0, waveform_get_n_frames(view->waveform)});
@@ -374,7 +380,7 @@ waveform_view_realize (GtkWidget* base)
 	gtk_style_set_background (gtk_widget_get_style (base), base->window, GTK_STATE_NORMAL);
 	gdk_window_move_resize (base->window, base->allocation.x, base->allocation.y, base->allocation.width, base->allocation.height);
 
-	if(!canvas_init_done) waveform_view_init_drawable(self);
+	if(!self->priv->canvas_init_done) waveform_view_init_drawable(self);
 }
 
 
@@ -385,8 +391,14 @@ waveform_view_unrealize (GtkWidget* widget)
 	WaveformView* self = (WaveformView*)widget;
 	gdk_window_set_user_data (widget->window, NULL);
 
+	if(self->priv->actor){
+		wf_canvas_remove_actor(self->priv->canvas, self->priv->actor);
+		self->priv->actor = 0;
+		self->waveform = NULL; // is unreffed by wf_actor_free
+	}
+
 	wf_canvas_free0(self->priv->canvas);
-	canvas_init_done = false;
+	self->priv->canvas_init_done = false;
 }
 
 
@@ -430,10 +442,10 @@ static gboolean
 waveform_view_on_expose (GtkWidget* widget, GdkEventExpose* event)
 {
 	WaveformView* view = (WaveformView*)widget;
-	g_return_val_if_fail (event, FALSE);
+	g_return_val_if_fail (event, false);
 
 	if(!GTK_WIDGET_REALIZED(widget)) return true;
-	if(!gl_initialised) return true;
+	if(!gl_initialised || !view->priv->canvas_init_done) return true;
 
 	WF_START_DRAW {
 		// needed for the case of shared contexts, where one of the other contexts modifies the projection.
@@ -481,6 +493,7 @@ waveform_view_motion_notify_event (GtkWidget* widget, GdkEventMotion* event)
 static void
 waveform_view_init_drawable (WaveformView* view)
 {
+PF0;
 	GtkWidget* widget = (GtkWidget*)view;
 
 	if(!GTK_WIDGET_REALIZED(widget)) return;
@@ -490,7 +503,7 @@ waveform_view_init_drawable (WaveformView* view)
 	waveform_view_gl_init(view);
 	waveform_view_set_projection(widget);
 
-	canvas_init_done = true;
+	view->priv->canvas_init_done = true;
 }
 
 
@@ -500,16 +513,16 @@ waveform_view_allocate (GtkWidget* widget, GdkRectangle* allocation)
 	PF;
 	g_return_if_fail (allocation);
 
-	WaveformView* wv = (WaveformView*)widget;
+	WaveformView* view = (WaveformView*)widget;
 	widget->allocation = (GtkAllocation)(*allocation);
 	if ((GTK_WIDGET_FLAGS (widget) & GTK_REALIZED) == 0) return;
 	gdk_window_move_resize(widget->window, widget->allocation.x, widget->allocation.y, widget->allocation.width, widget->allocation.height);
 
-	if(!canvas_init_done) waveform_view_init_drawable(wv);
+	if(!view->priv->canvas_init_done) waveform_view_init_drawable(view);
 
 	if(!gl_initialised) return;
 
-	waveform_view_gl_on_allocate(wv);
+	waveform_view_gl_on_allocate(view);
 
 	waveform_view_set_projection(widget);
 }
@@ -547,10 +560,11 @@ waveform_view_instance_init (WaveformView * self)
 static void
 waveform_view_finalize (GObject* obj)
 {
+	// note that actor freeing is now done in unrealise. finalise is too late because the gl_drawable changes during an unrealise/realise cycle.
+
 	WaveformView* view = WAVEFORM_VIEW(obj);
-	//_g_free0 (self->priv->_filename);
-	//TODO free actor?
-	if(view->waveform) waveform_unref0(view->waveform); //TODO should be done in dispose?
+	g_return_if_fail(!view->priv->actor);
+
 	G_OBJECT_CLASS (waveform_view_parent_class)->finalize(obj);
 }
 

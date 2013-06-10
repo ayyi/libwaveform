@@ -189,7 +189,7 @@ WfTextureHi*   waveform_texture_hi_new     ();
 void           waveform_texture_hi_free    (WfTextureHi*);
 
 void           wf_actor_init           ();
-WaveformActor* wf_actor_new            (Waveform*);
+WaveformActor* wf_actor_new            (Waveform*, WaveformCanvas*);
 
 float          wf_canvas_gl_to_px      (WaveformCanvas*, float x);
 

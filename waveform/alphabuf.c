@@ -28,6 +28,7 @@
 #include <sys/time.h>
 #include <sndfile.h>
 #include <gtk/gtk.h>
+#include "agl/utils.h"
 #include "waveform/utils.h"
 #include "waveform/peak.h"
 #include "waveform/alphabuf.h"
