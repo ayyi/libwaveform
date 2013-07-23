@@ -119,7 +119,7 @@ waveform_load_audio_block(Waveform* waveform, int block_num)
 		return false;
 	}
 
-	if(start_pos > sfinfo.frames){ gerr("startpos too too high. %Li > %Li block=%i", start_pos, sfinfo.frames, block_num); return false; }
+	if(start_pos > sfinfo.frames){ gerr("startpos too high. %Li > %Li block=%i", start_pos, sfinfo.frames, block_num); return false; }
 	if(end_pos > sfinfo.frames){ dbg(1, "*** last block: end_pos=%Lu max=%Lu", end_pos, sfinfo.frames); end_pos = sfinfo.frames; }
 	sf_seek(sffile, start_pos, SEEK_SET);
 	dbg(1, "block=%i/%i start=%Li end=%Li", block_num, waveform_get_n_audio_blocks(waveform), start_pos, end_pos);
@@ -127,6 +127,7 @@ waveform_load_audio_block(Waveform* waveform, int block_num)
 	sf_count_t n_frames = MIN(audio->buf16[block_num]->size, end_pos - start_pos); //1st of these isnt needed?
 	WfBuf16* buf = audio->buf16[block_num];
 	g_return_val_if_fail(buf && buf->buf[WF_LEFT], false);
+	buf->start_frame = start_pos;
 
 	gboolean sf_read_float_to_short(SNDFILE* sffile, WfBuf16* buf, int ch, sf_count_t n_frames)
 	{

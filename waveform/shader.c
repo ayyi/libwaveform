@@ -1,5 +1,5 @@
 /*
-  copyright (C) 2012 Tim Orford <tim@orford.org>
+  copyright (C) 2012-2013 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -45,6 +45,7 @@ static void  _vertical_set_uniforms    ();
 static void  _horizontal_set_uniforms  ();
 static void  _ass_set_uniforms         ();
 static void  _ruler_set_uniforms       ();
+static void  _lines_set_uniforms       ();
 
 static AGlUniformInfo uniforms[] = {
    {"tex1d",     1, GL_INT,   { 1, 0, 0, 0 }, -1}, // LHS +ve - 0 corresponds to glActiveTexture(WF_TEXTURE0);
@@ -125,6 +126,12 @@ _peak_shader_set_uniforms(float peaks_per_pixel, float top, float bottom, uint32
 
 	gl_warn("");
 }
+
+static AGlUniformInfo uniforms7[] = {
+   {"tex",     1, GL_INT,   { 0, 0, 0, 0 }, -1},
+   END_OF_UNIFORMS
+};
+LinesShader lines = {{NULL, NULL, 0, uniforms7, _lines_set_uniforms, &lines_text}};
 
 
 #ifdef USE_FBO
@@ -207,6 +214,20 @@ _ruler_set_uniforms()
 }
 
 
+static void
+_lines_set_uniforms()
+{
+	AGlShader* shader = &lines.shader;
+
+	float colour[4] = {0.0, 0.0, 0.0, ((float)(lines.uniform.colour & 0xff)) / 0x100};
+	agl_rgba_to_float(lines.uniform.colour, &colour[0], &colour[1], &colour[2]);
+	glUniform4fv(glGetUniformLocation(shader->program, "colour"), 1, colour);
+
+	glUniform1f(glGetUniformLocation(shader->program, "texture_width"), (float)lines.uniform.texture_width);
+	glUniform1i(glGetUniformLocation(shader->program, "n_channels"), lines.uniform.n_channels);
+}
+
+
 void
 wf_shaders_init()
 {
@@ -221,6 +242,7 @@ wf_shaders_init()
 	agl_create_program(&vertical.shader);
 	agl_create_program(&ruler.shader);
 	agl_create_program(&ass.shader);
+	agl_create_program(&lines.shader);
 
 	wf_shaders.ass = &ass;
 }

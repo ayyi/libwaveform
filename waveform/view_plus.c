@@ -503,6 +503,12 @@ waveform_view_plus_unrealize (GtkWidget* widget)
 	WaveformViewPlus* self = (WaveformViewPlus*)widget;
 	gdk_window_set_user_data (widget->window, NULL);
 
+	if(self->priv->actor){
+		wf_canvas_remove_actor(self->priv->canvas, self->priv->actor);
+		self->priv->actor = 0;
+		self->waveform = NULL; // is unreffed by wf_actor_free
+	}
+
 	wf_canvas_free0(self->priv->canvas);
 	self->priv->canvas_init_done = false;
 }

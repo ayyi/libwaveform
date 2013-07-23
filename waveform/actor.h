@@ -1,5 +1,5 @@
 /*
-  copyright (C) 2012 Tim Orford <tim@orford.org>
+  copyright (C) 2012-2013 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -20,7 +20,10 @@
 #include "canvas.h"
 #include "peak.h"
 
-#define HAVE_NON_SQUARE_TEXTURES //TODO add runtime detection
+#define HAVE_NON_SQUARE_TEXTURES // TODO change to runtime detection (indicated by AGL->have_npot_textures)
+
+#define MULTILINE_SHADER
+#undef MULTILINE_SHADER
 
 typedef struct _actor_priv WfActorPriv;
 typedef void    (*WaveformActorFn) (WaveformActor*, gpointer);

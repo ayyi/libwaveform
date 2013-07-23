@@ -65,8 +65,6 @@
                                  // because of the issue with missing peaks with reduced size textures without shaders, this option is possibly unwanted.
 #undef HIRES_NONSHADER_TEXTURES
 
-#define TEX_BORDER_HI (TEX_BORDER * 16.0) // not clear why HI needs a different border size! can it be made the same as TEX_BORDER ?
-
 /*
 	TODO Mipmapping
 
@@ -345,23 +343,26 @@ static double wf_actor_samples2gl(double zoom, uint32_t n_samples)
 static int
 wf_actor_get_first_visible_block(WfSampleRegion* region, double zoom, WfRectangle* rect, WfViewPort* viewport_px)
 {
+	// return the block number of the first block of the actor that is within the given viewport.
+
 	int resolution = get_resolution(zoom);
 	int samples_per_texture = WF_SAMPLES_PER_TEXTURE * (resolution == 1024 ? WF_PEAK_STD_TO_LO : 1);
 
-	double part_inset_px = wf_actor_samples2gl(zoom, region->start);
-	double file_start_px = rect->left - part_inset_px;
+	double region_inset_px = wf_actor_samples2gl(zoom, region->start);
+	double file_start_px = rect->left - region_inset_px;
 	double block_wid = wf_actor_samples2gl(zoom, samples_per_texture);
 
-	int part_start_block = region->start / samples_per_texture;
-	int part_end_block = (region->start + region->len) / samples_per_texture;
-	int b; for(b=part_start_block;b<=part_end_block;b++){
-		int block_pos_px = file_start_px + b * block_wid;
-		dbg(3, "block_pos_px=%i", block_pos_px);
-		double block_end_px = block_pos_px + block_wid;
+	int region_start_block = region->start / samples_per_texture;
+	int region_end_block = (region->start + region->len) / samples_per_texture;
+	int b; for(b=region_start_block;b<=region_end_block;b++){
+		int block_start_px = file_start_px + b * block_wid;
+		double block_end_px = block_start_px + block_wid;
+		dbg(3, "block_pos_px=%i", block_start_px);
 		if(block_end_px >= viewport_px->left) return b;
 	}
 
-	dbg(1, "region outside viewport? vp_left=%.2f", viewport_px->left);
+	dbg(1, "region outside viewport? vp_left=%.2f region_end=%.2f", viewport_px->left, file_start_px + region_inset_px + wf_actor_samples2gl(zoom, region->len));
+	//														dbg(0, "region outside viewport? vp_left=%.2f region_end=%.2f", viewport_px->left, file_start_px + region_inset_px + wf_actor_samples2gl(zoom, region->len));
 	return 10000;
 }
 	//duplicates wf_actor_get_first_visible_block
@@ -404,8 +405,8 @@ wf_actor_get_last_visible_block(WfSampleRegion* region, WfRectangle* rect, doubl
 
 	//dbg(1, "rect: %.2f --> %.2f", rect->left, rect->left + rect->len);
 
-	double part_inset_px = wf_actor_samples2gl(zoom, region->start);
-	double file_start_px = rect->left - part_inset_px;
+	double region_inset_px = wf_actor_samples2gl(zoom, region->start);
+	double file_start_px = rect->left - region_inset_px;
 	double block_wid = wf_actor_samples2gl(zoom, samples_per_texture);
 	//dbg(1, "vp->right=%.2f", viewport_px->right);
 	int region_start_block = region->start / samples_per_texture;
@@ -1331,17 +1332,17 @@ block_hires_shader(WaveformActor* actor, int b, double _block_wid, gboolean is_f
 
 					//duplicate from _paint
 					// *** now contains BORDER offsetting which should be duplicated for other modes.
-					double usable_range = (modes[MODE_HI].texture_size - 2.0 * TEX_BORDER_HI) / modes[MODE_HI].texture_size;
-					double border_pct = (1.0 - usable_range)/2;
+					double usable_pct = (modes[MODE_HI].texture_size - 2.0 * TEX_BORDER_HI) / modes[MODE_HI].texture_size;
+					double border_pct = (1.0 - usable_pct)/2;
 
 					double block_wid = _block_wid;
-					double tex_pct = 1.0 * usable_range; //use the whole texture
+					double tex_pct = 1.0 * usable_pct; //use the whole texture
 					double tex_start = TEX_BORDER_HI / modes[MODE_HI].texture_size;
 					if (is_first){
 						double _tex_pct = 1.0;
 						if(first_offset){
 							_tex_pct = 1.0 - ((double)first_offset) / samples_per_texture;
-							tex_pct = tex_pct - (usable_range) * ((double)first_offset) / samples_per_texture;
+							tex_pct = tex_pct - (usable_pct) * ((double)first_offset) / samples_per_texture;
 						}
 						block_wid = _block_wid * _tex_pct;
 						//tex_start = 1.0 - (_tex_pct + tex_pct)/2;
@@ -1366,14 +1367,14 @@ block_hires_shader(WaveformActor* actor, int b, double _block_wid, gboolean is_f
 						//TODO when non-square textures enabled, tex_pct can be wrong because the last texture is likely to be smaller
 						//     (currently this only applies in non-shader mode)
 						//tex_pct = block_wid / _block_wid;
-						tex_pct = (block_wid / _block_wid) * usable_range;
+						tex_pct = (block_wid / _block_wid) * usable_pct;
 					}
 
 					dbg (2, "%i: is_last=%i x=%.2f wid=%.2f/%.2f tex_pct=%.3f tex_start=%.2f", b, is_last, x, block_wid, _block_wid, tex_pct, tex_start);
-if(tex_pct > usable_range || tex_pct < 0.0){
+if(tex_pct > usable_pct || tex_pct < 0.0){
 	dbg (0, "%i: is_first=%i is_last=%i x=%.2f wid=%.2f/%.2f tex_pct=%.3f tex_start=%.2f", b, is_first, is_last, x, block_wid, _block_wid, tex_pct, tex_start);
 }
-					if(tex_pct > usable_range || tex_pct < 0.0) gwarn("tex_pct! %.2f (b=%i)", tex_pct, b);
+					if(tex_pct > usable_pct || tex_pct < 0.0) gwarn("tex_pct! %.2f (b=%i)", tex_pct, b);
 					double tex_x = x + ((is_first && first_offset) ? first_offset_px : 0);
 
 	glBegin(GL_QUADS);
@@ -1581,6 +1582,7 @@ wf_actor_paint(WaveformActor* actor)
 	g_return_if_fail(actor);
 	WaveformCanvas* wfc = actor->canvas;
 	g_return_if_fail(wfc);
+	WfCanvasPriv* _c = wfc->priv;
 	WfActorPriv* _a = actor->priv;
 	Waveform* w = actor->waveform; 
 	if(w->offline) return;
@@ -1615,6 +1617,13 @@ wf_actor_paint(WaveformActor* actor)
 		int region_end_block     = (region.start + region.len) / samples_per_texture - (!((region.start + region.len) % samples_per_texture) ? 1 : 0);
 		int viewport_start_block = wf_actor_get_first_visible_block(&region, zoom, &rect, &viewport);
 		int viewport_end_block   = wf_actor_get_last_visible_block (&region, &rect, zoom, &viewport, textures);
+		g_return_if_fail(viewport_end_block >= viewport_start_block);
+
+		if(rect.left > viewport.right || rect.left + rect.len < viewport.left){
+			dbg(2, "actor is outside viewport. not drawing");
+			return;
+		}
+
 		if(region_end_block > textures->size -1){ gwarn("region too long? region_end_block=%i n_blocks=%i region.len=%i", region_end_block, textures->size, region.len); region_end_block = w->textures->size -1; }
 		dbg(2, "block range: region=%i-->%i viewport=%i-->%i", region_start_block, region_end_block, viewport_start_block, viewport_end_block);
 		dbg(2, "rect=%.2f %.2f viewport=%.2f %.2f", rect.left, rect.len, viewport.left, viewport.right);
@@ -1627,7 +1636,7 @@ wf_actor_paint(WaveformActor* actor)
 		if(agl->use_shaders){
 			//set gl state
 #ifdef USE_FX
-			BloomShader* shader = wfc->priv->shaders.horizontal;
+			BloomShader* shader = _c->shaders.horizontal;
 			shader->uniform.fg_colour = (actor->fg_colour & 0xffffff00) + MIN(0xff, 0x100 * _a->animatable.opacity.val.f);
 			shader->uniform.peaks_per_pixel = get_peaks_per_pixel(wfc, &region, &rect, mode) / 1.0;
 			agl_use_program(&shader->shader);
@@ -1670,8 +1679,8 @@ wf_actor_paint(WaveformActor* actor)
 
 		//for hi-res mode:
 #ifndef HIRES_NONSHADER_TEXTURES
-		//block_region specifies the a sample range within the current block
-		//WfSampleRegion block_region = {region.start % WF_PEAK_BLOCK_SIZE, WF_PEAK_BLOCK_SIZE - region.start % WF_PEAK_BLOCK_SIZE};
+		//block_region specifies the sample range for that part of the waveform region that is within the current block
+		//-note that the block region can exceed the range of the waveform region.
 		WfSampleRegion block_region = {region.start % WF_SAMPLES_PER_TEXTURE, WF_SAMPLES_PER_TEXTURE - region.start % WF_SAMPLES_PER_TEXTURE};
 #endif
 		WfSampleRegion block_region_v_hi = {region.start, WF_PEAK_BLOCK_SIZE - region.start % WF_PEAK_BLOCK_SIZE};
@@ -1697,22 +1706,44 @@ wf_actor_paint(WaveformActor* actor)
 							//TODO might these prevent further blocks at different res? difficult to notice as they are usually the same.
 							glEnable(GL_BLEND);
 							glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+#define ANTIALIASED_LINES
+#if defined (MULTILINE_SHADER)
+							if(wfc->use_1d_textures){
+								glDisable(GL_TEXTURE_1D);
+								_c->shaders.lines->uniform.colour = actor->fg_colour;
+								_c->shaders.lines->uniform.n_channels = w->n_channels;
+							}
+#elif defined(ANTIALIASED_LINES)
+							if(wfc->use_1d_textures){
+								glDisable(GL_TEXTURE_1D);
+								agl->shaders.text->uniform.fg_colour = actor->fg_colour;
+								agl_use_program((AGlShader*)agl->shaders.text); // alpha shader
+							}
+							glEnable(GL_TEXTURE_2D);
+#else
 							if(wfc->use_1d_textures){
 								glDisable(GL_TEXTURE_1D);
 								agl->shaders.plain->uniform.colour = actor->fg_colour;
 								agl_use_program((AGlShader*)agl->shaders.plain);
 							}
 							glDisable(GL_TEXTURE_2D);
-
-							int c; for(c=0;c<w->n_channels;c++){
-								if(buf->buf[c]){
-									//dbg(1, "peakbuf: %i:%i: %i", b, c, ((short*)peakbuf->buf[c])[0]);
-									dbg(2, "b=%i", b);
-									float block_rect_start = is_first ? rect.left : x;
-									WfRectangle block_rect = {block_rect_start, rect.top + c * rect.height/2, block_region_v_hi.len * zoom, rect.height/w->n_channels};
-									draw_wave_buffer_v_hi(w, block_region_v_hi, &block_rect, &viewport, buf, c, wfc->v_gain, actor->fg_colour);
-								}
+#endif
+							if(is_last){
+								block_region_v_hi.len = (region.start + region.len) % WF_SAMPLES_PER_TEXTURE;
 							}
+
+							//alternative calculation of block_region_v_hi - does it give same results? NO
+							uint64_t st = MAX((uint64_t)(region.start),              (uint64_t)((b)     * samples_per_texture));
+							uint64_t e  = MIN((uint64_t)(region.start + region.len), (uint64_t)((b + 1) * samples_per_texture));
+							WfSampleRegion block_region_v_hi2 = {st, e - st};
+							//dbg(0, "block_region_v_hi=%Lu(%Lu)-->%Lu len=%Lu (buf->size=%Lu region=%Lu-->%Lu)", st, (uint64_t)block_region_v_hi.start, e, (uint64_t)block_region_v_hi2.len, ((uint64_t)buf->size), ((uint64_t)region.start), ((uint64_t)region.start) + ((uint64_t)region.len));
+
+							if(rect.left + rect.len < viewport.left){
+								gerr("rect is outside viewport");
+							}
+
+							draw_wave_buffer_v_hi(actor, region, block_region_v_hi2, &rect, &viewport, buf, wfc->v_gain, actor->fg_colour, is_first, x);
+
 							block_done = true; //super hi res was succussful. no more painting needed for this block.
 							break;
 						}

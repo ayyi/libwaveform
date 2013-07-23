@@ -395,7 +395,7 @@ agl_rect(float x, float y, float w, float h)
 }
 
 
-//TODO not rect, should be x1, y1 etc
+// do not use - use fn below
 void
 agl_textured_rect(guint texture, float x, float y, float w, float h, AGlRect* _t)
 {
@@ -410,6 +410,24 @@ agl_textured_rect(guint texture, float x, float y, float w, float h, AGlRect* _t
 	glTexCoord2d(t.w, t.y); glVertex2d(x + w, y);
 	glTexCoord2d(t.w, t.h); glVertex2d(x + w, y + h);
 	glTexCoord2d(t.x, t.h); glVertex2d(x,     y + h);
+	glEnd();
+}
+
+
+void
+agl_textured_rect_real(guint texture, float x, float y, float w, float h, AGlQuad* _t)
+{
+	// to use the whole texture, pass NULL for _t
+
+	agl_use_texture(texture);
+
+	AGlQuad t = _t ? *_t : (AGlQuad){0.0, 0.0, 1.0, 1.0};
+
+	glBegin(GL_QUADS);
+	glTexCoord2d(t.x0, t.y0); glVertex2d(x,     y);
+	glTexCoord2d(t.x1, t.y0); glVertex2d(x + w, y);
+	glTexCoord2d(t.x1, t.y1); glVertex2d(x + w, y + h);
+	glTexCoord2d(t.x0, t.y1); glVertex2d(x,     y + h);
 	glEnd();
 }
 

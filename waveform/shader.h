@@ -42,6 +42,15 @@ typedef struct {
 	}            uniform;
 } RulerShader;
 
+typedef struct {
+	AGlShader    shader;
+	struct {
+		uint32_t colour;
+		int      n_channels;
+		int      texture_width;
+	}            uniform;
+} LinesShader;
+
 struct _ass_shader {
 	AGlShader    shader;
 	struct {

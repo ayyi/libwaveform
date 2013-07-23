@@ -15,10 +15,8 @@
   Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 */
 
-varying vec2 MCposition;
 
 void main() 
 {
-   MCposition = gl_Vertex.xy;
    gl_Position = ftransform();
 }

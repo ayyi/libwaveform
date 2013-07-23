@@ -64,6 +64,7 @@ extern BloomShader horizontal;
 extern BloomShader vertical;
 extern AlphaMapShader tex2d, ass;
 extern RulerShader ruler;
+extern LinesShader lines;
 
 #define TRACK_ACTORS // for debugging only.
 #ifdef TRACK_ACTORS
@@ -237,6 +238,17 @@ wf_canvas_init_gl(WaveformCanvas* wfc)
 
 	WAVEFORM_START_DRAW(wfc) {
 
+		int version = 0;
+		const char* _version = (const char*)glGetString(GL_VERSION);
+		if(_version){
+			gchar** split = g_strsplit(_version, ".", 2);
+			if(split){
+				version = atoi(split[0]);
+				dbg(0, "version=%i", version);
+				g_strfreev(split);
+			}
+		}
+
 		if(agl->pref_use_shaders && !agl_shaders_supported()){
 			printf("gl shaders not supported. expect reduced functionality.\n");
 			agl_use_program(NULL);
@@ -244,12 +256,22 @@ wf_canvas_init_gl(WaveformCanvas* wfc)
 		}
 		if(wf_debug) printf("GL_RENDERER = %s\n", (const char*)glGetString(GL_RENDERER));
 
-		if(GL_ARB_texture_non_power_of_two){
+		// npot textures are mandatory for opengl 2.0
+		// npot capability also means non-square textures are supported.
+		// some older hardware (eg radeon x1600) may not have full support, and may drop back to software rendering if certain features are used.
+		if(GL_ARB_texture_non_power_of_two || version > 1){
 			if(wf_debug) printf("non_power_of_two textures are available.\n");
 			agl->have_npot_textures = true;
 		}else{
-			fprintf(stderr, "GL_ARB_texture_non_power_of_two extension is not available!\n" );
-			fprintf(stderr, "Framebuffer effects will be lower resolution (lower quality).\n\n" );
+			fprintf(stderr, "GL_ARB_texture_non_power_of_two extension is not available!\n");
+			fprintf(stderr, "Framebuffer effects will be lower resolution (lower quality).\n\n");
+		}
+
+		// just testing. there is probably a better test.
+		if(glBindVertexArrayAPPLE){
+			if(wf_debug) printf("vertex arrays available.\n");
+		}else{
+			fprintf(stderr, "vertex arrays not available!\n");
 		}
 
 		if(agl->use_shaders){
@@ -263,6 +285,7 @@ wf_canvas_init_gl(WaveformCanvas* wfc)
 			priv->shaders.horizontal = &horizontal;
 			priv->shaders.tex2d = &tex2d;
 			priv->shaders.ruler = &ruler;
+			priv->shaders.lines = &lines;
 		}
 
 	} WAVEFORM_END_DRAW(wfc);

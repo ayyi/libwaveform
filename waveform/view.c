@@ -493,7 +493,6 @@ waveform_view_motion_notify_event (GtkWidget* widget, GdkEventMotion* event)
 static void
 waveform_view_init_drawable (WaveformView* view)
 {
-PF0;
 	GtkWidget* widget = (GtkWidget*)view;
 
 	if(!GTK_WIDGET_REALIZED(widget)) return;

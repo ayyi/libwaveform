@@ -1,5 +1,5 @@
 /*
-  copyright (C) 2012-2013 Tim Orford <tim@orford.org>
+  copyright (C) 2013 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -14,7 +14,12 @@
   along with this program; if not, write to the Free Software
   Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 */
-#include "waveform/actor.h"
 
-void     draw_wave_buffer_hi   (Waveform*, WfSampleRegion, WfRectangle*, Peakbuf*, int chan, float v_gain, uint32_t rgba);
-void     draw_wave_buffer_v_hi (WaveformActor*, WfSampleRegion, WfSampleRegion, WfRectangle*, WfViewPort*, WfBuf16*, float v_gain, uint32_t rgba, bool is_first, double x_block0);
+varying vec2 MCposition;
+
+void main() 
+{
+   MCposition = gl_Vertex.xy;
+   gl_TexCoord[0] = gl_MultiTexCoord0;
+   gl_Position = ftransform();
+}

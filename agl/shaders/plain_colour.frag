@@ -16,7 +16,6 @@
 */
 
 uniform vec4 colour;
-varying vec2 MCposition;
 
 void main(void)
 {

@@ -38,6 +38,7 @@
 #define WF_TEXTURE3 GL_TEXTURE4
 
 #define TEX_BORDER 2
+#define TEX_BORDER_HI (TEX_BORDER * 16.0) // not clear why HI needs a different border size! can it be made the same as TEX_BORDER ?
 
 typedef struct _texture_cache TextureCache;
 

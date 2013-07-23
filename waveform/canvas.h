@@ -66,6 +66,7 @@ struct _wf_canvas_priv {
 		BloomShader*    horizontal;
 		AlphaMapShader* tex2d;
 		RulerShader*    ruler;
+		LinesShader*    lines;
 	}              shaders;
 };
 #endif

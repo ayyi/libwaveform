@@ -97,9 +97,10 @@ struct _WaveformClass {
 
 typedef struct _buf_stereo_16
 {
-	short*     buf[WF_STEREO];
-	guint      size;             // number of shorts allocated, NOT bytes. When accessing, note that the last block will likely not be full.
-	uint32_t   stamp;            // put here for now. can move a parallel array if neccesary.
+    short*     buf[WF_STEREO];
+    guint      size;                      // number of shorts allocated, NOT bytes. When accessing, note that the last block will likely not be full.
+    uint32_t   stamp;                     // put here for now. can move a parallel array if neccesary.
+    uint64_t   start_frame;               // for debugging only
 } WfBuf16;
 
 struct _buf
