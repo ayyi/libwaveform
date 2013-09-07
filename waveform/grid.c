@@ -35,7 +35,6 @@
 #include <gtkglext-1.0/gtk/gtkgl.h>
 #include "waveform/utils.h"
 #include "waveform/peak.h"
-#include "waveform/animator.h"
 #include "waveform/canvas.h"
 #include "waveform/actor.h"
 #include "waveform/grid.h"

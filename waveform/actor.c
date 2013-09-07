@@ -29,6 +29,15 @@
   3- on each expose, a single rectangle is drawn. The Vertical shader is used
      to apply vertical convolution to the 2d texture.
 
+  animated transitions:
+
+  WaveformActor has internal support for animating the following properties:
+  region start and end, and start and end position onscreen
+  (zoom is derived from these)
+
+  Where an external animation framework is available, it should be used
+  in preference, eg Clutter (TODO).
+
 */
 #define __wf_private__
 #define __wf_canvas_priv__
@@ -46,13 +55,13 @@
 #include <gtkglext-1.0/gdk/gdkgl.h>
 #include <gtkglext-1.0/gtk/gtkgl.h>
 #include "agl/ext.h"
+#include "transition/animator.h"
 #include "waveform/typedefs.h"
 #include "waveform/utils.h"
 #include "waveform/gl_utils.h"
 #include "waveform/peak.h"
 #include "waveform/audio.h"
 #include "waveform/texture_cache.h"
-#include "waveform/animator.h"
 #include "waveform/hi_res.h"
 #include "waveform/alphabuf.h"
 #include "waveform/fbo.h"
@@ -131,8 +140,8 @@ struct _draw_mode
 
 static void   wf_actor_get_viewport          (WaveformActor*, WfViewPort*);
 static void   wf_actor_init_transition       (WaveformActor*, WfAnimatable*);
-static void   wf_actor_start_transition      (WaveformActor*, GList* /* WfAnimatable* */, WaveformActorAnimationFn, gpointer);
-static void   wf_actor_on_animation_finished (WaveformActor*, WfAnimation*, gpointer);
+static void   wf_actor_start_transition      (WaveformActor*, GList* /* WfAnimatable* */, AnimationFn, gpointer);
+static void   wf_actor_on_animation_finished (WfAnimation*, gpointer);
 static void   wf_actor_allocate_block_hi     (WaveformActor*, int b);
 static void   wf_actor_allocate_block_med    (WaveformActor*, int b);
 static void   wf_actor_allocate_block_low    (WaveformActor*, int b);
@@ -290,8 +299,13 @@ wf_actor_set_region(WaveformActor* a, WfSampleRegion* region)
 	gboolean start = (region->start != a->region.start);
 	gboolean end   = (region->len   != a->region.len);
 
-	a->priv->animatable.start.start_val.i = a->region.start;
-	a->priv->animatable.len.start_val.i = MAX(1, a->region.len);
+	WfAnimatable* a1 = &a->priv->animatable.start;
+	WfAnimatable* a2 = &a->priv->animatable.len;
+
+	// set the transition start point to the _old_ model value: NO, this is supposed to be managed by the animator
+															//dbg(0, "%i start=%i model=%i", a1->val.i, a1->start_val.i, *a1->model_val.i);
+	//a1->start_val.i = *a1->model_val.i;
+	//a2->start_val.i = MAX(1, *a2->model_val.i);
 
 	a->region = *region;
 
@@ -300,20 +314,16 @@ wf_actor_set_region(WaveformActor* a, WfSampleRegion* region)
 	if(a->rect.len > 0.00001) _wf_actor_load_missing_blocks(a);
 
 	if(!a->canvas->draw || !a->canvas->enable_animations){
-		a->priv->animatable.start.val.i = MAX(1, a->region.start);
-		a->priv->animatable.len.val.i = MAX(1, a->region.len);
+		a1->val.i = MAX(1, a->region.start);
+		a2->val.i = MAX(1, a->region.len);
 
 		if(a->canvas->draw) wf_canvas_queue_redraw(a->canvas);
 		return; //no animations
 	}
 
-	GList* animatables = NULL;
-	if(start){
-		animatables = g_list_append(animatables, &a->priv->animatable.start);
-	}
-	if(end){
-		animatables = g_list_append(animatables, &a->priv->animatable.len);
-	}
+	GList* animatables = start ? g_list_append(NULL, a1) : NULL;
+	       animatables = end ? g_list_append(animatables, a2) : animatables;
+
 	wf_actor_start_transition(a, animatables, NULL, NULL);
 }
 
@@ -745,8 +755,9 @@ wf_actor_get_viewport(WaveformActor* a, WfViewPort* viewport)
 
 
 static void
-wf_actor_on_animation_finished(WaveformActor* actor, WfAnimation* animation, gpointer user_data)
+wf_actor_on_animation_finished(WfAnimation* animation, gpointer user_data)
 {
+	WaveformActor* actor = user_data;
 	g_return_if_fail(actor);
 	g_return_if_fail(animation);
 	WfActorPriv* _a = actor->priv;
@@ -1052,9 +1063,14 @@ dbg(2, " animation=%p: will remove %i animatables", l->data, g_list_length(anima
 			}
 		}
 #endif
+		void on_frame(WfAnimation* animation, int time)
+		{
+			wf_canvas_queue_redraw(((WaveformActor*)animation->user_data)->canvas);
+		}
 
 		if(animatables){
-			WfAnimation* animation = wf_animation_add_new(wf_actor_on_animation_finished, NULL);
+			WfAnimation* animation = wf_animation_add_new(wf_actor_on_animation_finished, a);
+			animation->on_frame = on_frame;
 #if 0
 			C* c = g_new0(C, 1);
 			c->animation = animation;
@@ -1062,7 +1078,7 @@ dbg(2, " animation=%p: will remove %i animatables", l->data, g_list_length(anima
 			animation->timeout = g_timeout_add(1000, animation_timeout, c);
 #endif
 			_a->transitions = g_list_append(_a->transitions, animation);
-			wf_transition_add_member(animation, a, animatables);
+			wf_transition_add_member(animation, animatables);
 			wf_animation_start(animation);
 		}
 	}else{
@@ -1141,17 +1157,19 @@ wf_actor_fade_out(WaveformActor* a, WaveformActorFn callback, gpointer user_data
 		: NULL;
 
 	typedef struct {
+		WaveformActor*  actor;
 		WaveformActorFn callback;
 		gpointer        user_data;
 	} C;
 	C* c = g_new0(C, 1);
+	c->actor = a;
 	c->callback = callback;
 	c->user_data = user_data;
 
-	void _on_fadeout_finished(WaveformActor* actor, WfAnimation* animation, gpointer user_data)
+	void _on_fadeout_finished(WfAnimation* animation, gpointer user_data)
 	{
 		PF;
-		g_return_if_fail(actor);
+		g_return_if_fail(user_data);
 		g_return_if_fail(animation);
 		C* c = user_data;
 #if 0
@@ -1168,7 +1186,7 @@ wf_actor_fade_out(WaveformActor* a, WaveformActorFn callback, gpointer user_data
 			}
 		}
 #endif
-		if(c->callback) c->callback(actor, c->user_data);
+		if(c->callback) c->callback(c->actor, c->user_data);
 		g_free(c);
 	}
 	wf_actor_start_transition(a, animatables, _on_fadeout_finished, c);
@@ -1194,20 +1212,22 @@ wf_actor_fade_in(WaveformActor* a, void* /* WfAnimatable* */ _animatable, float 
 		: NULL;
 
 	typedef struct {
+		WaveformActor*  actor;
 		WaveformActorFn callback;
 		gpointer        user_data;
 	} C;
 	C* c = g_new0(C, 1);
+	c->actor = a;
 	c->callback = callback;
 	c->user_data = user_data;
 
-	void _on_fadein_finished(WaveformActor* actor, WfAnimation* animation, gpointer user_data)
+	void _on_fadein_finished(WfAnimation* animation, gpointer user_data)
 	{
 		PF;
-		g_return_if_fail(actor);
+		g_return_if_fail(user_data);
 		g_return_if_fail(animation);
 		C* c = user_data;
-		if(c->callback) c->callback(actor, c->user_data);
+		if(c->callback) c->callback(c->actor, c->user_data);
 		g_free(c);
 	}
 	wf_actor_start_transition(a, animatables, _on_fadein_finished, c);
@@ -2231,19 +2251,20 @@ wf_actor_init_transition(WaveformActor* a, WfAnimatable* animatable)
 
 /*
  *   Set initial values of animatables and start the transition.
- *   The start_val of each animatable must be set by the caller.
+ *   The start_val of each animatable must be set by the caller. <--- no, it should be set when the animatable is created, after which it is maintained by the animator.
  *   If the actor has any other transitions using the same animatable, these animatables
  *   are removed from that transition.
  *
  *   @param animatables - ownership of this list is transferred to the WfAnimation.
  */
 static void
-wf_actor_start_transition(WaveformActor* a, GList* animatables, WaveformActorAnimationFn done, gpointer user_data)
+wf_actor_start_transition(WaveformActor* a, GList* animatables, AnimationFn done, gpointer user_data)
 {
 	g_return_if_fail(a);
 	WfActorPriv* _a = a->priv;
 
 	// set initial value
+#if 0
 	GList* l = animatables;
 	for(;l;l=l->next){
 		WfAnimatable* animatable = l->data;
@@ -2251,6 +2272,7 @@ wf_actor_start_transition(WaveformActor* a, GList* animatables, WaveformActorAni
 			? animatable->start_val.i
 			: *animatable->model_val.i;
 	}
+#endif
 
 	if(!a->canvas->enable_animations || !a->canvas->draw){ //if we cannot initiate painting we cannot animate.
 		g_list_free(animatables);
@@ -2258,26 +2280,34 @@ wf_actor_start_transition(WaveformActor* a, GList* animatables, WaveformActorAni
 	}
 
 	typedef struct {
-		WaveformActorAnimationFn done;
-		gpointer                 user_data;
+		WaveformActor* actor;
+		AnimationFn    done;
+		gpointer       user_data;
 	} C;
 	C* c = g_new0(C, 1);
+	c->actor = a;
 	c->done = done;
 	c->user_data = user_data;
 
-	void _on_animation_finished(WaveformActor* actor, WfAnimation* animation, gpointer user_data)
+	void on_frame(WfAnimation* animation, int time)
 	{
-		g_return_if_fail(actor);
+		C* c = animation->user_data;
+		wf_canvas_queue_redraw(c->actor->canvas);
+	}
+
+	void _on_animation_finished(WfAnimation* animation, gpointer user_data)
+	{
+		g_return_if_fail(user_data);
 		g_return_if_fail(animation);
 		C* c = user_data;
 
-		if(c->done) c->done(actor, animation, c->user_data);
+		if(c->done) c->done(animation, c->user_data);
 
-		wf_actor_on_animation_finished(actor, animation, user_data);
+		wf_actor_on_animation_finished(animation, c->actor);
 		g_free(c);
 	}
 
-	l = _a->transitions;
+	GList* l = _a->transitions;
 	for(;l;l=l->next){
 		//only remove animatables we are replacing. others need to finish.
 		GList* k = animatables;
@@ -2288,8 +2318,9 @@ wf_actor_start_transition(WaveformActor* a, GList* animatables, WaveformActorAni
 
 	if(animatables){
 		WfAnimation* animation = wf_animation_add_new(_on_animation_finished, c);
+		animation->on_frame = on_frame;
 		_a->transitions = g_list_append(_a->transitions, animation);
-		wf_transition_add_member(animation, a, animatables);
+		wf_transition_add_member(animation, animatables);
 		wf_animation_start(animation);
 	}
 }

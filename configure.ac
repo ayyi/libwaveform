@@ -107,7 +107,6 @@ AC_ARG_ENABLE(
 		esac
 	],
 	[
-		AC_MSG_WARN([opengl option not specified. will try and use...])
 		if `pkg-config gtkglext-1.0`; then 
 			enable_opengl="yes"
 		else
@@ -191,6 +190,7 @@ AC_CONFIG_FILES([waveform.pc])
 AC_CONFIG_FILES([Makefile])
 AC_CONFIG_FILES([
 agl/Makefile
+transition/Makefile
 waveform/Makefile
 test/Makefile
 ])

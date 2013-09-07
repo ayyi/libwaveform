@@ -17,7 +17,6 @@
 #ifndef __wf_animator_h__
 #define __wf_animator_h__
 
-#ifdef __wf_private__
 
 typedef enum {WF_INT, WF_INT64, WF_FLOAT} WfPropType;
 
@@ -33,9 +32,9 @@ typedef struct _animatable_property
 #endif
 } WfAnimatable;
 
+// following refactoring this is no longer neccesary
 typedef struct _anim_actor
 {
-	WaveformActor* actor;
 	GList*         transitions; // list of WfAnimatable*
 #ifdef WF_DEBUG
 	char           name[16];
@@ -43,29 +42,29 @@ typedef struct _anim_actor
 } WfAnimActor;
 
 typedef struct _animation WfAnimation;
-typedef void  (*WaveformActorAnimationFn)    (WaveformActor*, WfAnimation*, gpointer);
+typedef void  (*AnimationFn) (WfAnimation*, gpointer);
 
 struct _animation
 {
-	uint64_t  start;
-	uint64_t  end;
-	uint32_t  (*frame_i)(WfAnimation*, WfAnimatable*, int time);
-	float     (*frame_f)(WfAnimation*, WfAnimatable*, int time);
-	GList*    members;    // list of WfAnimActor*
-	guint     timer;
-	WaveformActorAnimationFn on_finish; //the actor can free stuff in this callback
-	gpointer  user_data;
+   uint32_t    length;
+   uint64_t    start;
+   uint64_t    end;
+   uint32_t    (*frame_i)  (WfAnimation*, WfAnimatable*, int time); // easing fn
+   float       (*frame_f)  (WfAnimation*, WfAnimatable*, int time); // easing fn
+   GList*      members;                                             // list of WfAnimActor*  -- subject to change
+   guint       timer;
+   void        (*on_frame) (WfAnimation*, int time);                // caller can run redraw fn.
+   AnimationFn on_finish;                                           // caller can free stuff in this callback
+   gpointer    user_data;
 
-	guint     id;               // for debugging only
-	guint     timeout;          // for debugging only
+   guint       id;                                                  // for debugging only
+   guint       timeout;                                             // for debugging only
 };
 
-WfAnimation* wf_animation_add_new           (WaveformActorAnimationFn, gpointer);
-void         wf_transition_add_member       (WfAnimation*, WaveformActor*, GList* animatables);
+WfAnimation* wf_animation_add_new           (AnimationFn, gpointer);
+void         wf_transition_add_member       (WfAnimation*, GList* animatables);
 void         wf_animation_remove            (WfAnimation*);
 gboolean     wf_animation_remove_animatable (WfAnimation*, WfAnimatable*);
 void         wf_animation_start             (WfAnimation*);
-
-#endif
 
 #endif //__wf_animator_h__

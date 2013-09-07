@@ -6,7 +6,7 @@ ASSPROGRAMS = ass view_plus_test
 endif
 
 if ENABLE_OPENGL
-noinst_PROGRAMS = waveform_test view_test actor_test actor_plus list group hires_test $(ASSPROGRAMS) frame_rate resources write_wav write_short write_block large_files
+noinst_PROGRAMS = waveform_test view_test actor_test actor_plus list group hires_test $(ASSPROGRAMS) frame_rate resources write_wav write_short write_block large_files 32bit
 endif
 
 AM_CFLAGS = \
@@ -21,6 +21,7 @@ AM_CFLAGS = \
 TEST_LDFLAGS = \
 	$(top_srcdir)/waveform/.libs/libwaveform.a \
 	$(top_srcdir)/agl/.libs/libagl.a \
+	$(top_srcdir)/transition/.libs/libtransition.a \
 	$(GTK_LDFLAGS) \
 	$(SNDFILE_LIBS) \
 	$(OPENGL_LDFLAGS)
@@ -74,6 +75,10 @@ resources_SOURCES = \
 large_files_SOURCES = \
 	$(COMMON_SOURCES) \
 	large_files.c
+
+32bit_SOURCES = \
+	$(COMMON_SOURCES) \
+	32bit.c
 
 write_wav_SOURCES = \
 	cpgrs.cc cpgrs.h \

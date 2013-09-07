@@ -38,18 +38,20 @@ Requirements:
 Status
 ------
 
+Basic functionality is now in place, but many areas need improving. There are
+no known serious bugs so please report any you find. Feedback is also needed
+on api, documentation, visuals etc.
+
+An API review needs to be undertaken before a release is made.
+
 Testing:
 Has been fully tested with Gallium 0.4 on Radeon RV530, RV620 and Cedar and Intel 945.
 Radeon HD 5000 has issues at very hi res which look like driver bugs though this is not confirmed.
 Nvidia 8400 has been found to mostly work (Nouveau), though some issues are being investigated.
-Much more testing is needed.
+Wider testing is needed.
 
 If you are able to help testing, please start with running test/view_test.
 To compile the test programs you need to run configure with '--enable-test'.
-
-Basic functionality should all be in place now, but most areas
-need improving. Feedback is needed on functionality, api, documentation,
-visuals etc.
 
 
 WaveformView

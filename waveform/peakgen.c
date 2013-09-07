@@ -1,5 +1,5 @@
 /*
-  copyright (C) 2012 Tim Orford <tim@orford.org>
+  copyright (C) 2012-2013 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -53,7 +53,7 @@
 static int           peak_mem_size = 0;
 static bool          need_file_cache_check = true;
 
-static inline void   process_data        (short* data, int count, int channels, long long pos, short max[], short min[]);
+static inline void   process_data        (short* data, int count, int channels, short max[], short min[]);
 static unsigned long sample2time         (SF_INFO, long samplenum);
 static bool          wf_file_is_newer    (const char*, const char*);
 static bool          wf_create_cache_dir ();
@@ -144,14 +144,18 @@ wf_peakgen(const char* infilename, const char* peak_filename)
 	if(wf_debug) printf("samplerate=%i channels=%i frames=%i\n", sfinfo.samplerate, sfinfo.channels, (int)sfinfo.frames);
 	if(sfinfo.channels > 16){ printf("format not supported. unexpected number of channels: %i\n", sfinfo.channels); FAIL_; }
 
-	short* data = g_malloc0(sizeof(short) * BUFFER_LEN * sfinfo.channels);
+	float* buf_f = NULL;
+	if((sfinfo.format & SF_FORMAT_SUBMASK) == SF_FORMAT_FLOAT){
+		dbg(1, "32 bit float");
+		buf_f = g_malloc0(sizeof(float) * BUFFER_LEN * sfinfo.channels);
+	}
+	gboolean is_float = ((sfinfo.format & SF_FORMAT_SUBMASK) == SF_FORMAT_FLOAT);
+
+	short* data = g_malloc0((is_float ? sizeof(float) : sizeof(short)) * BUFFER_LEN * sfinfo.channels);
 
 	//copy the sfinfo for the output file:
-	SF_INFO sfinfo_w;
-	sfinfo_w.channels   = sfinfo.channels;
-	sfinfo_w.format     = sfinfo.format;
-	sfinfo_w.samplerate = sfinfo.samplerate;
-	sfinfo_w.seekable   = sfinfo.seekable;
+	SF_INFO sfinfo_w = sfinfo;
+	sfinfo_w.format = SF_FORMAT_WAV | SF_FORMAT_PCM_16;
 
 	int bytes_per_frame = sfinfo.channels * sizeof(short);
 
@@ -164,22 +168,30 @@ wf_peakgen(const char* infilename, const char* peak_filename)
 	#define EIGHT_HOURS (60 * 60 * 8)
 	#define MAX_READ_ITER (44100 * EIGHT_HOURS / BUFFER_LEN)
 
-	//while there are frames in the input file, read them and process them:
 	short total_max[sfinfo.channels];
 	int readcount, i = 0;
 	long long samples_read = 0;
 	gint32 total_bytes_written = 0;
 	gint32 total_frames_written = 0;
-	while((readcount = sf_readf_short(infile, data, BUFFER_LEN))){
+	short* read_buf = is_float ? (short*)buf_f : data;
+	typedef sf_count_t (*read_fn)(SNDFILE*, short*, sf_count_t);
+	read_fn r = is_float ? (read_fn)sf_readf_float : sf_readf_short;
+	while((readcount = r(infile, read_buf, BUFFER_LEN))){
 		if(wf_debug && (readcount < BUFFER_LEN)){
 			dbg(1, "EOF i=%i readcount=%i total_frames_written=%i", i, readcount, total_frames_written);
+		}
+		if(is_float){
+			int i; for(i=0;i<readcount;i++){
+				float* b = (float*)read_buf;
+				data[i] = b[i] * (1 << 14);
+			}
 		}
 
 		short max[sfinfo.channels];
 		short min[sfinfo.channels];
 		memset(max, 0, sizeof(short) * sfinfo.channels);
 		memset(min, 0, sizeof(short) * sfinfo.channels);
-		process_data(data, readcount, sfinfo.channels, samples_read, max, min);
+		process_data(data, readcount, sfinfo.channels, max, min);
 		samples_read += readcount;
 		memcpy(total_max, max, sizeof(short) * sfinfo.channels);
 		short w[sfinfo.channels][2];
@@ -214,6 +226,7 @@ wf_peakgen(const char* infilename, const char* peak_filename)
 	sf_close (outfile);
 	sf_close (infile);
 	g_free(data);
+	if(buf_f) g_free(buf_f);
 
 	if(need_file_cache_check){
 		maintain_file_cache();
@@ -230,7 +243,7 @@ failed_:
 
 
 static inline void
-process_data (short* data, int data_size_frames, int n_channels, long long Xpos, short max[], short min[])
+process_data (short* data, int data_size_frames, int n_channels, short max[], short min[])
 {
 	//produce peak data from audio data.
 	//
@@ -262,14 +275,13 @@ process_data (short* data, int data_size_frames, int n_channels, long long Xpos,
 
 
 //long is good up to 4.2GB
-unsigned long
+static unsigned long
 sample2time(SF_INFO sfinfo, long samplenum)
 {
 	//returns time in milliseconds, given the sample number.
 	
 	//int64_t milliseconds;
-	unsigned long milliseconds;
-	milliseconds = (10 * samplenum) / ((sfinfo.samplerate/100) * sfinfo.channels);
+	unsigned long milliseconds = (10 * samplenum) / ((sfinfo.samplerate/100) * sfinfo.channels);
 	//printf("                                    %9li 10=%li  milliseconds=%li\n", samplenum, (10 * samplenum), milliseconds);
 	
 	return milliseconds;
@@ -287,16 +299,18 @@ wf_create_cache_dir()
 }
 
 
+#if 0
 static gboolean
 is_last_block(Waveform* waveform, int block_num)
 {
-	//dont use hires_peaks->len here - thats the number allocated.
+	// dont use hires_peaks->len here - that is the number allocated.
 
 	int n_blocks = waveform_get_n_audio_blocks(waveform);
 
 	dbg(2, "n_blocks=%i block_num=%i", n_blocks, block_num);
 	return (block_num == (n_blocks - 1));
 }
+#endif
 
 
 static void*
@@ -432,7 +446,7 @@ waveform_peakbuf_regen(Waveform* waveform, int block_num, int min_tiers)
 		audio_buf->stamp = ++wf->audio.access_counter;
 		int i, p; for(i=0, p=0; p<WF_PEAK_BLOCK_SIZE; i++, p+= io_ratio){
 
-			process_data(&audio_buf->buf[c][p], io_ratio, 1, 0, (short*)&maxplus, (short*)&maxmin);
+			process_data(&audio_buf->buf[c][p], io_ratio, 1, (short*)&maxplus, (short*)&maxmin);
 
 #if 0
 			short* dd = &audio_buf->buf[c][p];

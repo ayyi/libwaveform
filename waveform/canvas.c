@@ -244,7 +244,7 @@ wf_canvas_init_gl(WaveformCanvas* wfc)
 			gchar** split = g_strsplit(_version, ".", 2);
 			if(split){
 				version = atoi(split[0]);
-				dbg(0, "version=%i", version);
+				dbg(1, "gl_version=%i", version);
 				g_strfreev(split);
 			}
 		}

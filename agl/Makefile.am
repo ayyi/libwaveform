@@ -27,8 +27,9 @@ BUILT_SOURCES =
 CLEANFILES =
 
 SHADERS = \
-	shaders/alpha_map.vert \
-	shaders/alpha_map.frag
+	shaders/alpha_map.vert shaders/alpha_map.frag \
+	shaders/plain_colour.vert shaders/plain_colour.frag \
+	shaders/texture_2d.vert shaders/texture_2d.frag
 
 EXTRA_DIST = \
 	$(SHADERS) \

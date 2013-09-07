@@ -281,6 +281,8 @@ waveform_load(Waveform* w)
 static void
 waveform_get_sf_data(Waveform* w)
 {
+	g_return_if_fail(w->filename);
+
 	SNDFILE* sndfile;
 	SF_INFO sfinfo;
 	memset(&sfinfo, 0, sizeof(SF_INFO));
@@ -610,7 +612,7 @@ waveform_peak_to_alphabuf(Waveform* w, AlphaBuf* a, int scale, int* start, int* 
 			src_stop  = ((int)((px+1)* xmag));
 //last_src = src_stop;
 			//printf("%i ", src_start);
-			if(src_start < 0){ dbg(0, "skipping line..."); continue; }
+			if(src_start < 0){ dbg(2, "skipping line..."); continue; }
 
 			struct _line* previous_line = &line[(line_index  ) % 3];
 			struct _line* current_line  = &line[(line_index+1) % 3];

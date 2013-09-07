@@ -40,3 +40,9 @@
 -made WaveformCanvas a GObject
 20130608
 -better handling of unrealizing of the WaveformView widget
+20130721
+-added anti-aliased drawing at very high zoom.
+20130809
+-refactored the transition animator so that it can be used as an independent library.
+20130907
+-added support for 32 bit float wavs.

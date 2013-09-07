@@ -41,7 +41,6 @@
 #include "waveform/waveform.h"
 #include "waveform/actor.h"
 #define __wf_private__
-#include "waveform/animator.h"
 #include "waveform/gl_utils.h"
 #include "test/ayyi_utils.h"
 

@@ -26,7 +26,6 @@ OPENGL_SOURCES = \
 	shader.c shader.h \
 	alphabuf.c alphabuf.h \
 	grid.c grid.h \
-	animator.c animator.h \
 	texture_cache.c texture_cache.h \
 	hi_res.c hi_res.h \
 	fbo.c fbo.h \

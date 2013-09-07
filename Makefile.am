@@ -1,7 +1,7 @@
 if ENABLE_OPENGL
 OPENGL_SUBDIRS = agl shaders
 endif
-SUBDIRS = $(OPENGL_SUBDIRS) waveform test
+SUBDIRS = $(OPENGL_SUBDIRS) waveform transition test
 
 AM_CFLAGS = \
 	-DG_LOG_DOMAIN=\"Waveform\" \
@@ -23,10 +23,10 @@ SHADERS = \
 	shaders/hires.frag \
 	shaders/peak_nonscaling.vert \
 	shaders/peak_nonscaling.frag \
-	shaders/texture_2d.vert \
-	shaders/texture_2d.frag \
 	shaders/ruler.vert \
 	shaders/ruler.frag \
+	shaders/lines.vert \
+	shaders/lines.frag \
 	shaders/ass.vert \
 	shaders/ass.frag
 

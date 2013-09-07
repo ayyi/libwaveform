@@ -165,14 +165,14 @@ void
 scroll_left(WaveformView* waveform)
 {
 	int n_visible_frames = ((float)waveform->waveform->n_frames) / waveform->zoom;
-	waveform_view_set_start(waveform, waveform->start_frame - n_visible_frames / 10);
+	waveform_view_plus_set_start((WaveformViewPlus*)waveform, waveform->start_frame - n_visible_frames / 10);
 }
 
 
 void scroll_right(WaveformView* waveform)
 {
 	int n_visible_frames = ((float)waveform->waveform->n_frames) / waveform->zoom;
-	waveform_view_set_start(waveform, waveform->start_frame + n_visible_frames / 10);
+	waveform_view_plus_set_start((WaveformViewPlus*)waveform, waveform->start_frame + n_visible_frames / 10);
 }
 
 

@@ -25,6 +25,10 @@ extern int wf_debug;
 #define true TRUE
 #define false FALSE
 #endif
+#ifndef g_list_free0
+#define g_list_free0(var) ((var == NULL) ? NULL : (var = (g_list_free (var), NULL)))
+#endif
+
 #ifndef __ayyi_utils_h__
 #ifdef __wf_private__
 #ifndef bool
@@ -45,10 +49,7 @@ extern int wf_debug;
 #ifndef g_free0
 #define g_free0(var) ((var == NULL) ? NULL : (var = (g_free(var), NULL)))
 #endif
-#ifndef g_list_free0
-#define g_list_free0(var) ((var == NULL) ? NULL : (var = (g_list_free (var), NULL)))
 #define call(FN, A, ...) if(FN) (FN)(A, ##__VA_ARGS__)
-#endif
 #include "waveform/typedefs.h"
 
 void       wf_debug_printf            (const char* func, int level, const char* format, ...);
@@ -64,6 +65,6 @@ void       wf_colour_rgba_to_float    (WfColourFloat*, uint32_t rgba);
 bool       wf_get_filename_for_other_channel(const char* filename, char* other, int n_chars);
 #endif
 
-#endif
+#endif //__ayyi_utils_h__
 
 #endif //__waveform_utils_h__

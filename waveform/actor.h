@@ -17,6 +17,7 @@
 #ifndef __waveform_actor_h__
 #define __waveform_actor_h__
 #include <gtk/gtkgl.h>
+#include "transition/animator.h"
 #include "canvas.h"
 #include "peak.h"
 

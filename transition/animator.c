@@ -1,5 +1,5 @@
 /*
-  copyright (C) 2012 Tim Orford <tim@orford.org>
+  copyright (C) 2012-2013 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -16,24 +16,30 @@
 
   ---------------------------------------------------------------
 
-  This provides an optional private mini animation framework for WfActors.
+  This provides a simple framework for animated transitions from one scaler value to another.
 
-  WaveformActor has internal support for animating the following properties:
-  region start and end, and start and end position onscreen
-  (zoom is derived from these)
+  The object being animated will own one or more WfAnimatable. The animatable
+  contains a pointer to the property being animated. The object will then have
+  two values for the property, the original (model) value, plus the instantaneous
+  (animating) value.
 
-  Where an external animation framework is available, it should be used
-  in preference, eg Clutter (TODO).
-
-  In cases where the canvas is shared with other objects, this animator
-  cannot be used. The application must provide its own animator.
-
-  The canvas has a list of Transitions, each with a list of WfActor's.
+  The canvas has a list of Transitions, each with a list of WfActor's.                     // TODO make very sure we are ok to remove this, why are we not currently using multiple actors per animation?
   For each actor there is a list of WfAnimatable's, each of which transitions
   from a start to an end value for a particular property such as the start point. 
   The WfAnimatable has a value type that must be either integer or float.
 
   Each WfAnimation has its own clock and finish-callback.
+                           ---------                         <-- this will change
+
+  Basic usage:
+  1- create a property to animate (WfAnimatable).
+  2- create an animation using wf_animation_add_new().
+  3- add the animatable to the animation using wf_transition_add_member().
+  4- start the animation using wf_animation_start().
+
+  easing fns:
+    by default, a linear easing fn is used. callers can provide their own if required
+    (either int or float depending on the type of the property being animated).
 
   use cases:
 	-what happens if a pan is requested while already panning?
@@ -65,9 +71,7 @@
 #include <sys/time.h>
 #include <gtk/gtk.h>
 #include "waveform/utils.h"
-#include "waveform/peak.h"
-#include "waveform/actor.h"
-#include "waveform/animator.h"
+#include "transition/animator.h"
 
 #define WF_DEBUG_ANIMATOR
 
@@ -88,9 +92,10 @@ static char green    [16] = "\x1b[1;32m";
 #endif
 
 WfAnimation*
-wf_animation_add_new(WaveformActorAnimationFn on_finished, gpointer user_data)
+wf_animation_add_new(AnimationFn on_finished, gpointer user_data)
 {
 	WfAnimation* animation = g_new0(WfAnimation, 1);
+	animation->length = 300;
 	animation->on_finish = on_finished;
 	animation->user_data = user_data;
 	animation->frame_i = transition_linear;
@@ -105,22 +110,26 @@ wf_animation_add_new(WaveformActorAnimationFn on_finished, gpointer user_data)
 
 
 void
-wf_transition_add_member(WfAnimation* animation, WaveformActor* actor, GList* animatables)
+wf_transition_add_member(WfAnimation* animation, GList* animatables)
 {
 	//ownership of the animatables list is taken. Caller should not free it.
 
 	g_return_if_fail(animation);
-	g_return_if_fail(actor);
-	g_return_if_fail(!g_list_find(animation->members, actor));
 	g_return_if_fail(animatables);
 
 	WfAnimActor* member = g_new0(WfAnimActor, 1);
-	member->actor = actor;
 	member->transitions = animatables;
 	animation->members = g_list_append(animation->members, member);
 #ifdef WF_DEBUG
 	g_strlcpy(member->name, name, 16);
 #endif
+
+	//TODO do this in animation_start instead.
+	GList* l = animatables;
+	for(;l;l=l->next){
+		WfAnimatable* a = l->data;
+		a->start_val.f = a->val.f;
+	}
 
 	WfAnimatable* animatable = animatables->data;
 	if(animatable->type == WF_INT)
@@ -177,10 +186,9 @@ void
 wf_animation_remove(WfAnimation* animation)
 {
 	GList* l = animation->members;
-//dbg(0, "destroying animation %s%p%s with %i members, %i animatables %s...", yellow, animation, white, g_list_length(l), wf_animation_count_animatables(animation), wf_animation_list_animatables(animation));
 	for(;l;l=l->next){
 		WfAnimActor* aa = l->data;
-		animation->on_finish(aa->actor, animation, animation->user_data); //arg3 is unnecesary
+		animation->on_finish(animation, animation->user_data); //arg2 is unnecesary
 		g_list_free0(aa->transitions);
 		g_free(aa);
 	}
@@ -248,7 +256,7 @@ wf_animation_start(WfAnimation* animation)
 		for(;l;l=l->next){
 			WfAnimActor* actor = l->data;
 			GList* k = actor->transitions;
-			dbg(0, "  actor=%p n_transitions=%i", actor->actor, g_list_length(k));
+			dbg(0, "  actor=%p n_transitions=%i", actor, g_list_length(k));
 			for(;k;k=k->next){
 				WfAnimatable* animatable = k->data;
 				dbg(0, "     animatable=%p type=%i %p %.2f", animatable, animatable->type, animatable->model_val.f, *animatable->model_val.f);
@@ -270,7 +278,7 @@ wf_animation_start(WfAnimation* animation)
 
 	if(!count_animatables()){
 		wf_animation_remove(animation);
-		//cannot call on_finish because there are no member actors
+		//cannot call on_finish because there are no member actors - TODO no longer true
 		return;
 	}
 
@@ -281,9 +289,8 @@ wf_animation_start(WfAnimation* animation)
 		return start.tv_sec * 1000 + start.tv_usec / 1000;
 	}
 
-	#define ANIMATION_LENGTH 300
 	animation->start = _get_time();
-	animation->end   = animation->start + ANIMATION_LENGTH;
+	animation->end   = animation->start + animation->length;
 
 	gboolean wf_transition_frame(gpointer _animation)
 	{
@@ -293,7 +300,6 @@ wf_animation_start(WfAnimation* animation)
 		GList* l = animation->members;
 		for(;l;l=l->next){
 			WfAnimActor* blah = l->data;
-			WaveformActor* a = blah->actor;
 
 			GList* k = blah->transitions;
 			if(!k) gwarn("actor member has no transitions");
@@ -301,14 +307,12 @@ wf_animation_start(WfAnimation* animation)
 				WfAnimatable* animatable = k->data;
 				if(animatable->type == WF_INT){
 					animatable->val.i = animation->frame_i(animation, animatable, time);
-					dbg(2, "actor=%p val=%u", a, animatable->val);
 				}else{
 					animatable->val.f = animation->frame_f(animation, animatable, time);
-					dbg(2, "actor=%p val=%.2f", a, animatable->val.f);
 				}
 			}
-			wf_canvas_queue_redraw(a->canvas);
 		}
+		animation->on_frame(animation, time); // user frame callback
 
 		if(time > animation->end){
 			wf_animation_remove(animation);
