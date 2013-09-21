@@ -137,6 +137,7 @@ struct _draw_mode
 };
 #define HI_RESOLUTION modes[MODE_HI].resolution
 #define RES_MED modes[MODE_MED].resolution
+typedef struct { int lower; int upper; } ModeRange;
 
 static void   wf_actor_get_viewport          (WaveformActor*, WfViewPort*);
 static void   wf_actor_init_transition       (WaveformActor*, WfAnimatable*);
@@ -159,6 +160,8 @@ static inline void _draw_block_from_1d       (float tex_start, float tex_pct, fl
 static void   block_to_fbo                   (WaveformActor*, int b, WfGlBlock*, int resolution);
 static void   wf_actor_canvas_finalize_notify         (gpointer, GObject*);
 #endif
+static inline int  get_mode                  (double zoom);
+static ModeRange   mode_range                (WaveformActor*);
 
 #ifdef USE_FBO
 static AglFBO* fbo_test = NULL;
@@ -244,8 +247,16 @@ wf_actor_new(Waveform* w, WaveformCanvas* wfc)
 		// be updated once.
 		// if the waveform has changed, the existing data must be cleared first.
 
+		WaveformActor* a = _actor;
 		dbg(1, "block=%i", block);
-		_wf_actor_load_texture_hi((WaveformActor*)_actor, block);
+
+		ModeRange mode = mode_range(a);
+
+		if(mode.lower == MODE_HI || mode.upper == MODE_HI)
+			_wf_actor_load_texture_hi(a, block);
+
+		else if(mode.lower == MODE_V_HI || mode.upper == MODE_V_HI)
+			if(a->canvas->draw) wf_canvas_queue_redraw(a->canvas);
 	}
 	_a->peakdata_ready_handler = g_signal_connect (w, "peakdata-ready", (GCallback)_wf_actor_on_peakdata_available, a);
 
@@ -837,6 +848,19 @@ get_mode(double zoom)
 			: (zoom > ZOOM_LO)
 				? MODE_MED
 				: MODE_LOW;      //TODO
+}
+
+
+static ModeRange
+mode_range(WaveformActor* a)
+{
+	WfRectangle* rect = &a->rect;
+
+	double zoom_end = rect->len / a->region.len;
+	double zoom_start = a->priv->animatable.rect_len.val.f / a->priv->animatable.len.val.i;
+	if(zoom_start == 0.0) zoom_start = zoom_end;
+
+	return (ModeRange){get_mode(zoom_start), get_mode(zoom_end)};
 }
 
 
@@ -2210,15 +2234,9 @@ _wf_actor_load_texture_hi(WaveformActor* a, int block)
 	/*
 	WfViewPort viewport; wf_actor_get_viewport(actor, &viewport);
 	*/
-	WfRectangle* rect = &a->rect;
-	double zoom_end = rect->len / a->region.len;
-	double zoom_start = a->priv->animatable.rect_len.val.f / a->priv->animatable.len.val.i;
-	if(zoom_start == 0.0) zoom_start = zoom_end;
-	//dbg(1, "zoom=%.4f-->%.4f (%.4f)", zoom_start, zoom_end, ZOOM_MED);
-	int mode1 = get_mode(zoom_start);
-	int mode2 = get_mode(zoom_end);
 
-	if(mode1 == MODE_HI || mode2 == MODE_HI){
+	ModeRange mode = mode_range(a);
+	if(mode.lower == MODE_HI || mode.upper == MODE_HI){
 		//TODO check this block is within current viewport
 
 		WfTextureHi* texture = g_hash_table_lookup(a->waveform->textures_hi->textures, &block);

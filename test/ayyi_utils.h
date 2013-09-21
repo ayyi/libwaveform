@@ -31,7 +31,6 @@ extern gboolean __wf_drawing;
 
 void        errprintf                (char* fmt, ...);
 void        errprintf2               (const char* func, char* format, ...);
-void        warnprintf2              (const char* func, char* format, ...);
 void        warn_gerror              (const char* msg, GError**);
 void        info_gerror              (const char* msg, GError**);
 

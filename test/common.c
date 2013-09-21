@@ -150,7 +150,7 @@ log_handler(const gchar* log_domain, GLogLevelFlags log_level, const gchar* mess
 
 
 void
-add_key_handler(GtkWindow* window, WaveformView* waveform, Key keys[])
+add_key_handlers(GtkWindow* window, WaveformView* waveform, Key keys[])
 {
 	//list of keys must be terminated with a key of value zero.
 
@@ -175,8 +175,6 @@ add_key_handler(GtkWindow* window, WaveformView* waveform, Key keys[])
 
 	gboolean key_press(GtkWidget* widget, GdkEventKey* event, gpointer user_data)
 	{
-		WaveformView* waveform = user_data;
-
 		if(key_down){
 			// key repeat
 			return true;
@@ -186,10 +184,10 @@ add_key_handler(GtkWindow* window, WaveformView* waveform, Key keys[])
 		KeyHandler* handler = g_hash_table_lookup(key_handlers, &event->keyval);
 		if(handler){
 			if(key_hold.timer) gwarn("timer already started");
-			key_hold.timer = g_timeout_add(100, key_hold_on_timeout, waveform);
+			key_hold.timer = g_timeout_add(100, key_hold_on_timeout, user_data);
 			key_hold.handler = handler;
 	
-			handler(waveform);
+			handler(user_data);
 		}
 		else dbg(1, "%i", event->keyval);
 

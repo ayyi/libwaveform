@@ -126,7 +126,7 @@ main (int argc, char *argv[])
 	waveform_view_plus_load_file(waveform, filename);
 	g_free(filename);
 
-	add_key_handler((GtkWindow*)window, (WaveformView*)waveform, (Key*)&keys);
+	add_key_handlers((GtkWindow*)window, (WaveformView*)waveform, (Key*)&keys);
 
 	gboolean window_on_delete(GtkWidget* widget, GdkEvent* event, gpointer user_data){
 		gtk_main_quit();
@@ -150,14 +150,14 @@ quit(WaveformView* waveform)
 void
 zoom_in(WaveformView* waveform)
 {
-	waveform_view_set_zoom(waveform, waveform->zoom * 1.5);
+	waveform_view_plus_set_zoom((WaveformViewPlus*)waveform, waveform->zoom * 1.5);
 }
 
 
 void
 zoom_out(WaveformView* waveform)
 {
-	waveform_view_set_zoom(waveform, waveform->zoom / 1.5);
+	waveform_view_plus_set_zoom((WaveformViewPlus*)waveform, waveform->zoom / 1.5);
 }
 
 

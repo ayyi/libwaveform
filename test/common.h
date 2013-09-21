@@ -46,7 +46,7 @@ int  get_random_int     (int max);
 void errprintf4         (char* format, ...);
 
 #ifdef __GTK_H__
-void add_key_handler    (GtkWindow*, WaveformView*, Key[]);
+void add_key_handlers   (GtkWindow*, WaveformView*, Key[]);
 #endif
 
 #define START_TEST \

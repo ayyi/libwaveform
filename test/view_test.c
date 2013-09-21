@@ -131,7 +131,7 @@ main (int argc, char *argv[])
 	waveform_view_load_file(waveform, filename);
 	g_free(filename);
 
-	add_key_handler((GtkWindow*)window, waveform, (Key*)&keys);
+	add_key_handlers((GtkWindow*)window, waveform, (Key*)&keys);
 
 	gboolean window_on_delete(GtkWidget* widget, GdkEvent* event, gpointer user_data){
 		gtk_main_quit();

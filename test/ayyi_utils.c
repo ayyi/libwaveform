@@ -25,20 +25,6 @@ errprintf2(const char* func, char *format, ...)
 }
 
 
-void 
-warnprintf2(const char* func, char *format, ...)
-{
-  // print a warning string, then pass arguments on to vprintf.
-
-  printf("%s %s(): ", ayyi_warn, func);
-
-  va_list argp;
-  va_start(argp, format);
-  vprintf(format, argp);
-  va_end(argp);
-}
-
-
 void
 warn_gerror(const char* msg, GError** error)
 {

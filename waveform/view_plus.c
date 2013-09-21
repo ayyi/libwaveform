@@ -20,6 +20,12 @@
   It displays an audio waveform represented by a Waveform object.
   It also displays decorative title text and information text.
 
+  When the widget is focussed, the following keyboard shortcuts are active:
+    left         scroll left
+    right        scroll right
+    -            zoom in
+    +            zoom out
+
 */
 #define __wf_private__
 #define __waveform_view_private__
