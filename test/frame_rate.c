@@ -14,7 +14,7 @@
 
   --------------------------------------------------------------
 
-  Copyright (C) 2012 Tim Orford <tim@orford.org>
+  Copyright (C) 2012-2013 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -91,13 +91,13 @@ main (int argc, char* argv[])
 			case 45:
 				waveform_view_set_zoom(waveform, waveform->zoom / 1.5);
 				break;
-			case GDK_KEY_Left:
-			case GDK_KEY_KP_Left:
+			case KEY_Left:
+			case KEY_KP_Left:
 				dbg(0, "left");
 				waveform_view_set_start(waveform, waveform->start_frame - 8192 / waveform->zoom);
 				break;
-			case GDK_KEY_Right:
-			case GDK_KEY_KP_Right:
+			case KEY_Right:
+			case KEY_KP_Right:
 				dbg(0, "right");
 				waveform_view_set_start(waveform, waveform->start_frame + 8192 / waveform->zoom);
 				break;

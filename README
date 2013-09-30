@@ -82,8 +82,6 @@ and audio production tools.
 OpenGl shaders will be used if available, otherwise it will fallback
 to using 8 bit textures.
 
-Currently shaders are not used at high zoom - this is a TODO item.
-
 WaveformActor's share a common WfCanvas object.
 The canvas has the following directly setable properties:
 ```c

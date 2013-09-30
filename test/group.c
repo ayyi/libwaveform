@@ -4,7 +4,7 @@
 
   ---------------------------------------------------------------
 
-  copyright (C) 2012 Tim Orford <tim@orford.org>
+  copyright (C) 2012-2013 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -124,21 +124,21 @@ main (int argc, char *argv[])
 			case 45:
 				start_zoom(zoom / 1.5);
 				break;
-			case GDK_KEY_Left:
-			case GDK_KEY_KP_Left:
+			case KEY_Left:
+			case KEY_KP_Left:
 				dbg(0, "left");
 				break;
-			case GDK_KEY_Right:
-			case GDK_KEY_KP_Right:
+			case KEY_Right:
+			case KEY_KP_Right:
 				dbg(0, "right");
 				break;
-			case GDK_KEY_Up:
-			case GDK_KEY_KP_Up:
+			case KEY_Up:
+			case KEY_KP_Up:
 				dbg(0, "up");
 				forward();
 				break;
-			case GDK_KEY_Down:
-			case GDK_KEY_KP_Down:
+			case KEY_Down:
+			case KEY_KP_Down:
 				dbg(0, "down");
 				backward();
 				break;

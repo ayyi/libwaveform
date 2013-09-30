@@ -81,8 +81,8 @@ extern bool key_down;
 extern KeyHold key_hold;
 
 Key keys[] = {
-	{GDK_KEY_Left,  scroll_left},
-	{GDK_KEY_Right, scroll_right},
+	{KEY_Left,      scroll_left},
+	{KEY_Right,     scroll_right},
 	{61,            zoom_in},
 	{45,            zoom_out},
 	{GDK_KP_Enter,  NULL},

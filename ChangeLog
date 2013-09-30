@@ -46,3 +46,7 @@
 -refactored the transition animator so that it can be used as an independent library.
 20130907
 -added support for 32 bit float wavs.
+20130920
+-fix for missing redraw following file load at v hi zoom.
+20131001
+-fix for gdk keysyms for gtk < 2.22

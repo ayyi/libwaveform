@@ -1,5 +1,5 @@
 /*
-  copyright (C) 2012 Tim Orford <tim@orford.org>
+  copyright (C) 2012-2013 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -17,27 +17,46 @@
 #ifndef __waveform_typedefs_h__
 #define __waveform_typedefs_h__
 
-typedef struct _wf              WF;
-typedef struct _Waveform        Waveform;
-typedef struct _peakbuf         Peakbuf;
-typedef struct _alpha_buf       AlphaBuf;
-typedef struct _peakbuf1        WfPeakBuf;
-typedef struct _buf             RmsBuf;
-typedef struct _waveform_canvas WaveformCanvas;
+typedef struct _wf                  WF;
+typedef struct _Waveform            Waveform;
+typedef struct _peakbuf             Peakbuf;
+typedef struct _alpha_buf           AlphaBuf;
+typedef struct _peakbuf1            WfPeakBuf;
+typedef struct _buf                 RmsBuf;
+typedef struct _waveform_canvas     WaveformCanvas;
 typedef struct _WaveformCanvasClass WaveformCanvasClass;
-typedef struct _waveform_actor  WaveformActor;
-typedef struct _wf_texture_list WfGlBlock;
-typedef struct _textures_hi     WfTexturesHi;
-typedef struct _texture_hi      WfTextureHi;
-typedef struct _waveform_priv   WaveformPriv;
-typedef struct _audio_data      WfAudioData;
-typedef struct _vp              WfViewPort; 
-typedef struct _texture_unit    TextureUnit; 
-typedef struct _colour_float    WfColourFloat;
-typedef struct _WaveformView    WaveformView;
-typedef struct _WaveformViewPlus WaveformViewPlus;
-typedef struct _wf_shaders       WfShaders;
-typedef struct _ass_shader       AssShader;
+typedef struct _waveform_actor      WaveformActor;
+typedef struct _wf_texture_list     WfGlBlock;
+typedef struct _textures_hi         WfTexturesHi;
+typedef struct _texture_hi          WfTextureHi;
+typedef struct _waveform_priv       WaveformPriv;
+typedef struct _audio_data          WfAudioData;
+typedef struct _vp                  WfViewPort; 
+typedef struct _texture_unit        TextureUnit; 
+typedef struct _colour_float        WfColourFloat;
+typedef struct _WaveformView        WaveformView;
+typedef struct _WaveformViewPlus    WaveformViewPlus;
+typedef struct _wf_shaders          WfShaders;
+typedef struct _ass_shader          AssShader;
 
+#ifdef HAVE_GTK_2_22
+#define KEY_Left     GDK_KEY_Left
+#define KEY_Right    GDK_KEY_Right
+#define KEY_KP_Left  GDK_KEY_KP_Left
+#define KEY_KP_Right GDK_KEY_KP_Right
+#define KEY_Up       GDK_KEY_Up
+#define KEY_Down     GDK_KEY_Down
+#define KEY_KP_Up    GDK_KEY_KP_Up
+#define KEY_KP_Down  GDK_KEY_KP_Down
+#else
+#define KEY_Left     GDK_Left
+#define KEY_Right    GDK_Right
+#define KEY_KP_Left  GDK_KP_Left
+#define KEY_KP_Right GDK_KP_Right
+#define KEY_Up       GDK_Up
+#define KEY_Down     GDK_Down
+#define KEY_KP_Up    GDK_KP_Up
+#define KEY_KP_Down  GDK_KP_Down
+#endif
 
 #endif //__waveform_typedefs_h__

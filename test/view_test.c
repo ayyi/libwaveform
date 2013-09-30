@@ -16,7 +16,7 @@
 
   --------------------------------------------------------------
 
-  Copyright (C) 2012 Tim Orford <tim@orford.org>
+  Copyright (C) 2012-2013 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -75,8 +75,8 @@ extern bool key_down;
 extern KeyHold key_hold;
 
 Key keys[] = {
-	{GDK_KEY_Left,  scroll_left},
-	{GDK_KEY_Right, scroll_right},
+	{KEY_Left,      scroll_left},
+	{KEY_Right,     scroll_right},
 	{61,            zoom_in},
 	{45,            zoom_out},
 	{GDK_KP_Enter,  NULL},

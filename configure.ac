@@ -66,6 +66,13 @@ GTK_LDFLAGS=`pkg-config gtk+-2.0 --libs`
 AC_SUBST(GTK_CFLAGS)
 AC_SUBST(GTK_LDFLAGS)
 
+if `pkg-config gtk+-2.0 --atleast-version=2.22`; then
+  HAVE_GTK_2_22="yes"
+  AC_DEFINE(HAVE_GTK_2_22, 1, "we have at least gtk version 2.22")
+else
+  HAVE_GTK_2_22="no"
+fi;
+
 if `pkg-config gtk+-2.0 --atleast-version=2.18`; then
   HAVE_GTK_2_18="yes"
   AC_DEFINE(HAVE_GTK_2_18, 1, "we have at least gtk version 2.18")
