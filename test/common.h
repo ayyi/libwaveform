@@ -1,4 +1,8 @@
+/*
+ *  common code for automated tests - move stuff for non-automated tests to common2.h
+ */
 #include "waveform/typedefs.h"
+#include "test/common2.h"
 
 //#define mono_wav_fixture "/usr/share/games/alienarena/data1/sound/items/damage.wav"
 #define mono_wav_fixture "/usr/share/sounds/alsa/Front_Center.wav"
@@ -42,6 +46,7 @@ void reset_timeout      (int ms);
 
 bool get_random_boolean ();
 int  get_random_int     (int max);
+void create_large_file  (char*);
 
 void errprintf4         (char* format, ...);
 
@@ -85,7 +90,7 @@ void add_key_handlers   (GtkWindow*, WaveformView*, Key[]);
 #define FAIL_TEST_TIMER(msg) \
 	{test_finished = true; \
 	passed = false; \
-	printf("%s%s%s\n", red, msg, white); \
+	printf("%s%s%s\n", red, msg, wf_white); \
 	test_finished_(); \
 	return TIMER_STOP;}
 

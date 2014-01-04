@@ -29,10 +29,12 @@
 #include <sys/types.h>
 #include <sys/ipc.h>
 #include <sys/shm.h>
-#include <signal.h>
+#include <math.h>
 #include <gtk/gtk.h>
 #include <glib-object.h>
+#include <sndfile.h>
 #include "waveform/utils.h"
+#include "waveform/wf_private.h"
 #include "test/ayyi_utils.h"
 #include "test/common.h"
 
@@ -53,7 +55,7 @@ static int __n_tests = 0;
 #define FAIL_TEST_TIMER(msg) \
 	{test_finished = true; \
 	passed = false; \
-	printf("%s%s%s\n", red, msg, white); \
+	printf("%s%s%s\n", red, msg, wf_white); \
 	test_finished_(); \
 	return TIMER_STOP;}
 //------------------
@@ -67,17 +69,8 @@ test_init(gpointer tests[], int n_tests)
 
 	memset(&app, 0, sizeof(struct _app));
 
-	g_log_set_handler (NULL, G_LOG_LEVEL_WARNING | G_LOG_LEVEL_CRITICAL | G_LOG_FLAG_FATAL | G_LOG_FLAG_RECURSION, log_handler, NULL);
-	g_log_set_handler ("Gtk", G_LOG_LEVEL_CRITICAL | G_LOG_FLAG_FATAL | G_LOG_FLAG_RECURSION, log_handler, NULL);
-	g_log_set_handler ("Gdk", G_LOG_LEVEL_CRITICAL | G_LOG_FLAG_FATAL | G_LOG_FLAG_RECURSION, log_handler, NULL);
-	g_log_set_handler ("GLib", G_LOG_LEVEL_MASK | G_LOG_FLAG_FATAL | G_LOG_FLAG_RECURSION, log_handler, NULL);
-	g_log_set_handler ("GLib-GObject", G_LOG_LEVEL_MASK | G_LOG_FLAG_FATAL | G_LOG_FLAG_RECURSION, log_handler, NULL);
-	g_log_set_handler ("Ayyi", G_LOG_LEVEL_MASK | G_LOG_FLAG_FATAL | G_LOG_FLAG_RECURSION, log_handler, NULL);
-	g_log_set_handler ("Waveform", G_LOG_LEVEL_MASK | G_LOG_FLAG_FATAL | G_LOG_FLAG_RECURSION, log_handler, NULL);
+	set_log_handlers();
 
-#if 0 // deprecated since glib 2.32
-	g_thread_init(NULL);
-#endif
 	g_type_init();
 
 	gboolean fn(gpointer user_data) { next_test(); return IDLE_STOP; }
@@ -117,7 +110,7 @@ next_test()
 		}
 		app.timeout = g_timeout_add(20000, on_test_timeout, NULL);
 	}
-	else{ printf("finished all. passed=%s%i%s failed=%s%i%s\n", green, app.n_passed, white, (n_failed ? red : white), n_failed, white); g_timeout_add(1000, _exit, NULL); }
+	else{ printf("finished all. passed=%s%i%s failed=%s%i%s\n", green, app.n_passed, wf_white, (n_failed ? red : wf_white), n_failed, wf_white); g_timeout_add(1000, _exit, NULL); }
 }
 
 
@@ -261,7 +254,49 @@ errprintf4(char* format, ...)
 	vsprintf(str, format, argp);
 	va_end(argp);           //clean up
 
-	printf("%s%s%s\n", red, str, white);
+	printf("%s%s%s\n", red, str, wf_white);
+}
+
+
+void
+create_large_file(char* filename)
+{
+	printf("  %s\n", filename);
+
+	int n_channels = 2;
+	long n_frames = 2048;
+	double* buffer = (double*) g_malloc0(n_frames * sizeof(double) * n_channels);
+
+	int i; for(i=0;i<n_frames;i++){
+		float i_f = (float)i;
+		float freq = i_f * (1.0 - i_f / (n_frames * 2.0)) / 5.0; // reducing
+		buffer[2 * i] = buffer[2 * i + 1] = sin(freq) * (n_frames - i) / n_frames;
+	}
+
+	SF_INFO info = {
+		0,
+		44100,
+		n_channels,
+		SF_FORMAT_WAV | SF_FORMAT_PCM_16
+	};
+
+	SNDFILE* sndfile = sf_open(filename, SFM_WRITE, &info);
+	if(!sndfile) {
+		fprintf(stderr, "Sndfile open failed: %s\n", sf_strerror(sndfile));
+		FAIL_TEST("%s", sf_strerror(sndfile));
+	}
+
+	for(i=0;i<1<<16;i++){
+		if(sf_writef_double(sndfile, buffer, n_frames) != n_frames){
+			fprintf(stderr, "Write failed\n");
+			sf_close(sndfile);
+			FAIL_TEST("write failed");
+		}
+	}
+
+	sf_write_sync(sndfile);
+	sf_close(sndfile);
+	g_free(buffer);
 }
 
 

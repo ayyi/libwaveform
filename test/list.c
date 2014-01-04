@@ -316,13 +316,6 @@ on_allocate(GtkWidget* widget, GtkAllocation* allocation, gpointer user_data)
 }
 
 
-float
-_easing(int step, float start, float end)
-{
-	return (end - start) / step;
-}
-
-
 static void
 start_zoom(float target_zoom)
 {

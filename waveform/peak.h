@@ -16,6 +16,7 @@
 */
 #ifndef __waveform_peak_h__
 #define __waveform_peak_h__
+#include <stdint.h>
 #include <glib.h>
 #include <glib-object.h>
 #include <gdk-pixbuf/gdk-pixbuf.h>

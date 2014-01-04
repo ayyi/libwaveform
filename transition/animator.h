@@ -18,6 +18,8 @@
 #define __wf_animator_h__
 
 
+#define WF_FRAME_INTERVAL ((uint64_t)40)
+
 typedef enum {WF_INT, WF_INT64, WF_FLOAT} WfPropType;
 
 typedef struct _animatable_property

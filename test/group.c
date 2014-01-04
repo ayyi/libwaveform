@@ -322,13 +322,6 @@ on_allocate(GtkWidget* widget, GtkAllocation* allocation, gpointer user_data)
 }
 
 
-float
-_easing(int step, float start, float end)
-{
-	return (end - start) / step;
-}
-
-
 static void
 set_position(int i, int j)
 {

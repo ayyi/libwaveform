@@ -76,40 +76,8 @@ create_large_files()
 	START_TEST;
 	reset_timeout(60000);
 
-	void create_file(char* filename){
-		printf("  %s\n", filename);
-
-		int n_channels = 2;
-		long n_frames = 2048;
-		double* buffer = (double*) g_malloc0(n_frames * sizeof(double) * n_channels);
-
-		SF_INFO info = {
-			0,
-			44100,
-			n_channels,
-			SF_FORMAT_WAV | SF_FORMAT_PCM_16
-		};
-
-		SNDFILE* sndfile = sf_open(filename, SFM_WRITE, &info);
-		if(!sndfile) {
-			fprintf(stderr, "Sndfile open failed: %s\n", sf_strerror(sndfile));
-			FAIL_TEST("%s", sf_strerror(sndfile));
-		}
-
-		int i; for(i=0;i<1<<16;i++){
-			if(sf_writef_double(sndfile, buffer, n_frames) != n_frames){
-				fprintf(stderr, "Write failed\n");
-				sf_close(sndfile);
-				FAIL_TEST("write failed");
-			}
-		}
-
-		sf_write_sync(sndfile);
-		sf_close(sndfile);
-		g_free(buffer);
-	}
-	create_file(WAV1);
-	create_file(WAV2);
+	create_large_file(WAV1);
+	create_large_file(WAV2);
 
 	FINISH_TEST;
 }

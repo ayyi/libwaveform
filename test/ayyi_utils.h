@@ -48,8 +48,6 @@ gboolean    audio_path_get_wav_leaf  (char* leaf, const char* path, int len);
 char*       audio_path_truncate      (char*, char);
 
 #ifdef __ayyi_utils_c__
-char white    [16] = "\x1b[0;39m"; // 0 = normal
-char bold     [16] = "\x1b[1;39m"; // 1 = bright
 char grey     [16] = "\x1b[2;39m"; // 2 = dim
 char yellow   [16] = "\x1b[1;33m";
 char yellow_r [16] = "\x1b[30;43m";
@@ -67,8 +65,6 @@ char go_rhs   [32] = "\x1b[A\x1b[50C"; //go up one line, then goto column 60
 char ok       [32] = " [ \x1b[1;32mok\x1b[0;39m ]";
 char fail     [32] = " [\x1b[1;31mFAIL\x1b[0;39m]";
 #else
-extern char white    [16];
-extern char bold     [16];
 extern char grey     [16];
 extern char yellow   [16];
 extern char yellow_r [16];

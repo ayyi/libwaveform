@@ -54,7 +54,6 @@
 
 #define bool gboolean
 
-static void  set_log_handlers();
 static char* find_wav();
 
 #define WAV \
@@ -178,35 +177,6 @@ void scroll_right(WaveformView* waveform)
 {
 	int n_visible_frames = ((float)waveform->waveform->n_frames) / waveform->zoom;
 	waveform_view_set_start(waveform, waveform->start_frame + n_visible_frames / 10);
-}
-
-
-void
-set_log_handlers()
-{
-	void log_handler(const gchar* log_domain, GLogLevelFlags log_level, const gchar* message, gpointer user_data)
-	{
-	  switch(log_level){
-		case G_LOG_LEVEL_CRITICAL:
-		  printf("%s %s\n", ayyi_err, message);
-		  break;
-		case G_LOG_LEVEL_WARNING:
-		  printf("%s %s\n", ayyi_warn, message);
-		  break;
-		default:
-		  dbg(0, "level=%i %s", log_level, message);
-		  break;
-	  }
-	}
-
-	g_log_set_handler (NULL, G_LOG_LEVEL_WARNING | G_LOG_LEVEL_CRITICAL | G_LOG_FLAG_FATAL | G_LOG_FLAG_RECURSION, log_handler, NULL);
-	g_log_set_handler ("Gtk", G_LOG_LEVEL_CRITICAL | G_LOG_FLAG_FATAL | G_LOG_FLAG_RECURSION, log_handler, NULL);
-	g_log_set_handler ("Gdk", G_LOG_LEVEL_CRITICAL | G_LOG_FLAG_FATAL | G_LOG_FLAG_RECURSION, log_handler, NULL);
-
-	char* domain[] = {"Waveform", "GLib", "GLib-GObject"};
-	int i; for(i=0;i<G_N_ELEMENTS(domain);i++){
-		g_log_set_handler (domain[i], G_LOG_LEVEL_MASK | G_LOG_FLAG_FATAL | G_LOG_FLAG_RECURSION, log_handler, NULL);
-	}
 }
 
 

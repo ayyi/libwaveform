@@ -51,6 +51,7 @@ struct _waveform_canvas {
 	WfCanvasPriv*  priv;
 	int           _draw_depth;
 	guint         _queued;
+	guint64       _last_redraw_time;
 	TextureUnit*   texture_unit[4];
 };
 

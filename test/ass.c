@@ -474,13 +474,6 @@ blend_single(image_t* frame, ASS_Image* img)
 }
 
 
-float
-_easing(int step, float start, float end)
-{
-	return (end - start) / step;
-}
-
-
 static void
 start_zoom(float target_zoom)
 {

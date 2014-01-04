@@ -36,6 +36,7 @@
 WF* wf = NULL;
 
 
+																												extern int n_loads[4096];
 WF*
 wf_get_instance()
 {
@@ -43,6 +44,7 @@ wf_get_instance()
 		wf = g_new0(WF, 1);
 		wf->peak_cache = g_hash_table_new(g_direct_hash, g_direct_equal);
 		wf->audio.cache = g_hash_table_new(g_direct_hash, g_direct_equal);
+																												memset(n_loads, 0, 4096);
 		wf->load_peak = wf_load_riff_peak; //set the default loader
 		wf->msg_queue = g_async_queue_new();
 

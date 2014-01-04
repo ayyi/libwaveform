@@ -301,8 +301,8 @@ draw_wave_buffer_v_hi(WaveformActor* actor, WfSampleRegion region, WfSampleRegio
 
 	// variable names: variables prefixed with x_ relate to screen coordinates (pixels), variables prefixed with s_ related to sample frames.
 
-	Waveform* w = actor->waveform;
-	WaveformCanvas* wfc = actor->canvas;
+	const Waveform* w = actor->waveform;
+	const WaveformCanvas* wfc = actor->canvas;
 
 	g_return_if_fail(b_region.len <= buf->size);
 

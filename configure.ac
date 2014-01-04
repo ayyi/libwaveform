@@ -186,6 +186,9 @@ dnl ------------------ test progs ------------------------
 AC_ARG_ENABLE(test, AS_HELP_STRING([--enable-test],[ compile the test programs]), enable_test=yes, enable_test=no)
 
 AM_CONDITIONAL(BUILD_TESTS, test "$enable_test" = "yes")
+if test "$enable_test" = "yes"; then
+	AC_DEFINE(USE_TEST, 1, [Add additional code to support test applications])
+fi
 
 dnl -----------------------------------------------------
 
@@ -194,8 +197,8 @@ dnl CXXFLAGS="$CXXFLAGS -pipe -fmessage-length=139 -fdiagnostics-show-location=e
 AM_CFLAGS="$CFLAGS -pipe -fmessage-length=139 -fdiagnostics-show-location=every-line"
 
 AC_CONFIG_FILES([waveform.pc])
-AC_CONFIG_FILES([Makefile])
 AC_CONFIG_FILES([
+Makefile
 agl/Makefile
 transition/Makefile
 waveform/Makefile

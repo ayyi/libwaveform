@@ -6,7 +6,7 @@ ASSPROGRAMS = ass view_plus_test
 endif
 
 if ENABLE_OPENGL
-noinst_PROGRAMS = waveform_test view_test actor_test actor_plus list group hires_test $(ASSPROGRAMS) frame_rate resources write_wav write_short write_block large_files 32bit
+noinst_PROGRAMS = waveform_test view_test actor_test actor_plus list group hires_test $(ASSPROGRAMS) frame_rate resources write_wav write_short write_block large_files cache 32bit
 endif
 
 AM_CFLAGS = \
@@ -28,6 +28,11 @@ TEST_LDFLAGS = \
 
 COMMON_SOURCES = \
 	common.c common.h \
+	common2.c common2.h \
+	ayyi_utils.c ayyi_utils.h
+
+COMMON2_SOURCES = \
+	common2.c common2.h \
 	ayyi_utils.c ayyi_utils.h
 
 waveform_test_SOURCES = \
@@ -69,12 +74,16 @@ frame_rate_SOURCES = \
 	frame_rate.c
 
 resources_SOURCES = \
-	ayyi_utils.c ayyi_utils.h \
+	$(COMMON2_SOURCES) \
 	resources.c
 
 large_files_SOURCES = \
 	$(COMMON_SOURCES) \
 	large_files.c
+
+cache_SOURCES = \
+	$(COMMON_SOURCES) \
+	cache.c
 
 32bit_SOURCES = \
 	$(COMMON_SOURCES) \
@@ -151,6 +160,13 @@ test_data: Makefile write_block.cc
 	fi;
 
 endif
+
+test:
+	@echo running tests...
+	cd .. && test/waveform_test
+	cd .. && test/large_files
+	cd .. && test/32bit
+	cd .. && test/cache
 
 EXTRA_DIST = 
 

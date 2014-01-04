@@ -360,10 +360,11 @@ wf_canvas_queue_redraw(WaveformCanvas* wfc)
 		WaveformCanvas* wfc = _canvas;
 		if(wfc->draw) wfc->draw(wfc, wfc->draw_data);
 		wfc->_queued = false;
+		wfc->_last_redraw_time = wf_get_time();
 		return IDLE_STOP;
 	}
 
-	wfc->_queued = g_idle_add(wf_canvas_redraw, wfc);
+	wfc->_queued = g_timeout_add(CLAMP(WF_FRAME_INTERVAL - (wf_get_time() - wfc->_last_redraw_time), 1, WF_FRAME_INTERVAL), wf_canvas_redraw, wfc);
 }
 
 

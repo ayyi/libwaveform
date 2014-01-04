@@ -249,6 +249,8 @@ wf_animation_start(WfAnimation* animation)
 {
 	g_return_if_fail(animation);
 
+	static GSourceFunc on_timeout;
+
 	void print_animation()
 	{
 		GList* l = animation->members;
@@ -318,10 +320,29 @@ wf_animation_start(WfAnimation* animation)
 			wf_animation_remove(animation);
 			return TIMER_STOP;
 		}
-		return TIMER_CONTINUE;
+
+		uint64_t step = (time - animation->start) / WF_FRAME_INTERVAL;
+		uint64_t late = (time - animation->start) % WF_FRAME_INTERVAL;
+		guint new_interval = CLAMP(WF_FRAME_INTERVAL - late, 1, WF_FRAME_INTERVAL);
+		dbg(2, "step=%Lu late=%Lu new_interval=%u", step, late, new_interval);
+
+		GSource* source = g_timeout_source_new(CLAMP(WF_FRAME_INTERVAL - late, 1, WF_FRAME_INTERVAL));
+		g_source_set_callback(source, on_timeout, animation, NULL);
+		g_source_set_priority(source, G_PRIORITY_HIGH);
+		animation->timer = g_source_attach(source, NULL);
+
+		return TIMER_STOP;
 	}
+	on_timeout = wf_transition_frame;
 	if(wf_transition_frame(animation)){ // !!!!!! not sure it is safe to do this - members not added yet?
+#if 0
 		animation->timer = g_timeout_add(40, wf_transition_frame, animation);
+#else
+		GSource* source = g_timeout_source_new(WF_FRAME_INTERVAL);
+		g_source_set_callback(source, wf_transition_frame, animation, NULL);
+		g_source_set_priority(source, G_PRIORITY_HIGH);
+		animation->timer = g_source_attach(source, NULL);
+#endif
 	}
 }
 

@@ -25,6 +25,7 @@
 #endif
 #endif
 #include "agl/fbo.h"
+#include "waveform/peak.h"
 
 #define WF_CACHE_BUF_SIZE (1 << 15)
 #define WF_PEAK_STD_TO_LO 16
@@ -164,6 +165,13 @@ typedef struct _peak_sample
 
 typedef struct _wf_drect { double x1, y1, x2, y2; } WfDRect;
 
+#ifdef __utils_c__
+char wf_bold     [16] = "\x1b[1;39m";
+char wf_white    [16] = "\x1b[0;39m";
+#else
+extern char wf_bold  [16];
+extern char wf_white [16];
+#endif
 
 WF*            wf_get_instance             ();
 void           wf_push_job                 (gpointer);
@@ -184,14 +192,14 @@ WfGlBlock*     wf_texture_array_new        (int size, int n_channels);
 void           wf_texture_array_add_ch     (WfGlBlock*, int);
 
 void           waveform_audio_free         (Waveform*);
-gboolean       waveform_load_audio_block   (Waveform*, int block_num);
+gboolean       waveform_load_audio_block   (Waveform*, WfBuf16*, int block_num);
 
 WfTextureHi*   waveform_texture_hi_new     ();
 void           waveform_texture_hi_free    (WfTextureHi*);
 
-void           wf_actor_init           ();
-WaveformActor* wf_actor_new            (Waveform*, WaveformCanvas*);
+void           wf_actor_init               ();
+WaveformActor* wf_actor_new                (Waveform*, WaveformCanvas*);
 
-float          wf_canvas_gl_to_px      (WaveformCanvas*, float x);
+float          wf_canvas_gl_to_px          (WaveformCanvas*, float x);
 
 #endif //__wf_private_h__

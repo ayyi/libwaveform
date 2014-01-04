@@ -1,5 +1,5 @@
 /*
-  copyright (C) 2012 Tim Orford <tim@orford.org>
+  copyright (C) 2012-2013 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -30,30 +30,25 @@
 #include <gtk/gtk.h>
 #include "waveform/utils.h"
 #include "waveform/peak.h"
+#include "waveform/worker.h"
 #include "waveform/audio.h"
+
+																											int n_loads[4096];
 
 typedef struct {
 	Waveform*        waveform;
 	int              block_num;
+	WfBuf16*         buf16;
 	int              min_output_tiers;
-}
-PeakbufQueueItem;
-
-typedef void   (*WfCallback)    (gpointer user_data);
-
-typedef struct _queue_item
-{
-	Waveform*        waveform;
-	WfCallback       callback;
-	void*            user_data;
-	gboolean         cancelled;
-} QueueItem;
+} PeakbufQueueItem;
 
 #define MAX_AUDIO_CACHE_SIZE (1 << 23) // words, NOT bytes.
 
-static short*      audio_cache_malloc (Waveform*, int);
+static short*      audio_cache_malloc (Waveform*, WfBuf16*, int);
 static void        audio_cache_free   (Waveform*, int block);
+#if 0
 static void        audio_cache_print  ();
+#endif
 
 
 void
@@ -68,7 +63,6 @@ waveform_audio_free(Waveform* waveform)
 			WfBuf16* buf16 = audio->buf16[b];
 			if(buf16){
 				audio_cache_free(waveform, b);
-				g_free0(buf16);
 			}
 		}
 		g_free(audio->buf16);
@@ -78,7 +72,7 @@ waveform_audio_free(Waveform* waveform)
 
 
 gboolean
-waveform_load_audio_block(Waveform* waveform, int block_num)
+waveform_load_audio_block(Waveform* waveform, WfBuf16* buf16, int block_num)
 {
 	//load a single audio block for the case where the audio is on a local filesystem.
 
@@ -122,12 +116,11 @@ waveform_load_audio_block(Waveform* waveform, int block_num)
 	if(start_pos > sfinfo.frames){ gerr("startpos too high. %Li > %Li block=%i", start_pos, sfinfo.frames, block_num); return false; }
 	if(end_pos > sfinfo.frames){ dbg(1, "*** last block: end_pos=%Lu max=%Lu", end_pos, sfinfo.frames); end_pos = sfinfo.frames; }
 	sf_seek(sffile, start_pos, SEEK_SET);
-	dbg(1, "block=%i/%i start=%Li end=%Li", block_num, waveform_get_n_audio_blocks(waveform), start_pos, end_pos);
+	dbg(1, "block=%s%i%s/%i start=%Li end=%Li", wf_bold, block_num, wf_white, waveform_get_n_audio_blocks(waveform), start_pos, end_pos);
 
-	sf_count_t n_frames = MIN(audio->buf16[block_num]->size, end_pos - start_pos); //1st of these isnt needed?
-	WfBuf16* buf = audio->buf16[block_num];
-	g_return_val_if_fail(buf && buf->buf[WF_LEFT], false);
-	buf->start_frame = start_pos;
+	sf_count_t n_frames = MIN(buf16->size, end_pos - start_pos); //1st of these isnt needed?
+	g_return_val_if_fail(buf16 && buf16->buf[WF_LEFT], false);
+	buf16->start_frame = start_pos;
 
 	gboolean sf_read_float_to_short(SNDFILE* sffile, WfBuf16* buf, int ch, sf_count_t n_frames)
 	{
@@ -154,7 +147,7 @@ waveform_load_audio_block(Waveform* waveform, int block_num)
 			if(is_float){
 				//FIXME temporary? sndfile is supposed to automatically convert between formats??!
 
-				sf_read_float_to_short(sffile, buf, WF_LEFT, n_frames);
+				sf_read_float_to_short(sffile, buf16, WF_LEFT, n_frames);
 
 				if(waveform->is_split){
 					dbg(2, "is_split! file=%s", waveform->filename);
@@ -170,11 +163,11 @@ waveform_load_audio_block(Waveform* waveform, int block_num)
 						}
 						sf_seek(sffile, start_pos, SEEK_SET);
 
-						sf_read_float_to_short(sffile, buf, WF_RIGHT, n_frames);
+						sf_read_float_to_short(sffile, buf16, WF_RIGHT, n_frames);
 					}
 				}
 			}else{
-				if((readcount = sf_readf_short(sffile, buf->buf[WF_LEFT], n_frames)) < n_frames){
+				if((readcount = sf_readf_short(sffile, buf16->buf[WF_LEFT], n_frames)) < n_frames){
 					gwarn("unexpected EOF: %s", waveform->filename);
 					gwarn("                start_frame=%Li n_frames=%Lu/%Lu read=%Li", start_pos, n_frames, sfinfo.frames, readcount);
 				}
@@ -204,7 +197,7 @@ waveform_load_audio_block(Waveform* waveform, int block_num)
 			memset(w->cache->buf->buf[1], 0, WF_CACHE_BUF_SIZE);
 			#endif
 
-			wf_deinterleave16(read_buf, buf->buf, n_frames);
+			wf_deinterleave16(read_buf, buf16->buf, n_frames);
 			}
 			break;
 		default:
@@ -221,6 +214,7 @@ waveform_load_audio_block(Waveform* waveform, int block_num)
 }
 
 
+#ifdef NOT_USED
 static gboolean
 peakbuf_is_present(Waveform* waveform, int block_num)
 {
@@ -229,118 +223,46 @@ peakbuf_is_present(Waveform* waveform, int block_num)
 	dbg(2, "%i: %s", block_num, peakbuf->buf[0] ? "yes" : "no");
 	return (gboolean)peakbuf->buf[0];
 }
-
-
-gpointer
-file_load_thread(gpointer data)
-{
-	//TODO as we use a blocking call on the async queue (g_async_queue_pop) we may no longer need a main loop.
-
-	dbg(2, "new file load thread.");
-	WF* wf = wf_get_instance();
-
-	if(!wf->msg_queue){ perr("no msg_queue!\n"); return NULL; }
-
-	g_async_queue_ref(wf->msg_queue);
-
-	gboolean worker_timeout(gpointer data)
-	{
-		static GList* jobs = NULL;
-
-		WF* wf = wf_get_instance();
-
-		PeakbufQueueItem* peakbuf_queue_find(GList* jobs, PeakbufQueueItem* target)
-		{
-			GList* l = jobs;//wf_get_instance()->work_queue;
-			for(;l;l=l->next){
-				PeakbufQueueItem* item = l->data;
-				if(item->waveform == target->waveform && item->block_num == target->block_num) return item;
-			}
-			return NULL;
-		}
-
-		gboolean do_callback(gpointer _item)
-		{
-			QueueItem* item = _item;
-			if(!item->cancelled){
-				call(item->callback, item->user_data);
-			}else{
-				dbg(0, "job cancelled. not calling callback");
-				g_free(item->user_data);
-			}
-			WF* wf = wf_get_instance();
-			wf->jobs = g_list_remove(wf->jobs, item);
-			g_free(item);
-			return IDLE_STOP;
-		}
-
-		//check for new work
-		while(g_async_queue_length(wf->msg_queue)){
-			QueueItem* message = g_async_queue_pop(wf->msg_queue); // blocks
-			if(!peakbuf_queue_find(jobs, message->user_data)){
-				jobs = g_list_append(jobs, message);
-				dbg(2, "new message! %p", message);
-			}
-			else g_free(message->user_data); //not ideal.
-		}
-
-		while(jobs){
-			dbg(1, "%i jobs remaining", g_list_length(jobs));
-			QueueItem* item = g_list_first(jobs)->data;
-			jobs = g_list_remove(jobs, item);
-
-			g_idle_add(do_callback, item);
-		}
-
-		//TODO stop timer if no work?
-		return TIMER_CONTINUE;
-	}
-
-	GMainContext* context = g_main_context_new();
-
-	GSource* source = g_timeout_source_new(100);
-	gpointer _data = NULL;
-	g_source_set_callback(source, worker_timeout, _data, NULL);
-	g_source_attach(source, context);
-
-	g_main_loop_run (g_main_loop_new (context, 0));
-	return NULL;
-}
+#endif
 
 
 /*
  * load part of the audio into a ram buffer.
  * -a signal will be emitted once the load is complete.
  *
+ * If the audio is already loaded, it will be returned imediately
+ * and its cache timestamp will be updated to prevent it being purged.
+ *
  * warning: a vary large file cannot be loaded into ram all at once.
  * if the audio file is too big for the cache, then multiple parallel calls may fail.
- * -requests should be done sequentially to avoid this.
+ * -requests should be done sequentially to avoid this. [why?]
  * TODO this would be helped if the buffer was not allocated until queue processing.
  *
  */
 WfBuf16*
 waveform_load_audio_async(Waveform* waveform, int block_num, int n_tiers_needed)
 {
-	//if the audio is already loaded, it will be returned imediately
-	//and nothing further done.
-	// *** Having two return paths is bad and is subject to change.
+	// if the file is local we access it directly, otherwise send a msg.
+	// -for now, we assume the file is local.
 
-	//if the file is local we access it directly, otherwise send a msg.
-	//-for now, we assume the file is local.
+	// **** Having two return paths is bad and is subject to change.
+	// TODO should use same api as g_file_read_async ? uses GAsyncReadyCallback
 
-	//TODO should use same api as g_file_read_async ? uses GAsyncReadyCallback
-
-	PF;
+	PF2;
 	g_return_val_if_fail(waveform->priv->audio_data, NULL);
 	g_return_val_if_fail(block_num < waveform_get_n_audio_blocks(waveform), NULL);
 	WfAudioData* audio = waveform->priv->audio_data;
+	WF* wf = wf_get_instance();
 
 	if(audio->buf16){
 		WfBuf16* buf = audio->buf16[block_num];
-		if(buf) return buf;
+		if(buf){
+			buf->stamp = ++wf->audio.access_counter;
+			return buf;
+		}
 	}
 
-	waveform->priv->audio_data->n_tiers_present = MAX_TIERS;
+	audio->n_tiers_present = MAX_TIERS;
 
 	static gboolean have_thread = false;
 	GError* error = NULL;
@@ -369,11 +291,12 @@ waveform_load_audio_async(Waveform* waveform, int block_num, int n_tiers_needed)
 		return false;
 	}
 
-	void _queue_work(Waveform* waveform, WfCallback callback, gpointer user_data)
+	void _queue_work(Waveform* waveform, WfCallback work, WfCallback done, gpointer user_data)
 	{
 		QueueItem* item = g_new0(QueueItem, 1);
 		item->waveform = waveform;
-		item->callback = callback;
+		item->work = work;
+		item->done = done;
 		item->user_data = user_data;
 
 		wf_push_job(item);
@@ -381,53 +304,70 @@ waveform_load_audio_async(Waveform* waveform, int block_num, int n_tiers_needed)
 
 	void wf_peakbuf_queue_for_regen(Waveform* waveform, int block_num, int min_output_tiers)
 	{
-		PF;
+		dbg(1, "%i", block_num);
 
 		if(is_queued(waveform, block_num)) return;
+
+		WfAudioData* audio = waveform->priv->audio_data;
+		if(!audio->buf16) audio->buf16 = g_malloc0(sizeof(void*) * waveform_get_n_audio_blocks(waveform));
 
 		PeakbufQueueItem* item = g_new0(PeakbufQueueItem, 1);
 		item->waveform         = waveform;
 		item->block_num        = block_num;
+		item->buf16            = NULL;             // assigned on completion
 		item->min_output_tiers = min_output_tiers;
-
-		WfAudioData* audio = waveform->priv->audio_data;
-		if(!audio->buf16){
-			audio->buf16 = g_malloc0(sizeof(void*) * waveform_get_n_audio_blocks(waveform));
-			//the fact that this is now allocated indicates that a request has been initiated.
-			//(for this waveform, but not necesarily for this block)
-		}
 
 		void run_queue_item(gpointer item)
 		{
-			PeakbufQueueItem* peak = item;
-			WF* wf = wf_get_instance();
-			Waveform* waveform = peak->waveform;
-			WfAudioData* audio = peak->waveform->priv->audio_data;
-			int block_num = peak->block_num;
+			// runs in the worker thread.
 
-			if(!audio->buf16[block_num]){
-				audio->buf16[block_num] = g_new0(WfBuf16, 1); // this is used as a flag to indicate that the audio is now valid.
-				audio->buf16[block_num]->size = WF_PEAK_BLOCK_SIZE;
-				int c; for(c=0;c<waveform_get_n_channels(waveform);c++){
-					audio->buf16[block_num]->buf[c] = audio_cache_malloc(waveform, block_num);
-					audio->buf16[block_num]->stamp = ++wf->audio.access_counter;
-				}
+			WF* wf = wf_get_instance();
+
+			PeakbufQueueItem* peak = item;
+			Waveform* waveform = peak->waveform;
+			int block_num      = peak->block_num;
+			WfAudioData* audio = peak->waveform->priv->audio_data;
+
+			peak->buf16 = g_new0(WfBuf16, 1);
+			peak->buf16->size = WF_PEAK_BLOCK_SIZE;
+			int c; for(c=0;c<waveform_get_n_channels(waveform);c++){
+				peak->buf16->buf[c] = audio_cache_malloc(waveform, peak->buf16, block_num);
+				peak->buf16->stamp = ++wf->audio.access_counter;
 			}
 			dbg(1, "block=%i tot_audio_mem=%ukB", block_num, wf->audio.mem_size / 1024);
 
-			if(waveform_load_audio_block(peak->waveform, peak->block_num)){
-				waveform_peakbuf_regen(peak->waveform, peak->block_num, peak->min_output_tiers);
+			if(waveform_load_audio_block(peak->waveform, peak->buf16, peak->block_num)){
 
-				dbg(1, "--->");
-				g_signal_emit_by_name(peak->waveform, "peakdata-ready", peak->block_num);
+				// writes to the buffer have finished.
+				// make the buffer available.
+				if(audio->buf16[block_num]){
+					// this is unexpected as if the data is obsolete, it should perhaps be cleared imediately?
+					gwarn("overwriting old audio buffer");
+					audio_cache_free(waveform, peak->block_num);
+				}
+				audio->buf16[block_num] = peak->buf16;
+
+				waveform_peakbuf_regen(peak->waveform, peak->block_num, peak->min_output_tiers);
 			}
+		}
+
+		void audio_post(gpointer item)
+		{
+			// runs in the main thread
+
+			PeakbufQueueItem* peak = item;
+
+			dbg(1, "--->");
+			g_signal_emit_by_name(peak->waveform, "peakdata-ready", peak->block_num);
 
 			g_free(item);
 		}
-		_queue_work(waveform, run_queue_item, item);
+
+		_queue_work(waveform, run_queue_item, audio_post, item);
 	}
 
-	if(!peakbuf_is_present(waveform, block_num)) wf_peakbuf_queue_for_regen(waveform, block_num, n_tiers_needed);
+	// if(!peakbuf_is_present(waveform, block_num))        -- if v_hi_mode, the peakbuf is not enough, we need the actual audio.
+		wf_peakbuf_queue_for_regen(waveform, block_num, n_tiers_needed);
 
 	return NULL;
 }
@@ -460,14 +400,14 @@ wf_block_lookup_by_audio_buf(Waveform* w, WfBuf16* buf)
 
 
 static short*
-audio_cache_malloc(Waveform* w, int b)
+audio_cache_malloc(Waveform* w, WfBuf16* buf16, int b)
 {
 	int size = WF_PEAK_BLOCK_SIZE;
 
 	//dbg(1, "cache_size=%ik", MAX_AUDIO_CACHE_SIZE / 1024);
 	WF* wf = wf_get_instance();
 	if(wf->audio.mem_size + size > MAX_AUDIO_CACHE_SIZE){
-		dbg(1, "**** cache full. looking for audio block to delete...");
+		dbg(2, "**** cache full. looking for audio block to delete...");
 		//what to delete?
 		// - audio cache items can be in use, but only if we are at high zoom.
 		//   But as there are many views, none of which we have knowledge of, we can't use this information.
@@ -487,7 +427,7 @@ audio_cache_malloc(Waveform* w, int b)
 			}
 		}
 		if(oldest){
-			dbg(1, "clearing buf with stamp=%i ...", oldest->stamp);
+			dbg(2, "*** cache full: clearing buf with stamp=%i ...", oldest->stamp);
 			audio_cache_free(oldest_waveform, wf_block_lookup_by_audio_buf(oldest_waveform, oldest));
 		}
 		if(wf->audio.mem_size + size > MAX_AUDIO_CACHE_SIZE){
@@ -497,10 +437,11 @@ audio_cache_malloc(Waveform* w, int b)
 
 	short* buf = g_malloc(sizeof(short) * size);
 	wf->audio.mem_size += size;
-	w->priv->audio_data->buf16[b]->size = size;
-	dbg(1, "b=%i inserting: %p", b, buf);
-	g_hash_table_insert(wf->audio.cache, w->priv->audio_data->buf16[b], w); //each channel has its own entry. however as channels are always accessed together, it might be better to have one entry per Buf16*
-	audio_cache_print();
+	buf16->size = size;
+	dbg(2, "inserting b=%i", b);
+	g_hash_table_insert(wf->audio.cache, buf16, w); //each channel has its own entry. however as channels are always accessed together, it might be better to have one entry per Buf16*
+																						n_loads[b]++;
+	//audio_cache_print();
 	return buf;
 }
 
@@ -508,7 +449,7 @@ audio_cache_malloc(Waveform* w, int b)
 static void
 audio_cache_free(Waveform* w, int block)
 {
-	//currently this ONLY frees the audio data, not the structs that contain it.
+	// this now frees both the audio data, and the structs that contain it.
 
 	//dbg(1, "b=%i", block);
 
@@ -530,11 +471,22 @@ audio_cache_free(Waveform* w, int block)
 			dbg(2, "b=%i clearing right...", block);
 			g_free0(buf16->buf[WF_RIGHT]);
 		}
+		g_free0(audio->buf16[block]);
 	}
 	//audio_cache_print();
 }
 
 
+int
+wf_audio_cache_get_size()
+{
+	// return the number of blocks that can be held by the cache.
+
+	return MAX_AUDIO_CACHE_SIZE / WF_PEAK_BLOCK_SIZE;
+}
+
+
+#if UNUSED
 static void
 audio_cache_print()
 {
@@ -572,7 +524,6 @@ audio_cache_print()
 }
 
 
-#if UNUSED
 static float
 int2db(short x) // only used for debug output
 {

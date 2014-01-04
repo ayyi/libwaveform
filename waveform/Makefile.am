@@ -41,6 +41,7 @@ libwaveform_la_SOURCES = \
 	$(OPENGL_SOURCES) \
 	peakgen.c peakgen.h \
 	audio.c audio.h \
+	worker.c worker.h \
 	utils.c utils.h
 
 EXTRA_DIST = \

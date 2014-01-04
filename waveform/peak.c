@@ -1259,47 +1259,6 @@ wf_peakbuf_new(int block_num)
 }
 
 
-#if 0
-static gboolean
-peakbuf_on_idle()
-{
-	//process a single block from the peakbuf draw queue.
-
-	static int debug_rec_count = 0;
-	dbg(1, "count=%i", debug_rec_count++);
-
-	if (wf_get_instance()->work_queue) {
-		QueueItem* item = wf_get_instance()->work_queue->data;
-		g_return_val_if_fail(item, false);
-		call(item->callback, item->user_data);
-
-		wf_get_instance()->work_queue = g_list_remove(wf_get_instance()->work_queue, item);
-		dbg(1, "done. remaining=%i", g_list_length(wf_get_instance()->work_queue));
-	}
-
-	if (!wf_get_instance()->work_queue){ peak_idle = 0; debug_rec_count--; return IDLE_STOP; }
-
-	void peakbuf_print_queue()
-	{
-		int i = 0;
-		GList* l = wf_get_instance()->work_queue;
-		for(;l;l=l->next){
-		/*
-			QueueItem* item = l->data;
-			printf("  %i %s\n", item->block_num, item->pool_item->leafname);
-		*/
-			i++;
-		}
-		printf("------------------- tot=%i\n", i);
-	}
-	//peakbuf_print_queue();
-
-	debug_rec_count--;
-	return true;
-}
-#endif
-
-
 uint32_t
 wf_peakbuf_get_max_size(int n_tiers)
 {
@@ -1357,7 +1316,7 @@ waveform_get_n_audio_blocks(Waveform* w)
 	if(!audio->n_blocks){
 		uint64_t n_frames = waveform_get_n_frames(w);
 
-		int xtra = (w->n_frames % WF_PEAK_BLOCK_SIZE) ? 1 : 0;
+		int xtra = (n_frames % WF_SAMPLES_PER_TEXTURE) ? 1 : 0;
 		audio->n_blocks = n_frames / WF_SAMPLES_PER_TEXTURE + xtra; // WF_SAMPLES_PER_TEXTURE takes border into account
 		dbg(2, "remainder=%i xtra=%i", remainder, xtra);
 

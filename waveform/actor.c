@@ -69,6 +69,7 @@
 #ifdef USE_FBO
 #define multipass
 #endif
+																												extern int n_loads[4096];
 
 #define HIRES_NONSHADER_TEXTURES // work in progress
                                  // because of the issue with missing peaks with reduced size textures without shaders, this option is possibly unwanted.
@@ -251,7 +252,6 @@ wf_actor_new(Waveform* w, WaveformCanvas* wfc)
 		dbg(1, "block=%i", block);
 
 		ModeRange mode = mode_range(a);
-
 		if(mode.lower == MODE_HI || mode.upper == MODE_HI)
 			_wf_actor_load_texture_hi(a, block);
 
@@ -803,7 +803,7 @@ wf_actor_on_animation_finished(WfAnimation* animation, gpointer user_data)
 static void
 _wf_actor_get_viewport_max(WaveformActor* a, WfViewPort* viewport)
 {
-	//special version of get_viewport that gets the outer viewport for duration of the current the animation.
+	//special version of get_viewport that gets the outer viewport for duration of the current animation.
 
 	WaveformCanvas* canvas = a->canvas;
 
@@ -888,6 +888,11 @@ _wf_actor_allocate_hi(WaveformActor* a)
 	WfViewPort viewport; _wf_actor_get_viewport_max(a, &viewport);
 	double zoom = rect->len / a->region.len;
 
+#if 0
+	// load _all_ blocks for the transition range
+	// -works well at low-zoom and for smallish transitions
+	// but can uneccesarily load too many blocks.
+
 	WfAnimatable* start = &_a->animatable.start;
 	WfSampleRegion region = {MIN(start->val.i, *start->model_val.i), _a->animatable.len.val.i};
 	int first_block = wf_actor_get_first_visible_block(&region, zoom, rect, &viewport);
@@ -895,6 +900,7 @@ _wf_actor_allocate_hi(WaveformActor* a)
 	region.start = MAX(start->val.i, *_a->animatable.start.model_val.i);
 	int last_block = wf_actor_get_last_visible_block(&region, rect, zoom, &viewport, a->waveform->textures);
 	dbg(1, "%i--->%i", first_block, last_block);
+	if(last_block - first_block > wf_audio_cache_get_size()) gwarn("too many blocks requested. increase cache size");
 
 	int b;for(b=first_block;b<=last_block;b++){
 		int n_tiers_needed = get_min_n_tiers();
@@ -902,6 +908,57 @@ _wf_actor_allocate_hi(WaveformActor* a)
 			_wf_actor_load_texture_hi(a, b);
 		}
 	}
+#else
+	// load only the needed blocks - unfortunately is difficult to predict.
+
+	void add_block(WaveformActor* a, int b)
+	{
+		// dont worry about dupes, the queue will remove them
+
+		int n_tiers_needed = get_min_n_tiers();
+		if(waveform_load_audio_async(a->waveform, b, n_tiers_needed)){
+			_wf_actor_load_texture_hi(a, b);
+		}
+	}
+
+	WfAnimatable* start = &_a->animatable.start;
+	WfSampleRegion region = {*start->model_val.i, *_a->animatable.len.model_val.i};
+	int first_block = wf_actor_get_first_visible_block(&region, zoom, rect, &viewport);
+	int last_block = wf_actor_get_last_visible_block(&region, rect, zoom, &viewport, a->waveform->textures);
+
+	int b;for(b=first_block;b<=last_block;b++){
+		add_block(a, b);
+	}
+
+	gboolean is_new = a->rect.len == 0.0;
+	gboolean animate = a->canvas->draw && a->canvas->enable_animations && !is_new;
+	if(animate){
+		// add blocks for transition
+		// note that the animation doesnt run exactly on time so the position when redrawing cannot be precisely predicted.
+
+		//FIXME duplicated from animator.c
+		uint32_t transition_linear(WfAnimation* Xanimation, WfAnimatable* animatable, int time)
+		{
+			uint64_t len = 300;//animation->end - animation->start;
+			uint64_t t = time - 0;//animation->start;
+
+			float time_fraction = MIN(1.0, ((float)t) / len);
+			float orig_val   = animatable->type == WF_INT ? animatable->start_val.i : animatable->start_val.f;
+			float target_val = animatable->type == WF_INT ? *animatable->model_val.i : *animatable->model_val.f;
+			dbg(2, "%.2f orig=%.2f target=%.2f", time_fraction, orig_val, target_val);
+			return  (1.0 - time_fraction) * orig_val + time_fraction * target_val;
+		}
+
+		int t; for(t=0;t<300;t+=WF_FRAME_INTERVAL){ //TODO 300
+			uint32_t s = transition_linear(NULL, start, t);
+			region.start = s;
+			int b = wf_actor_get_first_visible_block(&region, zoom, rect, &viewport);
+			//dbg(0, "transition: %u %i", s, b);
+
+			add_block(a, b);
+		}
+	}
+#endif
 }
 
 
@@ -1792,6 +1849,7 @@ wf_actor_paint(WaveformActor* actor)
 							break;
 						}
 					}
+					// if we fall through here, the MODE_HI texture is very likely not to be loaded.
 
 				case MODE_HI:
 					;Peakbuf* peakbuf = waveform_get_peakbuf_n(w, b);
@@ -2358,3 +2416,10 @@ _wf_actor_print_hires_textures(WaveformActor* a)
 	}
 }
 
+#ifdef USE_TEST
+GList*
+wf_actor_get_transitions(WaveformActor* a)
+{
+	return a->priv->transitions;
+}
+#endif

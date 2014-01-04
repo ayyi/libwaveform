@@ -48,5 +48,10 @@ Xinstall-data-local:
 		fi \
 	done;
 
+.PHONY: dummy
+
+test: dummy
+	cd test && make test
+
 CLEANFILES = waveform.pc \
 	shaders/shaders.c

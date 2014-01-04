@@ -52,4 +52,9 @@ void            wf_actor_fade_in                          (WaveformActor*, void*
 void            wf_actor_set_vzoom                        (WaveformActor*, float);
 void            wf_actor_paint                            (WaveformActor*);
 
+#ifdef USE_TEST
+// access to private data
+GList*          wf_actor_get_transitions                  (WaveformActor*);
+#endif
+
 #endif //__waveform_actor_h__

@@ -30,11 +30,23 @@
 #include <stdint.h>
 #include <math.h>
 #include <sys/ioctl.h>
+#include <sys/time.h>
 #include <glib.h>
 #include "waveform/peak.h"
 #include "waveform/utils.h"
 
 int wf_debug = 0;
+
+
+#undef SHOW_TIME
+#ifdef SHOW_TIME
+static uint64_t _get_time()
+{
+	struct timeval start;
+	gettimeofday(&start, NULL);
+	return start.tv_sec * 1000 + start.tv_usec / 1000;
+}
+#endif
 
 
 void
@@ -44,7 +56,11 @@ wf_debug_printf(const char* func, int level, const char* format, ...)
 
     va_start(args, format);
     if (level <= wf_debug) {
-        fprintf(stderr, "%s(): ", func);
+#ifdef SHOW_TIME
+		fprintf(stderr, "%Lu %s(): ", _get_time(), func);
+#else
+		fprintf(stderr, "%s(): ", func);
+#endif
         vfprintf(stderr, format, args);
         fprintf(stderr, "\n");
     }
@@ -167,6 +183,15 @@ wf_get_filename_for_other_channel(const char* filename, char* other, int n_chars
 
     other[0] = '\0';
 	return FALSE;
+}
+
+
+guint64
+wf_get_time()
+{
+	struct timeval start;
+	gettimeofday(&start, NULL);
+	return start.tv_sec * 1000 + start.tv_usec / 1000;
 }
 
 

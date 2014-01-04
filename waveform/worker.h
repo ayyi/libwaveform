@@ -14,19 +14,23 @@
   along with this program; if not, write to the Free Software
   Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 */
-#ifndef __wf_audio_h__
-#define __wf_audio_h__
-#include "waveform/waveform.h"
-
-#define MAX_TIERS 8 //this is related to WF_PEAK_RATIO: WF_PEAK_RATIO = 2 ^ MAX_TIERS.
-struct _audio_data {
-	int                n_blocks;          // the size of the buf array
-	WfBuf16**          buf16;             // pointers to arrays of blocks, one per block.
-	int                n_tiers_present;
-};
+#ifndef __wf_worker_h__
+#define __wf_worker_h__
 
 #ifdef __wf_private__
-int wf_audio_cache_get_size();
-#endif
 
-#endif //__wf_audio_h__
+gpointer file_load_thread (gpointer);
+
+typedef void   (*WfCallback)    (gpointer user_data);
+
+typedef struct _queue_item
+{
+	Waveform*        waveform;
+	WfCallback       work;
+	WfCallback       done;
+	void*            user_data;
+	gboolean         cancelled;
+} QueueItem;
+
+#endif
+#endif

@@ -322,8 +322,7 @@ peakbuf_allocate(Peakbuf* peakbuf, int c)
 	peakbuf->buf[c] = g_malloc0(sizeof(short) * peakbuf->size);
 	peak_mem_size += (peakbuf->size * sizeof(short));
 
-	//dbg(0, "short=%i", sizeof(short));
-	dbg(1, "c=%i b=%i: size=%i tot_peak_mem=%ikB", c, peakbuf->block_num, peakbuf->size, peak_mem_size / 1024);
+	dbg(2, "c=%i b=%i: size=%i tot_peak_mem=%ikB", c, peakbuf->block_num, peakbuf->size, peak_mem_size / 1024);
 	return peakbuf->buf[c];
 }
 
@@ -346,7 +345,7 @@ waveform_peakbuf_regen(Waveform* waveform, int block_num, int min_tiers)
 
 	// TODO caching: consider saving to disk, and using kernel caching. clear cache on exit.
 
-	PF;
+	dbg(2, "%i", block_num);
 
 	int min_output_tiers = min_tiers;
 
