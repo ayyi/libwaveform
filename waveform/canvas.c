@@ -190,7 +190,9 @@ wf_canvas_finalize(GObject* obj)
 void
 wf_canvas_free (WaveformCanvas* wfc)
 {
+	g_return_if_fail(wfc);
 	PF;
+
 	if(wfc->_queued){ g_source_remove(wfc->_queued); wfc->_queued = false; }
 	//if(wfc->priv->peak_shader) g_free(wfc->priv->peak_shader);
 	wf_canvas_finalize((GObject*)wfc);

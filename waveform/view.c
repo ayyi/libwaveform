@@ -397,7 +397,7 @@ waveform_view_unrealize (GtkWidget* widget)
 		self->waveform = NULL; // is unreffed by wf_actor_free
 	}
 
-	wf_canvas_free0(self->priv->canvas);
+	if(self->priv->canvas) wf_canvas_free0(self->priv->canvas);
 	self->priv->canvas_init_done = false;
 }
 
