@@ -209,6 +209,7 @@ _ruler_set_uniforms()
 	agl_rgba_to_float(ruler.uniform.fg_colour, &fg_colour[0], &fg_colour[1], &fg_colour[2]);
 	glUniform4fv(glGetUniformLocation(ruler.shader.program, "fg_colour"), 1, fg_colour);
 
+	glUniform1iv(glGetUniformLocation(shader->program, "markers"), 10, ((RulerShader*)shader)->uniform.markers);
 	glUniform1f(glGetUniformLocation(shader->program, "beats_per_pixel"), ((RulerShader*)shader)->uniform.beats_per_pixel);
 	glUniform1f(glGetUniformLocation(shader->program, "viewport_left"), ((RulerShader*)shader)->uniform.viewport_left);
 }

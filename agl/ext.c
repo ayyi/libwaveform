@@ -55,6 +55,7 @@ get_gl_extensions()
    glUniform2fv = (PFNGLUNIFORM2FVPROC) glutGetProcAddress("glUniform2fv");
    glUniform3fv = (PFNGLUNIFORM3FVPROC) glutGetProcAddress("glUniform3fv");
    glUniform4fv = (PFNGLUNIFORM3FVPROC) glutGetProcAddress("glUniform4fv");
+   glUniform1iv = (PFNGLUNIFORM1IVPROC) glutGetProcAddress("glUniform1iv");
 #if 0
    glUniformMatrix2fv_func = (PFNGLUNIFORMMATRIX2FVPROC) glutGetProcAddress("glUniformMatrix2fv");
    glUniformMatrix3fv_func = (PFNGLUNIFORMMATRIX3FVPROC) glutGetProcAddress("glUniformMatrix3fv");

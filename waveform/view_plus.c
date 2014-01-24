@@ -512,7 +512,7 @@ waveform_view_plus_unrealize (GtkWidget* widget)
 	if(self->priv->actor){
 		wf_canvas_remove_actor(self->priv->canvas, self->priv->actor);
 		self->priv->actor = 0;
-		self->waveform = NULL; // is unreffed by wf_actor_free
+		if(self->waveform) _g_object_unref0(self->waveform); // is unreffed by wf_actor_free, but the view also needs to release its reference.
 	}
 
 	if(self->priv->canvas) wf_canvas_free0(self->priv->canvas);

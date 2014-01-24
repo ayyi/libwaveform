@@ -1,14 +1,17 @@
 /*
-  Tests for opengl textures at hi res using large files
+  Tests for opengl textures using large files
 
   Automated but opens a gui window.
 
-  Shows many different views at hi res mode to check that the cache
-  works when full and that the correct data for the view is available.
+  1-test basic hires
+  2-test textures are loaded when scrolling
+      Shows many different views at hi res mode to check that the cache
+      works when full and that the correct data for the view is available.
+  3-test texture cache is emptied at lowres when the Waveform is free'd.
 
   ---------------------------------------------------------------
 
-  copyright (C) 2013 Tim Orford <tim@orford.org>
+  copyright (C) 2013-2014 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -43,6 +46,7 @@
 #include "waveform/actor.h"
 #include "waveform/audio.h"
 #include "waveform/gl_utils.h"
+#include "waveform/texture_cache.h"
 #include "test/common.h"
 
 #define GL_WIDTH 512.0
@@ -68,13 +72,14 @@ static void on_canvas_realise  (GtkWidget*, gpointer);
 static void on_allocate        (GtkWidget*, GtkAllocation*, gpointer);
 uint64_t    get_time           ();
 
-TestFn create_files, test_shown, test_hires, scroll, finish;
+TestFn create_files, test_shown, test_hires, test_scroll, test_add_remove, finish;
 
 gpointer tests[] = {
 	create_files,
 	test_shown,
 	test_hires,
-	scroll,
+	test_scroll,
+	test_add_remove,
 	finish,
 };
 
@@ -166,7 +171,6 @@ test_hires()
 
 	gboolean check_zoom(gpointer data)
 	{
-		//WfRectangle* rect = &a[0]->rect;
 		WfSampleRegion* region = &a[0]->region;
 
 		assert_and_stop((region->len == REGION_LEN), "region length");
@@ -245,7 +249,7 @@ test_hires()
 				}
 
 void
-scroll()
+test_scroll()
 {
 	START_TEST;
 
@@ -333,6 +337,51 @@ scroll()
 	next = next_scroll;
 
 	next_scroll();
+}
+
+
+void
+test_add_remove()
+{
+	// check the texture is cleared of dead Waveform's in LOW res.
+
+	START_TEST;
+
+	void set_low_res()
+	{
+		int i; for(i=0;i<G_N_ELEMENTS(a);i++)
+			wf_actor_set_region(a[i], &(WfSampleRegion){
+				0,
+				a[i]->waveform->n_frames - 1             //TODO this won't neccesarily be LOW_RES for all wav's
+			});
+	}
+	set_low_res();
+
+	static WaveformBlock wb; wb = (WaveformBlock){a[0]->waveform, 0 | WF_TEXTURE_CACHE_LORES_MASK};
+
+	gboolean check_not_in_cache(gpointer user_data)
+	{
+		int t = texture_cache_lookup(wb);
+		assert_and_stop((t == -1), "cache not cleared: lookup got texture: %i", t);
+		FINISH_TEST_TIMER_STOP;
+	}
+
+	gboolean check_in_cache(gpointer user_data)
+	{
+		int t = texture_cache_lookup(wb);
+		assert_and_stop((t != -1), "block 0 not found in cache");
+
+		int i; for(i=0;i<G_N_ELEMENTS(a);i++){
+			wf_canvas_remove_actor(wfc, a[i]);
+			a[i] = 0;
+		}
+		g_object_unref(w1);
+
+		g_timeout_add(2000, check_not_in_cache, NULL);
+		return TIMER_STOP;
+	}
+
+	g_timeout_add(5000, check_in_cache, NULL);
 }
 
 
@@ -463,6 +512,7 @@ on_canvas_realise(GtkWidget* _canvas, gpointer user_data)
 
 		WfSampleRegion region[] = {
 			{0,            REGION_LEN    },
+			//{0,            w1->n_frames - 1    },
 			//{0,            n_frames / 2},
 			//{n_frames / 4, n_frames / 4},
 			//{n_frames / 2, n_frames / 2},

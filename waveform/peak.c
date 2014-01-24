@@ -129,7 +129,8 @@ __finalize (Waveform* w)
 
 	wf_cancel_jobs(w);
 
-	if(g_hash_table_size(wf->peak_cache) && !g_hash_table_remove(wf->peak_cache, w)) gwarn("failed to remove waveform from peak_cache");
+	// the warning below occurs when the waveform is created and destroyed very quickly.
+	if(g_hash_table_size(wf->peak_cache) && !g_hash_table_remove(wf->peak_cache, w) && wf_debug) gwarn("failed to remove waveform from peak_cache");
 
 	int c; for(c=0;c<WF_MAX_CH;c++){
 		if(w->priv->peak.buf[c]) g_free(w->priv->peak.buf[c]);

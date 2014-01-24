@@ -953,7 +953,7 @@ _wf_actor_allocate_hi(WaveformActor* a)
 			uint32_t s = transition_linear(NULL, start, t);
 			region.start = s;
 			int b = wf_actor_get_first_visible_block(&region, zoom, rect, &viewport);
-			//dbg(0, "transition: %u %i", s, b);
+			dbg(0, "transition: %u %i", s, b);
 
 			add_block(a, b);
 		}

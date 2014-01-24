@@ -415,15 +415,20 @@ static void
 texture_cache_print()
 {
 	int n_used = 0;
+	GList* waveforms = NULL;
 	if(c->t->len){
-		printf("         t  b  w\n");
+		printf("         %3s  %3s   %-4s\n", "t", "b", "w");
 		int i; for(i=0;i<c->t->len;i++){
 			Texture* t = &g_array_index(c->t, Texture, i);
-			printf("    %2i: %2i %i %p\n", i, t->time_stamp, t->wb.block, t->wb.waveform);
-			if(t->wb.waveform) n_used++;
+			printf("    %3i: %3i %4i %s %p\n", i, t->time_stamp, t->wb.block & (~WF_TEXTURE_CACHE_LORES_MASK), t->wb.block & WF_TEXTURE_CACHE_LORES_MASK ? "L" : "M", t->wb.waveform);
+			if(t->wb.waveform){
+				n_used++;
+				if(!g_list_find(waveforms, t->wb.waveform)) waveforms = g_list_append(waveforms, t->wb.waveform);
+			}
 		}
 	}
-	dbg(0, "array_size=%i n_used=%i", c->t->len, n_used);
+	dbg(0, "array_size=%i n_used=%i n_waveforms=%i", c->t->len, n_used, g_list_length(waveforms));
+	g_list_free(waveforms);
 }
 
 

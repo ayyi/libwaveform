@@ -1,5 +1,5 @@
 /*
-  copyright (C) 2012 Tim Orford <tim@orford.org>
+  copyright (C) 2012-2014 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -17,8 +17,8 @@
 
 uniform float beats_per_pixel;
 uniform float viewport_left;
-//uniform float top;
 uniform vec4 fg_colour;
+uniform int markers[10];
 
 varying vec2 MCposition;
 varying vec2 ecPosition;
@@ -43,6 +43,15 @@ void main(void)
 	//-if the projections are the same, gl_FragCoord will give same results as ecPosition ?
 	//if(fract((gl_FragCoord.x -0.5 ) / pixels_per_beat) > 0.05) c[3] = 0.0;
 
+	int i; for(i=0;i<2;i++){
+		int locator_beat = markers[i] / (11025 * 3840); //TODO should use samples instead of AyyiSongPos
+		float locator_x = float(locator_beat) / beats_per_pixel - viewport_left;
+
+		if(MCposition.x > locator_x - 0.5 && MCposition.x < locator_x + 0.5){
+			gl_FragColor = vec4(0.0, 0.0, 1.0, 1.0);
+			return;
+		}
+	}
 
 	float interval = 0.0;
 	if(MCposition.y < 3.0){
