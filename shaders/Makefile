@@ -1,8 +1,10 @@
 all:
 	./make_shaders
 
+install:
+
 clean:
-	rm shaders.c
+	if [ -f shaders.c ]; then rm shaders.c; fi
 
 distclean:
 
