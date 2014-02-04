@@ -304,16 +304,16 @@ int main(int argc, char* argv[])
 
 	//---
 
-	float* output_f[n_channels];
+	float aa[2];
+	float* output_f[] = {&aa[0], &aa[1]};
+
 	cpgrs.init();
 	for(int a=0;a<LONG_SECTION;a++){
 		int c; for(c=0;c<n_channels;c++){
 			output[c] = buffer + ff * n_channels + a * n_channels + c;
 		}
+		float* output_f[] = {(float*)&output[0][0], (float*)&output[0][1]};
 		cpgrs.compute(n_channels, (float**)input, (float**)output_f);
-		for(c=0;c<n_channels;c++){
-			output[0][c] = output_f[0][c];
-		}
 	}
 	ff += LONG_SECTION;
 	cpgrs.release = 0.01; // <----

@@ -83,7 +83,7 @@ OpenGl shaders will be used if available, otherwise it will fallback
 to using 8 bit textures.
 
 WaveformActor's share a common WfCanvas object.
-The canvas has the following directly setable properties:
+The canvas has the following directly settable properties:
 ```c
 	uint32_t sample_rate
 ```
