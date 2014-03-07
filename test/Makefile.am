@@ -22,6 +22,7 @@ TEST_LDFLAGS = \
 	$(top_srcdir)/waveform/.libs/libwaveform.a \
 	$(top_srcdir)/agl/.libs/libagl.a \
 	$(top_srcdir)/transition/.libs/libtransition.a \
+	-lm \
 	$(GTK_LDFLAGS) \
 	$(SNDFILE_LIBS) \
 	$(OPENGL_LDFLAGS)

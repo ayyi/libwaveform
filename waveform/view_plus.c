@@ -325,11 +325,14 @@ waveform_view_plus_load_file (WaveformViewPlus* view, const char* filename)
 			if(!view->priv->canvas_init_done) waveform_view_plus_init_drawable(view);
 
 			WaveformActor* actor = view->priv->actor = wf_canvas_add_new_actor(c->view->priv->canvas, c->view->waveform);
-			wf_actor_set_region(actor, &(WfSampleRegion){0, waveform_get_n_frames(c->view->waveform)});
-			wf_actor_set_colour(view->priv->actor, view->fg_colour, view->bg_colour);
 
-			waveform_load(c->view->waveform);
+			uint64_t n_frames = waveform_get_n_frames(c->view->waveform);
+			if(n_frames){
+				wf_actor_set_region(actor, &(WfSampleRegion){0, n_frames});
+				wf_actor_set_colour(view->priv->actor, view->fg_colour, view->bg_colour);
 
+				waveform_load(c->view->waveform);
+			}
 			_waveform_view_plus_set_actor(c->view);
 
 			gtk_widget_queue_draw((GtkWidget*)c->view);

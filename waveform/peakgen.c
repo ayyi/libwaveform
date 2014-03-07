@@ -127,11 +127,13 @@ wf_peakgen(const char* infilename, const char* peak_filename)
 
 	SF_INFO sfinfo;
 	if(!(infile = sf_open(infilename, SFM_READ, &sfinfo))){
-		if(!g_file_test(infilename, G_FILE_TEST_EXISTS)){
-			printf("peakgen: no such input file: '%s'\n", infilename);
-		}else{
-			printf("peakgen: not able to open input file %s.\n", infilename);
-			puts(sf_strerror (NULL));
+		if(wf_debug){
+			if(!g_file_test(infilename, G_FILE_TEST_EXISTS)){
+				printf("peakgen: no such input file: '%s'\n", infilename);
+			}else{
+				printf("peakgen: not able to open input file %s.\n", infilename);
+				puts(sf_strerror (NULL));
+			}
 		}
 		return false;
 	}
