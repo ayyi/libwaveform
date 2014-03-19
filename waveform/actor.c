@@ -361,10 +361,16 @@ static double wf_actor_samples2gl(double zoom, uint32_t n_samples)
 }
 
 
+#define FIRST_NOT_VISIBLE 10000
+#define LAST_NOT_VISIBLE (-1)
+
 static int
 wf_actor_get_first_visible_block(WfSampleRegion* region, double zoom, WfRectangle* rect, WfViewPort* viewport_px)
 {
-	// return the block number of the first block of the actor that is within the given viewport.
+	// return the block number of the first block of the actor that is within the given viewport
+	// or FIRST_NOT_VISIBLE if the actor is outside the viewport.
+
+	if(rect->left > viewport_px->right) return FIRST_NOT_VISIBLE;
 
 	int resolution = get_resolution(zoom);
 	int samples_per_texture = WF_SAMPLES_PER_TEXTURE * (resolution == 1024 ? WF_PEAK_STD_TO_LO : 1);
@@ -375,42 +381,21 @@ wf_actor_get_first_visible_block(WfSampleRegion* region, double zoom, WfRectangl
 
 	int region_start_block = region->start / samples_per_texture;
 	int region_end_block = (region->start + region->len) / samples_per_texture;
-	int b; for(b=region_start_block;b<=region_end_block;b++){
+	int b; for(b=region_start_block;b<=region_end_block-1;b++){ // stop before the last block
 		int block_start_px = file_start_px + b * block_wid;
 		double block_end_px = block_start_px + block_wid;
 		dbg(3, "block_pos_px=%i", block_start_px);
 		if(block_end_px >= viewport_px->left) return b;
 	}
+	{
+		// check last block:
+		double block_end_px = file_start_px + wf_actor_samples2gl(zoom, region->start + region->len);
+		if(block_end_px >= viewport_px->left) return b;
+	}
 
 	dbg(1, "region outside viewport? vp_left=%.2f region_end=%.2f", viewport_px->left, file_start_px + region_inset_px + wf_actor_samples2gl(zoom, region->len));
-	//														dbg(0, "region outside viewport? vp_left=%.2f region_end=%.2f", viewport_px->left, file_start_px + region_inset_px + wf_actor_samples2gl(zoom, region->len));
-	return 10000;
+	return FIRST_NOT_VISIBLE;
 }
-	//duplicates wf_actor_get_first_visible_block
-	/*
-	static int
-	get_first_visible_block(WfSampleRegion* region, double zoom, WfRectangle* rect, WfViewPort* viewport_px)
-	{
-		int block_size = WF_PEAK_BLOCK_SIZE;
-
-		double part_inset_px = wf_actor_samples2gl(zoom, region->start);
-		double file_start_px = rect->left - part_inset_px;
-		double block_wid = wf_actor_samples2gl(zoom, block_size);
-
-		int part_start_block = region->start / block_size;
-		int part_end_block = (region->start + region->len) / block_size;
-		int b; for(b=part_start_block;b<=part_end_block;b++){
-			int block_pos_px = file_start_px + b * block_wid;
-			dbg(3, "block_pos_px=%i", block_pos_px);
-			double block_end_px = block_pos_px + block_wid;
-			if(block_end_px >= viewport_px->left) return b;
-		}
-
-		dbg(1, "region outside viewport? vp_left=%.2f", viewport_px->left);
-		return 10000;
-	}
-	*/
-
 
 
 static int
@@ -418,11 +403,13 @@ wf_actor_get_last_visible_block(WfSampleRegion* region, WfRectangle* rect, doubl
 {
 	//the region, rect and viewport are passed explictly because different users require slightly different values during transitions.
 
+	if(rect->left > viewport_px->right) return LAST_NOT_VISIBLE;
+
 	int resolution = get_resolution(zoom);
 	int samples_per_texture = WF_SAMPLES_PER_TEXTURE * (resolution == 1024 ? WF_PEAK_STD_TO_LO : 1);
 
-	g_return_val_if_fail(textures, -1);
-	g_return_val_if_fail(viewport_px->right - viewport_px->left > 0.01, -1);
+	g_return_val_if_fail(textures, LAST_NOT_VISIBLE);
+	g_return_val_if_fail(viewport_px->right - viewport_px->left > 0.01, LAST_NOT_VISIBLE);
 
 	//dbg(1, "rect: %.2f --> %.2f", rect->left, rect->left + rect->len);
 
@@ -455,58 +442,13 @@ wf_actor_get_last_visible_block(WfSampleRegion* region, WfRectangle* rect, doubl
 #endif
 	}
 
+	if(file_start_px + wf_actor_samples2gl(zoom, region->start + region->len) < viewport_px->left){
+		return LAST_NOT_VISIBLE;
+	}
+
 	dbg(2, "end not outside viewport. vp_right=%.2f last=%i", viewport_px->right, region_end_block);
 	return region_end_block;
 }
-
-	//duplicates wf_actor_get_last_visible_block above
-#if 0
-	static int
-	get_last_visible_block(WaveformActor* a, double zoom, WfViewPort* viewport_px)
-	{
-		//TODO this is the same as for the texture blocks - refactor with block_size argument. need to remove MIN
-
-		int block_size = WF_PEAK_BLOCK_SIZE;
-
-		Waveform* waveform = a->waveform;
-		WfSampleRegion region = {a->priv->animatable.start.val.i, a->priv->animatable.len.val.i};
-		WfRectangle rect = {a->rect.left, a->rect.top, a->priv->animatable.rect_len.val.f, a->rect.height};
-
-		g_return_val_if_fail(waveform, -1);
-		g_return_val_if_fail(waveform->textures, -1);
-		g_return_val_if_fail(viewport_px->right - viewport_px->left > 0.01, -1);
-
-		//dbg(1, "rect: %.2f --> %.2f", rect->left, rect->left + rect->len);
-
-		double part_inset_px = wf_actor_samples2gl(zoom, region.start);
-		double file_start_px = rect.left - part_inset_px;
-		double block_wid = wf_actor_samples2gl(zoom, block_size);
-		//dbg(1, "vp->right=%.2f", viewport_px->right);
-		int region_start_block = region.start / block_size;
-		float _end_block = ((float)(region.start + region.len)) / block_size;
-		dbg(2, "region_start=%i region_end=%i start_block=%i end_block=%.2f(%.i) n_peak_frames=%i gl->size=%i", region.start, region.len, region_start_block, _end_block, (int)ceil(_end_block), waveform->textures->size * 256, waveform->textures->size);
-
-		//we round _down_ as the block corresponds to the _start_ of a section.
-		//int region_end_block = MIN(ceil(_end_block), waveform->textures->size - 1);
-// FIXME
-		//int region_end_block = MIN(_end_block, waveform->textures->size - 1);
-int region_end_block = MIN(_end_block, waveform_get_n_audio_blocks(waveform) - 1);
-
-//		if(region_end_block >= waveform->textures->size) gwarn("!!");
-
-		//crop to viewport:
-		int b; for(b=region_start_block;b<=region_end_block-1;b++){ //note we dont check the last block which can be partially outside the viewport
-			float block_end_px = file_start_px + (b + 1) * block_wid;
-			//dbg(1, " %i: block_px: %.1f --> %.1f", b, block_end_px - (int)block_wid, block_end_px);
-			if(block_end_px > viewport_px->right) dbg(2, "end %i clipped by viewport at block %i. vp.right=%.2f block_end=%.1f", region_end_block, MAX(0, b/* - 1*/), viewport_px->right, block_end_px);
-			if(block_end_px > viewport_px->right) return MAX(0, b/* - 1*/);
-		}
-
-		dbg(2, "end not outside viewport. vp_right=%.2f last=%i", viewport_px->right, region_end_block);
-		return region_end_block;
-	}
-#endif
-
 
 
 #if defined (USE_FBO) && defined (multipass)
@@ -1718,12 +1660,24 @@ wf_actor_paint(WaveformActor* actor)
 		int region_end_block     = (region.start + region.len) / samples_per_texture - (!((region.start + region.len) % samples_per_texture) ? 1 : 0);
 		int viewport_start_block = wf_actor_get_first_visible_block(&region, zoom, &rect, &viewport);
 		int viewport_end_block   = wf_actor_get_last_visible_block (&region, &rect, zoom, &viewport, textures);
+
+		if(viewport_end_block == LAST_NOT_VISIBLE && viewport_start_block == FIRST_NOT_VISIBLE){
+			return;
+		}
 		g_return_if_fail(viewport_end_block >= viewport_start_block);
 
+#if 0 // the viewport checking has been moved into wf_actor_get_first_visible_block, wf_actor_get_last_visible_block
+		if(rect.left > viewport.right){
+			gwarn("rhs: rect.left=%.2f viewport.right=%.2f", rect.left, viewport.right);
+		}
+		if(rect.left + rect.len < viewport.left){
+			gwarn("lhs: rect.right=%.2f viewport.left=%.2f", rect.left + rect.len, viewport.left);
+		}
 		if(rect.left > viewport.right || rect.left + rect.len < viewport.left){
 			dbg(2, "actor is outside viewport. not drawing");
 			return;
 		}
+#endif
 
 		if(region_end_block > textures->size -1){ gwarn("region too long? region_end_block=%i n_blocks=%i region.len=%i", region_end_block, textures->size, region.len); region_end_block = w->textures->size -1; }
 		dbg(2, "block range: region=%i-->%i viewport=%i-->%i", region_start_block, region_end_block, viewport_start_block, viewport_end_block);
