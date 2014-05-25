@@ -625,7 +625,7 @@ pango_gl_render_layout_line (PangoLayoutLine *line,
 }
 
 void
-pango_clutter_render_clear_caches (void)
+pango_gl_render_clear_caches (void)
 {
   tc_clear();
 }

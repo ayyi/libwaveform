@@ -27,7 +27,6 @@ OPENGL_SOURCES = \
 	alphabuf.c alphabuf.h \
 	grid.c grid.h \
 	texture_cache.c texture_cache.h \
-	hi_res.c hi_res.h \
 	fbo.c fbo.h \
 	$(ASS_SOURCES)
 endif
@@ -45,11 +44,16 @@ libwaveform_la_SOURCES = \
 	utils.c utils.h
 
 EXTRA_DIST = \
+	med_res.c \
+	hi_res.c \
+	v_hi_res.c \
 	view_gl.c \
 	view_plus_gl.c
 
+pkgincludedir=$(includedir)/waveform
 pkginclude_HEADERS = \
 	waveform.h \
+	typedefs.h \
 	peak.h \
 	peakgen.h \
 	loaders/ardour.h \
@@ -57,7 +61,6 @@ pkginclude_HEADERS = \
 	view.h \
 	actor.h \
 	canvas.h \
-	hi_res.h \
 	utils.h \
 	gl_utils.h \
 	wf_private.h

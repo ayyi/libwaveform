@@ -60,19 +60,6 @@ draw(WaveformView* view)
 
 	wf_actor_paint(actor);
 
-					//TODO copy of private fn from WaveformActor - needs refactoring
-					void wf_actor_get_viewport(WaveformActor* a, WfViewPort* viewport)
-					{
-						WaveformCanvas* canvas = a->canvas;
-
-						if(canvas->viewport) *viewport = *canvas->viewport;
-						else {
-							viewport->left   = a->rect.left;
-							viewport->top    = a->rect.top;
-							viewport->right  = a->rect.left + a->rect.len;
-							viewport->bottom = a->rect.top + a->rect.height;
-						}
-					}
 	if(view->priv->show_grid){
 		WfViewPort viewport; wf_actor_get_viewport(actor, &viewport);
 

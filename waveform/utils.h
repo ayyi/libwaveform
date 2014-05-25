@@ -1,5 +1,5 @@
 /*
-  copyright (C) 2012-2013 Tim Orford <tim@orford.org>
+  copyright (C) 2012-2014 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -29,19 +29,24 @@ extern int wf_debug;
 #define g_list_free0(var) ((var == NULL) ? NULL : (var = (g_list_free (var), NULL)))
 #endif
 
+#ifdef __wf_private__
+#ifndef __ayyi_debug_h__
+#define dbg(A, B, ...) wf_debug_printf(__func__, A, B, ##__VA_ARGS__)
+#endif
+#endif
+
 #ifndef __ayyi_utils_h__
 #ifdef __wf_private__
 #ifndef bool
 #define bool gboolean
 #endif
-#define dbg(A, B, ...) wf_debug_printf(__func__, A, B, ##__VA_ARGS__)
+#define PF {if(wf_debug) printf("%s()...\n", __func__);}
+#define PF0 {printf("%s()...\n", __func__);}
+#define PF2 {if(wf_debug > 1) printf("%s()...\n", __func__);}
 #endif
 #define gwarn(A, ...) g_warning("%s(): "A, __func__, ##__VA_ARGS__);
 #define gerr(A, ...) g_critical("%s(): "A, __func__, ##__VA_ARGS__)
 #define perr(A, ...) g_critical("%s(): "A, __func__, ##__VA_ARGS__)
-#define PF {if(wf_debug) printf("%s()...\n", __func__);}
-#define PF0 {printf("%s()...\n", __func__);}
-#define PF2 {if(wf_debug > 1) printf("%s()...\n", __func__);}
 #define IDLE_STOP FALSE
 #define IDLE_CONTINUE TRUE
 #define TIMER_STOP FALSE

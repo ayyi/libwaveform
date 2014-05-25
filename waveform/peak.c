@@ -149,12 +149,12 @@ __finalize (Waveform* w)
 			}
 #ifdef USE_FBO
 			if(textures->fbo){
-				int b; for(b=0;b<textures->size;b++) if(textures->fbo[b]) fbo_free(textures->fbo[b]);
+				int b; for(b=0;b<textures->size;b++) if(textures->fbo[b]) agl_fbo_free(textures->fbo[b]);
 				g_free(textures->fbo);
 			}
 #ifdef USE_FX
 			if(textures->fx_fbo){
-				int b; for(b=0;b<textures->size;b++) if(textures->fx_fbo[b]) fbo_free(textures->fx_fbo[b]);
+				int b; for(b=0;b<textures->size;b++) if(textures->fx_fbo[b]) agl_fbo_free(textures->fx_fbo[b]);
 				g_free(textures->fx_fbo);
 			}
 #endif

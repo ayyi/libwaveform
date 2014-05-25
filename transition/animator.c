@@ -85,6 +85,8 @@ GList* animations = NULL;
 guint idx = 0;
 #endif
 
+GList* transitions = NULL; // list of currently running transitions (type WfAnimation*).
+
 #if 0
 static char white    [16] = "\x1b[0;39m";
 static char yellow   [16] = "\x1b[1;33m";
@@ -104,6 +106,7 @@ wf_animation_add_new(AnimationFn on_finished, gpointer user_data)
 	animation->id = idx++;
 	animations = g_list_append(animations, animation);
 #endif
+	transitions = g_list_append(transitions, animation);
 
 	return animation;
 }
@@ -117,6 +120,15 @@ wf_transition_add_member(WfAnimation* animation, GList* animatables)
 	g_return_if_fail(animation);
 	g_return_if_fail(animatables);
 
+	GList* l = transitions;
+	for(;l;l=l->next){
+		//only remove animatables we are replacing. others need to finish.
+		GList* k = animatables;
+		for(;k;k=k->next){
+			if(wf_animation_remove_animatable((WfAnimation*)l->data, (WfAnimatable*)k->data)) break;
+		}
+	}
+
 	WfAnimActor* member = g_new0(WfAnimActor, 1);
 	member->transitions = animatables;
 	animation->members = g_list_append(animation->members, member);
@@ -125,7 +137,7 @@ wf_transition_add_member(WfAnimation* animation, GList* animatables)
 #endif
 
 	//TODO do this in animation_start instead.
-	GList* l = animatables;
+	l = animatables;
 	for(;l;l=l->next){
 		WfAnimatable* a = l->data;
 		a->start_val.f = a->val.f;
@@ -189,6 +201,7 @@ wf_animation_remove(WfAnimation* animation)
 	for(;l;l=l->next){
 		WfAnimActor* aa = l->data;
 		animation->on_finish(animation, animation->user_data); //arg2 is unnecesary
+		transitions = g_list_remove(transitions, animation);
 		g_list_free0(aa->transitions);
 		g_free(aa);
 	}
@@ -213,7 +226,7 @@ wf_animation_remove_animatable(WfAnimation* animation, WfAnimatable* animatable)
 	// returns true is the whole animation is removed.
 
 #ifdef WF_DEBUG_ANIMATOR
-	if(/*_debug_ &&*/ !g_list_find(animations, animation)){
+	if(/*wf_debug &&*/ !g_list_find(animations, animation)){
 		dbg(0, "*** animation not found %p ***", animation);
 		//return false;
 	}

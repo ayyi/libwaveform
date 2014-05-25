@@ -1,6 +1,6 @@
 /*
   This file is part of the Ayyi Project. http://ayyi.org
-  copyright (C) 2004-2013 Tim Orford <tim@orford.org>
+  copyright (C) 2004-2014 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -16,6 +16,7 @@
   Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 */
 #define __common_c__
+#define __wf_private__
 #include "config.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -38,14 +39,13 @@
 #include "test/ayyi_utils.h"
 #include "test/common.h"
 
-static void log_handler(const gchar*, GLogLevelFlags, const gchar*, gpointer);
-
 int      n_failed = 0;
 int      n_passed = 0;
 gboolean abort_on_fail  = true;
 gboolean passed         = false;
 int      test_finished  = false;  //current test has finished. Go onto the next test.
 int      current_test = -1;
+
 extern char     current_test_name[];
 extern gpointer tests[];
 
@@ -122,23 +122,6 @@ test_finished_()
 	//log_print(passed ? LOG_OK : LOG_FAIL, "%s", current_test_name);
 	if(!passed && abort_on_fail) current_test = 1000;
 	next_test();
-}
-
-
-static void
-log_handler(const gchar* log_domain, GLogLevelFlags log_level, const gchar* message, gpointer user_data)
-{
-  switch(log_level){
-    case G_LOG_LEVEL_CRITICAL:
-      printf("%s %s\n", ayyi_err, message);
-      break;
-    case G_LOG_LEVEL_WARNING:
-      printf("%s %s\n", ayyi_warn, message);
-      break;
-    default:
-      printf("log_handler(): level=%i %s\n", log_level, message);
-      break;
-  }
 }
 
 

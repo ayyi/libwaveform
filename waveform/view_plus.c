@@ -1,5 +1,5 @@
 /*
-  copyright (C) 2012-2013 Tim Orford <tim@orford.org>
+  copyright (C) 2012-2014 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -449,8 +449,10 @@ waveform_view_plus_set_colour(WaveformViewPlus* view, uint32_t fg, uint32_t bg, 
 	view->bg_colour = bg;
 	if(view->priv->actor) wf_actor_set_colour(view->priv->actor, fg, bg);
 
-	wf_shaders.ass->uniform.colour1 = view->title_colour1 = text1;
-	wf_shaders.ass->uniform.colour2 = view->title_colour2 = text2;
+	if(agl_get_instance()->use_shaders){
+		wf_shaders.ass->uniform.colour1 = view->title_colour1 = text1;
+		wf_shaders.ass->uniform.colour2 = view->title_colour2 = text2;
+	}
 }
 
 

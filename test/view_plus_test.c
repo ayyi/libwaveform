@@ -23,7 +23,7 @@
 
   --------------------------------------------------------------
 
-  Copyright (C) 2012-2013 Tim Orford <tim@orford.org>
+  Copyright (C) 2012-2014 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -38,7 +38,6 @@
   along with this program; if not, write to the Free Software
   Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 */
-#define __ayyi_private__
 #include "config.h"
 #include <stdlib.h>
 #include <stdint.h>
@@ -54,6 +53,7 @@
 #include <signal.h>
 #include <gtk/gtk.h>
 #include <gdk/gdkkeysyms.h>
+#include "agl/utils.h"
 #include "waveform/view_plus.h"
 #include "test/ayyi_utils.h"
 #include "common.h"
@@ -63,8 +63,8 @@
 static char* find_wav();
 
 #define WAV \
-	"test/data/mono_1.wav"
-//	"test/data/stereo_1.wav"
+	"test/data/stereo_1.wav"
+//	"test/data/mono_1.wav"
 //	"test/data/1_block.wav"
 //	"test/data/3_blocks.wav"
 //	"test/data/2_blocks.wav"
@@ -107,11 +107,15 @@ main (int argc, char *argv[])
 	gtk_init(&argc, &argv);
 	GtkWidget* window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
 
+	#if 0
+	agl_get_instance()->pref_use_shaders = false;
+	#endif
+
 	WaveformViewPlus* waveform = waveform_view_plus_new(NULL);
 	waveform_view_plus_set_title(waveform, "Waveform Title");
 	waveform_view_plus_set_text(waveform, "Waveform text waveform text");
 	waveform_view_plus_set_show_rms(waveform, false);
-	//waveform_view_plus_set_colour(waveform, 0xccccccff, 0x000000ff, 0x33aaffff, 0xffff00ff);
+	waveform_view_plus_set_colour(waveform, 0xccccddaa, 0x000000ff, 0x33aaffff, 0xffff00ff);
 	#if 0
 	waveform_view_set_show_grid((WaveformView*)waveform, true);
 	wf_canvas_set_use_shaders(wfc, false);

@@ -1,5 +1,5 @@
 /*
-  copyright (C) 2012-2013 Tim Orford <tim@orford.org>
+  copyright (C) 2012-2014 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -60,7 +60,6 @@ struct _peakbuf {
 	int        block_num;
 	int        size;             // the number of shorts allocated. 2 shorts per value (plus + minus)
 	int        res;
-	//int        n_tiers;          // deprecated. use resolution instead.
 	int        resolution;       // 1 corresponds to full resolution (though peakbufs never have resolution of 1 as then the audio data is accessed directly)
 	void*      buf[WF_STEREO];
 	int        maxlevel;         // mostly just for debugging
@@ -197,7 +196,6 @@ gboolean       waveform_load_audio_block   (Waveform*, WfBuf16*, int block_num);
 WfTextureHi*   waveform_texture_hi_new     ();
 void           waveform_texture_hi_free    (WfTextureHi*);
 
-void           wf_actor_init               ();
 WaveformActor* wf_actor_new                (Waveform*, WaveformCanvas*);
 
 float          wf_canvas_gl_to_px          (WaveformCanvas*, float x);

@@ -48,10 +48,13 @@ Xinstall-data-local:
 		fi \
 	done;
 
+pkgconfigdir = $(libdir)/pkgconfig
+pkgconfig_DATA = libwaveform.pc
+
 .PHONY: dummy
 
 test: dummy
 	cd test && make test
 
-CLEANFILES = waveform.pc \
+CLEANFILES = libwaveform.pc \
 	shaders/shaders.c

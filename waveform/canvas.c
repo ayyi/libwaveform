@@ -42,6 +42,8 @@
 #include "waveform/alphabuf.h"
 #include "waveform/shader.h"
 
+static AGl* agl = NULL;
+
 #define WAVEFORM_START_DRAW(wa) \
 	if(wa->_draw_depth) gwarn("START_DRAW: already drawing"); \
 	wa->_draw_depth++; \
@@ -67,6 +69,7 @@ extern RulerShader ruler;
 extern LinesShader lines;
 
 #define TRACK_ACTORS // for debugging only.
+                     // *** CHANGED now use this list to clear render_info cache when viewport changed.
 #ifdef TRACK_ACTORS
 GList* actors = NULL;
 #endif
@@ -95,6 +98,8 @@ wf_canvas_class_init(WaveformCanvasClass* klass)
 	waveform_canvas_parent_class = g_type_class_peek_parent (klass);
 	//g_type_class_add_private (klass, sizeof (WaveformCanvasPrivate));
 	G_OBJECT_CLASS (klass)->finalize = wf_canvas_finalize;
+	g_signal_new ("dimensions_changed", TYPE_WAVEFORM_CANVAS, G_SIGNAL_RUN_LAST, 0, NULL, NULL, g_cclosure_marshal_VOID__VOID, G_TYPE_NONE, 0);
+	g_signal_new ("use_shaders_changed", TYPE_WAVEFORM_CANVAS, G_SIGNAL_RUN_LAST, 0, NULL, NULL, g_cclosure_marshal_VOID__VOID, G_TYPE_NONE, 0);
 }
 
 
@@ -111,7 +116,7 @@ wf_canvas_init(WaveformCanvas* wfc)
 {
 	wfc->priv = g_new0(WfCanvasPriv, 1);
 
-	gboolean use_shaders = agl_get_instance()->pref_use_shaders;
+	agl = agl_get_instance();
 
 	wfc->enable_animations = true;
 	wfc->blend = true;
@@ -121,8 +126,8 @@ wf_canvas_init(WaveformCanvas* wfc)
 	wfc->texture_unit[1] = texture_unit_new(WF_TEXTURE1);
 	wfc->texture_unit[2] = texture_unit_new(WF_TEXTURE2);
 	wfc->texture_unit[3] = texture_unit_new(WF_TEXTURE3);
-	wfc->use_1d_textures = use_shaders;
 	wf_canvas_init_gl(wfc);
+	wfc->use_1d_textures = agl->use_shaders;
 }
 
 
@@ -138,8 +143,6 @@ WaveformCanvas*
 wf_canvas_new(GdkGLContext* gl_context, GdkGLDrawable* gl_drawable)
 {
 	PF;
-
-	wf_actor_init();
 
 	WaveformCanvas* wfc = waveform_canvas_construct(TYPE_WAVEFORM_CANVAS);
 	wfc->show_rms = true;
@@ -227,14 +230,16 @@ wf_canvas_init_gl(WaveformCanvas* wfc)
 	WfCanvasPriv* priv = wfc->priv;
 	AGl* agl = agl_get_instance();
 
+	get_gl_extensions();
+
 	if(!agl->pref_use_shaders){
+		agl->use_shaders = false;
+		wfc->use_1d_textures = false;
 		WAVEFORM_START_DRAW(wfc) {
 			if(wf_debug) printf("GL_RENDERER = %s\n", (const char*)glGetString(GL_RENDERER));
 		} WAVEFORM_END_DRAW(wfc);
 		return;
 	}
-
-	wf_actor_init();
 
 	if(priv->shaders.peak){ gwarn("already done"); return; }
 
@@ -307,12 +312,18 @@ wf_canvas_set_viewport(WaveformCanvas* wfc, WfViewPort* _viewport)
 
 	if(_viewport){
 		if(!wfc->viewport) wfc->viewport = g_new(WfViewPort, 1);
+#if 0
 		memcpy(wfc->viewport, _viewport, sizeof(WfViewPort));
+#else
+		*wfc->viewport = *_viewport;
+#endif
 		dbg(1, "x: %.2f --> %.2f", wfc->viewport->left, wfc->viewport->right);
 	}else{
 		dbg(1, "viewport=NULL");
-		if(wfc->viewport){ g_free(wfc->viewport); wfc->viewport = NULL; }
+		if(wfc->viewport) g_free0(wfc->viewport);
 	}
+
+	if(wfc->draw) g_signal_emit_by_name(wfc, "dimensions-changed");
 }
 
 

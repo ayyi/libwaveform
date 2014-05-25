@@ -1,3 +1,13 @@
+/**
+* +----------------------------------------------------------------------+
+* | copyright (C) 2013-2014 Tim Orford <tim@orford.org>                  |
+* +----------------------------------------------------------------------+
+* | This program is free software; you can redistribute it and/or modify |
+* | it under the terms of the GNU General Public License version 3       |
+* | as published by the Free Software Foundation.                        |
+* +----------------------------------------------------------------------+
+*
+*/
 #ifndef __agl_utils_h__
 #define __agl_utils_h__
 #include <GL/gl.h>
@@ -48,11 +58,11 @@ void      agl_use_program         (AGlShader*);
 void      agl_use_texture         (GLuint texture);
 
 void      agl_rect                (float x, float y, float w, float h);
-void      agl_textured_rect       (guint texture, float x, float y, float w, float h, AGlRect* tex_rect);
-void      agl_textured_rect_real  (guint texture, float x, float y, float w, float h, AGlQuad* tex_rect);
+void      agl_textured_rect       (guint texture, float x, float y, float w, float h, AGlQuad* tex_rect);
 void      agl_enable_stencil      (float x, float y, float w, float h);
 void      agl_disable_stencil     ();
 void      agl_print_error         (const char* func, int err, const char* format, ...);
+void      agl_print_stack_depths  ();
 
 void      agl_set_font            (char* family, int size, PangoWeight);
 void      agl_set_font_string     (char* font_string);

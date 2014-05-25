@@ -7,7 +7,6 @@
 #endif
 
 #include <glib-object.h>
-#include <pango/pango.h>
 #include <fontconfig/fontconfig.h>
 #include "agl/fontmap.h"
 

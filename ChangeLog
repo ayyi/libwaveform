@@ -50,3 +50,6 @@
 -fix for missing redraw following file load at v hi zoom.
 20131001
 -fix for gdk keysyms for gtk < 2.22
+20140510
+-actor render geometry is now cached to improve drawing speed.
+-canvas now emits dimensions-changed and use-shaders-changed signals

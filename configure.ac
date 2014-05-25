@@ -196,8 +196,8 @@ dnl -----------------------------------------------------
 dnl CXXFLAGS="$CXXFLAGS -pipe -fmessage-length=139 -fdiagnostics-show-location=every-line"
 AM_CFLAGS="$CFLAGS -pipe -fmessage-length=139 -fdiagnostics-show-location=every-line"
 
-AC_CONFIG_FILES([waveform.pc])
 AC_CONFIG_FILES([
+libwaveform.pc
 Makefile
 agl/Makefile
 transition/Makefile

@@ -1,5 +1,5 @@
 /*
-  copyright (C) 2013 Tim Orford <tim@orford.org>
+  copyright (C) 2013-2014 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -48,17 +48,19 @@ static gulong __enable_flags = 0;
 #define GL_ENABLE_ALPHA_TEST   (1<<3)
 #define GL_ENABLE_TEXTURE_RECT (1<<4)
 
+#define TEXTURE_UNIT 0 // GL_TEXTURE0
+
 int _program = 0;
 GLenum _wf_ge = 0;
 
 static gboolean font_is_scalable(PangoContext*, const char* font_name);
 
 static void  _alphamap_set_uniforms    ();
-AGlUniformInfo uniforms4[] = {
-   {"tex2d",     1, GL_INT,   { 0, 0, 0, 0 }, -1},
+static AGlUniformInfo uniforms[] = {
+   {"tex2d", 1, GL_INT, {TEXTURE_UNIT, 0, 0, 0}, -1},
    END_OF_UNIFORMS
 };
-AlphaMapShader tex2d = {{NULL, NULL, 0, uniforms4, _alphamap_set_uniforms, &alpha_map_text}};
+AlphaMapShader tex2d = {{NULL, NULL, 0, uniforms, _alphamap_set_uniforms, &alpha_map_text}};
 static void
 _alphamap_set_uniforms()
 {
@@ -69,7 +71,7 @@ _alphamap_set_uniforms()
 
 //plain 2d texture
 static void _tex_set_uniforms();
-AlphaMapShader tex2d_b = {{NULL, NULL, 0, uniforms4, _tex_set_uniforms, &texture_2d_text}};
+AlphaMapShader tex2d_b = {{NULL, NULL, 0, uniforms, _tex_set_uniforms, &texture_2d_text}};
 //TODO if we pass the shader as arg we can reuse
 static void
 _tex_set_uniforms()
@@ -395,27 +397,8 @@ agl_rect(float x, float y, float w, float h)
 }
 
 
-// do not use - use fn below
 void
-agl_textured_rect(guint texture, float x, float y, float w, float h, AGlRect* _t)
-{
-	// to use the whole texture, pass NULL for _t
-
-	agl_use_texture(texture);
-
-	AGlRect t = _t ? *_t : (AGlRect){0.0, 0.0, 1.0, 1.0};
-
-	glBegin(GL_QUADS);
-	glTexCoord2d(t.x, t.y); glVertex2d(x,     y);
-	glTexCoord2d(t.w, t.y); glVertex2d(x + w, y);
-	glTexCoord2d(t.w, t.h); glVertex2d(x + w, y + h);
-	glTexCoord2d(t.x, t.h); glVertex2d(x,     y + h);
-	glEnd();
-}
-
-
-void
-agl_textured_rect_real(guint texture, float x, float y, float w, float h, AGlQuad* _t)
+agl_textured_rect(guint texture, float x, float y, float w, float h, AGlQuad* _t)
 {
 	// to use the whole texture, pass NULL for _t
 
@@ -741,6 +724,23 @@ agl_print_error(const char* func, int __ge, const char* format, ...)
     va_end(args);
 
 	g_warning("%s(): %s %s", func, e_str, str);
+}
+
+
+void
+agl_print_stack_depths()
+{
+	GLint depth, max;
+	printf("stack depths:\n");
+	glGetIntegerv(GL_MODELVIEW_STACK_DEPTH, &depth);
+	glGetIntegerv(GL_MAX_MODELVIEW_STACK_DEPTH, &max);
+	printf("    ModelView:  %i / %i\n", depth, max);
+	glGetIntegerv(GL_PROJECTION_STACK_DEPTH , &depth);
+	glGetIntegerv(GL_MAX_PROJECTION_STACK_DEPTH, &max);
+	printf("    Projection: %i / %i\n", depth, max);
+	glGetIntegerv(GL_ATTRIB_STACK_DEPTH, &depth);
+	glGetIntegerv(GL_MAX_ATTRIB_STACK_DEPTH, &max);
+	printf("    Attribute:  %i / %i\n", depth, max);
 }
 
 

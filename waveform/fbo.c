@@ -43,13 +43,6 @@ extern BloomShader vertical;
 
 static AglFBO* fbo0 = NULL;
 
-void
-fbo_free(AglFBO* fbo)
-{
-	glDeleteTextures(1, &fbo->texture);
-	fbo->texture = 0;
-}
-
 
 AglFBO*
 fbo_new_test()
@@ -127,7 +120,7 @@ fbo_new_test()
 
 		return bg_textures;
 	}
-	//AglFBO* fbo = fbo_new(_wf_create_background());
+	//AglFBO* fbo = agl_fbo_new(256, 256, _wf_create_background());
 	AglFBO* fbo = agl_fbo_new(256, 256, _wf_create_background_rgba());
 	return fbo;
 }

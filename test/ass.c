@@ -19,7 +19,7 @@
   Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
 */
-#define __ayyi_private__
+#define __wf_private__
 #define __wf_canvas_priv__
 #include "config.h"
 #include <stdlib.h>
@@ -41,7 +41,6 @@
 #include "agl/utils.h"
 #include "waveform/waveform.h"
 #include "waveform/actor.h"
-#include "waveform/ass.h"
 #define __wf_private__
 #include "waveform/gl_utils.h"
 #include "test/ayyi_utils.h"

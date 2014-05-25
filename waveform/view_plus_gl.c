@@ -1,5 +1,5 @@
 /*
-  copyright (C) 2012-2013 Tim Orford <tim@orford.org>
+  copyright (C) 2012-2014 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -27,8 +27,10 @@ waveform_view_plus_gl_init(WaveformViewPlus* view)
 	WF_START_DRAW {
 
 		agl_set_font_string("Roboto 10");
-		wf_shaders.ass->uniform.colour1 = view->title_colour1;
-		wf_shaders.ass->uniform.colour2 = view->title_colour2;
+		if(agl_get_instance()->use_shaders){
+			wf_shaders.ass->uniform.colour1 = view->title_colour1;
+			wf_shaders.ass->uniform.colour2 = view->title_colour2;
+		}
 
 	} WF_END_DRAW
 
@@ -67,19 +69,6 @@ draw(WaveformViewPlus* view)
 
 	wf_actor_paint(actor);
 
-					//TODO copy of private fn from WaveformActor - needs refactoring
-					void wf_actor_get_viewport(WaveformActor* a, WfViewPort* viewport)
-					{
-						WaveformCanvas* canvas = a->canvas;
-
-						if(canvas->viewport) *viewport = *canvas->viewport;
-						else {
-							viewport->left   = a->rect.left;
-							viewport->top    = a->rect.top;
-							viewport->right  = a->rect.left + a->rect.len;
-							viewport->bottom = a->rect.top + a->rect.height;
-						}
-					}
 	if(v->show_grid){
 		WfViewPort viewport; wf_actor_get_viewport(actor, &viewport);
 
@@ -112,7 +101,7 @@ draw(WaveformViewPlus* view)
 			y,
 			view->title_width,
 			th,
-			&(AGlRect){0.0, 0.0, ((float)view->title_width) / v->title_texture_width, 1.0}
+			&(AGlQuad){0.0, 0.0, ((float)view->title_width) / v->title_texture_width, 1.0}
 		);
 #endif
 	}

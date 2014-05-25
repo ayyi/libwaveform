@@ -1,5 +1,5 @@
 /*
-  copyright (C) 2012-2013 Tim Orford <tim@orford.org>
+  copyright (C) 2012-2014 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -14,6 +14,7 @@
   along with this program; if not, write to the Free Software
   Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 */
+#ifndef __actor_c__
 #define __wf_private__
 #define __wf_canvas_priv__
 #include "config.h"
@@ -40,13 +41,16 @@
 #include "waveform/peak.h"
 
 extern int wf_debug;
+#endif // __actor_c__
 
+// needed for v_hi res. TODO check effect on other modes.
 #define ANTIALIASED_LINES
-#define VERTEX_ARRAYS
 
 #define TWO_COORDS_PER_VERTEX 2
 
+#ifdef ANTIALIASED_LINES
 static GLuint line_textures[3] = {0, 0, 0}; // TODO use 1 and 2 as line caps
+#endif
 #ifdef MULTILINE_SHADER
 static GLuint lines_texture[8] = {0};
 #endif
@@ -227,8 +231,22 @@ _set_pixel(int x, int y, guchar r, guchar g, guchar b, guchar aa)
 #endif
 
 
+static void
+hi_pre_render(Renderer* renderer, WaveformActor* actor)
+{
+#ifndef HIRES_NONSHADER_TEXTURES
+	RenderInfo* r  = &actor->priv->render_info;
+	HiRenderer* hr = (HiRenderer*)renderer;
+
+	//block_region specifies the sample range for that part of the waveform region that is within the current block
+	//-note that the block region can exceed the range of the waveform region.
+	hr->block_region = (WfSampleRegion){r->region.start % WF_SAMPLES_PER_TEXTURE, WF_SAMPLES_PER_TEXTURE - r->region.start % WF_SAMPLES_PER_TEXTURE};
+#endif
+}
+
+
 void
-draw_wave_buffer_hi(Waveform* w, WfSampleRegion region, WfRectangle* rect, Peakbuf* peakbuf, int chan, float v_gain, uint32_t rgba)
+_draw_wave_buffer_hi(Waveform* w, WfSampleRegion region, WfRectangle* rect, Peakbuf* peakbuf, int chan, float v_gain, uint32_t rgba)
 {
 	//for use with peak data of alternative plus and minus peaks.
 	// -non-shader version
@@ -241,7 +259,6 @@ draw_wave_buffer_hi(Waveform* w, WfSampleRegion region, WfRectangle* rect, Peakb
 	float g = ((float)((rgba >> 16) & 0xff))/0x100;
 	float b = ((float)((rgba >>  8) & 0xff))/0x100;
 	float alpha = ((float)((rgba  ) & 0xff))/0x100;
-	//dbg(0, "0x%x alpha=%.2f", rgba, alpha);
 
 	int64_t region_end = region.start + (int64_t)region.len;
 
@@ -281,283 +298,350 @@ draw_wave_buffer_hi(Waveform* w, WfSampleRegion region, WfRectangle* rect, Peakb
 }
 
 
-typedef struct {
-	struct {
-		int l,r;
-	} inner;
-	struct {
-		int l,r;
-	} outer;
-	int border;
-} Range;
-
-void
-draw_wave_buffer_v_hi(WaveformActor* actor, WfSampleRegion region, WfSampleRegion b_region, WfRectangle* rect, WfViewPort* viewport, WfBuf16* buf, float v_gain, uint32_t rgba, bool is_first, double x_block0)
+#ifndef HIRES_NONSHADER_TEXTURES
+static void
+hi_set_gl_state_nonshader(WaveformActor* actor)
 {
-	//for use at resolution 1, operates on audio data, NOT peak data.
-
-	// @b_region - sample range within the current block. b_region.start is relative to the Waveform, not the block.
-	// @rect     - the canvas area corresponding exactly to the WfSampleRegion.                                          XXX changed.
-
-	// variable names: variables prefixed with x_ relate to screen coordinates (pixels), variables prefixed with s_ related to sample frames.
-
-	const Waveform* w = actor->waveform;
-	const WaveformCanvas* wfc = actor->canvas;
-
-	g_return_if_fail(b_region.len <= buf->size);
-
-	//#define BIG_NUMBER 4096
-	#define BIG_NUMBER 8192    // temporarily increased pending cropping to viewport-left
-
-	Range sr = {{0,0},{0,0}, 0}; //TODO check we are consistent in that these values are all *within the current block*
-	Range xr = {{0,0},{0,0}, 0};
-
-#ifdef ANTIALIASED_LINES
-	_wf_create_line_texture(); // will be moved. TODO dont re-fill the texture if display is unchanged.
-	glEnable(GL_TEXTURE_2D);
-	glBindTexture(GL_TEXTURE_2D, line_textures[0]);
-#endif
-
-	const double zoom = rect->len / (double)region.len;
-
-	const float _block_wid = WF_SAMPLES_PER_TEXTURE * zoom;
-	float block_rect_start = is_first ? fmodf(rect->left, _block_wid) : x_block0; // TODO simplify. why 2 separate cases needed?  ** try just using the first case
-	WfRectangle b_rect = {block_rect_start, rect->top, b_region.len * zoom, rect->height};
-
-	if(!(viewport->right > b_rect.left)) gwarn("outside viewport: vp.r=%.2f b_rect.l=%.2f", viewport->right, b_rect.left);
-	g_return_if_fail(viewport->right > b_rect.left);
-	if(!(b_rect.left + b_rect.len > viewport->left)) gwarn("outside viewport: vp.l=%.1f b_rect.l=%.1f b_rect.len=%.1f", viewport->left, b_rect.left, b_rect.len);
-	g_return_if_fail(b_rect.left + b_rect.len > viewport->left);
-
-#ifdef MULTILINE_SHADER
-#elif defined (VERTEX_ARRAYS)
-	glEnableClientState(GL_VERTEX_ARRAY);
-	glEnableClientState(GL_TEXTURE_COORD_ARRAY);
-
-	int n_lines = MIN(BIG_NUMBER, viewport->right - b_rect.left); // TODO the arrays possibly can be smaller - dont use b_rect.left, use x0
-	Quad quads[n_lines];
-	Vertex texture_coords[n_lines * 4];
-	int j; for(j=0;j<n_lines;j++){
-		texture_coords[j * 4    ] = (Vertex){0.0, 0.0};
-		texture_coords[j * 4 + 1] = (Vertex){1.0, 0.0};
-		texture_coords[j * 4 + 2] = (Vertex){1.0, 1.0};
-		texture_coords[j * 4 + 3] = (Vertex){0.0, 1.0};
-	}
-	glVertexPointer   (TWO_COORDS_PER_VERTEX, GL_FLOAT, 0, quads);
-	glTexCoordPointer (TWO_COORDS_PER_VERTEX, GL_FLOAT, 0, texture_coords);
-#endif
-
-#ifndef MULTILINE_SHADER
-	const float r = ((float)((rgba >> 24)       ))/0x100;
-	const float g = ((float)((rgba >> 16) & 0xff))/0x100;
-	const float b = ((float)((rgba >>  8) & 0xff))/0x100;
-	const float alpha = ((float)((rgba  ) & 0xff))/0x100;
-#endif
-
-#ifdef MULTILINE_SHADER
-	xr.border = TEX_BORDER_HI;
-#else
-	xr.border = 0;
-#endif
-	sr.border = xr.border / zoom;
-	sr.inner.l = b_region.start % WF_SAMPLES_PER_TEXTURE;
-	//const int x0 = MAX(0, floor(viewport->left - rect->left) - 3);
-	const int x0 = b_rect.left;
-	//const int x0 = MIN(b_rect.left, viewport->left - xr.border);         // no, x and s should not be calculated independently.
-	//						sr.inner.l = (x0 - x_block0) / zoom; //TODO crop to viewport-left
-	const int s0 = sr.outer.l = sr.inner.l - sr.border;
-	xr.inner.l = x0;
-	xr.outer.l = x0 - xr.border;
-	const int x_bregion_end = b_rect.left + (b_region.start + b_region.len) * zoom;
-	xr.inner.r = MIN(MIN(MIN(
-		x0 + BIG_NUMBER,
-		(int)(b_rect.left + b_rect.len)),
-		viewport->right),
-		x_bregion_end);
-	const int x_stop = xr.inner.r + xr.border;
-	/*
-	if(x_stop < b_rect.left + b_rect.len){
-		dbg(0, "stopping early. x_bregion_end=%i x0+B=%i", x_bregion_end, x0 + BIG_NUMBER);
-	}
-	*/
-	//dbg(0, "rect=%.2f-->%.2f b_region=%Lu-->%Lu viewport=%.1f-->%.1f zoom=%.3f", b_rect.left, b_rect.left + b_rect.len, b_region.start, b_region.start + ((uint64_t)b_region.len), viewport->left, viewport->right, zoom);
-
-#ifdef MULTILINE_SHADER
-	int mls_tex_w = x_stop - x0 + 2 * TEX_BORDER_HI;
-	int mls_tex_h = 2; // TODO if we really are not going to add the indirection for x (for zoom > 1), use a 1d texture.
-	int t_width = agl_power_of_two(mls_tex_w);
-	guchar* _pbuf = g_new0(guchar, t_width * mls_tex_h);
-	guchar* pbuf[] = {_pbuf, _pbuf + t_width};
-#endif
-										sr.inner.r = s0 + (xr.inner.r - xr.inner.l) / zoom;
-										sr.outer.r = s0 /* TODO should include border? */+ ((double)x_stop - x0) / zoom;
-										//dbg(0, "x0=%i x_stop=%i s=%i,%i,%i,%i xre=%i", x0, x_stop, sr.outer.l, sr.inner.l, sr.inner.r, sr.outer.r, x_bregion_end);
-
-										// because we access adjacent samples, s_max is the absolute maximum index into the sample buffer (must be less than).
-										int s_max = /*s0 + */sr.outer.r + 4 + sr.border;
-										if(s_max > buf->size){
-											int over = s_max - buf->size;
-											if(over < 4 + sr.border) dbg(0, "TODO block overlap - need to access next block");
-											else gerr("error at block changeover. s_max=%i over=%i", s_max, over);
-										}else{
-											// its fairly normal to be limited by region, as the region can be set deliberately to match the viewport.
-											// (the region can either correspond to a defined Section/Part of the waveform, or dynamically created with the viewport
-											// -if it is a defined Section, we must not go beyond it. As we do not know which case we have, we must honour the region limit)
-											//uint64_t b_region_end1 = (region.start + region.len) % buf->size; //TODO this should be the same as b_region_end2 ? but appears to be too short
-											uint64_t b_region_end2 = (!((b_region.start + b_region.len) % WF_SAMPLES_PER_TEXTURE)) ? WF_SAMPLES_PER_TEXTURE : (b_region.start + b_region.len) % WF_SAMPLES_PER_TEXTURE;//buf->size;
-											//if(s_max > b_region_end2) gwarn("limited by region length. region_end=%Lu %Lu", (uint64_t)((region.start + region.len) % buf->size), b_region_end2);
-											//s_max = MIN(s_max, (region.start + region.len) % buf->size);
-											s_max = MIN(s_max, b_region_end2);
-										}
-										s_max = MIN(s_max, buf->size);
-										//note that there is never any need to be separately limited by b_region - that should be taken care of by buffer limitation?
-
-	int c; for(c=0;c<w->n_channels;c++){
-																						if(!buf->buf[c]){ gwarn("audio buf not set. c=%i", c); continue; }
-		if(!buf->buf[c]) continue;
-#ifdef MULTILINE_SHADER
-		int val0 = ((2*c + 1) * 128) / w->n_channels;
-		if(mls_tex_w > TEX_BORDER_HI + 7) //TODO improve this test - make sure index is not negative  --- may not be needed (texture is bigger now (includes borders))
-		memset((void*)((uintptr_t)pbuf[c] + (uintptr_t)(mls_tex_w - TEX_BORDER_HI)) - 7, val0, TEX_BORDER_HI + 7); // zero the rhs border in case it is not filled with content.
-
-																						memset((void*)((uintptr_t)pbuf[c]), val0, t_width);
-#endif
-
-#ifndef MULTILINE_SHADER
-		int oldx = x0 - 1;
-		int oldy = 0;
-#endif
-	int s = 0;
-	int i = 0;
-	//int x; for(x = x0; x < x0 + BIG_NUMBER && /*rect->left +*/ x < viewport->right + border_right; x++, i++){
-	// note that when using texture borders, at the viewport left edge x is NOT zero, it is TEX_BORDER_HI.
-	int x; for(x = xr.inner.l; x < x_stop; x++, i++){
-		double s_ = ((double)x - xr.inner.l) / zoom;
-		double dist = s_ - s; // dist = distance in samples from one pixel to the next.
-//if(i < 5) dbg(0, "x=%i s_=%.3f dist=%.2f", x, s_, dist);
-		if (dist > 2.0) {
-			//			if(dist > 5.0) gwarn("dist %.2f", dist);
-			int ds = dist - 1;
-			dist -= ds;
-			s += ds;
-		}
-																						//if(c == 0 && i < 5) dbg(0, "  ss=%i", s0 + s);
-#ifdef MULTILINE_SHADER
-		if (s0 + s < 0){ // left border and no valid data.
-			pbuf[c][i] = val0;
-			continue;
-		}
-#endif
-		if (s0 + s >= (int)buf->size ) { gwarn("end of block reached: b_region.start=%i b_region.end=%Lu %i", s0, b_region.start + ((uint64_t)b_region.len), buf->size); break; }
-		/*
-		if (s  + 3 >= b_region.len) {
-			gwarn("end of b_region reached: b_region.len=%i x=%i s0=%i s=%i", b_region.len, x, s0, s);
-			break;
-		}
-		*/
-
-		short* d = buf->buf[c];
-		double y1 = (s0 + s   < s_max) ? d[s0 + s  ] : 0; //TODO have a separately loop for the last 4 values.
-		double y2 = (s0 + s+1 < s_max) ? d[s0 + s+1] : 0;
-		double y3 = (s0 + s+2 < s_max) ? d[s0 + s+2] : 0;
-		double y4 = (s0 + s+3 < s_max) ? d[s0 + s+3] : 0;
-
-		double d0 = dist;
-		double d1 = dist - 1.0;
-		double d2 = dist - 2.0;
-		double d3 = dist - 3.0;
-
-																				//TODO for MULTILINE_SHADER we probably dont want b_rect.height to affect y.
-		int y = (int)(
-			(
-				- (d1 * d2 * d3 * y1) / 6
-				+ (d0 * d2 * d3 * y2) / 2
-				- (d0 * d1 * d3 * y3) / 2
-				+ (d0 * d1 * d2 * y4) / 6
-			)
-			* v_gain * (b_rect.height / (2.0 * w->n_channels )) / (1 << 15)
-		);
-																				//if(i < 10) printf("  x=%i s=%i %i y=%i dist=%.2f s=%i %.2f\n", x, s0 + s, d[s0 + s], y, dist, s, floor((x / zoom) - 1));
-
-#if defined (MULTILINE_SHADER)
-		if(i >= mls_tex_w){ gwarn("tex index out of range %i %i", i, mls_tex_w); break; }
-		{
-																				//int val = ((2*c + 1) * 128 + y) / w->n_channels;
-																				//if(val < 0 || val > 256) gwarn("val out of range: %i", val); -- will be out of range when vgain is high.
-			pbuf[c][i] = val0 + MIN(y, 63); // the 63 is to stop it wrapping - would be nice to remove this.
-																				//if(i >= 0 && i < 10) dbg(0, "  s=%i y2=%.4f y=%i val=%i", s + s0, y2, y, ((2*c + 1) * 128 + y) / w->n_channels);
-		}
-#elif defined(VERTEX_ARRAYS)
-		{
-			//float ys = y * rect->height / 256.0;
-
-			float x0 = oldx;
-			float y0 = b_rect.top - oldy + b_rect.height / 2;
-			float x1 = x;
-			float y1 = b_rect.top -    y + b_rect.height / 2;
-
-			float len = sqrtf(powf((y1 - y0), 2) + powf((x1 - x0), 2));
-			float xoff = (y1 - y0) * 5.0 / len;
-			float yoff = (x1 - x0) * 5.0 / len;
-
-			quads[i] = (Quad){
-				(Vertex){x0 - xoff/2, y0 + yoff/2},
-				(Vertex){x1 - xoff/2, y1 + yoff/2},
-				(Vertex){x1 + xoff/2, y1 - yoff/2},
-				(Vertex){x0 + xoff/2, y0 - yoff/2},
-			};
-//if(i > 40 && i < 50) dbg(0, "len=%.2f xoff=%.2f yoff=%.2f (%.2f, %.2f) (%.2f, %.2f)", len, xoff, yoff, quads[i].v0.x, quads[i].v0.y, quads[i].v1.x, quads[i].v1.y);
-		}
-#else
-		// draw straight line from old pos to new pos
-		_draw_line(
-			oldx,   b_rect.top - oldy + b_rect.height / 2,
-			x,      b_rect.top -    y + b_rect.height / 2,
-			r, g, b, alpha);
-#endif
-
-#ifndef MULTILINE_SHADER
-		oldx = x;
-		oldy = y;
-#endif
-	}
-	dbg(2, "n_lines=%i x=%i-->%i", i, x0, x);
-
-#if defined (MULTILINE_SHADER)
-#elif defined(VERTEX_ARRAYS)
-		glColor4f(r, g, b, alpha);
-		glPushMatrix();
-		glTranslatef(0.0, (w->n_channels == 2 ? -b_rect.height/4 : 0.0) + c * b_rect.height/2, 0.0);
-		GLsizei count = (i - 0) * 4;
-		glDrawArrays(GL_QUADS, 0, count);
-		glPopMatrix();
-#endif
-	} // end channel
-
-#if defined (MULTILINE_SHADER)
-	#define TEXELS_PER_PIXEL 1.0
-	guint texture =_wf_create_lines_texture(pbuf[0], t_width, mls_tex_h);
-	float len = MIN(viewport->right - viewport->left, b_rect.len); //the texture contents are cropped by viewport so we should do the same when setting the rect width.
-	AGlQuad t = {
-		((float)TEX_BORDER_HI)/((float)t_width),
-		0.0,
-		((float)((x_stop - x0) * TEXELS_PER_PIXEL)) / (float)t_width,
-		1.0
-	};
-	wfc->priv->shaders.lines->uniform.texture_width = t_width;
-	agl_use_program((AGlShader*)wfc->priv->shaders.lines); // to set the uniform
-
-	glPushMatrix();
-	glTranslatef(b_rect.left, 0.0, 0.0);
-	agl_textured_rect_real(texture, 0.0, b_rect.top, len, b_rect.height, &t);
-	glPopMatrix();
-
-	g_free(_pbuf);
-
-#elif defined(VERTEX_ARRAYS)
-	glDisableClientState(GL_VERTEX_ARRAY);
-	glDisableClientState(GL_TEXTURE_COORD_ARRAY);
-#endif
+	//TODO blending is needed to support opacity, however the actual opacity currently varies depending on zoom due to overlapping.
+	glEnable(GL_BLEND);
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+	glDisable(GL_TEXTURE_2D);
+	glDisable(GL_TEXTURE_1D);
 }
 
+
+bool
+draw_wave_buffer_hi_nonshader(Renderer* renderer, WaveformActor* actor, int b, bool is_first, bool is_last, double x)
+{
+	Waveform* w = actor->waveform; 
+	WfActorPriv* _a = actor->priv;
+	WaveformCanvas* wfc = actor->canvas;
+	RenderInfo* r  = &_a->render_info;
+	HiRenderer* hr = (HiRenderer*)renderer;
+	WfRectangle* rect = &r->rect;
+
+	Peakbuf* peakbuf = waveform_get_peakbuf_n(w, b);
+	if(!peakbuf) return false;
+
+	dbg(2, "  b=%i x=%.2f", b, x);
+
+	hi_set_gl_state_nonshader(actor);
+
+	WfRectangle block_rect = {
+		is_first
+			? x + (hr->block_region.start - r->region.start % WF_SAMPLES_PER_TEXTURE) * r->zoom
+			: x,
+		rect->top,
+		r->block_wid,
+		rect->height / w->n_channels
+	};
+	if(is_first){
+		float first_fraction =((float)hr->block_region.len) / WF_SAMPLES_PER_TEXTURE;
+		block_rect.left += (WF_SAMPLES_PER_TEXTURE - WF_SAMPLES_PER_TEXTURE * first_fraction) * r->zoom;
+	}
+	//WfRectangle block_rect = {x + (region.start % WF_PEAK_BLOCK_SIZE) * r->zoom, rect.top + c * rect.height/2, r->block_wid, rect.height / w->n_channels};
+	dbg(2, "  HI: %i: rect=%.2f-->%.2f", b, block_rect.left, block_rect.left + block_rect.len);
+
+	if(is_last){
+		if(b < r->region_end_block){
+			// end is offscreen. last block is not smaller.
+			// reducing the block size here would be an optimisation rather than essential
+		}else{
+			// last block of region (not merely truncated by viewport).
+			//block_region.len = r->region.len - b * WF_PEAK_BLOCK_SIZE;
+			//block_region.len = (r->region.start - block_region.start + r->region.len) % WF_PEAK_BLOCK_SIZE;// - hr->block_region.start;
+			if(is_first){
+				hr->block_region.len = r->region.len % WF_SAMPLES_PER_TEXTURE;
+			}else{
+				hr->block_region.len = (r->region.start + r->region.len) % WF_SAMPLES_PER_TEXTURE;
+			}
+			dbg(2, "REGIONLAST: %i/%i region.len=%i ratio=%.2f rect=%.2f %.2f", b, r->region_end_block, hr->block_region.len, ((float)hr->block_region.len) / WF_PEAK_BLOCK_SIZE, block_rect.left, block_rect.len);
+		}
+	}
+	block_rect.len = hr->block_region.len * r->zoom; // always
+
+	int c; for(c=0;c<w->n_channels;c++){
+		if(peakbuf->buf[c]){
+			//dbg(1, "peakbuf: %i:%i: %i", b, c, ((short*)peakbuf->buf[c])[0]);
+
+			block_rect.top = rect->top + c * rect->height/2;
+
+			_draw_wave_buffer_hi(w, hr->block_region, &block_rect, peakbuf, c, wfc->v_gain, actor->fg_colour);
+		}
+		else dbg(1, "buf not ready: %i", c);
+	}
+
+	// increment for next block
+	hr->block_region.start = 0; //all blocks except first start at 0
+	hr->block_region.len = WF_PEAK_BLOCK_SIZE;
+
+	return true;
+}
+#endif
+
+
+static bool
+get_quad_dimensions(WaveformActor* actor, int b, bool is_first, bool is_last, double x, double* tex_start_, double* tex_pct_, double* tex_x_, double* block_wid_, int multiplier)
+{
+	// multiplier is temporary and is used for HIRES_NONSHADER_TEXTURES
+
+	// *** now contains BORDER offsetting which should be duplicated for MODE_MED in actor_render_med_lo().
+
+	double tex_start;
+	double tex_pct;
+	double tex_x;
+	double block_wid;
+
+	Waveform* w = actor->waveform; 
+	WfActorPriv* _a = actor->priv;
+	RenderInfo* r  = &_a->render_info;
+
+	int samples_per_texture = r->samples_per_texture / multiplier;
+
+	double usable_pct = (modes[r->mode].texture_size - 2.0 * TEX_BORDER_HI) / modes[r->mode].texture_size;
+	double border_pct = (1.0 - usable_pct)/2;
+
+	block_wid = r->block_wid / multiplier;
+	tex_pct = 1.0 * usable_pct; //use the whole texture
+	tex_start = TEX_BORDER_HI / modes[r->mode].texture_size;
+	if (is_first){
+		double _tex_pct = 1.0;
+		if(r->first_offset){
+			_tex_pct = 1.0 - ((double)r->first_offset) / samples_per_texture;
+			tex_pct = tex_pct - (usable_pct) * ((double)r->first_offset) / samples_per_texture;
+		}
+
+#ifdef HIRES_NONSHADER_TEXTURES
+		if(r->first_offset >= samples_per_texture) return false;
+		if(r->first_offset) tex_pct = 1.0 - ((double)r->first_offset) / samples_per_texture;
+#endif
+
+		block_wid = (r->block_wid / multiplier) * _tex_pct;
+		tex_start = 1.0 - border_pct - tex_pct;
+		dbg(2, "rect.left=%.2f region->start=%Lu first_offset=%i", r->rect.left, r->region.start, r->first_offset);
+	}
+	if (is_last){
+		//if(x + r->block_wid < x0 + rect->len){
+		if(b < r->region_end_block){
+			//end is offscreen. last block is not smaller.
+		}else{
+			//end is trimmed
+			double part_inset_px = wf_actor_samples2gl(r->zoom, r->region.start);
+			//double file_start_px = rect->left - part_inset_px;
+			double distance_from_file_start_to_region_end = part_inset_px + r->rect.len;
+			block_wid = distance_from_file_start_to_region_end - b * r->block_wid;
+			dbg(2, " %i: inset=%.2f s->e=%.2f i*b=%.2f", b, part_inset_px, distance_from_file_start_to_region_end, b * r->block_wid);
+			if(b * r->block_wid > distance_from_file_start_to_region_end){ gwarn("!!"); return false; }
+		}
+
+#if 0 // check if this is needed
+#ifdef HIRES_NONSHADER_TEXTURES
+		block_wid = MIN(block_wid, r->block_wid / multiplier);
+#endif
+#endif
+		if(b == w->textures->size - 1) dbg(2, "last sample block. fraction=%.2f", w->textures->last_fraction);
+		//TODO when non-square textures enabled, tex_pct can be wrong because the last texture is likely to be smaller
+		//     (currently this only applies in non-shader mode)
+		//tex_pct = block_wid / r->block_wid;
+		tex_pct = (block_wid / r->block_wid) * multiplier * usable_pct;
+	}
+
+	dbg (2, "%i: is_last=%i x=%.2f wid=%.2f/%.2f tex_pct=%.3f tex_start=%.2f", b, is_last, x, block_wid, r->block_wid, tex_pct, tex_start);
+if(tex_pct > usable_pct || tex_pct < 0.0){
+dbg (0, "%i: is_first=%i is_last=%i x=%.2f wid=%.2f/%.2f tex_pct=%.3f tex_start=%.2f", b, is_first, is_last, x, block_wid, r->block_wid, tex_pct, tex_start);
+}
+	if(tex_pct > usable_pct || tex_pct < 0.0) gwarn("tex_pct! %.2f (b=%i)", tex_pct, b);
+	tex_x = x + ((is_first && r->first_offset) ? r->first_offset_px : 0);
+
+	*tex_start_ = tex_start;
+	*tex_pct_ = tex_pct;
+	*tex_x_ = tex_x;
+	*block_wid_ = block_wid;
+	return true;
+}
+
+
+static void
+hi_set_gl_state_shader(WaveformActor* actor)
+{
+	WaveformCanvas* wfc = actor->canvas;
+	Waveform* w = actor->waveform; 
+	WfActorPriv* _a = actor->priv;
+	RenderInfo* r  = &_a->render_info;
+
+	HiResShader* hires_shader = wfc->priv->shaders.hires;
+	hires_shader->uniform.fg_colour = (actor->fg_colour & 0xffffff00) + (unsigned)(0x100 * _a->animatable.opacity.val.f);
+	hires_shader->uniform.peaks_per_pixel = r->peaks_per_pixel_i;
+	hires_shader->uniform.top = r->rect.top;
+	hires_shader->uniform.bottom = r->rect.top + r->rect.height;
+	hires_shader->uniform.n_channels = waveform_get_n_channels(w);
+
+	agl_use_program(&hires_shader->shader);
+}
+
+
+static inline bool
+block_hires_shader(Renderer* renderer, WaveformActor* actor, int b, gboolean is_first, gboolean is_last, double x)
+{
+	//render the 1d peak textures onto a 2d block.
+
+	//if we dont subdivide the blocks, size will be 256 x 16 = 4096 - should be ok.
+	//-it works but is the large texture size causing performance issues?
+
+	//TODO merge with non-shader version below.
+
+	gl_warn("pre");
+
+	WaveformCanvas* wfc = actor->canvas;
+	Waveform* w = actor->waveform; 
+	WfActorPriv* _a = actor->priv;
+	RenderInfo* r  = &_a->render_info;
+
+	hi_set_gl_state_shader(actor);
+
+	WfTextureHi* texture = g_hash_table_lookup(actor->waveform->textures_hi->textures, &b);
+	if(!texture){
+		dbg(1, "texture not available. b=%i", b);
+		return false;
+	}
+	glEnable(GL_TEXTURE_1D);
+	int c;for(c=0;c<waveform_get_n_channels(w);c++){
+		texture_unit_use_texture(wfc->texture_unit[0 + 2 * c], texture->t[c].main);
+		texture_unit_use_texture(wfc->texture_unit[1 + 2 * c], texture->t[c].neg);
+#ifdef DEBUG
+		dbg(2, "%i: textures: %u,%u", b, texture->t[c].main, texture->t[c].neg);
+		if(!glIsTexture(texture->t[c].main) || !glIsTexture(texture->t[c].neg)) gwarn("textures not ok: %i(%i),%i(%i) ", texture->t[c].main, glIsTexture(texture->t[c].main), texture->t[c].neg, glIsTexture(texture->t[c].neg));
+#endif
+	}
+	gl_warn("texture assign");
+	glActiveTexture(GL_TEXTURE0);
+
+																												/* colour only for non-shader mode
+	WfColourFloat fg;
+	wf_colour_rgba_to_float(&fg, actor->fg_colour);
+	float alpha = ((float)(actor->fg_colour & 0xff)) / 256.0;
+	glColor4f(fg.r, fg.g, fg.b, alpha); //seems we have to set colour _after_ binding... ?
+																												*/
+	double tex_start;
+	double tex_pct;
+	double tex_x;
+	double block_wid;
+	if(!get_quad_dimensions(actor, b, is_first, is_last, x, &tex_start, &tex_pct, &tex_x, &block_wid, 1)) return false;
+
+	glBegin(GL_QUADS);
+#if defined (USE_FBO) && defined (multipass)
+//	if(false){
+	if(true){    //fbo not yet implemented for hi-res mode.
+#else
+	if(wfc->use_1d_textures){
+#endif
+		_draw_block_from_1d(tex_start, tex_pct, tex_x, r->rect.top, block_wid, r->rect.height, modes[MODE_HI].texture_size);
+	}else{
+		gerr("TODO 2d textures in MODE_HI");
+		glTexCoord2d(tex_start + 0.0,     0.0); glVertex2d(tex_x + 0.0,       r->rect.top);
+		glTexCoord2d(tex_start + tex_pct, 0.0); glVertex2d(tex_x + block_wid, r->rect.top);
+		glTexCoord2d(tex_start + tex_pct, 1.0); glVertex2d(tex_x + block_wid, r->rect.top + r->rect.height);
+		glTexCoord2d(tex_start + 0.0,     1.0); glVertex2d(tex_x + 0.0,       r->rect.top + r->rect.height);
+	}
+	glEnd();
+
+	return true;
+}
+
+
+#ifdef HIRES_NONSHADER_TEXTURES
+static inline bool
+block_hires_nonshader(Renderer* renderer, WaveformActor* actor, int b, gboolean is_first, gboolean is_last, double x)
+{
+	//TODO temporary fn - should share code
+
+	//render the 2d peak texture onto a block.
+
+	//if we dont subdivide the blocks, size will be 256 x 16 = 4096. TODO intel 945 has max size of 2048
+	//-it works but is the large texture size causing performance issues?
+
+	WaveformCanvas* wfc = actor->canvas;
+	RenderInfo* r  = &actor->priv->render_info;
+	WfRectangle* rect = &r->rect;
+
+	#define HIRES_NONSHADER_TEXTURES_MULTIPLIER 2 // half size texture
+	int texture_size = modes[MODE_HI].texture_size / HIRES_NONSHADER_TEXTURES_MULTIPLIER;
+
+	gl_warn("pre");
+
+									//int b_ = b | WF_TEXTURE_CACHE_HIRES_MASK;
+	WfTextureHi* texture = g_hash_table_lookup(actor->waveform->textures_hi->textures, &b);
+	if(!texture){
+		dbg(1, "texture not available. b=%i", b);
+		return false;
+	}
+	glEnable(GL_TEXTURE_2D);
+	agl_use_texture(texture->t[WF_LEFT].main);
+	gl_warn("texture assign");
+
+	float texels_per_px = ((float)texture_size) / r->block_wid;
+	#define EXTRA_PASSES 4 // empirically determined for visual effect.
+	int texels_per_px_i = ((int)texels_per_px) + EXTRA_PASSES;
+
+	WfColourFloat fg;
+	wf_colour_rgba_to_float(&fg, actor->fg_colour);
+	float alpha = ((float)(actor->fg_colour & 0xff)) / 256.0;
+	alpha /= (texels_per_px_i * 0.5); //reduce the opacity depending on how many texture passes we do, but not be the full amount (which looks too much).
+	glColor4f(fg.r, fg.g, fg.b, alpha); //seems we have to set colour _after_ binding... ?
+
+	//gboolean no_more = false;
+	//#define RATIO 2
+	//int r; for(r=0;r<RATIO;r++){ // no, this is horrible, we need to move this into the main block loop.
+
+	double tex_start;
+	double tex_pct;
+	double tex_x;
+	double block_wid;
+	if(!get_quad_dimensions(actor, b, is_first, is_last, x, &tex_start, &tex_pct, &tex_x, &block_wid, HIRES_NONSHADER_TEXTURES_MULTIPLIER)) return false;
+
+	glBegin(GL_QUADS);
+	//#if defined (USE_FBO) && defined (multipass)
+	//	if(false){
+	//	if(true){    //fbo not yet implemented for hi-res mode.
+	//#else
+		if(wfc->use_1d_textures){
+	//#endif
+			_draw_block_from_1d(tex_start, tex_pct, tex_x, r->rect.top, block_wid, r->rect.height, modes[MODE_HI].texture_size);
+		}else{
+			dbg(0, "x=%.2f wid=%.2f tex_pct=%.2f", tex_x, block_wid, tex_pct);
+
+			/*
+			 * render the texture multiple times so that all peaks are shown
+			 * -this looks quite nice, but without saturation, the peaks can be very faint.
+			 *  (not possible to have saturation while blending over background)
+			 */
+			float texel_offset = 1.0 / ((float)texture_size);
+			int i; for(i=0;i<texels_per_px_i;i++){
+				dbg(0, "texels_per_px=%.2f %i texel_offset=%.3f tex_start=%.4f", texels_per_px, texels_per_px_i, (texels_per_px / 2.0) / ((float)texture_size), tex_start);
+				glTexCoord2d(tex_start + 0.0,     0.0); glVertex2d(tex_x + 0.0,       rect->top);
+				glTexCoord2d(tex_start + tex_pct, 0.0); glVertex2d(tex_x + block_wid, rect->top);
+				glTexCoord2d(tex_start + tex_pct, 1.0); glVertex2d(tex_x + block_wid, rect->top + rect->height);
+				glTexCoord2d(tex_start + 0.0,     1.0); glVertex2d(tex_x + 0.0,       rect->top + rect->height);
+
+				tex_start += texel_offset;
+			}
+		}
+	glEnd();
+
+	return true;
+}
+#endif
+
+
+HiRenderer hi_renderer_shader = {{hi_pre_render, block_hires_shader}};
+HiRenderer hi_renderer_nonshader = {{hi_pre_render,
+#ifdef HIRES_NONSHADER_TEXTURES
+				block_hires_nonshader
+#else
+				// without shaders, each sample line is drawn directly without using textures, so performance will be relatively poor.
+				draw_wave_buffer_hi_nonshader
+#endif
+}};
+
+HiRenderer hi_renderer;
 

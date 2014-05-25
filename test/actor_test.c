@@ -23,7 +23,9 @@
   Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
 */
-#define __ayyi_private__
+#define USE_SHADERS true
+
+#define __wf_private__
 #include "config.h"
 #include <stdlib.h>
 #include <stdint.h>
@@ -263,7 +265,7 @@ on_canvas_realise(GtkWidget* _canvas, gpointer user_data)
 	gl_drawable = gtk_widget_get_gl_drawable(canvas);
 	gl_context  = gtk_widget_get_gl_context(canvas);
 
-	//agl_get_instance()->pref_use_shaders = false;
+	agl_get_instance()->pref_use_shaders = USE_SHADERS;
 
 	gl_init();
 

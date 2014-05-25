@@ -1,3 +1,13 @@
+/**
+* +----------------------------------------------------------------------+
+* | copyright (C) 2013-2014 Tim Orford <tim@orford.org>                  |
+* +----------------------------------------------------------------------+
+* | This program is free software; you can redistribute it and/or modify |
+* | it under the terms of the GNU General Public License version 3       |
+* | as published by the Free Software Foundation.                        |
+* +----------------------------------------------------------------------+
+*
+*/
 #ifndef __agl_fbo_h__
 #define __agl_fbo_h__
 
@@ -13,6 +23,8 @@ struct _fbo {
 AglFBO* agl_fbo_new      (int width, int height, guint texture);
 void    agl_fbo_free     (AglFBO*);
 void    agl_fbo_set_size (AglFBO*, int width, int height);
+
+#define agl_fbo_free0(var) (var = (agl_fbo_free(var), NULL))
 
 #define agl_draw_to_fbo(F) \
 	glMatrixMode(GL_PROJECTION); \

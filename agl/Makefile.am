@@ -19,8 +19,15 @@ libagl_la_SOURCES = \
 	utils.c utils.h \
 	typedefs.h shader.h
 
+pkgincludedir=$(includedir)/agl
 pkginclude_HEADERS = \
-	ext.h
+	typedefs.h \
+	ext.h \
+	fbo.h \
+	shader.h \
+	utils.h \
+	pango_render.h \
+	fontmap.h
 
 BUILT_SOURCES =
 

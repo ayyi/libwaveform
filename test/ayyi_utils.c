@@ -1,4 +1,5 @@
 #define __ayyi_utils_c__
+#define __wf_private__
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
