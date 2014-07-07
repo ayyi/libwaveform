@@ -42,6 +42,12 @@ struct _uniform_info
    GLint       location;  // filled in by agl_uniforms_init()
 };
 
+struct _texture_unit
+{
+   GLenum      unit;
+   int         texture;
+};
+
 typedef struct {float x, y, w, h;} AGlRect;
 typedef struct {float x0, y0, x1, y1;} AGlQuad;
 
@@ -56,6 +62,9 @@ void      agl_uniforms_init       (GLuint program, AGlUniformInfo uniforms[]);
 GLuint    agl_link_shaders        (GLuint vertShader, GLuint fragShader);
 void      agl_use_program         (AGlShader*);
 void      agl_use_texture         (GLuint texture);
+
+AGlTextureUnit* agl_texture_unit_new         (GLenum unit);
+void            agl_texture_unit_use_texture (AGlTextureUnit*, int texture);
 
 void      agl_rect                (float x, float y, float w, float h);
 void      agl_textured_rect       (guint texture, float x, float y, float w, float h, AGlQuad* tex_rect);

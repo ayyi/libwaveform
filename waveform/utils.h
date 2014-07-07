@@ -32,6 +32,7 @@ extern int wf_debug;
 #ifdef __wf_private__
 #ifndef __ayyi_debug_h__
 #define dbg(A, B, ...) wf_debug_printf(__func__, A, B, ##__VA_ARGS__)
+#define perr(A, ...) g_critical("%s(): "A, __func__, ##__VA_ARGS__)
 #endif
 #endif
 
@@ -46,7 +47,6 @@ extern int wf_debug;
 #endif
 #define gwarn(A, ...) g_warning("%s(): "A, __func__, ##__VA_ARGS__);
 #define gerr(A, ...) g_critical("%s(): "A, __func__, ##__VA_ARGS__)
-#define perr(A, ...) g_critical("%s(): "A, __func__, ##__VA_ARGS__)
 #define IDLE_STOP FALSE
 #define IDLE_CONTINUE TRUE
 #define TIMER_STOP FALSE

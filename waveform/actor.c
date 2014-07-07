@@ -331,7 +331,7 @@ wf_actor_new(Waveform* w, WaveformCanvas* wfc)
 
 	void wf_actor_on_dimensions_changed(WaveformCanvas* wfc, gpointer _actor)
 	{
-		PF0;
+		PF;
 		WaveformActor* a = _actor;
 		a->priv->render_info.valid = false;
 	}
@@ -571,12 +571,12 @@ block_to_fbo(WaveformActor* a, int b, WfGlBlock* blocks, int resolution)
 
 					glEnable(GL_TEXTURE_1D);
 					int c = 0;
-					texture_unit_use_texture(wfc->texture_unit[0], textures->peak_texture[c].main[b]);
-					texture_unit_use_texture(wfc->texture_unit[1], textures->peak_texture[c].neg[b]);
+					agl_texture_unit_use_texture(wfc->texture_unit[0], textures->peak_texture[c].main[b]);
+					agl_texture_unit_use_texture(wfc->texture_unit[1], textures->peak_texture[c].neg[b]);
 					if(a->waveform->priv->peak.buf[WF_RIGHT]){
 						c = 1;
-						texture_unit_use_texture(a->canvas->texture_unit[2], textures->peak_texture[c].main[b]);
-						texture_unit_use_texture(a->canvas->texture_unit[3], textures->peak_texture[c].neg[b]);
+						agl_texture_unit_use_texture(a->canvas->texture_unit[2], textures->peak_texture[c].main[b]);
+						agl_texture_unit_use_texture(a->canvas->texture_unit[3], textures->peak_texture[c].neg[b]);
 					}
 
 					//must introduce the overlap as early as possible in the pipeline. It is introduced during the copy from peakbuf to 1d texture.
@@ -1533,6 +1533,7 @@ wf_actor_paint(WaveformActor* actor)
 	if(!r->valid){
 		if(!calc_render_info(actor)) return;
 
+#ifdef DEBUG
 	}else{
 		// temporary checks:
 
@@ -1548,6 +1549,7 @@ wf_actor_paint(WaveformActor* actor)
 		int samples_per_texture = WF_SAMPLES_PER_TEXTURE * (mode == MODE_LOW ? WF_PEAK_STD_TO_LO : 1);
 		int first_offset = region.start % samples_per_texture;
 		if(first_offset != r->first_offset) gerr("valid should not be set: zoom %i %i", first_offset, r->first_offset);
+#endif
 	}
 
 	bool inline render_block(Renderer* renderer, WaveformActor* actor, int b, bool is_first, bool is_last, double x, Mode m, Mode* m_active)
@@ -1563,14 +1565,13 @@ wf_actor_paint(WaveformActor* actor)
 #ifdef DEBUG
 	g_return_if_fail(WF_PEAK_BLOCK_SIZE == (WF_PEAK_RATIO * WF_PEAK_TEXTURE_SIZE)); // temp check. we use a simplified loop which requires the two block sizes are the same
 #endif
+	Mode m_active = N_MODES;
 	bool is_first = true;
 	int b; for(b=r->viewport_start_block;b<=r->viewport_end_block;b++){
 		//dbg(0, "b=%i x=%.2f", b, x);
 		gboolean is_last = (b == r->viewport_end_block) || (b == r->textures->size - 1); //2nd test is unneccesary?
 
 		Mode m = r->mode;
-		Mode m_active = N_MODES;
-		int i = 0;
 		//while((m-- < N_MODES) && !renderer->render_block(renderer, actor, b, is_first, is_last, x)){
 		while((m < N_MODES) && !render_block(modes[m].renderer, actor, b, is_first, is_last, x, m, &m_active)){
 			dbg(1, "%sfalling through...%s %i-->%i", "\x1b[1;33m", wf_white, m, m - 1);

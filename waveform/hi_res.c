@@ -242,6 +242,30 @@ hi_pre_render(Renderer* renderer, WaveformActor* actor)
 	//-note that the block region can exceed the range of the waveform region.
 	hr->block_region = (WfSampleRegion){r->region.start % WF_SAMPLES_PER_TEXTURE, WF_SAMPLES_PER_TEXTURE - r->region.start % WF_SAMPLES_PER_TEXTURE};
 #endif
+
+	void hi_set_gl_state_shader(WaveformActor* actor)
+	{
+		WaveformCanvas* wfc = actor->canvas;
+		Waveform* w = actor->waveform; 
+		WfActorPriv* _a = actor->priv;
+		RenderInfo* r  = &_a->render_info;
+
+		HiResShader* hires_shader = wfc->priv->shaders.hires;
+		hires_shader->uniform.fg_colour = (actor->fg_colour & 0xffffff00) + (unsigned)(0x100 * _a->animatable.opacity.val.f);
+		hires_shader->uniform.peaks_per_pixel = r->peaks_per_pixel_i;
+		hires_shader->uniform.top = r->rect.top;
+		hires_shader->uniform.bottom = r->rect.top + r->rect.height;
+		hires_shader->uniform.n_channels = waveform_get_n_channels(w);
+
+		agl_use_program(&hires_shader->shader);
+	}
+
+	if(agl->use_shaders){
+		hi_set_gl_state_shader(actor);
+		glEnable(GL_TEXTURE_1D);
+	}else{
+		glEnable(GL_TEXTURE_2D);
+	}
 }
 
 
@@ -461,25 +485,6 @@ dbg (0, "%i: is_first=%i is_last=%i x=%.2f wid=%.2f/%.2f tex_pct=%.3f tex_start=
 }
 
 
-static void
-hi_set_gl_state_shader(WaveformActor* actor)
-{
-	WaveformCanvas* wfc = actor->canvas;
-	Waveform* w = actor->waveform; 
-	WfActorPriv* _a = actor->priv;
-	RenderInfo* r  = &_a->render_info;
-
-	HiResShader* hires_shader = wfc->priv->shaders.hires;
-	hires_shader->uniform.fg_colour = (actor->fg_colour & 0xffffff00) + (unsigned)(0x100 * _a->animatable.opacity.val.f);
-	hires_shader->uniform.peaks_per_pixel = r->peaks_per_pixel_i;
-	hires_shader->uniform.top = r->rect.top;
-	hires_shader->uniform.bottom = r->rect.top + r->rect.height;
-	hires_shader->uniform.n_channels = waveform_get_n_channels(w);
-
-	agl_use_program(&hires_shader->shader);
-}
-
-
 static inline bool
 block_hires_shader(Renderer* renderer, WaveformActor* actor, int b, gboolean is_first, gboolean is_last, double x)
 {
@@ -497,23 +502,19 @@ block_hires_shader(Renderer* renderer, WaveformActor* actor, int b, gboolean is_
 	WfActorPriv* _a = actor->priv;
 	RenderInfo* r  = &_a->render_info;
 
-	hi_set_gl_state_shader(actor);
-
 	WfTextureHi* texture = g_hash_table_lookup(actor->waveform->textures_hi->textures, &b);
 	if(!texture){
 		dbg(1, "texture not available. b=%i", b);
 		return false;
 	}
-	glEnable(GL_TEXTURE_1D);
 	int c;for(c=0;c<waveform_get_n_channels(w);c++){
-		texture_unit_use_texture(wfc->texture_unit[0 + 2 * c], texture->t[c].main);
-		texture_unit_use_texture(wfc->texture_unit[1 + 2 * c], texture->t[c].neg);
+		agl_texture_unit_use_texture(wfc->texture_unit[0 + 2 * c], texture->t[c].main);
+		agl_texture_unit_use_texture(wfc->texture_unit[1 + 2 * c], texture->t[c].neg);
 #ifdef DEBUG
 		dbg(2, "%i: textures: %u,%u", b, texture->t[c].main, texture->t[c].neg);
 		if(!glIsTexture(texture->t[c].main) || !glIsTexture(texture->t[c].neg)) gwarn("textures not ok: %i(%i),%i(%i) ", texture->t[c].main, glIsTexture(texture->t[c].main), texture->t[c].neg, glIsTexture(texture->t[c].neg));
 #endif
 	}
-	gl_warn("texture assign");
 	glActiveTexture(GL_TEXTURE0);
 
 																												/* colour only for non-shader mode
@@ -575,7 +576,6 @@ block_hires_nonshader(Renderer* renderer, WaveformActor* actor, int b, gboolean 
 		dbg(1, "texture not available. b=%i", b);
 		return false;
 	}
-	glEnable(GL_TEXTURE_2D);
 	agl_use_texture(texture->t[WF_LEFT].main);
 	gl_warn("texture assign");
 

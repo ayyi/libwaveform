@@ -178,6 +178,7 @@ agl_enable (gulong flags)
 #endif
 }
 
+
 GLboolean
 agl_shaders_supported()
 {
@@ -621,8 +622,11 @@ agl_use_texture(GLuint texture)
 	//note: 2d texture
 
 	glBindTexture(GL_TEXTURE_2D, texture);
-	glEnable(GL_BLEND);
-	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+    if(!(__enable_flags & GL_ENABLE_BLEND)){
+		agl_enable(GL_BLEND);
+		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+	}
 }
 
 
@@ -755,6 +759,35 @@ agl_rgba_to_float(uint32_t rgba, float* r, float* g, float* b)
 	*g = _g / 0xff;
 	*b = _b / 0xff;
 	dbg (3, "%08x --> %.2f %.2f %.2f", rgba, *r, *g, *b);
+}
+
+
+static AGlTextureUnit* active_texture_unit = NULL;
+
+
+AGlTextureUnit*
+agl_texture_unit_new(GLenum unit)
+{
+	AGlTextureUnit* texture_unit = g_new0(AGlTextureUnit, 1);
+	texture_unit->unit = unit;
+	return texture_unit;
+}
+
+
+void
+agl_texture_unit_use_texture(AGlTextureUnit* unit, int texture)
+{
+	g_return_if_fail(unit);
+
+	if(TRUE || active_texture_unit != unit){
+		active_texture_unit = unit;
+		glActiveTexture(unit->unit);
+	}
+	glBindTexture(GL_TEXTURE_1D, texture);
+	glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
+	if(!(__enable_flags & GL_ENABLE_BLEND)){
+		agl_enable(GL_BLEND);
+	}
 }
 
 

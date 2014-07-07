@@ -43,13 +43,15 @@ void main(void)
 	//-if the projections are the same, gl_FragCoord will give same results as ecPosition ?
 	//if(fract((gl_FragCoord.x -0.5 ) / pixels_per_beat) > 0.05) c[3] = 0.0;
 
-	int i; for(i=0;i<2;i++){
-		int locator_beat = markers[i] / (11025 * 3840); //TODO should use samples instead of AyyiSongPos
-		float locator_x = float(locator_beat) / beats_per_pixel - viewport_left;
+	if(MCposition.y > 20.0){
+		int i; for(i=0;i<2;i++){
+			int locator_beat = markers[i] / (11025 * 3840); //TODO should use samples instead of AyyiSongPos
+			float locator_x = float(locator_beat) / beats_per_pixel - viewport_left;
 
-		if(MCposition.x > locator_x - 0.5 && MCposition.x < locator_x + 0.5){
-			gl_FragColor = vec4(0.0, 0.0, 1.0, 1.0);
-			return;
+			if(MCposition.x > locator_x - 0.05 && MCposition.x < locator_x + 8.0){
+				gl_FragColor = vec4(0.5, 0.6, 0.8, 1.0);
+				return;
+			}
 		}
 	}
 
@@ -68,7 +70,9 @@ void main(void)
 			? pixels_per_beat * 16.0
 			: (pixels_per_beat < 6.0)
 				? pixels_per_beat * 4.0 //every bar
-				: pixels_per_beat;
+				: (pixels_per_beat < 24.0)
+					? pixels_per_beat
+					: pixels_per_beat / 4.0;
 
 	}else if(MCposition.y < 50.0){
 		//full size lines are every bar, unless zoomed out then only show every 4 bars.

@@ -37,13 +37,4 @@ extern int __draw_depth;
 	(__wf_drawing = FALSE);
 #define ASSERT_DRAWING g_return_if_fail(__wf_drawing);
 
-struct _texture_unit
-{
-	GLenum unit;
-	int    texture;
-};
-
-TextureUnit* texture_unit_new         (GLenum unit);
-void         texture_unit_use_texture (TextureUnit*, int texture);
-
 #endif //__waveform_gl_utils_h__

@@ -29,31 +29,3 @@
 #include "waveform/typedefs.h"
 #include "waveform/gl_utils.h"
 
-static TextureUnit* active_texture_unit = NULL;
-
-
-TextureUnit*
-texture_unit_new(GLenum unit)
-{
-	TextureUnit* texture_unit = g_new0(TextureUnit, 1);
-	texture_unit->unit = unit;
-	return texture_unit;
-}
-
-
-void
-texture_unit_use_texture(TextureUnit* unit, int texture)
-{
-	g_return_if_fail(unit);
-
-	if(TRUE || active_texture_unit != unit){
-		active_texture_unit = unit;
-		glActiveTexture(unit->unit);
-	}
-	glBindTexture(GL_TEXTURE_1D, texture);
-	glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
-	glEnable(GL_BLEND);
-	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-}
-
-

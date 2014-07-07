@@ -122,10 +122,10 @@ wf_canvas_init(WaveformCanvas* wfc)
 	wfc->blend = true;
 	wfc->sample_rate = 44100;
 	wfc->v_gain = 1.0;
-	wfc->texture_unit[0] = texture_unit_new(WF_TEXTURE0);
-	wfc->texture_unit[1] = texture_unit_new(WF_TEXTURE1);
-	wfc->texture_unit[2] = texture_unit_new(WF_TEXTURE2);
-	wfc->texture_unit[3] = texture_unit_new(WF_TEXTURE3);
+	wfc->texture_unit[0] = agl_texture_unit_new(WF_TEXTURE0);
+	wfc->texture_unit[1] = agl_texture_unit_new(WF_TEXTURE1);
+	wfc->texture_unit[2] = agl_texture_unit_new(WF_TEXTURE2);
+	wfc->texture_unit[3] = agl_texture_unit_new(WF_TEXTURE3);
 	wf_canvas_init_gl(wfc);
 	wfc->use_1d_textures = agl->use_shaders;
 }
@@ -173,7 +173,7 @@ wf_canvas_new_from_widget(GtkWidget* widget)
 	wfc->gl_drawable = gl_drawable; 
 	dbg(2, "got drawable");
 	wfc->gl_context = gtk_widget_get_gl_context(widget);
-	//int t; for(t=0;t<2;t++) wfc->texture_unit[t] = texture_unit_new(WF_TEXTURE0);
+	//int t; for(t=0;t<2;t++) wfc->texture_unit[t] = agl_texture_unit_new(WF_TEXTURE0);
 	wf_canvas_init(wfc);
 	return wfc;
 }

@@ -34,12 +34,12 @@ _set_gl_state_for_block(WaveformCanvas* wfc, Waveform* w, WfGlBlock* textures, i
 		int c = 0;
 		//dbg(0, "tex=%i", textures->peak_texture[c].main[b]);
 		//dbg(0, "%i %i %i", textures->peak_texture[c].main[0], textures->peak_texture[c].main[1], textures->peak_texture[c].main[2]);
-		texture_unit_use_texture(wfc->texture_unit[0], textures->peak_texture[c].main[b]);
-		texture_unit_use_texture(wfc->texture_unit[1], textures->peak_texture[c].neg[b]);
+		agl_texture_unit_use_texture(wfc->texture_unit[0], textures->peak_texture[c].main[b]);
+		agl_texture_unit_use_texture(wfc->texture_unit[1], textures->peak_texture[c].neg[b]);
 
 		if(w->textures->peak_texture[WF_RIGHT].main){
-			texture_unit_use_texture(wfc->texture_unit[2], textures->peak_texture[WF_RIGHT].main[b]);
-			texture_unit_use_texture(wfc->texture_unit[3], textures->peak_texture[WF_RIGHT].neg[b]);
+			agl_texture_unit_use_texture(wfc->texture_unit[2], textures->peak_texture[WF_RIGHT].main[b]);
+			agl_texture_unit_use_texture(wfc->texture_unit[3], textures->peak_texture[WF_RIGHT].neg[b]);
 		}
 
 		glActiveTexture(WF_TEXTURE0);
@@ -104,7 +104,9 @@ med_lo_pre_render(Renderer* renderer, WaveformActor* actor)
 		if(n) gwarn("%i textures not loaded", n);
 	}
 
+#if 0 // no longer needed - is done by agl_use_texture().
 	glEnable(wfc->use_1d_textures ? GL_TEXTURE_1D : GL_TEXTURE_2D);
+#endif
 }
 
 
