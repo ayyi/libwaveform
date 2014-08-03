@@ -5,7 +5,7 @@
 
   1-test basic hires
   2-test textures are loaded when scrolling
-      Shows many different views at hi res mode to check that the cache
+      Shows many different views at using all modes to check that the cache
       works when full and that the correct data for the view is available.
   3-test texture cache is emptied at lowres when the Waveform is free'd.
 
@@ -54,6 +54,7 @@
 #define VBORDER 8
 #define bool gboolean
 #define WAV1 "test/data/large1.wav"
+#define WAV2 "test/data/large2.wav"
 
 GdkGLConfig*    glconfig       = NULL;
 GdkGLDrawable*  gl_drawable    = NULL;
@@ -62,7 +63,8 @@ static bool     gl_initialised = false;
 GtkWidget*      canvas         = NULL;
 WaveformCanvas* wfc            = NULL;
 Waveform*       w1             = NULL;
-WaveformActor*  a[]            = {NULL};//, NULL, NULL, NULL};
+Waveform*       w2             = NULL;
+WaveformActor*  a[]            = {NULL, NULL};
 bool            files_created  = false;
 
 static void setup_projection   (GtkWidget*);
@@ -72,13 +74,14 @@ static void on_canvas_realise  (GtkWidget*, gpointer);
 static void on_allocate        (GtkWidget*, GtkAllocation*, gpointer);
 uint64_t    get_time           ();
 
-TestFn create_files, test_shown, test_hires, test_scroll, test_add_remove, finish;
+TestFn create_files, test_shown, test_hires, test_scroll, test_hi_double, test_add_remove, finish;
 
 gpointer tests[] = {
 	create_files,
 	test_shown,
 	test_hires,
 	test_scroll,
+	test_hi_double,
 	test_add_remove,
 	finish,
 };
@@ -160,7 +163,7 @@ test_hires()
 	{
 		PF0;
 
-		int i; for(i=0;i<G_N_ELEMENTS(a);i++)
+		int i; for(i=0;i<G_N_ELEMENTS(a)&&a[i];i++)
 			wf_actor_set_region(a[i], &(WfSampleRegion){
 				0,
 				REGION_LEN
@@ -220,8 +223,10 @@ test_hires()
 								: MODE_LOW;
 				}
 
+				#define LAST_NOT_VISIBLE (-1)
+
 				static int
-				wf_actor_get_last_visible_block(WfSampleRegion* region, WfRectangle* rect, double zoom, WfViewPort* viewport_px, WfGlBlock* textures)
+				Xwf_actor_get_last_visible_block(WfSampleRegion* region, WfRectangle* rect, double zoom, WfViewPort* viewport_px, WfGlBlock* textures)
 				{
 					//the region, rect and viewport are passed explictly because different users require slightly different values during transitions.
 
@@ -248,12 +253,94 @@ test_hires()
 					return region_end_block;
 				}
 
+				static double
+				wf_actor_samples2gl(double zoom, uint32_t n_samples)
+				{
+					//zoom is pixels per sample
+					return n_samples * zoom;
+				}
+
+				static int
+				wf_actor_get_last_visible_block(WfSampleRegion* region, WfRectangle* rect, double zoom, WfViewPort* viewport_px, WfGlBlock* textures)
+				{
+					//the region, rect and viewport are passed explictly because different users require slightly different values during transitions.
+
+					if(rect->left > viewport_px->right) return LAST_NOT_VISIBLE;
+
+					int resolution = get_resolution(zoom);
+					int samples_per_texture = WF_SAMPLES_PER_TEXTURE * (resolution == 1024 ? WF_PEAK_STD_TO_LO : 1);
+
+					g_return_val_if_fail(textures, LAST_NOT_VISIBLE);
+					g_return_val_if_fail(viewport_px->right - viewport_px->left > 0.01, LAST_NOT_VISIBLE);
+
+					//dbg(1, "rect: %.2f --> %.2f", rect->left, rect->left + rect->len);
+
+					double region_inset_px = wf_actor_samples2gl(zoom, region->start);
+					double file_start_px = rect->left - region_inset_px;
+					double block_wid = wf_actor_samples2gl(zoom, samples_per_texture);
+					//dbg(1, "vp->right=%.2f", viewport_px->right);
+					int region_start_block = region->start / samples_per_texture;
+					float _end_block = ((float)(region->start + region->len)) / samples_per_texture;
+					dbg(2, "%s region_start=%Li region_end=%i start_block=%i end_block=%.2f(%.i) n_peak_frames=%i gl->size=%i", resolution == 1024 ? "LOW" : resolution == 256 ? "STD" : "HI", region->start, ((int)region->start) + region->len, region_start_block, _end_block, (int)ceil(_end_block), textures->size * 256, textures->size);
+
+					//we round _down_ as the block corresponds to the _start_ of a section.
+					int region_end_block = MIN(_end_block, textures->size - 1);
+
+					if(region_end_block >= textures->size) gwarn("!!");
+
+					//crop to viewport:
+					int b; for(b=region_start_block;b<=region_end_block-1;b++){ //note we dont check the last block which can be partially outside the viewport
+						float block_end_px = file_start_px + (b + 1) * block_wid;
+						//dbg(1, " %i: block_px: %.1f --> %.1f", b, block_end_px - (int)block_wid, block_end_px);
+						if(block_end_px > viewport_px->right) dbg(2, "end %i clipped by viewport at block %i. vp.right=%.2f block_end=%.1f", region_end_block, MAX(0, b/* - 1*/), viewport_px->right, block_end_px);
+						if(block_end_px > viewport_px->right) return MAX(0, b/* - 1*/);
+					}
+
+					if(file_start_px + wf_actor_samples2gl(zoom, region->start + region->len) < viewport_px->left){
+						return LAST_NOT_VISIBLE;
+					}
+
+					dbg(2, "end not outside viewport. vp_right=%.2f last=%i", viewport_px->right, region_end_block);
+					return region_end_block;
+				}
+
+static WfSampleRegion
+get_random_region(WaveformActor* a, Mode mode, uint32_t max_scroll)
+{
+	// currently this is very approximate re mode targetting
+
+	int min = (mode == MODE_V_HI)        // sets max zoom
+		? 128
+		: 4096;
+
+	int len_range = (mode == MODE_V_HI) // sets min zoom
+		? 8192
+		: 16384;
+	uint32_t min_start = MAX(((int)a->region.start) - ((int)max_scroll), 0);
+	uint64_t start = g_random_int_range(
+		min_start,
+						MAX(min_start + 8, // temp fix - range end must be after range start
+		MIN(a->region.start + max_scroll, a->waveform->n_frames - len_range + 1)
+						)
+	);
+																	dbg(0, "start range: %i %i (max_scroll=%u)", min_start, MIN(a->region.start + max_scroll, a->waveform->n_frames - len_range + 1), max_scroll);
+	int len = min + g_random_int_range(0, len_range + 1);
+	dbg(1, "r=%Lu", start);
+
+	if(start + len > a->waveform->n_frames){
+		// the above calculation failed
+		if(len < a->waveform->n_frames) start = a->waveform->n_frames - len;
+	}
+
+	return (WfSampleRegion){start, len};
+}
+
 void
 test_scroll()
 {
-	START_TEST;
+	START_LONG_TEST;
 
-	static int n = 256;
+	static const int n = 256;
 	static int iter = 0;
 	static uint64_t start = 0;
 	static void (*next)();
@@ -279,14 +366,12 @@ test_scroll()
 	{
 		wait_count = 0;
 
-		start = g_random_int_range(0, w1->n_frames - REGION_LEN + 1);
-		int len = 128 + g_random_int_range(0, 8192 + 1);
 		dbg(0, "-------------------------");
-		dbg(0, "r=%Lu", start);
-
+		WfSampleRegion region = get_random_region(a[0], MODE_V_HI, UINT_MAX);
+		start = region.start;
 
 		int i; for(i=0;i<G_N_ELEMENTS(a);i++)
-			wf_actor_set_region(a[i], &(WfSampleRegion){start, len});
+			wf_actor_set_region(a[i], &region);
 
 		gboolean _check_scroll(gpointer data)
 		{
@@ -341,6 +426,105 @@ test_scroll()
 
 
 void
+test_hi_double()
+{
+	START_LONG_TEST;
+
+	// add a 2nd actor
+	{
+		char* filename = g_build_filename(g_get_current_dir(), WAV2, NULL);
+		// TODO this is be very slow if peakfile not present
+		w2 = waveform_load_new(filename);
+		g_free(filename);
+
+		int i = 1;
+		a[i] = wf_canvas_add_new_actor(wfc, w2);
+		assert(a[i], "failed to create actor");
+
+		wf_actor_set_region(a[i], &(WfSampleRegion){0, 4096 * 256});
+		wf_actor_set_colour(a[i], 0x66eeffff, 0x0000ffff);
+		on_allocate(canvas, NULL, NULL);
+	}
+
+	static const int n = 256;
+	static int iter = 0;
+	static WfSampleRegion region[2];
+	static void (*next)();
+	static int wait_count = 0;
+	static int timeouts[] =  {1000,   700,   600,    500,    400,      300,     100};
+	static uint64_t move[] = {4096, 16384, 65536, 262144, 1048576, 4194304, INT_MAX};
+
+	void next_scroll()
+	{
+		dbg(0, "-------------------------");
+		wait_count = 0;
+		int stage = MIN(G_N_ELEMENTS(move) - 1, iter / 8);
+		dbg(0, "------------------------- %i %i", iter, stage);
+
+		int i; for(i=0;i<G_N_ELEMENTS(a);i++){
+			region[i] = get_random_region(a[i], MODE_HI, move[stage]);
+			wf_actor_set_region(a[i], &region[i]);
+		}
+
+		gboolean _check_scroll(gpointer data)
+		{
+			/* private!
+			WfAnimatable* animatable = &a[0]->priv->animatable.start;
+			assert_and_stop(animatable->val.i == *animatable->model_val.i, "animation not finished");
+			*/
+
+			//GList* transitions = wf_actor_get_transitions(a[0]);
+			//dbg(0, "n_transitions=%i", g_list_length(transitions));
+			if(g_list_length(wf_actor_get_transitions(a[0]))) return TIMER_CONTINUE; // not yet ready
+
+			wait_count++;
+
+			WfSampleRegion* _region = &a[0]->region;
+
+			assert_and_stop((_region->start == region[0].start), "region");
+
+			const int samples_per_texture = WF_SAMPLES_PER_TEXTURE;// * (resolution == 1024 ? WF_PEAK_STD_TO_LO : 1);
+			int region_start_block = _region->start / samples_per_texture;
+			//WfTextureHi* texture = g_hash_table_lookup(w1->textures_hi->textures, &region_start_block);
+			//assert_and_stop(texture, "texture loaded %i", region_start_block);
+
+			WfAudioData* audio = w1->priv->audio_data;
+			assert_and_stop(audio->n_blocks, "n_blocks not set");
+
+			WfBuf16* buf = audio->buf16[region_start_block];
+			int n_jobs = g_list_length(wf->jobs);
+			if(n_jobs || !buf){
+				if(wait_count < 30) return TIMER_CONTINUE;
+			}
+
+			//assert_and_stop(wait_count < 30, "timeout loading blocks");
+			assert_and_stop(buf, "buf is empty %i", region_start_block);
+			assert_and_stop(!n_jobs, "jobs still pending: %i", n_jobs);
+
+			if(++iter < n){
+				next();
+			}else{
+																			extern void        hi_ng_cache_print   ();
+																			hi_ng_cache_print   ();
+
+																			extern void texture_cache_print();
+																			texture_cache_print();
+				FINISH_TEST_TIMER_STOP;
+			}
+
+			return TIMER_STOP;
+		}
+
+		g_timeout_add(timeouts[stage], _check_scroll, NULL);
+	}
+
+	next = next_scroll;
+
+	next_scroll();
+}
+
+
+void
 test_add_remove()
 {
 	// check the texture is cleared of dead Waveform's in LOW res.
@@ -349,7 +533,7 @@ test_add_remove()
 
 	void set_low_res()
 	{
-		int i; for(i=0;i<G_N_ELEMENTS(a);i++)
+		int i; for(i=0;i<G_N_ELEMENTS(a)&&a[i];i++)
 			wf_actor_set_region(a[i], &(WfSampleRegion){
 				0,
 				a[i]->waveform->n_frames - 1             //TODO this won't neccesarily be LOW_RES for all wav's
@@ -385,10 +569,12 @@ test_add_remove()
 }
 
 
+																		extern void hi_ng_cache_print();
 void
 finish()
 {
 	START_TEST;
+																		hi_ng_cache_print();
 
 	gboolean _finish(gpointer data)
 	{
@@ -512,20 +698,15 @@ on_canvas_realise(GtkWidget* _canvas, gpointer user_data)
 
 		WfSampleRegion region[] = {
 			{0,            REGION_LEN    },
-			//{0,            w1->n_frames - 1    },
-			//{0,            n_frames / 2},
-			//{n_frames / 4, n_frames / 4},
-			//{n_frames / 2, n_frames / 2},
+			{0,            w1->n_frames - 1    },
 		};
 
 		uint32_t colours[4][2] = {
 			{0xffffff77, 0x0000ffff},
-			//{0x66eeffff, 0x0000ffff},
-			//{0xffdd66ff, 0x0000ffff},
-			//{0x66ff66ff, 0x0000ffff},
+			{0x66eeffff, 0x0000ffff},
 		};
 
-		int i; for(i=0;i<G_N_ELEMENTS(a);i++){
+		int i; for(i=0;i<1;i++){ // initially only create 1 actor
 			a[i] = wf_canvas_add_new_actor(wfc, w1);
 
 			wf_actor_set_region(a[i], &region[i]);
@@ -560,7 +741,7 @@ on_allocate(GtkWidget* widget, GtkAllocation* allocation, gpointer user_data)
 	int i; for(i=0;i<G_N_ELEMENTS(a);i++)
 		if(a[i]) wf_actor_allocate(a[i], &(WfRectangle){
 			0.0,
-			i * GL_HEIGHT / 4,
+			i * GL_HEIGHT / G_N_ELEMENTS(a),
 			GL_WIDTH,
 			GL_HEIGHT / G_N_ELEMENTS(a) * 0.95
 		});

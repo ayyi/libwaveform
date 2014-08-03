@@ -283,3 +283,16 @@ create_large_file(char* filename)
 }
 
 
+char*
+find_wav(const char* wav)
+{
+	char* filename = g_build_filename(g_get_current_dir(), wav, NULL);
+	if(g_file_test(filename, G_FILE_TEST_EXISTS)){
+		return filename;
+	}
+	g_free(filename);
+	filename = g_build_filename(g_get_current_dir(), "../", wav, NULL);
+	return filename;
+}
+
+

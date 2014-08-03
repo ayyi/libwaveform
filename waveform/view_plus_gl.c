@@ -35,10 +35,6 @@ waveform_view_plus_gl_init(WaveformViewPlus* view)
 	} WF_END_DRAW
 
 	gl_initialised = true;
-
-#ifdef WF_USE_TEXTURE_CACHE
-	texture_cache_gen();
-#endif
 }
 
 

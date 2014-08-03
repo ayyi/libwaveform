@@ -1,5 +1,5 @@
 /*
-  copyright (C) 2012-2013 Tim Orford <tim@orford.org>
+  copyright (C) 2012-2014 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -41,6 +41,7 @@
 static void  _peak_shader_set_uniforms (float peaks_per_pixel, float top, float bottom, uint32_t _fg_colour, int n_channels);
 static void  _peak_nonscaling_set_uniforms ();
 static void  _hires_set_uniforms       ();
+static void  _hires_ng_set_uniforms    ();
 static void  _vertical_set_uniforms    ();
 static void  _horizontal_set_uniforms  ();
 static void  _ass_set_uniforms         ();
@@ -75,6 +76,12 @@ static AGlUniformInfo uniforms_hr[] = {
    END_OF_UNIFORMS
 };
 HiResShader hires_shader = {{NULL, NULL, 0, uniforms_hr, _hires_set_uniforms, &hires_text}};
+
+static AGlUniformInfo uniforms_hr_ng[] = {
+   {"tex2d",     1, GL_INT,   { 0, 0, 0, 0 }, -1}, // 0 corresponds to glActiveTexture(GL_TEXTURE0);
+   END_OF_UNIFORMS
+};
+HiResNGShader hires_ng_shader = {{NULL, NULL, 0, uniforms_hr_ng, _hires_ng_set_uniforms, &hires_ng_text}};
 
 static AGlUniformInfo uniforms2[] = {
    {"tex2d",     1, GL_INT,   { 0, 0, 0, 0 }, -1}, // 0 corresponds to glActiveTexture(GL_TEXTURE0);
@@ -163,6 +170,23 @@ _hires_set_uniforms()
 
 
 static void
+_hires_ng_set_uniforms()
+{
+	AGlShader* shader = &hires_ng_shader.shader;
+
+	float fg_colour[4] = {0.0, 0.0, 0.0, ((float)(hires_ng_shader.uniform.fg_colour & 0xff)) / 0x100};
+	agl_rgba_to_float(hires_ng_shader.uniform.fg_colour, &fg_colour[0], &fg_colour[1], &fg_colour[2]);
+	glUniform4fv(glGetUniformLocation(shader->program, "fg_colour"), 1, fg_colour);
+
+	glUniform1f(glGetUniformLocation(shader->program, "top"),             hires_ng_shader.uniform.top);
+	glUniform1f(glGetUniformLocation(shader->program, "bottom"),          hires_ng_shader.uniform.bottom);
+	glUniform1i(glGetUniformLocation(shader->program, "n_channels"),      hires_ng_shader.uniform.n_channels);
+	glUniform1f(glGetUniformLocation(shader->program, "tex_height"),      hires_ng_shader.uniform.tex_height);
+	glUniform1i(glGetUniformLocation(shader->program, "mm_level"),        hires_ng_shader.uniform.mm_level);
+}
+
+
+static void
 _vertical_set_uniforms()
 {
 	AGlShader* shader = &vertical.shader;
@@ -239,6 +263,7 @@ wf_shaders_init()
 	agl_create_program(&peak_nonscaling.shader);
 #endif
 	agl_create_program(&hires_shader.shader);
+	agl_create_program(&hires_ng_shader.shader);
 	agl_create_program(&horizontal.shader);
 	agl_create_program(&vertical.shader);
 	agl_create_program(&ruler.shader);

@@ -1,5 +1,5 @@
 /*
-  copyright (C) 2012 Tim Orford <tim@orford.org>
+  copyright (C) 2012-2014 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -39,10 +39,13 @@
 static int time_stamp = 0;
 static TextureCache* c;
 
+static void texture_cache_gen              ();
+static guint texture_cache_get             (int);
 static int  texture_cache_get_new          ();
 static void texture_cache_assign           (TextureCache*, int, WaveformBlock);
+static int  texture_cache_find_empty       ();
 static int  texture_cache_steal            ();
-static void texture_cache_print            ();
+       void texture_cache_print            ();
 static int  texture_cache_lookup_idx       (WaveformBlock);
 static int  texture_cache_lookup_idx_by_id (guint);
 static void texture_cache_unassign         (WaveformBlock);
@@ -63,7 +66,7 @@ texture_cache_init()
 }
 
 
-void
+static void
 texture_cache_gen()
 {
 	//create an additional set of available textures.
@@ -71,37 +74,38 @@ texture_cache_gen()
 	WF* wf = wf_get_instance();
 	if(!wf->texture_cache) texture_cache_init();
 
-							//check all textures
+	static bool error_shown = false;
+
+	//check all textures
 #if 0
-							{
-								int i; for(i=0;i<c->t->len;i++){
-									Texture* tx = &g_array_index(c->t, Texture, i);
-									if(!glIsTexture(tx->id)) gwarn("not texture! %i: %i", i, tx->id);
-								}
-							}
+	{
+		int i; for(i=0;i<c->t->len;i++){
+			Texture* tx = &g_array_index(c->t, Texture, i);
+			if(!glIsTexture(tx->id)) gwarn("not texture! %i: %i", i, tx->id);
+		}
+	}
 #endif
 
 	int size = c->t->len + WF_TEXTURE_ALLOCATION_INCREMENT;
-	if(size > WF_TEXTURE_MAX){ gwarn("texture allocation full"); texture_cache_print(); return; }
+	if(size > WF_TEXTURE_MAX){ if(wf_debug){ gwarn("texture allocation full"); if(!error_shown) texture_cache_print(); error_shown = true;} return; }
 	c->t = g_array_set_size(c->t, size);
 
-#if 1
 	guint textures[WF_TEXTURE_ALLOCATION_INCREMENT];
-#else
-	guint* textures = g_malloc0(WF_TEXTURE_ALLOCATION_INCREMENT * sizeof(guint)); //just testing but makes no difference
-#endif
 	glGenTextures(WF_TEXTURE_ALLOCATION_INCREMENT, textures);
 	dbg(2, "size=%i-->%i textures=%u...%u", size-WF_TEXTURE_ALLOCATION_INCREMENT, size, textures[0], textures[WF_TEXTURE_ALLOCATION_INCREMENT-1]);
 	if(glGetError() != GL_NO_ERROR) gwarn("failed to generate %i textures. cache_size=%i", WF_TEXTURE_ALLOCATION_INCREMENT, c->t->len);
 
+	int t;
+#ifdef DEBUG
 	//check the new textures are not already in the cache
-	int t; for(t=0;t< WF_TEXTURE_ALLOCATION_INCREMENT;t++){
+	for(t=0;t< WF_TEXTURE_ALLOCATION_INCREMENT;t++){
 		int idx = texture_cache_lookup_idx_by_id (textures[t]);
 		if(idx > -1){
 			Texture* tx = &g_array_index(c->t, Texture, t);
 			gwarn("given duplicate texture id: %i wf=%p b=%i", textures[t], tx->wb.waveform, tx->wb.block);
 		}
 	}
+#endif
 
 	int i = 0;
 	for(t=c->t->len-WF_TEXTURE_ALLOCATION_INCREMENT;t<c->t->len;t++, i++){
@@ -133,7 +137,7 @@ guint
 texture_cache_assign_new (TextureCache* cache, WaveformBlock wfb)
 {
 	if(wfb.block & WF_TEXTURE_CACHE_HIRES_MASK){
-		//temporarily use same cache
+		// temporarily(?) use same cache
 		dbg(0, "HI RES");
 	}
 
@@ -192,7 +196,7 @@ texture_cache_queue_clean()
 		}
 		int i = 0;
 		while(
-			true//(c->t->len > WF_TEXTURE_ALLOCATION_INCREMENT) //dont delete last block
+			(c->t->len > WF_TEXTURE_ALLOCATION_INCREMENT) //dont delete last block
 			&& last_block_is_empty()
 			&& (i++ < 10)
 		) texture_cache_shrink(c->t->len - WF_TEXTURE_ALLOCATION_INCREMENT);
@@ -231,10 +235,9 @@ texture_cache_unassign(WaveformBlock wb)
 }
 
 
-guint
+static guint
 texture_cache_get(int t)
 {
-	//WF* wf = wf_get_instance();
 	Texture* tx = &g_array_index(c->t, Texture, t);
 	return tx ? tx->id : 0;
 }
@@ -299,7 +302,7 @@ texture_cache_get_new()
 }
 
 
-int
+static int
 texture_cache_find_empty()
 {
 	int t; for(t=0;t<c->t->len;t++){
@@ -330,41 +333,57 @@ texture_cache_steal()
 	if(n > -1){
 		dbg(2, "%i time=%i", oldest, ((Texture*)&g_array_index(c->t, Texture, n))->time_stamp);
 		//TODO clear all references to this texture
-		WaveformBlock* wb = &((Texture*)&g_array_index(c->t, Texture, n))->wb;
+		Texture* tex = (Texture*)&g_array_index(c->t, Texture, n);
+		WaveformBlock* wb = &tex->wb;
 
-		int find_texture_in_block(int n, WaveformBlock* wb)
-		{
-			WfGlBlock* blocks = wb->waveform->textures;
-			guint* peak_texture[4] = {
-				&blocks->peak_texture[0].main[wb->block],
-				&blocks->peak_texture[0].neg[wb->block],
-				&blocks->peak_texture[1].main[wb->block],
-				&blocks->peak_texture[1].neg[wb->block]
-			};
-
-			g_return_val_if_fail(&g_array_index(c->t, Texture, n), -1); // tmp to debug segfault with line below
-
-			guint id = ((Texture*)&g_array_index(c->t, Texture, n))->id;
-			int i; for(i=0;i<4;i++){
-				if(peak_texture[i] && *peak_texture[i] == id) return i;
-			}
-			return -1;
-		}
-
-		int p;
-		if((p = find_texture_in_block(n, wb)) < 0){
-			gwarn("!!");
+		if(wb->block & WF_TEXTURE_CACHE_HIRES_NG_MASK){
+			extern void hi_ng_on_steal(WaveformBlock*, guint);
+			hi_ng_on_steal(wb, tex->id);
 		}else{
-			dbg(1, "clearing texture for block=%i %i ...", wb->block, p);
-			WfGlBlock* blocks = wb->waveform->textures;
-			guint* peak_texture[4] = {
-				&blocks->peak_texture[0].main[wb->block],
-				&blocks->peak_texture[0].neg[wb->block],
-				&blocks->peak_texture[1].main[wb->block],
-				&blocks->peak_texture[1].neg[wb->block]
-			};
-			*peak_texture[p] = 0;
+#if 0 // moved
+			int find_texture_in_block(int n, WaveformBlock* wb)
+			{
+				g_return_val_if_fail(wb->block < WF_MAX_BLOCKS, -1);
+
+				WfGlBlock* blocks = wb->waveform->textures;
+				guint* peak_texture[4] = {
+					&blocks->peak_texture[0].main[wb->block],
+					&blocks->peak_texture[0].neg[wb->block],
+					&blocks->peak_texture[1].main[wb->block],
+					&blocks->peak_texture[1].neg[wb->block]
+				};
+
+				guint id = ((Texture*)&g_array_index(c->t, Texture, n))->id;
+				int i; for(i=0;i<4;i++){
+					if(peak_texture[i] && *peak_texture[i] == id) return i;
+				}
+				return -1;
+			}
+
+			int p;
+			if((p = find_texture_in_block(n, wb)) < 0){
+				gwarn("!!");
+			}else{
+				dbg(1, "clearing texture for block=%i %i ...", wb->block, p);
+				WfGlBlock* blocks = wb->waveform->textures;
+				guint* peak_texture[4] = {
+					&blocks->peak_texture[0].main[wb->block],
+					&blocks->peak_texture[0].neg[wb->block],
+					&blocks->peak_texture[1].main[wb->block],
+					&blocks->peak_texture[1].neg[wb->block]
+				};
+				*peak_texture[p] = 0;
+			}
+#endif
+
+			// TODO move the above into this fn
+			extern void med_lo_on_steal(WaveformBlock*, guint);
+			med_lo_on_steal(wb, tex->id);
 		}
+
+		// TODO only regenerate the texture if the target has changed GL_TEXTURE_1D / GL_TEXTURE_2D
+		glDeleteTextures(1, &tex->id);
+		glGenTextures(1, &tex->id);
 	}
 	return n;
 }
@@ -411,20 +430,29 @@ texture_cache_count_used()
 }
 
 
-static void
+/*static */void
 texture_cache_print()
 {
 	int n_used = 0;
 	GList* waveforms = NULL;
 	if(c->t->len){
-		printf("         %3s  %3s   %-4s\n", "t", "b", "w");
+		printf("         %2s %3s  %3s   %-4s\n", "id", "ts", "b", "wvfm");
 		int i; for(i=0;i<c->t->len;i++){
 			Texture* t = &g_array_index(c->t, Texture, i);
-			printf("    %3i: %3i %4i %s %p\n", i, t->time_stamp, t->wb.block & (~WF_TEXTURE_CACHE_LORES_MASK), t->wb.block & WF_TEXTURE_CACHE_LORES_MASK ? "L" : "M", t->wb.waveform);
 			if(t->wb.waveform){
 				n_used++;
 				if(!g_list_find(waveforms, t->wb.waveform)) waveforms = g_list_append(waveforms, t->wb.waveform);
 			}
+			char* mode = (!t->wb.waveform)
+				? " "
+				: (t->wb.block & WF_TEXTURE_CACHE_LORES_MASK)
+					? "L"
+					: (t->wb.block & WF_TEXTURE_CACHE_HIRES_MASK)
+						? "h"
+						: (t->wb.block & WF_TEXTURE_CACHE_HIRES_NG_MASK)
+							? "H"
+							: "M";
+			printf("    %3i: %2u %3i %4i %s %4i\n", i, t->id, t->time_stamp, t->wb.block & (~(WF_TEXTURE_CACHE_LORES_MASK | WF_TEXTURE_CACHE_HIRES_NG_MASK)), mode, g_list_index(waveforms, t->wb.waveform) + 1);
 		}
 	}
 	dbg(0, "array_size=%i n_used=%i n_waveforms=%i", c->t->len, n_used, g_list_length(waveforms));

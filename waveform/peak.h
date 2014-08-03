@@ -1,5 +1,5 @@
 /*
-  copyright (C) 2012 Tim Orford <tim@orford.org>
+  copyright (C) 2012-2014 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -45,7 +45,7 @@ typedef struct _WaveformClass WaveformClass;
 
 #define WF_PEAK_BLOCK_SIZE (256 * 256) // the number of audio frames per block (64k)
 
-typedef int (*PeakLoader)(Waveform*, const char*, size_t);
+typedef int (*PeakLoader)(Waveform*, const char*);
 
 enum
 {
@@ -77,6 +77,7 @@ struct _Waveform
 	gboolean           is_split;          // true for split stereo files
 
 	gboolean           offline;
+	gboolean           renderable;
 
 	GPtrArray*         hires_peaks;       // array of Peakbuf* TODO how much does audio_data deprecate this?
 	int                num_peaks;         // peak_buflen / PEAK_VALUES_PER_SAMPLE

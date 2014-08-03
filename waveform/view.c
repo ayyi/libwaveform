@@ -66,8 +66,6 @@ struct _WaveformViewPrivate {
 	gboolean        show_grid;
 };
 
-#include "view_gl.c"
-
 static gpointer waveform_view_parent_class = NULL;
 
 #define WAVEFORM_VIEW_GET_PRIVATE(o) (G_TYPE_INSTANCE_GET_PRIVATE ((o), TYPE_WAVEFORM_VIEW, WaveformViewPrivate))
@@ -86,6 +84,7 @@ static void     waveform_view_finalize             (GObject*);
 static void     waveform_view_set_projection       (GtkWidget*);
 static void     waveform_view_init_drawable        (WaveformView*);
 static void     waveform_view_gl_on_allocate       (WaveformView*);
+static void     draw                               (WaveformView*);
 
 
 static gboolean
@@ -493,6 +492,21 @@ waveform_view_motion_notify_event (GtkWidget* widget, GdkEventMotion* event)
 static void
 waveform_view_init_drawable (WaveformView* view)
 {
+	void waveform_view_gl_init(WaveformView* view)
+	{
+		PF;
+
+		if(gl_initialised) return;
+
+		//WF_START_DRAW { } WF_END_DRAW
+
+		gl_initialised = true;
+
+	#ifdef X_WF_USE_TEXTURE_CACHE // textures are generated on demand so this shouldnt be needed.
+		texture_cache_gen();
+	#endif
+	}
+
 	GtkWidget* widget = (GtkWidget*)view;
 
 	if(!GTK_WIDGET_REALIZED(widget)) return;
@@ -604,6 +618,53 @@ waveform_view_set_projection(GtkWidget* widget)
 	double top   = GL_HEIGHT;
 	double bottom = 0.0;
 	glOrtho (left, right, bottom, top, 10.0, -100.0);
+}
+
+
+static void
+draw(WaveformView* view)
+{
+	Waveform* w = view->waveform;
+	WaveformActor* actor = view->priv->actor;
+
+#if 0 //white border
+	glPushMatrix(); /* modelview matrix */
+		glNormal3f(0, 0, 1); glDisable(GL_TEXTURE_2D);
+		glLineWidth(1);
+		glColor3f(1.0, 1.0, 1.0);
+
+		int wid = GL_WIDTH;
+		int h   = GL_HEIGHT;
+		glBegin(GL_LINES);
+		glVertex3f(0.0, 0.0, 1); glVertex3f(wid, 0.0, 1);
+		glVertex3f(wid, h,   1); glVertex3f(0.0,   h, 1);
+		glEnd();
+	glPopMatrix();
+#endif
+
+	if(!w || !w->textures) return;
+
+	wf_actor_paint(actor);
+
+	if(view->priv->show_grid){
+		WfViewPort viewport; wf_actor_get_viewport(actor, &viewport);
+
+		WfSampleRegion region = {view->start_frame, w->n_frames};
+		wf_grid_paint(view->priv->canvas, &region, &viewport);
+	}
+}
+
+
+static void
+waveform_view_gl_on_allocate(WaveformView* view)
+{
+	if(!view->priv->actor) return;
+
+	int width = waveform_view_get_width(view);
+	WfRectangle rect = {0, 0, width, GL_HEIGHT};
+	wf_actor_allocate(view->priv->actor, &rect);
+
+	wf_canvas_set_viewport(view->priv->canvas, NULL);
 }
 
 

@@ -6,7 +6,7 @@ ASSPROGRAMS = ass view_plus_test
 endif
 
 if ENABLE_OPENGL
-noinst_PROGRAMS = waveform_test view_test actor_test actor_plus list group hires_test $(ASSPROGRAMS) frame_rate resources write_wav write_short write_block large_files cache 32bit
+noinst_PROGRAMS = waveform_test view_test actor_test actor_plus list group hires_test $(ASSPROGRAMS) frame_rate resources write_wav write_short write_block large_files cache 32bit med_textures
 endif
 
 AM_CFLAGS = \
@@ -53,7 +53,7 @@ actor_test_SOURCES = \
 	actor_test.c
 
 actor_plus_SOURCES = \
-	ayyi_utils.c ayyi_utils.h \
+	$(COMMON_SOURCES) \
 	actor_plus.c
 
 list_SOURCES = \
@@ -89,6 +89,10 @@ cache_SOURCES = \
 32bit_SOURCES = \
 	$(COMMON_SOURCES) \
 	32bit.c
+
+med_textures_SOURCES = \
+	$(COMMON_SOURCES) \
+	med_textures.c
 
 write_wav_SOURCES = \
 	cpgrs.cc cpgrs.h \

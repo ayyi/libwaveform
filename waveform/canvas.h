@@ -63,6 +63,7 @@ struct _wf_canvas_priv {
 		PeakShader*     peak_nonscaling;
 //#endif
 		HiResShader*    hires;
+		HiResNGShader*  hires_ng;
 		BloomShader*    vertical;
 		BloomShader*    horizontal;
 		AlphaMapShader* tex2d;

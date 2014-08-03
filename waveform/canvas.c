@@ -62,6 +62,7 @@ static void wf_canvas_finalize      (GObject*);
 
 extern PeakShader peak_shader, peak_nonscaling;
 extern HiResShader hires_shader;
+extern HiResNGShader hires_ng_shader;
 extern BloomShader horizontal;
 extern BloomShader vertical;
 extern AlphaMapShader tex2d, ass;
@@ -288,6 +289,7 @@ wf_canvas_init_gl(WaveformCanvas* wfc)
 			priv->shaders.peak_nonscaling = &peak_nonscaling;
 #endif
 			priv->shaders.hires = &hires_shader;
+			priv->shaders.hires_ng = &hires_ng_shader;
 			priv->shaders.vertical = &vertical;
 			priv->shaders.horizontal = &horizontal;
 			priv->shaders.tex2d = &tex2d;

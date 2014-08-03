@@ -46,8 +46,8 @@ libwaveform_la_SOURCES = \
 EXTRA_DIST = \
 	med_res.c \
 	hi_res.c \
+	hi_res_ng.c \
 	v_hi_res.c \
-	view_gl.c \
 	view_plus_gl.c
 
 pkgincludedir=$(includedir)/waveform

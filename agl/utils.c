@@ -329,9 +329,7 @@ agl_uniforms_init(GLuint program, struct _uniform_info uniforms[])
 	for (i = 0; uniforms[i].name; i++) {
 		uniforms[i].location = glGetUniformLocation(program, uniforms[i].name);
 		//note location zero is ok.
-		if(uniforms[i].location < 0) gwarn("location=%i", uniforms[i].location);
-
-		//printf("uniform: '%s' location=%d\n", uniforms[i].name, uniforms[i].location);
+		if(uniforms[i].location < 0) gwarn("%s: location=%i", uniforms[i].name, uniforms[i].location);
 
 		switch (uniforms[i].size) {
 			case 1:
@@ -623,10 +621,15 @@ agl_use_texture(GLuint texture)
 
 	glBindTexture(GL_TEXTURE_2D, texture);
 
+#if 0
     if(!(__enable_flags & GL_ENABLE_BLEND)){
 		agl_enable(GL_BLEND);
 		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 	}
+#else
+	glEnable(GL_BLEND);
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+#endif
 }
 
 
@@ -785,9 +788,13 @@ agl_texture_unit_use_texture(AGlTextureUnit* unit, int texture)
 	}
 	glBindTexture(GL_TEXTURE_1D, texture);
 	glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
+#if 0
 	if(!(__enable_flags & GL_ENABLE_BLEND)){
 		agl_enable(GL_BLEND);
 	}
+#else
+	glEnable(GL_BLEND);
+#endif
 }
 
 

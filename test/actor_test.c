@@ -7,7 +7,7 @@
 
   ---------------------------------------------------------------
 
-  copyright (C) 2012 Tim Orford <tim@orford.org>
+  copyright (C) 2012-2014 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -107,6 +107,7 @@ main (int argc, char *argv[])
 	gtk_widget_set_gl_capability (canvas, glconfig, NULL, 1, GDK_GL_RGBA_TYPE);
 	gtk_widget_add_events        (canvas, GDK_POINTER_MOTION_MASK | GDK_BUTTON_PRESS_MASK | GDK_BUTTON_RELEASE_MASK);
 	gtk_container_add((GtkContainer*)window, (GtkWidget*)canvas);
+
 	g_signal_connect((gpointer)canvas, "realize",       G_CALLBACK(on_canvas_realise), NULL);
 	g_signal_connect((gpointer)canvas, "size-allocate", G_CALLBACK(on_allocate), NULL);
 	g_signal_connect((gpointer)canvas, "expose_event",  G_CALLBACK(on_expose), NULL);
@@ -211,9 +212,6 @@ setup_projection(GtkWidget* widget)
 static void
 draw(GtkWidget* widget)
 {
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-	glEnable(GL_BLEND); glEnable(GL_DEPTH_TEST); glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-
 	glPushMatrix(); /* modelview matrix */
 		int i; for(i=0;i<G_N_ELEMENTS(a);i++) if(a[i]) wf_actor_paint(a[i]);
 	glPopMatrix();
@@ -246,7 +244,7 @@ on_expose(GtkWidget* widget, GdkEventExpose* event, gpointer user_data)
 
 	START_DRAW {
 		glClearColor(0.0, 0.0, 0.0, 1.0);
-		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+		glClear(GL_COLOR_BUFFER_BIT);
 
 		draw(widget);
 

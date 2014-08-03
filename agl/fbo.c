@@ -48,7 +48,6 @@ static GLuint make_fb(AglFBO*);
 	GLuint make_texture(guint size)
 #endif
 	{
-					glEnable(GL_TEXTURE_2D);
 					glActiveTexture(GL_TEXTURE0);
 					glEnable(GL_TEXTURE_2D);
 		GLuint texture;
@@ -57,6 +56,7 @@ static GLuint make_fb(AglFBO*);
 
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+		//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); // prevent wrapping. GL_CLAMP_TO_EDGE uses the nearest texture value, and will not fade to the border colour like GL_CLAMP
 #ifdef NON_SQUARE
 		glTexImage2D(GL_TEXTURE_2D, 0, 4, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
 #else

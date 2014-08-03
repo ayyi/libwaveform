@@ -1,5 +1,5 @@
 /*
-  copyright (C) 2012-2013 Tim Orford <tim@orford.org>
+  copyright (C) 2012-2014 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -22,10 +22,15 @@
 
 typedef enum {WF_INT, WF_INT64, WF_FLOAT} WfPropType;
 
+typedef union {
+   uint32_t  i;
+   float     f;
+} UVal;
+
 typedef struct _animatable_property
 {
-	union {uint32_t  i; float  f;} val;
-	union {uint32_t  i; float  f;} start_val;
+	UVal  val;
+	UVal  start_val;
 	union {uint32_t* i; float* f;} model_val; // target (end) value
 	//union {uint32_t* i; float* f;} min;
 	WfPropType type;
@@ -45,6 +50,8 @@ typedef struct _anim_actor
 
 typedef struct _animation WfAnimation;
 typedef void  (*AnimationFn) (WfAnimation*, gpointer);
+typedef void  (*AnimationFrameFn) (WfAnimation*, int time);
+typedef void  (*AnimationValueFn) (WfAnimation*, UVal[], gpointer);
 
 struct _animation
 {
@@ -55,7 +62,7 @@ struct _animation
    float       (*frame_f)  (WfAnimation*, WfAnimatable*, int time); // easing fn
    GList*      members;                                             // list of WfAnimActor*  -- subject to change
    guint       timer;
-   void        (*on_frame) (WfAnimation*, int time);                // caller can run redraw fn.
+   AnimationFrameFn on_frame;                                       // caller can run redraw fn.
    AnimationFn on_finish;                                           // caller can free stuff in this callback
    gpointer    user_data;
 
@@ -68,5 +75,6 @@ void         wf_transition_add_member       (WfAnimation*, GList* animatables);
 void         wf_animation_remove            (WfAnimation*);
 gboolean     wf_animation_remove_animatable (WfAnimation*, WfAnimatable*);
 void         wf_animation_start             (WfAnimation*);
+void         wf_animation_preview           (WfAnimation*, AnimationValueFn, gpointer);
 
 #endif //__wf_animator_h__

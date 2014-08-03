@@ -60,8 +60,6 @@
 
 #define bool gboolean
 
-static char* find_wav();
-
 #define WAV \
 	"test/data/stereo_1.wav"
 //	"test/data/mono_1.wav"
@@ -125,7 +123,7 @@ main (int argc, char *argv[])
 
 	gtk_widget_show_all(window);
 
-	char* filename = find_wav();
+	char* filename = find_wav(WAV);
 	waveform_view_plus_load_file(waveform, filename);
 	g_free(filename);
 
@@ -176,19 +174,6 @@ void scroll_right(WaveformView* waveform)
 {
 	int n_visible_frames = ((float)waveform->waveform->n_frames) / waveform->zoom;
 	waveform_view_plus_set_start((WaveformViewPlus*)waveform, waveform->start_frame + n_visible_frames / 10);
-}
-
-
-static char*
-find_wav()
-{
-	char* filename = g_build_filename(g_get_current_dir(), WAV, NULL);
-	if(g_file_test(filename, G_FILE_TEST_EXISTS)){
-		return filename;
-	}
-	g_free(filename);
-	filename = g_build_filename(g_get_current_dir(), "../", WAV, NULL);
-	return filename;
 }
 
 

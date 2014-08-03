@@ -1,5 +1,5 @@
 /*
-  copyright (C) 2012-2014 Tim Orford <tim@orford.org>
+  copyright (C) 2014 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -15,6 +15,11 @@
   Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 */
 
-char*    waveform_ensure_peakfile (Waveform*);
-gboolean wf_peakgen               (const char* wav, const char* peak);
+varying vec2 MCposition;
 
+void main()
+{
+   gl_TexCoord[0] = gl_MultiTexCoord0;
+   MCposition = gl_Vertex.xy;
+   gl_Position = ftransform();
+}

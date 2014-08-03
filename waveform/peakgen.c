@@ -1,5 +1,5 @@
 /*
-  copyright (C) 2012-2013 Tim Orford <tim@orford.org>
+  copyright (C) 2012-2014 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -61,20 +61,17 @@ static char*         get_cache_dir       ();
 static void          maintain_file_cache ();
 
 
-char*
-waveform_ensure_peakfile (Waveform* w)
+static char*
+waveform_get_peak_filename(const char* filename)
 {
-	gchar* peak_filename = NULL;
-
-	if(!wf_create_cache_dir()) return NULL;
-
-	char* filename = g_path_is_absolute(w->filename) ? g_strdup(w->filename) : g_build_filename(g_get_current_dir(), w->filename, NULL);
+	// filename should be absolute.
+	// caller must g_free the returned value.
 
 	GError* error = NULL;
 	gchar* uri = g_filename_to_uri(filename, NULL, &error);
 	if(error){
 		gwarn("%s", error->message);
-		goto out;
+		return NULL;
 	}
 	dbg(1, "uri=%s", uri);
 
@@ -83,10 +80,25 @@ waveform_ensure_peakfile (Waveform* w)
 	gchar* peak_basename = g_strdup_printf("%s.peak", md5);
 	g_free(md5);
 	char* cache_dir = get_cache_dir();
-	peak_filename = g_build_filename(cache_dir, peak_basename, NULL);
+	gchar* peak_filename = g_build_filename(cache_dir, peak_basename, NULL);
 	g_free(cache_dir);
 	dbg(1, "peak_filename=%s", peak_filename);
 	g_free(peak_basename);
+
+	return peak_filename;
+}
+
+
+char*
+waveform_ensure_peakfile (Waveform* w)
+{
+	// caller must g_free the returned value.
+
+	if(!wf_create_cache_dir()) return NULL;
+
+	char* filename = g_path_is_absolute(w->filename) ? g_strdup(w->filename) : g_build_filename(g_get_current_dir(), w->filename, NULL);
+
+	gchar* peak_filename = waveform_get_peak_filename(filename);
 
 	if(g_file_test(peak_filename, G_FILE_TEST_EXISTS)){ 
 		dbg (1, "peak file exists. (%s)", peak_filename);
@@ -118,6 +130,7 @@ waveform_ensure_peakfile (Waveform* w)
 gboolean
 wf_peakgen(const char* infilename, const char* peak_filename)
 {
+																										#warning write to tmp dir and move when complete
 	//return true on success
 
 	g_return_val_if_fail(infilename, false);
@@ -195,11 +208,11 @@ wf_peakgen(const char* infilename, const char* peak_filename)
 		memset(min, 0, sizeof(short) * sfinfo.channels);
 		process_data(data, readcount, sfinfo.channels, max, min);
 		samples_read += readcount;
-		memcpy(total_max, max, sizeof(short) * sfinfo.channels);
 		short w[sfinfo.channels][2];
 		int c; for(c=0;c<sfinfo.channels;c++){
 			w[c][0] = max[c];
 			w[c][1] = min[c];
+			total_max[c] = MAX(total_max[c], max[c]);
 		}
 		total_frames_written += sf_write_short (outfile, (short*)w, WF_PEAK_VALUES_PER_SAMPLE * sfinfo.channels);
 		total_bytes_written += sizeof(short);
@@ -255,19 +268,11 @@ process_data (short* data, int data_size_frames, int n_channels, short max[], sh
 	//      max  - (output) positive peaks. must be allocated with size n_channels
 	//      min  - (output) negative peaks. must be allocated with size n_channels
 
-	/*
-	for (k = chan; k < count; k+= channels){
-		for (chan=0; chan < channels; chan++)
-			//data [k] *= channel_gain [chan] ;
-			printf("data: (%i) %i\n", chan, data[k]);
-	}*/
 	int c; for(c=0;c<n_channels;c++){
 		max[c] = 0;
 		min[c] = 0;
 	}
 	int k; for(k=0;k<data_size_frames;k+=n_channels){
-		//for(chan=0; chan<channels; chan++) printf("data: (%i) %i\n", chan, data[k+chan]);
-
 		for(c=0;c<n_channels;c++){
 			max[c] = (data[k + c] > max[c]) ? data[k + c] : max[c];
 			min[c] = (data[k + c] < min[c]) ? data[k + c] : min[c];
@@ -447,6 +452,7 @@ waveform_peakbuf_regen(Waveform* waveform, int block_num, int min_tiers)
 		audio_buf->stamp = ++wf->audio.access_counter;
 		int i, p; for(i=0, p=0; p<WF_PEAK_BLOCK_SIZE; i++, p+= io_ratio){
 
+																									// TODO duplicate process_data without channel loop.
 			process_data(&audio_buf->buf[c][p], io_ratio, 1, (short*)&maxplus, (short*)&maxmin);
 
 #if 0

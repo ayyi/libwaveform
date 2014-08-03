@@ -19,6 +19,7 @@
 
 #ifndef __GTK_H__
 #ifdef USE_GDK_PIXBUF
+#include "limits.h"
 #include <gtk/gtk.h>
 #else
 #define GdkColor void
@@ -32,6 +33,7 @@
 #define WF_PEAK_RATIO_LOW (WF_PEAK_RATIO * WF_PEAK_STD_TO_LO) // the number of samples per entry in a low res peakbuf.
 #define WF_TEXTURE_VISIBLE_SIZE (WF_PEAK_TEXTURE_SIZE - 2 * TEX_BORDER)
 #define WF_SAMPLES_PER_TEXTURE (WF_PEAK_RATIO * (WF_PEAK_TEXTURE_SIZE - 2 * TEX_BORDER))
+#define WF_MAX_BLOCKS (ULLONG_MAX / WF_SAMPLES_PER_TEXTURE)
 
 #define WF_TEXTURE0 GL_TEXTURE1 //0 is not used
 #define WF_TEXTURE1 GL_TEXTURE2
@@ -69,6 +71,9 @@ struct _waveform_priv
 {
 	WfPeakBuf       peak;
 	WfAudioData*    audio_data;     // tiered hi-res data for peaks.
+
+	gboolean        checks_done;    // if audio file is accessed, the peakfile is validated.
+
 	gint           _property1;      // just testing
 };
 

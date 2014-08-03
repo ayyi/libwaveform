@@ -1,6 +1,6 @@
 #!/bin/bash
 
-shaders=(peak peak_nonscaling horizontal vertical hires ruler ass lines);
+shaders=(peak peak_nonscaling horizontal vertical hires hires_ng ruler ass lines);
 out=shaders.c
 
 if [[ -s $out ]]; then

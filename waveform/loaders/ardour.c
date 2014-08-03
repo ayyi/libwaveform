@@ -1,5 +1,5 @@
 /*
-  copyright (C) 2012 Tim Orford <tim@orford.org>
+  copyright (C) 2012-2014 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -39,7 +39,7 @@ static size_t get_n_words(Waveform*, const char* peakfile);
  *  load the contents of a peak file from an Ardour project.
  */
 int
-wf_load_ardour_peak(Waveform* wv, const char* peak_file, size_t size)
+wf_load_ardour_peak(Waveform* wv, const char* peak_file)
 {
 	g_return_val_if_fail(wv, 0);
 

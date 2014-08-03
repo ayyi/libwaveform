@@ -1,5 +1,5 @@
 /*
-  copyright (C) 2012 Tim Orford <tim@orford.org>
+  copyright (C) 2012-2014 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -96,6 +96,7 @@ waveform_new (const char* filename)
 	Waveform* w = waveform_construct(TYPE_WAVEFORM);
 	w->priv = g_new0(WaveformPriv, 1);
 	w->filename = g_strdup(filename);
+	w->renderable = true;
 	w->hires_peaks = g_ptr_array_new();
 	w->priv->audio_data = g_new0(WfAudioData, 1);
 	return w;
@@ -299,6 +300,16 @@ waveform_get_sf_data(Waveform* w)
 
 	w->n_frames = sfinfo.frames;
 	w->n_channels = w->n_channels ? w->n_channels : sfinfo.channels; // sfinfo is not correct in the case of split stereo files.
+
+	if(w->num_peaks && !w->priv->checks_done){
+		if(w->n_frames > w->num_peaks * WF_PEAK_RATIO){
+			char* peakfile = waveform_ensure_peakfile(w);
+			gwarn("peakfile is too short. maybe corrupted. len=%i expected=%Lu '%s'", w->num_peaks, w->n_frames / WF_PEAK_RATIO, peakfile);
+			w->renderable = false;
+			g_free(peakfile);
+		}
+		w->priv->checks_done = true;
+	}
 }
 
 
@@ -357,8 +368,7 @@ waveform_load_peak(Waveform* w, const char* peak_file, int ch_num)
 		g_free0(w->priv->peak.buf[ch_num]);
 	}
 
-	size_t size = 0;
-	int n_channels = wf->load_peak(w, peak_file, size); //not currently passing the size. If we decide not to use it, this arg should be removed.
+	int n_channels = wf->load_peak(w, peak_file);
 
 	if(ch_num) w->n_channels = MAX(w->n_channels, ch_num + 1); // for split stereo files
 

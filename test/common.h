@@ -47,6 +47,7 @@ void reset_timeout      (int ms);
 bool get_random_boolean ();
 int  get_random_int     (int max);
 void create_large_file  (char*);
+char*find_wav           (const char*);
 
 void errprintf4         (char* format, ...);
 
@@ -61,6 +62,11 @@ void add_key_handlers   (GtkWindow*, WaveformView*, Key[]);
 		printf("running %i of %i: %s ...\n", current_test + 1, G_N_ELEMENTS(tests), __func__); \
 	} \
 	if(test_finished) return;
+
+#define START_LONG_TEST \
+	START_TEST; \
+	g_source_remove (app.timeout); \
+	app.timeout = 0;
 
 #define NEXT_CALLBACK(A, B, C) \
 	step++; \

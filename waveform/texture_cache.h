@@ -1,5 +1,5 @@
 /*
-  copyright (C) 2012 Tim Orford <tim@orford.org>
+  copyright (C) 2012-2014 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -23,6 +23,7 @@
 
 #define WF_TEXTURE_CACHE_LORES_MASK (1 << 23)
 #define WF_TEXTURE_CACHE_HIRES_MASK (1 << 22)
+#define WF_TEXTURE_CACHE_HIRES_NG_MASK (1 << 21)
 
 struct _texture_cache
 {
@@ -30,10 +31,7 @@ struct _texture_cache
 };
 
 void  texture_cache_init            ();
-void  texture_cache_gen             ();
-guint texture_cache_get             (int);
 int   texture_cache_lookup          (WaveformBlock);
-int   texture_cache_find_empty      ();
 guint texture_cache_assign_new      (TextureCache*, WaveformBlock);
 void  texture_cache_remove          (Waveform*, int);
 void  texture_cache_remove_waveform (Waveform*);

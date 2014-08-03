@@ -58,6 +58,19 @@ static GLuint lines_texture[8] = {0};
 typedef struct {float x, y;} Vertex;
 typedef struct {Vertex v0, v1, v2, v3;} Quad;
 
+HiRenderer hi_renderer;
+
+static void  _wf_actor_print_hires_textures  (WaveformActor*);
+
+
+static void
+hi_request_block(WaveformActor* a, int b)
+{
+	if(waveform_load_audio_async(a->waveform, b, HI_MIN_TIERS)){
+		((Renderer*)&hi_renderer)->load_block((Renderer*)&hi_renderer, a, b);
+	}
+}
+
 
 #ifdef ANTIALIASED_LINES
 GLuint
@@ -72,7 +85,6 @@ _wf_create_line_texture()
 	int height = 5;
 	char* pbuf = g_new0(char, width * height);
 	int y;
-//dbg(0, "%i (%i): %i", y, height -1 - y, 0xff * (2*y)/height);
 	//char vals[] = {0xff, 0xa0, 0x40};
 	char vals[] = {0xff, 0x40, 0x10};
 	int x; for(x=0;x<width;x++){
@@ -87,7 +99,6 @@ _wf_create_line_texture()
 	int height = 4;
 	char* pbuf = g_new0(char, width * height);
 	int y; for(y=0;y<height/2;y++){
-//dbg(0, "%i (%i): %i", y, height -1 - y, 0xff * (2*y)/height);
 		int x; for(x=0;x<width;x++){
 			*(pbuf + y * width + x) = 0xff * (2*y)/height + 128;
 			*(pbuf + (height -1 - y) * width + x) = 0xff * (2*y)/height + 128;
@@ -161,6 +172,69 @@ _wf_create_lines_texture(guchar* pbuf, int width, int height)
 	return lines_texture[t];
 }
 #endif
+
+
+static void
+_wf_actor_load_texture_hi(Renderer* renderer, WaveformActor* a, int block)
+{
+	// audio data for this block _must_ already be loaded
+																							gwarn("DONT GET HERE (shader)");
+
+	void
+	wf_actor_allocate_block_hi(WaveformActor* a, int b)
+	{
+		PF;
+		WfTextureHi* texture = g_hash_table_lookup(a->waveform->textures_hi->textures, &b);
+
+		int c = WF_LEFT;
+
+		if(glIsTexture(texture->t[c].main)){
+			gwarn("already assigned");
+			return;
+		}
+
+		// TODO is the texture_cache suitable for hires textures?
+		// it uses an array, so all items must be of the same type, but hires textures can still use Texture object in cache?
+		// (they would be both in the per-actor list (as WfTextureHi) and the global cache as Texture)
+		int n_ch = waveform_get_n_channels(a->waveform);
+		if(a->canvas->use_1d_textures){
+			for(c=0;c<n_ch;c++){
+				texture->t[c].main = texture_cache_assign_new(wf->texture_cache, (WaveformBlock){a->waveform, b});
+				texture->t[c].neg  = texture_cache_assign_new(wf->texture_cache, (WaveformBlock){a->waveform, b});
+			}
+
+			wf_actor_load_texture1d(a->waveform, MODE_HI, (WfGlBlock*)NULL, b);
+		}else{
+	#ifdef HIRES_NONSHADER_TEXTURES
+			texture->t[WF_LEFT].main = texture_cache_assign_new(wf->texture_cache, (WaveformBlock){a->waveform, b | WF_TEXTURE_CACHE_HIRES_MASK});
+			dbg(0, "assigned texture=%u", texture->t[WF_LEFT].main);
+
+			wf_actor_load_texture2d(a, MODE_HI, texture->t[c].main, b);
+	#else
+			// non-shader hi-res not using textures, so nothing to do here.
+	#endif
+		}
+	}
+
+	ModeRange mode = mode_range(a);
+	if(mode.lower == MODE_HI || mode.upper == MODE_HI){
+
+		WfTextureHi* texture = g_hash_table_lookup(a->waveform->textures_hi->textures, &block);
+		if(!texture){
+			texture = waveform_texture_hi_new();
+			dbg(1, "b=%i: inserting...", block);
+			uint32_t* key = (uint32_t*)g_malloc(sizeof(uint32_t));
+			*key = block;
+			g_hash_table_insert(a->waveform->textures_hi->textures, key, texture);
+			wf_actor_allocate_block_hi(a, block);
+		}
+		else dbg(1, "b=%i: already have texture. t=%i", block, texture->t[WF_LEFT].main);
+		if(wf_debug > 1) _wf_actor_print_hires_textures(a);
+
+		//TODO check this block is within current viewport
+		if(a->canvas->draw) wf_canvas_queue_redraw(a->canvas);
+	}
+}
 
 
 static void
@@ -405,7 +479,7 @@ draw_wave_buffer_hi_nonshader(Renderer* renderer, WaveformActor* actor, int b, b
 
 
 static bool
-get_quad_dimensions(WaveformActor* actor, int b, bool is_first, bool is_last, double x, double* tex_start_, double* tex_pct_, double* tex_x_, double* block_wid_, int multiplier)
+get_quad_dimensions(WaveformActor* actor, int b, bool is_first, bool is_last, double x, TextureRange* tex, double* tex_x_, double* block_wid_, int border, int multiplier)
 {
 	// multiplier is temporary and is used for HIRES_NONSHADER_TEXTURES
 
@@ -422,12 +496,12 @@ get_quad_dimensions(WaveformActor* actor, int b, bool is_first, bool is_last, do
 
 	int samples_per_texture = r->samples_per_texture / multiplier;
 
-	double usable_pct = (modes[r->mode].texture_size - 2.0 * TEX_BORDER_HI) / modes[r->mode].texture_size;
+	double usable_pct = (modes[r->mode].texture_size - 2.0 * border) / modes[r->mode].texture_size;
 	double border_pct = (1.0 - usable_pct)/2;
 
 	block_wid = r->block_wid / multiplier;
 	tex_pct = 1.0 * usable_pct; //use the whole texture
-	tex_start = TEX_BORDER_HI / modes[r->mode].texture_size;
+	tex_start = border / modes[r->mode].texture_size;
 	if (is_first){
 		double _tex_pct = 1.0;
 		if(r->first_offset){
@@ -477,75 +551,9 @@ dbg (0, "%i: is_first=%i is_last=%i x=%.2f wid=%.2f/%.2f tex_pct=%.3f tex_start=
 	if(tex_pct > usable_pct || tex_pct < 0.0) gwarn("tex_pct! %.2f (b=%i)", tex_pct, b);
 	tex_x = x + ((is_first && r->first_offset) ? r->first_offset_px : 0);
 
-	*tex_start_ = tex_start;
-	*tex_pct_ = tex_pct;
+	*tex = (TextureRange){tex_start, tex_start + tex_pct};
 	*tex_x_ = tex_x;
 	*block_wid_ = block_wid;
-	return true;
-}
-
-
-static inline bool
-block_hires_shader(Renderer* renderer, WaveformActor* actor, int b, gboolean is_first, gboolean is_last, double x)
-{
-	//render the 1d peak textures onto a 2d block.
-
-	//if we dont subdivide the blocks, size will be 256 x 16 = 4096 - should be ok.
-	//-it works but is the large texture size causing performance issues?
-
-	//TODO merge with non-shader version below.
-
-	gl_warn("pre");
-
-	WaveformCanvas* wfc = actor->canvas;
-	Waveform* w = actor->waveform; 
-	WfActorPriv* _a = actor->priv;
-	RenderInfo* r  = &_a->render_info;
-
-	WfTextureHi* texture = g_hash_table_lookup(actor->waveform->textures_hi->textures, &b);
-	if(!texture){
-		dbg(1, "texture not available. b=%i", b);
-		return false;
-	}
-	int c;for(c=0;c<waveform_get_n_channels(w);c++){
-		agl_texture_unit_use_texture(wfc->texture_unit[0 + 2 * c], texture->t[c].main);
-		agl_texture_unit_use_texture(wfc->texture_unit[1 + 2 * c], texture->t[c].neg);
-#ifdef DEBUG
-		dbg(2, "%i: textures: %u,%u", b, texture->t[c].main, texture->t[c].neg);
-		if(!glIsTexture(texture->t[c].main) || !glIsTexture(texture->t[c].neg)) gwarn("textures not ok: %i(%i),%i(%i) ", texture->t[c].main, glIsTexture(texture->t[c].main), texture->t[c].neg, glIsTexture(texture->t[c].neg));
-#endif
-	}
-	glActiveTexture(GL_TEXTURE0);
-
-																												/* colour only for non-shader mode
-	WfColourFloat fg;
-	wf_colour_rgba_to_float(&fg, actor->fg_colour);
-	float alpha = ((float)(actor->fg_colour & 0xff)) / 256.0;
-	glColor4f(fg.r, fg.g, fg.b, alpha); //seems we have to set colour _after_ binding... ?
-																												*/
-	double tex_start;
-	double tex_pct;
-	double tex_x;
-	double block_wid;
-	if(!get_quad_dimensions(actor, b, is_first, is_last, x, &tex_start, &tex_pct, &tex_x, &block_wid, 1)) return false;
-
-	glBegin(GL_QUADS);
-#if defined (USE_FBO) && defined (multipass)
-//	if(false){
-	if(true){    //fbo not yet implemented for hi-res mode.
-#else
-	if(wfc->use_1d_textures){
-#endif
-		_draw_block_from_1d(tex_start, tex_pct, tex_x, r->rect.top, block_wid, r->rect.height, modes[MODE_HI].texture_size);
-	}else{
-		gerr("TODO 2d textures in MODE_HI");
-		glTexCoord2d(tex_start + 0.0,     0.0); glVertex2d(tex_x + 0.0,       r->rect.top);
-		glTexCoord2d(tex_start + tex_pct, 0.0); glVertex2d(tex_x + block_wid, r->rect.top);
-		glTexCoord2d(tex_start + tex_pct, 1.0); glVertex2d(tex_x + block_wid, r->rect.top + r->rect.height);
-		glTexCoord2d(tex_start + 0.0,     1.0); glVertex2d(tex_x + 0.0,       r->rect.top + r->rect.height);
-	}
-	glEnd();
-
 	return true;
 }
 
@@ -554,8 +562,6 @@ block_hires_shader(Renderer* renderer, WaveformActor* actor, int b, gboolean is_
 static inline bool
 block_hires_nonshader(Renderer* renderer, WaveformActor* actor, int b, gboolean is_first, gboolean is_last, double x)
 {
-	//TODO temporary fn - should share code
-
 	//render the 2d peak texture onto a block.
 
 	//if we dont subdivide the blocks, size will be 256 x 16 = 4096. TODO intel 945 has max size of 2048
@@ -593,11 +599,15 @@ block_hires_nonshader(Renderer* renderer, WaveformActor* actor, int b, gboolean 
 	//#define RATIO 2
 	//int r; for(r=0;r<RATIO;r++){ // no, this is horrible, we need to move this into the main block loop.
 
+#if 0
 	double tex_start;
 	double tex_pct;
+#else
+	TextureRange tex;
+#endif
 	double tex_x;
 	double block_wid;
-	if(!get_quad_dimensions(actor, b, is_first, is_last, x, &tex_start, &tex_pct, &tex_x, &block_wid, HIRES_NONSHADER_TEXTURES_MULTIPLIER)) return false;
+	if(!get_quad_dimensions(actor, b, is_first, is_last, x, &tex, &tex_x, &block_wid, TEX_BORDER_HI, HIRES_NONSHADER_TEXTURES_MULTIPLIER)) return false;
 
 	glBegin(GL_QUADS);
 	//#if defined (USE_FBO) && defined (multipass)
@@ -633,8 +643,27 @@ block_hires_nonshader(Renderer* renderer, WaveformActor* actor, int b, gboolean 
 #endif
 
 
-HiRenderer hi_renderer_shader = {{hi_pre_render, block_hires_shader}};
-HiRenderer hi_renderer_nonshader = {{hi_pre_render,
+static void
+_wf_actor_print_hires_textures(WaveformActor* a)
+{
+	dbg(0, "");
+	GHashTableIter iter;
+	gpointer key, value;
+	g_hash_table_iter_init (&iter, a->waveform->textures_hi->textures);
+	while (g_hash_table_iter_next (&iter, &key, &value)){
+		int b = *((int*)key);
+		WfTextureHi* th = value;
+		printf("  b=%i t=%i\n", b, th->t[WF_LEFT].main);
+	}
+}
+
+
+#ifdef HI_NG
+HiRenderer hi_renderer_shader = {{hi_ng_load_block, hi_ng_pre_render, block_hires_ng}};
+#else
+HiRenderer hi_renderer_shader = {{_wf_actor_load_texture_hi, hi_pre_render, block_hires_shader}};
+#endif
+HiRenderer hi_renderer_nonshader = {{_wf_actor_load_texture_hi, hi_pre_render,
 #ifdef HIRES_NONSHADER_TEXTURES
 				block_hires_nonshader
 #else
@@ -643,5 +672,11 @@ HiRenderer hi_renderer_nonshader = {{hi_pre_render,
 #endif
 }};
 
-HiRenderer hi_renderer;
+static Renderer*
+hi_renderer_new()
+{
+	if(!hi_res_ng_data) hi_res_ng_data = g_hash_table_new_full(g_direct_hash, g_int_equal, NULL, hi_ng_free_item);
+
+	return (Renderer*)&hi_renderer;
+}
 

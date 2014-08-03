@@ -374,5 +374,5 @@ draw_wave_buffer_v_hi(Renderer* renderer, WaveformActor* actor, int block, bool 
 }
 
 
-VHiRenderer v_hi_renderer = {{v_hi_pre_render, draw_wave_buffer_v_hi}};
+VHiRenderer v_hi_renderer = {{NULL, v_hi_pre_render, draw_wave_buffer_v_hi}};
 

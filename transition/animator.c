@@ -133,7 +133,7 @@ wf_transition_add_member(WfAnimation* animation, GList* animatables)
 	member->transitions = animatables;
 	animation->members = g_list_append(animation->members, member);
 #ifdef WF_DEBUG
-	g_strlcpy(member->name, name, 16);
+	g_strlcpy(member->name, "untitled", 16);
 #endif
 
 	//TODO do this in animation_start instead.
@@ -314,10 +314,10 @@ wf_animation_start(WfAnimation* animation)
 		WfAnimation* animation = _animation;
 		GList* l = animation->members;
 		for(;l;l=l->next){
-			WfAnimActor* blah = l->data;
+			WfAnimActor* anim_actor = l->data;
 
-			GList* k = blah->transitions;
-			if(!k) gwarn("actor member has no transitions");
+			GList* k = anim_actor->transitions;
+			if(!k) gwarn("AnimActor member has no transitions");
 			for(;k;k=k->next){
 				WfAnimatable* animatable = k->data;
 				if(animatable->type == WF_INT){
@@ -356,6 +356,33 @@ wf_animation_start(WfAnimation* animation)
 		g_source_set_priority(source, G_PRIORITY_HIGH);
 		animation->timer = g_source_attach(source, NULL);
 #endif
+	}
+}
+
+
+void
+wf_animation_preview(WfAnimation* animation, AnimationValueFn on_frame, gpointer user_data)
+{
+	int t; for(t=0;t<animation->length;t+=WF_FRAME_INTERVAL){
+		UVal val;
+
+		GList* l = animation->members;
+		for(;l;l=l->next){
+			WfAnimActor* anim_actor = l->data;
+
+			UVal vals[g_list_length(anim_actor->transitions)];
+			int i = 0;
+			GList* k = anim_actor->transitions;
+			for(;k;k=k->next,i++){
+				WfAnimatable* animatable = k->data;
+				if(animatable->type == WF_INT){
+					vals[i].i = animation->frame_i(animation, animatable, t + animation->start);
+				}else{
+					vals[i].f = animation->frame_f(animation, animatable, t + animation->start);
+				}
+			}
+			on_frame(animation, vals, user_data);
+		}
 	}
 }
 
