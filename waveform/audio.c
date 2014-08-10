@@ -328,6 +328,8 @@ waveform_load_audio_async(Waveform* waveform, int block_num, int n_tiers_needed)
 			int block_num      = peak->block_num;
 			WfAudioData* audio = peak->waveform->priv->audio_data;
 
+			g_object_ref(waveform);
+
 			peak->buf16 = g_new0(WfBuf16, 1);
 			peak->buf16->size = WF_PEAK_BLOCK_SIZE;
 			int c; for(c=0;c<waveform_get_n_channels(waveform);c++){
@@ -349,6 +351,8 @@ waveform_load_audio_async(Waveform* waveform, int block_num, int n_tiers_needed)
 
 				waveform_peakbuf_regen(peak->waveform, peak->block_num, peak->min_output_tiers);
 			}
+
+			g_object_unref(waveform);
 		}
 
 		void audio_post(gpointer item)
@@ -403,9 +407,10 @@ wf_block_lookup_by_audio_buf(Waveform* w, WfBuf16* buf)
 static short*
 audio_cache_malloc(Waveform* w, WfBuf16* buf16, int b)
 {
+	WF* wf = wf_get_instance();
+
 	int size = WF_PEAK_BLOCK_SIZE;
 
-	WF* wf = wf_get_instance();
 	if(wf->audio.mem_size + size > MAX_AUDIO_CACHE_SIZE){
 		dbg(2, "**** cache full. looking for audio block to delete...");
 		//what to delete?
@@ -490,8 +495,6 @@ wf_audio_cache_get_size()
 static void
 audio_cache_print()
 {
-	WF* wf = wf_get_instance();
-
 	#define STRLEN 64 // this is not long enough to show the whole cache.
 	char str[STRLEN];
 	memset(str, ' ', STRLEN - 1);

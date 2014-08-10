@@ -52,4 +52,8 @@
 -fix for gdk keysyms for gtk < 2.22
 20140510
 -actor render geometry is now cached to improve drawing speed.
--canvas now emits dimensions-changed and use-shaders-changed signals
+-canvas now emits dimensions-changed and use-shaders-changed signals.
+20140802
+-reworking of hi-res mode rendering for opengl2.
+20140809
+-separated texture caches for 1D and 2D textures to fix reallocation issues.

@@ -32,6 +32,8 @@
 #include "waveform/peak.h"
 #include "waveform/worker.h"
 
+static WF* wf = NULL;
+
 
 gpointer
 file_load_thread(gpointer data)
@@ -39,7 +41,7 @@ file_load_thread(gpointer data)
 	// As a blocking call is used on the async queue (g_async_queue_pop) a main loop is no longer used.
 
 	dbg(2, "new file load thread.");
-	WF* wf = wf_get_instance();
+	wf = wf_get_instance();
 
 	g_return_val_if_fail(wf->msg_queue, NULL);
 
@@ -51,9 +53,8 @@ file_load_thread(gpointer data)
 
 		QueueItem* job = _item;
 
-		call(job->done, job->user_data);
+		if(!job->cancelled) call(job->done, job->user_data);
 
-		WF* wf = wf_get_instance();
 		wf->jobs = g_list_remove(wf->jobs, job);
 
 		g_free(job);

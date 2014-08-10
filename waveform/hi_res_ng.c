@@ -178,7 +178,7 @@ hi_ng_free_item(/*Waveform* waveform, */gpointer _data)
 static void
 hi_ng_finalize_notify(gpointer user_data, GObject* was)
 {
-	PF0;
+	PF;
 	Waveform* waveform = (Waveform*)was;
 	hi_ng_free_waveform(waveform);
 }
