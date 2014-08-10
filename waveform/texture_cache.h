@@ -31,9 +31,10 @@ struct _texture_cache
 };
 
 void  texture_cache_init            ();
-int   texture_cache_lookup          (WaveformBlock);
-guint texture_cache_assign_new      (TextureCache*, WaveformBlock);
-void  texture_cache_remove          (Waveform*, int);
+int   texture_cache_lookup          (int tex_type, WaveformBlock);
+guint texture_cache_assign_new      (int tex_type, WaveformBlock);
+void  texture_cache_freshen         (int tex_type, WaveformBlock);
+void  texture_cache_remove          (int tex_type, Waveform*, int);
 void  texture_cache_remove_waveform (Waveform*);
 
 #endif // __wf_private__

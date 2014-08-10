@@ -84,7 +84,6 @@ typedef struct {
 } Section;
 
 typedef struct {
-   //Waveform* waveform;
    int       size;
    Section   section[];
 } HiResNGWaveform;
@@ -106,23 +105,12 @@ void        hi_ng_cache_print   ();
 
 
 static void
-hi_ng_free_waveform(Waveform* waveform)
-{
-	HiResNGWaveform* data = g_hash_table_lookup(hi_res_ng_data, waveform);
-	if(data){
-		// removing from the hash table will cause the item to be free'd.
-		if(!g_hash_table_remove(hi_res_ng_data, waveform)) gwarn("failed to remove hi-res data");
-	}
-}
-
-
-static void
 hi_ng_free_section(Waveform* waveform, Section* section, int s)
 {
 	if(section){
 		if(section->buffer) g_free0(section->buffer);
 		if(section->texture){
-			texture_cache_remove(waveform, s * MAX_BLOCKS_PER_TEXTURE);
+			texture_cache_remove(GL_TEXTURE_2D, waveform, (s * MAX_BLOCKS_PER_TEXTURE) | WF_TEXTURE_CACHE_HIRES_NG_MASK);
 			section->texture = 0;
 		}
 		section->completed = false;
@@ -132,10 +120,34 @@ hi_ng_free_section(Waveform* waveform, Section* section, int s)
 
 
 static void
+hi_ng_free_waveform(Waveform* waveform)
+{
+	PF;
+
+	HiResNGWaveform* data = g_hash_table_lookup(hi_res_ng_data, waveform);
+	if(data){
+		// the sections must be freed before removing from the hashtable
+		// so that the Waveform can be referenced.
+		int s; for(s=0;s<data->size;s++){
+			hi_ng_free_section(waveform, &data->section[s], s);
+		}
+		// removing from the hash table will cause the item to be free'd.
+		if(!g_hash_table_remove(hi_res_ng_data, waveform)) dbg(1, "failed to remove hi-res data");
+	}
+}
+
+
+static void
 hi_ng_free_item(/*Waveform* waveform, */gpointer _data)
 {
+	// this is called by the hash_table when an item is removed from hi_res_ng_data.
+
+	// ** the item has already been removed from the hash_table
+	//    so we have no way of referencing the Waveform.
+
 	HiResNGWaveform* data = _data;
 
+#if 0
 	struct C {
 		HiResNGWaveform* data;
 		Waveform*        waveform;
@@ -157,6 +169,7 @@ hi_ng_free_item(/*Waveform* waveform, */gpointer _data)
 		}
 	}
 	else gwarn("waveform not found");
+#endif
 
 	g_free(data);
 }
@@ -207,7 +220,7 @@ hi_ng_load_block(Renderer* renderer, WaveformActor* actor, int b)
 	{
 		int block_size = get_block_size(actor);
 		int buffer_size = block_size * MIN(MAX_BLOCKS_PER_TEXTURE, waveform_get_n_audio_blocks(waveform) - s * MAX_BLOCKS_PER_TEXTURE);
-		dbg(0, "block_size=%ik section->buffer=%ik", block_size / 1024, buffer_size / 1024);
+		dbg(1, "block_size=%ik section->buffer=%ik", block_size / 1024, buffer_size / 1024);
 
 		Section* section = &data->section[s];
 		section->buffer = g_malloc0(section->buffer_size = buffer_size);
@@ -225,7 +238,7 @@ hi_ng_load_block(Renderer* renderer, WaveformActor* actor, int b)
 		int i;for(i=0;i<max;i++){
 			if(!section->ready[i]) return false;
 		}
-		dbg(0, "*** is complete");
+		dbg(1, "complete");
 		return section->completed = true;
 	}
 
@@ -263,7 +276,6 @@ hi_ng_load_block(Renderer* renderer, WaveformActor* actor, int b)
 		section->time_stamp = time_stamp;
 		if(section->completed) return;
 		if(!section->buffer) section = add_section(actor, data, s);
-		//dbg(0, "  %i.%i: ready=%i", s, b, section->ready[_b]);
 		if(!section->ready[_b]){
 			texture_changed[s] = true;
 			// we are here as notification that audio has loaded so it is an error if not.
@@ -320,7 +332,7 @@ hi_ng_load_block(Renderer* renderer, WaveformActor* actor, int b)
 			if(texture_changed[s]){
 				if(!section->texture){
 					// note: for the WaveformBlock we use the first block for the section (WaveformBlock concept is broken in this context)
-					section->texture = texture_cache_assign_new(wf->texture_cache, (WaveformBlock){waveform, (s * MAX_BLOCKS_PER_TEXTURE) | WF_TEXTURE_CACHE_HIRES_NG_MASK});
+					section->texture = texture_cache_assign_new(GL_TEXTURE_2D, (WaveformBlock){waveform, (s * MAX_BLOCKS_PER_TEXTURE) | WF_TEXTURE_CACHE_HIRES_NG_MASK});
 				}
 
 				int width = modes[MODE_HI].texture_size;
@@ -330,7 +342,7 @@ hi_ng_load_block(Renderer* renderer, WaveformActor* actor, int b)
 				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 				// TODO it is quite common for this to be done several times in quick succession for the same texture with consecutive calls to hi_ng_load_block
-				dbg(0, "%i: uploading texture: %i x %i", s, width, height);
+				dbg(1, "%i: uploading texture: %i x %i", s, width, height);
 				glTexImage2D(GL_TEXTURE_2D, 0, GL_ALPHA, width, height, 0, pixel_format, GL_UNSIGNED_BYTE, section->buffer);
 				gl_warn("error binding texture: %u", section->texture);
 			}

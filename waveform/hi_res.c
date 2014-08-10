@@ -199,14 +199,14 @@ _wf_actor_load_texture_hi(Renderer* renderer, WaveformActor* a, int block)
 		int n_ch = waveform_get_n_channels(a->waveform);
 		if(a->canvas->use_1d_textures){
 			for(c=0;c<n_ch;c++){
-				texture->t[c].main = texture_cache_assign_new(wf->texture_cache, (WaveformBlock){a->waveform, b});
-				texture->t[c].neg  = texture_cache_assign_new(wf->texture_cache, (WaveformBlock){a->waveform, b});
+				texture->t[c].main = texture_cache_assign_new(GL_TEXTURE_1D, (WaveformBlock){a->waveform, b});
+				texture->t[c].neg  = texture_cache_assign_new(GL_TEXTURE_1D, (WaveformBlock){a->waveform, b});
 			}
 
 			wf_actor_load_texture1d(a->waveform, MODE_HI, (WfGlBlock*)NULL, b);
 		}else{
 	#ifdef HIRES_NONSHADER_TEXTURES
-			texture->t[WF_LEFT].main = texture_cache_assign_new(wf->texture_cache, (WaveformBlock){a->waveform, b | WF_TEXTURE_CACHE_HIRES_MASK});
+			texture->t[WF_LEFT].main = texture_cache_assign_new(GL_TEXTURE_2D, (WaveformBlock){a->waveform, b | WF_TEXTURE_CACHE_HIRES_MASK});
 			dbg(0, "assigned texture=%u", texture->t[WF_LEFT].main);
 
 			wf_actor_load_texture2d(a, MODE_HI, texture->t[c].main, b);

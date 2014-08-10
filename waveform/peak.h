@@ -79,16 +79,9 @@ struct _Waveform
 	gboolean           offline;
 	gboolean           renderable;
 
-	GPtrArray*         hires_peaks;       // array of Peakbuf* TODO how much does audio_data deprecate this?
-	int                num_peaks;         // peak_buflen / PEAK_VALUES_PER_SAMPLE
-	RmsBuf*            rms_buf0;
-	RmsBuf*            rms_buf1;
-
-	WfGlBlock*         textures;          // opengl textures.
-	WfGlBlock*         textures_lo;       // low res textures.
-	WfTexturesHi*      textures_hi;
-
-	//float            max_db;
+	WfGlBlock*         textures;          // med res opengl textures.
+	WfGlBlock*         textures_lo;       // low res opengl textures.
+	WfTexturesHi*      textures_hi;       // hi res opengl textures.
 
 	WaveformPriv*      priv;
 };
@@ -102,7 +95,9 @@ typedef struct _buf_stereo_16
     short*     buf[WF_STEREO];
     guint      size;                      // number of shorts allocated, NOT bytes. When accessing, note that the last block will likely not be full.
     uint32_t   stamp;                     // put here for now. can move a parallel array if neccesary.
-    uint64_t   start_frame;               // for debugging only
+#ifdef WF_DEBUG
+    uint64_t   start_frame;
+#endif
 } WfBuf16;
 
 struct _buf

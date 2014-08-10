@@ -120,7 +120,9 @@ waveform_load_audio_block(Waveform* waveform, WfBuf16* buf16, int block_num)
 
 	sf_count_t n_frames = MIN(buf16->size, end_pos - start_pos); //1st of these isnt needed?
 	g_return_val_if_fail(buf16 && buf16->buf[WF_LEFT], false);
+#ifdef WF_DEBUG
 	buf16->start_frame = start_pos;
+#endif
 
 	gboolean sf_read_float_to_short(SNDFILE* sffile, WfBuf16* buf, int ch, sf_count_t n_frames)
 	{
@@ -281,10 +283,9 @@ waveform_load_audio_async(Waveform* waveform, int block_num, int n_tiers_needed)
 			QueueItem* i = l->data;
 			PeakbufQueueItem* item = i->user_data;
 			if(item->waveform == waveform && item->block_num == block_num){
-				dbg(1, "already queued");
-				//gwarn("never get here");
-				//actually it is possible to get here using test_view while zooming in/out
-				//or when there are lots of views of the same waveform
+				dbg(2, "already queued");
+				// it is possible to get here while zooming in/out fast
+				// or when there are lots of views of the same waveform
 				return true;
 			}
 		}
@@ -294,7 +295,6 @@ waveform_load_audio_async(Waveform* waveform, int block_num, int n_tiers_needed)
 	void _queue_work(Waveform* waveform, WfCallback work, WfCallback done, gpointer user_data)
 	{
 		QueueItem* item = g_new0(QueueItem, 1);
-		item->waveform = waveform;
 		item->work = work;
 		item->done = done;
 		item->user_data = user_data;
@@ -341,7 +341,7 @@ waveform_load_audio_async(Waveform* waveform, int block_num, int n_tiers_needed)
 				// writes to the buffer have finished.
 				// make the buffer available.
 				if(audio->buf16[block_num]){
-					// this is unexpected as if the data is obsolete, it should perhaps be cleared imediately?
+					// this is unexpected. If the data is obsolete, it should probably be cleared imediately.
 					gwarn("overwriting old audio buffer");
 					audio_cache_free(waveform, peak->block_num);
 				}
@@ -357,7 +357,7 @@ waveform_load_audio_async(Waveform* waveform, int block_num, int n_tiers_needed)
 
 			PeakbufQueueItem* peak = item;
 
-			dbg(1, "--->");
+			dbg(2, "--->");
 			g_signal_emit_by_name(peak->waveform, "peakdata-ready", peak->block_num);
 
 			g_free(item);
@@ -380,7 +380,8 @@ wf_cancel_jobs(Waveform* waveform)
 	GList* l = wf->jobs;
 	for(;l;l=l->next){
 		QueueItem* i = l->data;
-		if(i->waveform == waveform) i->cancelled = true;
+		PeakbufQueueItem* item = i->user_data;
+		if(item->waveform == waveform) i->cancelled = true;
 	}
 	int n_jobs = g_list_length(wf->jobs);
 	dbg(n_jobs ? 1 : 2, "n_jobs=%i", n_jobs);
@@ -404,7 +405,6 @@ audio_cache_malloc(Waveform* w, WfBuf16* buf16, int b)
 {
 	int size = WF_PEAK_BLOCK_SIZE;
 
-	//dbg(1, "cache_size=%ik", MAX_AUDIO_CACHE_SIZE / 1024);
 	WF* wf = wf_get_instance();
 	if(wf->audio.mem_size + size > MAX_AUDIO_CACHE_SIZE){
 		dbg(2, "**** cache full. looking for audio block to delete...");

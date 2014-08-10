@@ -26,6 +26,15 @@ use_texture_no_blend(GLuint texture)
 
 
 static void
+med_lo_clear_1d_textures(WfGlBlock* blocks, WaveformBlock* wb)
+{
+	texture_cache_remove(GL_TEXTURE_1D, wb->waveform, wb->block);
+	int b = wb->block & ~WF_TEXTURE_CACHE_LORES_MASK;
+	int c; for(c=0;c<WF_RIGHT;c++) blocks->peak_texture[c].main[b] = blocks->peak_texture[c].neg[b] = 0;
+}
+
+
+static void
 med_allocate_block(Renderer* renderer, WaveformActor* a, int b)
 {
 	// load resources (textures) required for display of the block.
@@ -34,6 +43,7 @@ med_allocate_block(Renderer* renderer, WaveformActor* a, int b)
 
 	Waveform* w = a->waveform;
 	WfGlBlock* blocks = w->textures;
+	WaveformBlock wb = {w, b};
 
 	int c = WF_LEFT;
 	if(blocks->peak_texture[c].main[b]){
@@ -43,13 +53,11 @@ med_allocate_block(Renderer* renderer, WaveformActor* a, int b)
 		}else{
 			//if we get here something has gone badly wrong. Most likely unrecoverable.
 			gwarn("removing invalid texture...");
-			texture_cache_remove(w, b);
-			//TODO gldelete texture? mostly likely wont help.
-			int c; for(c=0;c<WF_RIGHT;c++) blocks->peak_texture[c].main[b] = blocks->peak_texture[c].neg[b] = 0;
+			med_lo_clear_1d_textures(blocks, &wb);
 		}
 	}
 
-	int texture_id = blocks->peak_texture[c].main[b] = texture_cache_assign_new(wf->texture_cache, (WaveformBlock){a->waveform, b});
+	int texture_id = blocks->peak_texture[c].main[b] = texture_cache_assign_new(a->canvas->use_1d_textures ? GL_TEXTURE_1D : GL_TEXTURE_2D, wb);
 
 	if(a->canvas->use_1d_textures){
 		guint* peak_texture[4] = {
@@ -58,12 +66,12 @@ med_allocate_block(Renderer* renderer, WaveformActor* a, int b)
 			&blocks->peak_texture[WF_RIGHT].main[b],
 			&blocks->peak_texture[WF_RIGHT].neg[b]
 		};
-		blocks->peak_texture[c].neg[b] = texture_cache_assign_new (wf->texture_cache, (WaveformBlock){a->waveform, b});
+		blocks->peak_texture[c].neg[b] = texture_cache_assign_new (GL_TEXTURE_1D, wb);
 
 		if(a->waveform->priv->peak.buf[WF_RIGHT]){
 			int i; for(i=2;i<4;i++){
 				//g_return_if_fail(peak_texture[i]);
-				*peak_texture[i] = texture_cache_assign_new (wf->texture_cache, (WaveformBlock){a->waveform, b});
+				*peak_texture[i] = texture_cache_assign_new (GL_TEXTURE_1D, (WaveformBlock){a->waveform, b});
 			}
 			dbg(1, "rhs: %i: texture=%i %i %i %i", b, *peak_texture[0], *peak_texture[1], *peak_texture[2], *peak_texture[3]);
 		}else{
@@ -73,7 +81,13 @@ med_allocate_block(Renderer* renderer, WaveformActor* a, int b)
 		wf_actor_load_texture1d(w, MODE_MED, w->textures, b);
 
 #if defined (USE_FBO) && defined (multipass)
-		if(!blocks->fbo[b]) block_to_fbo(a, b, blocks, 256);
+		if(!blocks->fbo[b]){
+			block_to_fbo(a, b, blocks, 256);
+			if(blocks->fbo[b]){
+				// original texture no longer needed
+				med_lo_clear_1d_textures(blocks, &wb);
+			}
+		}
 #endif
 	}else{
 		wf_actor_load_texture2d(a, MODE_MED, texture_id, b);
@@ -90,14 +104,30 @@ low_allocate_block(Renderer* renderer, WaveformActor* a, int b)
 
 	Waveform* w = a->waveform;
 	WfGlBlock* blocks = w->textures_lo;
+#ifdef WF_DEBUG
+	g_return_if_fail(b < blocks->size);
+#endif
+
+	int texture_type = a->canvas->use_1d_textures ? GL_TEXTURE_1D : GL_TEXTURE_2D;
+	WaveformBlock wb = {w, b | WF_TEXTURE_CACHE_LORES_MASK};
+
+#ifdef USE_FBO
+	if(blocks->fbo[b]) return;
+#endif
 
 	int c = WF_LEFT;
-	if(blocks->peak_texture[c].main[b] && glIsTexture(blocks->peak_texture[c].main[b])){
+	if(blocks->peak_texture[c].main[b]
+#ifdef WF_DEBUG
+		&& glIsTexture(blocks->peak_texture[c].main[b])
+#endif
+	){
 		//gwarn("waveform low-res texture already assigned for block %i: %i", b, blocks->peak_texture[c].main[b]);
+		texture_cache_freshen(texture_type, wb);
+																				// TODO do the same for MED
 		return;
 	}
 
-	int texture_id = blocks->peak_texture[c].main[b] = texture_cache_assign_new(wf->texture_cache, (WaveformBlock){a->waveform, b | WF_TEXTURE_CACHE_LORES_MASK});
+	int texture_id = blocks->peak_texture[c].main[b] = texture_cache_assign_new(texture_type, wb);
 
 	if(a->canvas->use_1d_textures){
 		guint* peak_texture[4] = {
@@ -106,12 +136,12 @@ low_allocate_block(Renderer* renderer, WaveformActor* a, int b)
 			&blocks->peak_texture[WF_RIGHT].main[b],
 			&blocks->peak_texture[WF_RIGHT].neg[b]
 		};
-		blocks->peak_texture[c].neg[b] = texture_cache_assign_new (wf->texture_cache, (WaveformBlock){a->waveform, b | WF_TEXTURE_CACHE_LORES_MASK});
+		blocks->peak_texture[c].neg[b] = texture_cache_assign_new (GL_TEXTURE_1D, wb);
 
 		if(a->waveform->priv->peak.buf[WF_RIGHT]){
 			if(peak_texture[2]){
 				int i; for(i=2;i<4;i++){
-					*peak_texture[i] = texture_cache_assign_new (wf->texture_cache, (WaveformBlock){a->waveform, b | WF_TEXTURE_CACHE_LORES_MASK});
+					*peak_texture[i] = texture_cache_assign_new (GL_TEXTURE_1D, wb);
 				}
 				dbg(1, "rhs: %i: texture=%i %i %i %i", b, *peak_texture[0], *peak_texture[1], *peak_texture[2], *peak_texture[3]);
 			}
@@ -121,7 +151,13 @@ low_allocate_block(Renderer* renderer, WaveformActor* a, int b)
 
 		wf_actor_load_texture1d(w, MODE_LOW, w->textures_lo, b);
 #if defined (USE_FBO) && defined (multipass)
-		if(!blocks->fbo[b]) block_to_fbo(a, b, blocks, 1024);
+		if(!blocks->fbo[b]){
+			block_to_fbo(a, b, blocks, 1024);
+			if(blocks->fbo[b]){
+				// original texture no longer needed
+				med_lo_clear_1d_textures(blocks, &wb);
+			}
+		}
 #endif
 	}else{
 		dbg(1, "* %i: texture=%i", b, texture_id);
@@ -391,11 +427,14 @@ med_lo_render_gl2(Renderer* renderer, WaveformActor* actor, int b, bool is_first
 			? r->textures->fx_fbo[b]
 #endif
 			: r->textures->fbo[b];
-	if(fbo){ //seems that the fbo may not be created initially...
+	if(fbo){
 		if(wfc->blend)
 			agl_use_texture(fbo->texture);
 		else
 			use_texture_no_blend(fbo->texture);
+	}else{
+		if(wf_debug) gwarn("%i: missing fbo", b);
+		return false;
 	}
 #else
 	_med_lo_set_gl_state_for_block(wfc, actor->waveform, r->textures, b);
@@ -420,19 +459,21 @@ med_lo_render_gl2(Renderer* renderer, WaveformActor* actor, int b, bool is_first
 void
 med_lo_on_steal(WaveformBlock* wb, guint tex)
 {
-	WfGlBlock* blocks = wb->waveform->textures;
+	bool lores = wb->block & WF_TEXTURE_CACHE_LORES_MASK;
+	int b = wb->block & ~WF_TEXTURE_CACHE_LORES_MASK;
+	WfGlBlock* blocks = lores ? wb->waveform->textures_lo : wb->waveform->textures;
 	guint* peak_texture[4] = {
-		&blocks->peak_texture[0].main[wb->block],
-		&blocks->peak_texture[0].neg[wb->block],
-		&blocks->peak_texture[1].main[wb->block],
-		&blocks->peak_texture[1].neg[wb->block]
+		&blocks->peak_texture[0].main[b],
+		&blocks->peak_texture[0].neg [b],
+		&blocks->peak_texture[1].main[b],
+		&blocks->peak_texture[1].neg [b]
 	};
 
 	int find_texture_in_block(guint tid, WaveformBlock* wb, guint* peak_texture[4])
 	{
 		// find which of the 4 textures was removed
 
-		g_return_val_if_fail(wb->block < WF_MAX_BLOCKS, -1);
+		g_return_val_if_fail(wb->block < WF_MAX_AUDIO_BLOCKS, -1);
 
 		int i; for(i=0;i<4;i++){
 			if(peak_texture[i] && *peak_texture[i] == tid) return i;

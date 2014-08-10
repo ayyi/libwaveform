@@ -59,7 +59,7 @@ void add_key_handlers   (GtkWindow*, WaveformView*, Key[]);
 	static int step = 0;\
 	if(!step){ \
 		g_strlcpy(current_test_name, __func__, 64); \
-		printf("running %i of %i: %s ...\n", current_test + 1, G_N_ELEMENTS(tests), __func__); \
+		printf("%srunning %i of %i: %s%s ...\n", wf_bold, current_test + 1, G_N_ELEMENTS(tests), __func__, wf_white); \
 	} \
 	if(test_finished) return;
 

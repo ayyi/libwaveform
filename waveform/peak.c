@@ -97,8 +97,9 @@ waveform_new (const char* filename)
 	w->priv = g_new0(WaveformPriv, 1);
 	w->filename = g_strdup(filename);
 	w->renderable = true;
-	w->hires_peaks = g_ptr_array_new();
 	w->priv->audio_data = g_new0(WfAudioData, 1);
+	w->priv->hires_peaks = g_ptr_array_new();
+	w->priv->max_db = -1;
 	return w;
 }
 
@@ -249,7 +250,7 @@ wf_texture_array_new(int size, int n_channels)
 	}
 	textures->fbo = g_new0(AglFBO*, textures->size); //note: only an array of _pointers_
 #ifdef USE_FX
-	textures->fx_fbo = g_new0(AglFBO*, textures->size);
+	textures->fx_fbo = g_malloc0(sizeof(AglFBO*) * textures->size);
 #endif
 	return textures;
 }
@@ -284,6 +285,7 @@ static void
 waveform_get_sf_data(Waveform* w)
 {
 	g_return_if_fail(w->filename);
+	WaveformPriv* _w = w->priv;
 
 	SNDFILE* sndfile;
 	SF_INFO sfinfo;
@@ -301,10 +303,10 @@ waveform_get_sf_data(Waveform* w)
 	w->n_frames = sfinfo.frames;
 	w->n_channels = w->n_channels ? w->n_channels : sfinfo.channels; // sfinfo is not correct in the case of split stereo files.
 
-	if(w->num_peaks && !w->priv->checks_done){
-		if(w->n_frames > w->num_peaks * WF_PEAK_RATIO){
+	if(_w->num_peaks && !_w->checks_done){
+		if(w->n_frames > _w->num_peaks * WF_PEAK_RATIO){
 			char* peakfile = waveform_ensure_peakfile(w);
-			gwarn("peakfile is too short. maybe corrupted. len=%i expected=%Lu '%s'", w->num_peaks, w->n_frames / WF_PEAK_RATIO, peakfile);
+			gwarn("peakfile is too short. maybe corrupted. len=%i expected=%Lu '%s'", _w->num_peaks, w->n_frames / WF_PEAK_RATIO, peakfile);
 			w->renderable = false;
 			g_free(peakfile);
 		}
@@ -361,24 +363,25 @@ waveform_load_peak(Waveform* w, const char* peak_file, int ch_num)
 {
 	g_return_val_if_fail(w, false);
 	g_return_val_if_fail(ch_num <= WF_MAX_CH, false);
+	WaveformPriv* _w = w->priv;
 
 	//check is not previously loaded
 	if(w->priv->peak.buf[ch_num]){
 		dbg(2, "already loaded. clearing...");
-		g_free0(w->priv->peak.buf[ch_num]);
+		g_free0(_w->peak.buf[ch_num]);
 	}
 
 	int n_channels = wf->load_peak(w, peak_file);
 
 	if(ch_num) w->n_channels = MAX(w->n_channels, ch_num + 1); // for split stereo files
 
-	w->num_peaks = w->priv->peak.size / WF_PEAK_VALUES_PER_SAMPLE;
-	dbg(1, "ch=%i num_peaks=%i", ch_num, w->num_peaks);
+	_w->num_peaks = _w->peak.size / WF_PEAK_VALUES_PER_SAMPLE;
+	dbg(1, "ch=%i num_peaks=%i", ch_num, _w->num_peaks);
 #if 0
 	int i; for (i=0;i<20;i++) printf("      %i %i\n", w->priv->peak.buf[0][2 * i], w->priv->peak.buf[0][2 * i + 1]);
 #endif
 	if(!w->textures){
-		w->textures = wf_texture_array_new(w->num_peaks / WF_TEXTURE_VISIBLE_SIZE + ((w->num_peaks % WF_TEXTURE_VISIBLE_SIZE) ? 1 : 0), (ch_num == 1 || n_channels == 2) ? 2 : 1);
+		w->textures = wf_texture_array_new(_w->num_peaks / WF_TEXTURE_VISIBLE_SIZE + ((_w->num_peaks % WF_TEXTURE_VISIBLE_SIZE) ? 1 : 0), (ch_num == 1 || n_channels == 2) ? 2 : 1);
 #ifdef WF_SHOW_RMS
 		gerr("rms TODO");
 		w->textures->rms_texture = g_new0(unsigned, w->textures->size);
@@ -515,9 +518,8 @@ static void
 waveform_set_last_fraction(Waveform* waveform)
 {
 	int width = WF_TEXTURE_VISIBLE_SIZE;
-	int width_ = waveform->num_peaks % WF_TEXTURE_VISIBLE_SIZE;
+	int width_ = waveform->priv->num_peaks % WF_TEXTURE_VISIBLE_SIZE;
 	waveform->textures->last_fraction = (double)width_ / (double)width;
-	//dbg(1, "num_peaks=%i last_fraction=%.2f", waveform->num_peaks, waveform->textures->last_fraction);
 }
 
 
@@ -915,7 +917,7 @@ if(!n_chans){ gerr("n_chans"); n_chans = 1; }
 		//we use the same part of Line for each channel, it is then render it to the pixbuf with a channel offset.
 		dbg (2, "ch=%i", ch);
 
-		RmsBuf* rb = pool_item->rms_buf0;
+		RmsBuf* rb = pool_item->priv->rms_buf0;
 		if(!rb){
 			if(!(rb = waveform_load_rms_file(pool_item, ch))) continue;
 		}
@@ -1294,7 +1296,7 @@ waveform_get_peakbuf_n(Waveform* w, int block_num)
 
 	g_return_val_if_fail(w, NULL);
 
-	GPtrArray* peaks = w->hires_peaks;
+	GPtrArray* peaks = w->priv->hires_peaks;
 	g_return_val_if_fail(peaks, NULL);
 	Peakbuf* peakbuf = NULL;
 	if(block_num >= peaks->len){
@@ -1343,6 +1345,8 @@ waveform_get_n_audio_blocks(Waveform* w)
 short
 waveform_find_max_audio_level(Waveform* w)
 {
+	if(w->priv->max_db > -1) return w->priv->max_db;
+
 	int i;
 	short max_level = 0;
 	int c; for(c=0;c<2;c++){
@@ -1354,7 +1358,7 @@ waveform_find_max_audio_level(Waveform* w)
 		}
 	}
 
-	return max_level;
+	return w->priv->max_db = max_level;
 }
 
 
@@ -1919,7 +1923,7 @@ waveform_rms_to_pixbuf(Waveform* w, GdkPixbuf* pixbuf, uint32_t src_inset, int* 
                  // -or use a hashtable indexed by Age?
       }
 		*/
-		RmsBuf* rb = w->rms_buf0;
+		RmsBuf* rb = w->priv->rms_buf0;
 		if(!rb){
 			if(!(rb = waveform_load_rms_file(w, ch))) continue;
 		}

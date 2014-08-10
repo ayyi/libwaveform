@@ -363,8 +363,8 @@ wf_animation_start(WfAnimation* animation)
 void
 wf_animation_preview(WfAnimation* animation, AnimationValueFn on_frame, gpointer user_data)
 {
-	int t; for(t=0;t<animation->length;t+=WF_FRAME_INTERVAL){
-		UVal val;
+	int t; for(t=0;t<animation->length+WF_FRAME_INTERVAL;t+=WF_FRAME_INTERVAL){
+		int t_ = MIN(t, animation->length); // last frame is an extra one, fixed at animation end.
 
 		GList* l = animation->members;
 		for(;l;l=l->next){
@@ -376,9 +376,9 @@ wf_animation_preview(WfAnimation* animation, AnimationValueFn on_frame, gpointer
 			for(;k;k=k->next,i++){
 				WfAnimatable* animatable = k->data;
 				if(animatable->type == WF_INT){
-					vals[i].i = animation->frame_i(animation, animatable, t + animation->start);
+					vals[i].i = animation->frame_i(animation, animatable, t_ + animation->start);
 				}else{
-					vals[i].f = animation->frame_f(animation, animatable, t + animation->start);
+					vals[i].f = animation->frame_f(animation, animatable, t_ + animation->start);
 				}
 			}
 			on_frame(animation, vals, user_data);

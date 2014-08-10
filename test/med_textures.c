@@ -269,7 +269,7 @@ draw(GtkWidget* widget)
 #endif
 
 	int tid;
-	if((tid = texture_cache_lookup((WaveformBlock){w1, 0})) > -1){
+	if((tid = texture_cache_lookup(GL_TEXTURE_1D, (WaveformBlock){w1, 0})) > -1){
 		dbg(0, "tid=%i", tid);
 		float x = 128.0;
 		float y = 128.0;

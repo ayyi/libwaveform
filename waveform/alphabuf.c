@@ -72,7 +72,8 @@ wf_alphabuf_new(Waveform* waveform, int blocknum, int scale, gboolean is_rms, in
 	   ----------
 	*/
 	PF2;
-	g_return_val_if_fail(waveform->num_peaks, NULL);
+	WaveformPriv* _w = waveform->priv;
+	g_return_val_if_fail(_w->num_peaks, NULL);
 	GdkColor fg_colour = {0, 0xffff, 0xffff, 0xffff};
 
 	int x_start;
@@ -80,7 +81,7 @@ wf_alphabuf_new(Waveform* waveform, int blocknum, int scale, gboolean is_rms, in
 	int width;
 	if(blocknum == -1){
 		x_start = 0;
-		x_stop  = width = waveform->num_peaks;
+		x_stop  = width = _w->num_peaks;
 	}else{
 		int n_blocks = waveform_get_n_textures(waveform);
 		dbg(2, "block %i/%i", blocknum, n_blocks);
@@ -91,11 +92,11 @@ wf_alphabuf_new(Waveform* waveform, int blocknum, int scale, gboolean is_rms, in
 
 		width = WF_PEAK_TEXTURE_SIZE;
 		if(is_last){
-			int width_ = waveform->num_peaks % (WF_PEAK_TEXTURE_SIZE - 2 * overlap);
+			int width_ = _w->num_peaks % (WF_PEAK_TEXTURE_SIZE - 2 * overlap);
 			if(!width_) width_ = width;
 			dbg(2, "is_last: width_=%i", width_);
 			width = agl_power_of_two(width_ -1);
-			x_stop  = MIN(waveform->num_peaks, x_start + width_);
+			x_stop  = MIN(_w->num_peaks, x_start + width_);
 		}
 		dbg (0, "block_num=%i width=%i px_start=%i px_stop=%i (%i)", blocknum, width, x_start, x_stop, x_stop - x_start);
 	}
@@ -152,7 +153,8 @@ wf_alphabuf_new_hi(Waveform* waveform, int blocknum, int Xscale, gboolean is_rms
 	   ----------
 	*/
 	PF2;
-	g_return_val_if_fail(waveform->num_peaks, NULL);
+	WaveformPriv* _w = waveform->priv;
+	g_return_val_if_fail(_w->num_peaks, NULL);
 	GdkColor fg_colour = {0, 0xffff, 0xffff, 0xffff};
 
 	int x_start;
@@ -160,7 +162,7 @@ wf_alphabuf_new_hi(Waveform* waveform, int blocknum, int Xscale, gboolean is_rms
 	int width;
 	if(blocknum == -1){
 		x_start = 0;
-		x_stop  = width = waveform->num_peaks;
+		x_stop  = width = _w->num_peaks;
 	}else{
 		int n_blocks = waveform_get_n_textures(waveform);
 		dbg(2, "block %i/%i", blocknum, n_blocks);
@@ -174,11 +176,11 @@ wf_alphabuf_new_hi(Waveform* waveform, int blocknum, int Xscale, gboolean is_rms
 		x_stop  = x_start + width; // irrespective of overlap, the whole texture is used.
 
 		if(is_last){
-			int width_ = waveform->num_peaks % (WF_PEAK_TEXTURE_SIZE - 2 * overlap);
+			int width_ = _w->num_peaks % (WF_PEAK_TEXTURE_SIZE - 2 * overlap);
 			if(!width_) width_ = width;
 			dbg(2, "is_last: width_=%i", width_);
 			width = agl_power_of_two(width_ -1);
-			x_stop  = MIN(waveform->num_peaks, x_start + width_);
+			x_stop  = MIN(_w->num_peaks, x_start + width_);
 		}
 		dbg (0, "block_num=%i width=%i px_start=%i px_stop=%i (%i)", blocknum, width, x_start, x_stop, x_stop - x_start);
 	}

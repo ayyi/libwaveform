@@ -374,5 +374,12 @@ draw_wave_buffer_v_hi(Renderer* renderer, WaveformActor* actor, int block, bool 
 }
 
 
-VHiRenderer v_hi_renderer = {{NULL, v_hi_pre_render, draw_wave_buffer_v_hi}};
+static void
+v_hi_load_block(Renderer* renderer, WaveformActor* a, int b)
+{
+	if(a->canvas->draw) wf_canvas_queue_redraw(a->canvas);
+}
+
+
+VHiRenderer v_hi_renderer = {{v_hi_load_block, v_hi_pre_render, draw_wave_buffer_v_hi}};
 

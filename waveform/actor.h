@@ -50,7 +50,7 @@ void            wf_actor_set_z                            (WaveformActor*, float
 void            wf_actor_fade_out                         (WaveformActor*, WaveformActorFn, gpointer);
 void            wf_actor_fade_in                          (WaveformActor*, void* /*WfAnimatable* */, float, WaveformActorFn, gpointer);
 void            wf_actor_set_vzoom                        (WaveformActor*, float);
-void            wf_actor_paint                            (WaveformActor*);
+gboolean        wf_actor_paint                            (WaveformActor*);
 void            wf_actor_get_viewport                     (WaveformActor*, WfViewPort*);
 
 #ifdef USE_TEST

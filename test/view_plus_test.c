@@ -60,18 +60,20 @@
 
 #define bool gboolean
 
-#define WAV \
-	"test/data/stereo_1.wav"
-//	"test/data/mono_1.wav"
-//	"test/data/1_block.wav"
-//	"test/data/3_blocks.wav"
-//	"test/data/2_blocks.wav"
+const char* wavs[] = {
+	"test/data/stereo_1.wav",
+	"test/data/mono_1.wav",
+//	"test/data/1_block.wav",
+//	"test/data/3_blocks.wav",
+//	"test/data/2_blocks.wav",
+};
 
 KeyHandler
 	zoom_in,
 	zoom_out,
 	scroll_left,
 	scroll_right,
+	next_wav,
 	quit;
 
 extern bool key_down;
@@ -85,6 +87,7 @@ Key keys[] = {
 	{GDK_KP_Enter,  NULL},
 	{(char)'<',     NULL},
 	{(char)'>',     NULL},
+	{(char)'n',     next_wav},
 	{GDK_Delete,    NULL},
 	{113,           quit},
 	{0},
@@ -123,7 +126,7 @@ main (int argc, char *argv[])
 
 	gtk_widget_show_all(window);
 
-	char* filename = find_wav(WAV);
+	char* filename = find_wav(wavs[0]);
 	waveform_view_plus_load_file(waveform, filename);
 	g_free(filename);
 
@@ -174,6 +177,17 @@ void scroll_right(WaveformView* waveform)
 {
 	int n_visible_frames = ((float)waveform->waveform->n_frames) / waveform->zoom;
 	waveform_view_plus_set_start((WaveformViewPlus*)waveform, waveform->start_frame + n_visible_frames / 10);
+}
+
+
+void next_wav(WaveformView* waveform)
+{
+	static int i = 0; i = (i + 1) % 2;
+
+	printf("...\n");
+	char* filename = find_wav(wavs[i]);
+	waveform_view_plus_load_file((WaveformViewPlus*)waveform, filename);
+	g_free(filename);
 }
 
 

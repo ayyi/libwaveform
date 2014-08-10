@@ -128,7 +128,7 @@ main (int argc, char* argv[])
 		else{
 			uint64_t time = get_time();
 			if(!(frame % 200))
-				printf("rate=%.1f fps\n", ((float)frame / ((float)time - t0)) * 1000.0);
+				printf("rate=%.1f fps\n", ((float)frame / ((float)(time - t0))) * 1000.0);
 
 			if(!(frame % 8)){
 				float v = (frame % 16) ? 1.5 : 2.0/3.0;

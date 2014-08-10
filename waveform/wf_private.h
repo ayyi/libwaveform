@@ -33,7 +33,8 @@
 #define WF_PEAK_RATIO_LOW (WF_PEAK_RATIO * WF_PEAK_STD_TO_LO) // the number of samples per entry in a low res peakbuf.
 #define WF_TEXTURE_VISIBLE_SIZE (WF_PEAK_TEXTURE_SIZE - 2 * TEX_BORDER)
 #define WF_SAMPLES_PER_TEXTURE (WF_PEAK_RATIO * (WF_PEAK_TEXTURE_SIZE - 2 * TEX_BORDER))
-#define WF_MAX_BLOCKS (ULLONG_MAX / WF_SAMPLES_PER_TEXTURE)
+#define WF_MAX_AUDIO_BLOCKS (ULLONG_MAX / WF_SAMPLES_PER_TEXTURE)
+#define WF_MAX_BLOCK_RANGE 512 // to prevent performance and resource consumption issues caused by rendering too many blocks simultaneously.
 
 #define WF_TEXTURE0 GL_TEXTURE1 //0 is not used
 #define WF_TEXTURE1 GL_TEXTURE2
@@ -70,7 +71,14 @@ struct _peakbuf {
 struct _waveform_priv
 {
 	WfPeakBuf       peak;
+	RmsBuf*         rms_buf0;
+	RmsBuf*         rms_buf1;
 	WfAudioData*    audio_data;     // tiered hi-res data for peaks.
+
+	GPtrArray*      hires_peaks;    // array of Peakbuf* TODO how much does audio_data deprecate this?
+	int             num_peaks;      // peak_buflen / PEAK_VALUES_PER_SAMPLE
+
+	short           max_db;         // TODO should be in db?
 
 	gboolean        checks_done;    // if audio file is accessed, the peakfile is validated.
 
@@ -82,7 +90,6 @@ struct _wf
 	int             peak_mem_size;
 	GHashTable*     peak_cache;
 	PeakLoader      load_peak;
-	TextureCache*   texture_cache;
 
 	struct
 	{

@@ -49,6 +49,9 @@
 #include "waveform/texture_cache.h"
 #include "test/common.h"
 
+extern void texture_cache_print ();
+extern void hi_ng_cache_print   ();
+
 #define GL_WIDTH 512.0
 #define GL_HEIGHT 128.0
 #define VBORDER 8
@@ -62,9 +65,8 @@ GdkGLContext*   gl_context     = NULL;
 static bool     gl_initialised = false;
 GtkWidget*      canvas         = NULL;
 WaveformCanvas* wfc            = NULL;
-Waveform*       w1             = NULL;
-Waveform*       w2             = NULL;
-WaveformActor*  a[]            = {NULL, NULL};
+Waveform*       w[2]           = {NULL};
+WaveformActor*  a[2]           = {NULL};
 bool            files_created  = false;
 
 static void setup_projection   (GtkWidget*);
@@ -90,7 +92,7 @@ gpointer tests[] = {
 int
 main (int argc, char *argv[])
 {
-	wf_debug = 1;
+	wf_debug = 0;
 	test_init(tests, G_N_ELEMENTS(tests));
 
 	gtk_init(&argc, &argv);
@@ -323,7 +325,7 @@ get_random_region(WaveformActor* a, Mode mode, uint32_t max_scroll)
 		MIN(a->region.start + max_scroll, a->waveform->n_frames - len_range + 1)
 						)
 	);
-																	dbg(0, "start range: %i %i (max_scroll=%u)", min_start, MIN(a->region.start + max_scroll, a->waveform->n_frames - len_range + 1), max_scroll);
+																	//dbg(0, "start range: %i %i (max_scroll=%u)", min_start, MIN(a->region.start + max_scroll, a->waveform->n_frames - len_range + 1), max_scroll);
 	int len = min + g_random_int_range(0, len_range + 1);
 	dbg(1, "r=%Lu", start);
 
@@ -346,31 +348,27 @@ test_scroll()
 	static void (*next)();
 	static int wait_count = 0;
 
-	//long test. have to disable timeout.
-	g_source_remove (app.timeout);
-	app.timeout = 0;
-
 	{
 		// test the number of blocks is being calculated correctly.
 
-		int r = w1->n_frames - REGION_LEN - 1;
+		int r = w[0]->n_frames - REGION_LEN - 1;
 		WfSampleRegion region = {r, REGION_LEN};
 		double zoom = a[0]->rect.len / a[0]->region.len;
 		int mode = get_mode(zoom);
-		WfGlBlock* textures = mode == MODE_LOW ? w1->textures_lo : w1->textures;
+		WfGlBlock* textures = mode == MODE_LOW ? w[0]->textures_lo : w[0]->textures;
 		int b = wf_actor_get_last_visible_block(&region, &a[0]->rect, zoom, a[0]->canvas->viewport, textures);
-		assert((b == waveform_get_n_audio_blocks(w1) - 1), "bad block_num %i / %i", b, waveform_get_n_audio_blocks(w1));
+		assert((b == waveform_get_n_audio_blocks(w[0]) - 1), "bad block_num %i / %i", b, waveform_get_n_audio_blocks(w[0]));
 	}
 
 	void next_scroll()
 	{
 		wait_count = 0;
 
-		dbg(0, "-------------------------");
+		dbg(0, "------------------------- %i", iter);
 		WfSampleRegion region = get_random_region(a[0], MODE_V_HI, UINT_MAX);
 		start = region.start;
 
-		int i; for(i=0;i<G_N_ELEMENTS(a);i++)
+		int i; for(i=0;i<G_N_ELEMENTS(a)&&a[i];i++)
 			wf_actor_set_region(a[i], &region);
 
 		gboolean _check_scroll(gpointer data)
@@ -392,10 +390,10 @@ test_scroll()
 
 			const int samples_per_texture = WF_SAMPLES_PER_TEXTURE;// * (resolution == 1024 ? WF_PEAK_STD_TO_LO : 1);
 			int region_start_block = region->start / samples_per_texture;
-			//WfTextureHi* texture = g_hash_table_lookup(w1->textures_hi->textures, &region_start_block);
+			//WfTextureHi* texture = g_hash_table_lookup(w[0]->textures_hi->textures, &region_start_block);
 			//assert_and_stop(texture, "texture loaded %i", region_start_block);
 
-			WfAudioData* audio = w1->priv->audio_data;
+			WfAudioData* audio = w[0]->priv->audio_data;
 			assert_and_stop(audio->n_blocks, "n_blocks not set");
 
 			WfBuf16* buf = audio->buf16[region_start_block];
@@ -430,21 +428,21 @@ test_hi_double()
 {
 	START_LONG_TEST;
 
-	// add a 2nd actor
+	void add_actor(int i)
 	{
 		char* filename = g_build_filename(g_get_current_dir(), WAV2, NULL);
 		// TODO this is be very slow if peakfile not present
-		w2 = waveform_load_new(filename);
+		w[i] = waveform_load_new(filename);
 		g_free(filename);
 
-		int i = 1;
-		a[i] = wf_canvas_add_new_actor(wfc, w2);
+		a[i] = wf_canvas_add_new_actor(wfc, w[i]);
 		assert(a[i], "failed to create actor");
 
 		wf_actor_set_region(a[i], &(WfSampleRegion){0, 4096 * 256});
 		wf_actor_set_colour(a[i], 0x66eeffff, 0x0000ffff);
 		on_allocate(canvas, NULL, NULL);
 	}
+	add_actor(1);
 
 	static const int n = 256;
 	static int iter = 0;
@@ -456,7 +454,6 @@ test_hi_double()
 
 	void next_scroll()
 	{
-		dbg(0, "-------------------------");
 		wait_count = 0;
 		int stage = MIN(G_N_ELEMENTS(move) - 1, iter / 8);
 		dbg(0, "------------------------- %i %i", iter, stage);
@@ -485,10 +482,10 @@ test_hi_double()
 
 			const int samples_per_texture = WF_SAMPLES_PER_TEXTURE;// * (resolution == 1024 ? WF_PEAK_STD_TO_LO : 1);
 			int region_start_block = _region->start / samples_per_texture;
-			//WfTextureHi* texture = g_hash_table_lookup(w1->textures_hi->textures, &region_start_block);
+			//WfTextureHi* texture = g_hash_table_lookup(w[0]->textures_hi->textures, &region_start_block);
 			//assert_and_stop(texture, "texture loaded %i", region_start_block);
 
-			WfAudioData* audio = w1->priv->audio_data;
+			WfAudioData* audio = w[0]->priv->audio_data;
 			assert_and_stop(audio->n_blocks, "n_blocks not set");
 
 			WfBuf16* buf = audio->buf16[region_start_block];
@@ -504,11 +501,10 @@ test_hi_double()
 			if(++iter < n){
 				next();
 			}else{
-																			extern void        hi_ng_cache_print   ();
-																			hi_ng_cache_print   ();
-
-																			extern void texture_cache_print();
-																			texture_cache_print();
+				/*
+				hi_ng_cache_print();
+				texture_cache_print();
+				*/
 				FINISH_TEST_TIMER_STOP;
 			}
 
@@ -531,6 +527,8 @@ test_add_remove()
 
 	START_TEST;
 
+	wf_cancel_jobs(a[0]->waveform);
+
 	void set_low_res()
 	{
 		int i; for(i=0;i<G_N_ELEMENTS(a)&&a[i];i++)
@@ -545,21 +543,40 @@ test_add_remove()
 
 	gboolean check_not_in_cache(gpointer user_data)
 	{
-		int t = texture_cache_lookup(wb);
+		int t = texture_cache_lookup(GL_TEXTURE_1D, wb);
 		assert_and_stop((t == -1), "cache not cleared: lookup got texture: %i", t);
+
+		texture_cache_print();
+
 		FINISH_TEST_TIMER_STOP;
 	}
 
 	gboolean check_in_cache(gpointer user_data)
 	{
-		int t = texture_cache_lookup(wb);
+		WfSampleRegion* region = &a[0]->region;
+		assert_and_stop((region->start == 0), "region start");
+
+		// In fact the 1d textures are no longer kept if rendering from fbo
+#ifdef USE_FBO
+		assert_and_stop(w[0]->textures_lo->fbo[0] && w[0]->textures_lo->fbo[0]->texture, "fbo texture");
+#else
+		// This will fail if the cache size is too small to fit all low_res blocks
+		// In fact with multiple v long wavs, is almost guaranteed to fail.
+
+		int t = texture_cache_lookup(GL_TEXTURE_1D, wb);
 		assert_and_stop((t != -1), "block 0 not found in cache");
+#endif
 
 		int i; for(i=0;i<G_N_ELEMENTS(a);i++){
 			wf_canvas_remove_actor(wfc, a[i]);
 			a[i] = 0;
 		}
-		g_object_unref(w1);
+		for(i=0;i<G_N_ELEMENTS(w);i++){
+			if(w[i]){
+				g_object_unref(w[i]);
+				w[i] = NULL;
+			}
+		}
 
 		g_timeout_add(2000, check_not_in_cache, NULL);
 		return TIMER_STOP;
@@ -569,12 +586,10 @@ test_add_remove()
 }
 
 
-																		extern void hi_ng_cache_print();
 void
 finish()
 {
 	START_TEST;
-																		hi_ng_cache_print();
 
 	gboolean _finish(gpointer data)
 	{
@@ -693,12 +708,12 @@ on_canvas_realise(GtkWidget* _canvas, gpointer user_data)
 		wfc = wf_canvas_new(gl_context, gl_drawable);
 
 		char* filename = g_build_filename(g_get_current_dir(), WAV1, NULL);
-		w1 = waveform_load_new(filename);
+		w[0] = waveform_load_new(filename);
 		g_free(filename);
 
 		WfSampleRegion region[] = {
 			{0,            REGION_LEN    },
-			{0,            w1->n_frames - 1    },
+			{0,            w[0]->n_frames - 1    },
 		};
 
 		uint32_t colours[4][2] = {
@@ -707,7 +722,7 @@ on_canvas_realise(GtkWidget* _canvas, gpointer user_data)
 		};
 
 		int i; for(i=0;i<1;i++){ // initially only create 1 actor
-			a[i] = wf_canvas_add_new_actor(wfc, w1);
+			a[i] = wf_canvas_add_new_actor(wfc, w[0]);
 
 			wf_actor_set_region(a[i], &region[i]);
 			wf_actor_set_colour(a[i], colours[i][0], colours[i][1]);
