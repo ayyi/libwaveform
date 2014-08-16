@@ -46,17 +46,12 @@ extern int wf_debug;
 // needed for v_hi res. TODO check effect on other modes.
 #define ANTIALIASED_LINES
 
-#define TWO_COORDS_PER_VERTEX 2
-
 #ifdef ANTIALIASED_LINES
 static GLuint line_textures[3] = {0, 0, 0}; // TODO use 1 and 2 as line caps
 #endif
 #ifdef MULTILINE_SHADER
 static GLuint lines_texture[8] = {0};
 #endif
-
-typedef struct {float x, y;} Vertex;
-typedef struct {Vertex v0, v1, v2, v3;} Quad;
 
 HiRenderer hi_renderer;
 
@@ -70,58 +65,6 @@ hi_request_block(WaveformActor* a, int b)
 		((Renderer*)&hi_renderer)->load_block((Renderer*)&hi_renderer, a, b);
 	}
 }
-
-
-#ifdef ANTIALIASED_LINES
-GLuint
-_wf_create_line_texture()
-{
-	if(line_textures[0]) return line_textures[0];
-
-	glEnable(GL_TEXTURE_2D);
-
-#if 1
-	int width = 4;
-	int height = 5;
-	char* pbuf = g_new0(char, width * height);
-	int y;
-	//char vals[] = {0xff, 0xa0, 0x40};
-	char vals[] = {0xff, 0x40, 0x10};
-	int x; for(x=0;x<width;x++){
-		y=0; *(pbuf + y * width + x) = vals[2];
-		y=1; *(pbuf + y * width + x) = vals[1];
-		y=2; *(pbuf + y * width + x) = vals[0];
-		y=3; *(pbuf + y * width + x) = vals[1];
-		y=4; *(pbuf + y * width + x) = vals[2];
-	}
-#else
-	int width = 4;
-	int height = 4;
-	char* pbuf = g_new0(char, width * height);
-	int y; for(y=0;y<height/2;y++){
-		int x; for(x=0;x<width;x++){
-			*(pbuf + y * width + x) = 0xff * (2*y)/height + 128;
-			*(pbuf + (height -1 - y) * width + x) = 0xff * (2*y)/height + 128;
-		}
-	}
-#endif
-
-	glGenTextures(2, line_textures);
-	if(glGetError() != GL_NO_ERROR){ gerr ("couldnt create line_textures."); return 0; }
-	dbg(2, "line_textureis[0]=%i", line_textures[0]);
-
-	int pixel_format = GL_ALPHA;
-	glBindTexture  (GL_TEXTURE_2D, line_textures[0]);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_ALPHA, width, height, 0, pixel_format, GL_UNSIGNED_BYTE, pbuf);
-	gl_warn("error binding line texture!");
-
-	g_free(pbuf);
-
-	return line_textures[0];
-}
-#endif
 
 
 #ifdef MULTILINE_SHADER
@@ -175,10 +118,9 @@ _wf_create_lines_texture(guchar* pbuf, int width, int height)
 
 
 static void
-_wf_actor_load_texture_hi(Renderer* renderer, WaveformActor* a, int block)
+hi_gl1_load_block(Renderer* renderer, WaveformActor* a, int block)
 {
 	// audio data for this block _must_ already be loaded
-																							gwarn("DONT GET HERE (shader)");
 
 	void
 	wf_actor_allocate_block_hi(WaveformActor* a, int b)
@@ -193,31 +135,16 @@ _wf_actor_load_texture_hi(Renderer* renderer, WaveformActor* a, int block)
 			return;
 		}
 
-		// TODO is the texture_cache suitable for hires textures?
-		// it uses an array, so all items must be of the same type, but hires textures can still use Texture object in cache?
-		// (they would be both in the per-actor list (as WfTextureHi) and the global cache as Texture)
-		int n_ch = waveform_get_n_channels(a->waveform);
-		if(a->canvas->use_1d_textures){
-			for(c=0;c<n_ch;c++){
-				texture->t[c].main = texture_cache_assign_new(GL_TEXTURE_1D, (WaveformBlock){a->waveform, b});
-				texture->t[c].neg  = texture_cache_assign_new(GL_TEXTURE_1D, (WaveformBlock){a->waveform, b});
-			}
-
-			wf_actor_load_texture1d(a->waveform, MODE_HI, (WfGlBlock*)NULL, b);
-		}else{
 	#ifdef HIRES_NONSHADER_TEXTURES
-			texture->t[WF_LEFT].main = texture_cache_assign_new(GL_TEXTURE_2D, (WaveformBlock){a->waveform, b | WF_TEXTURE_CACHE_HIRES_MASK});
-			dbg(0, "assigned texture=%u", texture->t[WF_LEFT].main);
+		texture->t[WF_LEFT].main = texture_cache_assign_new(GL_TEXTURE_2D, (WaveformBlock){a->waveform, b | WF_TEXTURE_CACHE_HIRES_MASK});
+		dbg(0, "assigned texture=%u", texture->t[WF_LEFT].main);
 
-			wf_actor_load_texture2d(a, MODE_HI, texture->t[c].main, b);
-	#else
-			// non-shader hi-res not using textures, so nothing to do here.
+		wf_actor_load_texture2d(a, MODE_HI, texture->t[c].main, b);
 	#endif
-		}
 	}
 
 	ModeRange mode = mode_range(a);
-	if(mode.lower == MODE_HI || mode.upper == MODE_HI){
+	if(mode.lower == MODE_HI || mode.upper == MODE_HI){ // TODO presumably this check is no longer needed. test and remove.
 
 		WfTextureHi* texture = g_hash_table_lookup(a->waveform->textures_hi->textures, &block);
 		if(!texture){
@@ -240,7 +167,6 @@ _wf_actor_load_texture_hi(Renderer* renderer, WaveformActor* a, int block)
 static void
 _draw_line(int x1, int y1, int x2, int y2, float r, float g, float b, float a)
 {
-	//dbg(2, "%2i %2i", x1, y1);
 	glColor4f(r, g, b, a);
 #ifdef ANTIALIASED_LINES
 	//agl_textured_rect(line_textures[0], x1, y1, x2-x1, y2-y1, NULL);
@@ -306,7 +232,7 @@ _set_pixel(int x, int y, guchar r, guchar g, guchar b, guchar aa)
 
 
 static void
-hi_pre_render(Renderer* renderer, WaveformActor* actor)
+hi_gl1_pre_render(Renderer* renderer, WaveformActor* actor)
 {
 #ifndef HIRES_NONSHADER_TEXTURES
 	RenderInfo* r  = &actor->priv->render_info;
@@ -317,82 +243,7 @@ hi_pre_render(Renderer* renderer, WaveformActor* actor)
 	hr->block_region = (WfSampleRegion){r->region.start % WF_SAMPLES_PER_TEXTURE, WF_SAMPLES_PER_TEXTURE - r->region.start % WF_SAMPLES_PER_TEXTURE};
 #endif
 
-	void hi_set_gl_state_shader(WaveformActor* actor)
-	{
-		WaveformCanvas* wfc = actor->canvas;
-		Waveform* w = actor->waveform; 
-		WfActorPriv* _a = actor->priv;
-		RenderInfo* r  = &_a->render_info;
-
-		HiResShader* hires_shader = wfc->priv->shaders.hires;
-		hires_shader->uniform.fg_colour = (actor->fg_colour & 0xffffff00) + (unsigned)(0x100 * _a->animatable.opacity.val.f);
-		hires_shader->uniform.peaks_per_pixel = r->peaks_per_pixel_i;
-		hires_shader->uniform.top = r->rect.top;
-		hires_shader->uniform.bottom = r->rect.top + r->rect.height;
-		hires_shader->uniform.n_channels = waveform_get_n_channels(w);
-
-		agl_use_program(&hires_shader->shader);
-	}
-
-	if(agl->use_shaders){
-		hi_set_gl_state_shader(actor);
-		glEnable(GL_TEXTURE_1D);
-	}else{
-		glEnable(GL_TEXTURE_2D);
-	}
-}
-
-
-void
-_draw_wave_buffer_hi(Waveform* w, WfSampleRegion region, WfRectangle* rect, Peakbuf* peakbuf, int chan, float v_gain, uint32_t rgba)
-{
-	//for use with peak data of alternative plus and minus peaks.
-	// -non-shader version
-
-	// x is integer which means lines are not evenly spaced and causes problems setting alpha.
-	// however using float x gives the same visual results (at least on intel 945)
-	// -the solution to this is probably to use textures.
-
-	float r = ((float)((rgba >> 24)       ))/0x100;
-	float g = ((float)((rgba >> 16) & 0xff))/0x100;
-	float b = ((float)((rgba >>  8) & 0xff))/0x100;
-	float alpha = ((float)((rgba  ) & 0xff))/0x100;
-
-	int64_t region_end = region.start + (int64_t)region.len;
-
-	float region_len = region.len;
-	short* data = peakbuf->buf[chan];
-
-	int io_ratio = (peakbuf->resolution == 16 || peakbuf->resolution == 8) ? 16 : 1; //TODO
-	int x = 0;
-	int p = 0;
-	int p_ = region.start / io_ratio;
-//dbg(0, "width=%.2f region=%Li-->%Li xgain=%.2f resolution=%i io_ratio=%i", rect->len, region.start, region.start + (int64_t)region.len, rect->len / region_len, peakbuf->resolution, io_ratio);
-//dbg(0, "x: %.2f --> %.2f", (((double)0) / region_len) * rect->len, (((double)4095) / region_len) * rect->len);
-	/*
-	if(!(region_end / io_ratio <= peakbuf->size / WF_PEAK_VALUES_PER_SAMPLE))
-		gwarn("end/ratio=%i size=%i - region.end should never exceed %i", ((int)region_end / io_ratio), peakbuf->size / WF_PEAK_VALUES_PER_SAMPLE, io_ratio * peakbuf->size / WF_PEAK_VALUES_PER_SAMPLE);
-	*/
-	g_return_if_fail(region_end / io_ratio <= peakbuf->size / WF_PEAK_VALUES_PER_SAMPLE);
-	while (p < region.len / io_ratio){
-									if(2 * p_ >= peakbuf->size) gwarn("s_=%i size=%i", p_, peakbuf->size);
-									g_return_if_fail(2 * p_ < peakbuf->size);
-		x = rect->left + (((double)p) / region_len) * rect->len * io_ratio;
-//if(!p) dbg(0, "x=%i", x);
-		if (x - rect->left >= rect->len) break;
-//if(p < 10) printf("    x=%i %2i %2i\n", x, data[2 * p_], data[2 * p_ + 1]);
-
-		double y1 = ((double)data[WF_PEAK_VALUES_PER_SAMPLE * p_    ]) * v_gain * (rect->height / 2.0) / (1 << 15);
-		double y2 = ((double)data[WF_PEAK_VALUES_PER_SAMPLE * p_ + 1]) * v_gain * (rect->height / 2.0) / (1 << 15);
-
-		_draw_line(x, rect->top - y1 + rect->height / 2, x, rect->top - y2 + rect->height / 2, r, g, b, alpha);
-//if(p == 4095)
-//		_draw_line(rect->left + x, 0, rect->left + x, rect->height, r, g, b, 1.0);
-
-		p++;
-		p_++;
-	}
-	dbg(2, "n_lines=%i x0=%.1f x=%i y=%.1f h=%.1f", p, rect->left, x, rect->top, rect->height);
+	glEnable(GL_TEXTURE_2D);
 }
 
 
@@ -409,8 +260,59 @@ hi_set_gl_state_nonshader(WaveformActor* actor)
 
 
 bool
-draw_wave_buffer_hi_nonshader(Renderer* renderer, WaveformActor* actor, int b, bool is_first, bool is_last, double x)
+draw_wave_buffer_hi_gl1(Renderer* renderer, WaveformActor* actor, int b, bool is_first, bool is_last, double x)
 {
+	void _draw_wave_buffer_hi_gl1(Waveform* w, WfSampleRegion region, WfRectangle* rect, Peakbuf* peakbuf, int chan, float v_gain, uint32_t rgba)
+	{
+		//for use with peak data of alternative plus and minus peaks.
+		// -non-shader version
+
+		// x is integer which means lines are not evenly spaced and causes problems setting alpha.
+		// however using float x gives the same visual results (at least on intel 945)
+		// -the solution to this is probably to use textures.
+
+		float r = ((float)((rgba >> 24)       ))/0x100;
+		float g = ((float)((rgba >> 16) & 0xff))/0x100;
+		float b = ((float)((rgba >>  8) & 0xff))/0x100;
+		float alpha = ((float)((rgba  ) & 0xff))/0x100;
+
+		int64_t region_end = region.start + (int64_t)region.len;
+
+		float region_len = region.len;
+		short* data = peakbuf->buf[chan];
+
+		int io_ratio = (peakbuf->resolution == 16 || peakbuf->resolution == 8) ? 16 : 1; //TODO
+		int x = 0;
+		int p = 0;
+		int p_ = region.start / io_ratio;
+	//dbg(0, "width=%.2f region=%Li-->%Li xgain=%.2f resolution=%i io_ratio=%i", rect->len, region.start, region.start + (int64_t)region.len, rect->len / region_len, peakbuf->resolution, io_ratio);
+	//dbg(0, "x: %.2f --> %.2f", (((double)0) / region_len) * rect->len, (((double)4095) / region_len) * rect->len);
+		/*
+		if(!(region_end / io_ratio <= peakbuf->size / WF_PEAK_VALUES_PER_SAMPLE))
+			gwarn("end/ratio=%i size=%i - region.end should never exceed %i", ((int)region_end / io_ratio), peakbuf->size / WF_PEAK_VALUES_PER_SAMPLE, io_ratio * peakbuf->size / WF_PEAK_VALUES_PER_SAMPLE);
+		*/
+		g_return_if_fail(region_end / io_ratio <= peakbuf->size / WF_PEAK_VALUES_PER_SAMPLE);
+		while (p < region.len / io_ratio){
+										if(2 * p_ >= peakbuf->size) gwarn("s_=%i size=%i", p_, peakbuf->size);
+										g_return_if_fail(2 * p_ < peakbuf->size);
+			x = rect->left + (((double)p) / region_len) * rect->len * io_ratio;
+	//if(!p) dbg(0, "x=%i", x);
+			if (x - rect->left >= rect->len) break;
+	//if(p < 10) printf("    x=%i %2i %2i\n", x, data[2 * p_], data[2 * p_ + 1]);
+
+			double y1 = ((double)data[WF_PEAK_VALUES_PER_SAMPLE * p_    ]) * v_gain * (rect->height / 2.0) / (1 << 15);
+			double y2 = ((double)data[WF_PEAK_VALUES_PER_SAMPLE * p_ + 1]) * v_gain * (rect->height / 2.0) / (1 << 15);
+
+			_draw_line(x, rect->top - y1 + rect->height / 2, x, rect->top - y2 + rect->height / 2, r, g, b, alpha);
+	//if(p == 4095)
+	//		_draw_line(rect->left + x, 0, rect->left + x, rect->height, r, g, b, 1.0);
+
+			p++;
+			p_++;
+		}
+		dbg(2, "n_lines=%i x0=%.1f x=%i y=%.1f h=%.1f", p, rect->left, x, rect->top, rect->height);
+	}
+
 	Waveform* w = actor->waveform; 
 	WfActorPriv* _a = actor->priv;
 	WaveformCanvas* wfc = actor->canvas;
@@ -464,7 +366,7 @@ draw_wave_buffer_hi_nonshader(Renderer* renderer, WaveformActor* actor, int b, b
 
 			block_rect.top = rect->top + c * rect->height/2;
 
-			_draw_wave_buffer_hi(w, hr->block_region, &block_rect, peakbuf, c, wfc->v_gain, actor->fg_colour);
+			_draw_wave_buffer_hi_gl1(w, hr->block_region, &block_rect, peakbuf, c, wfc->v_gain, actor->fg_colour);
 		}
 		else dbg(1, "buf not ready: %i", c);
 	}
@@ -560,7 +462,7 @@ dbg (0, "%i: is_first=%i is_last=%i x=%.2f wid=%.2f/%.2f tex_pct=%.3f tex_start=
 
 #ifdef HIRES_NONSHADER_TEXTURES
 static inline bool
-block_hires_nonshader(Renderer* renderer, WaveformActor* actor, int b, gboolean is_first, gboolean is_last, double x)
+hi_gl1_render_block(Renderer* renderer, WaveformActor* actor, int b, gboolean is_first, gboolean is_last, double x)
 {
 	//render the 2d peak texture onto a block.
 
@@ -658,24 +560,21 @@ _wf_actor_print_hires_textures(WaveformActor* a)
 }
 
 
-#ifdef HI_NG
-HiRenderer hi_renderer_shader = {{hi_ng_load_block, hi_ng_pre_render, block_hires_ng}};
-#else
-HiRenderer hi_renderer_shader = {{_wf_actor_load_texture_hi, hi_pre_render, block_hires_shader}};
-#endif
-HiRenderer hi_renderer_nonshader = {{_wf_actor_load_texture_hi, hi_pre_render,
+HiRenderer hi_renderer_shader = {{hi_gl2_load_block, hi_gl2_pre_render, hi_gl2_render_block}};
+HiRenderer hi_renderer_nonshader = {{hi_gl1_load_block, hi_gl1_pre_render,
 #ifdef HIRES_NONSHADER_TEXTURES
-				block_hires_nonshader
+				hi_gl1_render_block
 #else
 				// without shaders, each sample line is drawn directly without using textures, so performance will be relatively poor.
-				draw_wave_buffer_hi_nonshader
+				draw_wave_buffer_hi_gl1
 #endif
 }};
+
 
 static Renderer*
 hi_renderer_new()
 {
-	if(!hi_res_ng_data) hi_res_ng_data = g_hash_table_new_full(g_direct_hash, g_int_equal, NULL, hi_ng_free_item);
+	if(!hi_res_ng_data) hi_res_ng_data = g_hash_table_new_full(g_direct_hash, g_int_equal, NULL, hi_gl2_free_item);
 
 	return (Renderer*)&hi_renderer;
 }

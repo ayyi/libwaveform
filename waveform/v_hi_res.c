@@ -17,6 +17,9 @@
 
 #define VERTEX_ARRAYS
 
+#ifdef ANTIALIASED_LINES
+GLuint _wf_create_line_texture();
+#endif
 
 typedef struct {
 	struct {
@@ -27,6 +30,11 @@ typedef struct {
 	} outer;
 	int border;
 } Range;
+
+#define TWO_COORDS_PER_VERTEX 2
+
+typedef struct {float x, y;} Vertex;
+typedef struct {Vertex v0, v1, v2, v3;} Quad;
 
 
 static void
@@ -379,6 +387,58 @@ v_hi_load_block(Renderer* renderer, WaveformActor* a, int b)
 {
 	if(a->canvas->draw) wf_canvas_queue_redraw(a->canvas);
 }
+
+
+#ifdef ANTIALIASED_LINES
+GLuint
+_wf_create_line_texture()
+{
+	if(line_textures[0]) return line_textures[0];
+
+	glEnable(GL_TEXTURE_2D);
+
+#if 1
+	int width = 4;
+	int height = 5;
+	char* pbuf = g_new0(char, width * height);
+	int y;
+	//char vals[] = {0xff, 0xa0, 0x40};
+	char vals[] = {0xff, 0x40, 0x10};
+	int x; for(x=0;x<width;x++){
+		y=0; *(pbuf + y * width + x) = vals[2];
+		y=1; *(pbuf + y * width + x) = vals[1];
+		y=2; *(pbuf + y * width + x) = vals[0];
+		y=3; *(pbuf + y * width + x) = vals[1];
+		y=4; *(pbuf + y * width + x) = vals[2];
+	}
+#else
+	int width = 4;
+	int height = 4;
+	char* pbuf = g_new0(char, width * height);
+	int y; for(y=0;y<height/2;y++){
+		int x; for(x=0;x<width;x++){
+			*(pbuf + y * width + x) = 0xff * (2*y)/height + 128;
+			*(pbuf + (height -1 - y) * width + x) = 0xff * (2*y)/height + 128;
+		}
+	}
+#endif
+
+	glGenTextures(2, line_textures);
+	if(glGetError() != GL_NO_ERROR){ gerr ("couldnt create line_textures."); return 0; }
+	dbg(2, "line_textureis[0]=%i", line_textures[0]);
+
+	int pixel_format = GL_ALPHA;
+	glBindTexture  (GL_TEXTURE_2D, line_textures[0]);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_ALPHA, width, height, 0, pixel_format, GL_UNSIGNED_BYTE, pbuf);
+	gl_warn("error binding line texture!");
+
+	g_free(pbuf);
+
+	return line_textures[0];
+}
+#endif
 
 
 VHiRenderer v_hi_renderer = {{v_hi_load_block, v_hi_pre_render, draw_wave_buffer_v_hi}};

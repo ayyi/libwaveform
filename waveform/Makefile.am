@@ -46,7 +46,7 @@ libwaveform_la_SOURCES = \
 EXTRA_DIST = \
 	med_res.c \
 	hi_res.c \
-	hi_res_ng.c \
+	hi_res_gl2.c \
 	v_hi_res.c \
 	view_plus_gl.c
 

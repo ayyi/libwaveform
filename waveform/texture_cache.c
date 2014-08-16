@@ -367,8 +367,8 @@ texture_cache_steal(TextureCache* c)
 		WaveformBlock* wb = &tex->wb;
 
 		if(wb->block & WF_TEXTURE_CACHE_HIRES_NG_MASK){
-			extern void hi_ng_on_steal(WaveformBlock*, guint);
-			hi_ng_on_steal(wb, tex->id);
+			extern void hi_gl2_on_steal(WaveformBlock*, guint);
+			hi_gl2_on_steal(wb, tex->id);
 		}else{
 			extern void med_lo_on_steal(WaveformBlock*, guint);
 			med_lo_on_steal(wb, tex->id);

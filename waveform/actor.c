@@ -242,7 +242,7 @@ static void   block_to_fbo                   (WaveformActor*, int b, WfGlBlock*,
 #endif
 
 #include "waveform/med_res.c"
-#include "waveform/hi_res_ng.c"
+#include "waveform/hi_res_gl2.c"
 #include "waveform/hi_res.c"
 #include "waveform/v_hi_res.c"
 

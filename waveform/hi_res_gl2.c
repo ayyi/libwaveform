@@ -98,14 +98,14 @@ static GHashTable* hi_res_ng_data = NULL;
 static int hi_time_stamp = 0;
 
 static bool get_quad_dimensions (WaveformActor* actor, int b, bool is_first, bool is_last, double x, TextureRange*, double* tex_x_, double* block_wid_, int border, int multiplier);
-static void hi_ng_queue_clean   ();
-void        hi_ng_cache_print   ();
+static void hi_gl2_queue_clean  ();
+void        hi_gl2_cache_print  ();
 
 #define short_to_char(A) ((guchar)(A / 128))
 
 
 static void
-hi_ng_free_section(Waveform* waveform, Section* section, int s)
+hi_gl2_free_section(Waveform* waveform, Section* section, int s)
 {
 	if(section){
 		if(section->buffer) g_free0(section->buffer);
@@ -120,7 +120,7 @@ hi_ng_free_section(Waveform* waveform, Section* section, int s)
 
 
 static void
-hi_ng_free_waveform(Waveform* waveform)
+hi_gl2_free_waveform(Waveform* waveform)
 {
 	PF;
 
@@ -129,7 +129,7 @@ hi_ng_free_waveform(Waveform* waveform)
 		// the sections must be freed before removing from the hashtable
 		// so that the Waveform can be referenced.
 		int s; for(s=0;s<data->size;s++){
-			hi_ng_free_section(waveform, &data->section[s], s);
+			hi_gl2_free_section(waveform, &data->section[s], s);
 		}
 		// removing from the hash table will cause the item to be free'd.
 		if(!g_hash_table_remove(hi_res_ng_data, waveform)) dbg(1, "failed to remove hi-res data");
@@ -138,7 +138,7 @@ hi_ng_free_waveform(Waveform* waveform)
 
 
 static void
-hi_ng_free_item(/*Waveform* waveform, */gpointer _data)
+hi_gl2_free_item(/*Waveform* waveform, */gpointer _data)
 {
 	// this is called by the hash_table when an item is removed from hi_res_ng_data.
 
@@ -165,7 +165,7 @@ hi_ng_free_item(/*Waveform* waveform, */gpointer _data)
 	if(g_hash_table_find(hi_res_ng_data, find_val, &c)){
 
 		int s; for(s=0;s<data->size;s++){
-			hi_ng_free_section(c.waveform, &data->section[s], s);
+			hi_gl2_free_section(c.waveform, &data->section[s], s);
 		}
 	}
 	else gwarn("waveform not found");
@@ -176,16 +176,16 @@ hi_ng_free_item(/*Waveform* waveform, */gpointer _data)
 
 
 static void
-hi_ng_finalize_notify(gpointer user_data, GObject* was)
+hi_gl2_finalize_notify(gpointer user_data, GObject* was)
 {
 	PF;
 	Waveform* waveform = (Waveform*)was;
-	hi_ng_free_waveform(waveform);
+	hi_gl2_free_waveform(waveform);
 }
 
 
 #ifdef NOT_USED
-static void hi_ng_uninit()
+static void hi_gl2_uninit()
 {
 	g_hash_table_destroy(hi_res_ng_data);
 	hi_res_ng_data = NULL;
@@ -195,7 +195,7 @@ static void hi_ng_uninit()
 
 #ifdef XDEBUG
 static bool
-ng_set(Section* section, int pos, char val)
+hi_gl2_set(Section* section, int pos, char val)
 {
 	g_return_val_if_fail(section->buffer_size, false);
 	g_return_val_if_fail(pos < section->buffer_size, false);
@@ -203,12 +203,12 @@ ng_set(Section* section, int pos, char val)
 	return true;
 }
 #else
-#define ng_set(section, pos, val) (section->buffer[pos] = val, true)
+#define hi_gl2_set(section, pos, val) (section->buffer[pos] = val, true)
 #endif
 
 
 static void
-hi_ng_load_block(Renderer* renderer, WaveformActor* actor, int b)
+hi_gl2_load_block(Renderer* renderer, WaveformActor* actor, int b)
 {
 	Waveform* waveform = actor->waveform;
 
@@ -227,7 +227,7 @@ hi_ng_load_block(Renderer* renderer, WaveformActor* actor, int b)
 
 		section->time_stamp = hi_time_stamp++;
 
-		hi_ng_queue_clean();
+		hi_gl2_queue_clean();
 
 		return section;
 	}
@@ -249,7 +249,7 @@ hi_ng_load_block(Renderer* renderer, WaveformActor* actor, int b)
 		int n_sections = waveform_get_n_audio_blocks(waveform) / MAX_BLOCKS_PER_TEXTURE + (waveform_get_n_audio_blocks(waveform) % MAX_BLOCKS_PER_TEXTURE ? 1 : 0);
 		data = g_malloc0(sizeof(HiResNGWaveform) + sizeof(Section) * n_sections);
 		data->size = n_sections;
-		g_object_weak_ref((GObject*)waveform, hi_ng_finalize_notify, NULL);
+		g_object_weak_ref((GObject*)waveform, hi_gl2_finalize_notify, NULL);
 		g_hash_table_insert(hi_res_ng_data, actor->waveform, data);
 
 		int buffer_size = 0;
@@ -302,10 +302,10 @@ hi_ng_load_block(Renderer* renderer, WaveformActor* actor, int b)
 					short_max[c][i] = max[c];
 					short_min[c][i] = min[c];
 
-					bool ok = ng_set(section, _b * block_size + (c * block_size / 2) + mmidx_max[mm_level] + i, short_to_char(max[c]));
+					bool ok = hi_gl2_set(section, _b * block_size + (c * block_size / 2) + mmidx_max[mm_level] + i, short_to_char(max[c]));
 					if(!ok) gerr("max b=%i i=%i p=%i %i size=%i", _b, i, p, _b * block_size + mmidx_max[mm_level] + i, section->buffer_size);
 					g_return_if_fail(ok);
-					ok = ng_set(section, _b * block_size + (c * block_size / 2) + mmidx_min[mm_level] + i, short_to_char(-min[c]));
+					ok = hi_gl2_set(section, _b * block_size + (c * block_size / 2) + mmidx_min[mm_level] + i, short_to_char(-min[c]));
 					if(!ok) gerr("min b=%i i=%i p=%i %i size=%i mm=%i", _b, i, p, b * block_size + mmidx_min[mm_level] + i, section->buffer_size, mmidx_min[mm_level]);
 					g_return_if_fail(ok);
 				}
@@ -317,8 +317,8 @@ hi_ng_load_block(Renderer* renderer, WaveformActor* actor, int b)
 					for(i=0, p=0; p<modes[MODE_HI].texture_size/mm; i++, p+=2){
 						short_max[c][i] = MAX(short_max[c][p], short_max[c][p+1]);
 						short_min[c][i] = MIN(short_min[c][p], short_min[c][p+1]);
-						ng_set(section, _b * block_size + (c * block_size / 2) + mmidx_max[mm_level] + i, short_to_char(short_max[c][i]));
-						ng_set(section, _b * block_size + (c * block_size / 2) + mmidx_min[mm_level] + i, short_to_char(-short_min[c][i]));
+						hi_gl2_set(section, _b * block_size + (c * block_size / 2) + mmidx_max[mm_level] + i, short_to_char(short_max[c][i]));
+						hi_gl2_set(section, _b * block_size + (c * block_size / 2) + mmidx_min[mm_level] + i, short_to_char(-short_min[c][i]));
 					}
 				}
 			}
@@ -341,7 +341,7 @@ hi_ng_load_block(Renderer* renderer, WaveformActor* actor, int b)
 				glBindTexture  (GL_TEXTURE_2D, section->texture);
 				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-				// TODO it is quite common for this to be done several times in quick succession for the same texture with consecutive calls to hi_ng_load_block
+				// TODO it is quite common for this to be done several times in quick succession for the same texture with consecutive calls to hi_gl2_load_block
 				dbg(1, "%i: uploading texture: %i x %i", s, width, height);
 				glTexImage2D(GL_TEXTURE_2D, 0, GL_ALPHA, width, height, 0, pixel_format, GL_UNSIGNED_BYTE, section->buffer);
 				gl_warn("error binding texture: %u", section->texture);
@@ -356,7 +356,7 @@ hi_ng_load_block(Renderer* renderer, WaveformActor* actor, int b)
 
 
 static void
-hi_ng_pre_render(Renderer* renderer, WaveformActor* actor)
+hi_gl2_pre_render(Renderer* renderer, WaveformActor* actor)
 {
 	WaveformCanvas* wfc = actor->canvas;
 	Waveform* w = actor->waveform;
@@ -387,7 +387,7 @@ hi_ng_pre_render(Renderer* renderer, WaveformActor* actor)
 
 
 static bool
-block_hires_ng(Renderer* renderer, WaveformActor* actor, int b, gboolean is_first, gboolean is_last, double x)
+hi_gl2_render_block(Renderer* renderer, WaveformActor* actor, int b, gboolean is_first, gboolean is_last, double x)
 {
 	gl_warn("pre");
 
@@ -424,7 +424,7 @@ block_hires_ng(Renderer* renderer, WaveformActor* actor, int b, gboolean is_firs
 
 
 void
-hi_ng_on_steal(WaveformBlock* wb, guint tex)
+hi_gl2_on_steal(WaveformBlock* wb, guint tex)
 {
 	HiResNGWaveform* data = g_hash_table_lookup(hi_res_ng_data, wb->waveform);
 	if(data){
@@ -447,7 +447,7 @@ hi_ng_on_steal(WaveformBlock* wb, guint tex)
 
 
 static void
-hi_ng_queue_clean()
+hi_gl2_queue_clean()
 {
 	#define MAX_SECTIONS 1024
 
@@ -484,7 +484,7 @@ hi_ng_queue_clean()
 
 				if(oldest.data){
 					dbg(0, "removing: section=%i", oldest.section);
-					hi_ng_free_section(oldest.waveform, &oldest.data->section[oldest.section], oldest.section);
+					hi_gl2_free_section(oldest.waveform, &oldest.data->section[oldest.section], oldest.section);
 				}
 			}
 		}
@@ -499,7 +499,7 @@ hi_ng_queue_clean()
 
 // temporary
 void
-hi_ng_cache_print()
+hi_gl2_cache_print()
 {
 	static int n_textures; n_textures = 0;
 
