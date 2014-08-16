@@ -1,5 +1,5 @@
 /*
-  copyright (C) 2012-2013 Tim Orford <tim@orford.org>
+  copyright (C) 2012-2014 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -385,7 +385,7 @@ wf_cancel_jobs(Waveform* waveform)
 	for(;l;l=l->next){
 		QueueItem* i = l->data;
 		PeakbufQueueItem* item = i->user_data;
-		if(item->waveform == waveform) i->cancelled = true;
+		if(!i->cancelled && item->waveform == waveform) i->cancelled = true;
 	}
 	int n_jobs = g_list_length(wf->jobs);
 	dbg(n_jobs ? 1 : 2, "n_jobs=%i", n_jobs);
