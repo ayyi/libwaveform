@@ -394,11 +394,11 @@ texture_cache_remove_waveform(Waveform* waveform) //tmp? should probably only be
 		int size0 = texture_cache_count_used(c);
 
 		//TODO this first loop can be very long. dont do this when just using low res textures.
-		int b; for(b=0;b<=waveform->textures->size;b++){
+		int b; for(b=0;b<=((WfGlBlock*)waveform->priv->render_data[MODE_MED])->size;b++){
 			texture_cache_unassign(c, (WaveformBlock){waveform, b});
 		}
-		if(waveform->textures_lo){
-			for(b=0;b<=waveform->textures_lo->size;b++){
+		if(waveform->priv->render_data[MODE_LOW]){
+			for(b=0;b<=((WfGlBlock*)waveform->priv->render_data[MODE_LOW])->size;b++){
 				texture_cache_unassign(c, (WaveformBlock){waveform, b | WF_TEXTURE_CACHE_LORES_MASK});
 			}
 		}

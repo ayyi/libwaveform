@@ -48,6 +48,7 @@ typedef struct {
 		float    top;
 		float    bottom;
 		int      n_channels;
+		float    tex_width;
 		float    tex_height;
 		int      mm_level;
 	}         uniform;

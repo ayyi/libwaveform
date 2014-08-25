@@ -15,6 +15,10 @@
   Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 */
 
+typedef HiResNGWaveform NGWaveform;
+
+#define RENDER_DATA_MED(A) ((NGWaveform*)A->render_data[MODE_MED])
+
 
 // temporary - performance testing
 static void
@@ -35,14 +39,14 @@ med_lo_clear_1d_textures(WfGlBlock* blocks, WaveformBlock* wb)
 
 
 static void
-med_allocate_block(Renderer* renderer, WaveformActor* a, int b)
+med_allocate_block_gl1(Renderer* renderer, WaveformActor* a, int b)
 {
 	// load resources (textures) required for display of the block.
 
 	g_return_if_fail(b >= 0);
 
 	Waveform* w = a->waveform;
-	WfGlBlock* blocks = w->textures;
+	WfGlBlock* blocks = w->priv->render_data[MODE_MED];
 	WaveformBlock wb = {w, b};
 
 	int c = WF_LEFT;
@@ -78,7 +82,7 @@ med_allocate_block(Renderer* renderer, WaveformActor* a, int b)
 			dbg(1, "* %i: texture=%i %i (mono)", b, texture_id, *peak_texture[1]);
 		}
 
-		wf_actor_load_texture1d(w, MODE_MED, w->textures, b);
+		wf_actor_load_texture1d(w, MODE_MED, blocks, b);
 
 #if defined (USE_FBO) && defined (multipass)
 		if(!blocks->fbo[b]){
@@ -103,7 +107,7 @@ low_allocate_block(Renderer* renderer, WaveformActor* a, int b)
 	g_return_if_fail(b >= 0);
 
 	Waveform* w = a->waveform;
-	WfGlBlock* blocks = w->textures_lo;
+	WfGlBlock* blocks = w->priv->render_data[MODE_LOW];
 #ifdef WF_DEBUG
 	g_return_if_fail(b < blocks->size);
 #endif
@@ -149,7 +153,7 @@ low_allocate_block(Renderer* renderer, WaveformActor* a, int b)
 			dbg(1, "* %i: textures=%i,%i (rhs peak.buf not loaded)", b, texture_id, *peak_texture[1]);
 		}
 
-		wf_actor_load_texture1d(w, MODE_LOW, w->textures_lo, b);
+		wf_actor_load_texture1d(w, MODE_LOW, w->priv->render_data[MODE_LOW], b);
 #if defined (USE_FBO) && defined (multipass)
 		if(!blocks->fbo[b]){
 			block_to_fbo(a, b, blocks, 1024);
@@ -178,7 +182,7 @@ _med_lo_set_gl_state_for_block(WaveformCanvas* wfc, Waveform* w, WfGlBlock* text
 		agl_texture_unit_use_texture(wfc->texture_unit[0], textures->peak_texture[c].main[b]);
 		agl_texture_unit_use_texture(wfc->texture_unit[1], textures->peak_texture[c].neg[b]);
 
-		if(w->textures->peak_texture[WF_RIGHT].main){
+		if(textures->peak_texture[WF_RIGHT].main){
 			agl_texture_unit_use_texture(wfc->texture_unit[2], textures->peak_texture[WF_RIGHT].main[b]);
 			agl_texture_unit_use_texture(wfc->texture_unit[3], textures->peak_texture[WF_RIGHT].neg[b]);
 		}
@@ -192,7 +196,7 @@ _med_lo_set_gl_state_for_block(WaveformCanvas* wfc, Waveform* w, WfGlBlock* text
 
 
 static void
-med_lo_pre_render_gl2(Renderer* renderer, WaveformActor* actor)
+lo_pre_render_gl2(Renderer* renderer, WaveformActor* actor)
 {
 	WaveformCanvas* wfc = actor->canvas;
 #if defined (USE_FBO) && defined (multipass)
@@ -234,7 +238,7 @@ med_lo_pre_render_gl2(Renderer* renderer, WaveformActor* actor)
 	if(wf_debug > 1){ //textures may initially not be loaded, so don't show this warning too much
 		int n = 0;
 		int b; for(b=r->viewport_blocks.first;b<=r->viewport_blocks.last;b++){
-			if(!r->textures->peak_texture[WF_LEFT].main[b]){ n++; gwarn("texture not loaded: b=%i", b); }
+			if(!((WfGlBlock*)actor->waveform->priv->render_data[MODE_LOW])->peak_texture[WF_LEFT].main[b]){ n++; gwarn("texture not loaded: b=%i", b); }
 		}
 		if(n) gwarn("%i textures not loaded", n);
 	}
@@ -282,7 +286,6 @@ med_lo_get_quad_dimensions(WaveformActor* actor, int b, bool is_first, bool is_l
 {
 	// TODO this appears to not be using border offsetting. may need to copy from get_quad_dimensions() in hi_res.c
 
-	Waveform* w = actor->waveform; 
 	WfActorPriv* _a = actor->priv;
 	RenderInfo* r  = &_a->render_info;
 
@@ -329,16 +332,7 @@ med_lo_get_quad_dimensions(WaveformActor* actor, int b, bool is_first, bool is_l
 #endif
 		}
 
-		if(b == w->textures->size - 1) dbg(2, "last sample block. fraction=%.2f", w->textures->last_fraction);
-		//TODO check what happens here if we allow non-square textures
-#if 0 // !! doesnt matter if its the last block or not, we must still take the region into account.
-		tex_pct = (i == w->textures->size - 1)
-			? (block_wid / r->block_wid) / w->textures->last_fraction    // block is at end of sample
-											  // -cannot use block_wid / block_wid for last block because the last texture is smaller.
-			: block_wid / r->block_wid;
-#else
 		tex.wid = block_wid / r->block_wid;
-#endif
 	}
 
 #if defined (USE_FBO) && defined (multipass)
@@ -366,7 +360,7 @@ med_lo_render_gl1(Renderer* renderer, WaveformActor* actor, int b, bool is_first
 	QuadExtent block;
 	if(!med_lo_get_quad_dimensions(actor, b, is_first, is_last, x, &tex, &block)) return false;
 
-	_med_lo_set_gl_state_for_block(wfc, w, r->textures, b);
+	_med_lo_set_gl_state_for_block(wfc, w, w->priv->render_data[r->mode], b);
 
 	glPushMatrix();
 	glTranslatef(0, 0, _a->animatable.z.val.f);
@@ -407,11 +401,13 @@ med_lo_render_gl1(Renderer* renderer, WaveformActor* actor, int b, bool is_first
 
 
 static bool
-med_lo_render_gl2(Renderer* renderer, WaveformActor* actor, int b, bool is_first, bool is_last, double x)
+lo_render_gl2(Renderer* renderer, WaveformActor* actor, int b, bool is_first, bool is_last, double x)
 {
 	WfActorPriv* _a = actor->priv;
 	WaveformCanvas* wfc = actor->canvas;
+	WaveformPriv* w = actor->waveform->priv;
 	RenderInfo* r  = &_a->render_info;
+	WfGlBlock* textures = w->render_data[MODE_LOW];
 
 	TextureRange tex;
 	QuadExtent block;
@@ -423,10 +419,10 @@ med_lo_render_gl2(Renderer* renderer, WaveformActor* actor, int b, bool is_first
 	AglFBO* fbo = false
 		? fbo_test
 #ifdef USE_FX
-		: r->textures->fx_fbo[b]
-			? r->textures->fx_fbo[b]
+		: textures->fx_fbo[b]
+			? textures->fx_fbo[b]
 #endif
-			: r->textures->fbo[b];
+			: textures->fbo[b];
 	if(fbo){
 		if(wfc->blend)
 			agl_use_texture(fbo->texture);
@@ -437,7 +433,7 @@ med_lo_render_gl2(Renderer* renderer, WaveformActor* actor, int b, bool is_first
 		return false;
 	}
 #else
-	_med_lo_set_gl_state_for_block(wfc, actor->waveform, r->textures, b);
+	_med_lo_set_gl_state_for_block(wfc, actor->waveform, textures, b);
 #endif
 
 	glPushMatrix();
@@ -461,7 +457,7 @@ med_lo_on_steal(WaveformBlock* wb, guint tex)
 {
 	bool lores = wb->block & WF_TEXTURE_CACHE_LORES_MASK;
 	int b = wb->block & ~WF_TEXTURE_CACHE_LORES_MASK;
-	WfGlBlock* blocks = lores ? wb->waveform->textures_lo : wb->waveform->textures;
+	WfGlBlock* blocks = lores ? wb->waveform->priv->render_data[MODE_LOW] : RENDER_DATA_MED(wb->waveform->priv);
 	guint* peak_texture[4] = {
 		&blocks->peak_texture[0].main[b],
 		&blocks->peak_texture[0].neg [b],
@@ -491,11 +487,25 @@ med_lo_on_steal(WaveformBlock* wb, guint tex)
 }
 
 
-Renderer med_lo_renderer_gl1 = {med_allocate_block, med_lo_pre_render_gl1, med_lo_render_gl1};
-Renderer med_lo_renderer_gl2 = {med_allocate_block, med_lo_pre_render_gl2, med_lo_render_gl2};
-Renderer med_renderer;
+Renderer med_renderer_gl1 = {MODE_MED, med_allocate_block_gl1, med_lo_pre_render_gl1, med_lo_render_gl1};
+NGRenderer med_renderer_gl2 = {{MODE_MED, ng_gl2_load_block, ng_gl2_pre_render, hi_gl2_render_block, ng_gl2_free_waveform}};
 
-Renderer lo_renderer_gl1 = {low_allocate_block, med_lo_pre_render_gl1, med_lo_render_gl1};
-Renderer lo_renderer_gl2 = {low_allocate_block, med_lo_pre_render_gl2, med_lo_render_gl2};
+Renderer lo_renderer_gl1 = {MODE_LOW, low_allocate_block, med_lo_pre_render_gl1, med_lo_render_gl1};
+Renderer lo_renderer_gl2 = {MODE_LOW, low_allocate_block, lo_pre_render_gl2, lo_render_gl2};
 Renderer lo_renderer;
+
+
+static Renderer*
+med_renderer_new()
+{
+	g_return_val_if_fail(!med_renderer_gl2.ng_data, NULL);
+
+	static Renderer* med_renderer = (Renderer*)&med_renderer_gl2;
+
+	med_renderer_gl2.ng_data = g_hash_table_new_full(g_direct_hash, g_int_equal, NULL, g_free);
+
+	ng_make_lod_levels(&med_renderer_gl2, MODE_MED);
+
+	return (Renderer*)med_renderer;
+}
 

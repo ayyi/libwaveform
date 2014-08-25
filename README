@@ -38,8 +38,8 @@ Requirements:
 Status
 ------
 
-Basic functionality is now in place, but many areas need improving. There are
-no known serious bugs so please report any you find. Feedback is also needed
+Main functionality is now in place, but some areas are subject to improvement. There
+are no known serious bugs so please report any you find. Feedback is also needed
 on api, documentation, visuals etc.
 
 An API review needs to be undertaken before a release is made.

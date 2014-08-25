@@ -70,7 +70,8 @@ extern RulerShader ruler;
 extern LinesShader lines;
 
 #define TRACK_ACTORS // for debugging only.
-                     // *** CHANGED now use this list to clear render_info cache when viewport changed.
+#undef TRACK_ACTORS
+
 #ifdef TRACK_ACTORS
 GList* actors = NULL;
 #endif
@@ -212,6 +213,8 @@ wf_canvas_set_use_shaders(WaveformCanvas* wfc, gboolean val)
 {
 	PF;
 	AGl* agl = agl_get_instance();
+
+	bool changed = (val != agl->use_shaders);
 	agl->pref_use_shaders = val;
 	if(!val) agl->use_shaders = false;
 
@@ -221,6 +224,8 @@ wf_canvas_set_use_shaders(WaveformCanvas* wfc, gboolean val)
 			wfc->use_1d_textures = false;
 		}
 		agl->use_shaders = val;
+
+		if(changed) g_signal_emit_by_name(wfc, "use-shaders-changed");
 	}
 }
 

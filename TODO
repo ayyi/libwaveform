@@ -1,7 +1,8 @@
+- add very-low-resolution mode to reduce resource usage for audio files over an hour in length.
 - check pixbuf inset at hi res
 - fix hires segfault with Nouveau driver (status?)
 - test pkgconfig file, and header file installation
-- both texture mode and shader modes have spurious lines.
+- opengl 1.0 mode has spurious lines.
 - documentation
 - peak.c / peak.h need renaming (split?)
 - left and right are swapped in some cases.
@@ -9,18 +10,12 @@
 later:
 
 - add api to handle changes to the wave for editor apps.
+- post screenshots
 - rms display
 - lv2
 - grid lines / text labels
 - cairo / clutter
-- vgain
 - api:
 	- n_frames property - should we guarantee that it is always correctly set?
 	- wf_get_audio_async -- review api
-- the current texture mode is no use as it doesnt show full peak at low zoom.
-- better testing of audio cache full behaviour.
-- check that hi-res painting falls back to lo res while waiting for audio to load.
-- implement usage of textures in hi res mode.
-- maybe include the shaders as part of the library object instead of being separate files.
-- texture purging is too agressive? for browser applications, textures shouldnt be removed as soon as the Waveform is free'd.
 - fbo textures are RGBA but only need to be alpha maps (at least in the main case)

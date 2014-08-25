@@ -192,15 +192,6 @@ test_hires()
 				#define ZOOM_MED (1.0/ 256) // px_per_sample - transition point from std to hi-res mode.
 				#define ZOOM_LO  (1.0/4096) // px_per_sample - transition point from low-res to std mode.
 
-				typedef enum
-				{
-					MODE_LOW = 0,
-					MODE_MED,
-					MODE_HI,
-					MODE_V_HI,
-					N_MODES
-				} Mode;
-
 				static inline int
 				get_resolution(double zoom)
 				{
@@ -355,7 +346,7 @@ test_scroll()
 		WfSampleRegion region = {r, REGION_LEN};
 		double zoom = a[0]->rect.len / a[0]->region.len;
 		int mode = get_mode(zoom);
-		WfGlBlock* textures = mode == MODE_LOW ? w[0]->textures_lo : w[0]->textures;
+		WfGlBlock* textures = mode == MODE_LOW ? w[0]->priv->render_data[MODE_LOW] : w[0]->priv->render_data[MODE_MED];
 		int b = wf_actor_get_last_visible_block(&region, &a[0]->rect, zoom, a[0]->canvas->viewport, textures);
 		assert((b == waveform_get_n_audio_blocks(w[0]) - 1), "bad block_num %i / %i", b, waveform_get_n_audio_blocks(w[0]));
 	}
@@ -558,7 +549,7 @@ test_add_remove()
 
 		// In fact the 1d textures are no longer kept if rendering from fbo
 #ifdef USE_FBO
-		assert_and_stop(w[0]->textures_lo->fbo[0] && w[0]->textures_lo->fbo[0]->texture, "fbo texture");
+		assert_and_stop(((WfGlBlock*)w[0]->priv->render_data[MODE_LOW])->fbo[0] && ((WfGlBlock*)w[0]->priv->render_data[MODE_LOW])->fbo[0]->texture, "fbo texture");
 #else
 		// This will fail if the cache size is too small to fit all low_res blocks
 		// In fact with multiple v long wavs, is almost guaranteed to fail.

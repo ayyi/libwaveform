@@ -21,6 +21,7 @@ uniform float bottom;
 uniform vec4 fg_colour;
 uniform int n_channels;
 uniform float tex_height;
+uniform float tex_width;
 uniform int mm_level;
 
 varying vec2 MCposition;
@@ -28,13 +29,12 @@ varying vec2 MCposition;
 const vec4 x_gain = vec4(1.0, 2.0, 4.0, 8.0);
 const vec4 mm2tx = vec4(0.00, 0.00, 0.50, 0.75);
 const vec4 mm2ty = vec4(0.0, 1.0, 1.0, 1.0);
-const float tex_width = 4096.0;
-const float dx = 1.0 / tex_width;
 const vec4 tx_min = vec4(0.0, 0.0, 0.5, 0.75); // TODO add border between LOD sections to avoid overlapping
 
 
 void main(void)
 {
+	float dx = 1.0 / tex_width;
 	float y = bottom - MCposition.y; // invert y
 
 	float mid = (bottom -top) / 2.0;

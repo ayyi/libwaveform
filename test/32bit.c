@@ -177,13 +177,15 @@ test_load()
 		g_object_weak_ref((GObject*)w, finalize_notify, NULL);
 		waveform_load(w);
 
-		assert(w->textures, "texture container not allocated");
-		assert(!w->textures->peak_texture[WF_LEFT].main[0], "textures allocated"); // no textures are expected to be allocated.
-		assert(!w->textures->peak_texture[WF_RIGHT].main[0], "textures allocated");
-		assert(&w->priv->peak, "peak not loaded");
-		assert(w->priv->peak.size, "peak size not set");
-		assert(w->priv->peak.buf[WF_LEFT], "peak not loaded");
-		assert(w->priv->peak.buf[WF_RIGHT], "peak not loaded");
+		WaveformPriv* _w = w->priv;
+		WfGlBlock* blocks = _w->render_data[MODE_MED];
+		assert(blocks, "texture container not allocated");
+		assert(!blocks->peak_texture[WF_LEFT].main[0], "textures allocated"); // no textures are expected to be allocated.
+		assert(!blocks->peak_texture[WF_RIGHT].main[0], "textures allocated");
+		assert(&_w->peak, "peak not loaded");
+		assert(_w->peak.size, "peak size not set");
+		assert(_w->peak.buf[WF_LEFT], "peak not loaded");
+		assert(_w->peak.buf[WF_RIGHT], "peak not loaded");
 
 		// TODO calculate these values when the waveform is created.
 		assert(w->priv->peak.buf[WF_LEFT][0] == 14252 && w->priv->peak.buf[WF_LEFT][1] == -13807, "peak file contains wrong values");

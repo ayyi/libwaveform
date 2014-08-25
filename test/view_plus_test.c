@@ -74,6 +74,7 @@ KeyHandler
 	scroll_left,
 	scroll_right,
 	next_wav,
+	toggle_shaders,
 	quit;
 
 extern bool key_down;
@@ -88,6 +89,7 @@ Key keys[] = {
 	{(char)'<',     NULL},
 	{(char)'>',     NULL},
 	{(char)'n',     next_wav},
+	{(char)'s',     toggle_shaders},
 	{GDK_Delete,    NULL},
 	{113,           quit},
 	{0},
@@ -187,6 +189,19 @@ void next_wav(WaveformView* waveform)
 	printf("...\n");
 	char* filename = find_wav(wavs[i]);
 	waveform_view_plus_load_file((WaveformViewPlus*)waveform, filename);
+	g_free(filename);
+}
+
+
+void
+toggle_shaders(WaveformView* view)
+{
+	printf("...\n");
+	WaveformCanvas* wfc = waveform_view_get_canvas(view);
+	wf_canvas_set_use_shaders(wfc, !agl_get_instance()->use_shaders);
+
+	char* filename = find_wav(wavs[0]);
+	waveform_view_plus_load_file(view, filename);
 	g_free(filename);
 }
 

@@ -78,8 +78,6 @@ static AGl* agl = NULL;
 #endif
 																												extern int n_loads[4096];
 
-																												#define HI_NG
-
 #define HIRES_NONSHADER_TEXTURES // work in progress
                                  // because of the issue with missing peaks with reduced size textures without shaders, this option is possibly unwanted.
 #undef HIRES_NONSHADER_TEXTURES
@@ -101,15 +99,6 @@ static AGl* agl = NULL;
 #undef USE_MIPMAPPING
 
 #undef RECT_ROUNDING
-
-typedef enum
-{
-	MODE_LOW = 0,
-	MODE_MED,
-	MODE_HI,
-	MODE_V_HI,
-	N_MODES
-} Mode;
 
 typedef struct {
    int first;
@@ -155,9 +144,9 @@ struct _actor_priv
 		double         zoom;
 		Mode           mode;
 		int            samples_per_texture;
+		int            n_blocks;
 		float          peaks_per_pixel;
 		float          peaks_per_pixel_i;
-		WfGlBlock*     textures;
 		int            first_offset;
 		double         first_offset_px;
 		double         block_wid;
@@ -171,12 +160,16 @@ struct _actor_priv
 typedef void    (*WaveformActorPreRenderFn) (Renderer*, WaveformActor*);
 typedef void    (*WaveformActorBlockFn)     (Renderer*, WaveformActor*, int b);
 typedef bool    (*WaveformActorRenderFn)    (Renderer*, WaveformActor*, int b, bool is_first, bool is_last, double x);
+typedef void    (*WaveformActorFreeFn)      (Renderer*, Waveform*);
 
 struct _Renderer
 {
+	Mode                     mode;
+
 	WaveformActorBlockFn     load_block;
 	WaveformActorPreRenderFn pre_render;
 	WaveformActorRenderFn    render_block;
+	WaveformActorFreeFn      free;
 };
 
 typedef struct
@@ -241,6 +234,9 @@ static void   wf_actor_load_texture2d        (WaveformActor*, Mode, int t, int b
 static void   block_to_fbo                   (WaveformActor*, int b, WfGlBlock*, int resolution);
 #endif
 
+static bool   wf_actor_get_quad_dimensions   (WaveformActor*, int b, bool is_first, bool is_last, double x, TextureRange*, double* tex_x, double* block_wid, int border, int multiplier);
+
+#include "waveform/renderer_ng.c"
 #include "waveform/med_res.c"
 #include "waveform/hi_res_gl2.c"
 #include "waveform/hi_res.c"
@@ -267,7 +263,7 @@ wf_actor_class_init()
 	modes[MODE_HI].make_texture_data = make_texture_data_hi;
 
 	modes[MODE_LOW].renderer = &lo_renderer;
-	modes[MODE_MED].renderer = &med_renderer;
+	modes[MODE_MED].renderer = med_renderer_new();
 	modes[MODE_HI].renderer = hi_renderer_new();
 	modes[MODE_V_HI].renderer = (Renderer*)&v_hi_renderer;
 
@@ -301,19 +297,21 @@ wf_actor_new(Waveform* w, WaveformCanvas* wfc)
 	wf_actor_set_colour(a, 0xffffffff, 0x000000ff);
 	a->waveform = g_object_ref(w);
 
-	WfAnimatable* animatable = &_a->animatable.start;
-	animatable->model_val.i = (uint32_t*)&a->region.start; //TODO add uint64_t to union
-	animatable->start_val.i = a->region.start;
-	animatable->val.i       = a->region.start;
-	animatable->type        = WF_INT;
+	_a->animatable.start = (WfAnimatable){
+		.model_val.i = (uint32_t*)&a->region.start, //TODO add uint64_t to union
+		.start_val.i = a->region.start,
+		.val.i       = a->region.start,
+		.type        = WF_INT
+	};
 
-	animatable = &a->priv->animatable.len;
-	animatable->model_val.i = &a->region.len;
-	animatable->start_val.i = a->region.len;
-	animatable->val.i       = a->region.len;
-	animatable->type        = WF_INT;
+	_a->animatable.len = (WfAnimatable){
+		.model_val.i = &a->region.len,
+		.start_val.i = a->region.len,
+		.val.i       = a->region.len,
+		.type        = WF_INT
+	};
 
-	animatable = &a->priv->animatable.rect_left;
+	WfAnimatable* animatable = &_a->animatable.rect_left;
 	animatable->model_val.f = &a->rect.left;
 	animatable->start_val.f = a->rect.left;
 	animatable->val.f       = a->rect.left;
@@ -379,7 +377,18 @@ wf_actor_new(Waveform* w, WaveformCanvas* wfc)
 
 	void on_use_shaders_changed(WaveformCanvas* wfc, gpointer _actor)
 	{
+		WaveformActor* a = _actor;
+
+		int m; for(m=0;m<N_MODES;m++){
+			call(modes[m].renderer->free, modes[m].renderer, a->waveform);
+		}
+		a->priv->render_info.valid = false;
+
 		wf_actor_on_use_shaders_change();
+
+		waveform_load(a->waveform);
+		_wf_actor_load_missing_blocks(a);
+		if(a->canvas->draw) wf_canvas_queue_redraw(a->canvas);
 	}
 	_a->use_shaders_changed_handler = g_signal_connect((gpointer)a->canvas, "use-shaders-changed", (GCallback)on_use_shaders_changed, a);
 
@@ -393,14 +402,19 @@ wf_actor_free(WaveformActor* a)
 {
 	PF;
 	g_return_if_fail(a);
+	WfActorPriv* _a = a->priv;
 
 	if(a->waveform){
-		g_signal_handler_disconnect((gpointer)a->waveform, a->priv->peakdata_ready_handler);
-		a->priv->peakdata_ready_handler = 0;
-		g_signal_handler_disconnect((gpointer)a->canvas, a->priv->dimensions_changed_handler);
-		a->priv->dimensions_changed_handler = 0;
-		g_signal_handler_disconnect((gpointer)a->canvas, a->priv->use_shaders_changed_handler);
-		a->priv->use_shaders_changed_handler = 0;
+		int m; for(m=0;m<N_MODES;m++){
+			call(modes[m].renderer->free, modes[m].renderer, a->waveform);
+		}
+
+		g_signal_handler_disconnect((gpointer)a->waveform, _a->peakdata_ready_handler);
+		_a->peakdata_ready_handler = 0;
+		g_signal_handler_disconnect((gpointer)a->canvas, _a->dimensions_changed_handler);
+		_a->dimensions_changed_handler = 0;
+		g_signal_handler_disconnect((gpointer)a->canvas, _a->use_shaders_changed_handler);
+		_a->use_shaders_changed_handler = 0;
 
 		g_object_weak_unref((GObject*)a->canvas, wf_actor_canvas_finalize_notify, a);
 
@@ -526,7 +540,7 @@ wf_actor_get_first_visible_block(WfSampleRegion* region, double zoom, WfRectangl
 
 
 static BlockRange
-wf_actor_get_visible_block_range(WfSampleRegion* region, WfRectangle* rect, double zoom, WfViewPort* viewport_px, WfGlBlock* textures)
+wf_actor_get_visible_block_range(WfSampleRegion* region, WfRectangle* rect, double zoom, WfViewPort* viewport_px, int textures_size)
 {
 	//the region, rect and viewport are passed explictly because different users require slightly different values during transitions.
 
@@ -542,10 +556,10 @@ wf_actor_get_visible_block_range(WfSampleRegion* region, WfRectangle* rect, doub
 
 	int region_end_block; {
 		float _end_block = ((float)(region->start + region->len)) / samples_per_texture;
-		dbg(2, "%s region_start=%Li region_end=%i start_block=%i end_block=%.2f(%.i) n_peak_frames=%i gl->size=%i", resolution == 1024 ? "LOW" : resolution == 256 ? "STD" : "HI", region->start, ((int)region->start) + region->len, region_start_block, _end_block, (int)ceil(_end_block), textures->size * 256, textures->size);
+		dbg(2, "%s region_start=%Li region_end=%i start_block=%i end_block=%.2f(%.i) n_peak_frames=%i gl->size=%i", resolution == 1024 ? "LOW" : resolution == 256 ? "STD" : "HI", region->start, ((int)region->start) + region->len, region_start_block, _end_block, (int)ceil(_end_block), textures_size * 256, textures_size);
 
 		// round _down_ as the block corresponds to the _start_ of a section.
-		region_end_block = MIN(((int)_end_block), textures->size - 1);
+		region_end_block = MIN(((int)_end_block), textures_size - 1);
 	}
 
 	// find first block
@@ -577,7 +591,6 @@ wf_actor_get_visible_block_range(WfSampleRegion* region, WfRectangle* rect, doub
 	if(rect->left <= viewport_px->right){
 		int last = range.last = MIN(range.first + WF_MAX_BLOCK_RANGE, region_end_block);
 
-		g_return_val_if_fail(textures, range);
 		g_return_val_if_fail(viewport_px->right - viewport_px->left > 0.01, range);
 
 		//crop to viewport:
@@ -873,7 +886,7 @@ _wf_actor_allocate_hi(WaveformActor* a)
 
 	WfAnimatable* start = &_a->animatable.start;
 	WfSampleRegion region = {*start->model_val.i, *_a->animatable.len.model_val.i};
-	BlockRange blocks = wf_actor_get_visible_block_range (&region, rect, zoom, &viewport, a->waveform->textures);
+	BlockRange blocks = wf_actor_get_visible_block_range (&region, rect, zoom, &viewport, a->waveform->priv->n_blocks);
 
 	int b;for(b=blocks.first;b<=blocks.last;b++){
 		hi_request_block(a, b);
@@ -921,6 +934,9 @@ _wf_actor_load_missing_blocks(WaveformActor* a)
 	// during a transition, this will load the _currently_ visible blocks, not for the target.
 
 	PF2;
+	Waveform* w = a->waveform;
+	WaveformPriv* _w = w->priv;
+
 	WfRectangle* rect = &a->rect;
 	double _zoom = rect->len / a->region.len;
 
@@ -958,11 +974,11 @@ _wf_actor_load_missing_blocks(WaveformActor* a)
 		clippingport.left  = viewport.left  - dl;
 		clippingport.right = viewport.right + dr;
 
-		BlockRange viewport_blocks = wf_actor_get_visible_block_range (&region, &rect_, zoom_, &clippingport, a->waveform->textures);
+		BlockRange viewport_blocks = wf_actor_get_visible_block_range (&region, &rect_, zoom_, &clippingport, _w->n_blocks);
 		//dbg(0, "MED block range: %i --> %i", viewport_blocks.first, viewport_blocks.last);
 
 		int b; for(b=viewport_blocks.first;b<=viewport_blocks.last;b++){
-			med_renderer.load_block(&med_renderer, a, b);
+			modes[MODE_MED].renderer->load_block(modes[MODE_MED].renderer, a, b);
 		}
 
 #ifdef USE_FBO
@@ -977,15 +993,14 @@ _wf_actor_load_missing_blocks(WaveformActor* a)
 		WfViewPort viewport; _wf_actor_get_viewport_max(a, &viewport);
 		double zoom_ = MIN(zoom, ZOOM_LO - 0.0001);
 
-		Waveform* w = a->waveform;
-		if(!w->textures_lo){
+		if(!w->priv->render_data[MODE_LOW]){
 #warning check TEX_BORDER effect not multiplied in WF_PEAK_STD_TO_LO transformation
-			w->textures_lo = wf_texture_array_new(w->priv->num_peaks / (WF_PEAK_STD_TO_LO * WF_TEXTURE_VISIBLE_SIZE) + ((w->priv->num_peaks % (WF_PEAK_STD_TO_LO * WF_TEXTURE_VISIBLE_SIZE)) ? 1 : 0), w->n_channels);
+			w->priv->render_data[MODE_LOW] = wf_texture_array_new(w->priv->num_peaks / (WF_PEAK_STD_TO_LO * WF_TEXTURE_VISIBLE_SIZE) + ((w->priv->num_peaks % (WF_PEAK_STD_TO_LO * WF_TEXTURE_VISIBLE_SIZE)) ? 1 : 0), w->n_channels);
 		}
 
 		WfSampleRegion region = {a->priv->animatable.start.val.i, a->priv->animatable.len.val.i};
 		WfRectangle rect_ = {a->rect.left, a->rect.top, a->priv->animatable.rect_len.val.f, a->rect.height};
-		BlockRange viewport_blocks = wf_actor_get_visible_block_range (&region, &rect_, zoom_, &viewport, a->waveform->textures_lo);
+		BlockRange viewport_blocks = wf_actor_get_visible_block_range (&region, &rect_, zoom_, &viewport, ((WfGlBlock*)_w->render_data[MODE_LOW])->size);
 		//dbg(2, "LOW block range: %i --> %i", viewport_blocks.first, viewport_blocks.last);
 
 		int b; for(b=viewport_blocks.first;b<=viewport_blocks.last;b++){
@@ -1322,16 +1337,14 @@ calc_render_info(WaveformActor* actor)
 	r->zoom = r->rect.len / r->region.len;
 	r->mode = get_mode(r->zoom);
 
+	r->n_blocks = (r->mode == MODE_LOW) ? ((WfGlBlock*)w->priv->render_data[MODE_LOW])->size : w->priv->n_blocks;
 	r->samples_per_texture = WF_SAMPLES_PER_TEXTURE * (r->mode == MODE_LOW ? WF_PEAK_STD_TO_LO : 1);
-
-	r->textures = r->mode == MODE_LOW ? w->textures_lo : w->textures;
-	if(!r->textures) return false; //in hi-res mode, textures are loaded asynchronously and may not be ready yet
 
 																						// why we need this?
 	r->region_start_block   = r->region.start / r->samples_per_texture;
 																						// FIXME this is calculated differently inside wf_actor_get_visible_block_range
 	r->region_end_block     = (r->region.start + r->region.len) / r->samples_per_texture - (!((r->region.start + r->region.len) % r->samples_per_texture) ? 1 : 0);
-	r->viewport_blocks = wf_actor_get_visible_block_range(&r->region, &r->rect, r->zoom, &r->viewport, r->textures);
+	r->viewport_blocks = wf_actor_get_visible_block_range(&r->region, &r->rect, r->zoom, &r->viewport, r->n_blocks);
 
 	if(r->viewport_blocks.last == LAST_NOT_VISIBLE && r->viewport_blocks.first == FIRST_NOT_VISIBLE){
 		r->valid = true; // this prevents unnecesary recalculation but the RenderInfo is not really valid so _must_ be invalidated again before use.
@@ -1340,7 +1353,7 @@ calc_render_info(WaveformActor* actor)
 	// ideally conditions which trigger this should be detected before rendering.
 	g_return_val_if_fail(r->viewport_blocks.last >= r->viewport_blocks.first, false);
 
-	if(r->region_end_block > r->textures->size -1){ gwarn("region too long? region_end_block=%i n_blocks=%i region.len=%i", r->region_end_block, r->textures->size, r->region.len); r->region_end_block = w->textures->size -1; }
+	if(r->region_end_block > r->n_blocks -1){ gwarn("region too long? region_end_block=%i n_blocks=%i region.len=%i", r->region_end_block, r->n_blocks, r->region.len); r->region_end_block = RENDER_DATA_MED(w->priv)->size -1; }
 #ifdef DEBUG
 	dbg(2, "block range: region=%i-->%i viewport=%i-->%i", r->region_start_block, r->region_end_block, r->viewport_blocks.first, r->viewport_blocks.last);
 	dbg(2, "rect=%.2f %.2f viewport=%.2f %.2f", r->rect.left, r->rect.len, r->viewport.left, r->viewport.right);
@@ -1433,7 +1446,7 @@ wf_actor_paint(WaveformActor* actor)
 	bool is_first = true;
 	int b; for(b=r->viewport_blocks.first;b<=r->viewport_blocks.last;b++){
 		//dbg(0, "b=%i x=%.2f", b, x);
-		gboolean is_last = (b == r->viewport_blocks.last) || (b == r->textures->size - 1); //2nd test is unneccesary?
+		gboolean is_last = (b == r->viewport_blocks.last) || (b == r->n_blocks - 1); //2nd test is unneccesary?
 
 		Mode m = r->mode;
 		while((m < N_MODES) && !render_block(modes[m].renderer, actor, b, is_first, is_last, x, m, &m_active)){
@@ -1507,6 +1520,8 @@ wf_actor_paint(WaveformActor* actor)
 static void
 wf_actor_load_texture1d(Waveform* w, Mode mode, WfGlBlock* blocks, int blocknum)
 {
+	g_return_if_fail(mode == MODE_LOW);
+
 	if(blocks) dbg(2, "%i: %i %i %i %i", blocknum,
 		blocks->peak_texture[0].main[blocknum],
 		blocks->peak_texture[0].neg[blocknum],
@@ -1514,7 +1529,6 @@ wf_actor_load_texture1d(Waveform* w, Mode mode, WfGlBlock* blocks, int blocknum)
 		blocks->peak_texture[1].neg ? blocks->peak_texture[WF_RIGHT].neg[blocknum] : 0
 	);
 
-	//TODO not used for MODE_HI (wrong size)
 	struct _buf {
 		guchar positive[WF_PEAK_TEXTURE_SIZE];
 		guchar negative[WF_PEAK_TEXTURE_SIZE];
@@ -1581,13 +1595,7 @@ wf_actor_load_texture1d(Waveform* w, Mode mode, WfGlBlock* blocks, int blocknum)
 	static IntBufHi buf_hi; //TODO shouldnt be static
 	void make_data(Waveform* w, int c, struct _buf* buf)
 	{
-		if(mode == MODE_HI){
-			modes[MODE_HI].make_texture_data(w, c, &buf_hi, blocknum);
-		}
-		else if(blocks == w->textures)
-			make_texture_data_med(w, c, buf);
-		else
-			make_texture_data_low(w, c, buf);
+		make_texture_data_low(w, c, buf);
 	}
 
 	struct _d {
@@ -1620,14 +1628,12 @@ glEnable(GL_TEXTURE_1D);
 		gl_warn("unit=%i buf=%p tid=%i", d->tex_unit, d->buf, d->tex_id);
 	}
 
-	WfTextureHi* texture_hi = (mode == MODE_HI) ? g_hash_table_lookup(w->textures_hi->textures, &blocknum) : NULL;
-
 	int c;for(c=0;c<waveform_get_n_channels(w);c++){
 		make_data(w, c, &buf);
 
 		struct _d d[2] = {
-			{WF_TEXTURE0 + 2 * c, texture_hi ? texture_hi->t[c].main : blocks->peak_texture[c].main[blocknum], buf.positive},
-			{WF_TEXTURE1 + 2 * c, texture_hi ? texture_hi->t[c].neg  : blocks->peak_texture[c].neg [blocknum], buf.negative},
+			{WF_TEXTURE0 + 2 * c, blocks->peak_texture[c].main[blocknum], buf.positive},
+			{WF_TEXTURE1 + 2 * c, blocks->peak_texture[c].neg [blocknum], buf.negative},
 		};
 
 		if(mode == MODE_HI){
@@ -1815,7 +1821,7 @@ wf_actor_start_transition(WaveformActor* a, GList* animatables, AnimationFn done
 					int mode = get_mode(zoom);
 					WfViewPort viewport; _wf_actor_get_viewport_max(a, &viewport);
 
-					BlockRange blocks = wf_actor_get_visible_block_range (&region, &a->rect, zoom, &viewport, mode == MODE_LOW ? a->waveform->textures_lo : a->waveform->textures);
+					BlockRange blocks = wf_actor_get_visible_block_range (&region, &a->rect, zoom, &viewport, mode == MODE_LOW ? ((WfGlBlock*)a->waveform->priv->render_data[MODE_LOW])->size : RENDER_DATA_MED(a->waveform->priv)->size);
 
 					int b;for(b=blocks.first;b<=blocks.last;b++){
 						if(mode >= MODE_HI){
@@ -1854,13 +1860,13 @@ wf_actor_start_transition(WaveformActor* a, GList* animatables, AnimationFn done
 static void
 wf_actor_on_use_shaders_change()
 {
-	hi_renderer = agl->use_shaders
-		? hi_renderer_shader
-		: hi_renderer_nonshader;
+	modes[MODE_HI].renderer = agl->use_shaders
+		? (Renderer*)&hi_renderer_gl2
+		: (Renderer*)&hi_renderer_gl1;
 
-	med_renderer = agl->use_shaders
-		? med_lo_renderer_gl2
-		: med_lo_renderer_gl1;
+	modes[MODE_MED].renderer = agl->use_shaders
+		? (Renderer*)&med_renderer_gl2
+		: &med_renderer_gl1;
 
 	lo_renderer = agl->use_shaders
 		? lo_renderer_gl2

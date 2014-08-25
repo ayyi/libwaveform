@@ -247,7 +247,7 @@ wf_alphabuf_to_pixbuf(AlphaBuf* a)
 static int
 waveform_get_n_textures(Waveform* waveform)
 {
-	WfGlBlock* blocks = waveform->textures;
+	WfGlBlock* blocks = waveform->priv->render_data[MODE_MED];
 	if(blocks) return blocks->size;
 	gerr("!! no glblocks\n");
 	return -1;

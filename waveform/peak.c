@@ -28,6 +28,7 @@
 #include <sys/time.h>
 #include <sndfile.h>
 #include <glib.h>
+#include "agl/utils.h"
 #include "waveform/peak.h"
 #include "waveform/utils.h"
 #include "waveform/loaders/ardour.h"
@@ -50,8 +51,6 @@ guint peak_idle = 0;
 
 static void  waveform_finalize          (GObject*);
 static void _waveform_get_property      (GObject*, guint property_id, GValue*, GParamSpec*);
-
-static void  waveform_set_last_fraction (Waveform*);
 
 struct _buf_info
 {
@@ -120,7 +119,9 @@ static void
 waveform_instance_init (Waveform* self)
 {
 	self->priv = WAVEFORM_GET_PRIVATE (self);
+#if 0
 	self->priv->_property1 = 1;
+#endif
 }
 
 
@@ -128,6 +129,7 @@ static void
 __finalize (Waveform* w)
 {
 	PF;
+	WaveformPriv* _w = w->priv;
 
 	wf_cancel_jobs(w);
 
@@ -139,7 +141,8 @@ __finalize (Waveform* w)
 	}
 
 #ifdef USE_OPENGL
-	if(w->textures || w->textures_lo) texture_cache_remove_waveform(w);
+																							//TODO check why MODE_HI not included in the if test.
+	if(_w->render_data[MODE_MED] || _w->render_data[MODE_LOW]) texture_cache_remove_waveform(w);
 #endif
 
 	void free_textures(WfGlBlock** _textures)
@@ -165,24 +168,26 @@ __finalize (Waveform* w)
 			*_textures = NULL;
 		}
 	}
-	free_textures(&w->textures);
-	free_textures(&w->textures_lo);
+	free_textures((WfGlBlock**)&_w->render_data[MODE_MED]);
+	free_textures((WfGlBlock**)&_w->render_data[MODE_LOW]);
 
 	void free_textures_hi(Waveform* w)
 	{
-		if(!w->textures_hi) return;
+		if(!w->priv->render_data[MODE_HI]) return;
+
+		WfTexturesHi* textures = w->priv->render_data[MODE_HI];
 
 		GHashTableIter iter;
 		gpointer key, value;
-		g_hash_table_iter_init (&iter, w->textures_hi->textures);
+		g_hash_table_iter_init (&iter, textures->textures);
 		while (g_hash_table_iter_next (&iter, &key, &value)){
 			//int block = key;
 			WfTextureHi* texture = value;
 			waveform_texture_hi_free(texture);
 		}
 
-		g_hash_table_destroy(w->textures_hi->textures);
-		g_free0(w->textures_hi);
+		g_hash_table_destroy(textures->textures);
+		g_free0(w->priv->render_data[MODE_HI]);
 	}
 	free_textures_hi(w);
 
@@ -231,12 +236,14 @@ _waveform_get_property (GObject* object, guint property_id, GValue* value, GPara
 }
 
 
+#if 0
 gint
 wf_get_property1(Waveform* self)
 {
 	g_return_val_if_fail (self, 0);
 	return self->priv->_property1;
 }
+#endif
 
 
 WfGlBlock*
@@ -377,11 +384,9 @@ waveform_load_peak(Waveform* w, const char* peak_file, int ch_num)
 
 	_w->num_peaks = _w->peak.size / WF_PEAK_VALUES_PER_SAMPLE;
 	dbg(1, "ch=%i num_peaks=%i", ch_num, _w->num_peaks);
-#if 0
-	int i; for (i=0;i<20;i++) printf("      %i %i\n", w->priv->peak.buf[0][2 * i], w->priv->peak.buf[0][2 * i + 1]);
-#endif
-	if(!w->textures){
-		w->textures = wf_texture_array_new(_w->num_peaks / WF_TEXTURE_VISIBLE_SIZE + ((_w->num_peaks % WF_TEXTURE_VISIBLE_SIZE) ? 1 : 0), (ch_num == 1 || n_channels == 2) ? 2 : 1);
+	if(!_w->render_data[MODE_MED]){
+		_w->n_blocks = _w->num_peaks / WF_TEXTURE_VISIBLE_SIZE + ((_w->num_peaks % WF_TEXTURE_VISIBLE_SIZE) ? 1 : 0);
+		if(!agl_get_instance()->use_shaders) _w->render_data[MODE_MED] = wf_texture_array_new(_w->n_blocks, (ch_num == 1 || n_channels == 2) ? 2 : 1);
 #ifdef WF_SHOW_RMS
 		gerr("rms TODO");
 		w->textures->rms_texture = g_new0(unsigned, w->textures->size);
@@ -389,14 +394,12 @@ waveform_load_peak(Waveform* w, const char* peak_file, int ch_num)
 		extern void glGenTextures(size_t n, uint32_t* textures);
 		glGenTextures(w->textures->size, w->textures->rms_texture); //note currently doesnt use the texture_cache
 #endif
-		w->textures_hi = g_new0(WfTexturesHi, 1);
-		w->textures_hi->textures = g_hash_table_new(g_int_hash, g_int_equal);
+		extern void hi_new(Waveform*);
+		hi_new(w);
 	}else{
-		if(ch_num) wf_texture_array_add_ch(w->textures, WF_RIGHT);
+		if(ch_num) wf_texture_array_add_ch(_w->render_data[MODE_MED], WF_RIGHT);
 	}
 	//waveform_print_blocks(w);
-
-	waveform_set_last_fraction(w);
 
 	return !!w->priv->peak.buf[ch_num];
 }
@@ -511,15 +514,6 @@ get_rms_buf_info(const char* buf, guint len, struct _rms_buf_info* b, int ch)
 	b->len        = len;
 	b->len_frames = b->len;// / WF_PEAK_VALUES_PER_SAMPLE;
 	return TRUE;
-}
-
-
-static void
-waveform_set_last_fraction(Waveform* waveform)
-{
-	int width = WF_TEXTURE_VISIBLE_SIZE;
-	int width_ = waveform->priv->num_peaks % WF_TEXTURE_VISIBLE_SIZE;
-	waveform->textures->last_fraction = (double)width_ / (double)width;
 }
 
 
@@ -1331,7 +1325,6 @@ waveform_get_n_audio_blocks(Waveform* w)
 
 		int xtra = (n_frames % WF_SAMPLES_PER_TEXTURE) ? 1 : 0;
 		audio->n_blocks = n_frames / WF_SAMPLES_PER_TEXTURE + xtra; // WF_SAMPLES_PER_TEXTURE takes border into account
-		dbg(2, "remainder=%i xtra=%i", remainder, xtra);
 
 		dbg(1, "setting samplecount=%Li xtra=%i n_blocks=%i",
 		        n_frames,
@@ -2154,7 +2147,7 @@ waveform_print_blocks(Waveform* w)
 	g_return_if_fail(w);
 
 	printf("%s {\n", __func__);
-	WfGlBlock* blocks = w->textures;
+	WfGlBlock* blocks = w->priv->render_data[MODE_MED];
 	printf("        L+ L- R+ R-\n");
 	printf("  std:\n");
 	int b; for(b=0;b<MIN(5, blocks->size);b++){
@@ -2165,7 +2158,7 @@ waveform_print_blocks(Waveform* w)
 			blocks->peak_texture[WF_RIGHT].neg  ? blocks->peak_texture[WF_RIGHT].neg[b]  : -1);
 	}
 	int c = 0;
-	blocks = w->textures_lo;
+	blocks = w->priv->render_data[MODE_LOW];
 	if(blocks){
 		printf("  LOW:\n");
 		for(b=0;b<5;b++){

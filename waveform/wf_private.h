@@ -42,7 +42,7 @@
 #define WF_TEXTURE3 GL_TEXTURE4
 
 #define TEX_BORDER 2
-#define TEX_BORDER_HI (TEX_BORDER * 16.0) // not clear why HI needs a different border size! can it be made the same as TEX_BORDER ?
+#define TEX_BORDER_HI (TEX_BORDER * 16.0) // HI has a different border size in order to preserve block boundaries between changes in resolution.
 
 typedef struct _texture_cache TextureCache;
 
@@ -68,6 +68,15 @@ struct _peakbuf {
 	int        maxlevel;         // mostly just for debugging
 };
 
+typedef enum
+{
+	MODE_LOW = 0,
+	MODE_MED,
+	MODE_HI,
+	MODE_V_HI,
+	N_MODES
+} Mode;
+
 struct _waveform_priv
 {
 	WfPeakBuf       peak;
@@ -77,12 +86,17 @@ struct _waveform_priv
 
 	GPtrArray*      hires_peaks;    // array of Peakbuf* TODO how much does audio_data deprecate this?
 	int             num_peaks;      // peak_buflen / PEAK_VALUES_PER_SAMPLE
+	int             n_blocks;
+
+	void*           render_data[N_MODES];
 
 	short           max_db;         // TODO should be in db?
 
 	gboolean        checks_done;    // if audio file is accessed, the peakfile is validated.
 
+#if 0
 	gint           _property1;      // just testing
+#endif
 };
 
 struct _wf
@@ -117,7 +131,6 @@ struct _wf_texture_list                   // WfGlBlock - used at STD and LOW res
 #ifdef WF_SHOW_RMS
 	unsigned*       rms_texture;
 #endif
-	double          last_fraction;        // the fraction of the last block that is actually used.
 };
 
 /*
@@ -144,7 +157,7 @@ struct _texture_hi                        // WfTextureHi
 	struct _t t[WF_MAX_CH];
 };
 
-struct _textures_hi
+struct _textures_hi                       // WfTexturesHi
 {
 	GHashTable*     textures;             // maps: blocknum => WfTextureHi.
 };

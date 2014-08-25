@@ -441,5 +441,5 @@ _wf_create_line_texture()
 #endif
 
 
-VHiRenderer v_hi_renderer = {{v_hi_load_block, v_hi_pre_render, draw_wave_buffer_v_hi}};
+VHiRenderer v_hi_renderer = {{MODE_V_HI, v_hi_load_block, v_hi_pre_render, draw_wave_buffer_v_hi}};
 

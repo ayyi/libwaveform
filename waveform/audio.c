@@ -13,6 +13,16 @@
   You should have received a copy of the GNU General Public License
   along with this program; if not, write to the Free Software
   Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+
+  --------------------------------------------------------------
+
+  Borders:
+
+  Audio blocks overlap so that there is a 1:1 block relationship all the way
+  through the rendering chain.
+  But note that the block starts are NOT offset, so when rendered they need
+  to be delayed by the border size.
+
 */
 #define __waveform_peak_c__
 #define __wf_private__
@@ -237,7 +247,8 @@ peakbuf_is_present(Waveform* waveform, int block_num)
  *
  * warning: a vary large file cannot be loaded into ram all at once.
  * if the audio file is too big for the cache, then multiple parallel calls may fail.
- * -requests should be done sequentially to avoid this. [why?]
+ * -requests should be done sequentially to avoid this so that processing can be
+ *  completed before it is purged.
  * TODO this would be helped if the buffer was not allocated until queue processing.
  *
  */

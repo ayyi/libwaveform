@@ -79,10 +79,6 @@ struct _Waveform
 	gboolean           offline;
 	gboolean           renderable;
 
-	WfGlBlock*         textures;          // med res opengl textures.
-	WfGlBlock*         textures_lo;       // low res opengl textures.
-	WfTexturesHi*      textures_hi;       // hi res opengl textures.
-
 	WaveformPriv*      priv;
 };
 

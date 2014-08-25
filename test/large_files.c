@@ -139,9 +139,10 @@ test_load()
 		g_object_weak_ref((GObject*)w, finalize_notify, NULL);
 		waveform_load(w);
 
-		assert(w->textures, "texture container not allocated");
-		assert(!w->textures->peak_texture[WF_LEFT].main[0], "textures allocated"); // no textures are expected to be allocated.
-		assert(!w->textures->peak_texture[WF_RIGHT].main[0], "textures allocated");
+		WfGlBlock* blocks = w->priv->render_data[MODE_MED];
+		assert(blocks, "texture container not allocated");
+		assert(!blocks->peak_texture[WF_LEFT].main[0], "textures allocated"); // no textures are expected to be allocated.
+		assert(!blocks->peak_texture[WF_RIGHT].main[0], "textures allocated");
 		assert(&w->priv->peak, "peak not loaded");
 		assert(w->priv->peak.size, "peak size not set");
 		assert(w->priv->peak.buf[WF_LEFT], "peak not loaded");

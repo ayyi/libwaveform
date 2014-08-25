@@ -510,7 +510,7 @@ waveform_view_plus_realize (GtkWidget* base)
 static void
 waveform_view_plus_unrealize (GtkWidget* widget)
 {
-	PF0;
+	PF;
 	WaveformViewPlus* self = (WaveformViewPlus*)widget;
 	gdk_window_set_user_data (widget->window, NULL);
 

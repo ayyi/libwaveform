@@ -181,6 +181,7 @@ _hires_ng_set_uniforms()
 	glUniform1f(glGetUniformLocation(shader->program, "top"),             hires_ng_shader.uniform.top);
 	glUniform1f(glGetUniformLocation(shader->program, "bottom"),          hires_ng_shader.uniform.bottom);
 	glUniform1i(glGetUniformLocation(shader->program, "n_channels"),      hires_ng_shader.uniform.n_channels);
+	glUniform1f(glGetUniformLocation(shader->program, "tex_width"),       hires_ng_shader.uniform.tex_width);
 	glUniform1f(glGetUniformLocation(shader->program, "tex_height"),      hires_ng_shader.uniform.tex_height);
 	glUniform1i(glGetUniformLocation(shader->program, "mm_level"),        hires_ng_shader.uniform.mm_level);
 }

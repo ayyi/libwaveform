@@ -53,16 +53,31 @@ static GLuint line_textures[3] = {0, 0, 0}; // TODO use 1 and 2 as line caps
 static GLuint lines_texture[8] = {0};
 #endif
 
-HiRenderer hi_renderer;
+#define RENDER_DATA_HI(W) ((WfTexturesHi*)W->render_data[MODE_HI])
 
 static void  _wf_actor_print_hires_textures  (WaveformActor*);
+
+
+void
+hi_new(Waveform* w)
+{
+	WaveformPriv* _w = w->priv;
+
+	g_return_if_fail(!_w->render_data[MODE_HI]);
+
+	agl = agl_get_instance();
+	if(!agl->use_shaders){
+		_w->render_data[MODE_HI] = g_new0(WfTexturesHi, 1);
+		RENDER_DATA_HI(_w)->textures = g_hash_table_new(g_int_hash, g_int_equal);
+	}
+}
 
 
 static void
 hi_request_block(WaveformActor* a, int b)
 {
 	if(waveform_load_audio_async(a->waveform, b, HI_MIN_TIERS)){
-		((Renderer*)&hi_renderer)->load_block((Renderer*)&hi_renderer, a, b);
+		modes[MODE_HI].renderer->load_block(modes[MODE_HI].renderer, a, b);
 	}
 }
 
@@ -126,7 +141,7 @@ hi_gl1_load_block(Renderer* renderer, WaveformActor* a, int block)
 	wf_actor_allocate_block_hi(WaveformActor* a, int b)
 	{
 		PF;
-		WfTextureHi* texture = g_hash_table_lookup(a->waveform->textures_hi->textures, &b);
+		WfTextureHi* texture = g_hash_table_lookup(RENDER_DATA_HI(a->waveform->priv)->textures, &b);
 
 		int c = WF_LEFT;
 
@@ -146,13 +161,13 @@ hi_gl1_load_block(Renderer* renderer, WaveformActor* a, int block)
 	ModeRange mode = mode_range(a);
 	if(mode.lower == MODE_HI || mode.upper == MODE_HI){ // TODO presumably this check is no longer needed. test and remove.
 
-		WfTextureHi* texture = g_hash_table_lookup(a->waveform->textures_hi->textures, &block);
+		WfTextureHi* texture = g_hash_table_lookup(RENDER_DATA_HI(a->waveform->priv)->textures, &block);
 		if(!texture){
 			texture = waveform_texture_hi_new();
 			dbg(1, "b=%i: inserting...", block);
 			uint32_t* key = (uint32_t*)g_malloc(sizeof(uint32_t));
 			*key = block;
-			g_hash_table_insert(a->waveform->textures_hi->textures, key, texture);
+			g_hash_table_insert(RENDER_DATA_HI(a->waveform->priv)->textures, key, texture);
 			wf_actor_allocate_block_hi(a, block);
 		}
 		else dbg(1, "b=%i: already have texture. t=%i", block, texture->t[WF_LEFT].main);
@@ -285,8 +300,9 @@ draw_wave_buffer_hi_gl1(Renderer* renderer, WaveformActor* actor, int b, bool is
 		int x = 0;
 		int p = 0;
 		int p_ = region.start / io_ratio;
-	//dbg(0, "width=%.2f region=%Li-->%Li xgain=%.2f resolution=%i io_ratio=%i", rect->len, region.start, region.start + (int64_t)region.len, rect->len / region_len, peakbuf->resolution, io_ratio);
-	//dbg(0, "x: %.2f --> %.2f", (((double)0) / region_len) * rect->len, (((double)4095) / region_len) * rect->len);
+		//dbg(0, "width=%.2f region=%Li-->%Li xgain=%.2f resolution=%i io_ratio=%i", rect->len, region.start, region.start + (int64_t)region.len, rect->len / region_len, peakbuf->resolution, io_ratio);
+		//dbg(0, "x: %.2f --> %.2f", (((double)0) / region_len) * rect->len, (((double)4095) / region_len) * rect->len);
+
 		/*
 		if(!(region_end / io_ratio <= peakbuf->size / WF_PEAK_VALUES_PER_SAMPLE))
 			gwarn("end/ratio=%i size=%i - region.end should never exceed %i", ((int)region_end / io_ratio), peakbuf->size / WF_PEAK_VALUES_PER_SAMPLE, io_ratio * peakbuf->size / WF_PEAK_VALUES_PER_SAMPLE);
@@ -295,17 +311,12 @@ draw_wave_buffer_hi_gl1(Renderer* renderer, WaveformActor* actor, int b, bool is
 		while (p < region.len / io_ratio){
 										if(2 * p_ >= peakbuf->size) gwarn("s_=%i size=%i", p_, peakbuf->size);
 										g_return_if_fail(2 * p_ < peakbuf->size);
-			x = rect->left + (((double)p) / region_len) * rect->len * io_ratio;
-	//if(!p) dbg(0, "x=%i", x);
 			if (x - rect->left >= rect->len) break;
-	//if(p < 10) printf("    x=%i %2i %2i\n", x, data[2 * p_], data[2 * p_ + 1]);
 
 			double y1 = ((double)data[WF_PEAK_VALUES_PER_SAMPLE * p_    ]) * v_gain * (rect->height / 2.0) / (1 << 15);
 			double y2 = ((double)data[WF_PEAK_VALUES_PER_SAMPLE * p_ + 1]) * v_gain * (rect->height / 2.0) / (1 << 15);
 
 			_draw_line(x, rect->top - y1 + rect->height / 2, x, rect->top - y2 + rect->height / 2, r, g, b, alpha);
-	//if(p == 4095)
-	//		_draw_line(rect->left + x, 0, rect->left + x, rect->height, r, g, b, 1.0);
 
 			p++;
 			p_++;
@@ -381,7 +392,7 @@ draw_wave_buffer_hi_gl1(Renderer* renderer, WaveformActor* actor, int b, bool is
 
 
 static bool
-get_quad_dimensions(WaveformActor* actor, int b, bool is_first, bool is_last, double x, TextureRange* tex, double* tex_x_, double* block_wid_, int border, int multiplier)
+wf_actor_get_quad_dimensions(WaveformActor* actor, int b, bool is_first, bool is_last, double x, TextureRange* tex, double* tex_x_, double* block_wid_, int border, int multiplier)
 {
 	// multiplier is temporary and is used for HIRES_NONSHADER_TEXTURES
 
@@ -392,18 +403,17 @@ get_quad_dimensions(WaveformActor* actor, int b, bool is_first, bool is_last, do
 	double tex_x;
 	double block_wid;
 
-	Waveform* w = actor->waveform; 
 	WfActorPriv* _a = actor->priv;
 	RenderInfo* r  = &_a->render_info;
 
 	int samples_per_texture = r->samples_per_texture / multiplier;
 
 	double usable_pct = (modes[r->mode].texture_size - 2.0 * border) / modes[r->mode].texture_size;
-	double border_pct = (1.0 - usable_pct)/2;
+	double border_pct = (1.0 - usable_pct) / 2.0;
 
 	block_wid = r->block_wid / multiplier;
-	tex_pct = 1.0 * usable_pct; //use the whole texture
-	tex_start = border / modes[r->mode].texture_size;
+	tex_pct = usable_pct; //use the whole texture
+	tex_start = ((float)border) / modes[r->mode].texture_size;
 	if (is_first){
 		double _tex_pct = 1.0;
 		if(r->first_offset){
@@ -439,18 +449,17 @@ get_quad_dimensions(WaveformActor* actor, int b, bool is_first, bool is_last, do
 		block_wid = MIN(block_wid, r->block_wid / multiplier);
 #endif
 #endif
-		if(b == w->textures->size - 1) dbg(2, "last sample block. fraction=%.2f", w->textures->last_fraction);
 		//TODO when non-square textures enabled, tex_pct can be wrong because the last texture is likely to be smaller
 		//     (currently this only applies in non-shader mode)
 		//tex_pct = block_wid / r->block_wid;
 		tex_pct = (block_wid / r->block_wid) * multiplier * usable_pct;
 	}
 
-	dbg (2, "%i: is_last=%i x=%.2f wid=%.2f/%.2f tex_pct=%.3f tex_start=%.2f", b, is_last, x, block_wid, r->block_wid, tex_pct, tex_start);
+	dbg (2, "%i: is_last=%i x=%.2f wid=%.2f/%.2f tex_pct=%.3f tex_start=%.3f", b, is_last, x, block_wid, r->block_wid, tex_pct, tex_start);
 if(tex_pct > usable_pct || tex_pct < 0.0){
-dbg (0, "%i: is_first=%i is_last=%i x=%.2f wid=%.2f/%.2f tex_pct=%.3f tex_start=%.2f", b, is_first, is_last, x, block_wid, r->block_wid, tex_pct, tex_start);
+dbg (0, "%i: is_first=%i is_last=%i x=%.2f wid=%.2f/%.2f tex_pct=%.3f tex_start=%.3f", b, is_first, is_last, x, block_wid, r->block_wid, tex_pct, tex_start);
 }
-	if(tex_pct > usable_pct || tex_pct < 0.0) gwarn("tex_pct! %.2f (b=%i)", tex_pct, b);
+	if(tex_pct - 0.0001 > usable_pct || tex_pct < 0.0) gwarn("tex_pct > %.3f! %.3f (b=%i) %.3f --> %.3f", usable_pct, tex_pct, b, tex_start, tex_start + tex_pct);
 	tex_x = x + ((is_first && r->first_offset) ? r->first_offset_px : 0);
 
 	*tex = (TextureRange){tex_start, tex_start + tex_pct};
@@ -509,7 +518,7 @@ hi_gl1_render_block(Renderer* renderer, WaveformActor* actor, int b, gboolean is
 #endif
 	double tex_x;
 	double block_wid;
-	if(!get_quad_dimensions(actor, b, is_first, is_last, x, &tex, &tex_x, &block_wid, TEX_BORDER_HI, HIRES_NONSHADER_TEXTURES_MULTIPLIER)) return false;
+	if(!wf_actor_get_quad_dimensions(actor, b, is_first, is_last, x, &tex, &tex_x, &block_wid, TEX_BORDER_HI, HIRES_NONSHADER_TEXTURES_MULTIPLIER)) return false;
 
 	glBegin(GL_QUADS);
 	//#if defined (USE_FBO) && defined (multipass)
@@ -551,7 +560,7 @@ _wf_actor_print_hires_textures(WaveformActor* a)
 	dbg(0, "");
 	GHashTableIter iter;
 	gpointer key, value;
-	g_hash_table_iter_init (&iter, a->waveform->textures_hi->textures);
+	g_hash_table_iter_init (&iter, RENDER_DATA_HI(a->waveform->priv)->textures);
 	while (g_hash_table_iter_next (&iter, &key, &value)){
 		int b = *((int*)key);
 		WfTextureHi* th = value;
@@ -560,8 +569,8 @@ _wf_actor_print_hires_textures(WaveformActor* a)
 }
 
 
-HiRenderer hi_renderer_shader = {{hi_gl2_load_block, hi_gl2_pre_render, hi_gl2_render_block}};
-HiRenderer hi_renderer_nonshader = {{hi_gl1_load_block, hi_gl1_pre_render,
+NGRenderer hi_renderer_gl2 = {{MODE_HI, ng_gl2_load_block, ng_gl2_pre_render, hi_gl2_render_block, ng_gl2_free_waveform}};
+HiRenderer hi_renderer_gl1 = {{MODE_HI, hi_gl1_load_block, hi_gl1_pre_render,
 #ifdef HIRES_NONSHADER_TEXTURES
 				hi_gl1_render_block
 #else
@@ -574,8 +583,14 @@ HiRenderer hi_renderer_nonshader = {{hi_gl1_load_block, hi_gl1_pre_render,
 static Renderer*
 hi_renderer_new()
 {
-	if(!hi_res_ng_data) hi_res_ng_data = g_hash_table_new_full(g_direct_hash, g_int_equal, NULL, hi_gl2_free_item);
+	g_return_val_if_fail(!hi_renderer_gl2.ng_data, NULL);
 
-	return (Renderer*)&hi_renderer;
+	static HiRenderer* hi_renderer = (HiRenderer*)&hi_renderer_gl2;
+
+	hi_renderer_gl2.ng_data = g_hash_table_new_full(g_direct_hash, g_int_equal, NULL, hi_gl2_free_item);
+
+	ng_make_lod_levels(&hi_renderer_gl2, MODE_HI);
+
+	return (Renderer*)hi_renderer;
 }
 

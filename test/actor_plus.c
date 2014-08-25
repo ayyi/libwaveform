@@ -60,6 +60,7 @@
 //#define VBORDER 0
 #define bool gboolean
 
+AGl*            agl            = NULL;
 GdkGLConfig*    glconfig       = NULL;
 GdkGLDrawable*  gl_drawable    = NULL;
 GdkGLContext*   gl_context     = NULL;
@@ -79,6 +80,7 @@ static void on_canvas_realise  (GtkWidget*, gpointer);
 static void on_allocate        (GtkWidget*, GtkAllocation*, gpointer);
 static void start_zoom         (float target_zoom);
 static void toggle_animate     ();
+static void toggle_shaders     ();
 static void create_background  ();
 static void background_paint   (GtkWidget*);
 static void ruler_paint        (GtkWidget*);
@@ -98,6 +100,8 @@ main (int argc, char *argv[])
 	if(!(glconfig = gdk_gl_config_new_by_mode(GDK_GL_MODE_RGBA | GDK_GL_MODE_DEPTH | GDK_GL_MODE_DOUBLE))){
 		gerr ("Cannot initialise gtkglext."); return EXIT_FAILURE;
 	}
+
+	agl = agl_get_instance();
 
 	GtkWidget* window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
 
@@ -135,6 +139,9 @@ main (int argc, char *argv[])
 				break;
 			case (char)'a':
 				toggle_animate();
+				break;
+			case (char)'s':
+				toggle_shaders();
 				break;
 			case GDK_KP_Enter:
 				break;
@@ -371,6 +378,14 @@ toggle_animate()
 
 
 static void
+toggle_shaders()
+{
+	PF0;
+	wf_canvas_set_use_shaders(wfc, !agl->use_shaders);
+}
+
+
+static void
 create_background()
 {
 	//create an alpha-map gradient texture for use as background
@@ -406,7 +421,6 @@ create_background()
 static void
 background_paint(GtkWidget* widget)
 {
-	AGl* agl = agl_get_instance();
 	if(agl->use_shaders){
 		glEnable(GL_TEXTURE_2D);
 		glActiveTexture(GL_TEXTURE0);
