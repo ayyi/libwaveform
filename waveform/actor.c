@@ -363,6 +363,7 @@ wf_actor_new(Waveform* w, WaveformCanvas* wfc)
 			Renderer* renderer = modes[m].renderer;
 			call(renderer->load_block, renderer, a, m == MODE_LOW ? (block / WF_PEAK_STD_TO_LO) : block);
 		}
+		if(a->canvas->draw) wf_canvas_queue_redraw(a->canvas);
 
 	}
 	_a->peakdata_ready_handler = g_signal_connect (w, "peakdata-ready", (GCallback)_wf_actor_on_peakdata_available, a);
@@ -1445,7 +1446,6 @@ wf_actor_paint(WaveformActor* actor)
 	Mode m_active = N_MODES;
 	bool is_first = true;
 	int b; for(b=r->viewport_blocks.first;b<=r->viewport_blocks.last;b++){
-		//dbg(0, "b=%i x=%.2f", b, x);
 		gboolean is_last = (b == r->viewport_blocks.last) || (b == r->n_blocks - 1); //2nd test is unneccesary?
 
 		Mode m = r->mode;
@@ -1457,6 +1457,7 @@ wf_actor_paint(WaveformActor* actor)
 				render_ok = false;
 				if(wf_debug) gwarn("render failed. no modes succeeded. mode=%i", r->mode); // not neccesarily an error. may simply be not ready.
 			}
+			if(!w->priv->render_data[m]) break;
 		}
 #ifdef RECT_ROUNDING
 		i++;

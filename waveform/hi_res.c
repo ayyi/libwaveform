@@ -293,15 +293,17 @@ draw_wave_buffer_hi_gl1(Renderer* renderer, WaveformActor* actor, int b, bool is
 
 		int64_t region_end = region.start + (int64_t)region.len;
 
-		float region_len = region.len;
 		short* data = peakbuf->buf[chan];
 
 		int io_ratio = (peakbuf->resolution == 16 || peakbuf->resolution == 8) ? 16 : 1; //TODO
 		int x = 0;
 		int p = 0;
 		int p_ = region.start / io_ratio;
-		//dbg(0, "width=%.2f region=%Li-->%Li xgain=%.2f resolution=%i io_ratio=%i", rect->len, region.start, region.start + (int64_t)region.len, rect->len / region_len, peakbuf->resolution, io_ratio);
-		//dbg(0, "x: %.2f --> %.2f", (((double)0) / region_len) * rect->len, (((double)4095) / region_len) * rect->len);
+		/*
+		float region_len = region.len;
+		dbg(0, "width=%.2f region=%Li-->%Li xgain=%.2f resolution=%i io_ratio=%i", rect->len, region.start, region.start + (int64_t)region.len, rect->len / region_len, peakbuf->resolution, io_ratio);
+		dbg(0, "x: %.2f --> %.2f", (((double)0) / region_len) * rect->len, (((double)4095) / region_len) * rect->len);
+		*/
 
 		/*
 		if(!(region_end / io_ratio <= peakbuf->size / WF_PEAK_VALUES_PER_SAMPLE))
