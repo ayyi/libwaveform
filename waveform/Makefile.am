@@ -61,6 +61,9 @@ pkginclude_HEADERS = \
 	view.h \
 	actor.h \
 	canvas.h \
+	shader.h \
+	texture_cache.h \
+	grid.h \
 	utils.h \
 	gl_utils.h \
 	wf_private.h

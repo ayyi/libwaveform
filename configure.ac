@@ -136,7 +136,6 @@ AC_SUBST(OPENGL_LDFLAGS)
 dnl -----------------------------------------------------
 
 GLU_LIBS=`pkg-config --libs-only-l glu`
-dnl GLUT_LIBS="-lglut -lGLEW"
 GLUT_LIBS=""
 AC_SUBST(GLU_LIBS)
 AC_SUBST(GLUT_LIBS)

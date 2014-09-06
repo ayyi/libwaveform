@@ -11,7 +11,9 @@ lib_LTLIBRARIES = libtransition.la
 libtransition_la_SOURCES = \
 	animator.c animator.h
 
-pkginclude_HEADERS =
+pkgincludedir=$(includedir)/transition
+pkginclude_HEADERS = \
+	animator.h
 
 BUILT_SOURCES =
 

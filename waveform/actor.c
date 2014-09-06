@@ -120,7 +120,7 @@ struct _actor_priv
 {
 	float           opacity;     // derived from background colour
 
-	struct {
+	struct Animatable {
 		WfAnimatable  start;     // (int) region
 		WfAnimatable  len;       // (int) region
 		WfAnimatable  rect_left; // (float)
@@ -297,43 +297,44 @@ wf_actor_new(Waveform* w, WaveformCanvas* wfc)
 	wf_actor_set_colour(a, 0xffffffff, 0x000000ff);
 	a->waveform = g_object_ref(w);
 
-	_a->animatable.start = (WfAnimatable){
-		.model_val.i = (uint32_t*)&a->region.start, //TODO add uint64_t to union
-		.start_val.i = a->region.start,
-		.val.i       = a->region.start,
-		.type        = WF_INT
+	_a->animatable = (struct Animatable){
+		.start = (WfAnimatable){
+			.model_val.i = (uint32_t*)&a->region.start, //TODO add uint64_t to union
+			.start_val.i = a->region.start,
+			.val.i       = a->region.start,
+			.type        = WF_INT
+		},
+		.len = (WfAnimatable){
+			.model_val.i = &a->region.len,
+			.start_val.i = a->region.len,
+			.val.i       = a->region.len,
+			.type        = WF_INT
+		},
+		.rect_left = (WfAnimatable){
+			.model_val.f = &a->rect.left,
+			.start_val.f = a->rect.left,
+			.val.f       = a->rect.left,
+			.type        = WF_FLOAT
+		},
+		.rect_len = (WfAnimatable){
+			.model_val.f = &a->rect.len,
+			.start_val.f = a->rect.len,
+			.val.f       = a->rect.len,
+			.type        = WF_FLOAT
+		},
+		.z = (WfAnimatable){
+			.model_val.f = &a->z,
+			.start_val.f = a->z,
+			.val.f       = a->z,
+			.type        = WF_FLOAT
+		},
+		.opacity = (WfAnimatable){
+			.model_val.f = &_a->opacity,
+			.start_val.f = _a->opacity,
+			.val.f       = _a->opacity,
+			.type        = WF_FLOAT
+		}
 	};
-
-	_a->animatable.len = (WfAnimatable){
-		.model_val.i = &a->region.len,
-		.start_val.i = a->region.len,
-		.val.i       = a->region.len,
-		.type        = WF_INT
-	};
-
-	WfAnimatable* animatable = &_a->animatable.rect_left;
-	animatable->model_val.f = &a->rect.left;
-	animatable->start_val.f = a->rect.left;
-	animatable->val.f       = a->rect.left;
-	animatable->type        = WF_FLOAT;
-
-	animatable = &a->priv->animatable.rect_len;
-	animatable->model_val.f = &a->rect.len;
-	animatable->start_val.f = a->rect.len;
-	animatable->val.f       = a->rect.len;
-	animatable->type        = WF_FLOAT;
-
-	animatable = &a->priv->animatable.z;
-	animatable->model_val.f = &a->z;
-	animatable->start_val.f = a->z;
-	animatable->val.f       = a->z;
-	animatable->type        = WF_FLOAT;
-
-	animatable = &a->priv->animatable.opacity;
-	animatable->model_val.f = &_a->opacity;
-	animatable->start_val.f = _a->opacity;
-	animatable->val.f       = _a->opacity;
-	animatable->type        = WF_FLOAT;
 
 #ifdef WF_DEBUG
 	g_strlcpy(_a->animatable.start.name,     "start",     16);
@@ -1500,11 +1501,6 @@ wf_actor_paint(WaveformActor* actor)
 
 		x += r->block_wid;
 		is_first = false;
-	}
-	glEnable(wfc->use_1d_textures ? GL_TEXTURE_1D : GL_TEXTURE_2D);
-	if(agl->use_shaders){
-	}else{
-		glColor3f(1.0, 1.0, 1.0);
 	}
 #endif // DEBUG_BLOCKS
 #endif

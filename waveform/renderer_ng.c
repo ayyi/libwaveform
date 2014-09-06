@@ -436,11 +436,7 @@ ng_gl2_queue_clean(Renderer* renderer)
 			}
 		}
 
-#if 0
-		GHashTable* table = renderer->mode == MODE_HI ? hi_res_ng_data : med_res_ng_data;
-#else
 		GHashTable* table = ((NGRenderer*)renderer)->ng_data;
-#endif
 
 		dbg(1, "size=%i", g_hash_table_size(table));
 

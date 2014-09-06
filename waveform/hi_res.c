@@ -43,7 +43,7 @@
 extern int wf_debug;
 #endif // __actor_c__
 
-// needed for v_hi res. TODO check effect on other modes.
+// needed for v_hi res. TODO check whether visual effect is good for gl1 hi_res.
 #define ANTIALIASED_LINES
 
 #ifdef ANTIALIASED_LINES
@@ -256,6 +256,27 @@ hi_gl1_pre_render(Renderer* renderer, WaveformActor* actor)
 	//block_region specifies the sample range for that part of the waveform region that is within the current block
 	//-note that the block region can exceed the range of the waveform region.
 	hr->block_region = (WfSampleRegion){r->region.start % WF_SAMPLES_PER_TEXTURE, WF_SAMPLES_PER_TEXTURE - r->region.start % WF_SAMPLES_PER_TEXTURE};
+
+#ifdef XANTIALIASED_LINES
+	//TODO does antialiased look better? if so, must init line_textures
+	glEnable(GL_TEXTURE_2D);
+	glBindTexture(GL_TEXTURE_2D, line_textures[0]);
+#else
+	//TODO blending is needed to support opacity, however the actual opacity currently varies depending on zoom due to overlapping.
+	glEnable(GL_BLEND);
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+	glDisable(GL_TEXTURE_2D);
+	glDisable(GL_TEXTURE_1D);
+	glLineWidth(1);
+#endif
+	{
+		uint32_t rgba = actor->fg_colour;
+		float r = ((float)((rgba >> 24)       ))/0x100;
+		float g = ((float)((rgba >> 16) & 0xff))/0x100;
+		float b = ((float)((rgba >>  8) & 0xff))/0x100;
+		float alpha = ((float)((rgba  ) & 0xff))/0x100;
+		glColor4f(r, g, b, alpha);
+	}
 #endif
 
 	glEnable(GL_TEXTURE_2D);
@@ -263,17 +284,6 @@ hi_gl1_pre_render(Renderer* renderer, WaveformActor* actor)
 
 
 #ifndef HIRES_NONSHADER_TEXTURES
-static void
-hi_set_gl_state_nonshader(WaveformActor* actor)
-{
-	//TODO blending is needed to support opacity, however the actual opacity currently varies depending on zoom due to overlapping.
-	glEnable(GL_BLEND);
-	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-	glDisable(GL_TEXTURE_2D);
-	glDisable(GL_TEXTURE_1D);
-}
-
-
 bool
 draw_wave_buffer_hi_gl1(Renderer* renderer, WaveformActor* actor, int b, bool is_first, bool is_last, double x)
 {
@@ -285,11 +295,6 @@ draw_wave_buffer_hi_gl1(Renderer* renderer, WaveformActor* actor, int b, bool is
 		// x is integer which means lines are not evenly spaced and causes problems setting alpha.
 		// however using float x gives the same visual results (at least on intel 945)
 		// -the solution to this is probably to use textures.
-
-		float r = ((float)((rgba >> 24)       ))/0x100;
-		float g = ((float)((rgba >> 16) & 0xff))/0x100;
-		float b = ((float)((rgba >>  8) & 0xff))/0x100;
-		float alpha = ((float)((rgba  ) & 0xff))/0x100;
 
 		int64_t region_end = region.start + (int64_t)region.len;
 
@@ -305,6 +310,9 @@ draw_wave_buffer_hi_gl1(Renderer* renderer, WaveformActor* actor, int b, bool is
 		dbg(0, "x: %.2f --> %.2f", (((double)0) / region_len) * rect->len, (((double)4095) / region_len) * rect->len);
 		*/
 
+		//TODO why is this needed ??? should not be
+		glDisable(GL_TEXTURE_2D);
+
 		/*
 		if(!(region_end / io_ratio <= peakbuf->size / WF_PEAK_VALUES_PER_SAMPLE))
 			gwarn("end/ratio=%i size=%i - region.end should never exceed %i", ((int)region_end / io_ratio), peakbuf->size / WF_PEAK_VALUES_PER_SAMPLE, io_ratio * peakbuf->size / WF_PEAK_VALUES_PER_SAMPLE);
@@ -313,12 +321,23 @@ draw_wave_buffer_hi_gl1(Renderer* renderer, WaveformActor* actor, int b, bool is
 		while (p < region.len / io_ratio){
 										if(2 * p_ >= peakbuf->size) gwarn("s_=%i size=%i", p_, peakbuf->size);
 										g_return_if_fail(2 * p_ < peakbuf->size);
+			x = rect->left + (((double)p) / ((double)region.len)) * rect->len * io_ratio;
 			if (x - rect->left >= rect->len) break;
 
 			double y1 = ((double)data[WF_PEAK_VALUES_PER_SAMPLE * p_    ]) * v_gain * (rect->height / 2.0) / (1 << 15);
 			double y2 = ((double)data[WF_PEAK_VALUES_PER_SAMPLE * p_ + 1]) * v_gain * (rect->height / 2.0) / (1 << 15);
 
+#if 0
 			_draw_line(x, rect->top - y1 + rect->height / 2, x, rect->top - y2 + rect->height / 2, r, g, b, alpha);
+#else
+			// this assumes that we want un-antialiased lines.
+
+			glBegin(GL_LINES);
+			// note: 0.1 offset was added for intel 945.
+			glVertex2f(x + 0.1, rect->top - y1 + rect->height / 2);
+			glVertex2f(x + 0.1, rect->top - y2 + rect->height / 2);
+			glEnd();
+#endif
 
 			p++;
 			p_++;
@@ -337,8 +356,6 @@ draw_wave_buffer_hi_gl1(Renderer* renderer, WaveformActor* actor, int b, bool is
 	if(!peakbuf) return false;
 
 	dbg(2, "  b=%i x=%.2f", b, x);
-
-	hi_set_gl_state_nonshader(actor);
 
 	WfRectangle block_rect = {
 		is_first

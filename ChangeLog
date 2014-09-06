@@ -57,3 +57,7 @@
 -reworking of hi-res mode rendering for opengl2.
 20140809
 -separated texture caches for 1D and 2D textures to fix reallocation issues.
+20140822
+-extended use of the new rendering method to med-res.
+20140904
+-fix gl1 hi-res regression, pkgconfig and make-dist fixes.
