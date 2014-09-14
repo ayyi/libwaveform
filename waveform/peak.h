@@ -43,8 +43,6 @@ typedef struct _WaveformClass WaveformClass;
 #define WF_SHOW_RMS
 #undef WF_SHOW_RMS
 
-#define WF_PEAK_BLOCK_SIZE (256 * 256) // the number of audio frames per block (64k)
-
 typedef int (*PeakLoader)(Waveform*, const char*);
 
 enum

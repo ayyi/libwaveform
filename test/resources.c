@@ -74,7 +74,6 @@ main (int argc, char *argv[])
 		char* filename = g_build_filename(g_get_current_dir(), wav, NULL);
 		waveform_view_load_file(waveform, filename);
 		g_free(filename);
-		//dbg(0, "use_count=%i", waveform->waveform->use_count);
 	}
 	load_wave(WAV1);
 

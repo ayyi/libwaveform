@@ -1,4 +1,3 @@
-- add very-low-resolution mode to reduce resource usage for audio files over an hour in length.
 - check pixbuf inset at hi res
 - fix hires segfault with Nouveau driver (status?)
 - test pkgconfig file, and header file installation

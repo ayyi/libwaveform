@@ -184,12 +184,36 @@ void scroll_right(WaveformView* waveform)
 
 void next_wav(WaveformView* waveform)
 {
+	WaveformViewPlus* view = (WaveformViewPlus*)waveform;
+
 	static int i = 0; i = (i + 1) % 2;
 
-	printf("...\n");
+	printf("next...\n");
+
+	typedef struct {
+		WaveformViewPlus* view;
+		float             zoom;
+	} C;
+	C* c = g_new0(C, 1);
+	*c = (C){
+		.view = view,
+		.zoom = view->zoom
+	};
+
 	char* filename = find_wav(wavs[i]);
-	waveform_view_plus_load_file((WaveformViewPlus*)waveform, filename);
+	waveform_view_plus_load_file(view, filename);
 	g_free(filename);
+
+	// TODO fix widget so that zoom can be set imediately
+
+	bool on_loaded(gpointer _c)
+	{
+		C* c = _c;
+		waveform_view_plus_set_zoom(c->view, c->zoom);
+		g_free(c);
+		return IDLE_STOP;
+	}
+	g_idle_add(on_loaded, c);
 }
 
 
@@ -201,7 +225,7 @@ toggle_shaders(WaveformView* view)
 	wf_canvas_set_use_shaders(wfc, !agl_get_instance()->use_shaders);
 
 	char* filename = find_wav(wavs[0]);
-	waveform_view_plus_load_file(view, filename);
+	waveform_view_plus_load_file((WaveformViewPlus*)view, filename);
 	g_free(filename);
 }
 

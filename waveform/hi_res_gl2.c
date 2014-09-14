@@ -127,7 +127,7 @@ static void hi_gl2_uninit()
 void
 hi_gl2_on_steal(WaveformBlock* wb, guint tex)
 {
-	HiResNGWaveform* data = wb->waveform->priv->render_data[MODE_HI];
+	HiResNGWaveform* data = (HiResNGWaveform*)wb->waveform->priv->render_data[MODE_HI];
 	if(data){
 		int _s = wb->block & (~WF_TEXTURE_CACHE_HIRES_NG_MASK);
 		int s = _s / MAX_BLOCKS_PER_TEXTURE;

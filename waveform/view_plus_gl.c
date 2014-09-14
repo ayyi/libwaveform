@@ -63,7 +63,7 @@ draw(WaveformViewPlus* view)
 
 	if(!w) return;
 
-	wf_actor_paint(actor);
+	if(actor) wf_actor_paint(actor);
 
 	if(v->show_grid){
 		WfViewPort viewport; wf_actor_get_viewport(actor, &viewport);

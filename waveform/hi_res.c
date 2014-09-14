@@ -59,17 +59,38 @@ static void  _wf_actor_print_hires_textures  (WaveformActor*);
 
 
 void
-hi_new(Waveform* w)
+hi_new_gl1(WaveformActor* a)
 {
-	WaveformPriv* _w = w->priv;
+	WaveformPriv* _w = a->waveform->priv;
 
 	g_return_if_fail(!_w->render_data[MODE_HI]);
 
 	agl = agl_get_instance();
 	if(!agl->use_shaders){
-		_w->render_data[MODE_HI] = g_new0(WfTexturesHi, 1);
+		_w->render_data[MODE_HI] = (WaveformModeRender*)g_new0(WfTexturesHi, 1);
 		RENDER_DATA_HI(_w)->textures = g_hash_table_new(g_int_hash, g_int_equal);
 	}
+}
+
+
+static void
+hi_free_gl1(Renderer* renderer, Waveform* w)
+{
+	if(!w->priv->render_data[MODE_HI]) return;
+
+	WfTexturesHi* textures = (WfTexturesHi*)w->priv->render_data[MODE_HI];
+
+	GHashTableIter iter;
+	gpointer key, value;
+	g_hash_table_iter_init (&iter, textures->textures);
+	while (g_hash_table_iter_next (&iter, &key, &value)){
+		//int block = key;
+		WfTextureHi* texture = value;
+		waveform_texture_hi_free(texture);
+	}
+
+	g_hash_table_destroy(textures->textures);
+	g_free0(w->priv->render_data[MODE_HI]);
 }
 
 
@@ -588,14 +609,15 @@ _wf_actor_print_hires_textures(WaveformActor* a)
 }
 
 
-NGRenderer hi_renderer_gl2 = {{MODE_HI, ng_gl2_load_block, ng_gl2_pre_render, hi_gl2_render_block, ng_gl2_free_waveform}};
-HiRenderer hi_renderer_gl1 = {{MODE_HI, hi_gl1_load_block, hi_gl1_pre_render,
+NGRenderer hi_renderer_gl2 = {{MODE_HI, NULL, ng_gl2_load_block, ng_gl2_pre_render, hi_gl2_render_block, ng_gl2_free_waveform}};
+HiRenderer hi_renderer_gl1 = {{MODE_HI, hi_new_gl1, hi_gl1_load_block, hi_gl1_pre_render,
 #ifdef HIRES_NONSHADER_TEXTURES
-				hi_gl1_render_block
+				hi_gl1_render_block,
 #else
 				// without shaders, each sample line is drawn directly without using textures, so performance will be relatively poor.
-				draw_wave_buffer_hi_gl1
+				draw_wave_buffer_hi_gl1,
 #endif
+				hi_free_gl1
 }};
 
 

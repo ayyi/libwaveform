@@ -37,6 +37,7 @@
 #include <glib.h>
 #include <glib/gstdio.h>
 #include <sndfile.h>
+#include <agl/utils.h>
 #include "waveform/audio.h"
 #include "waveform/peakgen.h"
 #include "test/ayyi_utils.h"
@@ -177,8 +178,11 @@ test_load()
 		g_object_weak_ref((GObject*)w, finalize_notify, NULL);
 		waveform_load(w);
 
+		#warning invalid access to render_data
+		if(agl_get_instance()->use_shaders) gerr("FIXME invalid access to render_data for current rendering method");
+
 		WaveformPriv* _w = w->priv;
-		WfGlBlock* blocks = _w->render_data[MODE_MED];
+		WfGlBlock* blocks = (WfGlBlock*)_w->render_data[MODE_MED];
 		assert(blocks, "texture container not allocated");
 		assert(!blocks->peak_texture[WF_LEFT].main[0], "textures allocated"); // no textures are expected to be allocated.
 		assert(!blocks->peak_texture[WF_RIGHT].main[0], "textures allocated");

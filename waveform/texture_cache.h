@@ -24,6 +24,7 @@
 #define WF_TEXTURE_CACHE_LORES_MASK (1 << 23)
 #define WF_TEXTURE_CACHE_HIRES_MASK (1 << 22)
 #define WF_TEXTURE_CACHE_HIRES_NG_MASK (1 << 21)
+#define WF_TEXTURE_CACHE_V_LORES_MASK (1 << 20)
 
 struct _texture_cache
 {

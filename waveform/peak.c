@@ -141,7 +141,6 @@ __finalize (Waveform* w)
 	}
 
 #ifdef USE_OPENGL
-																							//TODO check why MODE_HI not included in the if test.
 	if(_w->render_data[MODE_MED] || _w->render_data[MODE_LOW]) texture_cache_remove_waveform(w);
 #endif
 
@@ -171,25 +170,8 @@ __finalize (Waveform* w)
 	free_textures((WfGlBlock**)&_w->render_data[MODE_MED]);
 	free_textures((WfGlBlock**)&_w->render_data[MODE_LOW]);
 
-	void free_textures_hi(Waveform* w)
-	{
-		if(!w->priv->render_data[MODE_HI]) return;
-
-		WfTexturesHi* textures = w->priv->render_data[MODE_HI];
-
-		GHashTableIter iter;
-		gpointer key, value;
-		g_hash_table_iter_init (&iter, textures->textures);
-		while (g_hash_table_iter_next (&iter, &key, &value)){
-			//int block = key;
-			WfTextureHi* texture = value;
-			waveform_texture_hi_free(texture);
-		}
-
-		g_hash_table_destroy(textures->textures);
-		g_free0(w->priv->render_data[MODE_HI]);
-	}
-	free_textures_hi(w);
+	extern void wf_actor_free_waveform(Waveform* waveform);
+	wf_actor_free_waveform(w);
 
 	waveform_audio_free(w);
 	g_free(w->priv);
@@ -234,16 +216,6 @@ _waveform_get_property (GObject* object, guint property_id, GValue* value, GPara
 			break;
 	}
 }
-
-
-#if 0
-gint
-wf_get_property1(Waveform* self)
-{
-	g_return_val_if_fail (self, 0);
-	return self->priv->_property1;
-}
-#endif
 
 
 WfGlBlock*
@@ -383,10 +355,10 @@ waveform_load_peak(Waveform* w, const char* peak_file, int ch_num)
 	if(ch_num) w->n_channels = MAX(w->n_channels, ch_num + 1); // for split stereo files
 
 	_w->num_peaks = _w->peak.size / WF_PEAK_VALUES_PER_SAMPLE;
+	_w->n_blocks = _w->num_peaks / WF_TEXTURE_VISIBLE_SIZE + ((_w->num_peaks % WF_TEXTURE_VISIBLE_SIZE) ? 1 : 0);
 	dbg(1, "ch=%i num_peaks=%i", ch_num, _w->num_peaks);
 	if(!_w->render_data[MODE_MED]){
-		_w->n_blocks = _w->num_peaks / WF_TEXTURE_VISIBLE_SIZE + ((_w->num_peaks % WF_TEXTURE_VISIBLE_SIZE) ? 1 : 0);
-		if(!agl_get_instance()->use_shaders) _w->render_data[MODE_MED] = wf_texture_array_new(_w->n_blocks, (ch_num == 1 || n_channels == 2) ? 2 : 1);
+		if(!agl_get_instance()->use_shaders) _w->render_data[MODE_MED] = (WaveformModeRender*)wf_texture_array_new(_w->n_blocks, (ch_num == 1 || n_channels == 2) ? 2 : 1);
 #ifdef WF_SHOW_RMS
 		gerr("rms TODO");
 		w->textures->rms_texture = g_new0(unsigned, w->textures->size);
@@ -394,10 +366,9 @@ waveform_load_peak(Waveform* w, const char* peak_file, int ch_num)
 		extern void glGenTextures(size_t n, uint32_t* textures);
 		glGenTextures(w->textures->size, w->textures->rms_texture); //note currently doesnt use the texture_cache
 #endif
-		extern void hi_new(Waveform*);
-		hi_new(w);
+
 	}else{
-		if(ch_num) wf_texture_array_add_ch(_w->render_data[MODE_MED], WF_RIGHT);
+		if(ch_num) wf_texture_array_add_ch((WfGlBlock*)_w->render_data[MODE_MED], WF_RIGHT);
 	}
 	//waveform_print_blocks(w);
 
@@ -416,10 +387,11 @@ static void
 sort_(short* dest, const short* src, int size)
 {
 	//sort j into ascending order
+
 	int i, j=0, min, new_min, top=size, p=0;
 	guint16 n[4] = {0, 0, 0, 0};
 
-	for(i=0;i<size;i++) n[i] = src[i]; //copy the source array
+	for(i=0;i<size;i++) n[i] = src[i]; // copy the source array
 
 	for(i=0;i<size;i++){
 		min = n[0];
@@ -431,17 +403,14 @@ sort_(short* dest, const short* src, int size)
 				p = j;
 			}
 		}
-		//printf("  %i min=%i p=%i", i, min, p);
-		//p is the index to the value we have used, and need to remove.
+		// p is the index to the value we have used, and need to remove.
 
 		dest[i] = min;
 
-		int m; for(m=p;m<top;m++) n[m] = n[m+1]; //move remaining entries down.
-		//printf(" top=%i", top);
+		int m; for(m=p;m<top;m++) n[m] = n[m+1]; // move remaining entries down.
 		top--;
 		n[top] = 0;
 	}
-	//printf("  %i %i %i %i --> %i %i %i %i\n", src[0], src[1], src[2], src[3], dest[0], dest[1], dest[2], dest[3]);
 }
 
 
@@ -2147,7 +2116,7 @@ waveform_print_blocks(Waveform* w)
 	g_return_if_fail(w);
 
 	printf("%s {\n", __func__);
-	WfGlBlock* blocks = w->priv->render_data[MODE_MED];
+	WfGlBlock* blocks = (WfGlBlock*)w->priv->render_data[MODE_MED];
 	printf("        L+ L- R+ R-\n");
 	printf("  std:\n");
 	int b; for(b=0;b<MIN(5, blocks->size);b++){
@@ -2158,7 +2127,7 @@ waveform_print_blocks(Waveform* w)
 			blocks->peak_texture[WF_RIGHT].neg  ? blocks->peak_texture[WF_RIGHT].neg[b]  : -1);
 	}
 	int c = 0;
-	blocks = w->priv->render_data[MODE_LOW];
+	blocks = (WfGlBlock*)w->priv->render_data[MODE_LOW];
 	if(blocks){
 		printf("  LOW:\n");
 		for(b=0;b<5;b++){

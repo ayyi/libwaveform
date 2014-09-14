@@ -28,8 +28,10 @@
 #include "agl/fbo.h"
 #include "waveform/peak.h"
 
+#define WF_PEAK_BLOCK_SIZE (256 * 256) // the number of audio frames per block (64k)
 #define WF_CACHE_BUF_SIZE (1 << 15)
 #define WF_PEAK_STD_TO_LO 16
+#define WF_MED_TO_V_LOW (16 * 16)
 #define WF_PEAK_RATIO_LOW (WF_PEAK_RATIO * WF_PEAK_STD_TO_LO) // the number of samples per entry in a low res peakbuf.
 #define WF_TEXTURE_VISIBLE_SIZE (WF_PEAK_TEXTURE_SIZE - 2 * TEX_BORDER)
 #define WF_SAMPLES_PER_TEXTURE (WF_PEAK_RATIO * (WF_PEAK_TEXTURE_SIZE - 2 * TEX_BORDER))
@@ -70,12 +72,18 @@ struct _peakbuf {
 
 typedef enum
 {
-	MODE_LOW = 0,
+	MODE_V_LOW = 0,
+	MODE_LOW,
 	MODE_MED,
 	MODE_HI,
 	MODE_V_HI,
 	N_MODES
 } Mode;
+
+typedef struct                            // base type for Modes to inherit from.
+{
+	int             n_blocks;
+} WaveformModeRender;
 
 struct _waveform_priv
 {
@@ -88,7 +96,7 @@ struct _waveform_priv
 	int             num_peaks;      // peak_buflen / PEAK_VALUES_PER_SAMPLE
 	int             n_blocks;
 
-	void*           render_data[N_MODES];
+	WaveformModeRender* render_data[N_MODES];
 
 	short           max_db;         // TODO should be in db?
 
@@ -117,7 +125,7 @@ struct _wf
 };
 
 //TODO refactor based on _texture_hi (eg reverse order of indirection)
-struct _wf_texture_list                   // WfGlBlock - used at STD and LOW resolutions.
+struct _wf_texture_list                   // WfGlBlock - used at MED and LOW resolutions in gl1 mode.
 {
 	int             size;
 	struct {

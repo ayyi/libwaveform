@@ -188,9 +188,44 @@ test_hires()
 
 				// duplicates of private stuff from actor.c
 
-				#define ZOOM_HI  (1.0/  16)
-				#define ZOOM_MED (1.0/ 256) // px_per_sample - transition point from std to hi-res mode.
-				#define ZOOM_LO  (1.0/4096) // px_per_sample - transition point from low-res to std mode.
+				typedef struct _RenderInfo RenderInfo;
+				typedef struct _Renderer Renderer;
+
+				typedef void    (*WaveformActorPreRenderFn) (Renderer*, WaveformActor*);
+				typedef void    (*WaveformActorBlockFn)     (Renderer*, WaveformActor*, int b);
+				typedef bool    (*WaveformActorRenderFn)    (Renderer*, WaveformActor*, int b, bool is_first, bool is_last, double x);
+				typedef void    (*WaveformActorFreeFn)      (Renderer*, Waveform*);
+
+				struct _Renderer
+				{
+					Mode                     mode;
+
+					WaveformActorBlockFn     load_block;
+					WaveformActorPreRenderFn pre_render;
+					WaveformActorRenderFn    render_block;
+					WaveformActorFreeFn      free;
+				};
+
+				struct _draw_mode
+				{
+					char             name[4];
+					int              resolution;
+					int              texture_size;      // mostly applies to 1d textures. 2d textures have non-square issues.
+					void*            make_texture_data; // might not be needed after all
+					Renderer*        renderer;
+				};
+				static struct _draw_mode modes[N_MODES] = {
+					{"V_LO", 16384, WF_PEAK_TEXTURE_SIZE,      NULL},
+					{"LOW",   1024, WF_PEAK_TEXTURE_SIZE,      NULL},
+					{"MED",    256, WF_PEAK_TEXTURE_SIZE,      NULL},
+					{"HI",      16, WF_PEAK_TEXTURE_SIZE * 16, NULL}, // texture size chosen so that blocks are the same as in medium res
+					{"V_HI",     1, WF_PEAK_TEXTURE_SIZE,      NULL},
+				};
+
+				#define ZOOM_HI   (1.0/  16)
+				#define ZOOM_MED  (1.0/ 256)  // px_per_sample - transition point from std to hi-res mode.
+				#define ZOOM_LO   (1.0/4096)  // px_per_sample - transition point from low-res to std mode.
+				#define ZOOM_V_LO (1.0/65536) // px_per_sample - transition point from v-low-res to low-res.
 
 				static inline int
 				get_resolution(double zoom)
@@ -201,10 +236,12 @@ test_hires()
 							? 16
 							: (zoom > ZOOM_LO)
 								? 256
-								: 1024;
+								: (zoom > ZOOM_V_LO)
+									? 1024
+									: 16384;
 				}
 
-				static inline int
+				static inline Mode
 				get_mode(double zoom)
 				{
 					return (zoom > ZOOM_HI)
@@ -213,38 +250,18 @@ test_hires()
 							? MODE_HI
 							: (zoom > ZOOM_LO)
 								? MODE_MED
-								: MODE_LOW;
+								: (zoom > ZOOM_V_LO)
+									? MODE_LOW
+									: MODE_V_LOW;
 				}
 
+				typedef struct {
+				   int first;
+				   int last;
+				} BlockRange;
+
+				#define FIRST_NOT_VISIBLE 10000
 				#define LAST_NOT_VISIBLE (-1)
-
-				static int
-				Xwf_actor_get_last_visible_block(WfSampleRegion* region, WfRectangle* rect, double zoom, WfViewPort* viewport_px, WfGlBlock* textures)
-				{
-					//the region, rect and viewport are passed explictly because different users require slightly different values during transitions.
-
-					int resolution = get_resolution(zoom);
-					int samples_per_texture = WF_SAMPLES_PER_TEXTURE * (resolution == 1024 ? WF_PEAK_STD_TO_LO : 1);
-
-					g_return_val_if_fail(textures, -1);
-					g_return_val_if_fail(viewport_px->right - viewport_px->left > 0.01, -1);
-
-					//dbg(1, "rect: %.2f --> %.2f", rect->left, rect->left + rect->len);
-
-					//double region_inset_px = wf_actor_samples2gl(zoom, region->start);
-					//double file_start_px = rect->left - region_inset_px;
-					//double block_wid = wf_actor_samples2gl(zoom, samples_per_texture);
-					//dbg(1, "vp->right=%.2f", viewport_px->right);
-					int region_start_block = region->start / samples_per_texture;
-					float _end_block = ((float)(region->start + region->len)) / samples_per_texture;
-					dbg(2, "%s region_start=%Li region_end=%i start_block=%i end_block=%.2f(%.i) n_peak_frames=%i gl->size=%i", resolution == 1024 ? "LOW" : resolution == 256 ? "STD" : "HI", region->start, ((int)region->start) + region->len, region_start_block, _end_block, (int)ceil(_end_block), textures->size * 256, textures->size);
-
-					//we round _down_ as the block corresponds to the _start_ of a section.
-					int region_end_block = MIN(_end_block, textures->size - 1);
-
-					dbg(2, "end not outside viewport. vp_right=%.2f last=%i", viewport_px->right, region_end_block);
-					return region_end_block;
-				}
 
 				static double
 				wf_actor_samples2gl(double zoom, uint32_t n_samples)
@@ -253,49 +270,85 @@ test_hires()
 					return n_samples * zoom;
 				}
 
-				static int
-				wf_actor_get_last_visible_block(WfSampleRegion* region, WfRectangle* rect, double zoom, WfViewPort* viewport_px, WfGlBlock* textures)
+				static BlockRange
+				wf_actor_get_visible_block_range(WfSampleRegion* region, WfRectangle* rect, double zoom, WfViewPort* viewport_px, int textures_size)
 				{
 					//the region, rect and viewport are passed explictly because different users require slightly different values during transitions.
 
-					if(rect->left > viewport_px->right) return LAST_NOT_VISIBLE;
+					BlockRange range = {FIRST_NOT_VISIBLE, LAST_NOT_VISIBLE};
 
-					int resolution = get_resolution(zoom);
-					int samples_per_texture = WF_SAMPLES_PER_TEXTURE * (resolution == 1024 ? WF_PEAK_STD_TO_LO : 1);
-
-					g_return_val_if_fail(textures, LAST_NOT_VISIBLE);
-					g_return_val_if_fail(viewport_px->right - viewport_px->left > 0.01, LAST_NOT_VISIBLE);
-
-					//dbg(1, "rect: %.2f --> %.2f", rect->left, rect->left + rect->len);
+					Mode mode = get_mode(zoom);
+					int samples_per_texture = WF_SAMPLES_PER_TEXTURE * (
+						mode == MODE_V_LOW
+							? WF_MED_TO_V_LOW
+							: mode == MODE_LOW ? WF_PEAK_STD_TO_LO : 1);
 
 					double region_inset_px = wf_actor_samples2gl(zoom, region->start);
 					double file_start_px = rect->left - region_inset_px;
 					double block_wid = wf_actor_samples2gl(zoom, samples_per_texture);
-					//dbg(1, "vp->right=%.2f", viewport_px->right);
 					int region_start_block = region->start / samples_per_texture;
-					float _end_block = ((float)(region->start + region->len)) / samples_per_texture;
-					dbg(2, "%s region_start=%Li region_end=%i start_block=%i end_block=%.2f(%.i) n_peak_frames=%i gl->size=%i", resolution == 1024 ? "LOW" : resolution == 256 ? "STD" : "HI", region->start, ((int)region->start) + region->len, region_start_block, _end_block, (int)ceil(_end_block), textures->size * 256, textures->size);
 
-					//we round _down_ as the block corresponds to the _start_ of a section.
-					int region_end_block = MIN(_end_block, textures->size - 1);
+					int region_end_block; {
+						float _end_block = ((float)(region->start + region->len)) / samples_per_texture;
+						dbg(2, "%s region_start=%Li region_end=%i start_block=%i end_block=%.2f(%.i) n_peak_frames=%i gl->size=%i", modes[mode].name, region->start, ((int)region->start) + region->len, region_start_block, _end_block, (int)ceil(_end_block), textures_size * 256, textures_size);
 
-					if(region_end_block >= textures->size) gwarn("!!");
-
-					//crop to viewport:
-					int b; for(b=region_start_block;b<=region_end_block-1;b++){ //note we dont check the last block which can be partially outside the viewport
-						float block_end_px = file_start_px + (b + 1) * block_wid;
-						//dbg(1, " %i: block_px: %.1f --> %.1f", b, block_end_px - (int)block_wid, block_end_px);
-						if(block_end_px > viewport_px->right) dbg(2, "end %i clipped by viewport at block %i. vp.right=%.2f block_end=%.1f", region_end_block, MAX(0, b/* - 1*/), viewport_px->right, block_end_px);
-						if(block_end_px > viewport_px->right) return MAX(0, b/* - 1*/);
+						// round _down_ as the block corresponds to the _start_ of a section.
+						region_end_block = MIN(((int)_end_block), textures_size - 1);
 					}
 
-					if(file_start_px + wf_actor_samples2gl(zoom, region->start + region->len) < viewport_px->left){
-						return LAST_NOT_VISIBLE;
+					// find first block
+					if(rect->left <= viewport_px->right){
+
+						int b; for(b=region_start_block;b<=region_end_block-1;b++){ // stop before the last block
+							int block_start_px = file_start_px + b * block_wid;
+							double block_end_px = block_start_px + block_wid;
+							dbg(3, "block_pos_px=%i", block_start_px);
+							if(block_end_px >= viewport_px->left){
+								range.first = b;
+								goto next;
+							}
+						}
+						// check last block:
+						double block_end_px = file_start_px + wf_actor_samples2gl(zoom, region->start + region->len);
+						if(block_end_px >= viewport_px->left){
+							range.first = b;
+							goto next;
+						}
+
+						dbg(1, "region outside viewport? vp_left=%.2f region_end=%.2f", viewport_px->left, file_start_px + region_inset_px + wf_actor_samples2gl(zoom, region->len));
+						range.first = FIRST_NOT_VISIBLE;
 					}
 
-					dbg(2, "end not outside viewport. vp_right=%.2f last=%i", viewport_px->right, region_end_block);
-					return region_end_block;
+					next:
+
+					// find last block
+					if(rect->left <= viewport_px->right){
+						int last = range.last = MIN(range.first + WF_MAX_BLOCK_RANGE, region_end_block);
+
+						g_return_val_if_fail(viewport_px->right - viewport_px->left > 0.01, range);
+
+						//crop to viewport:
+						int b; for(b=region_start_block;b<=last-1;b++){ //note we dont check the last block which can be partially outside the viewport
+							float block_end_px = file_start_px + (b + 1) * block_wid;
+							//dbg(1, " %i: block_px: %.1f --> %.1f", b, block_end_px - (int)block_wid, block_end_px);
+							if(block_end_px > viewport_px->right) dbg(2, "end %i clipped by viewport at block %i. vp.right=%.2f block_end=%.1f", region_end_block, MAX(0, b/* - 1*/), viewport_px->right, block_end_px);
+							if(block_end_px > viewport_px->right){
+								range.last = MAX(0, b/* - 1*/);
+								goto out;
+							}
+						}
+
+						if(file_start_px + wf_actor_samples2gl(zoom, region->start + region->len) < viewport_px->left){
+							range.last = LAST_NOT_VISIBLE;
+							goto out;
+						}
+
+						dbg(2, "end not outside viewport. vp_right=%.2f last=%i", viewport_px->right, region_end_block);
+					}
+
+					out: return range;
 				}
+
 
 static WfSampleRegion
 get_random_region(WaveformActor* a, Mode mode, uint32_t max_scroll)
@@ -345,10 +398,8 @@ test_scroll()
 		int r = w[0]->n_frames - REGION_LEN - 1;
 		WfSampleRegion region = {r, REGION_LEN};
 		double zoom = a[0]->rect.len / a[0]->region.len;
-		int mode = get_mode(zoom);
-		WfGlBlock* textures = mode == MODE_LOW ? w[0]->priv->render_data[MODE_LOW] : w[0]->priv->render_data[MODE_MED];
-		int b = wf_actor_get_last_visible_block(&region, &a[0]->rect, zoom, a[0]->canvas->viewport, textures);
-		assert((b == waveform_get_n_audio_blocks(w[0]) - 1), "bad block_num %i / %i", b, waveform_get_n_audio_blocks(w[0]));
+		BlockRange range = wf_actor_get_visible_block_range(&region, &a[0]->rect, zoom, a[0]->canvas->viewport, a[0]->waveform->priv->n_blocks);
+		assert((range.last == waveform_get_n_audio_blocks(w[0]) - 1), "bad block_num %i / %i", range.last, waveform_get_n_audio_blocks(w[0]));
 	}
 
 	void next_scroll()
@@ -544,12 +595,16 @@ test_add_remove()
 
 	gboolean check_in_cache(gpointer user_data)
 	{
+		WaveformPriv* _w = w[0]->priv;
+
 		WfSampleRegion* region = &a[0]->region;
 		assert_and_stop((region->start == 0), "region start");
 
+		assert_and_stop(_w->render_data[MODE_LOW], "low res mode not initialised");
+
 		// In fact the 1d textures are no longer kept if rendering from fbo
 #ifdef USE_FBO
-		assert_and_stop(((WfGlBlock*)w[0]->priv->render_data[MODE_LOW])->fbo[0] && ((WfGlBlock*)w[0]->priv->render_data[MODE_LOW])->fbo[0]->texture, "fbo texture");
+		assert_and_stop(((WfGlBlock*)_w->render_data[MODE_LOW])->fbo[0] && ((WfGlBlock*)_w->render_data[MODE_LOW])->fbo[0]->texture, "fbo texture");
 #else
 		// This will fail if the cache size is too small to fit all low_res blocks
 		// In fact with multiple v long wavs, is almost guaranteed to fail.

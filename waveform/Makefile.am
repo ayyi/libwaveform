@@ -48,6 +48,7 @@ EXTRA_DIST = \
 	hi_res.c \
 	hi_res_gl2.c \
 	v_hi_res.c \
+	v_low_res.c \
 	view_plus_gl.c
 
 pkgincludedir=$(includedir)/waveform

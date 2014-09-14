@@ -174,6 +174,7 @@ texture_cache_assign(TextureCache* c, int t, WaveformBlock wb)
 		gboolean _texture_cache_print(gpointer data)
 		{
 			texture_cache_print();
+			timeout = 0;
 			return TIMER_STOP;
 		}
 		timeout = g_timeout_add(1000, _texture_cache_print, NULL);
