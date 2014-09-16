@@ -1,6 +1,5 @@
 - check pixbuf inset at hi res
 - fix hires segfault with Nouveau driver (status?)
-- test pkgconfig file, and header file installation
 - opengl 1.0 mode has spurious lines.
 - documentation
 - peak.c / peak.h need renaming (split?)

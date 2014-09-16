@@ -63,3 +63,5 @@
 -fix gl1 hi-res regression, pkgconfig and make-dist fixes.
 20140912
 -introduce new "very low res" mode reduce resource usage for files over one hour in length.
+20140915
+-build fixes for missing header files

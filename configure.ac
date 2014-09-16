@@ -201,6 +201,7 @@ Makefile
 agl/Makefile
 transition/Makefile
 waveform/Makefile
+waveform/loaders/Makefile
 test/Makefile
 ])
 AC_OUTPUT

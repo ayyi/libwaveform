@@ -1,4 +1,4 @@
-SUBDIRS =
+SUBDIRS = loaders
 
 if ENABLE_LIBASS
 ASS_SOURCES = view_plus.c view_plus.h
@@ -57,13 +57,13 @@ pkginclude_HEADERS = \
 	typedefs.h \
 	peak.h \
 	peakgen.h \
-	loaders/ardour.h \
-	loaders/riff.h \
 	view.h \
 	actor.h \
 	canvas.h \
 	shader.h \
+	fbo.h \
 	texture_cache.h \
+	alphabuf.h \
 	grid.h \
 	utils.h \
 	gl_utils.h \
