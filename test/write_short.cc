@@ -132,7 +132,7 @@ int main(int argc, char* argv[])
 		int c; for(c=0;c<n_channels;c++){
 			output[c] = buffer + ff * n_channels + a * n_channels + c;
 		}
-		cpgrs.compute(n_channels, (float**)input, (float**)output_f);
+		cpgrs.compute(n_channels, (double**)input, (double**)output_f);
 		for(c=0;c<n_channels;c++){
 			output[0][c] = output_f[0][c];
 		}

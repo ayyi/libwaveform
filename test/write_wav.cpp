@@ -5,7 +5,7 @@
 
   ---------------------------------------------------------------
 
-  copyright (C) 2012 Tim Orford <tim@orford.org>
+  copyright (C) 2012-2014 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -30,11 +30,18 @@
 #include <getopt.h>
 #include <sndfile.h>
 #include "cpgrs.h"
+//#include "waveform/wf_private.h" needs gtk
 
 #define MONO 1
 
+#define G_N_ELEMENTS(arr)		(sizeof (arr) / sizeof ((arr)[0]))
+
 #define TEX_BORDER 0
-#define WF_SAMPLES_PER_TEXTURE (256 * 256 - TEX_BORDER)   //dupe of private def in actor.c
+#ifndef __wf_private_h__
+#  define WF_PEAK_TEXTURE_SIZE 256
+#  define WF_PEAK_RATIO 256
+#  define WF_SAMPLES_PER_TEXTURE (WF_PEAK_RATIO * (WF_PEAK_TEXTURE_SIZE - 2 * TEX_BORDER)) //dupe of private def in actor.c
+#endif
 #define LONG_SECTION  (WF_SAMPLES_PER_TEXTURE / 4)
 #define SHORT_SECTION (WF_SAMPLES_PER_TEXTURE / 4)
 
@@ -54,9 +61,41 @@ print_help ()
 	     "  -v, --version                    Show version information\n"
 	     "  -h, --help                       Print this message\n"
 	     "  -d, --debug     level            Output debug info to stdout\n"
-		);
+	);
 	return EXIT_FAILURE;
 }
+
+
+class Note
+{
+  public:
+	int        length;
+	Generator* generator;
+
+	Note (Generator* g, int _length)
+	{
+		generator = g;
+		length = _length;
+		t = 0;
+
+		generator->init();
+		generator->on = true;
+	}
+
+	~Note()
+	{
+	}
+
+	void compute (int count, double** input, double** output)
+	{
+		generator->compute(count, input, output);
+
+		if(++t > length) generator->on = false;
+	}
+
+  private:
+	int t;
+};
 
 
 class Pink
@@ -88,7 +127,7 @@ class Pink
 Pink pink;
 
 
-class Noise
+class Noise : public Generator
 {
 	int iRec0[2];
 
@@ -117,11 +156,12 @@ class Noise
 Noise noise;
 
 
-class KPS
+class KPS : public Generator
 {
   public:
-	double resonator_attenuation; // resonator attenuation
-	double fslider1;              // excitation (samples) ?
+	                              // how to set frequency ?
+	double resonator_attenuation;
+	double excitation;
 	double fslider3;              // duration (samples) ?
 	double gain;                  // output level
 
@@ -136,10 +176,10 @@ class KPS
   public:
 	void init()
 	{
-		resonator_attenuation = 0.1; // resonator attenuation
-		fslider1 = 128.0;            // excitation (samples) ?
-		fslider3 = 128.0;            // duration (samples) ?
-		gain     = 1.0;              // output level
+		resonator_attenuation = 0.1;
+		excitation = 128.0;
+		fslider3 = 128.0;
+		gain     = 1.0;
 
 		IOTA = 0;
 		fRec0[1] = 0;
@@ -155,7 +195,7 @@ class KPS
 	void compute (int count, double** input, double** output)
 	{
 		float fSlow0 = (0.5f * (1.0f - resonator_attenuation));
-		float fSlow1 = (1.0f / fslider1);
+		float fSlow1 = (1.0f / excitation);
 		float fSlow2 = 1.0;// on/off
 		float fSlow3 = (4.656612875245797e-10f * gain);
 		int   iSlow4 = (int)((int)(fslider3 - 1.5) & 4095);
@@ -304,41 +344,22 @@ int main(int argc, char* argv[])
 
 	//---
 
-	float aa[2];
-	float* output_f[] = {&aa[0], &aa[1]};
-
-	cpgrs.init();
-	for(int a=0;a<LONG_SECTION;a++){
-		int c; for(c=0;c<n_channels;c++){
-			output[c] = buffer + ff * n_channels + a * n_channels + c;
-		}
-		float* output_f[] = {(float*)&output[0][0], (float*)&output[0][1]};
-		cpgrs.compute(n_channels, (float**)input, (float**)output_f);
-	}
-	ff += LONG_SECTION;
-	cpgrs.release = 0.01; // <----
-	for(int a=0;a<16384;a++){
-		int c; for(c=0;c<n_channels;c++){
-			output[c] = buffer + ff * n_channels + a * n_channels + c;
-		}
-		cpgrs.compute(n_channels, (float**)input, (float**)output_f);
-		for(c=0;c<n_channels;c++){
-			output[0][c] = output_f[0][c];
+	float freq_  [6] = {4.4e+02f, 4.4e+02f, 4.4e+02f, 4.4e+02f, 100.0f, 100.0f};
+	float release[6] = {0.2f, 0.2f, 0.01, 0.01, 0.01, 0.01};
+	for(int i=0;i<6;i++){
+		{
+			Note note(&cpgrs, 4096);
+			cpgrs.release = release[i];
+			cpgrs.freq = freq_[i];
+			for(int a=0;a<LONG_SECTION/2;a++){
+				int c; for(c=0;c<n_channels;c++){
+					output[c] = buffer + ff * n_channels + a * n_channels + c;
+				}
+				note.compute(n_channels, (double**)input, (double**)output);
+			}
+			ff += LONG_SECTION / 2;
 		}
 	}
-	ff += LONG_SECTION;
-	cpgrs.release = 0.01;  // <----
-	cpgrs.freq = 100.0;    // lower freq
-	for(int a=0;a<LONG_SECTION;a++){
-		int c; for(c=0;c<n_channels;c++){
-			output[c] = buffer + ff * n_channels + a * n_channels + c;
-		}
-		cpgrs.compute(n_channels, (float**)input, (float**)output_f);
-		for(c=0;c<n_channels;c++){
-			output[0][c] = output_f[0][c];
-		}
-	}
-	ff += LONG_SECTION;
 
 	impulse.init();
 	for(int a=0;a<SHORT_SECTION;a++){
@@ -349,18 +370,22 @@ int main(int argc, char* argv[])
 	}
 	ff += SHORT_SECTION;
 
-	cpgrs.release = 0.01; // <----
-	cpgrs.freq = 2.0;     // low freq
-	for(int a=0;a<LONG_SECTION;a++){
-		int c; for(c=0;c<n_channels;c++){
-			output[c] = buffer + ff * n_channels + a * n_channels + c;
-		}
-		cpgrs.compute(n_channels, (float**)input, (float**)output_f);
-		for(c=0;c<n_channels;c++){
-			output[0][c] = output_f[0][c];
+	for(int i=0;i<2;i++){
+		{
+			Note note(&cpgrs, 4096);
+			cpgrs.release = 0.01; // <----
+			cpgrs.freq = 2.0;     // low freq
+			for(int a=0;a<LONG_SECTION/2;a++){
+				int c; for(c=0;c<n_channels;c++){
+					output[c] = buffer + ff * n_channels + a * n_channels + c;
+				}
+				note.compute(n_channels, (double**)input, (double**)output);
+			}
+			ff += LONG_SECTION / 2;
 		}
 	}
-	ff += LONG_SECTION;
+	Note* note = 0;
+	note = new Note(&cpgrs, 4096);
 	cpgrs.freq = 440.0;
 	cpgrs.attack = 1.0f; // <----
 	cpgrs.release = 1.0f; // <----
@@ -369,13 +394,12 @@ int main(int argc, char* argv[])
 		int c; for(c=0;c<n_channels;c++){
 			output[c] = buffer + ff * n_channels + a * n_channels + c;
 		}
-		cpgrs.compute(n_channels, (float**)input, (float**)output_f);
-		for(c=0;c<n_channels;c++){
-			output[0][c] = output_f[0][c];
-		}
+		note->compute(n_channels, (double**)input, (double**)output);
 	}
+	delete note;
 	ff += LONG_SECTION;
 
+	note = new Note(&cpgrs, 4096);
 	cpgrs.freq = 2000.0;
 	cpgrs.attack = 1.0f; // <----
 	cpgrs.release = 1.0f; // <----
@@ -384,10 +408,7 @@ int main(int argc, char* argv[])
 		int c; for(c=0;c<n_channels;c++){
 			output[c] = buffer + ff * n_channels + a * n_channels + c;
 		}
-		cpgrs.compute(n_channels, (float**)input, (float**)output_f);
-		for(c=0;c<n_channels;c++){
-			output[0][c] = output_f[0][c];
-		}
+		note->compute(n_channels, (double**)input, (double**)output);
 	}
 	ff += LONG_SECTION;
 
@@ -502,6 +523,89 @@ int main(int argc, char* argv[])
 	}
 	ff += 8192;
 
+	//---------------------------------------------
+
+	cpgrs.release = 0.0001; // v short
+	cpgrs.on = false;
+
+	int track[][8] = {
+		{1, 0, 0, 0, 0, 0, 0, 0},
+		{1, 0, 1, 0, 1, 0, 1, 0},
+		{1, 1, 1, 1, 1, 1, 1, 1},
+		{0, 0, 1, 0, 0, 1, 0, 0},
+	};
+
+	KPS kps2;
+	Generator* g[] = {&kps, &kps2, &noise, &cpgrs};
+
+	for(unsigned s=0;s<G_N_ELEMENTS(track[0]);s++){
+		for(unsigned t=0;t<G_N_ELEMENTS(track);t++){
+			if(track[t][s]){
+				g[t]->init();
+				if(t == 3) note = new Note(&cpgrs, 2048);
+			}
+		}
+
+		//excitation = 128.0;
+		//fslider3 = 128.0;               // duration
+		kps.resonator_attenuation = 0.01; // long
+		kps.gain = 0.5;
+
+		kps2.gain = 0.5;
+		kps2.fslider3 = 128.0;
+
+		noise.gain = 0.5;
+
+		cpgrs.freq = 440.0;
+		cpgrs.attack = 2.0f;
+		cpgrs.gain = 32.0;
+		cpgrs.release = 10.0; // time not speed
+
+		double _output[G_N_ELEMENTS(track)][n_channels];
+		double* output[G_N_ELEMENTS(track)][n_channels];
+
+		for(int c=0;c<n_channels;c++){
+			for(unsigned t=0;t<G_N_ELEMENTS(track);t++){
+				output[t][c] = &_output[t][c];
+			}
+		}
+
+		for(a=0;a<8192;a++){
+			noise.gain *= 0.99; // envelope
+			for(unsigned t=0;t<G_N_ELEMENTS(track);t++){
+				if(t != 3)
+					g[t]->compute(n_channels, (double**)input, (double**)output[t]);
+				else{
+					if(note) note->compute(n_channels, (double**)input, (double**)output[t]);
+				}
+			}
+
+			int c; for(c=0;c<n_channels;c++){
+				*(buffer + (ff + a) * n_channels + c) = 0;
+				for(unsigned t=0;t<G_N_ELEMENTS(track);t++){
+					*(buffer + (ff + a) * n_channels + c) += *(output[t][c]);
+				}
+			}
+		}
+		ff += 8192;
+	}
+
+	//---------------------------------------------
+
+	for(int s=0;s<8;s++){
+		kps.init();
+		kps.gain = 0.8;
+		//kps.excitation = 64 + 32 * s;
+		kps.resonator_attenuation = 0.025 + 0.025 * s;
+		for(a=0;a<4096;a++){
+			int c; for(c=0;c<n_channels;c++){
+				output[c] = buffer + (ff + a) * n_channels + c;
+			}
+			kps.compute(n_channels, (double**)input, (double**)output);
+		}
+		ff += 4096;
+	}
+
 	//------------------- save --------------------
 
 	SF_INFO info = {
@@ -539,24 +643,5 @@ void
 compute_sinewave(double* buf, int n_frames)
 {
 }
-
-
-#if 0
-void
-Xcompute_noise(int count, double** input, double** output)
-{
-	static float fcheckbox0 = 0.0;
-
-	double fSlow0 = (4.656612875245797e-10f * fcheckbox0);
-	double* input0 = input[0];
-	double* input1 = input[1];
-	//float* output0 = output[0];
-	double* output0 = output;
-	int i; for (i=0; i<count; i++) {
-		//output0[i] = (float)(fSlow0 * ((12345 + (float)input0[i]) - (1103515245 * (float)input1[i])));
-		output0[i] = (float)(fSlow0 * ((12345 + (float)1.0) - (1103515245 * (float)1.0)));
-	}
-}
-#endif
 
 

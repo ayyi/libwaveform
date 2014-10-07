@@ -44,6 +44,7 @@ void
 CPGRS::init()
 {
 	t = 0;
+	on = true;
 
 	gain    = 8.0;
 	sustain = 0.5f;
@@ -65,9 +66,9 @@ CPGRS::init()
 }
 
 void
-CPGRS::compute (int count, float** input, float** output)
+CPGRS::compute (int count, double** input, double** output)
 {
-	if(!(t % 4096)) on_off_button = !on_off_button;
+	on_off_button = on == 1.0;
 
 	float   fSlow0 = expf((0 - (fConst0 * filter_bandwidth)));
 	float   fSlow1 = (2 * cosf((fConst1 * freq)));
@@ -82,18 +83,17 @@ CPGRS::compute (int count, float** input, float** output)
 	float   fSlow10 = (1 - powf(fSlow6,(1.0f / ((fSlow9 == 0.0f) + (fSamplingFreq * fSlow9)))));
 	float   fSlow11 = attack;
 	float   fSlow12 = (1.0f / ((fSlow11 == 0.0f) + (fSamplingFreq * fSlow11)));
-	float   fSlow13 = (4.656612875245797e-10f * gain);
+	float   fgain = (4.656612875245797e-10f * gain);
 	float   fSlow14 = (0.5f * (1 - faustpower<2>(fSlow0)));
-	float*  output0 = output[0];
 	for (int i=0; i<count; i++) {
 		iRec1[0] = (iSlow3 & (iRec1[1] | (fRec2[1] >= 1)));
 		int iTemp0 = (iSlow4 & (fRec2[1] > 0));
 		fRec2[0] = (((iTemp0 == 0) | (fRec2[1] >= 1e-06f)) * ((fSlow12 * (((iRec1[1] == 0) & iSlow3) & (fRec2[1] < 1))) + (fRec2[1] * ((1 - (fSlow10 * (iRec1[1] & (fRec2[1] > fSlow5)))) - (fSlow8 * iTemp0)))));
 		iRec3[0] = (12345 + (1103515245 * iRec3[1]));
-		float fTemp1 = (fSlow13 * (iRec3[0] * fRec2[0]));
+		float fTemp1 = (fgain * (iRec3[0] * fRec2[0]));
 		fVec0[0] = fTemp1;
 		fRec0[0] = ((fSlow14 * (fVec0[0] - fVec0[2])) + (fSlow0 * ((fSlow1 * fRec0[1]) - (fSlow0 * fRec0[2]))));
-		output0[i] = (float)fRec0[0];
+		output[0][i] = (double)fRec0[0];
 
 		// post processing
 		fRec0[2] = fRec0[1]; fRec0[1] = fRec0[0];

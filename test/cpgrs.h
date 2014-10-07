@@ -1,5 +1,15 @@
 
-class CPGRS
+class Generator
+{
+  public:
+	virtual void init    () = 0;
+	virtual void compute (int count, double** input, double** output) = 0;
+
+	float on;
+};
+
+
+class CPGRS : public Generator
 {
   public:
 	float     gain;          // gain
@@ -26,5 +36,5 @@ class CPGRS
   public:
 
 	void init    ();
-	void compute (int count, float** input, float** output);
+	void compute (int count, double** input, double** output);
 };
