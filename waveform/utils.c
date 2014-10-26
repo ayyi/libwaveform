@@ -20,7 +20,7 @@
   It displays an audio waveform represented by a Waveform object.
 
 */
-#define __utils_c__
+#define __wf_utils_c__
 #define __wf_private__
 #include "config.h"
 #include <stdio.h>

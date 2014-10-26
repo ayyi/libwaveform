@@ -228,7 +228,7 @@ ng_gl2_load_block(Renderer* renderer, WaveformActor* actor, int b)
 #if WF_DEBUG
 	{
 		HiResNGWaveform* data1 = g_hash_table_lookup(((NGRenderer*)renderer)->ng_data, waveform);
-		if((*data) != data1) gwarn("%i: hash=%p wav=%p (hi=%i)", b, *data, data1, renderer->mode == MODE_HI);
+		if((*data) != data1) gwarn("%i: wav=%p hash=%p %s", b, *data, data1, modes[renderer->mode].name);
 		g_return_if_fail((*data) == data1);
 	}
 #endif

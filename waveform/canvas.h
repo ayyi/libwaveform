@@ -1,5 +1,5 @@
 /*
-  copyright (C) 2012-2013 Tim Orford <tim@orford.org>
+  copyright (C) 2012-2014 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -16,6 +16,7 @@
 */
 #ifndef __waveform_canvas_h__
 #define __waveform_canvas_h__
+#include "config.h"
 #include <glib.h>
 #include <glib-object.h>
 #include "waveform/typedefs.h"
@@ -51,7 +52,6 @@ struct _waveform_canvas {
 	WfCanvasPriv*  priv;
 	int           _draw_depth;
 	guint         _queued;
-	guint64       _last_redraw_time;
 	AGlTextureUnit* texture_unit[4];
 };
 
@@ -66,10 +66,13 @@ struct _wf_canvas_priv {
 		HiResNGShader*  hires_ng;
 		BloomShader*    vertical;
 		BloomShader*    horizontal;
-		AlphaMapShader* tex2d;
 		RulerShader*    ruler;
 		LinesShader*    lines;
 	}              shaders;
+#ifdef USE_FRAME_CLOCK
+	guint64       _last_redraw_time;
+	bool          is_animating;
+#endif
 };
 #endif
 

@@ -350,13 +350,16 @@ waveform_load_peak(Waveform* w, const char* peak_file, int ch_num)
 		g_free0(_w->peak.buf[ch_num]);
 	}
 
-	int n_channels = wf->load_peak(w, peak_file);
+	/*int n_channels = */wf->load_peak(w, peak_file);
 
 	if(ch_num) w->n_channels = MAX(w->n_channels, ch_num + 1); // for split stereo files
 
 	_w->num_peaks = _w->peak.size / WF_PEAK_VALUES_PER_SAMPLE;
 	_w->n_blocks = _w->num_peaks / WF_TEXTURE_VISIBLE_SIZE + ((_w->num_peaks % WF_TEXTURE_VISIBLE_SIZE) ? 1 : 0);
 	dbg(1, "ch=%i num_peaks=%i", ch_num, _w->num_peaks);
+
+	// dont initialise until needed. gl init may not yet have run.
+#if 0
 	if(!_w->render_data[MODE_MED]){
 		if(!agl_get_instance()->use_shaders) _w->render_data[MODE_MED] = (WaveformModeRender*)wf_texture_array_new(_w->n_blocks, (ch_num == 1 || n_channels == 2) ? 2 : 1);
 #ifdef WF_SHOW_RMS
@@ -370,7 +373,7 @@ waveform_load_peak(Waveform* w, const char* peak_file, int ch_num)
 	}else{
 		if(ch_num) wf_texture_array_add_ch((WfGlBlock*)_w->render_data[MODE_MED], WF_RIGHT);
 	}
-	//waveform_print_blocks(w);
+#endif
 
 	return !!w->priv->peak.buf[ch_num];
 }

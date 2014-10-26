@@ -95,8 +95,6 @@ static AGlUniformInfo uniforms3[] = {
 };
 BloomShader vertical = {{NULL, NULL, 0, uniforms3, _vertical_set_uniforms, &vertical_text}};
 
-extern AlphaMapShader tex2d;
-
 static AGlUniformInfo uniforms6[] = {
    {"tex2d",     1, GL_INT,   { 0, 0, 0, 0 }, -1},
    END_OF_UNIFORMS

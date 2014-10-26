@@ -17,7 +17,7 @@
 #ifndef __waveform_utils_h__
 #define __waveform_utils_h__
 #include "stdint.h"
-#ifndef __utils_c__
+#ifndef __wf_utils_c__
 extern int wf_debug;
 #endif
 

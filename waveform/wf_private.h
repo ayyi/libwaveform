@@ -197,7 +197,7 @@ typedef struct _peak_sample
 
 typedef struct _wf_drect { double x1, y1, x2, y2; } WfDRect;
 
-#ifdef __utils_c__
+#ifdef __wf_utils_c__
 char wf_bold     [16] = "\x1b[1;39m";
 char wf_white    [16] = "\x1b[0;39m";
 #else

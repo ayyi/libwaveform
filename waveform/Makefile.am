@@ -10,7 +10,6 @@ AM_CFLAGS = \
 	-DPACKAGE_DATA_DIR=\""$(datadir)"\" \
 	-I$(includedir) \
 	-I$(top_srcdir) \
-	-I$(top_srcdir)/src \
 	$(GTK_CFLAGS) \
 	$(LIBASS_CFLAGS) \
 	$(OPENGL_CFLAGS)
@@ -48,8 +47,7 @@ EXTRA_DIST = \
 	hi_res.c \
 	hi_res_gl2.c \
 	v_hi_res.c \
-	v_low_res.c \
-	view_plus_gl.c
+	v_low_res.c
 
 pkgincludedir=$(includedir)/waveform
 pkginclude_HEADERS = \

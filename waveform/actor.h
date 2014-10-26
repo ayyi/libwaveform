@@ -17,7 +17,7 @@
 #ifndef __waveform_actor_h__
 #define __waveform_actor_h__
 #include <gtk/gtkgl.h>
-#include "transition/animator.h"
+#include "transition/transition.h"
 #include "canvas.h"
 #include "peak.h"
 
@@ -47,6 +47,7 @@ void            wf_actor_set_region                       (WaveformActor*, WfSam
 void            wf_actor_set_colour                       (WaveformActor*, uint32_t fg_colour, uint32_t bg_colour);
 void            wf_actor_allocate                         (WaveformActor*, WfRectangle*);
 void            wf_actor_set_z                            (WaveformActor*, float);
+void            wf_actor_set_full                         (WaveformActor*, WfSampleRegion*, WfRectangle*, int time, WaveformActorFn, gpointer);
 void            wf_actor_fade_out                         (WaveformActor*, WaveformActorFn, gpointer);
 void            wf_actor_fade_in                          (WaveformActor*, void* /*WfAnimatable* */, float, WaveformActorFn, gpointer);
 void            wf_actor_set_vzoom                        (WaveformActor*, float);

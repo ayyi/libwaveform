@@ -17,21 +17,38 @@
 #ifndef __wf_animator_h__
 #define __wf_animator_h__
 
-
+#ifndef USE_FRAME_CLOCK
 #define WF_FRAME_INTERVAL ((uint64_t)40)
+#endif
+
+typedef struct
+{
+   int length;
+}
+WfTransitionGlobal;
+#ifndef __wf_transition_c__
+extern WfTransitionGlobal wf_transition;
+#endif
 
 typedef enum {WF_INT, WF_INT64, WF_FLOAT} WfPropType;
 
 typedef union {
    uint32_t  i;
+   int64_t   b;
    float     f;
 } UVal;
+
+typedef union {
+   uint32_t* i;
+   int64_t*  b;
+   float*    f;
+} UValp;
 
 typedef struct _animatable_property
 {
 	UVal  val;
 	UVal  start_val;
-	union {uint32_t* i; float* f;} model_val; // target (end) value
+	UValp model_val; // target (end) value
 	//union {uint32_t* i; float* f;} min;
 	WfPropType type;
 #ifdef WF_DEBUG
@@ -61,7 +78,9 @@ struct _animation
    uint32_t    (*frame_i)  (WfAnimation*, WfAnimatable*, int time); // easing fn
    float       (*frame_f)  (WfAnimation*, WfAnimatable*, int time); // easing fn
    GList*      members;                                             // list of WfAnimActor*  -- subject to change
+//#ifndef USE_FRAME_CLOCK
    guint       timer;
+//#endif
    AnimationFrameFn on_frame;                                       // caller can run redraw fn.
    AnimationFn on_finish;                                           // caller can free stuff in this callback
    gpointer    user_data;

@@ -55,18 +55,18 @@ GLenum _wf_ge = 0;
 
 static gboolean font_is_scalable(PangoContext*, const char* font_name);
 
-static void  _alphamap_set_uniforms    ();
+static void  _alphamap_set_uniforms();
 static AGlUniformInfo uniforms[] = {
    {"tex2d", 1, GL_INT, {TEXTURE_UNIT, 0, 0, 0}, -1},
    END_OF_UNIFORMS
 };
-AlphaMapShader tex2d = {{NULL, NULL, 0, uniforms, _alphamap_set_uniforms, &alpha_map_text}};
+AlphaMapShader alphamap = {{NULL, NULL, 0, uniforms, _alphamap_set_uniforms, &alpha_map_text}};
 static void
 _alphamap_set_uniforms()
 {
-	float fg_colour[4] = {0.0, 0.0, 0.0, ((float)(tex2d.uniform.fg_colour & 0xff)) / 0x100};
-	agl_rgba_to_float(tex2d.uniform.fg_colour, &fg_colour[0], &fg_colour[1], &fg_colour[2]);
-	glUniform4fv(glGetUniformLocation(tex2d.shader.program, "fg_colour"), 1, fg_colour);
+	float fg_colour[4] = {0.0, 0.0, 0.0, ((float)(alphamap.uniform.fg_colour & 0xff)) / 0x100};
+	agl_rgba_to_float(alphamap.uniform.fg_colour, &fg_colour[0], &fg_colour[1], &fg_colour[2]);
+	glUniform4fv(glGetUniformLocation(alphamap.shader.program, "fg_colour"), 1, fg_colour);
 }
 
 //plain 2d texture
@@ -104,6 +104,7 @@ agl_get_instance()
 		agl = g_new0(AGl, 1);
 		agl->pref_use_shaders = TRUE;
 		agl->use_shaders = FALSE;        // not set until we an have active gl context based on the value of pref_use_shaders.
+		agl->shaders.alphamap = &alphamap;
 		agl->shaders.texture = &tex2d_b;
 		agl->shaders.plain = &plain;
 	}
@@ -193,6 +194,12 @@ agl_shaders_supported()
 	}
 
 	if (version[0] == '2' && version[1] == '.') {
+
+		// some hardware cannot support shaders and software fallbacks are too slow
+		if(g_strrstr((char*)glGetString(GL_RENDERER), "Intel") && g_strrstr((char*)glGetString(GL_RENDERER), "945")){
+			goto no_shaders;
+		}
+
 		agl->use_shaders = TRUE;
 		return GL_TRUE;
 	}
@@ -207,6 +214,7 @@ agl_shaders_supported()
 	}
 #endif
 
+  no_shaders:
 	agl->use_shaders = FALSE;
 	return GL_FALSE;
 }
@@ -221,13 +229,11 @@ agl_shaders_init()
 	static gboolean done = FALSE;
 	if(done++) return;
 
-	agl_create_program(&tex2d.shader);
+	agl_create_program(&alphamap.shader);
 	agl_create_program(&tex2d_b.shader);
 	agl_create_program(&plain.shader);
 
-	agl->shaders.text = &tex2d;
-
-	dbg(2, "text_shader=%i", tex2d.shader.program);
+	agl->shaders.text = &alphamap;
 }
 
 
@@ -410,6 +416,32 @@ agl_textured_rect(guint texture, float x, float y, float w, float h, AGlQuad* _t
 	glTexCoord2d(t.x1, t.y0); glVertex2d(x + w, y);
 	glTexCoord2d(t.x1, t.y1); glVertex2d(x + w, y + h);
 	glTexCoord2d(t.x0, t.y1); glVertex2d(x,     y + h);
+	glEnd();
+}
+
+
+// TODO api to be reviewed (see similar fn above)
+void
+agl_texture_box(guint texture, uint32_t colour, double x, double y, double width, double height)
+{
+	if(agl->use_shaders){
+		agl->shaders.texture->uniform.fg_colour = colour;
+		agl_use_program((AGlShader*)agl->shaders.texture);
+	}else{
+		glColor4f(1.0, 1.0, 1.0, 1.0);
+	}
+
+	agl_use_texture(texture);
+
+	glBegin(GL_QUADS);
+	double top = y;
+	double bot = y + height;
+	double x1 = x;
+	double x2 = x + width;
+	glTexCoord2d(1.0, 1.0); glVertex2d(x1, top);
+	glTexCoord2d(0.0, 1.0); glVertex2d(x2, top);
+	glTexCoord2d(0.0, 0.0); glVertex2d(x2, bot);
+	glTexCoord2d(1.0, 0.0); glVertex2d(x1, bot);
 	glEnd();
 }
 

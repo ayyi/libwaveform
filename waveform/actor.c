@@ -62,7 +62,7 @@
 #include <gtkglext-1.0/gdk/gdkgl.h>
 #include <gtkglext-1.0/gtk/gtkgl.h>
 #include "agl/ext.h"
-#include "transition/animator.h"
+#include "transition/transition.h"
 #include "waveform/typedefs.h"
 #include "waveform/utils.h"
 #include "waveform/gl_utils.h"
@@ -247,7 +247,6 @@ static int    wf_actor_get_n_blocks          (Waveform*, Mode);
 #include "waveform/v_low_res.c"
 
 static void   wf_actor_canvas_finalize_notify(gpointer, GObject*);
-static void   wf_actor_init_transition       (WaveformActor*, WfAnimatable*);
 static void   wf_actor_start_transition      (WaveformActor*, GList* /* WfAnimatable* */, AnimationFn, gpointer);
 static void   wf_actor_on_animation_finished (WfAnimation*, gpointer);
 static void  _wf_actor_load_missing_blocks   (WaveformActor*);
@@ -507,6 +506,116 @@ wf_actor_set_colour(WaveformActor* a, uint32_t fg_colour, uint32_t bg_colour)
 
 	_a->opacity = ((float)(fg_colour & 0xff)) / 0x100;
 	_a->animatable.opacity.val.f = _a->opacity;
+}
+
+
+void
+wf_actor_set_full(WaveformActor* a, WfSampleRegion* region, WfRectangle* rect, int transition_time, WaveformActorFn callback, gpointer user_data)
+{
+	PF0;
+
+	g_return_if_fail(a);
+	WfActorPriv* _a = a->priv;
+	GList* animatables = NULL;
+
+	gboolean is_new = a->rect.len == 0.0;
+	//FIXME this definition is different to below
+	gboolean animate = a->canvas->draw && a->canvas->enable_animations && !is_new;
+
+	if(region){
+		dbg(1, "region_start=%Lu region_end=%Lu wave_end=%Lu", region->start, (uint64_t)(region->start + region->len), waveform_get_n_frames(a->waveform));
+		if(!region->len){ gwarn("invalid region: len not set"); return; }
+		if(region->start + region->len > waveform_get_n_frames(a->waveform)){ gwarn("invalid region: too long: %Lu len=%u n_frames=%Lu", region->start, region->len, waveform_get_n_frames(a->waveform)); return; }
+
+		WfAnimatable* a1 = &_a->animatable.start;
+		WfAnimatable* a2 = &_a->animatable.len;
+
+		if(a->region.len < 2){
+			a->region.len = a2->val.i = region->len; //dont animate on initial region set.
+		}
+
+		bool start = (region->start != a->region.start);
+		bool end   = (region->len   != a->region.len);
+
+		a->region = *region;
+
+		if(start || end){
+						// TODO too early - set rect first.
+			if(a->rect.len > 0.00001) _wf_actor_load_missing_blocks(a); // this loads _current_ values, future values are loaded by the animator preview
+
+			if(!a->canvas->draw || !a->canvas->enable_animations){
+				// no animations
+				a1->val.i = MAX(1, a->region.start);
+				a2->val.i = MAX(1, a->region.len);
+
+				_a->render_info.valid = false;
+				if(a->canvas->draw) wf_canvas_queue_redraw(a->canvas);
+
+			}else{
+				animatables = start ? g_list_append(NULL, a1) : NULL;
+				animatables = end   ? g_list_append(animatables, a2) : animatables;
+			}
+		}
+	}
+
+	if(rect && !(rect->len == a->rect.len && rect->left == a->rect.left && rect->height == a->rect.height && rect->top == a->rect.top)){
+
+		_a->render_info.valid = false;
+
+		WfAnimatable* a3 = &_a->animatable.rect_left;
+		WfAnimatable* a4 = &_a->animatable.rect_len;
+
+		rect->len = MAX(1, rect->len);
+
+		a->rect = *rect;
+
+		dbg(2, "rect: %.2f --> %.2f", rect->left, rect->left + rect->len);
+
+				// TODO move to bottom
+		if(!a->waveform->offline) _wf_actor_load_missing_blocks(a);
+		//TODO if offline, try and load from existing peakfile.
+
+		if(animate){
+			if(a3->start_val.f != *a3->model_val.f) animatables = g_list_prepend(animatables, a3);
+			if(a4->start_val.f != *a4->model_val.f) animatables = g_list_prepend(animatables, a4);
+
+		}else{
+			a3->val.f = rect->left;
+			_a->animatable.rect_left.start_val.f = rect->left;
+			_a->animatable.rect_len.val.f = rect->len;
+			_a->animatable.rect_len.start_val.f = rect->len;
+
+			if(a->canvas->draw) wf_canvas_queue_redraw(a->canvas);
+		}
+	}
+
+											// TODO change sig of wf_actor_start_transition - all users just forward to original caller.
+	typedef struct {
+		WaveformActor*  actor;
+		WaveformActorFn callback;
+		gpointer        user_data;
+	} C;
+	C* c = g_new0(C, 1);
+	c->actor = a;
+	c->callback = callback;
+	c->user_data = user_data;
+
+	void _on_animation_finished(WfAnimation* animation, gpointer user_data)
+	{
+		PF0;
+		g_return_if_fail(user_data);
+		g_return_if_fail(animation);
+		C* c = user_data;
+		if(c->callback) c->callback(c->actor, c->user_data);
+		g_free(c);
+	}
+
+	int len = wf_transition.length;
+	wf_transition.length = transition_time;
+
+	wf_actor_start_transition(a, animatables, _on_animation_finished, c);
+
+	wf_transition.length = len;
 }
 
 
@@ -771,6 +880,10 @@ wf_actor_on_animation_finished(WfAnimation* animation, gpointer user_data)
 	int l = g_list_length(_a->transitions);
 	_a->transitions = g_list_remove(_a->transitions, animation);
 	if(g_list_length(_a->transitions) != l - 1) gwarn("animation not removed. len=%i-->%i", l, g_list_length(_a->transitions));
+
+#ifdef USE_FRAME_CLOCK
+	if(!_a->transitions) actor->canvas->priv->is_animating = false;
+#endif
 }
 
 
@@ -1046,19 +1159,22 @@ wf_actor_allocate(WaveformActor* a, WfRectangle* rect)
 {
 	g_return_if_fail(a);
 	g_return_if_fail(rect);
+	rect->len = MAX(1, rect->len);
 	WfActorPriv* _a = a->priv;
 
 	if(rect->len == a->rect.len && rect->left == a->rect.left && rect->height == a->rect.height && rect->top == a->rect.top) return;
 
 	_a->render_info.valid = false;
 
+	WfAnimatable* a1 = &_a->animatable.rect_left;
+	WfAnimatable* a2 = &_a->animatable.rect_len;
+
+#if 0 // no, is done by the animator
+	a1->start_val.f = a->rect.left;
+	a2->start_val.f = MAX(1, a->rect.len);
+#endif
+
 	gboolean is_new = a->rect.len == 0.0;
-
-	//_a->animatable.start.start_val.i = a->region.start;
-	//_a->animatable.len.start_val.i = MAX(1, a->region.len);
-	_a->animatable.rect_left.start_val.f = a->rect.left;
-	_a->animatable.rect_len.start_val.f = MAX(1, a->rect.len);
-
 	gboolean animate = a->canvas->draw && a->canvas->enable_animations && !is_new;
 
 	a->rect = *rect;
@@ -1068,24 +1184,25 @@ wf_actor_allocate(WaveformActor* a, WfRectangle* rect)
 	if(!a->waveform->offline) _wf_actor_load_missing_blocks(a);
 	//TODO if offline, try and load from existing peakfile.
 
-	GList* animatables = NULL;
-	if(_a->animatable.rect_left.start_val.f != *_a->animatable.rect_left.model_val.f) animatables = g_list_prepend(animatables, &_a->animatable.rect_left);
-	if(_a->animatable.rect_len.start_val.f != *_a->animatable.rect_len.model_val.f) animatables = g_list_prepend(animatables, &_a->animatable.rect_len);
-
 	if(animate){
-	#if 0
-		animatable->val.i = a->canvas->draw
-			? animatable->start_val.i
-			: *animatable->model_val.i;
-	#else
-		GList* l = animatables; //ownership is transferred to the WfAnimation.
-		for(;l;l=l->next){
-			wf_actor_init_transition(a, (WfAnimatable*)l->data); //TODO this fn needs refactoring - doesnt do much now
-		}
-	#endif
-		//				dbg(1, "%.2f --> %.2f", animatable->start_val.f, animatable->val.f);
+		GList* animatables = NULL; //ownership is transferred to the WfAnimation.
+		if(a1->start_val.f != *a1->model_val.f) animatables = g_list_prepend(animatables, a1);
+		if(_a->animatable.rect_len.start_val.f != *_a->animatable.rect_len.model_val.f) animatables = g_list_prepend(animatables, &_a->animatable.rect_len);
 
-		l = _a->transitions;
+#if 0
+		GList* l = animatables;
+		for(;l;l=l->next){
+			WfAnimatable* animatable = l->data;
+			animatable->val.i = a->canvas->draw
+				? animatable->start_val.i
+				: *animatable->model_val.i;
+		}
+#else
+		// not setting val. using existing value.
+#endif
+
+#if 0  // done in wf_actor_start_transition
+		GList* l = _a->transitions;
 		for(;l;l=l->next){
 			//only remove animatables we are replacing. others need to finish.
 			//****** except we start a new animation!
@@ -1093,11 +1210,6 @@ wf_actor_allocate(WaveformActor* a, WfRectangle* rect)
 			for(;k;k=k->next){
 				//dbg(0, "    l=%p l->data=%p", l, l->data);
 				if(wf_animation_remove_animatable((WfAnimation*)l->data, (WfAnimatable*)k->data)) break;
-				//dbg(0, "    a->transitions=%p", _a->transitions);
-				//if(!g_list_length(animation->members))
-				if(l->data != _a->transitions){
-					//break;
-				}
 			}
 		}
 
@@ -1106,28 +1218,13 @@ wf_actor_allocate(WaveformActor* a, WfRectangle* rect)
 			((WaveformActor*)animation->user_data)->priv->render_info.valid = false;
 			wf_canvas_queue_redraw(((WaveformActor*)animation->user_data)->canvas);
 		}
-
-		if(animatables){
-			WfAnimation* animation = wf_animation_add_new(wf_actor_on_animation_finished, a);
-			animation->on_frame = allocate_on_frame;
-#if 0
-			C* c = g_new0(C, 1);
-			c->animation = animation;
-			c->id = animation->id;
-			animation->timeout = g_timeout_add(1000, animation_timeout, c);
 #endif
-			_a->transitions = g_list_append(_a->transitions, animation);
-			wf_transition_add_member(animation, animatables);
-			wf_animation_start(animation);
-		}
-	}else{
-		//TODO this duplicates the function of wf_actor_init_transition.
-		_a->animatable.rect_len.val.f = rect->len;
-		_a->animatable.rect_len.start_val.f = rect->len;
-		_a->animatable.rect_left.val.f = rect->left;
-		_a->animatable.rect_left.start_val.f = rect->left;
+		if(animatables) wf_actor_start_transition(a, animatables, NULL, NULL);
 
-		if(animatables) g_list_free(animatables);
+	}else{
+		*a1->model_val.f = a1->val.f = a1->start_val.f = rect->left;
+		*a2->model_val.f = a2->val.f = a2->start_val.f = rect->len;
+
 		if(a->canvas->draw) wf_canvas_queue_redraw(a->canvas);
 	}
 }
@@ -1343,7 +1440,7 @@ set_renderer(WaveformActor* actor)
 	RenderInfo* r = &actor->priv->render_info;
 
 	Renderer* renderer = modes[r->mode].renderer;
-	dbg(1, "%s", modes[r->mode].name);
+	dbg(2, "%s", modes[r->mode].name);
 
 	return renderer;
 }
@@ -1483,7 +1580,7 @@ wf_actor_paint(WaveformActor* actor)
 
 		Mode m = r->mode;
 		while((m < N_MODES) && !render_block(modes[m].renderer, actor, b, is_first, is_last, x, m, &m_active)){
-			dbg(1, "%sfalling through...%s %s-->%s", "\x1b[1;33m", wf_white, modes[m].name, modes[m - 1].name);
+			dbg(1, "%i: %sfalling through...%s %s-->%s", b, "\x1b[1;33m", wf_white, modes[m].name, modes[m - 1].name);
 			// TODO pre_render not being set propery for MODE_HI due to use_shader settings.
 			m--;
 			if(m > N_MODES){
@@ -1734,20 +1831,11 @@ make_texture_data_hi(Waveform* w, int ch, IntBufHi* buf, int blocknum)
 }
 
 
-static void
-wf_actor_init_transition(WaveformActor* a, WfAnimatable* animatable)
-{
-	g_return_if_fail(a);
-
-	animatable->val.i = a->canvas->draw
-		? animatable->start_val.i
-		: *animatable->model_val.i;
-}
-
-
 /*
  *   Set initial values of animatables and start the transition.
- *   The start_val of each animatable must be set by the caller. <--- no, it should be set when the animatable is created, after which it is maintained by the animator.
+ *
+ *   The 'val' of each animatable is assumed to be already set. 'start_val' will be set here.
+ *
  *   If the actor has any other transitions using the same animatable, these animatables
  *   are removed from that transition.
  *
@@ -1756,23 +1844,22 @@ wf_actor_init_transition(WaveformActor* a, WfAnimatable* animatable)
 static void
 wf_actor_start_transition(WaveformActor* a, GList* animatables, AnimationFn done, gpointer user_data)
 {
+	// TODO handle the case here where animating is disabled.
+
 	g_return_if_fail(a);
 	WfActorPriv* _a = a->priv;
-
-	// set initial value
-#if 0
-	GList* l = animatables;
-	for(;l;l=l->next){
-		WfAnimatable* animatable = l->data;
-		animatable->val.i = a->canvas->draw && a->canvas->enable_animations
-			? animatable->start_val.i
-			: *animatable->model_val.i;
-	}
-#endif
 
 	if(!a->canvas->enable_animations || !a->canvas->draw){ //if we cannot initiate painting we cannot animate.
 		g_list_free(animatables);
 		return;
+	}
+
+	// set initial value
+	GList* l = animatables;
+	for(;l;l=l->next){
+		WfAnimatable* animatable = l->data;
+		//animatable->val.i = ((WfAnimatable*)l->data)->start_val.i
+		animatable->start_val.b = animatable->val.b;
 	}
 
 	typedef struct {
@@ -1781,9 +1868,11 @@ wf_actor_start_transition(WaveformActor* a, GList* animatables, AnimationFn done
 		gpointer       user_data;
 	} C;
 	C* c = g_new0(C, 1);
-	c->actor = a;
-	c->done = done;
-	c->user_data = user_data;
+	*c = (C){
+		.actor = a,
+		.done = done,
+		.user_data = user_data
+	};
 
 	void on_frame(WfAnimation* animation, int time)
 	{
@@ -1804,9 +1893,9 @@ wf_actor_start_transition(WaveformActor* a, GList* animatables, AnimationFn done
 		g_free(c);
 	}
 
-	GList* l = _a->transitions;
+	l = _a->transitions;
 	for(;l;l=l->next){
-		//only remove animatables we are replacing. others need to finish.
+		// remove animatables we are replacing. let others finish.
 		GList* k = animatables;
 		for(;k;k=k->next){
 			if(wf_animation_remove_animatable((WfAnimation*)l->data, (WfAnimatable*)k->data)) break;
@@ -1819,6 +1908,9 @@ wf_actor_start_transition(WaveformActor* a, GList* animatables, AnimationFn done
 		_a->transitions = g_list_append(_a->transitions, animation);
 		wf_transition_add_member(animation, animatables);
 		wf_animation_start(animation);
+#ifdef USE_FRAME_CLOCK
+		a->canvas->priv->is_animating = true;
+#endif
 	}
 
 	// if neccesary load any additional audio needed by the transition.

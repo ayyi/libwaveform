@@ -1,5 +1,5 @@
 /*
-  copyright (C) 2012-2013 Tim Orford <tim@orford.org>
+  copyright (C) 2012-2014 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -62,6 +62,7 @@
 
  */
 #define __wf_private__
+#define __wf_transition_c__
 #include "config.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -71,14 +72,17 @@
 #include <sys/time.h>
 #include <gtk/gtk.h>
 #include "waveform/utils.h"
-#include "transition/animator.h"
+#include "transition/transition.h"
+#include "transition/frameclock.h"
+
+WfTransitionGlobal wf_transition = {300};
 
 #define WF_DEBUG_ANIMATOR
 
-extern void wf_canvas_queue_redraw (WaveformCanvas*);
+extern void     wf_canvas_queue_redraw (WaveformCanvas*);
 
-static uint32_t transition_linear       (WfAnimation*, WfAnimatable*, int time);
-static float    transition_linear_f     (WfAnimation*, WfAnimatable*, int time);
+static uint32_t transition_linear      (WfAnimation*, WfAnimatable*, int time);
+static float    transition_linear_f    (WfAnimation*, WfAnimatable*, int time);
 
 #ifdef WF_DEBUG_ANIMATOR
 GList* animations = NULL;
@@ -87,17 +91,12 @@ guint idx = 0;
 
 GList* transitions = NULL; // list of currently running transitions (type WfAnimation*).
 
-#if 0
-static char white    [16] = "\x1b[0;39m";
-static char yellow   [16] = "\x1b[1;33m";
-static char green    [16] = "\x1b[1;32m";
-#endif
 
 WfAnimation*
 wf_animation_add_new(AnimationFn on_finished, gpointer user_data)
 {
 	WfAnimation* animation = g_new0(WfAnimation, 1);
-	animation->length = 300;
+	animation->length = wf_transition.length;
 	animation->on_finish = on_finished;
 	animation->user_data = user_data;
 	animation->frame_i = transition_linear;
@@ -207,8 +206,14 @@ wf_animation_remove(WfAnimation* animation)
 	}
 	g_list_free0(animation->members);
 
+#ifdef USE_FRAME_CLOCK
+	frame_clock_disconnect(NULL, animation);
+	frame_clock_end_updating();
+#else
 	if(animation->timer) g_source_remove(animation->timer);
 	animation->timer = 0;
+#endif
+
 #ifdef WF_DEBUG_ANIMATOR
 	if(!g_list_find(animations, animation)){
 		dbg(0, "*** animation not found ***");
@@ -223,7 +228,7 @@ wf_animation_remove(WfAnimation* animation)
 gboolean
 wf_animation_remove_animatable(WfAnimation* animation, WfAnimatable* animatable)
 {
-	// returns true is the whole animation is removed.
+	// returns true if the whole animation is removed.
 
 #ifdef WF_DEBUG_ANIMATOR
 	if(/*wf_debug &&*/ !g_list_find(animations, animation)){
@@ -233,8 +238,6 @@ wf_animation_remove_animatable(WfAnimation* animation, WfAnimatable* animatable)
 #endif
 	GList* m = animation->members;
 	dbg(2, "animation=%p n_members=%i", animation, g_list_length(m));
-//dbg(0, "looking for: %s", animatable->name);
-//dbg(0, "animation=%p n_members=%i", animation, g_list_length(m));
 	for(;m;m=m->next){
 		WfAnimActor* actor = m->data;
 		if(g_list_find(actor->transitions, animatable)){
@@ -244,16 +247,32 @@ wf_animation_remove_animatable(WfAnimation* animation, WfAnimatable* animatable)
 
 			if(!(actor->transitions = g_list_remove(actor->transitions, animatable))){
 				wf_animation_remove(animation);
-//dbg(0, "...animatable removed (%s) and animation removed <<", animatable->name);
 				return true;
 			}
-//			break;
-//dbg(0, "...animatable removed (%s) <<", animatable->name);
 			return false;
 		}
 	}
-//dbg(0, "%s not found <<", animatable->name);
 	return false;
+}
+
+
+static char*
+wf_animation_val_to_str(WfAnimatable* animatable)
+{
+	char* str;
+
+	switch(animatable->type){
+		case WF_FLOAT:
+			str = g_strdup_printf("%.2f (%.2f --> %.2f)", animatable->val.f, animatable->start_val.f, *animatable->model_val.f);
+			break;
+		case WF_INT64:
+			str = g_strdup_printf("%Li (%Li --> %Li)", animatable->val.b, animatable->start_val.b, *animatable->model_val.b);
+			break;
+		default:
+			str = g_strdup_printf("%i (%i --> %i)", animatable->val.i, animatable->start_val.i, *animatable->model_val.i);
+			break;
+	}
+	return str;
 }
 
 
@@ -274,7 +293,9 @@ wf_animation_start(WfAnimation* animation)
 			dbg(0, "  actor=%p n_transitions=%i", actor, g_list_length(k));
 			for(;k;k=k->next){
 				WfAnimatable* animatable = k->data;
-				dbg(0, "     animatable=%p type=%i %p %.2f", animatable, animatable->type, animatable->model_val.f, *animatable->model_val.f);
+				char* val = wf_animation_val_to_str(animatable);
+				dbg(0, "     animatable=%p type=%i %p %s", animatable, animatable->type, animatable->model_val.f, val);
+				if(val) g_free(val);
 			}
 		}
 	}
@@ -334,6 +355,7 @@ wf_animation_start(WfAnimation* animation)
 			return TIMER_STOP;
 		}
 
+#ifndef USE_FRAME_CLOCK
 		uint64_t step = (time - animation->start) / WF_FRAME_INTERVAL;
 		uint64_t late = (time - animation->start) % WF_FRAME_INTERVAL;
 		guint new_interval = CLAMP(WF_FRAME_INTERVAL - late, 1, WF_FRAME_INTERVAL);
@@ -343,14 +365,22 @@ wf_animation_start(WfAnimation* animation)
 		g_source_set_callback(source, on_timeout, animation, NULL);
 		g_source_set_priority(source, G_PRIORITY_HIGH);
 		animation->timer = g_source_attach(source, NULL);
+#endif
 
 		return TIMER_STOP;
 	}
 	on_timeout = wf_transition_frame;
-	if(wf_transition_frame(animation)){ // !!!!!! not sure it is safe to do this - members not added yet?
-#if 0
-		animation->timer = g_timeout_add(40, wf_transition_frame, animation);
-#else
+#ifdef USE_FRAME_CLOCK
+	void on_update(GdkFrameClock* clock, void* animation)
+	{
+		on_timeout(animation);
+	}
+	frame_clock_connect(G_CALLBACK(on_update), animation);
+	frame_clock_begin_updating();
+#endif
+	if(wf_transition_frame(animation)){
+																					gwarn("never get here!");
+#ifndef USE_FRAME_CLOCK
 		GSource* source = g_timeout_source_new(WF_FRAME_INTERVAL);
 		g_source_set_callback(source, wf_transition_frame, animation, NULL);
 		g_source_set_priority(source, G_PRIORITY_HIGH);
@@ -363,6 +393,7 @@ wf_animation_start(WfAnimation* animation)
 void
 wf_animation_preview(WfAnimation* animation, AnimationValueFn on_frame, gpointer user_data)
 {
+#ifndef USE_FRAME_CLOCK
 	int t; for(t=0;t<animation->length+WF_FRAME_INTERVAL;t+=WF_FRAME_INTERVAL){
 		int t_ = MIN(t, animation->length); // last frame is an extra one, fixed at animation end.
 
@@ -384,6 +415,7 @@ wf_animation_preview(WfAnimation* animation, AnimationValueFn on_frame, gpointer
 			on_frame(animation, vals, user_data);
 		}
 	}
+#endif
 }
 
 

@@ -9,11 +9,16 @@ INCLUDES = \
 lib_LTLIBRARIES = libtransition.la
 
 libtransition_la_SOURCES = \
-	animator.c animator.h
+	transition.c transition.h \
+	globals.c \
+	frameclock.c frameclock.h frameclockprivate.h \
+	frameclockidle.c frameclockidle.h \
+	frametimings.c frametimings.h
 
 pkgincludedir=$(includedir)/transition
 pkginclude_HEADERS = \
-	animator.h
+	transition.h \
+	frameclock.h frameclockprivate.h frameclockidle.h frametimings.h
 
 BUILT_SOURCES =
 

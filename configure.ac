@@ -54,10 +54,6 @@ GLIB_CFLAGS=`pkg-config --cflags glib-2.0`
 AC_SUBST(GLIB_CFLAGS)
 GTHREAD_LIBS=`pkg-config --libs gthread-2.0`
 AC_SUBST(GTHREAD_LIBS)
-FTGL_CFLAGS=`pkg-config --cflags ftgl`
-AC_SUBST(FTGL_CFLAGS)
-FTGL_LIBS=`pkg-config --libs ftgl`
-AC_SUBST(FTGL_LIBS)
 
 dnl -----------------------------------------------------
 
@@ -190,6 +186,8 @@ if test "$enable_test" = "yes"; then
 fi
 
 dnl -----------------------------------------------------
+
+AC_DEFINE(USE_FRAME_CLOCK, 1, [Synchronise drawing to screen refresh])
 
 # extra CXXFLAGS that should always be used
 dnl CXXFLAGS="$CXXFLAGS -pipe -fmessage-length=139 -fdiagnostics-show-location=every-line"

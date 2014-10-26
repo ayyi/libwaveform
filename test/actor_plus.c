@@ -73,14 +73,38 @@ float           zoom           = 1.0;
 GLuint          bg_textures[2] = {0, 0};
 gpointer        tests[]        = {};
 
+KeyHandler
+	zoom_in,
+	zoom_out,
+	scroll_left,
+	scroll_right,
+	toggle_animate,
+	toggle_shaders,
+	quit;
+
+Key keys[] = {
+	{KEY_Left,      scroll_left},
+	{KEY_KP_Left,   scroll_left},
+	{KEY_Right,     scroll_right},
+	{KEY_KP_Right,  scroll_right},
+	{61,            zoom_in},
+	{45,            zoom_out},
+	{GDK_KP_Enter,  NULL},
+	{(char)'<',     NULL},
+	{(char)'>',     NULL},
+	{(char)'a',     toggle_animate},
+	{(char)'s',     toggle_shaders},
+	{GDK_Delete,    NULL},
+	{113,           quit},
+	{0},
+};
+
 static void setup_projection   (GtkWidget*);
 static void draw               (GtkWidget*);
 static bool on_expose          (GtkWidget*, GdkEventExpose*, gpointer);
 static void on_canvas_realise  (GtkWidget*, gpointer);
 static void on_allocate        (GtkWidget*, GtkAllocation*, gpointer);
 static void start_zoom         (float target_zoom);
-static void toggle_animate     ();
-static void toggle_shaders     ();
 static void create_background  ();
 static void background_paint   (GtkWidget*);
 static void ruler_paint        (GtkWidget*);
@@ -109,7 +133,7 @@ main (int argc, char *argv[])
 	gtk_widget_set_can_focus(canvas, true);
 	gtk_widget_set_size_request(GTK_WIDGET(canvas), GL_WIDTH + 2 * HBORDER, 128);
 	gtk_widget_set_gl_capability(canvas, glconfig, NULL, 1, GDK_GL_RGBA_TYPE);
-	gtk_widget_add_events (canvas, GDK_POINTER_MOTION_MASK | GDK_BUTTON_PRESS_MASK | GDK_BUTTON_RELEASE_MASK);
+	gtk_widget_add_events(canvas, GDK_POINTER_MOTION_MASK | GDK_BUTTON_PRESS_MASK | GDK_BUTTON_RELEASE_MASK);
 	gtk_container_add((GtkContainer*)window, (GtkWidget*)canvas);
 
 	g_signal_connect((gpointer)canvas, "realize",       G_CALLBACK(on_canvas_realise), NULL);
@@ -118,46 +142,7 @@ main (int argc, char *argv[])
 
 	gtk_widget_show_all(window);
 
-	gboolean key_press(GtkWidget* widget, GdkEventKey* event, gpointer user_data)
-	{
-		switch(event->keyval){
-			case 61:
-				start_zoom(zoom * 1.5);
-				break;
-			case 45:
-				start_zoom(zoom / 1.5);
-				break;
-			case KEY_Left:
-			case KEY_KP_Left:
-				dbg(0, "left");
-				//waveform_view_set_start(waveform, waveform->start_frame - 8192 / waveform->zoom);
-				break;
-			case KEY_Right:
-			case KEY_KP_Right:
-				dbg(0, "right");
-				//waveform_view_set_start(waveform, waveform->start_frame + 8192 / waveform->zoom);
-				break;
-			case (char)'a':
-				toggle_animate();
-				break;
-			case (char)'s':
-				toggle_shaders();
-				break;
-			case GDK_KP_Enter:
-				break;
-			case 113:
-				exit(EXIT_SUCCESS);
-				break;
-			case GDK_Delete:
-				break;
-			default:
-				dbg(0, "%i", event->keyval);
-				break;
-		}
-		return TRUE;
-	}
-
-	g_signal_connect(window, "key-press-event", G_CALLBACK(key_press), NULL);
+	add_key_handlers((GtkWindow*)window, NULL, (Key*)&keys);
 
 	gboolean window_on_delete(GtkWidget* widget, GdkEvent* event, gpointer user_data){
 		gtk_main_quit();
@@ -243,11 +228,11 @@ draw(GtkWidget* widget)
 }
 
 
-static gboolean
+static bool
 on_expose(GtkWidget* widget, GdkEventExpose* event, gpointer user_data)
 {
-	if(!GTK_WIDGET_REALIZED(widget)) return TRUE;
-	if(!gl_initialised) return TRUE;
+	if(!GTK_WIDGET_REALIZED(widget)) return true;
+	if(!gl_initialised) return true;
 
 	START_DRAW {
 		glClearColor(0.0, 0.0, 0.0, 1.0);
@@ -257,7 +242,7 @@ on_expose(GtkWidget* widget, GdkEventExpose* event, gpointer user_data)
 
 		gdk_gl_drawable_swap_buffers(gl_drawable);
 	} END_DRAW
-	return TRUE;
+	return true;
 }
 
 
@@ -275,7 +260,6 @@ on_canvas_realise(GtkWidget* _canvas, gpointer user_data)
 	gl_init();
 
 	wfc = wf_canvas_new(gl_context, gl_drawable);
-	//wf_canvas_set_use_shaders(wfc, false);
 
 	canvas_init_done = true;
 
@@ -349,8 +333,8 @@ start_zoom(float target_zoom)
 }
 
 
-static void
-toggle_animate()
+void
+toggle_animate(WaveformView* _)                   // FIXME arg type doesnt match
 {
 	PF0;
 	gboolean on_idle(gpointer _)
@@ -377,11 +361,48 @@ toggle_animate()
 }
 
 
-static void
-toggle_shaders()
+void
+toggle_shaders(WaveformView* _)
 {
 	PF0;
 	wf_canvas_set_use_shaders(wfc, !agl->use_shaders);
+}
+
+
+void
+zoom_in(WaveformView* waveform)
+{
+	start_zoom(zoom * 1.5);
+}
+
+
+void
+zoom_out(WaveformView* waveform)
+{
+	start_zoom(zoom / 1.5);
+}
+
+
+void
+scroll_left(WaveformView* waveform)
+{
+	//int n_visible_frames = ((float)waveform->waveform->n_frames) / waveform->zoom;
+	//waveform_view_set_start(waveform, waveform->start_frame - n_visible_frames / 10);
+}
+
+
+void
+scroll_right(WaveformView* waveform)
+{
+	//int n_visible_frames = ((float)waveform->waveform->n_frames) / waveform->zoom;
+	//waveform_view_set_start(waveform, waveform->start_frame + n_visible_frames / 10);
+}
+
+
+void
+quit(WaveformView* waveform)
+{
+	exit(EXIT_SUCCESS);
 }
 
 
@@ -427,8 +448,8 @@ background_paint(GtkWidget* widget)
 		if(!glIsTexture(bg_textures[0])) gwarn("not texture");
 		glBindTexture(GL_TEXTURE_2D, bg_textures[0]);
 
-		wfc->priv->shaders.tex2d->uniform.fg_colour = 0x0000ffff;
-		agl_use_program((AGlShader*)wfc->priv->shaders.tex2d);
+		agl->shaders.alphamap->uniform.fg_colour = 0x0000ffff;
+		agl_use_program((AGlShader*)agl->shaders.alphamap);
 
 	}else{
 		glColor4f(1.0, 0.7, 0.0, 1.0);

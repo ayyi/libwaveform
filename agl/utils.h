@@ -68,6 +68,7 @@ void            agl_texture_unit_use_texture (AGlTextureUnit*, int texture);
 
 void      agl_rect                (float x, float y, float w, float h);
 void      agl_textured_rect       (guint texture, float x, float y, float w, float h, AGlQuad* tex_rect);
+void      agl_texture_box         (guint texture, uint32_t colour, double x, double y, double width, double height); // to be reviewed
 void      agl_enable_stencil      (float x, float y, float w, float h);
 void      agl_disable_stencil     ();
 void      agl_print_error         (const char* func, int err, const char* format, ...);
@@ -88,6 +89,7 @@ struct _agl
 	gboolean        have_npot_textures;
 	struct {
 		AlphaMapShader* texture;
+		AlphaMapShader* alphamap;
 		PlainShader*    plain;
 		AlphaMapShader* text;
 	}               shaders;
