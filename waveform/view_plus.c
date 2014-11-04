@@ -573,7 +573,7 @@ waveform_view_plus_on_expose (GtkWidget* widget, GdkEventExpose* event)
 	if(!GTK_WIDGET_REALIZED(widget)) return true;
 	if(!gl_initialised || !view->priv->canvas_init_done) return true;
 
-	WF_START_DRAW {
+	WF_VIEW_START_DRAW {
 		// needed for the case of shared contexts, where one of the other contexts modifies the projection.
 		waveform_view_plus_set_projection(widget);
 
@@ -582,8 +582,8 @@ waveform_view_plus_on_expose (GtkWidget* widget, GdkEventExpose* event)
 
 		waveform_view_plus_draw(view);
 
-		gdk_gl_drawable_swap_buffers(view->priv->canvas->gl_drawable);
-	} WF_END_DRAW
+		gdk_gl_drawable_swap_buffers(view->priv->canvas->gl.gdk.drawable);
+	} WF_VIEW_END_DRAW
 
 	return true;
 }
@@ -1119,7 +1119,7 @@ waveform_view_plus_gl_init(WaveformViewPlus* view)
 	PF;
 	if(gl_initialised) return;
 
-	WF_START_DRAW {
+	WF_VIEW_START_DRAW {
 
 		agl_set_font_string("Roboto 10");
 		if(agl_get_instance()->use_shaders){
@@ -1127,7 +1127,7 @@ waveform_view_plus_gl_init(WaveformViewPlus* view)
 			wf_shaders.ass->uniform.colour2 = view->title_colour2;
 		}
 
-	} WF_END_DRAW
+	} WF_VIEW_END_DRAW
 
 	gl_initialised = true;
 }

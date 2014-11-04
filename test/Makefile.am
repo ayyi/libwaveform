@@ -4,9 +4,12 @@ if BUILD_TESTS
 if ENABLE_LIBASS
 ASSPROGRAMS = ass view_plus_test
 endif
+if ENABLE_SDL
+SDLPROGRAMS = sdl
+endif
 
 if ENABLE_OPENGL
-noinst_PROGRAMS = waveform_test view_test actor_test actor_plus list group hires_test $(ASSPROGRAMS) frame_rate resources write_wav write_short write_block large_files cache 32bit med_textures
+noinst_PROGRAMS = waveform_test view_test actor_test actor_plus list group hires_test $(ASSPROGRAMS) frame_rate resources write_wav write_short write_block large_files cache 32bit med_textures $(SDLPROGRAMS)
 endif
 
 AM_CFLAGS = \
@@ -94,6 +97,10 @@ med_textures_SOURCES = \
 	$(COMMON_SOURCES) \
 	med_textures.c
 
+sdl_SOURCES = \
+	$(COMMON_SOURCES) \
+	sdl.c
+
 write_wav_SOURCES = \
 	cpgrs.cc cpgrs.h \
 	write_wav.cpp
@@ -126,6 +133,11 @@ actor_plus_LDADD = \
 ass_LDADD = \
 	$(OPENGL_LDFLAGS) \
 	$(LIBASS_LDFLAGS) \
+	$(TEST_LDFLAGS)
+
+sdl_LDADD = \
+	$(OPENGL_LDFLAGS) \
+	$(SDL_LIBS) \
 	$(TEST_LDFLAGS)
 
 LDADD = \

@@ -1,5 +1,5 @@
 /*
-  copyright (C) 2012-2013 Tim Orford <tim@orford.org>
+  copyright (C) 2012-2014 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -45,14 +45,27 @@
 
 static AGl* agl = NULL;
 
+#undef is_sdl
+#ifdef USE_SDL
+#  define is_sdl(WFC) (WFC->type == CONTEXT_TYPE_SDL)
+#else
+#  define is_sdl(WFC) false
+#endif
+
 #define WAVEFORM_START_DRAW(wa) \
 	if(wa->_draw_depth) gwarn("START_DRAW: already drawing"); \
 	wa->_draw_depth++; \
-	if ((wa->_draw_depth > 1) || gdk_gl_drawable_gl_begin (wa->gl_drawable, wa->gl_context)) {
+	if (is_sdl(wa) || \
+		(wa->_draw_depth > 1) || gdk_gl_drawable_gl_begin (wa->gl.gdk.drawable, wa->gl.gdk.context) \
+		) {
+
 #define WAVEFORM_END_DRAW(wa) \
 	wa->_draw_depth--; \
-	if(!wa->_draw_depth) gdk_gl_drawable_gl_end(wa->gl_drawable); \
+	if(!is_sdl(wa)){ \
+		if(!wa->_draw_depth) gdk_gl_drawable_gl_end(wa->gl.gdk.drawable); \
+	} \
 	} else gwarn("!! gl_begin fail")
+
 #define WAVEFORM_IS_DRAWING(wa) \
 	(wa->_draw_depth > 0)
 
@@ -149,14 +162,9 @@ wf_canvas_new(GdkGLContext* gl_context, GdkGLDrawable* gl_drawable)
 
 	WaveformCanvas* wfc = waveform_canvas_construct(TYPE_WAVEFORM_CANVAS);
 	wfc->show_rms = true;
-	wfc->gl_context = gl_context;
-	wfc->gl_drawable = gl_drawable;
+	wfc->gl.gdk.context = gl_context;
+	wfc->gl.gdk.drawable = gl_drawable;
 	wf_canvas_init(wfc);
-#ifdef WF_USE_TEXTURE_CACHE
-#if 0 // dont want to generate textures if this is not the first canvas. textures will be generated on demand anyway
-	texture_cache_gen();
-#endif
-#endif
 
 #ifdef USE_FRAME_CLOCK
 	void window_paint_on_update(GdkFrameClock* clock, void* _canvas)
@@ -185,13 +193,30 @@ wf_canvas_new_from_widget(GtkWidget* widget)
 	}
 
 	WaveformCanvas* wfc = waveform_canvas_construct(TYPE_WAVEFORM_CANVAS);
-	wfc->gl_drawable = gl_drawable; 
-	dbg(2, "got drawable");
-	wfc->gl_context = gtk_widget_get_gl_context(widget);
-	//int t; for(t=0;t<2;t++) wfc->texture_unit[t] = agl_texture_unit_new(WF_TEXTURE0);
+	wfc->gl.gdk.drawable = gl_drawable; 
+	wfc->gl.gdk.context = gtk_widget_get_gl_context(widget);
 	wf_canvas_init(wfc);
 	return wfc;
 }
+
+
+#ifdef USE_SDL
+WaveformCanvas*
+wf_canvas_new_sdl(SDL_GLContext* context)
+{
+	PF0;
+
+	WaveformCanvas* wfc = waveform_canvas_construct(TYPE_WAVEFORM_CANVAS);
+
+	wfc->show_rms       = true;
+	wfc->type           = CONTEXT_TYPE_SDL;
+	wfc->gl.sdl.context = context;
+
+	wf_canvas_init(wfc);
+
+	return wfc;
+}
+#endif
 
 
 static void
@@ -382,43 +407,35 @@ wf_canvas_remove_actor(WaveformCanvas* wfc, WaveformActor* actor)
 }
 
 
-#ifdef USE_FRAME_CLOCK
 
 void
 wf_canvas_queue_redraw(WaveformCanvas* wfc)
 {
+#ifdef USE_FRAME_CLOCK
 	if(wfc->priv->is_animating){
 		if(wfc->draw) wfc->draw(wfc, wfc->draw_data);
 	}else{
 		frame_clock_request_phase(GDK_FRAME_CLOCK_PHASE_PAINT);
 	}
-}
+
+#if 0
+	wfc->_last_redraw_time = wf_get_time();
+#endif
 
 #else
-
-void
-wf_canvas_queue_redraw(WaveformCanvas* wfc)
-{
 	if(wfc->_queued) return;
 
-#ifdef USE_FRAME_CLOCK
-	frame_clock_request_phase(GDK_FRAME_CLOCK_PHASE_PAINT);
-#else
 	gboolean wf_canvas_redraw(gpointer _canvas)
 	{
 		WaveformCanvas* wfc = _canvas;
 		if(wfc->draw) wfc->draw(wfc, wfc->draw_data);
 		wfc->_queued = false;
-#ifdef USE_FRAME_CLOCK
-		wfc->_last_redraw_time = wf_get_time();
-#endif
 		return IDLE_STOP;
 	}
 
 	wfc->_queued = g_timeout_add(CLAMP(WF_FRAME_INTERVAL - (wf_get_time() - wfc->_last_redraw_time), 1, WF_FRAME_INTERVAL), wf_canvas_redraw, wfc);
 #endif
 }
-#endif
 
 
 float

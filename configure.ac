@@ -138,6 +138,16 @@ AC_SUBST(GLUT_LIBS)
 
 dnl -----------------------------------------------------
 
+AS_IF([test "$enable_sdl" != "no"], [
+	PKG_CHECK_MODULES(SDL, sdl2, [AC_DEFINE(USE_SDL, 1, Enable support for showing waveforms in SDL applications) enable_sdl="yes"],[
+	enable_sdl="no"])
+])
+AM_CONDITIONAL(ENABLE_SDL, test "$enable_sdl" = "yes")
+AC_SUBST(SDL_CFLAGS)
+AC_SUBST(SDL_LDFLAGS)
+
+dnl -----------------------------------------------------
+
 AC_ARG_ENABLE(
 	[lv2],
 	[  --enable-lv2            build with lv2 support (default=no). Currently this option doesnt do anything useful.],
@@ -159,6 +169,8 @@ AC_ARG_ENABLE(
 AM_CONDITIONAL(ENABLE_LV2, test "$enable_lv2" != "no")
 AC_SUBST(LV2_LDFLAGS)
 AC_SUBST(LV2_CFLAGS)
+
+dnl -----------------------------------------------------
 
 AS_IF([test "$enable_libass" != "no"], [
 	PKG_CHECK_MODULES(LIBASS, libass, [AC_DEFINE(USE_LIBASS, 1, Use libass for text display) enable_libass="yes"],[
@@ -207,6 +219,7 @@ AC_OUTPUT
 AC_MSG_RESULT([])
 AC_MSG_RESULT([Libwaveform:])
 AC_MSG_RESULT([Building opengl:          $enable_opengl])
+AC_MSG_RESULT([Building sdl:             $enable_sdl])
 AC_MSG_RESULT([Building libass:          $enable_libass])
 AC_MSG_RESULT([Building tests:           $enable_test])
 AC_MSG_RESULT([Building lv2:             $enable_lv2 (TODO)])

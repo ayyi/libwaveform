@@ -1,5 +1,5 @@
 /*
-  copyright (C) 2012-2013 Tim Orford <tim@orford.org>
+  copyright (C) 2012-2014 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -446,7 +446,7 @@ waveform_view_on_expose (GtkWidget* widget, GdkEventExpose* event)
 	if(!GTK_WIDGET_REALIZED(widget)) return true;
 	if(!gl_initialised || !view->priv->canvas_init_done) return true;
 
-	WF_START_DRAW {
+	WF_VIEW_START_DRAW {
 		// needed for the case of shared contexts, where one of the other contexts modifies the projection.
 		waveform_view_set_projection(widget);
 
@@ -455,8 +455,8 @@ waveform_view_on_expose (GtkWidget* widget, GdkEventExpose* event)
 
 		draw(view);
 
-		gdk_gl_drawable_swap_buffers(view->priv->canvas->gl_drawable);
-	} WF_END_DRAW
+		gdk_gl_drawable_swap_buffers(view->priv->canvas->gl.gdk.drawable);
+	} WF_VIEW_END_DRAW
 
 	return true;
 }

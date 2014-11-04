@@ -67,3 +67,5 @@
 -build fixes for missing header files
 20141008
 -add support for syncing redraws to screen refresh
+20141101
+-primitive support for SDL

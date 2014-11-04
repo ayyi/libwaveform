@@ -9,7 +9,6 @@
 #define mono_wav_fixture2 "/usr/lib/openoffice/basis3.3/share/gallery/sounds/train.wav"
 //#define mono_wav_fixture "/usr/share/hydrogen/data/click.wav"
 //#define stereo_wav_fixture "/usr/share/games/alienarena/data1/sound/music/dm-dynamo.ogg"
-#define stereo_wav_fixture "/root/cache/src/xbmc-9.11/skin/PM3.HD/sounds/shutter.wav"
 #define bool gboolean
 #define TIMER_CONTINUE TRUE
 #define TIMER_STOP FALSE

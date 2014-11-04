@@ -19,6 +19,9 @@
 #include "config.h"
 #include <glib.h>
 #include <glib-object.h>
+#ifdef USE_SDL
+#  include "SDL2/SDL.h"
+#endif
 #include "waveform/typedefs.h"
 #include "waveform/shader.h"
 
@@ -31,6 +34,11 @@
 
 typedef struct _wf_canvas_priv WfCanvasPriv;
 
+typedef enum {
+	CONTEXT_TYPE_GTK = 0,
+	CONTEXT_TYPE_SDL,
+} ContextType;
+
 struct _waveform_canvas {
 	GObject        parent_instance;
 
@@ -42,8 +50,19 @@ struct _waveform_canvas {
 	void           (*draw)(WaveformCanvas*, gpointer);
 	gpointer       draw_data;
 
-	GdkGLContext*  gl_context;
-	GdkGLDrawable* gl_drawable;
+	union {
+		struct {
+			GdkGLContext*  context;
+			GdkGLDrawable* drawable;
+		}          gdk;
+#ifdef USE_SDL
+		struct {
+			SDL_GLContext context;
+		}          sdl;
+#endif
+	}              gl;
+	ContextType    type;
+
 	WfViewPort*    viewport;
 	uint32_t       sample_rate;
 	float          rotation;
@@ -84,6 +103,9 @@ struct _vp { double left, top, right, bottom; };
 
 WaveformCanvas* wf_canvas_new                       (GdkGLContext*, GdkGLDrawable*);
 WaveformCanvas* wf_canvas_new_from_widget           (GtkWidget*);
+#ifdef USE_SDL
+WaveformCanvas* wf_canvas_new_sdl                   (SDL_GLContext*);
+#endif
 void            wf_canvas_free                      (WaveformCanvas*);
 void            wf_canvas_set_use_shaders           (WaveformCanvas*, gboolean);
 void            wf_canvas_set_viewport              (WaveformCanvas*, WfViewPort*);

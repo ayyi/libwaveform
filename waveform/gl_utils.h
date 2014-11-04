@@ -1,5 +1,5 @@
 /*
-  copyright (C) 2012-2013 Tim Orford <tim@orford.org>
+  copyright (C) 2012-2014 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -26,16 +26,25 @@ extern gboolean __wf_drawing;
 extern int __draw_depth;
 #endif
 
-#define WF_START_DRAW \
+#ifdef USE_SDL
+#  define is_sdl(WFC) (WFC && WFC->type == CONTEXT_TYPE_SDL)
+#else
+#  define is_sdl false
+#endif
+
+#define WF_VIEW_START_DRAW \
 	if(__wf_drawing){ gwarn("START_DRAW: already drawing"); } \
 	__draw_depth++; \
 	__wf_drawing = TRUE; \
-	if ((__draw_depth > 1) || gdk_gl_drawable_gl_begin (view->priv->canvas->gl_drawable, view->priv->canvas->gl_context)) {
+	if (is_sdl(view->priv->canvas) || (__draw_depth > 1) || gdk_gl_drawable_gl_begin (view->priv->canvas->gl.gdk.drawable, view->priv->canvas->gl.gdk.context)) {
 
-#define WF_END_DRAW \
+#define WF_VIEW_END_DRAW \
 	__draw_depth--; \
-	if(!__draw_depth) gdk_gl_drawable_gl_end(view->priv->canvas->gl_drawable); \
-	} else { gwarn("!! gl_begin fail"); } \
+	if(is_sdl(view->priv->canvas)){ \
+		if(!__draw_depth) gdk_gl_drawable_gl_end(view->priv->canvas->gl.gdk.drawable); \
+		else { gwarn("!! gl_begin fail"); } \
+	} \
+	} \
 	(__wf_drawing = FALSE);
 
 #define ASSERT_DRAWING g_return_if_fail(__wf_drawing);

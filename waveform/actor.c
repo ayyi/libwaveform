@@ -462,12 +462,12 @@ wf_actor_set_region(WaveformActor* a, WfSampleRegion* region)
 	if(!region->len){ gwarn("invalid region: len not set"); return; }
 	if(region->start + region->len > waveform_get_n_frames(a->waveform)){ gwarn("invalid region: too long: %Lu len=%u n_frames=%Lu", region->start, region->len, waveform_get_n_frames(a->waveform)); return; }
 
-	if(a->region.len < 2){
-		a->region.len = _a->animatable.len.val.i = region->len; //dont animate on initial region set.
-	}
-
 	gboolean start = (region->start != a->region.start);
 	gboolean end   = (region->len   != a->region.len);
+
+	if(a->region.len < 2){
+		a->region.len = _a->animatable.len.val.i = region->len; // dont animate on initial region set.
+	}
 
 	WfAnimatable* a1 = &a->priv->animatable.start;
 	WfAnimatable* a2 = &a->priv->animatable.len;
@@ -1115,7 +1115,7 @@ _wf_actor_load_missing_blocks(WaveformActor* a)
 	if(mode1 == MODE_LOW || mode2 == MODE_LOW){
 		// TODO low resolution doesnt have the same adjustments to region and viewport like STD mode does.
 		// -this doesnt seem to be causing any problems though
-		dbg(1, "LOW");
+		dbg(2, "LOW");
 		WfViewPort viewport; _wf_actor_get_viewport_max(a, &viewport);
 		//double zoom_ = MIN(zoom, ZOOM_LO - 0.0001);
 		double zoom_ = MAX(zoom, ZOOM_V_LO + 0.00000001);
@@ -1136,7 +1136,7 @@ _wf_actor_load_missing_blocks(WaveformActor* a)
 	}
 
 	if(mode1 == MODE_V_LOW || mode2 == MODE_V_LOW){
-		dbg(1, "V_LOW");
+		dbg(2, "V_LOW");
 		Renderer* renderer = modes[MODE_V_LOW].renderer;
 		WfViewPort viewport; _wf_actor_get_viewport_max(a, &viewport);
 		double zoom_ = MIN(zoom, ZOOM_LO - 0.0001);
@@ -1181,7 +1181,7 @@ wf_actor_allocate(WaveformActor* a, WfRectangle* rect)
 
 	dbg(2, "rect: %.2f --> %.2f", rect->left, rect->left + rect->len);
 
-	if(!a->waveform->offline) _wf_actor_load_missing_blocks(a);
+	if(!a->waveform->offline && a->region.len) _wf_actor_load_missing_blocks(a);
 	//TODO if offline, try and load from existing peakfile.
 
 	if(animate){
