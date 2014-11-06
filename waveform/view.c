@@ -175,7 +175,7 @@ _waveform_view_set_actor (WaveformView* view)
 	WaveformActor* actor = view->priv->actor;
 
 	int width = waveform_view_get_width(view);
-	wf_actor_allocate(actor, &(WfRectangle){0, 0, width, GL_HEIGHT});
+	wf_actor_set_rect(actor, &(WfRectangle){0, 0, width, GL_HEIGHT});
 
 	void _waveform_view_on_draw(WaveformCanvas* wfc, gpointer _view)
 	{
@@ -662,7 +662,7 @@ waveform_view_gl_on_allocate(WaveformView* view)
 
 	int width = waveform_view_get_width(view);
 	WfRectangle rect = {0, 0, width, GL_HEIGHT};
-	wf_actor_allocate(view->priv->actor, &rect);
+	wf_actor_set_rect(view->priv->actor, &rect);
 
 	wf_canvas_set_viewport(view->priv->canvas, NULL);
 }

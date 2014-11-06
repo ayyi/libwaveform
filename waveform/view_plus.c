@@ -274,7 +274,7 @@ _waveform_view_plus_set_actor (WaveformViewPlus* view)
 
 #if 0
 	int width = waveform_view_plus_get_width(view);
-	wf_actor_allocate(actor, &(WfRectangle){0, 0, width, waveform_view_plus_get_height(view)});
+	wf_actor_set_rect(actor, &(WfRectangle){0, 0, width, waveform_view_plus_get_height(view)});
 #else
 	waveform_view_plus_gl_on_allocate(view);
 #endif
@@ -1218,7 +1218,7 @@ waveform_view_plus_gl_on_allocate(WaveformViewPlus* view)
 	if(!view->priv->actor) return;
 
 	WfRectangle rect = {0, 0, waveform_view_plus_get_width(view), waveform_view_plus_get_height(view)};
-	wf_actor_allocate(view->priv->actor, &rect);
+	wf_actor_set_rect(view->priv->actor, &rect);
 
 	wf_canvas_set_viewport(view->priv->canvas, NULL);
 }

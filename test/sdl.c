@@ -143,7 +143,7 @@ main (int argc, char **argv)
 		int i = 0;
 		window.a[i] = wf_canvas_add_new_actor(window.wfc, window.w1);
 
-		wf_actor_allocate(window.a[i], &(WfRectangle){
+		wf_actor_set_rect(window.a[i], &(WfRectangle){
 			0.0,
 			window.height / 2,
 			window.width,

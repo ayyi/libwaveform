@@ -1155,7 +1155,7 @@ _wf_actor_load_missing_blocks(WaveformActor* a)
 
 
 void
-wf_actor_allocate(WaveformActor* a, WfRectangle* rect)
+wf_actor_set_rect(WaveformActor* a, WfRectangle* rect)
 {
 	g_return_if_fail(a);
 	g_return_if_fail(rect);

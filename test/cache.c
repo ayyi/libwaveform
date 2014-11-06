@@ -800,7 +800,7 @@ on_allocate(GtkWidget* widget, GtkAllocation* allocation, gpointer user_data)
 	wf_canvas_set_viewport(wfc, &(WfViewPort){0, 0, GL_WIDTH, GL_HEIGHT});
 
 	int i; for(i=0;i<G_N_ELEMENTS(a);i++)
-		if(a[i]) wf_actor_allocate(a[i], &(WfRectangle){
+		if(a[i]) wf_actor_set_rect(a[i], &(WfRectangle){
 			0.0,
 			i * GL_HEIGHT / G_N_ELEMENTS(a),
 			GL_WIDTH,

@@ -42,21 +42,21 @@ struct _waveform_actor {
 	WfActorPriv*    priv;
 };
 
-void            wf_actor_free                             (WaveformActor*);
-void            wf_actor_set_region                       (WaveformActor*, WfSampleRegion*);
-void            wf_actor_set_colour                       (WaveformActor*, uint32_t fg_colour, uint32_t bg_colour);
-void            wf_actor_allocate                         (WaveformActor*, WfRectangle*);
-void            wf_actor_set_z                            (WaveformActor*, float);
-void            wf_actor_set_full                         (WaveformActor*, WfSampleRegion*, WfRectangle*, int time, WaveformActorFn, gpointer);
-void            wf_actor_fade_out                         (WaveformActor*, WaveformActorFn, gpointer);
-void            wf_actor_fade_in                          (WaveformActor*, void* /*WfAnimatable* */, float, WaveformActorFn, gpointer);
-void            wf_actor_set_vzoom                        (WaveformActor*, float);
-gboolean        wf_actor_paint                            (WaveformActor*);
-void            wf_actor_get_viewport                     (WaveformActor*, WfViewPort*);
+void            wf_actor_free                       (WaveformActor*);
+void            wf_actor_set_region                 (WaveformActor*, WfSampleRegion*);
+void            wf_actor_set_rect                   (WaveformActor*, WfRectangle*);
+void            wf_actor_set_colour                 (WaveformActor*, uint32_t fg_colour, uint32_t bg_colour);
+void            wf_actor_set_z                      (WaveformActor*, float);
+void            wf_actor_set_full                   (WaveformActor*, WfSampleRegion*, WfRectangle*, int time, WaveformActorFn, gpointer);
+void            wf_actor_fade_out                   (WaveformActor*, WaveformActorFn, gpointer);
+void            wf_actor_fade_in                    (WaveformActor*, void* /*WfAnimatable* */, float, WaveformActorFn, gpointer);
+void            wf_actor_set_vzoom                  (WaveformActor*, float);
+gboolean        wf_actor_paint                      (WaveformActor*);
+void            wf_actor_get_viewport               (WaveformActor*, WfViewPort*);
 
 #ifdef USE_TEST
 // access to private data
-GList*          wf_actor_get_transitions                  (WaveformActor*);
+GList*          wf_actor_get_transitions            (WaveformActor*);
 #endif
 
 #endif //__waveform_actor_h__

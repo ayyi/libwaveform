@@ -3,7 +3,7 @@
 
   ---------------------------------------------------------------
 
-  copyright (C) 2012-2013 Tim Orford <tim@orford.org>
+  copyright (C) 2012-2014 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -479,7 +479,7 @@ start_zoom(float target_zoom)
 	PF;
 	zoom = MAX(0.1, target_zoom);
 
-	if(actor) wf_actor_allocate(actor, &(WfRectangle){
+	if(actor) wf_actor_set_rect(actor, &(WfRectangle){
 		0.0f,
 		0.0f,
 		GL_WIDTH * zoom,

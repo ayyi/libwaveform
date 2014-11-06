@@ -330,7 +330,7 @@ start_zoom(float target_zoom)
 	zoom = MAX(0.1, target_zoom);
 
 	int i; for(i=0;i<G_N_ELEMENTS(a);i++)
-		if(a[i]) wf_actor_allocate(a[i], &(WfRectangle){
+		if(a[i]) wf_actor_set_rect(a[i], &(WfRectangle){
 			0.0,
 			i * GL_HEIGHT / 4,
 			GL_WIDTH * target_zoom,

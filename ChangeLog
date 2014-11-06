@@ -69,3 +69,5 @@
 -add support for syncing redraws to screen refresh
 20141101
 -primitive support for SDL
+20141105
+-rename wf_actor_allocate to wf_actor_set_rect
