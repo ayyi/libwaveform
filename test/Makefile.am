@@ -97,9 +97,11 @@ med_textures_SOURCES = \
 	$(COMMON_SOURCES) \
 	med_textures.c
 
+if ENABLE_SDL
 sdl_SOURCES = \
 	$(COMMON_SOURCES) \
 	sdl.c
+endif
 
 write_wav_SOURCES = \
 	cpgrs.cc cpgrs.h \

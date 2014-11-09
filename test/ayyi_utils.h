@@ -10,7 +10,7 @@
 #ifdef USE_SDL
 #  define is_sdl(WFC) (WFC && WFC->type == CONTEXT_TYPE_SDL)
 #else
-#  define is_sdl false
+#  define is_sdl(WFC) false
 #endif
 
 #ifndef __common_c__
