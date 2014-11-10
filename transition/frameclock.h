@@ -27,7 +27,7 @@
 #ifndef __GDK_FRAME_CLOCK_H__
 #define __GDK_FRAME_CLOCK_H__
 
-#include <transition/gdkframetimings.h>
+#include <transition/frametimings.h>
 
 G_BEGIN_DECLS
 

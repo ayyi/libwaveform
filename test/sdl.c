@@ -42,7 +42,7 @@
 #include "waveform/gl_utils.h"
 #include "common.h"
 
-#include "transition/gdkframeclockidle.h"
+#include "transition/frameclockidle.h"
 
 #define WAV \
 	"test/data/mono_1.wav"
