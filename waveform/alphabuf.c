@@ -98,7 +98,7 @@ wf_alphabuf_new(Waveform* waveform, int blocknum, int scale, gboolean is_rms, in
 			width = agl_power_of_two(width_ -1);
 			x_stop  = MIN(_w->num_peaks, x_start + width_);
 		}
-		dbg (0, "block_num=%i width=%i px_start=%i px_stop=%i (%i)", blocknum, width, x_start, x_stop, x_stop - x_start);
+		dbg (1, "block_num=%i width=%i px_start=%i px_stop=%i (%i)", blocknum, width, x_start, x_stop, x_stop - x_start);
 	}
 	AlphaBuf* buf = _alphabuf_new(width, is_rms ? WF_TEXTURE_HEIGHT / 2: WF_TEXTURE_HEIGHT);
 

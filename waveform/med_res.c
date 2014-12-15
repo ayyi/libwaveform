@@ -63,7 +63,10 @@ med_allocate_block_gl1(Renderer* renderer, WaveformActor* a, int b)
 	g_return_if_fail(b >= 0);
 
 	Waveform* w = a->waveform;
-	WfGlBlock* blocks = (WfGlBlock*)w->priv->render_data[MODE_MED];
+	WaveformPriv* _w = w->priv;
+	WfGlBlock* blocks = (WfGlBlock*)(_w->render_data[MODE_MED]
+		?  _w->render_data[MODE_MED]
+		: (_w->render_data[MODE_MED] = (WaveformModeRender*)wf_texture_array_new(_w->n_blocks, w->n_channels)));
 	WaveformBlock wb = {w, b};
 
 	int c = WF_LEFT;
@@ -217,8 +220,8 @@ static void
 lo_pre_render_gl2(Renderer* renderer, WaveformActor* actor)
 {
 	WaveformCanvas* wfc = actor->canvas;
-#if defined (USE_FBO) && defined (multipass)
 	WfCanvasPriv* _c = wfc->priv;
+#if defined (USE_FBO) && defined (multipass)
 	WfActorPriv* _a = actor->priv;
 #endif
 	RenderInfo* r = &actor->priv->render_info;
@@ -232,8 +235,8 @@ lo_pre_render_gl2(Renderer* renderer, WaveformActor* actor)
 	agl_use_program(&shader->shader);
 #else
 	BloomShader* shader = wfc->priv->shaders.vertical;
-	wfc->priv->shaders.vertical->uniform.fg_colour = (actor->fg_colour & 0xffffff00) + MIN(0xff, 0x100 * _a->animatable.opacity.val.f);
-	wfc->priv->shaders.vertical->uniform.peaks_per_pixel = r->peaks_per_pixel_i;
+	_c->shaders.vertical->uniform.fg_colour = (actor->fg_colour & 0xffffff00) + MIN(0xff, 0x100 * _a->animatable.opacity.val.f);
+	_c->shaders.vertical->uniform.peaks_per_pixel = r->peaks_per_pixel_i;
 	//TODO the vertical shader needs to check _all_ the available texture values to get true peak.
 	agl_use_program(&shader->shader);
 #endif // end USE_FX
@@ -243,12 +246,12 @@ lo_pre_render_gl2(Renderer* renderer, WaveformActor* actor)
 					glActiveTexture(GL_TEXTURE0);
 #else
 	if(wfc->use_1d_textures){
-		agl_use_program((AGlShader*)wfc->priv->shaders.peak);
+		agl_use_program((AGlShader*)_c->shaders.peak);
 
 		//uniforms: (must be done on each paint because some vars are actor-specific)
 		dbg(2, "vpwidth=%.2f region_len=%i region_n_peaks=%.2f peaks_per_pixel=%.2f", (r->viewport.right - r->viewport.left), r->region.len, ((float)r->region.len / WF_PEAK_TEXTURE_SIZE), r->peaks_per_pixel_i);
 		int n_channels = r->textures->peak_texture[WF_RIGHT].main ? 2 : 1;
-		wfc->priv->shaders.peak->set_uniforms(r->peaks_per_pixel_i, r->rect.top, r->rect.top + r->rect.height, actor->fg_colour, n_channels);
+		_c->shaders.peak->set_uniforms(r->peaks_per_pixel_i, r->rect.top, r->rect.top + r->rect.height, actor->fg_colour, n_channels);
 	}
 #endif // end FBO && multipass
 

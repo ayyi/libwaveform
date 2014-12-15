@@ -1078,12 +1078,13 @@ _wf_actor_load_missing_blocks(WaveformActor* a)
 	if(!_w->render_data[mode2]) call(modes[mode2].renderer->new, a);
 
 	if(zoom_max >= ZOOM_MED){
-		dbg(2, "HI-RES");
+		dbg(1, "HI-RES");
 		if(!a->waveform->offline) _wf_actor_allocate_hi(a);
 		else { mode1 = MAX(mode1, MODE_MED); mode2 = MAX(mode2, MODE_MED); } // fallback to lower res
 	}
 
 	if(mode1 == MODE_MED || mode2 == MODE_MED){
+		dbg(1, "MED");
 		WfViewPort viewport; _wf_actor_get_viewport_max(a, &viewport);
 		double zoom_ = MAX(zoom, ZOOM_LO + 0.00000001);
 
@@ -1181,7 +1182,7 @@ wf_actor_set_rect(WaveformActor* a, WfRectangle* rect)
 
 	dbg(2, "rect: %.2f --> %.2f", rect->left, rect->left + rect->len);
 
-	if(!a->waveform->offline && a->region.len) _wf_actor_load_missing_blocks(a);
+	if(!a->waveform->offline && a->region.len && a->waveform->priv->num_peaks) _wf_actor_load_missing_blocks(a);
 	//TODO if offline, try and load from existing peakfile.
 
 	if(animate){

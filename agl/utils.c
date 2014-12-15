@@ -391,6 +391,18 @@ agl_link_shaders(GLuint vertShader, GLuint fragShader)
 
 
 void
+agl_colour_rbga(uint32_t colour)
+{
+	float r = (colour & 0xff000000) >> 24;
+	float g = (colour & 0x00ff0000) >> 16;
+	float b = (colour & 0x0000ff00) >>  8;
+	float a = (colour & 0x000000ff);
+
+	glColor4f(r / 256.0, g / 256.0, b / 256.0, a / 256.0);
+}
+
+
+void
 agl_rect(float x, float y, float w, float h)
 {
 	glBegin(GL_QUADS);
@@ -719,7 +731,7 @@ agl_power_of_two(guint a)
 		a = a >> 1;
 		i++;
 	}
-	dbg (2, "%i -> %i", orig, 1 << i);
+	dbg (3, "%i -> %i", orig, 1 << i);
 	return 1 << i;
 }
 

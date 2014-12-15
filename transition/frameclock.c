@@ -28,7 +28,6 @@
 
 #include "frameclockprivate.h"
 #include "transition/frameclockidle.h"
-//#include "gdkinternals.h"
 
 /**
  * SECTION:gdkframeclock
@@ -300,7 +299,7 @@ void
 frame_clock_disconnect(GCallback callback, gpointer user_data)
 {
 	int n;
-	if((n = g_signal_handlers_disconnect_matched(G_OBJECT(default_clock), G_SIGNAL_MATCH_DATA, 0, 0, NULL, NULL, user_data)) != 1) printf("!!! handler disconnection n_disconnected=%i\n", n);
+	if((n = g_signal_handlers_disconnect_matched(G_OBJECT(default_clock), G_SIGNAL_MATCH_DATA, 0, 0, NULL, NULL, user_data)) != 1) printf("!!! handler disconnection: n_disconnected=%i\n", n);
 }
 
 

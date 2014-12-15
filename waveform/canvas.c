@@ -127,6 +127,13 @@ wf_canvas_instance_init(WaveformCanvas* self)
 }
 
 
+	static void window_paint_on_update(GdkFrameClock* clock, void* _canvas)
+	{
+		WaveformCanvas* wfc = _canvas;
+
+		if(wfc->draw) wfc->draw(wfc, wfc->draw_data);
+		wfc->priv->_last_redraw_time = wf_get_time();
+	}
 static void
 wf_canvas_init(WaveformCanvas* wfc)
 {
@@ -144,6 +151,10 @@ wf_canvas_init(WaveformCanvas* wfc)
 	wfc->texture_unit[3] = agl_texture_unit_new(WF_TEXTURE3);
 	wf_canvas_init_gl(wfc);
 	wfc->use_1d_textures = agl->use_shaders;
+
+#ifdef USE_FRAME_CLOCK
+	frame_clock_connect(G_CALLBACK(window_paint_on_update), wfc);
+#endif
 }
 
 
@@ -165,17 +176,6 @@ wf_canvas_new(GdkGLContext* gl_context, GdkGLDrawable* gl_drawable)
 	wfc->gl.gdk.context = gl_context;
 	wfc->gl.gdk.drawable = gl_drawable;
 	wf_canvas_init(wfc);
-
-#ifdef USE_FRAME_CLOCK
-	void window_paint_on_update(GdkFrameClock* clock, void* _canvas)
-	{
-		WaveformCanvas* wfc = _canvas;
-
-		if(wfc->draw) wfc->draw(wfc, wfc->draw_data);
-		wfc->priv->_last_redraw_time = wf_get_time();
-	}
-	frame_clock_connect(G_CALLBACK(window_paint_on_update), wfc);
-#endif
 
 	return wfc;
 }
@@ -235,6 +235,10 @@ wf_canvas_free (WaveformCanvas* wfc)
 {
 	g_return_if_fail(wfc);
 	PF;
+
+#ifdef USE_FRAME_CLOCK
+	frame_clock_disconnect(G_CALLBACK(window_paint_on_update), wfc);
+#endif
 
 	if(wfc->_queued){ g_source_remove(wfc->_queued); wfc->_queued = false; }
 	//if(wfc->priv->peak_shader) g_free(wfc->priv->peak_shader);
@@ -415,7 +419,12 @@ wf_canvas_queue_redraw(WaveformCanvas* wfc)
 	if(wfc->priv->is_animating){
 		if(wfc->draw) wfc->draw(wfc, wfc->draw_data);
 	}else{
+	// FIXME why is the animation using UPDATE and not PAINT ?
+#if 0
 		frame_clock_request_phase(GDK_FRAME_CLOCK_PHASE_PAINT);
+#else
+		frame_clock_request_phase(GDK_FRAME_CLOCK_PHASE_UPDATE);
+#endif
 	}
 
 #if 0
