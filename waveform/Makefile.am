@@ -43,6 +43,7 @@ libwaveform_la_SOURCES = \
 	utils.c utils.h
 
 EXTRA_DIST = \
+	renderer_ng.c \
 	med_res.c \
 	hi_res.c \
 	hi_res_gl2.c \

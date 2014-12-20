@@ -613,7 +613,6 @@ static gboolean
 waveform_view_plus_button_release_event (GtkWidget* widget, GdkEventButton* event)
 {
 	g_return_val_if_fail(event, false);
-	dbg(0, "");
 	gboolean result = false;
 	return result;
 }
@@ -623,7 +622,6 @@ static gboolean
 waveform_view_plus_motion_notify_event (GtkWidget* widget, GdkEventMotion* event)
 {
 	g_return_val_if_fail(event, false);
-	dbg(0, "");
 	gboolean result = false;
 	return result;
 }
