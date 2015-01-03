@@ -132,13 +132,6 @@ AC_SUBST(OPENGL_LDFLAGS)
 
 dnl -----------------------------------------------------
 
-GLU_LIBS=`pkg-config --libs-only-l glu`
-GLUT_LIBS=""
-AC_SUBST(GLU_LIBS)
-AC_SUBST(GLUT_LIBS)
-
-dnl -----------------------------------------------------
-
 AS_IF([test "$enable_sdl" != "no"], [
 	PKG_CHECK_MODULES(SDL, sdl2, [AC_DEFINE(USE_SDL, 1, Enable support for showing waveforms in SDL applications) enable_sdl="yes"],[
 	enable_sdl="no"])

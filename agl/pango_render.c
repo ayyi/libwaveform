@@ -35,7 +35,6 @@
 #include <pango/pangofc-fontmap.h>
 #include <fontconfig/fontconfig.h>
 #include <GL/gl.h>
-#include <GL/glu.h>
 #include "agl/utils.h"
 
 #define USE_SHADERS
