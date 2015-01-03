@@ -203,9 +203,11 @@ AC_CONFIG_FILES([
 libwaveform.pc
 Makefile
 agl/Makefile
+agl/shaders/Makefile
 transition/Makefile
 waveform/Makefile
 waveform/loaders/Makefile
+shaders/Makefile
 test/Makefile
 ])
 AC_OUTPUT
