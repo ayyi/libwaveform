@@ -211,7 +211,7 @@ void next_wav(WaveformView* waveform)
 		C* c = _c;
 		waveform_view_plus_set_zoom(c->view, c->zoom);
 		g_free(c);
-		return IDLE_STOP;
+		return G_SOURCE_REMOVE;
 	}
 	g_idle_add(on_loaded, c);
 }

@@ -1,5 +1,5 @@
 /*
-  copyright (C) 2012-2014 Tim Orford <tim@orford.org>
+  copyright (C) 2012-2015 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -59,7 +59,7 @@ file_load_thread(gpointer data)
 
 		g_free(job);
 
-		return IDLE_STOP;
+		return G_SOURCE_REMOVE;
 	}
 
 	//check for new work

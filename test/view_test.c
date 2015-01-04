@@ -115,7 +115,7 @@ main (int argc, char *argv[])
 		WaveformCanvas* wfc = waveform_view_get_canvas(v);
 		g_return_val_if_fail(wfc, true);
 		wfc->blend = false;
-		return IDLE_STOP;
+		return G_SOURCE_REMOVE;
 	}
 	g_idle_add(on_idle, waveform);
 	#endif

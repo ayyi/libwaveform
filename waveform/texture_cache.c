@@ -227,7 +227,7 @@ texture_cache_queue_clean()
 		}
 
 		idle_id = 0;
-		return IDLE_STOP;
+		return G_SOURCE_REMOVE;
 	}
 
 	if(!idle_id) idle_id = g_idle_add(texture_cache_clean, NULL);

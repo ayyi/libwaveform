@@ -491,7 +491,7 @@ ng_gl2_queue_clean(Renderer* renderer)
 		}
 
 		idle_id = 0;
-		return IDLE_STOP;
+		return G_SOURCE_REMOVE;
 	}
 
 	if(!idle_id) idle_id = g_idle_add_full(G_PRIORITY_LOW, clean, renderer, NULL);

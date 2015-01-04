@@ -47,7 +47,6 @@ extern int wf_debug;
 #endif
 #define gwarn(A, ...) g_warning("%s(): "A, __func__, ##__VA_ARGS__);
 #define gerr(A, ...) g_critical("%s(): "A, __func__, ##__VA_ARGS__)
-#define IDLE_STOP FALSE
 #define IDLE_CONTINUE TRUE
 #define TIMER_STOP FALSE
 #define TIMER_CONTINUE TRUE

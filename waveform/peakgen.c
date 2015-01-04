@@ -548,7 +548,7 @@ maintain_file_cache()
 		g_dir_close(d);
 		g_free(dir_name);
 
-		return IDLE_STOP;
+		return G_SOURCE_REMOVE;
 	}
 
 	g_idle_add(_maintain_file_cache, NULL);

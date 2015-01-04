@@ -254,12 +254,12 @@ waveform_view_plus_new (Waveform* waveform)
 	gboolean waveform_view_plus_load_new_on_idle(gpointer _view)
 	{
 		WaveformViewPlus* view = _view;
-		g_return_val_if_fail(view, IDLE_STOP);
+		g_return_val_if_fail(view, G_SOURCE_REMOVE);
 		if(!view->priv->canvas_init_done){
 			waveform_view_plus_init_drawable(view);
 			gtk_widget_queue_draw((GtkWidget*)view); //testing.
 		}
-		return IDLE_STOP;
+		return G_SOURCE_REMOVE;
 	}
 	g_idle_add(waveform_view_plus_load_new_on_idle, view);
 	return view;
@@ -321,7 +321,7 @@ waveform_view_plus_load_file (WaveformViewPlus* view, const char* filename)
 	{
 		C* c = _c;
 		WaveformViewPlus* view = c->view;
-		g_return_val_if_fail(view, IDLE_STOP);
+		g_return_val_if_fail(view, G_SOURCE_REMOVE);
 
 		if(c->waveform == view->waveform){
 			if(!view->priv->canvas_init_done) waveform_view_plus_init_drawable(view);
@@ -342,7 +342,7 @@ waveform_view_plus_load_file (WaveformViewPlus* view, const char* filename)
 			dbg(2, "waveform changed. ignoring...");
 		}
 		g_free(c);
-		return IDLE_STOP;
+		return G_SOURCE_REMOVE;
 	}
 	g_idle_add(waveform_view_plus_load_file_on_idle, c);
 }
@@ -472,7 +472,7 @@ waveform_view_plus_set_show_rms (WaveformViewPlus* view, gboolean _show)
 		view->priv->canvas->show_rms = show;
 		gtk_widget_queue_draw((GtkWidget*)view);
 
-		return IDLE_STOP;
+		return G_SOURCE_REMOVE;
 	}
 	g_idle_add(_on_idle, view);
 }

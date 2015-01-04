@@ -71,7 +71,7 @@ test_init(gpointer tests[], int n_tests)
 
 	set_log_handlers();
 
-	gboolean fn(gpointer user_data) { next_test(); return IDLE_STOP; }
+	gboolean fn(gpointer user_data) { next_test(); return G_SOURCE_REMOVE; }
 	g_idle_add(fn, NULL);
 }
 

@@ -361,7 +361,7 @@ forward()
 			set_position(a_front, 0); //move to back
 
 			if(--a_front < 0) a_front = G_N_ELEMENTS(a) - 1;
-			return IDLE_STOP;
+			return G_SOURCE_REMOVE;
 		}
 		g_idle_add((GSourceFunc)fade_out_really_done, actor); //TODO fix issues with overlapping transitions.
 	}
@@ -386,7 +386,7 @@ backward()
 			set_position(a_front, G_N_ELEMENTS(a) - 1); //move to front
 
 			if(++a_front > G_N_ELEMENTS(a) - 1) a_front = 0;
-			return IDLE_STOP;
+			return G_SOURCE_REMOVE;
 		}
 		g_idle_add((GSourceFunc)fade_out_really_done, actor); //TODO fix issues with overlapping transitions.
 	}

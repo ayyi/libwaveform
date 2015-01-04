@@ -1,5 +1,5 @@
 /*
-  copyright (C) 2012-2014 Tim Orford <tim@orford.org>
+  copyright (C) 2012-2015 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -78,8 +78,6 @@
 WfTransitionGlobal wf_transition = {300};
 
 #define WF_DEBUG_ANIMATOR
-
-extern void     wf_canvas_queue_redraw (WaveformCanvas*);
 
 static uint32_t transition_linear      (WfAnimation*, WfAnimatable*, int time);
 static float    transition_linear_f    (WfAnimation*, WfAnimatable*, int time);
