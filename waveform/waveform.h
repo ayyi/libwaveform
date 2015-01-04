@@ -1,5 +1,5 @@
 /*
-  copyright (C) 2012 Tim Orford <tim@orford.org>
+  copyright (C) 2012-2015 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -14,13 +14,24 @@
   along with this program; if not, write to the Free Software
   Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 */
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include "waveform/typedefs.h"
 #include "waveform/peak.h"
 #include "waveform/loaders/ardour.h"
-//#include "waveform/actor.h" //TODO requires gl
 #include "waveform/alphabuf.h"
 #include "waveform/utils.h"
 
+#ifdef __gl_h_
+#include "waveform/actor.h"
+#endif
+
 #ifndef __waveform_peak_c__
 extern WF* wf;
+#endif
+
+#ifdef __cplusplus
+}
 #endif

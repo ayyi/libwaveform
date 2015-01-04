@@ -20,6 +20,8 @@ Multi-level caching is provided:
 * peaks are stored as OpenGl 1D textures for use with shader programs.
 * rendered and filtered images are stored as OpenGl FBO's.
 
+Magnification and translation transitions are animated.
+
 There are 4 main ways of using libwaveform:
 
 1. the WaveformView Gtk widget
@@ -32,7 +34,7 @@ Requirements:
 - Gtk2
 - GtkGLExt
 - Libsndfile
-- OpenGl (recomended)
+- OpenGl (recommended)
 
 
 Status
@@ -45,7 +47,7 @@ on api, documentation, visuals etc.
 An API review needs to be undertaken before a release is made.
 
 Testing:
-Has been fully tested with Gallium 0.4 on Radeon RV530, RV620 and Cedar and Intel 945.
+Has been fully tested with Gallium 0.4 on Radeon RV530, RV620 and Cedar, and Intel 945 and HD3000.
 Radeon HD 5000 has issues at very hi res which look like driver bugs though this is not confirmed.
 Nvidia 8400 has been found to mostly work (Nouveau), though some issues are being investigated.
 Wider testing is needed.
@@ -106,7 +108,7 @@ or you can specify your own loader.
 GdkPixbuf
 ---------
 
-libwaveform provides the function waveform_render_peak_to_pixbuf().
+Libwaveform provides the function waveform_render_peak_to_pixbuf().
 Support for splitting the audio into blocks is not explicitly provided
 and has to be done manually.
 

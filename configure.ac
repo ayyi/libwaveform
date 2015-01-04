@@ -205,6 +205,7 @@ Makefile
 agl/Makefile
 agl/shaders/Makefile
 transition/Makefile
+sdl/Makefile
 waveform/Makefile
 waveform/loaders/Makefile
 shaders/Makefile

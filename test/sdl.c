@@ -1,5 +1,5 @@
 /*
-  copyright (C) 2014 Tim Orford <tim@orford.org>
+  copyright (C) 2014-2015 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -36,10 +36,11 @@
 #include <GL/glx.h>
 #include <GL/glxext.h>
 #include "SDL2/SDL.h"
+#define USE_SDL_GFX // measures well but is it any smoother subjectively ?
+#ifdef USE_SDL_GFX
+#include "sdl/SDL2_framerate.h"
+#endif
 #include "waveform/waveform.h"
-#include "waveform/actor.h"
-#include "waveform/fbo.h"
-#include "waveform/gl_utils.h"
 #include "common.h"
 
 #include "transition/frameclockidle.h"
@@ -47,6 +48,7 @@
 #define WAV \
 	"test/data/mono_1.wav"
 
+#define FPS 60
 #define HBORDER (16.0)
 #define VBORDER 8
 
@@ -62,11 +64,12 @@ struct
    WaveformCanvas* wfc;
    Waveform*       w1;
    WaveformActor*  a[4];
+   WfSampleRegion  region[2];
    float           zoom;
    bool            dirty;
 } window = {
 	640, 240, true,
-	.zoom = 10.0,
+	.zoom = 1.0,
 	.dirty = true
 };
 
@@ -96,11 +99,11 @@ Key keys[] = {
 int
 main (int argc, char **argv)
 {
-	wf_debug = 1;
-
-	window.zoom = 1.0;
+	//wf_debug = 1;
 
 	agl = agl_get_instance();
+
+	g_main_loop_new(NULL, true);
 
 	if(SDL_Init(SDL_INIT_VIDEO) < 0){
 		dbg(0, "Unable to Init SDL: %s", SDL_GetError());
@@ -111,8 +114,9 @@ main (int argc, char **argv)
 
 	uint32_t flags = SDL_WINDOW_SHOWN|SDL_WINDOW_OPENGL;
 
-	window.mainWindow = SDL_CreateWindow("Waveform SDL2 Example", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, window.width, window.height, flags);
+	window.mainWindow = SDL_CreateWindow("Waveform SDL Example", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, window.width, window.height, flags);
 	window.gl_context = SDL_GL_CreateContext(window.mainWindow);
+	//SDL_GL_SetSwapInterval(1); // supposed to enable sync to vblank but appears to have no effect
 
 	SDL_GL_SetAttribute(SDL_GL_RED_SIZE,            8);
 	SDL_GL_SetAttribute(SDL_GL_GREEN_SIZE,          8);
@@ -133,6 +137,11 @@ main (int argc, char **argv)
 
 	setup_projection();
 
+#ifdef USE_SDL_GFX
+	FPSmanager fpsManager;
+	SDL_initFramerate(&fpsManager);
+	SDL_setFramerate(&fpsManager, FPS);
+#endif
 	{
 		window.wfc = wf_canvas_new_sdl(window.gl_context);
 
@@ -140,35 +149,49 @@ main (int argc, char **argv)
 		window.w1 = waveform_load_new(filename);
 		g_free(filename);
 
-		int i = 0;
-		window.a[i] = wf_canvas_add_new_actor(window.wfc, window.w1);
-
-		wf_actor_set_rect(window.a[i], &(WfRectangle){
-			0.0,
-			window.height / 2,
-			window.width,
-			window.height / 2 * 0.95
-		});
-
 		int n_frames = 10000;
-		WfSampleRegion region[] = {
-			{0, n_frames},
-		};
+		window.region[0] = (WfSampleRegion){0,      n_frames};
+		window.region[1] = (WfSampleRegion){100000, n_frames / 2};
 
-		wf_actor_set_region(window.a[i], &region[i]);
+		int i = 0; for(;i<2;i++){
+			window.a[i] = wf_canvas_add_new_actor(window.wfc, window.w1);
 
-		/*
-		TODO animations currently depend on the glib main loop.
+			wf_actor_set_rect(window.a[i], &(WfRectangle){
+				0.0,
+				i * window.height / 2,
+				window.width,
+				window.height / 2 * 0.95
+			});
+
+			wf_actor_set_region(window.a[i], &window.region[i]);
+		}
 
 		void _on_wf_canvas_requests_redraw(WaveformCanvas* wfc, gpointer _)
 		{
 			window.dirty = true;
 		}
 		window.wfc->draw = _on_wf_canvas_requests_redraw;
-		*/
 	}
 
 	void loop() {
+		g_main_context_iteration(NULL, false); // update animations
+
+		// TODO tell libwaveform to do preloading and calculations here.
+
+#ifdef MEASURE_FRAMERATE
+		#define N 120
+		static uint32_t c = 0;
+		static int i = 0;
+
+		uint32_t ticks = SDL_GetTicks(); // milliseconds
+
+		if(++i >= N){
+			uint32_t t = (ticks - c) / N;
+			dbg(0, "%.2f fps", 1000.0 / t);
+			i = 0;
+			c = ticks;
+		}
+#endif
 	}
 
 	void render() {
@@ -179,16 +202,21 @@ main (int argc, char **argv)
 
 		glRectf(0.0, window.height/2.0, window.width, window.height);
 
-		wf_actor_paint(window.a[0]);
+		int i; for(i=0;i<2;i++) wf_actor_paint(window.a[i]);
 
-		SDL_GL_SwapWindow(window.mainWindow);
+		SDL_GL_SwapWindow(window.mainWindow); // does not wait for vblank
 	}
 
 	SDL_Event event;
+#if 1
 	while(window.running) {
 		while(SDL_PollEvent(&event)) {
 			on_event(&event);
 		}
+#else
+	while(window.running && (SDL_WaitEvent(&event))) {
+		on_event(&event);
+#endif
 
 		loop();
 
@@ -196,6 +224,13 @@ main (int argc, char **argv)
 			render();
 			window.dirty = false;
 		}
+
+#ifdef USE_SDL_GFX
+		SDL_framerateDelay(&fpsManager);
+#else
+		//usleep(1000 * (1000 - (SDL_GetTicks() - ticks)) / FPS);
+		SDL_Delay(1000 / FPS);
+#endif
 	}
 
 	void cleanup()
@@ -224,9 +259,16 @@ on_event(SDL_Event* event)
 				}
 			}
 			break;
+		case SDL_KEYUP:
+		case SDL_TEXTINPUT:
+		case SDL_WINDOWEVENT:
+		case SDL_MOUSEMOTION ... SDL_MOUSEWHEEL:
+			break;
 		case SDL_QUIT:
 			window.running = false;
 			break;
+		default:
+			dbg(0, "event.other 0x%x", event->type);
 	}
 }
 
@@ -259,14 +301,11 @@ start_zoom(float target_zoom)
 	window.dirty = true;
 
 	int i; for(i=0;i<G_N_ELEMENTS(window.a);i++)
-		if(window.a[i]) {
-			int n_frames = 10000;
-			WfSampleRegion region[] = {
-				{0, ((float)n_frames) / window.zoom},
-			};
-
-			wf_actor_set_region(window.a[i], &region[i]);
-		}
+		if(window.a[i])
+			wf_actor_set_region(window.a[i], &(WfSampleRegion){
+				window.region[i].start,
+				window.region[i].len / window.zoom
+			});
 }
 
 

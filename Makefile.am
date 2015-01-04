@@ -1,7 +1,10 @@
 if ENABLE_OPENGL
 OPENGL_SUBDIRS = agl shaders
 endif
-SUBDIRS = $(OPENGL_SUBDIRS) waveform transition test
+if ENABLE_SDL
+SDL_SUBDIRS = sdl
+endif
+SUBDIRS = $(OPENGL_SUBDIRS) $(SDL_SUBDIRS) waveform transition test
 
 AM_CFLAGS = \
 	-DG_LOG_DOMAIN=\"Waveform\" \

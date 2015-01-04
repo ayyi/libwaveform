@@ -71,3 +71,7 @@
 -primitive support for SDL
 20141105
 -rename wf_actor_allocate to wf_actor_set_rect
+20150103
+-removed all references to glu and glut
+-added transition support with sdl
+-added SDL_framerate library

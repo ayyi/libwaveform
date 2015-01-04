@@ -140,6 +140,7 @@ ass_LDADD = \
 sdl_LDADD = \
 	$(OPENGL_LDFLAGS) \
 	$(SDL_LIBS) \
+	$(top_srcdir)/sdl/libsdlframerate.a \
 	$(TEST_LDFLAGS)
 
 LDADD = \

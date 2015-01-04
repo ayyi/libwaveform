@@ -234,6 +234,7 @@ maybe_start_idle (GdkFrameClockIdle *clock_idle)
 
       if (priv->flush_idle_id == 0 && RUN_FLUSH_IDLE (priv)) {
 #if 0
+#if 0
           priv->flush_idle_id = gdk_threads_add_timeout_full (GDK_PRIORITY_EVENTS + 1,
 #else
           priv->flush_idle_id = g_timeout_add_full           (GDK_PRIORITY_EVENTS + 1,
@@ -242,18 +243,33 @@ maybe_start_idle (GdkFrameClockIdle *clock_idle)
                                                               gdk_frame_clock_flush_idle,
                                                               g_object_ref (clock_idle),
                                                               (GDestroyNotify) g_object_unref);
+#else
+          GSource* timeout_source = g_timeout_source_new (min_interval);
+          g_source_set_priority(timeout_source, GDK_PRIORITY_EVENTS + 1);
+          g_source_set_callback(timeout_source, gdk_frame_clock_flush_idle, g_object_ref(clock_idle), (GDestroyNotify)g_object_unref);
+          g_source_attach(timeout_source, NULL);
+          priv->flush_idle_id = g_source_get_id(timeout_source);
+#endif
       }
 
       if (!priv->in_paint_idle && priv->paint_idle_id == 0 && RUN_PAINT_IDLE (priv)) {
 #if 0
+#if 0
           priv->paint_idle_id = gdk_threads_add_timeout_full (GDK_PRIORITY_REDRAW,
 #else
-          priv->flush_idle_id = g_timeout_add_full           (GDK_PRIORITY_REDRAW,
+          priv->paint_idle_id = g_timeout_add_full           (GDK_PRIORITY_REDRAW,
 #endif
                                                               min_interval,
                                                               gdk_frame_clock_paint_idle,
                                                               g_object_ref (clock_idle),
                                                               (GDestroyNotify) g_object_unref);
+#else
+          GSource* timeout_source = g_timeout_source_new (min_interval);
+          g_source_set_priority(timeout_source, GDK_PRIORITY_REDRAW);
+          g_source_set_callback(timeout_source, gdk_frame_clock_paint_idle, g_object_ref(clock_idle), (GDestroyNotify)g_object_unref);
+          g_source_attach(timeout_source, NULL);
+          priv->paint_idle_id = g_source_get_id(timeout_source);
+#endif
       }
    }
 }
@@ -265,13 +281,21 @@ maybe_stop_idle (GdkFrameClockIdle *clock_idle)
 
   if (priv->flush_idle_id != 0 && !RUN_FLUSH_IDLE (priv))
     {
+#if 1
       g_source_remove (priv->flush_idle_id);
+#else
+      g_source_destroy(g_main_context_find_source_by_id(clock_idle->context, priv->flush_idle_id));
+#endif
       priv->flush_idle_id = 0;
     }
 
   if (priv->paint_idle_id != 0 && !RUN_PAINT_IDLE (priv))
     {
+#if 1
       g_source_remove (priv->paint_idle_id);
+#else
+      g_source_destroy(g_main_context_find_source_by_id(clock_idle->context, priv->paint_idle_id));
+#endif
       priv->paint_idle_id = 0;
     }
 }

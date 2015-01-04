@@ -415,6 +415,18 @@ agl_rect(float x, float y, float w, float h)
 
 
 void
+agl_rect_(AGlRect r)
+{
+	glBegin(GL_QUADS);
+	glVertex2f(r.x,       r.y);
+	glVertex2f(r.x + r.w, r.y);
+	glVertex2f(r.x + r.w, r.y + r.h);
+	glVertex2f(r.x,       r.y + r.h);
+	glEnd();
+}
+
+
+void
 agl_textured_rect(guint texture, float x, float y, float w, float h, AGlQuad* _t)
 {
 	// to use the whole texture, pass NULL for _t
