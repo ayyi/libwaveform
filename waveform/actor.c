@@ -511,7 +511,7 @@ wf_actor_set_colour(WaveformActor* a, uint32_t fg_colour, uint32_t bg_colour)
 void
 wf_actor_set_full(WaveformActor* a, WfSampleRegion* region, WfRectangle* rect, int transition_time, WaveformActorFn callback, gpointer user_data)
 {
-	PF0;
+	PF;
 
 	g_return_if_fail(a);
 	WfActorPriv* _a = a->priv;
@@ -572,7 +572,6 @@ wf_actor_set_full(WaveformActor* a, WfSampleRegion* region, WfRectangle* rect, i
 
 				// TODO move to bottom
 		if(!a->waveform->offline) _wf_actor_load_missing_blocks(a);
-		//TODO if offline, try and load from existing peakfile.
 
 		if(animate){
 			if(a3->start_val.f != *a3->model_val.f) animatables = g_list_prepend(animatables, a3);
@@ -1181,8 +1180,7 @@ wf_actor_set_rect(WaveformActor* a, WfRectangle* rect)
 
 	dbg(2, "rect: %.2f --> %.2f", rect->left, rect->left + rect->len);
 
-	if(!a->waveform->offline && a->region.len && a->waveform->priv->num_peaks) _wf_actor_load_missing_blocks(a);
-	//TODO if offline, try and load from existing peakfile.
+	if(a->region.len && a->waveform->priv->num_peaks) _wf_actor_load_missing_blocks(a);
 
 	if(animate){
 		GList* animatables = NULL; //ownership is transferred to the WfAnimation.
@@ -1519,7 +1517,7 @@ wf_actor_paint(WaveformActor* actor)
 	WfActorPriv* _a = actor->priv;
 	Waveform* w = actor->waveform; 
 	RenderInfo* r  = &_a->render_info;
-	if(w->offline || !w->priv->num_peaks) return false;
+	if(!w->priv->num_peaks) return false;
 
 	if(!wfc->draw) r->valid = false;
 

@@ -1,5 +1,5 @@
 /*
-  copyright (C) 2012-2014 Tim Orford <tim@orford.org>
+  copyright (C) 2012-2015 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -266,16 +266,26 @@ waveform_get_sf_data(Waveform* w)
 	g_return_if_fail(w->filename);
 	WaveformPriv* _w = w->priv;
 
+	if(w->offline) return;
+
+	SF_INFO sfinfo = {0,};
 	SNDFILE* sndfile;
-	SF_INFO sfinfo;
-	memset(&sfinfo, 0, sizeof(SF_INFO));
 	if(!(sndfile = sf_open(w->filename, SFM_READ, &sfinfo))){
+		w->offline = true;
+
 		if(!g_file_test(w->filename, G_FILE_TEST_EXISTS)){
 			if(wf_debug) gwarn("file open failure. no such file: %s", w->filename);
 		}else{
 			gwarn("file open failure.");
+
+			// attempt to work with only a pre-existing peakfile
+			if(waveform_load(w)){
+				w->n_channels = _w->peak.buf[1] ? 2 : 1;
+				w->n_frames = _w->num_peaks * WF_PEAK_RATIO;
+				dbg(1, "offline, have peakfile: n_frames=%Lu c=%i", w->n_frames, w->n_channels);
+				return;
+			}
 		}
-		w->offline = true;
 	}
 	sf_close(sndfile);
 

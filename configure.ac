@@ -132,6 +132,22 @@ AC_SUBST(OPENGL_LDFLAGS)
 
 dnl -----------------------------------------------------
 
+AC_ARG_ENABLE(ffmpeg,   AC_HELP_STRING([--disable-ffmpeg], [disable use of FFMPEG]), enable_ffmpeg=$enableval, enable_ffmpeg="auto")
+
+AS_IF([test "$enable_ffmpeg" != "no"], [
+	PKG_CHECK_MODULES(FFMPEG, [libavformat >= 51.0.0 libavcodec >= 51.0.0 libavutil >= 50.0.0], enable_ffmpeg=yes, enable_ffmpeg=no)
+	])
+
+if test "$enable_ffmpeg" = "yes"; then
+	AC_DEFINE(USE_FFMPEG,1,[Use ffmpeg audio decoder])
+fi
+AM_CONDITIONAL(ENABLE_FFMPEG, test "$enable_ffmpeg" = "yes")
+FFMPEG_LDFLAGS=${FFMPEG_LIBS}
+AC_SUBST(FFMPEG_CFLAGS)
+AC_SUBST(FFMPEG_LDFLAGS)
+
+dnl -----------------------------------------------------
+
 AS_IF([test "$enable_sdl" != "no"], [
 	PKG_CHECK_MODULES(SDL, sdl2, [AC_DEFINE(USE_SDL, 1, Enable support for showing waveforms in SDL applications) enable_sdl="yes"],[
 	enable_sdl="no"])
@@ -218,6 +234,7 @@ AC_MSG_RESULT([Libwaveform:])
 AC_MSG_RESULT([Building opengl:          $enable_opengl])
 AC_MSG_RESULT([Building sdl:             $enable_sdl])
 AC_MSG_RESULT([Building libass:          $enable_libass])
+AC_MSG_RESULT([Building ffmpeg:          $enable_ffmpeg])
 AC_MSG_RESULT([Building tests:           $enable_test])
 AC_MSG_RESULT([Building lv2:             $enable_lv2 (TODO)])
 AC_MSG_RESULT([])

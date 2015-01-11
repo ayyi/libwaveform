@@ -1,5 +1,5 @@
 /*
-  copyright (C) 2012-2014 Tim Orford <tim@orford.org>
+  copyright (C) 2012-2015 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -43,6 +43,7 @@
 #include "waveform/utils.h"
 #include "waveform/peak.h"
 #include "waveform/audio.h"
+#include "waveform/audio_file.h"
 #include "waveform/peakgen.h"
 
 #define BUFFER_LEN 256 // length of the buffer to hold audio during processing. currently must be same as WF_PEAK_RATIO
@@ -123,11 +124,88 @@ waveform_ensure_peakfile (Waveform* w)
 }
 
 
+#ifdef USE_FFMPEG
+bool
+wf_ff_peakgen(const char* infilename, const char* peak_filename)
+{
+	FF f = {0,};
+
+	if(!wf_ff_open(&f, infilename)) return false;
+
+	SNDFILE* outfile;
+	SF_INFO sfinfo = {
+		.format = SF_FORMAT_WAV | SF_FORMAT_PCM_16,
+		.channels = f.info.channels,
+		.samplerate = f.info.sample_rate,
+	};
+
+	gchar* basename = g_path_get_basename(peak_filename);
+	gchar* tmp_path = g_build_filename("/tmp", basename, NULL);
+	g_free(basename);
+
+	if(!(outfile = sf_open(tmp_path, SFM_WRITE, &sfinfo))){
+		printf ("Not able to open output file %s.\n", tmp_path);
+		puts(sf_strerror(NULL));
+		return false;
+	}
+
+	int total_frames_written = 0;
+	short total_max[sfinfo.channels]; memset(total_max, 0, sizeof(short) * sfinfo.channels);
+	short total_min[sfinfo.channels]; memset(total_min, 0, sizeof(short) * sfinfo.channels);
+
+	int read_len = 256 * f.info.channels;
+	float* sf_data = g_malloc(sizeof(float) * read_len);
+	float max[sfinfo.channels];
+	float min[sfinfo.channels];
+
+	int readcount;
+	do {
+		readcount = wf_ff_read(&f, sf_data, read_len);
+
+		memset(max, 0, sizeof(float) * sfinfo.channels);
+		memset(min, 0, sizeof(float) * sfinfo.channels);
+		short w[sfinfo.channels][2];
+
+		int k; for (k = 0; k < readcount; k+=sfinfo.channels){
+			int c; for(c=0;c<sfinfo.channels;c++){
+				const float temp = sf_data[k + c];
+				max[c] = MAX(max[c], temp);
+				min[c] = MIN(min[c], temp);
+			}
+		};
+		int c; for(c=0;c<sfinfo.channels;c++){
+			w[c][0] = max[c] * (1 << 14);
+			w[c][1] = min[c] * (1 << 14);
+			total_max[c] = MAX(total_max[c], w[c][0]);
+			total_min[c] = MIN(total_min[c], w[c][1]);
+		}
+		total_frames_written += sf_write_short (outfile, (short*)w, WF_PEAK_VALUES_PER_SAMPLE * sfinfo.channels);
+
+	} while (readcount > 0);
+
+#if 0
+	if(sfinfo.channels > 1) dbg(0, "max=%i,%i min=%i,%i", total_max[0], total_max[1], total_min[0], total_min[1]);
+	else dbg(0, "max=%i min=%i", total_max[0], total_min[0]);
+#endif
+
+	wf_ff_close(&f);
+	sf_close (outfile);
+	g_free(sf_data);
+
+	int renamed = !rename(tmp_path, peak_filename);
+	g_free(tmp_path);
+	if(!renamed) return false;
+
+	return true;
+}
+#endif
+
+
 #define FAIL_ \
 	sf_close (infile); \
 	return false;
 
-gboolean
+bool
 wf_peakgen(const char* infilename, const char* peak_filename)
 {
 																										#warning write to tmp dir and move when complete
@@ -143,17 +221,23 @@ wf_peakgen(const char* infilename, const char* peak_filename)
 		if(wf_debug){
 			if(!g_file_test(infilename, G_FILE_TEST_EXISTS)){
 				printf("peakgen: no such input file: '%s'\n", infilename);
+				return false;
 			}else{
+#ifdef USE_FFMPEG
+				if(wf_ff_peakgen(infilename, peak_filename)){
+					return true;
+				}
+#endif
 				printf("peakgen: not able to open input file %s.\n", infilename);
 				puts(sf_strerror (NULL));
+				return false;
 			}
 		}
-		return false;
 	}
 	dbg(1, "n_frames=%Lu %i", sfinfo.frames, ((int)sfinfo.frames/256));
 
 	if (sfinfo.channels > MAX_CHANNELS){
-		printf ("Not able to process more than %d channels\n", MAX_CHANNELS) ;
+		printf ("Not able to process more than %d channels\n", MAX_CHANNELS);
 		return false;
 	};
 	if(wf_debug) printf("samplerate=%i channels=%i frames=%i\n", sfinfo.samplerate, sfinfo.channels, (int)sfinfo.frames);
@@ -249,11 +333,6 @@ wf_peakgen(const char* infilename, const char* peak_filename)
 	}
 
 	return true;
-#if 0    //goto wont compile
-failed_:
-	sf_close (infile);
-	return false;
-#endif
 }
 
 
@@ -268,12 +347,11 @@ process_data (short* data, int data_size_frames, int n_channels, short max[], sh
 	//      max  - (output) positive peaks. must be allocated with size n_channels
 	//      min  - (output) negative peaks. must be allocated with size n_channels
 
-	int c; for(c=0;c<n_channels;c++){
-		max[c] = 0;
-		min[c] = 0;
-	}
+	memset(max, 0, sizeof(short) * n_channels);
+	memset(min, 0, sizeof(short) * n_channels);
+
 	int k; for(k=0;k<data_size_frames;k+=n_channels){
-		for(c=0;c<n_channels;c++){
+		int c; for(c=0;c<n_channels;c++){
 			max[c] = (data[k + c] > max[c]) ? data[k + c] : max[c];
 			min[c] = (data[k + c] < min[c]) ? data[k + c] : min[c];
 		}
