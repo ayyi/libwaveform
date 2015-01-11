@@ -202,13 +202,13 @@ wf_ff_peakgen(const char* infilename, const char* peak_filename)
 
 
 #define FAIL_ \
+	g_free(tmp_path); \
 	sf_close (infile); \
 	return false;
 
 bool
 wf_peakgen(const char* infilename, const char* peak_filename)
 {
-																										#warning write to tmp dir and move when complete
 	//return true on success
 
 	g_return_val_if_fail(infilename, false);
@@ -218,23 +218,24 @@ wf_peakgen(const char* infilename, const char* peak_filename)
 
 	SF_INFO sfinfo;
 	if(!(infile = sf_open(infilename, SFM_READ, &sfinfo))){
-		if(wf_debug){
-			if(!g_file_test(infilename, G_FILE_TEST_EXISTS)){
-				printf("peakgen: no such input file: '%s'\n", infilename);
-				return false;
-			}else{
+		if(!g_file_test(infilename, G_FILE_TEST_EXISTS)){
+			if(wf_debug) printf("peakgen: no such input file: '%s'\n", infilename);
+			return false;
+		}else{
 #ifdef USE_FFMPEG
-				if(wf_ff_peakgen(infilename, peak_filename)){
-					return true;
-				}
-#endif
-				printf("peakgen: not able to open input file %s.\n", infilename);
-				puts(sf_strerror (NULL));
-				return false;
+			if(wf_ff_peakgen(infilename, peak_filename)){
+				return true;
 			}
+#endif
+			if(wf_debug) printf("peakgen: not able to open input file %s: %s\n", infilename, sf_strerror(NULL));
+			return false;
 		}
 	}
 	dbg(1, "n_frames=%Lu %i", sfinfo.frames, ((int)sfinfo.frames/256));
+
+	gchar* basename = g_path_get_basename(peak_filename);
+	gchar* tmp_path = g_build_filename("/tmp", basename, NULL);
+	g_free(basename);
 
 	if (sfinfo.channels > MAX_CHANNELS){
 		printf ("Not able to process more than %d channels\n", MAX_CHANNELS);
@@ -258,9 +259,8 @@ wf_peakgen(const char* infilename, const char* peak_filename)
 
 	int bytes_per_frame = sfinfo.channels * sizeof(short);
 
-	if(!(outfile = sf_open(peak_filename, SFM_WRITE, &sfinfo_w))){
-		printf ("Not able to open output file %s.\n", peak_filename);
-		puts(sf_strerror(NULL));
+	if(!(outfile = sf_open(tmp_path, SFM_WRITE, &sfinfo_w))){
+		printf ("Not able to open output file %s: %s.\n", tmp_path, sf_strerror(NULL));
 		FAIL_;
 	}
 
@@ -331,6 +331,10 @@ wf_peakgen(const char* infilename, const char* peak_filename)
 		maintain_file_cache();
 		need_file_cache_check = false;
 	}
+
+	int renamed = !rename(tmp_path, peak_filename);
+	g_free(tmp_path);
+	if(!renamed) return false;
 
 	return true;
 }

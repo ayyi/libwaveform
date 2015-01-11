@@ -78,3 +78,5 @@
 20150110
 -added ability to generate peakfiles using ffmpeg.
 -allow display of innaccessible files using only the peakfile.
+20150110
+-write peaks to temporary file while writing to fix issues with interrupted writes.
