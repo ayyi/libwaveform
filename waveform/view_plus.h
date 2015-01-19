@@ -1,5 +1,5 @@
 /*
-  copyright (C) 2012 Tim Orford <tim@orford.org>
+  copyright (C) 2012-2015 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -62,6 +62,8 @@ struct _WaveformViewPlus {
 
 	char*                    text;
 	uint32_t                 text_colour;
+
+	uint32_t                 time; // milliseconds (maximum of 1193 hours)
 };
 
 struct _WaveformViewPlusClass {

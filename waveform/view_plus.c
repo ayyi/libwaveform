@@ -228,6 +228,8 @@ construct ()
 		gwarn("failed to set gl capability");
 	}
 
+	self->time = UINT32_MAX; // disabled
+
 	WaveformViewPlusPrivate* priv = self->priv;
 	priv->gl_init_done = false;
 
@@ -1169,6 +1171,13 @@ waveform_view_plus_draw(WaveformViewPlus* view)
 
 	agl_print(2, waveform_view_plus_get_height(view) - 16, 0, view->text_colour, view->text);
 
+	if(view->time != UINT32_MAX){
+		agl_set_font_string("Roboto 16");
+		char s[16] = {0,};
+		snprintf(s, 15, "%02i:%02i:%03i", (view->time / 1000) / 60, (view->time / 1000) % 60, view->time % 1000);
+		agl_print(2, 2, 0, view->text_colour, s);
+		agl_set_font_string("Roboto 10");
+	}
 																		// TODO render from renderer list
 	text_render(view);
 }

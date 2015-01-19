@@ -119,6 +119,7 @@ main (int argc, char *argv[])
 	waveform_view_plus_set_text(waveform, "Waveform text waveform text");
 	waveform_view_plus_set_show_rms(waveform, false);
 	waveform_view_plus_set_colour(waveform, 0xccccddaa, 0x000000ff, 0x33aaffff, 0xffff00ff);
+	waveform->time = 1000 * 60 + 1000 + 321;
 	#if 0
 	waveform_view_set_show_grid((WaveformView*)waveform, true);
 	wf_canvas_set_use_shaders(wfc, false);
