@@ -1,5 +1,5 @@
 /*
-  copyright (C) 2012-2014 Tim Orford <tim@orford.org>
+  copyright (C) 2012-2015 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -53,6 +53,7 @@ void            wf_actor_fade_in                    (WaveformActor*, void* /*WfA
 void            wf_actor_set_vzoom                  (WaveformActor*, float);
 gboolean        wf_actor_paint                      (WaveformActor*);
 void            wf_actor_get_viewport               (WaveformActor*, WfViewPort*);
+float           wf_actor_frame_to_x                 (WaveformActor*, uint64_t);
 
 #ifdef USE_TEST
 // access to private data

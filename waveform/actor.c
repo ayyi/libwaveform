@@ -852,6 +852,10 @@ block_to_fbo(WaveformActor* a, int b, WfGlBlock* blocks, int resolution)
 #endif
 
 
+/*
+ *   Returns the instantaneous positions of the top-left and bottom-right corners of the actor.
+ *   These points may lie outside of the canvas viewport.
+ */
 void
 wf_actor_get_viewport(WaveformActor* a, WfViewPort* viewport)
 {
@@ -864,6 +868,16 @@ wf_actor_get_viewport(WaveformActor* a, WfViewPort* viewport)
 		viewport->right  = viewport->left + a->priv->animatable.rect_len.val.f;
 		viewport->bottom = a->rect.top + a->rect.height;
 	}
+}
+
+
+float
+wf_actor_frame_to_x (WaveformActor* actor, uint64_t frame)
+{
+	WfActorPriv* a = actor->priv;
+	#define PIXELS_PER_SAMPLE (a->animatable.rect_len.val.f / a->animatable.len.val.i)
+
+	return (frame - a->animatable.start.val.i) * PIXELS_PER_SAMPLE + a->animatable.rect_left.val.f;
 }
 
 
