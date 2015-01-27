@@ -1253,6 +1253,7 @@ spp_actor(WaveformViewPlus* view)
 	{
 		WaveformViewPlus* view = (WaveformViewPlus*)actor->root->widget;
 		WaveformViewPlusPrivate* v = view->priv;
+		if(!v->actor) return;
 
 		if(view->time != UINT32_MAX){
 			agl_set_font_string("Roboto 16");
