@@ -16,6 +16,7 @@ libagl_la_SOURCES = \
 	pango_font.c pango_font.h \
 	ext.c ext.h \
 	fbo.c fbo.h \
+	actor.c actor.h \
 	utils.c utils.h \
 	typedefs.h shader.h
 

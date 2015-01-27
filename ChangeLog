@@ -81,4 +81,6 @@
 20150110
 -write peaks to temporary file while writing to fix issues with interrupted writes.
 20150118
--add support for playback counter to WaveformViewPlus
+-added support for a playback counter to the WaveformViewPlus widget.
+20150122
+-added scene graph object.
