@@ -50,50 +50,51 @@ struct _grid
 
 
 void
-wf_grid_paint(WaveformCanvas* canvas, WfSampleRegion* viewport_samples, WfViewPort* viewport)
+wf_grid_paint(WaveformCanvas* canvas, WaveformActor* actor)
 {
 	//draw a vertical line every 1 second.
 
 	//only the case of a canvas with a single Waveform is supported.
 
 	g_return_if_fail(canvas);
-	g_return_if_fail(viewport_samples);
-	g_return_if_fail(viewport);
 
-	float width = viewport->right - viewport->left;
-	uint64_t n_frames = viewport_samples->len - viewport_samples->start;
-	float zoom = width / n_frames; //pixels per sample
-	dbg(0, "n_frames=%Lu width=%.2f zoom=%.5f", n_frames, width, zoom);
+	AGl* agl = agl_get_instance();
+
+	WfViewPort viewport; wf_actor_get_viewport(actor, &viewport);
+
+	float h = viewport.bottom;
+	float zoom = (viewport.right - viewport.left) / actor->region.len; // pixels per sample
 
 	int interval = canvas->sample_rate * (zoom > 0.0002 ? 1 : zoom > 0.0001 ? 5 : 10);
+	const int64_t region_end = actor->region.start + actor->region.len;
 
 	int i = 0;
-	uint64_t f; for(f = interval; (f < n_frames) && (i < 0xff); f += interval, i++){
-		float x = zoom * ((float)f - viewport_samples->start);
-		//if(i < 10) dbg(0, "%i x=%.2f", i, x);
+	uint64_t f = ((int)(actor->region.start / interval)) * interval;
+	if(agl->use_shaders){
+		glEnable(GL_BLEND);
+		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+		agl->shaders.plain->uniform.colour = 0x66bbff44;
+		agl_use_program((AGlShader*)agl->shaders.plain);
 
-//TODO doesnt work with blend when shaders enabled.
-//     perhaps shader has set the background alpha to zero?
-		glPushMatrix();
-			agl_use_program(NULL);
-//			glNormal3f(0, 0, 1);
-			glDisable(GL_TEXTURE_1D);
-			glDisable(GL_TEXTURE_2D);
-											//glActiveTexture(WF_TEXTURE0);
-			//glDisable(GL_BLEND);
-											glLineWidth(1);
-											glColor4f(0.5, 0.5, 1.0, 0.25);
-			glEnable(GL_BLEND);
-			glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-			//								glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
-			glLineWidth(1);
-			glColor4f(0.5, 0.5, 1.0, 0.25);
+		for(; (f < region_end) && (i < 0xff); f += interval, i++){
+			agl_rect_((AGlRect){wf_actor_frame_to_x(actor, f), 0, 1, h});
+		}
+	}else{
+		glDisable(GL_TEXTURE_1D);
+		glDisable(GL_TEXTURE_2D);
+		glLineWidth(1);
+		glColor4f(0.5, 0.5, 1.0, 0.25);
+		glEnable(GL_BLEND);
+		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-			int h = viewport->bottom;
+		for(; (f < region_end) && (i < 0xff); f += interval, i++){
+			float x = wf_actor_frame_to_x(actor, f);
+
 			glBegin(GL_LINES);
-			glVertex3f(x, 0.0, 1); glVertex3f(x, h, 1);
+			glVertex3f(x, 0.0, 1);
+			glVertex3f(x, h, 1);
 			glEnd();
-		glPopMatrix();
+		}
 	}
 }
 
