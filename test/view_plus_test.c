@@ -18,12 +18,15 @@
       void waveform_view_plus_set_text   (WaveformViewPlus*, const char*);
       void waveform_view_plus_set_colour (WaveformViewPlus*, uint32_t fg, uint32_t bg, uint32_t title1, uint32_t title2);
 
+  It also offers a 'play counter'. To display a cursor and readout of the
+  current time, set the 'time' property to a non-default value and redraw.
+
   The WaveformView interface is designed to be easy to use.
-  For a more powerful but complicated interface, see WaveformActor
+  For a more powerful but more complicated interface, see WaveformActor
 
   --------------------------------------------------------------
 
-  Copyright (C) 2012-2014 Tim Orford <tim@orford.org>
+  Copyright (C) 2012-2015 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -75,6 +78,9 @@ KeyHandler
 	scroll_right,
 	next_wav,
 	toggle_shaders,
+	toggle_grid,
+	play,
+	stop,
 	quit;
 
 extern bool key_down;
@@ -90,12 +96,16 @@ Key keys[] = {
 	{(char)'>',     NULL},
 	{(char)'n',     next_wav},
 	{(char)'s',     toggle_shaders},
+	{(char)'g',     toggle_grid},
 	{GDK_Delete,    NULL},
+	{65438,         stop},
+	{65421,         play},
 	{113,           quit},
 	{0},
 };
 
 gpointer tests[] = {};
+uint32_t _time = 1000 + 321;
 
 
 int
@@ -119,12 +129,12 @@ main (int argc, char *argv[])
 	waveform_view_plus_set_text(waveform, "Waveform text waveform text");
 	waveform_view_plus_set_show_rms(waveform, false);
 	waveform_view_plus_set_colour(waveform, 0xccccddaa, 0x000000ff, 0x33aaffff, 0xffff00ff);
-	waveform->time = 1000 * 60 + 1000 + 321;
+	waveform->time = _time;
+	waveform_view_plus_set_show_grid(waveform, true);
 	#if 0
-	waveform_view_set_show_grid((WaveformView*)waveform, true);
 	wf_canvas_set_use_shaders(wfc, false);
 	#endif
-	gtk_widget_set_size_request((GtkWidget*)waveform, 256, 128);
+	gtk_widget_set_size_request((GtkWidget*)waveform, 480, 160);
 	gtk_container_add((GtkContainer*)window, (GtkWidget*)waveform);
 
 	gtk_widget_show_all(window);
@@ -135,7 +145,7 @@ main (int argc, char *argv[])
 
 	add_key_handlers((GtkWindow*)window, (WaveformView*)waveform, (Key*)&keys);
 
-	gboolean window_on_delete(GtkWidget* widget, GdkEvent* event, gpointer user_data){
+	bool window_on_delete(GtkWidget* widget, GdkEvent* event, gpointer user_data){
 		gtk_main_quit();
 		return false;
 	}
@@ -228,6 +238,44 @@ toggle_shaders(WaveformView* view)
 	char* filename = find_wav(wavs[0]);
 	waveform_view_plus_load_file((WaveformViewPlus*)view, filename);
 	g_free(filename);
+}
+
+
+
+void
+toggle_grid(WaveformView* view)
+{
+	static bool visible = true;
+	waveform_view_plus_set_show_grid((WaveformViewPlus*)view, visible = !visible);
+}
+
+
+static guint play_timer = 0;
+
+void
+stop(WaveformView* waveform)
+{
+	if(play_timer){
+		g_source_remove (play_timer);
+		play_timer = 0;
+	}else{
+		((WaveformViewPlus*)waveform)->time = (_time = 0);
+		gtk_widget_queue_draw((GtkWidget*)waveform);
+	}
+}
+
+
+void
+play(WaveformView* waveform)
+{
+	bool tick(gpointer waveform)
+	{
+		((WaveformViewPlus*)waveform)->time = (_time += 50, _time);
+		gtk_widget_queue_draw((GtkWidget*)waveform);
+		return true;
+	}
+
+	if(!play_timer) play_timer = g_timeout_add(50, tick, waveform);
 }
 
 

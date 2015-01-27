@@ -624,9 +624,10 @@ static void
 draw(WaveformView* view)
 {
 	Waveform* w = view->waveform;
+	WaveformViewPrivate* v = view->priv;
 	WaveformActor* actor = view->priv->actor;
 
-#if 0 //white border
+#if 0 // white border
 	glPushMatrix(); /* modelview matrix */
 		glNormal3f(0, 0, 1); glDisable(GL_TEXTURE_2D);
 		glLineWidth(1);
@@ -645,12 +646,7 @@ draw(WaveformView* view)
 
 	wf_actor_paint(actor);
 
-	if(view->priv->show_grid){
-		WfViewPort viewport; wf_actor_get_viewport(actor, &viewport);
-
-		WfSampleRegion region = {view->start_frame, w->n_frames};
-		wf_grid_paint(view->priv->canvas, &region, &viewport);
-	}
+	if(v->show_grid) wf_grid_paint(v->canvas, actor);
 }
 
 

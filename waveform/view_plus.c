@@ -48,6 +48,7 @@
 
 #include "waveform/gl_utils.h"
 #include "agl/utils.h"
+#include "agl/actor.h"
 #include "waveform/utils.h"
 #include "waveform/texture_cache.h"
 #include "waveform/actor.h"
@@ -104,9 +105,12 @@ static Key keys[] = {
 struct _WaveformViewPlusPrivate {
 	WaveformCanvas* canvas;
 	WaveformActor*  actor;
+	AGlActor*       root;
 	gboolean        show_grid;
 	GLuint          ass_textures[1];
 	int             title_texture_width;
+
+	AGlActor*       grid_actor;
 
 	gboolean        gl_init_done;
 	gboolean        canvas_init_done;
@@ -129,6 +133,8 @@ static gboolean waveform_view_plus_button_release_event (GtkWidget*, GdkEventBut
 static gboolean waveform_view_plus_motion_notify_event  (GtkWidget*, GdkEventMotion*);
 static gboolean waveform_view_plus_focus_in_event       (GtkWidget*, GdkEventFocus*);
 static gboolean waveform_view_plus_focus_out_event      (GtkWidget*, GdkEventFocus*);
+static gboolean waveform_view_plus_enter_notify_event   (GtkWidget*, GdkEventCrossing*);
+static gboolean waveform_view_plus_leave_notify_event   (GtkWidget*, GdkEventCrossing*);
 static void     waveform_view_plus_realize              (GtkWidget*);
 static void     waveform_view_plus_unrealize            (GtkWidget*);
 static void     waveform_view_plus_allocate             (GtkWidget*, GdkRectangle*);
@@ -145,6 +151,11 @@ static uint32_t color_gdk_to_rgba                       (GdkColor*);
 static uint32_t wf_get_gtk_base_color                   (GtkWidget*, GtkStateType, char alpha);
 static void     add_key_handlers                        (GtkWindow*, WaveformViewPlus*, Key keys[]);
 static void     remove_key_handlers                     (GtkWindow*, WaveformViewPlus*);
+
+static AGlActor* waveform_actor                         (WaveformViewPlus*);
+static AGlActor* spp_actor                              (WaveformViewPlus*);
+static AGlActor* grid_actor                             (WaveformViewPlus*);
+static AGlActor* text_actor                             (WaveformViewPlus*);
 
 #define FONT \
 	"Droid Sans"
@@ -222,7 +233,7 @@ static WaveformViewPlus*
 construct ()
 {
 	WaveformViewPlus* self = (WaveformViewPlus*) g_object_new (TYPE_WAVEFORM_VIEW_PLUS, NULL);
-	gtk_widget_add_events ((GtkWidget*) self, (gint) ((GDK_BUTTON_PRESS_MASK | GDK_BUTTON_RELEASE_MASK) | GDK_POINTER_MOTION_MASK));
+	gtk_widget_add_events ((GtkWidget*) self, (gint) ((GDK_BUTTON_PRESS_MASK | GDK_BUTTON_RELEASE_MASK) | GDK_POINTER_MOTION_MASK | GDK_LEAVE_NOTIFY_MASK));
 	//GdkGLConfig* glconfig = gdk_gl_config_new_by_mode (GDK_GL_MODE_RGB | GDK_GL_MODE_DOUBLE);
 	if(!gtk_widget_set_gl_capability((GtkWidget*)self, glconfig, gl_context, DIRECT, GDK_GL_RGBA_TYPE)){
 		gwarn("failed to set gl capability");
@@ -273,12 +284,7 @@ _waveform_view_plus_set_actor (WaveformViewPlus* view)
 {
 	WaveformActor* actor = view->priv->actor;
 
-#if 0
-	int width = waveform_view_plus_get_width(view);
-	wf_actor_set_rect(actor, &(WfRectangle){0, 0, width, waveform_view_plus_get_height(view)});
-#else
 	waveform_view_plus_gl_on_allocate(view);
-#endif
 
 	void _waveform_view_plus_on_draw(WaveformCanvas* wfc, gpointer _view)
 	{
@@ -483,8 +489,19 @@ waveform_view_plus_set_show_rms (WaveformViewPlus* view, gboolean _show)
 void
 waveform_view_plus_set_show_grid (WaveformViewPlus* view, gboolean show)
 {
-	view->priv->show_grid = show;
-	gtk_widget_queue_draw((GtkWidget*)view);
+	WaveformViewPlusPrivate* v = view->priv;
+
+	if(show != v->show_grid){
+		v->show_grid = show;
+		if(gtk_widget_get_realized((GtkWidget*)view)){
+			if(show)
+				actor__add_child(view->priv->root, v->grid_actor = v->grid_actor ? v->grid_actor : grid_actor(view));
+			else
+				if(v->grid_actor) actor__remove_child(v->root, v->grid_actor);
+
+			gtk_widget_queue_draw((GtkWidget*)view);
+		}
+	}
 }
 
 
@@ -499,7 +516,7 @@ waveform_view_plus_realize (GtkWidget* base)
 	attrs.window_type = GDK_WINDOW_CHILD;
 	attrs.width = base->allocation.width;
 	attrs.wclass = GDK_INPUT_OUTPUT;
-	attrs.event_mask = gtk_widget_get_events(base) | GDK_EXPOSURE_MASK | GDK_KEY_PRESS_MASK;
+	attrs.event_mask = gtk_widget_get_events(base) | GDK_EXPOSURE_MASK | GDK_KEY_PRESS_MASK | GDK_ENTER_NOTIFY_MASK;
 	_g_object_unref0(base->window);
 	base->window = gdk_window_new (gtk_widget_get_parent_window(base), &attrs, 0);
 	gdk_window_set_user_data (base->window, self);
@@ -650,10 +667,25 @@ waveform_view_plus_focus_out_event(GtkWidget* widget, GdkEventFocus* event)
 }
 
 
+static gboolean
+waveform_view_plus_enter_notify_event(GtkWidget* widget, GdkEventCrossing* event)
+{
+	return false;
+}
+
+
+static gboolean
+waveform_view_plus_leave_notify_event(GtkWidget* widget, GdkEventCrossing* event)
+{
+	return false;
+}
+
+
 static void
 waveform_view_plus_init_drawable (WaveformViewPlus* view)
 {
 	GtkWidget* widget = (GtkWidget*)view;
+	WaveformViewPlusPrivate* v = view->priv;
 
 	if(!GTK_WIDGET_REALIZED(widget)) return;
 
@@ -664,14 +696,20 @@ waveform_view_plus_init_drawable (WaveformViewPlus* view)
 	if(!view->text_colour){
 		//TODO because the black background is not a theme colour we need to be careful to use a contrasting colour
 		if(false)
-			view->text_colour   = wf_get_gtk_text_color(widget, GTK_STATE_NORMAL);
+			view->text_colour = wf_get_gtk_text_color(widget, GTK_STATE_NORMAL);
 		else
-			view->text_colour   = wf_get_gtk_base_color(widget, GTK_STATE_NORMAL, 0xaa);
+			view->text_colour = wf_get_gtk_base_color(widget, GTK_STATE_NORMAL, 0xaa);
 	}
 	view->title_colour2 = 0x0000ffff; //FIXME
 
 	waveform_view_plus_gl_init(view);
 	waveform_view_plus_set_projection(widget);
+
+	v->root = actor__new_root(widget);
+	if(v->show_grid) actor__add_child(v->root, v->grid_actor = grid_actor(view));
+	actor__add_child(v->root, waveform_actor(view));
+	actor__add_child(v->root, spp_actor(view));
+	actor__add_child(v->root, text_actor(view));
 
 	view->priv->canvas_init_done = true;
 }
@@ -710,6 +748,8 @@ waveform_view_plus_class_init (WaveformViewPlusClass * klass)
 	GTK_WIDGET_CLASS (klass)->motion_notify_event = waveform_view_plus_motion_notify_event;
 	GTK_WIDGET_CLASS (klass)->focus_in_event = waveform_view_plus_focus_in_event;
 	GTK_WIDGET_CLASS (klass)->focus_out_event = waveform_view_plus_focus_out_event;
+	GTK_WIDGET_CLASS (klass)->enter_notify_event = waveform_view_plus_enter_notify_event;
+	GTK_WIDGET_CLASS (klass)->leave_notify_event = waveform_view_plus_leave_notify_event;
 	GTK_WIDGET_CLASS (klass)->realize = waveform_view_plus_realize;
 	GTK_WIDGET_CLASS (klass)->unrealize = waveform_view_plus_unrealize;
 	GTK_WIDGET_CLASS (klass)->size_allocate = waveform_view_plus_allocate;
@@ -1132,16 +1172,10 @@ waveform_view_plus_gl_init(WaveformViewPlus* view)
 }
 
 
-typedef void    (Renderer)       (WaveformViewPlus*);
-
-Renderer text_render;
-
 static void
 waveform_view_plus_draw(WaveformViewPlus* view)
 {
 	WaveformViewPlusPrivate* v = view->priv;
-	Waveform* w = view->waveform;
-	WaveformActor* actor = view->priv->actor;
 
 #if 0 //white border
 	glPushMatrix(); /* modelview matrix */
@@ -1149,7 +1183,7 @@ waveform_view_plus_draw(WaveformViewPlus* view)
 		glLineWidth(1);
 		glColor3f(1.0, 1.0, 1.0);
 
-		int wid = waveform_view_plus_get_width(view);;
+		int wid = waveform_view_plus_get_width(view);
 		int h   = waveform_view_plus_get_height(view);
 		glBegin(GL_LINES);
 		glVertex3f(0.0, 0.0, 1); glVertex3f(wid, 0.0, 1);
@@ -1158,63 +1192,7 @@ waveform_view_plus_draw(WaveformViewPlus* view)
 	glPopMatrix();
 #endif
 
-	if(!w) return;
-
-	if(actor) wf_actor_paint(actor);
-
-	if(v->show_grid){
-		WfViewPort viewport; wf_actor_get_viewport(actor, &viewport);
-
-		WfSampleRegion region = {view->start_frame, w->n_frames};
-		wf_grid_paint(view->priv->canvas, &region, &viewport);
-	}
-
-	agl_print(2, waveform_view_plus_get_height(view) - 16, 0, view->text_colour, view->text);
-
-	if(view->time != UINT32_MAX){
-		agl_set_font_string("Roboto 16");
-		char s[16] = {0,};
-		snprintf(s, 15, "%02i:%02i:%03i", (view->time / 1000) / 60, (view->time / 1000) % 60, view->time % 1000);
-		agl_print(2, 2, 0, view->text_colour, s);
-		agl_set_font_string("Roboto 10");
-	}
-																		// TODO render from renderer list
-	text_render(view);
-}
-
-
-void
-text_render(WaveformViewPlus* view)
-{
-	WaveformViewPlusPrivate* v = view->priv;
-
-	if(!v->title_is_rendered) waveform_view_plus_render_text(view);
-
-	// title text:
-	if(agl->use_shaders){
-		glEnable(GL_TEXTURE_2D);
-		glActiveTexture(GL_TEXTURE0);
-
-		agl_use_program((AGlShader*)wf_shaders.ass);
-
-		//texture size
-		float th = agl_power_of_two(view->title_height + view->title_y_offset);
-
-#undef ALIGN_TOP
-#ifdef ALIGN_TOP
-		float y1 = -((int)th - view->title_height - view->title_y_offset);
-		agl_textured_rect(v->ass_textures[0], waveform_view_plus_get_width(view) - view->title_width - 4.0f, y, view->title_width, th, &(AGlRect){0.0, 0.0, ((float)view->title_width) / v->title_texture_width, 1.0});
-#else
-		float y = waveform_view_plus_get_height(view) - th;
-		agl_textured_rect(v->ass_textures[0],
-			waveform_view_plus_get_width(view) - view->title_width - 4.0f,
-			y,
-			view->title_width,
-			th,
-			&(AGlQuad){0.0, 0.0, ((float)view->title_width) / v->title_texture_width, 1.0}
-		);
-#endif
-	}
+	if(view->waveform) actor__paint(v->root);
 }
 
 
@@ -1229,4 +1207,124 @@ waveform_view_plus_gl_on_allocate(WaveformViewPlus* view)
 	wf_canvas_set_viewport(view->priv->canvas, NULL);
 }
 
+
+static AGlActor*
+waveform_actor(WaveformViewPlus* view)
+{
+	void waveform_actor_paint(AGlActor* actor)
+	{
+		WaveformViewPlusPrivate* v = ((WaveformViewPlus*)actor->root->widget)->priv;
+
+		if(v->actor) wf_actor_paint(v->actor);
+	}
+
+	AGlActor* actor = actor__new();
+#ifdef DEBUG_ACTOR
+	actor->name = "Waveform";
+#endif
+	actor->paint = waveform_actor_paint;
+	return actor;
+}
+
+
+static AGlActor*
+grid_actor(WaveformViewPlus* view)
+{
+	void grid_actor_paint(AGlActor* actor)
+	{
+		WaveformViewPlusPrivate* v = ((WaveformViewPlus*)actor->root->widget)->priv;
+
+		wf_grid_paint(v->canvas, v->actor);
+	}
+
+	AGlActor* actor = actor__new();
+#ifdef DEBUG_ACTOR
+	actor->name = "SPP";
+#endif
+	actor->paint = grid_actor_paint;
+	return actor;
+}
+
+
+static AGlActor*
+spp_actor(WaveformViewPlus* view)
+{
+	void spp_actor__paint(AGlActor* actor)
+	{
+		WaveformViewPlus* view = (WaveformViewPlus*)actor->root->widget;
+		WaveformViewPlusPrivate* v = view->priv;
+
+		if(view->time != UINT32_MAX){
+			agl_set_font_string("Roboto 16");
+			char s[16] = {0,};
+			snprintf(s, 15, "%02i:%02i:%03i", (view->time / 1000) / 60, (view->time / 1000) % 60, view->time % 1000);
+			agl_print(2, 2, 0, view->text_colour, s);
+			agl_set_font_string("Roboto 10");
+
+			agl->shaders.plain->uniform.colour = 0x00ff00ff;
+			agl_use_program((AGlShader*)agl->shaders.plain);
+
+			int64_t frame = view->time * v->actor->canvas->sample_rate / 1000;
+			agl_rect_((AGlRect){
+				wf_actor_frame_to_x(v->actor, frame), 0,
+				1, waveform_view_plus_get_height(view)
+			});
+		}
+	}
+
+	AGlActor* actor = actor__new();
+#ifdef DEBUG_ACTOR
+	actor->name = "SPP";
+#endif
+	actor->paint = spp_actor__paint;
+	return actor;
+}
+
+
+static AGlActor*
+text_actor(WaveformViewPlus* view)
+{
+	void text_actor_paint(AGlActor* actor)
+	{
+		WaveformViewPlus* view = (WaveformViewPlus*)actor->root->widget;
+		WaveformViewPlusPrivate* v = view->priv;
+
+		agl_print(2, waveform_view_plus_get_height(view) - 16, 0, view->text_colour, view->text);
+
+		if(!v->title_is_rendered) waveform_view_plus_render_text(view);
+
+		// title text:
+		if(agl->use_shaders){
+			glEnable(GL_TEXTURE_2D);
+			glActiveTexture(GL_TEXTURE0);
+
+			agl_use_program((AGlShader*)wf_shaders.ass);
+
+			//texture size
+			float th = agl_power_of_two(view->title_height + view->title_y_offset);
+
+#undef ALIGN_TOP
+#ifdef ALIGN_TOP
+			float y1 = -((int)th - view->title_height - view->title_y_offset);
+			agl_textured_rect(v->ass_textures[0], waveform_view_plus_get_width(view) - view->title_width - 4.0f, y, view->title_width, th, &(AGlRect){0.0, 0.0, ((float)view->title_width) / v->title_texture_width, 1.0});
+#else
+			float y = waveform_view_plus_get_height(view) - th;
+			agl_textured_rect(v->ass_textures[0],
+				waveform_view_plus_get_width(view) - view->title_width - 4.0f,
+				y,
+				view->title_width,
+				th,
+				&(AGlQuad){0.0, 0.0, ((float)view->title_width) / v->title_texture_width, 1.0}
+			);
+#endif
+		}
+	}
+
+	AGlActor* actor = actor__new();
+#ifdef DEBUG_ACTOR
+	actor->name = "Text";
+#endif
+	actor->paint = text_actor_paint;
+	return actor;
+}
 

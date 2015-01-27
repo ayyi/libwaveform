@@ -16,7 +16,7 @@
 
   --------------------------------------------------------------
 
-  Copyright (C) 2012-2014 Tim Orford <tim@orford.org>
+  Copyright (C) 2012-2015 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -55,8 +55,10 @@
 
 #define WAV \
 	"test/data/mono_1.wav"
+//	"test/data/mono_1.mp3"
 //	"test/data/large1.wav"
 //	"test/data/stereo_1.wav"
+//	"test/data/stereo_1.mp3"
 //	"test/data/1_block.wav"
 //	"test/data/3_blocks.wav"
 //	"test/data/2_blocks.wav"
