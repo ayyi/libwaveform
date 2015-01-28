@@ -1265,7 +1265,7 @@ spp_actor(WaveformViewPlus* view)
 			agl->shaders.plain->uniform.colour = 0x00ff00ff;
 			agl_use_program((AGlShader*)agl->shaders.plain);
 
-			int64_t frame = view->time * v->actor->canvas->sample_rate / 1000;
+			int64_t frame = ((int64_t)view->time) * v->actor->canvas->sample_rate / 1000;
 			agl_rect_((AGlRect){
 				wf_actor_frame_to_x(v->actor, frame), 0,
 				1, waveform_view_plus_get_height(view)
