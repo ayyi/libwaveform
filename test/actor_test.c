@@ -7,7 +7,7 @@
 
   ---------------------------------------------------------------
 
-  copyright (C) 2012-2014 Tim Orford <tim@orford.org>
+  copyright (C) 2012-2015 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -45,12 +45,8 @@
 #include "waveform/waveform.h"
 #include "waveform/actor.h"
 #include "waveform/gl_utils.h"
+#include "test/common.h"
 #include "test/ayyi_utils.h"
-
-struct _app
-{
-	int timeout;
-} app;
 
 #define GL_WIDTH 256.0
 #define GL_HEIGHT 256.0
@@ -70,17 +66,41 @@ float           zoom           = 1.0;
 float           vzoom          = 1.0;
 gpointer        tests[]        = {};
 
-static void set_log_handlers   ();
 static void setup_projection   (GtkWidget*);
 static void draw               (GtkWidget*);
 static bool on_expose          (GtkWidget*, GdkEventExpose*, gpointer);
 static void on_canvas_realise  (GtkWidget*, gpointer);
 static void on_allocate        (GtkWidget*, GtkAllocation*, gpointer);
 static void start_zoom         (float target_zoom);
-static void vzoom_up           ();
-static void vzoom_down         ();
-static void toggle_animate     ();
 uint64_t    get_time           ();
+
+KeyHandler
+	zoom_in,
+	zoom_out,
+	vzoom_up,
+	vzoom_down,
+	scroll_left,
+	scroll_right,
+	toggle_animate,
+	quit;
+
+Key keys[] = {
+	{KEY_Left,      scroll_left},
+	{KEY_KP_Left,   scroll_left},
+	{KEY_Right,     scroll_right},
+	{KEY_KP_Right,  scroll_right},
+	{61,            zoom_in},
+	{45,            zoom_out},
+	{(char)'w',     vzoom_up},
+	{(char)'s',     vzoom_down},
+	{GDK_KP_Enter,  NULL},
+	{(char)'<',     NULL},
+	{(char)'>',     NULL},
+	{(char)'a',     toggle_animate},
+	{GDK_Delete,    NULL},
+	{113,           quit},
+	{0},
+};
 
 
 int
@@ -114,49 +134,7 @@ main (int argc, char *argv[])
 
 	gtk_widget_show_all(window);
 
-	gboolean key_press(GtkWidget* widget, GdkEventKey* event, gpointer user_data)
-	{
-		switch(event->keyval){
-			case 61:
-				start_zoom(zoom * 1.5);
-				break;
-			case 45:
-				start_zoom(zoom / 1.5);
-				break;
-			case KEY_Left:
-			case KEY_KP_Left:
-				dbg(0, "left");
-				//waveform_view_set_start(waveform, waveform->start_frame - 8192 / waveform->zoom);
-				break;
-			case KEY_Right:
-			case KEY_KP_Right:
-				dbg(0, "right");
-				//waveform_view_set_start(waveform, waveform->start_frame + 8192 / waveform->zoom);
-				break;
-			case (char)'a':
-				toggle_animate();
-				break;
-			case (char)'w':
-				vzoom_up();
-				break;
-			case (char)'s':
-				vzoom_down();
-				break;
-			case GDK_KP_Enter:
-				break;
-			case 113:
-				exit(EXIT_SUCCESS);
-				break;
-			case GDK_Delete:
-				break;
-			default:
-				dbg(0, "%i", event->keyval);
-				break;
-		}
-		return TRUE;
-	}
-
-	g_signal_connect(window, "key-press-event", G_CALLBACK(key_press), NULL);
+	add_key_handlers((GtkWindow*)window, NULL, (Key*)&keys);
 
 	gboolean window_on_delete(GtkWidget* widget, GdkEvent* event, gpointer user_data){
 		gtk_main_quit();
@@ -339,8 +317,22 @@ start_zoom(float target_zoom)
 }
 
 
-static void
-vzoom_up()
+void
+zoom_in(WaveformView* waveform)
+{
+	start_zoom(zoom * 1.5);
+}
+
+
+void
+zoom_out(WaveformView* waveform)
+{
+	start_zoom(zoom / 1.5);
+}
+
+
+void
+vzoom_up(WaveformView* _)
 {
 	vzoom *= 1.1;
 	zoom = MIN(vzoom, 100.0);
@@ -349,8 +341,8 @@ vzoom_up()
 }
 
 
-static void
-vzoom_down()
+void
+vzoom_down(WaveformView* _)
 {
 	vzoom /= 1.1;
 	zoom = MAX(vzoom, 1.0);
@@ -359,8 +351,24 @@ vzoom_down()
 }
 
 
-static void
-toggle_animate()
+void
+scroll_left(WaveformView* waveform)
+{
+	//int n_visible_frames = ((float)waveform->waveform->n_frames) / waveform->zoom;
+	//waveform_view_set_start(waveform, waveform->start_frame - n_visible_frames / 10);
+}
+
+
+void
+scroll_right(WaveformView* waveform)
+{
+	//int n_visible_frames = ((float)waveform->waveform->n_frames) / waveform->zoom;
+	//waveform_view_set_start(waveform, waveform->start_frame + n_visible_frames / 10);
+}
+
+
+void
+toggle_animate(WaveformView* _)
 {
 	PF0;
 	gboolean on_idle(gpointer _)
@@ -389,29 +397,9 @@ toggle_animate()
 
 
 void
-set_log_handlers()
+quit(WaveformView* waveform)
 {
-	void log_handler(const gchar* log_domain, GLogLevelFlags log_level, const gchar* message, gpointer user_data)
-	{
-	  switch(log_level){
-		case G_LOG_LEVEL_CRITICAL:
-		  printf("%s %s\n", ayyi_err, message);
-		  break;
-		case G_LOG_LEVEL_WARNING:
-		  printf("%s %s\n", ayyi_warn, message);
-		  break;
-		default:
-		  printf("log_handler(): level=%i %s\n", log_level, message);
-		  break;
-	  }
-	}
-
-	g_log_set_handler (NULL, G_LOG_LEVEL_WARNING | G_LOG_LEVEL_CRITICAL | G_LOG_FLAG_FATAL | G_LOG_FLAG_RECURSION, log_handler, NULL);
-
-	char* domain[] = {NULL, "Waveform", "GLib-GObject", "GLib", "Gdk", "Gtk"};
-	int i; for(i=0;i<G_N_ELEMENTS(domain);i++){
-		g_log_set_handler (domain[i], G_LOG_LEVEL_MASK | G_LOG_FLAG_FATAL | G_LOG_FLAG_RECURSION, log_handler, NULL);
-	}
+	exit(EXIT_SUCCESS);
 }
 
 

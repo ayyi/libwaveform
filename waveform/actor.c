@@ -411,6 +411,10 @@ wf_actor_free(WaveformActor* a)
 	g_return_if_fail(a);
 	WfActorPriv* _a = a->priv;
 
+	GList* l = _a->transitions;
+	for(;l;l=l->next) wf_animation_remove((WfAnimation*)l->data);
+	g_list_free0(_a->transitions);
+
 	if(a->waveform){
 		g_signal_handler_disconnect((gpointer)a->waveform, _a->peakdata_ready_handler);
 		_a->peakdata_ready_handler = 0;
