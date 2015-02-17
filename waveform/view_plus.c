@@ -47,12 +47,14 @@
 #include "waveform/peakgen.h"
 
 #include "waveform/gl_utils.h"
+#include "agl/ext.h"
 #include "agl/utils.h"
 #include "agl/actor.h"
 #include "waveform/utils.h"
 #include "waveform/texture_cache.h"
 #include "waveform/actor.h"
 #include "waveform/grid.h"
+#include "waveform/shader.h"
 #include "view_plus.h"
 
 #define DIRECT 1
@@ -102,20 +104,38 @@ static Key keys[] = {
 
 //-----------------------------------------
 
+typedef struct {
+	int         width;
+	int         height;
+	int         y_offset;
+} Title;
+
 struct _WaveformViewPlusPrivate {
 	WaveformCanvas* canvas;
 	WaveformActor*  actor;
 	AGlActor*       root;
 	gboolean        show_grid;
-	GLuint          ass_textures[1];
-	int             title_texture_width;
+	Title           title;
 
 	AGlActor*       grid_actor;
+	AGlActor*       text_actor;
 
 	gboolean        gl_init_done;
 	gboolean        canvas_init_done;
 	gboolean        title_is_rendered;
+
+	uint32_t        play_timeout;
 };
+
+typedef struct {
+	AGlActor    actor;
+	int         baseline;
+	struct {
+	    GLuint  ids[1];
+		int     width;
+		int     height;
+	}           texture;
+} TextActor;
 
 static int      waveform_view_plus_get_width            (WaveformViewPlus*);
 static int      waveform_view_plus_get_height           (WaveformViewPlus*);
@@ -152,10 +172,12 @@ static uint32_t wf_get_gtk_base_color                   (GtkWidget*, GtkStateTyp
 static void     add_key_handlers                        (GtkWindow*, WaveformViewPlus*, Key keys[]);
 static void     remove_key_handlers                     (GtkWindow*, WaveformViewPlus*);
 
+static void     waveform_view_plus_add_actors           (WaveformViewPlus*);
 static AGlActor* waveform_actor                         (WaveformViewPlus*);
 static AGlActor* spp_actor                              (WaveformViewPlus*);
 static AGlActor* grid_actor                             (WaveformViewPlus*);
 static AGlActor* text_actor                             (WaveformViewPlus*);
+static AGlActor* bg_actor                               (WaveformViewPlus*);
 
 #define FONT \
 	"Droid Sans"
@@ -330,22 +352,25 @@ waveform_view_plus_load_file (WaveformViewPlus* view, const char* filename)
 		C* c = _c;
 		WaveformViewPlus* view = c->view;
 		g_return_val_if_fail(view, G_SOURCE_REMOVE);
+		WaveformViewPlusPrivate* v = view->priv;
 
 		if(c->waveform == view->waveform){
-			if(!view->priv->canvas_init_done) waveform_view_plus_init_drawable(view);
+			if(!v->canvas_init_done) waveform_view_plus_init_drawable(view);
 
-			WaveformActor* actor = view->priv->actor = wf_canvas_add_new_actor(c->view->priv->canvas, c->view->waveform);
+			v->actor = (WaveformActor*)waveform_actor(view);
 
-			uint64_t n_frames = waveform_get_n_frames(c->view->waveform);
+			if(v->canvas_init_done && !v->root->children) waveform_view_plus_add_actors(view);
+
+			uint64_t n_frames = waveform_get_n_frames(view->waveform);
 			if(n_frames){
-				wf_actor_set_region(actor, &(WfSampleRegion){0, n_frames});
-				wf_actor_set_colour(view->priv->actor, view->fg_colour, view->bg_colour);
+				wf_actor_set_region(v->actor, &(WfSampleRegion){0, n_frames});
+				wf_actor_set_colour(v->actor, view->fg_colour);
 
-				waveform_load(c->view->waveform);
+				waveform_load(view->waveform);
 			}
-			_waveform_view_plus_set_actor(c->view);
+			_waveform_view_plus_set_actor(view);
 
-			gtk_widget_queue_draw((GtkWidget*)c->view);
+			gtk_widget_queue_draw((GtkWidget*)view);
 		}else{
 			dbg(2, "waveform changed. ignoring...");
 		}
@@ -407,11 +432,22 @@ waveform_view_plus_set_zoom (WaveformViewPlus* view, float zoom)
 {
 	#define MAX_ZOOM 51200.0 //TODO
 	g_return_if_fail(view);
+	WaveformViewPlusPrivate* v = view->priv;
 	dbg(1, "zoom=%.2f", zoom);
+
 	view->zoom = CLAMP(zoom, 1.0, MAX_ZOOM);
 
-	WfSampleRegion region = {view->start_frame, (waveform_get_n_frames(view->waveform) - view->start_frame) / view->zoom};
-	wf_actor_set_region(view->priv->actor, &region);
+	wf_actor_set_region(v->actor, &(WfSampleRegion){
+		view->start_frame,
+		(waveform_get_n_frames(view->waveform) - view->start_frame) / view->zoom
+	});
+
+	((AGlActor*)v->actor)->cache.valid = false;
+																if(v->grid_actor)
+																	v->grid_actor->cache.enabled = false;
+	if(v->grid_actor)
+		v->grid_actor->cache.valid = false;
+	//agl_actor__enable_cache    (AGlActor*, bool);
 
 	if(!view->priv->actor->canvas->draw) gtk_widget_queue_draw((GtkWidget*)view);
 }
@@ -457,12 +493,39 @@ waveform_view_plus_set_colour(WaveformViewPlus* view, uint32_t fg, uint32_t bg, 
 {
 	view->fg_colour = fg;
 	view->bg_colour = bg;
-	if(view->priv->actor) wf_actor_set_colour(view->priv->actor, fg, bg);
+	if(view->priv->actor) wf_actor_set_colour(view->priv->actor, fg);
 
 	if(agl_get_instance()->use_shaders){
 		wf_shaders.ass->uniform.colour1 = view->title_colour1 = text1;
 		wf_shaders.ass->uniform.colour2 = view->title_colour2 = text2;
 	}
+}
+
+
+/*
+ *  Set the current playback position in milliseconds
+ */
+void
+waveform_view_plus_set_time(WaveformViewPlus* view, uint32_t time)
+{
+	WaveformViewPlusPrivate* v = view->priv;
+
+	bool check_playback(gpointer _view)
+	{
+		WaveformViewPlus* view = _view;
+
+		view->priv->play_timeout = 0;
+		gtk_widget_queue_draw((GtkWidget*)view);
+
+		return G_SOURCE_REMOVE;
+	}
+
+	view->time = time;
+
+	if(v->play_timeout) g_source_remove(v->play_timeout);
+	v->play_timeout = g_timeout_add(50, check_playback, view);
+
+	gtk_widget_queue_draw((GtkWidget*)view);
 }
 
 
@@ -495,9 +558,9 @@ waveform_view_plus_set_show_grid (WaveformViewPlus* view, gboolean show)
 		v->show_grid = show;
 		if(gtk_widget_get_realized((GtkWidget*)view)){
 			if(show)
-				actor__add_child(view->priv->root, v->grid_actor = v->grid_actor ? v->grid_actor : grid_actor(view));
+				agl_actor__add_child((AGlActor*)v->actor, v->grid_actor = v->grid_actor ? v->grid_actor : grid_actor(view));
 			else
-				if(v->grid_actor) actor__remove_child(v->root, v->grid_actor);
+				if(v->grid_actor) agl_actor__remove_child(v->root, v->grid_actor);
 
 			gtk_widget_queue_draw((GtkWidget*)view);
 		}
@@ -595,7 +658,8 @@ waveform_view_plus_on_expose (GtkWidget* widget, GdkEventExpose* event)
 		// needed for the case of shared contexts, where one of the other contexts modifies the projection.
 		waveform_view_plus_set_projection(widget);
 
-		glClearColor(0.0, 0.0, 0.0, 1.0);
+		AGlColourFloat bg; wf_colour_rgba_to_float(&bg, view->bg_colour);
+		glClearColor(bg.r, bg.g, bg.b, 1.0);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 		waveform_view_plus_draw(view);
@@ -682,6 +746,21 @@ waveform_view_plus_leave_notify_event(GtkWidget* widget, GdkEventCrossing* event
 
 
 static void
+waveform_view_plus_add_actors(WaveformViewPlus* view)
+{
+	WaveformViewPlusPrivate* v = view->priv;
+
+	g_return_if_fail(!v->root->children);
+
+	agl_actor__add_child(v->root, bg_actor(view));
+	if(v->show_grid) agl_actor__add_child(v->root, v->grid_actor = grid_actor(view));
+	agl_actor__add_child(v->root, (AGlActor*)v->actor);
+	agl_actor__add_child(v->root, spp_actor(view));
+	agl_actor__add_child(v->root, v->text_actor = text_actor(view));
+}
+
+
+static void
 waveform_view_plus_init_drawable (WaveformViewPlus* view)
 {
 	GtkWidget* widget = (GtkWidget*)view;
@@ -705,11 +784,8 @@ waveform_view_plus_init_drawable (WaveformViewPlus* view)
 	waveform_view_plus_gl_init(view);
 	waveform_view_plus_set_projection(widget);
 
-	v->root = actor__new_root(widget);
-	if(v->show_grid) actor__add_child(v->root, v->grid_actor = grid_actor(view));
-	actor__add_child(v->root, waveform_actor(view));
-	actor__add_child(v->root, spp_actor(view));
-	actor__add_child(v->root, text_actor(view));
+	v->root = agl_actor__new_root(widget);
+	if(v->actor) waveform_view_plus_add_actors(view);
 
 	view->priv->canvas_init_done = true;
 }
@@ -925,6 +1001,8 @@ static void
 waveform_view_plus_render_text(WaveformViewPlus* view)
 {
 	WaveformViewPlusPrivate* v = view->priv;
+	AGlActor* actor = v->text_actor;
+	TextActor* ta = (TextActor*)actor;
 
 	PF;
 	if(v->title_is_rendered) gwarn("title is already rendered");
@@ -938,67 +1016,84 @@ waveform_view_plus_render_text(WaveformViewPlus* view)
 	char* title = g_strdup_printf("%s", str);
 	g_free(str);
 
-	int fh = 32;
-	int fw = agl_power_of_two(strlen(title) * 20);
+	int fh = agl_power_of_two(FONT_SIZE + 4);
+	int fw = ta->texture.width = agl_power_of_two(strlen(title) * 20);
 	ass_set_frame_size(ass_renderer, fw, fh);
 
-	char* script_ = g_strdup_printf(script, fw, fh, FONT_SIZE, title);
+	void title_render(const char* text, image_t* out, Title* t)
+	{
+		char* script2 = g_strdup_printf(script, fw, fh, FONT_SIZE, text);
 
-	//TODO this defines the height, but we dont yet know the height, so really we need to do a quick prerender.
-	ASS_Track* track = ass_read_memory(ass_library, script_, strlen(script_), NULL);
-	g_free(script_);
-	if (!track) {
-		printf("track init failed!\n");
-		return;
-	}
-
-	// ASS_Image is a list of alphamaps each with a uint32 RGBA colour/alpha
-	ASS_Image* img = ass_render_frame(ass_renderer, track, 100, NULL);
-
-	int height = 0, width = 0, y_unused = 64;
-	ASS_Image* i = img;
-	for(;i;i=i->next){
-		height = MAX(height, i->h);
-		width  = MAX(width,  i->dst_x + i->w);
-		y_unused = MIN(y_unused, 64 - i->dst_y - i->h);
-	}
-	//dbg(0, "width=%i height=%i y_unused=%i", width, height, y_unused);
-	view->title_width = width;
-	v->title_texture_width = fw;
-	view->title_height = height;
-	view->title_y_offset = y_unused;
-
-	// ass output will be composited into this buffer.
-	// 2 bytes per pixel for use with GL_LUMINANCE8_ALPHA8 mode.
-	//int w = agl_power_of_two(width);
-	//int h = agl_power_of_two(height + y_unused); //TODO
-	//dbg(0, "width: guess=%i actual=%i texture=%i", strlen(title) * 20, width, w);
-	image_t out = {fw, fh, fw * N_CHANNELS, g_new0(guchar, fw * fh * N_CHANNELS)};
-
-	//clear the background to border colour for better antialiasing at edges
-	// ...no, this is not needed.
-#if 0
-	int x, y; for(y=0;y<out.height;y++){
-		for(x=0;x<out.width;x++){
-			*(out.buf + y * out.stride + x * N_CHANNELS) = 0xff;
+		ASS_Track* track = ass_read_memory(ass_library, script2, strlen(script2), NULL);
+		g_free(script2);
+		if (!track) {
+			printf("track init failed!\n");
+			return;
 		}
-	}
-#endif
 
-	int cnt = 0;
-	for(i=img;i;i=i->next,cnt++){
-		blend_single(&out, i); // blend each glyph onto the output buffer.
+		ASS_Image* img = ass_render_frame(ass_renderer, track, 100, NULL);
+
+		*t = (Title){
+			.y_offset = fh,
+		};
+
+		ASS_Image* i = img;
+		for(;i;i=i->next){
+			t->height   = MAX(t->height, i->h);
+			t->width    = MAX(t->width,  i->dst_x + i->w);
+			t->y_offset = MIN(t->y_offset, fh - i->dst_y - i->h); // dst_y is distance from bottom.
+		}
+
+		*out = (image_t){fw, fh, fw * N_CHANNELS, g_new0(guchar, fw * fh * N_CHANNELS)};
+		for(i=img;i;i=i->next){
+			blend_single(out, i); // blend each glyph onto the output buffer.
+		}
+
+		ass_free_track(track);
+		if(false){
+			char* buf = g_new0(char, out->width * out->height * 4);
+			int stride = out->width * 4;
+			int y; for(y=0;y<fh;y++){
+				int x; for(x=0;x<out->width;x++){
+					*(buf + y * stride + x * 4    ) = *(out->buf + y * out->stride + x * N_CHANNELS);
+					*(buf + y * stride + x * 4 + 1) = 0;
+					*(buf + y * stride + x * 4 + 2) = 0;
+					*(buf + y * stride + x * 4 + 3) = *(out->buf + y * out->stride + x * N_CHANNELS + 1);
+				}
+			}
+			GdkPixbuf* pixbuf = gdk_pixbuf_new_from_data((const guchar*)buf, GDK_COLORSPACE_RGB, /*HAS_ALPHA_*/TRUE, 8, out->width, out->height, stride, NULL, NULL);
+			gdk_pixbuf_save(pixbuf, "tmp1.png", "png", NULL, NULL);
+			g_object_unref(pixbuf);
+			g_free(buf);
+		}
+
 	}
-	dbg(1, "%d images blended", cnt);
+
+	// do some test renders to find where the baseline is
+	{
+		image_t out;
+		Title t;
+
+		title_render("iey", &out, &t);
+		((TextActor*)actor)->baseline = t.height;
+		fh = agl_power_of_two(t.height);
+
+		title_render("ie", &out, &t);
+		((TextActor*)actor)->baseline -= t.height -1; // 1 because of spill below baseline
+	}
+
+	image_t out;
+	title_render(title, &out, &v->title);
 
 	{
-		if(!v->ass_textures[0]){
-			glGenTextures(1, v->ass_textures);
-			if(gl_error){ gerr ("couldnt create ass_texture."); return; } //TODO leaks
+		if(!((TextActor*)actor)->texture.ids[0]){
+			glGenTextures(1, ((TextActor*)actor)->texture.ids);
+			if(gl_error){ gerr ("couldnt create ass_texture."); goto out; }
 		}
+		((TextActor*)actor)->texture.height = out.height;
 
 		int pixel_format = GL_LUMINANCE_ALPHA;
-		glBindTexture  (GL_TEXTURE_2D, v->ass_textures[0]);
+		glBindTexture  (GL_TEXTURE_2D, ((TextActor*)actor)->texture.ids[0]);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 		glTexImage2D(GL_TEXTURE_2D, 0, GL_LUMINANCE8_ALPHA8, out.width, out.height, 0, pixel_format, GL_UNSIGNED_BYTE, out.buf);
@@ -1006,14 +1101,14 @@ waveform_view_plus_render_text(WaveformViewPlus* view)
 
 #if 0
 		{
-			char* buf = g_new0(char, w * h * 4);
-			int stride = w * 4;
-			for(y=0;y<h;y++){
-				for(x=0;x<w;x++){
+			char* buf = g_new0(char, out.width * out.height * 4);
+			int stride = out.width * 4;
+			int y; for(y=0;y<fh;y++){
+				int x; for(x=0;x<out.width;x++){
 					*(buf + y * stride + x * 4    ) = *(out.buf + y * out.stride + x * N_CHANNELS);
 					*(buf + y * stride + x * 4 + 1) = 0;//*(out.buf + y * out.stride + x * N_CHANNELS);
 					*(buf + y * stride + x * 4 + 2) = 0;//*(out.buf + y * out.stride + x * N_CHANNELS);
-					*(buf + y * stride + x * 4 + 3) = 0xff;
+					*(buf + y * stride + x * 4 + 3) = *(out.buf + y * out.stride + x * N_CHANNELS + 1);
 				}
 			}
 			GdkPixbuf* pixbuf = gdk_pixbuf_new_from_data((const guchar*)buf, GDK_COLORSPACE_RGB, /*HAS_ALPHA_*/TRUE, 8, out.width, out.height, stride, NULL, NULL);
@@ -1024,11 +1119,11 @@ waveform_view_plus_render_text(WaveformViewPlus* view)
 #endif
 	}
 
-	ass_free_track(track);
+	v->title_is_rendered = true;
+
+  out:
 	g_free(out.buf);
 	g_free(title);
-
-	v->title_is_rendered = true;
 }
 
 
@@ -1192,37 +1287,52 @@ waveform_view_plus_draw(WaveformViewPlus* view)
 	glPopMatrix();
 #endif
 
-	if(view->waveform) actor__paint(v->root);
+	if(view->waveform) agl_actor__paint(v->root);
 }
 
 
 static void
 waveform_view_plus_gl_on_allocate(WaveformViewPlus* view)
 {
-	if(!view->priv->actor) return;
+	WaveformViewPlusPrivate* v = view->priv;
 
-	WfRectangle rect = {0, 0, waveform_view_plus_get_width(view), waveform_view_plus_get_height(view)};
-	wf_actor_set_rect(view->priv->actor, &rect);
+	if(!v->actor) return;
 
-	wf_canvas_set_viewport(view->priv->canvas, NULL);
+	int w = waveform_view_plus_get_width(view);
+	int h = waveform_view_plus_get_height(view);
+
+	if(w != v->root->region.x2 || h != v->root->region.y2){
+		v->root->region = (AGliRegion){0, 0, w, h};
+		agl_actor__set_size(v->root);
+	}
+
+	wf_canvas_set_viewport(v->canvas, NULL);
 }
 
 
 static AGlActor*
 waveform_actor(WaveformViewPlus* view)
 {
-	void waveform_actor_paint(AGlActor* actor)
+	void waveform_actor_size(AGlActor* actor)
 	{
-		WaveformViewPlusPrivate* v = ((WaveformViewPlus*)actor->root->widget)->priv;
+		#define V_BORDER 4
 
-		if(v->actor) wf_actor_paint(v->actor);
+		actor->region = (AGliRegion){
+			.x1 = 0,
+			.y1 = V_BORDER,
+			.x2 = actor->parent->region.x2,
+			.y2 = actor->parent->region.y2 - V_BORDER,
+		};
+		wf_actor_set_rect((WaveformActor*)actor, &(WfRectangle){0, 0, actor->region.x2, actor->region.y2 - actor->region.y1});
 	}
 
-	AGlActor* actor = actor__new();
-#ifdef DEBUG_ACTOR
-	actor->name = "Waveform";
+	AGlActor* actor = (AGlActor*)//wf_actor;
+	/*WaveformActor* wf_actor = view->priv->actor =*/ wf_canvas_add_new_actor(view->priv->canvas, view->waveform);
+	actor->colour = view->fg_colour;
+	actor->set_size = waveform_actor_size;
+#ifdef AGL_ACTOR_RENDER_CACHE
+	actor->fbo = agl_fbo_new(actor->region.x2 - actor->region.x1, actor->region.y2 - actor->region.y1, 0);
 #endif
-	actor->paint = waveform_actor_paint;
 	return actor;
 }
 
@@ -1230,18 +1340,29 @@ waveform_actor(WaveformViewPlus* view)
 static AGlActor*
 grid_actor(WaveformViewPlus* view)
 {
-	void grid_actor_paint(AGlActor* actor)
+	bool grid_actor_paint(AGlActor* actor)
 	{
 		WaveformViewPlusPrivate* v = ((WaveformViewPlus*)actor->root->widget)->priv;
 
-		wf_grid_paint(v->canvas, v->actor);
+		if(v->actor) wf_grid_paint(v->canvas, v->actor);
+
+		return true;
 	}
 
-	AGlActor* actor = actor__new();
-#ifdef DEBUG_ACTOR
-	actor->name = "SPP";
+	void grid_actor_size(AGlActor* actor)
+	{
+		actor->region = actor->parent->region;
+	}
+
+	AGlActor* actor = agl_actor__new();
+#ifdef AGL_DEBUG_ACTOR
+	actor->name = "grid";
 #endif
 	actor->paint = grid_actor_paint;
+	actor->set_size = grid_actor_size;
+#ifdef AGL_ACTOR_RENDER_CACHE
+	actor->fbo = agl_fbo_new(actor->region.x2 - actor->region.x1, actor->region.y2 - actor->region.y1, 0);
+#endif
 	return actor;
 }
 
@@ -1249,35 +1370,71 @@ grid_actor(WaveformViewPlus* view)
 static AGlActor*
 spp_actor(WaveformViewPlus* view)
 {
-	void spp_actor__paint(AGlActor* actor)
+	// TODO frame rate is currently too low to give smooth reslts.
+
+	void spp_actor__set_state(AGlActor* actor)
 	{
 		WaveformViewPlus* view = (WaveformViewPlus*)actor->root->widget;
 		WaveformViewPlusPrivate* v = view->priv;
-		if(!v->actor) return;
+		WaveformActor* a = v->actor;
 
 		if(view->time != UINT32_MAX){
+			if(agl->use_shaders){
+				cursor.uniform.colour = 0x00ff00ff;
+				cursor.uniform.width = v->play_timeout
+					? MAX(2.0, (WF_ACTOR_PX_PER_FRAME(a) / a->canvas->sample_rate) * (1 << 24) * 4)
+					: 2.0;
+			}else{
+				glColor4f(0.0, 1.0, 0.0, 1.0);
+				glDisable(GL_TEXTURE_2D);
+			}
+		}
+	}
+
+	bool spp_actor__paint(AGlActor* actor)
+	{
+		WaveformViewPlus* view = (WaveformViewPlus*)actor->root->widget;
+		WaveformViewPlusPrivate* v = view->priv;
+		WaveformActor* a = v->actor;
+		if(!v->actor) return false;
+
+		if(view->time != UINT32_MAX){
+#if 0
+			glStringMarkerGREMEDY(3, "SPP");
+#endif
+			float width = 1.0;
+			if(agl->use_shaders){
+				width = cursor.uniform.width;
+			}
+
+			int64_t frame = ((int64_t)view->time) * a->canvas->sample_rate / 1000;
+			float x = floorf(wf_actor_frame_to_x(a, frame) - (width - 1.0));
+			glTranslatef(x, 0, 0); // TODO should be done using actor position instead.
+			agl_rect(
+				0, 0,
+				width, waveform_view_plus_get_height(view)
+			);
+			glTranslatef(-x, 0, 0);
+
 			agl_set_font_string("Roboto 16");
 			char s[16] = {0,};
 			snprintf(s, 15, "%02i:%02i:%03i", (view->time / 1000) / 60, (view->time / 1000) % 60, view->time % 1000);
 			agl_print(2, 2, 0, view->text_colour, s);
 			agl_set_font_string("Roboto 10");
-
-			agl->shaders.plain->uniform.colour = 0x00ff00ff;
-			agl_use_program((AGlShader*)agl->shaders.plain);
-
-			int64_t frame = ((int64_t)view->time) * v->actor->canvas->sample_rate / 1000;
-			agl_rect_((AGlRect){
-				wf_actor_frame_to_x(v->actor, frame), 0,
-				1, waveform_view_plus_get_height(view)
-			});
 		}
+		return true;
 	}
 
-	AGlActor* actor = actor__new();
-#ifdef DEBUG_ACTOR
+	AGlActor* actor = agl_actor__new();
+#ifdef AGL_DEBUG_ACTOR
 	actor->name = "SPP";
 #endif
+	actor->program = (AGlShader*)&cursor;
+	actor->set_state = spp_actor__set_state;
 	actor->paint = spp_actor__paint;
+
+	if(agl->use_shaders) agl_create_program(&cursor.shader);
+
 	return actor;
 }
 
@@ -1285,10 +1442,11 @@ spp_actor(WaveformViewPlus* view)
 static AGlActor*
 text_actor(WaveformViewPlus* view)
 {
-	void text_actor_paint(AGlActor* actor)
+	bool text_actor_paint(AGlActor* actor)
 	{
 		WaveformViewPlus* view = (WaveformViewPlus*)actor->root->widget;
 		WaveformViewPlusPrivate* v = view->priv;
+		TextActor* ta = (TextActor*)actor;
 
 		agl_print(2, waveform_view_plus_get_height(view) - 16, 0, view->text_colour, view->text);
 
@@ -1301,31 +1459,122 @@ text_actor(WaveformViewPlus* view)
 
 			agl_use_program((AGlShader*)wf_shaders.ass);
 
-			//texture size
-			float th = agl_power_of_two(view->title_height + view->title_y_offset);
+			float th = ((TextActor*)actor)->texture.height;
 
 #undef ALIGN_TOP
 #ifdef ALIGN_TOP
 			float y1 = -((int)th - view->title_height - view->title_y_offset);
-			agl_textured_rect(v->ass_textures[0], waveform_view_plus_get_width(view) - view->title_width - 4.0f, y, view->title_width, th, &(AGlRect){0.0, 0.0, ((float)view->title_width) / v->title_texture_width, 1.0});
+			agl_textured_rect(v->ass_textures[0], waveform_view_plus_get_width(view) - v->title.width - 4.0f, y, v->title.width, th, &(AGlRect){0.0, 0.0, ((float)v->title.width) / ta->texture.width, 1.0});
 #else
 			float y = waveform_view_plus_get_height(view) - th;
-			agl_textured_rect(v->ass_textures[0],
-				waveform_view_plus_get_width(view) - view->title_width - 4.0f,
-				y,
-				view->title_width,
+			agl_textured_rect(ta->texture.ids[0],
+				waveform_view_plus_get_width(view) - v->title.width - 4.0f,
+				y + ((TextActor*)actor)->baseline - 4.0f,
+				v->title.width,
 				th,
-				&(AGlQuad){0.0, 0.0, ((float)view->title_width) / v->title_texture_width, 1.0}
+				&(AGlQuad){0.0, 0.0, ((float)v->title.width) / ta->texture.width, 1.0}
 			);
 #endif
 		}
+
+		return true;
 	}
 
-	AGlActor* actor = actor__new();
-#ifdef DEBUG_ACTOR
+	TextActor* ta = g_new0(TextActor, 1);
+	AGlActor* actor = (AGlActor*)ta;
+#ifdef AGL_DEBUG_ACTOR
 	actor->name = "Text";
 #endif
 	actor->paint = text_actor_paint;
 	return actor;
 }
 
+
+static AGlActor*
+bg_actor(WaveformViewPlus* view)
+{
+	void agl_load_alphamap(char* buf, guint texture, int width, int height)
+	{
+		int pixel_format = GL_ALPHA;
+		glBindTexture  (GL_TEXTURE_2D, texture);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_ALPHA, width, height, 0, pixel_format, GL_UNSIGNED_BYTE, buf);
+		gl_warn("binding bg texture");
+	}
+
+	void create_background(AGlTextureActor* ta)
+	{
+		//create an alpha-map gradient texture for use as background
+
+		g_return_if_fail(!ta->texture[0]);
+
+		int width = 256;
+		int height = 256;
+		char* pbuf = g_new0(char, width * height);
+#if 0
+		int y; for(y=0;y<height;y++){
+			int x; for(x=0;x<width;x++){
+				*(pbuf + y * width + x) = ((x+y) * 0xff) / (width * 2);
+			}
+		}
+#else
+		int nc = 2;
+		int c; for(c=0;c<nc;c++){
+			int top = (height / nc) * c;
+			int bot = height / nc;
+			int mid = height / (2 * nc);
+			int y; for(y=0;y<mid;y++){
+				int x; for(x=0;x<width;x++){
+					int y_ = top + y;
+					int val = 0xff * (1.0 + sinf(((float)(-mid + 2 * y)) / mid));
+					*(pbuf + y_ * width + x) = ((val) / 8 + ((x+y_) * 0xff) / (width * 2)) / 2;
+					y_ = top + bot - y - 1;
+					*(pbuf + (y_) * width + x) = ((val) / 8 + ((x+y_) * 0xff) / (width * 2)) / 2;
+				}
+			}
+		} 
+#endif
+
+		glEnable(GL_TEXTURE_2D);
+
+		glGenTextures(1, ta->texture);
+		if(glGetError() != GL_NO_ERROR){ gerr ("couldnt create bg_texture."); goto out; }
+
+		agl_load_alphamap(pbuf, ta->texture[0], width, height);
+
+	  out:
+		g_free(pbuf);
+	}
+
+	void bg_actor_set_state(AGlActor* actor)
+	{
+		((AlphaMapShader*)actor->program)->uniform.fg_colour = 0x4488ffff;
+	}
+
+	bool bg_actor_paint(AGlActor* actor)
+	{
+		agl_textured_rect(((AGlTextureActor*)actor)->texture[0],
+			0,
+			0,
+			actor->parent->region.x2,
+			actor->parent->region.y2,
+			NULL
+		);
+
+		return true;
+	}
+
+	AGlTextureActor* ta = g_new0(AGlTextureActor, 1);
+	AGlActor* actor = (AGlActor*)ta;
+#ifdef AGL_DEBUG_ACTOR
+	actor->name = "background";
+#endif
+	actor->set_state = bg_actor_set_state;
+	actor->paint = bg_actor_paint;
+	actor->program = (AGlShader*)agl->shaders.alphamap;
+
+	create_background(ta);
+
+	return actor;
+}

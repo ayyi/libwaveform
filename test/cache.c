@@ -65,8 +65,8 @@ GdkGLContext*   gl_context     = NULL;
 static bool     gl_initialised = false;
 GtkWidget*      canvas         = NULL;
 WaveformCanvas* wfc            = NULL;
-Waveform*       w[2]           = {NULL};
-WaveformActor*  a[2]           = {NULL};
+Waveform*       w[2]           = {NULL,};
+WaveformActor*  a[2]           = {NULL,};
 bool            files_created  = false;
 
 static void setup_projection   (GtkWidget*);
@@ -146,7 +146,18 @@ test_shown()
 {
 	START_TEST;
 
+	assert(GTK_WIDGET_REALIZED(canvas), "widget not realised");
 	assert(wfc, "canvas not created");
+	assert(a[0], "actor not created");
+
+#ifdef AGL_ACTOR_RENDER_CACHE
+	AGlActor* actor = (AGlActor*)a[0];
+	if(actor->cache.valid){
+	}else{
+		extern bool wf_actor_test_is_not_blank(WaveformActor*);
+		assert(wf_actor_test_is_not_blank(a[0]), "output is blank");
+	}
+#endif
 
 	FINISH_TEST;
 }
@@ -481,7 +492,7 @@ test_hi_double()
 		assert(a[i], "failed to create actor");
 
 		wf_actor_set_region(a[i], &(WfSampleRegion){0, 4096 * 256});
-		wf_actor_set_colour(a[i], 0x66eeffff, 0x0000ffff);
+		wf_actor_set_colour(a[i], 0x66eeffff);
 		on_allocate(canvas, NULL, NULL);
 	}
 	add_actor(1);
@@ -687,11 +698,10 @@ setup_projection(GtkWidget* widget)
 static void
 draw(GtkWidget* widget)
 {
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	glEnable(GL_BLEND); glEnable(GL_DEPTH_TEST); glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
 	glPushMatrix(); /* modelview matrix */
-		int i; for(i=0;i<G_N_ELEMENTS(a);i++) if(a[i]) wf_actor_paint(a[i]);
+		int i; for(i=0;i<G_N_ELEMENTS(a);i++) if(a[i]) ((AGlActor*)a[i])->paint((AGlActor*)a[i]);
 	glPopMatrix();
 
 #undef SHOW_BOUNDING_BOX
@@ -771,7 +781,7 @@ on_canvas_realise(GtkWidget* _canvas, gpointer user_data)
 			a[i] = wf_canvas_add_new_actor(wfc, w[0]);
 
 			wf_actor_set_region(a[i], &region[i]);
-			wf_actor_set_colour(a[i], colours[i][0], colours[i][1]);
+			wf_actor_set_colour(a[i], colours[i][0]);
 		}
 
 		on_allocate(canvas, &canvas->allocation, user_data);

@@ -1,5 +1,5 @@
 /*
-  copyright (C) 2012-2014 Tim Orford <tim@orford.org>
+  copyright (C) 2012-2015 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -88,6 +88,17 @@ struct _ass_shader {
 		uint32_t colour2;
 	}            uniform;
 };
+
+typedef struct {
+	AGlShader    shader;
+	struct {
+		uint32_t colour;
+		float    width;
+	}            uniform;
+} CursorShader;
+#ifndef __wf_shader_c__
+extern CursorShader cursor;
+#endif
 
 #endif
 

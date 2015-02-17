@@ -191,7 +191,7 @@ static void
 draw(GtkWidget* widget)
 {
 	glPushMatrix(); /* modelview matrix */
-		int i; for(i=0;i<G_N_ELEMENTS(a);i++) if(a[i]) wf_actor_paint(a[i]);
+		int i; for(i=0;i<G_N_ELEMENTS(a);i++) if(a[i]) ((AGlActor*)a[i])->paint((AGlActor*)a[i]);
 	glPopMatrix();
 
 #undef SHOW_BOUNDING_BOX
@@ -271,7 +271,7 @@ on_canvas_realise(GtkWidget* _canvas, gpointer user_data)
 		a[i] = wf_canvas_add_new_actor(wfc, w1);
 
 		wf_actor_set_region(a[i], &region[i]);
-		wf_actor_set_colour(a[i], colours[i][0], colours[i][1]);
+		wf_actor_set_colour(a[i], colours[i][0]);
 	}
 
 	on_allocate(canvas, &canvas->allocation, user_data);

@@ -137,7 +137,7 @@ wf_get_gtk_text_color(GtkWidget* widget, GtkStateType state)
 
 
 void
-wf_colour_rgba_to_float(WfColourFloat* colour, uint32_t rgba)
+wf_colour_rgba_to_float(AGlColourFloat* colour, uint32_t rgba)
 {
 	//returned values are in the range 0.0 to 1.0;
 
@@ -193,5 +193,23 @@ wf_get_time()
 	gettimeofday(&start, NULL);
 	return start.tv_sec * 1000 + start.tv_usec / 1000;
 }
+
+
+#if 0
+void
+fbo_2_png(AGlFBO* fbo)
+{
+	int width = agl_power_of_two(fbo->width);
+	int height = agl_power_of_two(fbo->height);
+
+	unsigned char buffer[width * height * 4];
+	glBindTexture(GL_TEXTURE_2D, fbo->texture);
+	glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA, GL_UNSIGNED_BYTE, buffer);
+
+	GdkPixbuf* pixbuf = gdk_pixbuf_new_from_data(buffer, GDK_COLORSPACE_RGB, TRUE, 8, width, height, width*4, NULL, NULL);
+	gdk_pixbuf_save(pixbuf, "test.png", "png", NULL, NULL);
+	g_object_unref(pixbuf);
+}
+#endif
 
 

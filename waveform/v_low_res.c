@@ -115,8 +115,20 @@ v_lo_buf_to_tex(Renderer* renderer, WaveformActor* actor, int b)
 }
 
 
+static bool
+v_lo_is_not_blank(Renderer* renderer, WaveformActor* actor)
+{
+	return true;
+}
+
+
 Renderer v_lo_renderer_gl1 = {MODE_V_LOW, v_lo_new_gl1, low_allocate_block, med_lo_pre_render_gl1, med_lo_render_gl1};
-NGRenderer v_lo_renderer_gl2 = {{MODE_V_LOW, v_lo_new_gl2, ng_gl2_load_block, ng_gl2_pre_render, hi_gl2_render_block, ng_gl2_free_waveform}, v_lo_buf_to_tex};
+NGRenderer v_lo_renderer_gl2 = {{MODE_V_LOW, v_lo_new_gl2, ng_gl2_load_block, ng_gl2_pre_render, hi_gl2_render_block, ng_gl2_free_waveform,
+#ifdef USE_TEST
+	.is_not_blank = v_lo_is_not_blank,
+#endif
+	}, v_lo_buf_to_tex,
+};
 Renderer v_lo_renderer;
 
 

@@ -71,14 +71,14 @@ _alphamap_set_uniforms()
 
 //plain 2d texture
 static void _tex_set_uniforms();
-AlphaMapShader tex2d_b = {{NULL, NULL, 0, uniforms, _tex_set_uniforms, &texture_2d_text}};
+static AlphaMapShader tex2d = {{NULL, NULL, 0, uniforms, _tex_set_uniforms, &texture_2d_text}};
 //TODO if we pass the shader as arg we can reuse
 static void
 _tex_set_uniforms()
 {
-	float fg_colour[4] = {0.0, 0.0, 0.0, ((float)(tex2d_b.uniform.fg_colour & 0xff)) / 0x100};
-	agl_rgba_to_float(tex2d_b.uniform.fg_colour, &fg_colour[0], &fg_colour[1], &fg_colour[2]);
-	glUniform4fv(glGetUniformLocation(tex2d_b.shader.program, "fg_colour"), 1, fg_colour);
+	float fg_colour[4] = {0.0, 0.0, 0.0, ((float)(tex2d.uniform.fg_colour & 0xff)) / 0x100};
+	agl_rgba_to_float(tex2d.uniform.fg_colour, &fg_colour[0], &fg_colour[1], &fg_colour[2]);
+	glUniform4fv(glGetUniformLocation(tex2d.shader.program, "fg_colour"), 1, fg_colour);
 }
 
 //plain colour shader
@@ -105,7 +105,7 @@ agl_get_instance()
 		agl->pref_use_shaders = TRUE;
 		agl->use_shaders = FALSE;        // not set until we an have active gl context based on the value of pref_use_shaders.
 		agl->shaders.alphamap = &alphamap;
-		agl->shaders.texture = &tex2d_b;
+		agl->shaders.texture = &tex2d;
 		agl->shaders.plain = &plain;
 	}
 	return agl;
@@ -230,7 +230,7 @@ agl_shaders_init()
 	if(done++) return;
 
 	agl_create_program(&alphamap.shader);
-	agl_create_program(&tex2d_b.shader);
+	agl_create_program(&tex2d.shader);
 	agl_create_program(&plain.shader);
 
 	agl->shaders.text = &alphamap;
@@ -405,24 +405,32 @@ agl_colour_rbga(uint32_t colour)
 void
 agl_rect(float x, float y, float w, float h)
 {
+#if 0
 	glBegin(GL_QUADS);
 	glVertex2f(x,     y);
 	glVertex2f(x + w, y);
 	glVertex2f(x + w, y + h);
 	glVertex2f(x,     y + h);
 	glEnd();
+#else
+	glRectf(x, y, x + w, y + h);
+#endif
 }
 
 
 void
 agl_rect_(AGlRect r)
 {
+#if 0
 	glBegin(GL_QUADS);
 	glVertex2f(r.x,       r.y);
 	glVertex2f(r.x + r.w, r.y);
 	glVertex2f(r.x + r.w, r.y + r.h);
 	glVertex2f(r.x,       r.y + r.h);
 	glEnd();
+#else
+	glRectf(r.x, r.y, r.x + r.w, r.y + r.h);
+#endif
 }
 
 
@@ -589,7 +597,7 @@ agl_print(int x, int y, double z, uint32_t colour, const char *fmt, ...)
 	//------------------------------
 
 	/*
-	WfColourFloat cf;
+	AGlColourFloat cf;
 	colour_rgba_to_float(&cf, colour);
 	Colour32 c32 = {MIN(0xffU, cf.r * 256.0), MIN(0xffU, cf.g * 256.0), MIN(0xffU, cf.b * 256.0), colour & 0xffU};
 	*/
@@ -715,10 +723,6 @@ void agl_enable_stencil(float x, float y, float w, float h)
 	glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
 	glDepthMask(GL_TRUE);
 	glStencilMask(0x00);
-
-	// draw where stencil's value is 0
-	//glStencilFunc(GL_EQUAL, 0, 0xFF);
-	/* (nothing to draw) */
 
 	// draw only where stencil's value is 1
 	glStencilFunc(GL_EQUAL, 1, 0xFF);

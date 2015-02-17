@@ -539,7 +539,7 @@ hi_gl1_render_block(Renderer* renderer, WaveformActor* actor, int b, gboolean is
 	#define EXTRA_PASSES 4 // empirically determined for visual effect.
 	int texels_per_px_i = ((int)texels_per_px) + EXTRA_PASSES;
 
-	WfColourFloat fg;
+	AGlColourFloat fg;
 	wf_colour_rgba_to_float(&fg, actor->fg_colour);
 	float alpha = ((float)(actor->fg_colour & 0xff)) / 256.0;
 	alpha /= (texels_per_px_i * 0.5); //reduce the opacity depending on how many texture passes we do, but not be the full amount (which looks too much).

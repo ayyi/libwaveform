@@ -202,7 +202,7 @@ main (int argc, char **argv)
 
 		glRectf(0.0, window.height/2.0, window.width, window.height);
 
-		int i; for(i=0;i<2;i++) wf_actor_paint(window.a[i]);
+		int i; for(i=0;i<2;i++) agl_actor__paint((AGlActor*)window.a[i]);
 
 		SDL_GL_SwapWindow(window.mainWindow); // does not wait for vblank
 	}

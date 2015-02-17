@@ -140,13 +140,6 @@ void       waveform_rms_to_pixbuf        (Waveform*, GdkPixbuf*, uint32_t src_in
 
 int32_t    wf_get_peakbuf_len_frames     ();
 
-struct _colour_float
-{
-	float r;
-	float g;
-	float b;
-};
-
 #ifdef __wf_private__
 #include "wf_private.h"
 #endif

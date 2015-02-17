@@ -208,7 +208,7 @@ draw(GtkWidget* widget)
 	glPushMatrix(); /* modelview matrix */
 		int i; for(i=0;i<G_N_ELEMENTS(a);i++){
 			WaveformActor* actor = a[(i + a_front + 1) % G_N_ELEMENTS(a)];
-			if(actor) wf_actor_paint(actor);
+			if(actor) agl_actor__paint((AGlActor*)actor);
 		}
 	glPopMatrix();
 
@@ -292,7 +292,7 @@ on_canvas_realise(GtkWidget* _canvas, gpointer user_data)
 		a[i] = wf_canvas_add_new_actor(wfc, w1);
 
 		wf_actor_set_region (a[i], &region[i]);
-		wf_actor_set_colour (a[i], colours[i][0], colours[i][1]);
+		wf_actor_set_colour (a[i], colours[i][0]);
 		wf_actor_set_z      (a[i], i * dz);
 	}
 

@@ -14,6 +14,7 @@
   along with this program; if not, write to the Free Software
   Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 */
+#define __wf_shader_c__
 #define __wf_private__
 #define __wf_canvas_priv__
 #include "config.h"
@@ -46,6 +47,7 @@ static void  _horizontal_set_uniforms  ();
 static void  _ass_set_uniforms         ();
 static void  _ruler_set_uniforms       ();
 static void  _lines_set_uniforms       ();
+static void  _cursor_set_uniforms      ();
 
 static AGlUniformInfo uniforms[] = {
    {"tex1d",     1, GL_INT,   { 1, 0, 0, 0 }, -1}, // LHS +ve - 0 corresponds to glActiveTexture(WF_TEXTURE0);
@@ -105,6 +107,8 @@ static AGlUniformInfo uniforms5[] = {
 };
 RulerShader ruler = {{NULL, NULL, 0, uniforms5, _ruler_set_uniforms, &ruler_text}};
 
+CursorShader cursor = {{NULL, NULL, 0, uniforms5, _cursor_set_uniforms, &cursor_text}};
+
 static void
 _peak_shader_set_uniforms(float peaks_per_pixel, float top, float bottom, uint32_t _fg_colour, int n_channels)
 {
@@ -155,7 +159,7 @@ _hires_set_uniforms()
 	AGlShader* shader = &hires_shader.shader;
 	struct U* u = &((HiResShader*)shader)->uniform;
 
-	float fg_colour[4] = {0.0, 0.0, 0.0, ((float)(hires_shader.uniform.fg_colour & 0xff)) / 0x100};
+	float fg_colour[4] = {0.0, 0.0, 0.0, ((float)(hires_ng_shader.uniform.fg_colour & 0xff)) / 0x100};
 	agl_rgba_to_float(hires_shader.uniform.fg_colour, &fg_colour[0], &fg_colour[1], &fg_colour[2]);
 	glUniform4fv(glGetUniformLocation(shader->program, "fg_colour"), 1, fg_colour);
 
@@ -248,6 +252,19 @@ _lines_set_uniforms()
 
 	glUniform1f(glGetUniformLocation(shader->program, "texture_width"), (float)lines.uniform.texture_width);
 	glUniform1i(glGetUniformLocation(shader->program, "n_channels"), lines.uniform.n_channels);
+}
+
+
+static void
+_cursor_set_uniforms()
+{
+	uint32_t program = cursor.shader.program;
+
+	float colour[4] = {0.0, 0.0, 0.0, ((float)(cursor.uniform.colour & 0xff)) / 0x100};
+	agl_rgba_to_float(cursor.uniform.colour, &colour[0], &colour[1], &colour[2]);
+	glUniform4fv(glGetUniformLocation(program, "colour"), 1, colour);
+
+	glUniform1f(glGetUniformLocation(program, "width"), (float)cursor.uniform.width);
 }
 
 

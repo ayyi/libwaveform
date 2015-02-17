@@ -11,7 +11,7 @@
 */
 #define __gl_actor_c__
 #define __gl_canvas_priv__
-#include "global.h"
+#include "config.h"
 #include <stdio.h>
 #include <string.h>
 #include <GL/gl.h>
@@ -19,7 +19,11 @@
 #include "agl/utils.h"
 #include "agl/ext.h"
 #include "waveform/utils.h"
+#include "agl/shader.h"
 #include "agl/actor.h"
+#ifdef AGL_ACTOR_RENDER_CACHE
+#include "agl/fbo.h"
+#endif
 
 #define HANDLED TRUE
 #define NOT_HANDLED FALSE
@@ -33,28 +37,28 @@ static bool  _actor__on_event    (AGlActor*, void* widget, GdkEvent*, AGliPt);
 
 
 AGlActor*
-actor__new()
+agl_actor__new()
 {
 	agl = agl_get_instance();
 
 	AGlActor* a = g_new0(AGlActor, 1);
-	a->paint = actor__null_painter;
+	a->paint = agl_actor__null_painter;
 	return a;
 }
 
 
 AGlActor*
-actor__new_root(GtkWidget* widget)
+agl_actor__new_root(GtkWidget* widget)
 {
 	agl = agl_get_instance();
 
-	RootActor* a = g_new0(RootActor, 1);
-#ifdef DEBUG_ACTOR
+	AGlRootActor* a = g_new0(AGlRootActor, 1);
+#ifdef AGL_DEBUG_ACTOR
 	((AGlActor*)a)->name = "ROOT";
 #endif
 	a->widget = widget;
 	((AGlActor*)a)->root = a;
-	((AGlActor*)a)->paint = actor__null_painter;
+	((AGlActor*)a)->paint = agl_actor__null_painter;
 
 	a->viewport.w = widget->allocation.width;
 	a->viewport.h = widget->allocation.height;
@@ -64,14 +68,18 @@ actor__new_root(GtkWidget* widget)
 
 
 void
-actor__free(AGlActor* actor)
+agl_actor__free(AGlActor* actor)
 {
 	GList* l = actor->children;
 	for(;l;l=l->next){
 		AGlActor* child = l->data;
-		actor__free(child);
+		agl_actor__free(child);
 	}
 	g_list_free0(actor->children);
+
+#ifdef AGL_ACTOR_RENDER_CACHE
+	if(actor->fbo) agl_fbo_free(actor->fbo);
+#endif
 
 	if(actor->free)
 		actor->free(actor);
@@ -81,9 +89,10 @@ actor__free(AGlActor* actor)
 
 
 AGlActor*
-actor__add_child(AGlActor* actor, AGlActor* child)
+agl_actor__add_child(AGlActor* actor, AGlActor* child)
 {
 	g_return_val_if_fail(actor && child, NULL);
+
 	actor->children = g_list_append(actor->children, child);
 	child->parent = actor;
 	if(actor->root){
@@ -108,24 +117,25 @@ actor__add_child(AGlActor* actor, AGlActor* child)
 
 
 void
-actor__remove_child(AGlActor* actor, AGlActor* child)
+agl_actor__remove_child(AGlActor* actor, AGlActor* child)
 {
 	g_return_if_fail(actor && child);
 	g_return_if_fail(g_list_find(actor->children, child));
+
 	call(child->free, child);
 	actor->children = g_list_remove(actor->children, child);
 }
 
 
 AGlActor*
-actor__replace_child(AGlActor* actor, AGlActor* child, ActorNew constructor)
+agl_actor__replace_child(AGlActor* actor, AGlActor* child, ActorNew constructor)
 {
 	GList* l = g_list_find(actor->children, child);
 	if(l){
-		actor__free(child);
+		agl_actor__free(child);
 
 		//Actor* new_child = constructor((AyyiPanel*)actor->root->widget);
-		AGlActor* new_child = actor__add_child(actor, constructor(actor->root->widget));
+		AGlActor* new_child = agl_actor__add_child(actor, constructor(actor->root->widget));
 
 		// update the children list such that the original order is preserved
 		actor->children = g_list_remove(actor->children, new_child);
@@ -139,46 +149,120 @@ actor__replace_child(AGlActor* actor, AGlActor* child, ActorNew constructor)
 
 
 void
-actor__init(AGlActor* a, gpointer user_data)
+agl_actor__init(AGlActor* a, gpointer user_data)
 {
 	call(a->init, a, user_data);
 
 	GList* l = a->children;
-	for(;l;l=l->next) actor__init((AGlActor*)l->data, user_data);
+	for(;l;l=l->next) agl_actor__init((AGlActor*)l->data, user_data);
 }
 
 
 static bool
 actor__is_onscreen(AGlActor* a)
 {
-	int h = a->root->widget->allocation.height;
+	int h = a->root->widget->allocation.height; // TODO use viewport->height
 	AGlRect* viewport = &a->root->viewport;
 	AGliPt offset = actor__find_offset(a);
+	//gwarn("   %s %i %.1f x %i %.1f, offset: x=%i y=%i viewport=%.1f %.1f", a->name, w, viewport->width, h, viewport->height, offset.x, offset.y, viewport->x, viewport->y);
+	//if(offset.y + a->region.y2  < viewport->y || offset.y > viewport->y + h) dbg(0, "         offscreen: %s", a->name);
 	return !(offset.y + a->region.y2  < viewport->y || offset.y > viewport->y + h);
 }
 
 
+#ifdef AGL_ACTOR_RENDER_CACHE
+static void
+render_from_fbo(AGlActor* a)
+{
+	// render the FBO to screen
+
+	AGlFBO* fbo = a->fbo;
+	g_return_if_fail(fbo);
+
+	// TODO fix the real agl_textured_rect so that it doesnt call glBlendFunc
+	void agl_textured_rect_(guint texture, float x, float y, float w, float h, AGlQuad* _t)
+	{
+		glBindTexture(GL_TEXTURE_2D, texture);
+
+		AGlQuad t = _t ? *_t : (AGlQuad){0.0, 0.0, 1.0, 1.0};
+
+		glBegin(GL_QUADS);
+		glTexCoord2d(t.x0, t.y0); glVertex2d(x,     y);
+		glTexCoord2d(t.x1, t.y0); glVertex2d(x + w, y);
+		glTexCoord2d(t.x1, t.y1); glVertex2d(x + w, y + h);
+		glTexCoord2d(t.x0, t.y1); glVertex2d(x,     y + h);
+		glEnd();
+	}
+
+	if(agl->use_shaders){
+		agl->shaders.texture->uniform.fg_colour = 0xffffffff;
+		agl_use_program((AGlShader*)agl->shaders.texture);
+	}else{
+		glEnable(GL_TEXTURE_2D);
+		glColor4f(1.0, 1.0, 1.0, 1.0); // seems to make a difference for alpha
+	}
+	glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
+
+	float w = fbo->width;
+	float h = fbo->height;
+
+	agl_textured_rect_(fbo->texture, 0.0, 0.0, w, h, &(AGlQuad){0.0, h / agl_power_of_two(h), w / agl_power_of_two(w), 0.0}); // TODO y is reversed - why needed?
+
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+	gl_warn("");
+}
+#endif
+
+
 void
-actor__paint(AGlActor* a)
+agl_actor__paint(AGlActor* a)
 {
 	if(!a->root) return;
 
 	if(!actor__is_onscreen(a)) return;
 
-	// FIXME is calling root widget multiple times?
-	call(a->set_state, a->root->widget); //TODO find optimum place
+	if(a->region.x1 || a->region.y1){
+		glMatrixMode(GL_MODELVIEW);
+		glPushMatrix();
+		glTranslatef(a->region.x1, a->region.y1, 0.0);
+	}
 
-	glPushMatrix();
-	glTranslatef(a->region.x1, a->region.y1, 0.0);
+#ifdef AGL_ACTOR_RENDER_CACHE
+	// TODO check case where actor is translated and is partially offscreen.
+	if(a->fbo && a->cache.enabled && !(a->region.x2 - a->region.x1 > AGL_MAX_FBO_WIDTH)){
+		if(!a->cache.valid){
+			agl_draw_to_fbo(a->fbo) {
+				glClearColor(0.0, 0.0, 0.0, 0.0); // background colour must be same as foreground for correct antialiasing
+				glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 
-	a->paint(a);
+				call(a->set_state, a);
+				if(agl->use_shaders && a->program) agl_use_program(a->program);
+
+				a->paint(a);
+			} agl_end_draw_to_fbo;
+			a->cache.valid = true;
+		}
+
+		render_from_fbo(a);
+	}else{
+#else
+	if(true){
+#endif
+		call(a->set_state, a);
+		if(agl->use_shaders && a->program) agl_use_program(a->program);
+
+		a->paint(a);
+	}
 
 	GList* l = a->children;
 	for(;l;l=l->next){
-		actor__paint((AGlActor*)l->data);
+		agl_actor__paint((AGlActor*)l->data);
 	}
 
-	glPopMatrix();
+	if(a->region.x1 || a->region.y1){
+		glPopMatrix();
+	}
 
 #undef SHOW_ACTOR_BORDERS
 #ifdef SHOW_ACTOR_BORDERS
@@ -222,15 +306,23 @@ actor__paint(AGlActor* a)
 
 
 void
-actor__set_size(AGlActor* actor)
+agl_actor__set_size(AGlActor* actor)
 {
-	//pass each actor the size of its parent --- but actors can access this themselves if they want. no need to pass it. *** remove args 3 and 4
-	call(actor->set_size, actor, -1, -1);
+	call(actor->set_size, actor); // actors need to update their own regions.
+
+#ifdef AGL_ACTOR_RENDER_CACHE
+	if(actor->fbo){
+		int w = actor->region.x2 - actor->region.x1;
+		int h = actor->region.y2 - actor->region.y1;
+
+		agl_fbo_set_size (actor->fbo, w, h);
+	}
+#endif
 
 	GList* l = actor->children;
 	for(;l;l=l->next){
 		AGlActor* a = l->data;
-		actor__set_size(a);
+		agl_actor__set_size(a);
 	}
 }
 
@@ -278,7 +370,7 @@ _actor__on_event(AGlActor* a, void* widget, GdkEvent* event, AGliPt xy)
 
 
 bool
-actor__on_event(RootActor* root, GdkEvent* event)
+agl_actor__on_event(AGlRootActor* root, GdkEvent* event)
 {
 	AGlActor* actor = (AGlActor*)root;
 	GtkWidget* widget = actor->root->widget;
@@ -352,28 +444,143 @@ actor__on_event(RootActor* root, GdkEvent* event)
 }
 
 
-void
-actor__null_painter(AGlActor* actor)
+bool
+agl_actor__null_painter(AGlActor* actor)
 {
+	return true;
 }
 
 
 void
-actor__grab(AGlActor* actor)
+agl_actor__grab(AGlActor* actor)
 {
 	actor_context.grabbed = actor;
 }
 
 
 void
-actor__invalidate(AGlActor* actor)
+agl_actor__invalidate(AGlActor* actor)
 {
+	actor->cache.valid = false;
 	call(actor->invalidate, actor);
 
 	GList* l = actor->children;
 	for(;l;l=l->next){
 		AGlActor* a = l->data;
-		actor__invalidate(a);
+		agl_actor__invalidate(a);
+	}
+
+	while(actor){
+		actor->cache.valid = false;
+		actor = actor->parent;
+	}
+}
+
+
+/*
+ *  Enable / disable caching of all actors that the given actor participates in.
+ *  Note that the caching of child actors and actors in other parts of the tree are not affected.
+ */
+void
+agl_actor__enable_cache(AGlActor* actor, bool enable)
+{
+	while(actor){
+		actor->cache.enabled = enable;
+		if(!enable) actor->cache.valid = false;
+		actor = actor->parent;
+	}
+}
+
+
+/*
+ *   Set initial values of animatables and start the transition.
+ *
+ *   The 'val' of each animatable is assumed to be already set. 'start_val' will be set here.
+ *
+ *   If the actor has any other transitions using the same animatable, these animatables
+ *   are removed from that transition.
+ *
+ *   @param animatables - ownership of this list is transferred to the WfAnimation.
+ */
+void
+agl_actor__start_transition(AGlActor* actor, GList* animatables, AnimationFn done, gpointer user_data)
+{
+	// TODO handle the case here where animating is disabled.
+
+	g_return_if_fail(actor);
+
+	// set initial value
+	GList* l = animatables;
+	for(;l;l=l->next){
+		WfAnimatable* animatable = l->data;
+		animatable->start_val.b = animatable->val.b;
+	}
+
+	typedef struct {
+		AGlActor*      actor;
+		AnimationFn    done;
+		gpointer       user_data;
+	} C;
+	C* c = g_new0(C, 1);
+	*c = (C){
+		.actor = actor,
+		.done = done,
+		.user_data = user_data
+	};
+
+	void on_frame(WfAnimation* animation, int time)
+	{
+		C* c = animation->user_data;
+
+		agl_actor__invalidate(c->actor);
+	}
+
+	void
+	actor_on_transition_finished(WfAnimation* animation, gpointer _actor)
+	{
+		g_return_if_fail(animation);
+		g_return_if_fail(_actor);
+		AGlActor* a = _actor;
+
+#ifdef DEBUG
+		int l = g_list_length(a->transitions);
+#endif
+		a->transitions = g_list_remove(a->transitions, animation);
+#ifdef DEBUG
+		if(g_list_length(a->transitions) != l - 1) gwarn("animation not removed. len=%i-->%i", l, g_list_length(a->transitions));
+#endif
+
+		agl_actor__enable_cache(a, true);
+	}
+
+	void _on_animation_finished(WfAnimation* animation, gpointer user_data)
+	{
+		g_return_if_fail(user_data);
+		g_return_if_fail(animation);
+		C* c = user_data;
+
+		if(c->done) c->done(animation, c->user_data);
+
+		actor_on_transition_finished(animation, c->actor);
+		g_free(c);
+	}
+
+	l = actor->transitions;
+	for(;l;l=l->next){
+		// remove animatables we are replacing. let others finish.
+		GList* k = animatables;
+		for(;k;k=k->next){
+			if(wf_animation_remove_animatable((WfAnimation*)l->data, (WfAnimatable*)k->data)) break;
+		}
+	}
+
+	if(animatables){
+		WfAnimation* animation = wf_animation_add_new(_on_animation_finished, c);
+		animation->on_frame = on_frame;
+		actor->transitions = g_list_append(actor->transitions, animation);
+		wf_transition_add_member(animation, animatables);
+		wf_animation_start(animation);
+		agl_actor__enable_cache(actor, false);
 	}
 }
 

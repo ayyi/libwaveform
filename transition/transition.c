@@ -16,7 +16,7 @@
 
   ---------------------------------------------------------------
 
-  This provides a simple framework for animated transitions from one scaler value to another.
+  This provides a simple framework for animated transitions from one scalar value to another.
 
   The object being animated will own one or more WfAnimatable. The animatable
   contains a pointer to the property being animated. The object will then have
@@ -109,17 +109,21 @@ wf_animation_add_new(AnimationFn on_finished, gpointer user_data)
 }
 
 
+/*
+ *  Ownership of the animatables list is taken. Caller should not free it.
+ */
 void
 wf_transition_add_member(WfAnimation* animation, GList* animatables)
 {
-	//ownership of the animatables list is taken. Caller should not free it.
 
 	g_return_if_fail(animation);
 	g_return_if_fail(animatables);
 
+	// Animatables cannot participate in more than one animation
+	// so any Animatables specified here are removed from existing animations.
+	// All other animations are left to finish normally.
 	GList* l = transitions;
 	for(;l;l=l->next){
-		//only remove animatables we are replacing. others need to finish.
 		GList* k = animatables;
 		for(;k;k=k->next){
 			if(wf_animation_remove_animatable((WfAnimation*)l->data, (WfAnimatable*)k->data)) break;
@@ -336,7 +340,9 @@ wf_animation_start(WfAnimation* animation)
 			WfAnimActor* anim_actor = l->data;
 
 			GList* k = anim_actor->transitions;
+#ifdef DEBUG
 			if(!k) gwarn("AnimActor member has no transitions");
+#endif
 			for(;k;k=k->next){
 				WfAnimatable* animatable = k->data;
 				if(animatable->type == WF_INT){

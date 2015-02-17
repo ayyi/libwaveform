@@ -203,7 +203,7 @@ draw(GtkWidget* widget)
 	ruler_paint(widget);
 
 	//glPushMatrix(); /* modelview matrix */
-		int i; for(i=0;i<G_N_ELEMENTS(a);i++) if(a[i]) wf_actor_paint(a[i]);
+		int i; for(i=0;i<G_N_ELEMENTS(a);i++) if(a[i]) ((AGlActor*)a[i])->paint((AGlActor*)a[i]);
 	//glPopMatrix();
 
 #undef SHOW_BOUNDING_BOX
@@ -287,7 +287,7 @@ on_canvas_realise(GtkWidget* _canvas, gpointer user_data)
 		a[i] = wf_canvas_add_new_actor(wfc, w1);
 
 		wf_actor_set_region(a[i], &region[i]);
-		wf_actor_set_colour(a[i], colours[i][0], colours[i][1]);
+		wf_actor_set_colour(a[i], colours[i][0]);
 	}
 
 	on_allocate(canvas, &canvas->allocation, user_data);
@@ -413,8 +413,6 @@ create_background()
 
 	if(bg_textures[0]) return;
 
-	glEnable(GL_TEXTURE_2D);
-
 	int width = 256;
 	int height = 256;
 	char* pbuf = g_new0(char, width * height);
@@ -424,8 +422,10 @@ create_background()
 		}
 	}
 
+	glEnable(GL_TEXTURE_2D);
+
 	glGenTextures(1, bg_textures);
-	if(glGetError() != GL_NO_ERROR){ gerr ("couldnt create bg_texture."); return; }
+	if(glGetError() != GL_NO_ERROR){ gerr ("couldnt create bg_texture."); goto out; }
 	dbg(0, "bg_texture=%i", bg_textures[0]);
 
 	int pixel_format = GL_ALPHA;
@@ -433,8 +433,9 @@ create_background()
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_ALPHA, width, height, 0, pixel_format, GL_UNSIGNED_BYTE, pbuf);
-	if(glGetError() != GL_NO_ERROR) gwarn("gl error binding bg texture!");
+	gl_warn("binding bg texture");
 
+  out:
 	g_free(pbuf);
 }
 

@@ -19,7 +19,8 @@
       void waveform_view_plus_set_colour (WaveformViewPlus*, uint32_t fg, uint32_t bg, uint32_t title1, uint32_t title2);
 
   It also offers a 'play counter'. To display a cursor and readout of the
-  current time, set the 'time' property to a non-default value and redraw.
+  current time, set the time to a non-default value and redraw.
+      void waveform_view_plus_set_time  (WaveformViewPlus*, uint32_t time_in_milliseconds);
 
   The WaveformView interface is designed to be easy to use.
   For a more powerful but more complicated interface, see WaveformActor
@@ -129,7 +130,7 @@ main (int argc, char *argv[])
 	waveform_view_plus_set_text(waveform, "Waveform text waveform text");
 	waveform_view_plus_set_show_rms(waveform, false);
 	waveform_view_plus_set_colour(waveform, 0xccccddaa, 0x000000ff, 0x33aaffff, 0xffff00ff);
-	waveform->time = _time;
+	waveform_view_plus_set_time(waveform, _time);
 	waveform_view_plus_set_show_grid(waveform, true);
 	#if 0
 	wf_canvas_set_use_shaders(wfc, false);
@@ -259,8 +260,7 @@ stop(WaveformView* waveform)
 		g_source_remove (play_timer);
 		play_timer = 0;
 	}else{
-		((WaveformViewPlus*)waveform)->time = (_time = 0);
-		gtk_widget_queue_draw((GtkWidget*)waveform);
+		waveform_view_plus_set_time((WaveformViewPlus*)waveform, (_time = 0));
 	}
 }
 
@@ -270,8 +270,7 @@ play(WaveformView* waveform)
 {
 	bool tick(gpointer waveform)
 	{
-		((WaveformViewPlus*)waveform)->time = (_time += 50, _time);
-		gtk_widget_queue_draw((GtkWidget*)waveform);
+		waveform_view_plus_set_time((WaveformViewPlus*)waveform, (_time += 50, _time));
 		return true;
 	}
 

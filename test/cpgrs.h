@@ -1,13 +1,6 @@
-
-class Generator
-{
-  public:
-	virtual void init    () = 0;
-	virtual void compute (int count, double** input, double** output) = 0;
-
-	float on;
-};
-
+#ifndef __cpgrs_h__
+#define __cpgrs_h__
+#include "generator.h"
 
 class CPGRS : public Generator
 {
@@ -38,3 +31,5 @@ class CPGRS : public Generator
 	void init    ();
 	void compute (int count, double** input, double** output);
 };
+
+#endif

@@ -1,5 +1,5 @@
 /*
-  copyright (C) 2014 Tim Orford <tim@orford.org>
+  copyright (C) 2014-2015 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -44,18 +44,21 @@ void main(void)
 	int c = 0;
 	float yc = y;
 	if(n_channels > 1){
-		if(y < mid){
+		if(y < mid - 1.0){
 			// LHS
 			mid3 = mid / 2.0;
-			mid = mid - mid / 2.0;
+			mid -= mid / 2.0;
 			yc = y;
-		}else{
+		}else if(y > mid + 1.0){
 			// RHS
 			c = 1;
 			mid3 = mid / 2.0;
 			yc = y - mid;
 			mid += mid / 2.0;
 			t.y += 4.0;
+		}else{
+			// leave 2 pixel gap between channels       -- TODO there is now a texture lookup error of up to 1 pixel causing cropping
+			discard;
 		}
 	}
 

@@ -51,12 +51,12 @@ wf_ff_open(FF* f, const char* infilename)
 	wf_ff_init();
 
 	if(avformat_open_input(&f->format_context, infilename, NULL, NULL)){
-		dbg(0, "ff open failed: %s", infilename);
+		dbg(1, "ff open failed: %s", infilename);
 		return false;
 	}
 
 	if (avformat_find_stream_info(f->format_context, NULL) < 0){
-		dbg(0, "av_find_stream_info failed");
+		dbg(1, "av_find_stream_info failed");
 		goto out;
 	}
 
@@ -68,7 +68,7 @@ wf_ff_open(FF* f, const char* infilename)
 		}
 	}
 	if (f->audio_stream == -1) {
-		dbg(0, "No Audio Stream found in file");
+		dbg(1, "No Audio Stream found in file");
 		goto out;
 	}
 
@@ -84,7 +84,7 @@ wf_ff_open(FF* f, const char* infilename)
 		goto out;
 	}
 
-	dbg(0, "ffmpeg - audio tics: %i/%i [sec]", f->format_context->streams[f->audio_stream]->time_base.num, f->format_context->streams[f->audio_stream]->time_base.den);
+	dbg(1, "ffmpeg - audio tics: %i/%i [sec]", f->format_context->streams[f->audio_stream]->time_base.num, f->format_context->streams[f->audio_stream]->time_base.den);
 
 	f->format_context->flags |= AVFMT_FLAG_GENPTS;
 	f->format_context->flags |= AVFMT_FLAG_IGNIDX;

@@ -18,6 +18,8 @@
 #define __waveform_actor_h__
 #include <gtk/gtkgl.h>
 #include "transition/transition.h"
+#include "agl/actor.h"
+#include "waveform/typedefs.h"
 #include "canvas.h"
 #include "peak.h"
 
@@ -30,12 +32,12 @@ typedef struct _actor_priv WfActorPriv;
 typedef void    (*WaveformActorFn) (WaveformActor*, gpointer);
 
 struct _waveform_actor {
+	AGlActor        actor;
 	WaveformCanvas* canvas;   //TODO decide if this is a good idea or not. confusing but reduces fn args.
 	Waveform*       waveform;
 	WfSampleRegion  region;
 	WfRectangle     rect;
 	uint32_t        fg_colour;
-	uint32_t        bg_colour;
 	float           vzoom;     // vertical zoom. default 1.0
 	float           z;         // render position on z-axis.
 
@@ -45,15 +47,16 @@ struct _waveform_actor {
 void            wf_actor_free                       (WaveformActor*);
 void            wf_actor_set_region                 (WaveformActor*, WfSampleRegion*);
 void            wf_actor_set_rect                   (WaveformActor*, WfRectangle*);
-void            wf_actor_set_colour                 (WaveformActor*, uint32_t fg_colour, uint32_t bg_colour);
+void            wf_actor_set_colour                 (WaveformActor*, uint32_t fg_colour);
 void            wf_actor_set_z                      (WaveformActor*, float);
 void            wf_actor_set_full                   (WaveformActor*, WfSampleRegion*, WfRectangle*, int time, WaveformActorFn, gpointer);
 void            wf_actor_fade_out                   (WaveformActor*, WaveformActorFn, gpointer);
 void            wf_actor_fade_in                    (WaveformActor*, void* /*WfAnimatable* */, float, WaveformActorFn, gpointer);
 void            wf_actor_set_vzoom                  (WaveformActor*, float);
-gboolean        wf_actor_paint                      (WaveformActor*);
 void            wf_actor_get_viewport               (WaveformActor*, WfViewPort*);
 float           wf_actor_frame_to_x                 (WaveformActor*, uint64_t);
+
+#define         WF_ACTOR_PX_PER_FRAME(A) (A->rect.len / A->region.len)
 
 #ifdef USE_TEST
 // access to private data

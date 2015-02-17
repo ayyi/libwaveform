@@ -5,7 +5,7 @@
 
   ---------------------------------------------------------------
 
-  copyright (C) 2012 Tim Orford <tim@orford.org>
+  copyright (C) 2012-2015 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -29,6 +29,7 @@
 #include <malloc.h>
 #include <getopt.h>
 #include <sndfile.h>
+#include "generator.h"
 #include "cpgrs.h"
 
 #define MONO 1
@@ -124,18 +125,14 @@ int main(int argc, char* argv[])
 	double* output[n_channels];// = {buffer + 16384 * n_channels, buffer + 16384 * n_channels};
 	int ff = 0;
 
-	float* output_f[n_channels];
 	CPGRS cpgrs;
-	cpgrs.init();
+	Note note(&cpgrs, 4096);
 	cpgrs.release = 0.1f;
 	for(int a=0;a<n_frames;a++){
 		int c; for(c=0;c<n_channels;c++){
 			output[c] = buffer + ff * n_channels + a * n_channels + c;
 		}
-		cpgrs.compute(n_channels, (double**)input, (double**)output_f);
-		for(c=0;c<n_channels;c++){
-			output[0][c] = output_f[0][c];
-		}
+		cpgrs.compute(n_channels, (double**)input, (double**)output);
 	}
 
 	//------------------- save --------------------

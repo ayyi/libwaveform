@@ -105,10 +105,12 @@ sdl_SOURCES = \
 endif
 
 write_wav_SOURCES = \
+	generator.cc generator.h \
 	cpgrs.cc cpgrs.h \
 	write_wav.cpp
 
 write_short_SOURCES = \
+	generator.cc generator.h \
 	cpgrs.cc cpgrs.h \
 	write_short.cc
 

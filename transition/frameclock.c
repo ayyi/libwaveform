@@ -291,7 +291,11 @@ frame_clock_connect(GCallback callback, gpointer user_data)
 		default_clock = g_object_new(GDK_TYPE_FRAME_CLOCK_IDLE, NULL);
 	}
 
+#if 1
 	g_signal_connect (G_OBJECT(default_clock), "update", callback, user_data);
+#else
+	g_signal_connect (G_OBJECT(default_clock), "paint", callback, user_data);
+#endif
 }
 
 

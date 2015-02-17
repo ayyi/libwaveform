@@ -132,9 +132,9 @@ struct _wf_texture_list                   // WfGlBlock - used at MED and LOW res
 		unsigned*   main;                 // array of texture id
 		unsigned*   neg;                  // array of texture id - only used in shader mode.
 	}               peak_texture[WF_MAX_CH];
-	AglFBO**        fbo;
+	AGlFBO**        fbo;
 #ifdef USE_FX
-	AglFBO**        fx_fbo;
+	AGlFBO**        fx_fbo;
 #endif
 #ifdef WF_SHOW_RMS
 	unsigned*       rms_texture;

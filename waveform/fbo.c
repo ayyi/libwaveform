@@ -40,10 +40,8 @@ extern BloomShader vertical;
 
 #ifdef USE_FBO
 
-static AglFBO* fbo0 = NULL;
 
-
-AglFBO*
+AGlFBO*
 fbo_new_test()
 {
 	GLuint _wf_create_background()
@@ -119,13 +117,15 @@ fbo_new_test()
 
 		return bg_textures;
 	}
-	//AglFBO* fbo = agl_fbo_new(256, 256, _wf_create_background());
-	AglFBO* fbo = agl_fbo_new(256, 256, _wf_create_background_rgba());
+	//AGlFBO* fbo = agl_fbo_new(256, 256, _wf_create_background());
+	AGlFBO* fbo = agl_fbo_new(256, 256, _wf_create_background_rgba());
 	return fbo;
 }
 
 
 #if 0
+static AGlFBO* fbo0 = NULL;
+
 void
 fbo_print(WaveformActor* actor, int x, int y, double scale, uint32_t colour, int alpha)
 {

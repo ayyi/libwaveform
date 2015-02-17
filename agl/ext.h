@@ -162,6 +162,7 @@ static PFNGLBLITFRAMEBUFFERPROC glBlitFramebuffer_func;
 static PFNGLRENDERBUFFERSTORAGEMULTISAMPLEPROC glRenderbufferStorageMultisample_func;
 static PFNGLFRAMEBUFFERTEXTURELAYERPROC glFramebufferTextureLayer_func;
 #endif
+PFNGLSTRINGMARKERGREMEDYPROC glStringMarkerGREMEDY;
 
 void get_gl_extensions();
 

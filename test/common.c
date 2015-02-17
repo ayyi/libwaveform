@@ -88,7 +88,7 @@ next_test()
 
 	bool _exit()
 	{
-		exit(EXIT_SUCCESS);
+		exit(n_failed ? EXIT_FAILURE : EXIT_SUCCESS);
 		return TIMER_STOP;
 	}
 

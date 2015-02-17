@@ -48,9 +48,6 @@ struct _texture_unit
    int         texture;
 };
 
-typedef struct {float x, y, w, h;} AGlRect;
-typedef struct {float x0, y0, x1, y1;} AGlQuad;
-
 AGl*      agl_get_instance        ();
 void      agl_enable              (gulong flags);
 GLboolean agl_shaders_supported   ();

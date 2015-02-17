@@ -278,7 +278,7 @@ med_lo_pre_render_gl1(Renderer* renderer, WaveformActor* actor)
 
 	glEnable(GL_TEXTURE_2D);
 
-	WfColourFloat fg; wf_colour_rgba_to_float(&fg, actor->fg_colour);
+	AGlColourFloat fg; wf_colour_rgba_to_float(&fg, actor->fg_colour);
 
 	glColor4f(fg.r, fg.g, fg.b, _a->animatable.opacity.val.f);
 }
@@ -407,7 +407,7 @@ med_lo_render_gl1(Renderer* renderer, WaveformActor* actor, int b, bool is_first
 #if 0
 		if(!glIsTexture(w->textures->rms_texture[i])) gwarn ("texture not loaded. block=%i", i);
 #endif
-		WfColourFloat bg;
+		AglColourFloat bg;
 		wf_colour_rgba_to_float(&bg, actor->bg_colour);
 
 		//note seems we have to do this after binding...
@@ -444,7 +444,7 @@ lo_render_gl2(Renderer* renderer, WaveformActor* actor, int b, bool is_first, bo
 
 #if defined (USE_FBO) && defined (multipass)
 	//rendering from 2d texture not 1d
-	AglFBO* fbo = false
+	AGlFBO* fbo = false
 		? fbo_test
 #ifdef USE_FX
 		: textures->fx_fbo[b]

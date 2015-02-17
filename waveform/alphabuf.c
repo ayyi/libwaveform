@@ -1,5 +1,5 @@
 /*
-  copyright (C) 2012 Tim Orford <tim@orford.org>
+  copyright (C) 2012-2015 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -36,8 +36,6 @@
 //#define WF_TEXTURE_HEIGHT 128 //1024
 #define WF_TEXTURE_HEIGHT 256 //intel 945 seems to work better with square textures
 #define BITS_PER_PIXEL 8
-
-static int   waveform_get_n_textures    (Waveform*);
 
 
 static AlphaBuf*
@@ -83,7 +81,7 @@ wf_alphabuf_new(Waveform* waveform, int blocknum, int scale, gboolean is_rms, in
 		x_start = 0;
 		x_stop  = width = _w->num_peaks;
 	}else{
-		int n_blocks = waveform_get_n_textures(waveform);
+		int n_blocks = waveform->priv->n_blocks;
 		dbg(2, "block %i/%i", blocknum, n_blocks);
 		gboolean is_last = (blocknum == n_blocks - 1);
 
@@ -164,7 +162,7 @@ wf_alphabuf_new_hi(Waveform* waveform, int blocknum, int Xscale, gboolean is_rms
 		x_start = 0;
 		x_stop  = width = _w->num_peaks;
 	}else{
-		int n_blocks = waveform_get_n_textures(waveform);
+		int n_blocks = waveform->priv->n_blocks;
 		dbg(2, "block %i/%i", blocknum, n_blocks);
 		gboolean is_last = (blocknum == n_blocks - 1);
 
@@ -241,16 +239,6 @@ wf_alphabuf_to_pixbuf(AlphaBuf* a)
 		}
 	}
 	return pixbuf;
-}
-
-
-static int
-waveform_get_n_textures(Waveform* waveform)
-{
-	WfGlBlock* blocks = waveform->priv->render_data[MODE_MED];
-	if(blocks) return blocks->size;
-	gerr("!! no glblocks\n");
-	return -1;
 }
 
 

@@ -78,15 +78,14 @@ struct _waveform_canvas {
 struct _wf_canvas_priv {
 	struct {
 		PeakShader*     peak;
-//#ifdef USE_FBO // cannot use this unless is really private
 		PeakShader*     peak_nonscaling;
-//#endif
 		HiResShader*    hires;
 		HiResNGShader*  hires_ng;
 		BloomShader*    vertical;
 		BloomShader*    horizontal;
 		RulerShader*    ruler;
 		LinesShader*    lines;
+		CursorShader*   cursor;
 	}              shaders;
 #ifdef USE_FRAME_CLOCK
 	guint64       _last_redraw_time;

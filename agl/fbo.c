@@ -38,7 +38,7 @@ extern void wf_debug_printf (const char* func, int level, const char* format, ..
 #define gwarn(A, ...) g_warning("%s(): "A, __func__, ##__VA_ARGS__);
 #define dbg(A, B, ...) wf_debug_printf(__func__, A, B, ##__VA_ARGS__)
 
-static GLuint make_fb(AglFBO*);
+static GLuint make_fb(AGlFBO*);
 
 
 #ifdef NON_SQUARE
@@ -68,12 +68,12 @@ static GLuint make_fb(AglFBO*);
 		return texture;
 	}
 
-AglFBO*
+AGlFBO*
 agl_fbo_new(int width, int height, GLuint texture)
 {
 	//if texture is zero, a new texture will be created.
 
-	AglFBO* fbo = g_new0(AglFBO, 1);
+	AGlFBO* fbo = g_new0(AGlFBO, 1);
 	fbo->width = width;
 	fbo->height = height;
 #ifdef NON_SQUARE
@@ -88,42 +88,13 @@ agl_fbo_new(int width, int height, GLuint texture)
 	dbg(1, "fb=%i texture=%i size=%i", fbo->id, fbo->texture, agl_power_of_two(MAX(width, height)));
 #endif
 
-	/*
-	glBindFramebuffer(GL_FRAMEBUFFER_EXT, fbo->id);
-
-	GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER_EXT);
-	if (status != GL_FRAMEBUFFER_COMPLETE_EXT) gwarn("framebuffer incomplete");
-
-	glPushAttrib(GL_VIEWPORT_BIT);
-	glViewport(0, 0, fbo->width, fbo->height);
-
-	//draw something into the fbo
-	glClearColor(0.0, 1.0, 0.0, 0.5);
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
-
-	glColor3f(0, 1, 0);
-	glDisable(GL_TEXTURE_2D);
-	glDisable(GL_BLEND);
-	float s = 256.0;
-	glBegin(GL_POLYGON);
-	glVertex2f(-s,  0.0);
-	glVertex2f( 0.0, -s);
-	glVertex2f( s,  0.0);
-	glVertex2f( 0.0,  s);
-	glEnd();
-
-	glPopAttrib(); //restore viewport
-
-	glBindFramebuffer(GL_FRAMEBUFFER_EXT, 0); // rebind the normal framebuffer
-	*/
-
 	gl_warn("fbo_new");
 	return fbo;
 }
 
 
 void
-agl_fbo_free(AglFBO* fbo)
+agl_fbo_free(AGlFBO* fbo)
 {
 	g_return_if_fail(fbo);
 
@@ -134,7 +105,7 @@ agl_fbo_free(AglFBO* fbo)
 
 
 void
-agl_fbo_set_size(AglFBO* fbo, int width, int height)
+agl_fbo_set_size(AGlFBO* fbo, int width, int height)
 {
 	g_return_if_fail(fbo);
 
@@ -145,8 +116,8 @@ agl_fbo_set_size(AglFBO* fbo, int width, int height)
 	int current_size = agl_power_of_two(MAX(fbo->width, fbo->height));
 	int new_size = agl_power_of_two(MAX(width, height));
 #endif
-	fbo->width = width;
-	fbo->height = height;
+	fbo->width = MIN(AGL_MAX_FBO_WIDTH, width);
+	fbo->height = MIN(AGL_MAX_FBO_WIDTH, height);
 #ifdef NON_SQUARE
 	if(current_size.w != new_size.w || current_size.h != new_size.h){
 		dbg(1, "new size: %i x %i", new_size.w, new_size.h);
@@ -178,7 +149,7 @@ static gboolean UsePackedDepthStencilBoth = FALSE;
  * \return GL_TRUE for success, GL_FALSE for failure
  */
 static gboolean
-attach_depth_and_stencil_buffers(AglFBO* fbo, GLboolean tryDepthStencil, GLboolean bindDepthStencil, GLuint *depthRbOut, GLuint *stencilRbOut)
+attach_depth_and_stencil_buffers(AGlFBO* fbo, GLboolean tryDepthStencil, GLboolean bindDepthStencil, GLuint *depthRbOut, GLuint *stencilRbOut)
 {
 	GLenum status;
 
@@ -266,7 +237,7 @@ attach_depth_and_stencil_buffers(AglFBO* fbo, GLboolean tryDepthStencil, GLboole
 
 
 static GLuint
-make_fb(AglFBO* fbo)
+make_fb(AGlFBO* fbo)
 {
 	// create the framebuffer and add a stencil buffer to it.
 

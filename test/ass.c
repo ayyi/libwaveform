@@ -314,7 +314,7 @@ draw(GtkWidget* widget)
 	glEnable(GL_BLEND); glEnable(GL_DEPTH_TEST); glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
 	glPushMatrix(); /* modelview matrix */
-		if(actor) wf_actor_paint(actor);
+		if(actor) ((AGlActor*)actor)->paint((AGlActor*)actor);
 	glPopMatrix();
 
 	//text:
@@ -415,7 +415,7 @@ on_canvas_realise(GtkWidget* _canvas, gpointer user_data)
 	actor = wf_canvas_add_new_actor(wfc, w1);
 
 	wf_actor_set_region (actor, &region);
-	wf_actor_set_colour (actor, colours[0], colours[1]);
+	wf_actor_set_colour (actor, colours[0]);
 
 	on_allocate(canvas, &canvas->allocation, user_data);
 

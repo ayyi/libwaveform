@@ -182,10 +182,12 @@ test_load()
 		if(agl_get_instance()->use_shaders) gerr("FIXME invalid access to render_data for current rendering method");
 
 		WaveformPriv* _w = w->priv;
+#if 0 // these are now invalid following internal changes
 		WfGlBlock* blocks = (WfGlBlock*)_w->render_data[MODE_MED];
 		assert(blocks, "texture container not allocated");
 		assert(!blocks->peak_texture[WF_LEFT].main[0], "textures allocated"); // no textures are expected to be allocated.
 		assert(!blocks->peak_texture[WF_RIGHT].main[0], "textures allocated");
+#endif
 		assert(&_w->peak, "peak not loaded");
 		assert(_w->peak.size, "peak size not set");
 		assert(_w->peak.buf[WF_LEFT], "peak not loaded");

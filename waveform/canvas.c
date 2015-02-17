@@ -82,6 +82,7 @@ extern BloomShader vertical;
 extern AlphaMapShader tex2d, ass;
 extern RulerShader ruler;
 extern LinesShader lines;
+extern CursorShader cursor;
 
 #define TRACK_ACTORS // for debugging only.
 #undef TRACK_ACTORS
@@ -339,6 +340,7 @@ wf_canvas_init_gl(WaveformCanvas* wfc)
 			priv->shaders.horizontal = &horizontal;
 			priv->shaders.ruler = &ruler;
 			priv->shaders.lines = &lines;
+			priv->shaders.cursor = &cursor;
 		}
 
 	} WAVEFORM_END_DRAW(wfc);
@@ -419,17 +421,12 @@ wf_canvas_queue_redraw(WaveformCanvas* wfc)
 		if(wfc->draw) wfc->draw(wfc, wfc->draw_data);
 #endif
 	}else{
-	// FIXME why is the animation using UPDATE and not PAINT ?
-#if 1
+#if 0
 		frame_clock_request_phase(GDK_FRAME_CLOCK_PHASE_PAINT);
 #else
 		frame_clock_request_phase(GDK_FRAME_CLOCK_PHASE_UPDATE);
 #endif
 	}
-
-#if 0
-	wfc->_last_redraw_time = wf_get_time();
-#endif
 
 #else
 	if(wfc->_queued) return;

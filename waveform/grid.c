@@ -73,12 +73,28 @@ wf_grid_paint(WaveformCanvas* canvas, WaveformActor* actor)
 	if(agl->use_shaders){
 		glEnable(GL_BLEND);
 		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-		agl->shaders.plain->uniform.colour = 0x66bbff44;
+
+		agl->shaders.plain->uniform.colour = 0x1133bbaa;
 		agl_use_program((AGlShader*)agl->shaders.plain);
 
 		for(; (f < region_end) && (i < 0xff); f += interval, i++){
 			agl_rect_((AGlRect){wf_actor_frame_to_x(actor, f), 0, 1, h});
 		}
+
+		agl_set_font_string("Roboto 7");
+		uint32_t colour = (actor->fg_colour & 0xffffff00) + (actor->fg_colour & 0x000000ff) * 0x66 / 0xff;
+		char s[16] = {0,};
+		int x_ = 0;
+		uint64_t f = ((int)(actor->region.start / interval)) * interval;
+		for(; (f < region_end) && (i < 0xff); f += interval, i++){
+			int x = wf_actor_frame_to_x(actor, f) + 3;
+			if(x - x_ > 60){
+				snprintf(s, 15, "%.1f", ((float)f) / actor->canvas->sample_rate);
+				agl_print(x, 0, 0, colour, s);
+				x_ = x;
+			}
+		}
+		agl_set_font_string("Roboto 10");
 	}else{
 		glDisable(GL_TEXTURE_1D);
 		glDisable(GL_TEXTURE_2D);

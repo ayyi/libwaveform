@@ -1,5 +1,5 @@
 /*
-  copyright (C) 2012-2014 Tim Orford <tim@orford.org>
+  copyright (C) 2012-2015 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -50,12 +50,17 @@ wf_load_riff_peak(Waveform* wv, const char* peak_file)
 		goto out;
 	}
 	if(!(sfinfo.format & SF_FORMAT_PCM_16)){
-		gwarn("TESTME not 16 bit");
+		gwarn("peakfile not 16 bit");
+  		goto out_close;
 	}
 	if(!(sfinfo.format & SF_FORMAT_WAV)){
 		gwarn("not wav format");
+  		goto out_close;
 	}
-	g_return_val_if_fail(sfinfo.channels <= 2, 0);
+	if(sfinfo.channels > 2){
+		gwarn("too many channels");
+  		goto out_close;
+	}
 
 	sf_count_t n_frames = sfinfo.frames / WF_PEAK_VALUES_PER_SAMPLE;
 	dbg(2, "n_channels=%i n_frames=%Li n_bytes=%Li n_blocks=%i", sfinfo.channels, n_frames, sfinfo.frames * peak_byte_depth * sfinfo.channels, (int)(ceil((float)n_frames / WF_PEAK_TEXTURE_SIZE)));
@@ -64,7 +69,7 @@ wf_load_riff_peak(Waveform* wv, const char* peak_file)
 	uint32_t bytes = sfinfo.frames * peak_byte_depth * WF_PEAK_VALUES_PER_SAMPLE;
 
 	short* read_buf = (sfinfo.channels == 1)
-		? waveform_peak_malloc(wv, bytes) //no deinterleaving required, so can read directly into the peak buffer.
+		? waveform_peak_malloc(wv, bytes) // no deinterleaving required, can read directly into the peak buffer.
 		: g_malloc(bytes);
 
 	//read the whole peak file into memory:
@@ -73,7 +78,6 @@ wf_load_riff_peak(Waveform* wv, const char* peak_file)
 		gwarn("unexpected EOF: %s - read %i of %Li items", peak_file, readcount_frames, n_frames);
 		//gerr ("read error. couldnt read %i bytes from %s", bytes, peak_file);
 	}
-	sf_close(sndfile);
 
 #if 0
 	int i; for (i=0;i<20;i++) printf("  %i %i\n", buf[2 * i], buf[2 * i + 1]);
@@ -112,6 +116,9 @@ wf_load_riff_peak(Waveform* wv, const char* peak_file)
 		if(wv->priv->peak.buf[0][2*k + 1] > 0.0){ gwarn("negative peak not negative"); break; }
 	}
 #endif
+  out_close:
+	sf_close(sndfile);
+
   out:
 	return sfinfo.channels;
 }

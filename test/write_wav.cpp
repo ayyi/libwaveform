@@ -5,7 +5,7 @@
 
   ---------------------------------------------------------------
 
-  copyright (C) 2012-2014 Tim Orford <tim@orford.org>
+  copyright (C) 2012-2015 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -64,38 +64,6 @@ print_help ()
 	);
 	return EXIT_FAILURE;
 }
-
-
-class Note
-{
-  public:
-	int        length;
-	Generator* generator;
-
-	Note (Generator* g, int _length)
-	{
-		generator = g;
-		length = _length;
-		t = 0;
-
-		generator->init();
-		generator->on = true;
-	}
-
-	~Note()
-	{
-	}
-
-	void compute (int count, double** input, double** output)
-	{
-		generator->compute(count, input, output);
-
-		if(++t > length) generator->on = false;
-	}
-
-  private:
-	int t;
-};
 
 
 class Pink

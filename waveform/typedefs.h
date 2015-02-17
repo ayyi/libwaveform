@@ -1,5 +1,5 @@
 /*
-  copyright (C) 2012-2013 Tim Orford <tim@orford.org>
+  copyright (C) 2012-2015 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -16,6 +16,7 @@
 */
 #ifndef __waveform_typedefs_h__
 #define __waveform_typedefs_h__
+#include "agl/typedefs.h"
 
 typedef struct _wf                  WF;
 typedef struct _Waveform            Waveform;
@@ -32,7 +33,6 @@ typedef struct _texture_hi          WfTextureHi;
 typedef struct _waveform_priv       WaveformPriv;
 typedef struct _audio_data          WfAudioData;
 typedef struct _vp                  WfViewPort; 
-typedef struct _colour_float        WfColourFloat;
 typedef struct _WaveformView        WaveformView;
 typedef struct _WaveformViewPlus    WaveformViewPlus;
 typedef struct _wf_shaders          WfShaders;

@@ -84,3 +84,7 @@
 -added support for a playback counter to the WaveformViewPlus widget.
 20150122
 -added scene graph object.
+20150210
+-added labelling of time axis in WaveformViewPlus widget.
+-added play-cursor to WaveformViewPlus widget.
+-support rendering to offscreen buffer for caching.

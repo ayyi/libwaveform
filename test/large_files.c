@@ -140,13 +140,12 @@ test_load()
 		g_object_weak_ref((GObject*)w, finalize_notify, NULL);
 		waveform_load(w);
 
-		#warning invalid access to render_data
-		if(agl_get_instance()->use_shaders) gerr("FIXME invalid access to render_data for current rendering method");
-
+#if 0 // due to internal changes, these tests are no longer valid
 		WfGlBlock* blocks = (WfGlBlock*)w->priv->render_data[MODE_MED];
 		assert(blocks, "texture container not allocated");
 		assert(!blocks->peak_texture[WF_LEFT].main[0], "textures allocated"); // no textures are expected to be allocated.
 		assert(!blocks->peak_texture[WF_RIGHT].main[0], "textures allocated");
+#endif
 		assert(&w->priv->peak, "peak not loaded");
 		assert(w->priv->peak.size, "peak size not set");
 		assert(w->priv->peak.buf[WF_LEFT], "peak not loaded");

@@ -327,7 +327,8 @@ waveform_view_set_region (WaveformView* view, int64_t start_frame, int64_t end_f
 void
 waveform_view_set_colour(WaveformView* w, uint32_t fg, uint32_t bg)
 {
-	wf_actor_set_colour(w->priv->actor, fg, bg);
+	// TODO actor no longer supports background colour. It would have to be supported in the widget.
+	wf_actor_set_colour(w->priv->actor, fg);
 }
 
 
@@ -644,7 +645,7 @@ draw(WaveformView* view)
 
 	if(!w) return;
 
-	wf_actor_paint(actor);
+	((AGlActor*)actor)->paint((AGlActor*)actor);
 
 	if(v->show_grid) wf_grid_paint(v->canvas, actor);
 }

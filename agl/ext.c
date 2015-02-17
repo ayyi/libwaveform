@@ -169,5 +169,6 @@ get_gl_extensions()
    glRenderbufferStorageMultisample_func = (PFNGLRENDERBUFFERSTORAGEMULTISAMPLEPROC) getProcAddress("glRenderbufferStorageMultisample");
    glFramebufferTextureLayer_func = (PFNGLFRAMEBUFFERTEXTURELAYERPROC) getProcAddress("glFramebufferTextureLayer");
 #endif
+   glStringMarkerGREMEDY = (PFNGLSTRINGMARKERGREMEDYPROC) getProcAddress("glStringMarkerGREMEDY");
 }
 
