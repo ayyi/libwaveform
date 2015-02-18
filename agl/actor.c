@@ -122,8 +122,9 @@ agl_actor__remove_child(AGlActor* actor, AGlActor* child)
 	g_return_if_fail(actor && child);
 	g_return_if_fail(g_list_find(actor->children, child));
 
-	call(child->free, child);
 	actor->children = g_list_remove(actor->children, child);
+
+	agl_actor__free(child);
 }
 
 

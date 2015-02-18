@@ -320,11 +320,11 @@ _waveform_view_plus_set_actor (WaveformViewPlus* view)
 void
 waveform_view_plus_load_file (WaveformViewPlus* view, const char* filename)
 {
-	WaveformViewPlusPrivate* _view = view->priv;
+	WaveformViewPlusPrivate* v = view->priv;
 
-	if(_view->actor){
-		wf_canvas_remove_actor(_view->canvas, _view->actor);
-		_view->actor = NULL;
+	if(v->actor){
+		wf_canvas_remove_actor(v->canvas, v->actor);
+		v->actor = NULL;
 	}
 	else dbg(2, " ... no actor");
 	if(view->waveform){
@@ -367,6 +367,11 @@ waveform_view_plus_load_file (WaveformViewPlus* view, const char* filename)
 				wf_actor_set_colour(v->actor, view->fg_colour);
 
 				waveform_load(view->waveform);
+
+				if(!(v->canvas_init_done && !v->root->children)){ // TODO see inverse condition above
+					agl_actor__add_child(v->root, (AGlActor*)v->actor);
+					((AGlActor*)v->actor)->set_size((AGlActor*)v->actor);
+				}
 			}
 			_waveform_view_plus_set_actor(view);
 
@@ -1326,13 +1331,19 @@ waveform_actor(WaveformViewPlus* view)
 		wf_actor_set_rect((WaveformActor*)actor, &(WfRectangle){0, 0, actor->region.x2, actor->region.y2 - actor->region.y1});
 	}
 
+	void waveform_actor_size0(AGlActor* actor)
+	{
+		waveform_actor_size(actor);
+#ifdef AGL_ACTOR_RENDER_CACHE
+		actor->fbo = agl_fbo_new(actor->region.x2 - actor->region.x1, actor->region.y2 - actor->region.y1, 0);
+#endif
+		actor->set_size = waveform_actor_size;
+	}
+
 	AGlActor* actor = (AGlActor*)//wf_actor;
 	/*WaveformActor* wf_actor = view->priv->actor =*/ wf_canvas_add_new_actor(view->priv->canvas, view->waveform);
 	actor->colour = view->fg_colour;
-	actor->set_size = waveform_actor_size;
-#ifdef AGL_ACTOR_RENDER_CACHE
-	actor->fbo = agl_fbo_new(actor->region.x2 - actor->region.x1, actor->region.y2 - actor->region.y1, 0);
-#endif
+	actor->set_size = waveform_actor_size0;
 	return actor;
 }
 

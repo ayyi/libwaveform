@@ -456,7 +456,7 @@ wf_actor_free(WaveformActor* a)
 		waveform_unref0(a->waveform);
 	}
 	g_free(a->priv);
-	g_free(a);
+	agl_actor__remove_child(actor->parent, actor);
 }
 
 
