@@ -92,6 +92,9 @@ AGlActor*
 agl_actor__add_child(AGlActor* actor, AGlActor* child)
 {
 	g_return_val_if_fail(actor && child, NULL);
+#ifdef DEBUG
+	g_return_val_if_fail(!g_list_find(actor->children, child), NULL);
+#endif
 
 	actor->children = g_list_append(actor->children, child);
 	child->parent = actor;

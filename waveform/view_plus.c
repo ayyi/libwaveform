@@ -359,7 +359,9 @@ waveform_view_plus_load_file (WaveformViewPlus* view, const char* filename)
 
 			v->actor = (WaveformActor*)waveform_actor(view);
 
+			int need_add = false;
 			if(v->canvas_init_done && !v->root->children) waveform_view_plus_add_actors(view);
+			else need_add = true;
 
 			uint64_t n_frames = waveform_get_n_frames(view->waveform);
 			if(n_frames){
@@ -368,7 +370,7 @@ waveform_view_plus_load_file (WaveformViewPlus* view, const char* filename)
 
 				waveform_load(view->waveform);
 
-				if(!(v->canvas_init_done && !v->root->children)){ // TODO see inverse condition above
+				if(need_add){
 					agl_actor__add_child(v->root, (AGlActor*)v->actor);
 					((AGlActor*)v->actor)->set_size((AGlActor*)v->actor);
 				}
@@ -1340,8 +1342,7 @@ waveform_actor(WaveformViewPlus* view)
 		actor->set_size = waveform_actor_size;
 	}
 
-	AGlActor* actor = (AGlActor*)//wf_actor;
-	/*WaveformActor* wf_actor = view->priv->actor =*/ wf_canvas_add_new_actor(view->priv->canvas, view->waveform);
+	AGlActor* actor = (AGlActor*)wf_canvas_add_new_actor(view->priv->canvas, view->waveform);
 	actor->colour = view->fg_colour;
 	actor->set_size = waveform_actor_size0;
 	return actor;
