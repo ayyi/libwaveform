@@ -22,6 +22,8 @@
 #include <libavcodec/avcodec.h>
 #include <libavformat/avformat.h>
 
+#define WF_MAX_AUDIO_FRAME_SIZE 192000 // 1 second of 48khz 32bit audio
+
 typedef struct
 {
    unsigned int sample_rate;
@@ -45,7 +47,7 @@ typedef struct
 
    AudioInfo        info;
 
-   int16_t          m_tmpBuffer[AVCODEC_MAX_AUDIO_FRAME_SIZE];
+   int16_t          m_tmpBuffer[WF_MAX_AUDIO_FRAME_SIZE];
    int16_t*         m_tmpBufferStart;
    unsigned long    m_tmpBufferLen;
 

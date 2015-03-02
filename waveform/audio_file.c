@@ -182,7 +182,7 @@ wf_ff_read(FF* f, float* d, size_t len)
 			}
 
 			/* decode all chunks in packet */
-			int data_size = AVCODEC_MAX_AUDIO_FRAME_SIZE;
+			int data_size = WF_MAX_AUDIO_FRAME_SIZE;
 #if 0 // TODO  ffcompat.h -- this works but is not optimal (channels may not be planar/interleaved)
 			AVFrame avf; // TODO statically allocate
 			memset(&avf, 0, sizeof(AVFrame)); // not sure if that is needed
