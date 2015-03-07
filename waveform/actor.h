@@ -55,6 +55,7 @@ void            wf_actor_fade_in                    (WaveformActor*, void* /*WfA
 void            wf_actor_set_vzoom                  (WaveformActor*, float);
 void            wf_actor_get_viewport               (WaveformActor*, WfViewPort*);
 float           wf_actor_frame_to_x                 (WaveformActor*, uint64_t);
+void            wf_actor_clear                      (WaveformActor*);
 
 #define         WF_ACTOR_PX_PER_FRAME(A) (A->rect.len / A->region.len)
 

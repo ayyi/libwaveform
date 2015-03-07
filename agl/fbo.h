@@ -11,14 +11,19 @@
 #ifndef __agl_fbo_h__
 #define __agl_fbo_h__
 
+typedef enum {
+	AGL_FBO_HAS_STENCIL = 1,
+} AGlFBOFlags;
+
 struct _AGlFBO {
-	guint id;
-	guint texture;
-	int   width;      // the size that is being used. the texture may be bigger.
-	int   height;
+	guint       id;
+	guint       texture;
+	int         width;      // the size that is being used. the texture may be bigger.
+	int         height;
+	AGlFBOFlags flags;
 };
 
-AGlFBO* agl_fbo_new      (int width, int height, guint texture);
+AGlFBO* agl_fbo_new      (int width, int height, guint texture, AGlFBOFlags);
 void    agl_fbo_free     (AGlFBO*);
 void    agl_fbo_set_size (AGlFBO*, int width, int height);
 

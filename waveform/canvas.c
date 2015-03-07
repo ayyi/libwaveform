@@ -32,7 +32,10 @@
 #include <GL/glxext.h>
 #include <gtkglext-1.0/gdk/gdkgl.h>
 #include <gtkglext-1.0/gtk/gtkgl.h>
+#include <pango/pangofc-font.h>
+#include <pango/pangofc-fontmap.h>
 #include "agl/ext.h"
+#include "agl/pango_render.h"
 #include "waveform/utils.h"
 #include "waveform/peak.h"
 #include "waveform/texture_cache.h"
@@ -194,7 +197,7 @@ wf_canvas_new_from_widget(GtkWidget* widget)
 	}
 
 	WaveformCanvas* wfc = waveform_canvas_construct(TYPE_WAVEFORM_CANVAS);
-	wfc->gl.gdk.drawable = gl_drawable; 
+	wfc->gl.gdk.drawable = gl_drawable;
 	wfc->gl.gdk.context = gtk_widget_get_gl_context(widget);
 	wf_canvas_init(wfc);
 	return wfc;
@@ -242,6 +245,8 @@ wf_canvas_free (WaveformCanvas* wfc)
 	if(wfc->_queued){ g_source_remove(wfc->_queued); wfc->_queued = false; }
 	//if(wfc->priv->peak_shader) g_free(wfc->priv->peak_shader);
 	wf_canvas_finalize((GObject*)wfc);
+
+	pango_gl_render_clear_caches();
 }
 
 

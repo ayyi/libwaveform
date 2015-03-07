@@ -42,6 +42,7 @@
   along with this program; if not, write to the Free Software
   Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 */
+#define __wf_private__
 #include "config.h"
 #include <stdlib.h>
 #include <stdint.h>
@@ -80,6 +81,7 @@ KeyHandler
 	next_wav,
 	toggle_shaders,
 	toggle_grid,
+	unrealise,
 	play,
 	stop,
 	quit;
@@ -98,6 +100,7 @@ Key keys[] = {
 	{(char)'n',     next_wav},
 	{(char)'s',     toggle_shaders},
 	{(char)'g',     toggle_grid},
+	{(char)'u',     unrealise},
 	{GDK_Delete,    NULL},
 	{65438,         stop},
 	{65421,         play},
@@ -107,6 +110,7 @@ Key keys[] = {
 
 gpointer tests[] = {};
 uint32_t _time = 1000 + 321;
+GtkWidget* table = NULL;
 
 
 int
@@ -136,7 +140,14 @@ main (int argc, char *argv[])
 	wf_canvas_set_use_shaders(wfc, false);
 	#endif
 	gtk_widget_set_size_request((GtkWidget*)waveform, 480, 160);
-	gtk_container_add((GtkContainer*)window, (GtkWidget*)waveform);
+
+	GtkWidget* scrolledwindow = gtk_scrolled_window_new (NULL, NULL);
+	gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scrolledwindow), GTK_POLICY_NEVER, GTK_POLICY_NEVER);
+	gtk_container_add((GtkContainer*)window, scrolledwindow);
+
+	table = gtk_table_new(1, 2, false);
+	gtk_table_attach(GTK_TABLE(table), (GtkWidget*)waveform, 0, 1, 0, 1, GTK_FILL | GTK_EXPAND, GTK_FILL, 0, 0);
+	gtk_scrolled_window_add_with_viewport((GtkScrolledWindow*)scrolledwindow, table);
 
 	gtk_widget_show_all(window);
 
@@ -151,6 +162,17 @@ main (int argc, char *argv[])
 		return false;
 	}
 	g_signal_connect(window, "delete-event", G_CALLBACK(window_on_delete), NULL);
+
+	void on_allocate(GtkWidget* widget, GtkAllocation* allocation, gpointer view)
+	{
+		static int height = 0;
+
+		if(allocation->height != height){
+			gtk_widget_set_size_request((GtkWidget*)view, -1, allocation->height);
+			height = allocation->height;
+		}
+	}
+	g_signal_connect(window, "size-allocate", G_CALLBACK(on_allocate), waveform);
 
 	gtk_main();
 
@@ -248,6 +270,23 @@ toggle_grid(WaveformView* view)
 {
 	static bool visible = true;
 	waveform_view_plus_set_show_grid((WaveformViewPlus*)view, visible = !visible);
+}
+
+
+void
+unrealise(WaveformView* view)
+{
+	bool on_idle(gpointer _view)
+	{
+		gtk_table_attach(GTK_TABLE(table), (GtkWidget*)_view, 0, 1, 1, 2, GTK_FILL | GTK_EXPAND, GTK_FILL, 0, 0);
+		g_object_unref(_view);
+		return G_SOURCE_REMOVE;
+	}
+
+	dbg(0, "-----------------------------");
+	g_object_ref((GObject*)view);
+	gtk_container_remove ((GtkContainer*)table, (GtkWidget*)view);
+	g_timeout_add(600, on_idle, view);
 }
 
 

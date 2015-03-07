@@ -78,6 +78,9 @@ void      agl_actor__start_transition(AGlActor*, GList* animatables, AnimationFn
 bool      agl_actor__on_event        (AGlRootActor*, GdkEvent*);
 bool      agl_actor__null_painter    (AGlActor*);
 
+#ifdef DEBUG
+void      agl_actor__print_tree      (AGlActor*);
+#endif
 
 struct _AGlRootActor {
    AGlActor          actor;

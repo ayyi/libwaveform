@@ -117,8 +117,8 @@ fbo_new_test()
 
 		return bg_textures;
 	}
-	//AGlFBO* fbo = agl_fbo_new(256, 256, _wf_create_background());
-	AGlFBO* fbo = agl_fbo_new(256, 256, _wf_create_background_rgba());
+	//AGlFBO* fbo = agl_fbo_new(256, 256, _wf_create_background(), 0);
+	AGlFBO* fbo = agl_fbo_new(256, 256, _wf_create_background_rgba(), 0);
 	return fbo;
 }
 
@@ -138,7 +138,7 @@ fbo_print(WaveformActor* actor, int x, int y, double scale, uint32_t colour, int
 	glEnable(GL_TEXTURE_2D);
 					glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-	if(!fbo0) fbo0 = agl_fbo_new(256, 256, 0);
+	if(!fbo0) fbo0 = agl_fbo_new(256, 256, 0, 0);
 
 	void draw_test_to_fbo()
 	{

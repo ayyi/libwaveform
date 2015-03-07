@@ -55,6 +55,8 @@
 #include "waveform/actor.h"
 #include "waveform/grid.h"
 #include "waveform/shader.h"
+#include "waveform/promise.h"
+#include "waveform/actors/spp.h"
 #include "view_plus.h"
 
 #define DIRECT 1
@@ -119,12 +121,13 @@ struct _WaveformViewPlusPrivate {
 
 	AGlActor*       grid_actor;
 	AGlActor*       text_actor;
+	AGlActor*       spp_actor;
 
+	AMPromise*      ready;
 	gboolean        gl_init_done;
-	gboolean        canvas_init_done;
 	gboolean        title_is_rendered;
 
-	uint32_t        play_timeout;
+	GdkGLContext*   context;
 };
 
 typedef struct {
@@ -137,6 +140,13 @@ typedef struct {
 	}           texture;
 } TextActor;
 
+enum {
+    PROMISE_DISP_READY,
+    PROMISE_WAVE_READY,
+    PROMISE_MAX
+};
+#define promise(A) ((AMPromise*)g_list_nth_data(view->priv->ready->children, A))
+
 static int      waveform_view_plus_get_width            (WaveformViewPlus*);
 static int      waveform_view_plus_get_height           (WaveformViewPlus*);
 
@@ -146,7 +156,6 @@ static gpointer waveform_view_plus_parent_class = NULL;
 enum  {
 	WAVEFORM_VIEW_PLUS_DUMMY_PROPERTY
 };
-static gboolean waveform_view_plus_configure_event      (GtkWidget*, GdkEventConfigure*);
 static gboolean waveform_view_plus_on_expose            (GtkWidget*, GdkEventExpose*);
 static gboolean waveform_view_plus_button_press_event   (GtkWidget*, GdkEventButton*);
 static gboolean waveform_view_plus_button_release_event (GtkWidget*, GdkEventButton*);
@@ -171,13 +180,15 @@ static uint32_t color_gdk_to_rgba                       (GdkColor*);
 static uint32_t wf_get_gtk_base_color                   (GtkWidget*, GtkStateType, char alpha);
 static void     add_key_handlers                        (GtkWindow*, WaveformViewPlus*, Key keys[]);
 static void     remove_key_handlers                     (GtkWindow*, WaveformViewPlus*);
+static GdkGLContext* get_gl_context                     ();
 
 static void     waveform_view_plus_add_actors           (WaveformViewPlus*);
 static AGlActor* waveform_actor                         (WaveformViewPlus*);
-static AGlActor* spp_actor                              (WaveformViewPlus*);
 static AGlActor* grid_actor                             (WaveformViewPlus*);
 static AGlActor* text_actor                             (WaveformViewPlus*);
 static AGlActor* bg_actor                               (WaveformViewPlus*);
+
+extern AGlActor* spp_actor                              (WaveformViewPlus*);
 
 #define FONT \
 	"Droid Sans"
@@ -256,12 +267,9 @@ construct ()
 {
 	WaveformViewPlus* self = (WaveformViewPlus*) g_object_new (TYPE_WAVEFORM_VIEW_PLUS, NULL);
 	gtk_widget_add_events ((GtkWidget*) self, (gint) ((GDK_BUTTON_PRESS_MASK | GDK_BUTTON_RELEASE_MASK) | GDK_POINTER_MOTION_MASK | GDK_LEAVE_NOTIFY_MASK));
-	//GdkGLConfig* glconfig = gdk_gl_config_new_by_mode (GDK_GL_MODE_RGB | GDK_GL_MODE_DOUBLE);
-	if(!gtk_widget_set_gl_capability((GtkWidget*)self, glconfig, gl_context, DIRECT, GDK_GL_RGBA_TYPE)){
+	if(!gtk_widget_set_gl_capability((GtkWidget*)self, glconfig, get_gl_context(), DIRECT, GDK_GL_RGBA_TYPE)){
 		gwarn("failed to set gl capability");
 	}
-
-	self->time = UINT32_MAX; // disabled
 
 	WaveformViewPlusPrivate* priv = self->priv;
 	priv->gl_init_done = false;
@@ -286,17 +294,22 @@ waveform_view_plus_new (Waveform* waveform)
 #endif
 	gtk_widget_set_size_request(widget, DEFAULT_WIDTH, DEFAULT_HEIGHT);
 
-	gboolean waveform_view_plus_load_new_on_idle(gpointer _view)
+	bool waveform_view_plus_load_new_on_idle(gpointer _view)
 	{
 		WaveformViewPlus* view = _view;
 		g_return_val_if_fail(view, G_SOURCE_REMOVE);
-		if(!view->priv->canvas_init_done){
+		if(!promise(PROMISE_DISP_READY)->is_resolved){
 			waveform_view_plus_init_drawable(view);
 			gtk_widget_queue_draw((GtkWidget*)view); //testing.
 		}
 		return G_SOURCE_REMOVE;
 	}
+	// delay initialisation to allow for additional options to be set.
 	g_idle_add(waveform_view_plus_load_new_on_idle, view);
+
+	view->priv->ready = am_promise_new(view);
+	am_promise_when(view->priv->ready, am_promise_new(view), am_promise_new(view), NULL);
+
 	return view;
 }
 
@@ -317,50 +330,25 @@ _waveform_view_plus_set_actor (WaveformViewPlus* view)
 }
 
 
-void
-waveform_view_plus_load_file (WaveformViewPlus* view, const char* filename)
-{
-	WaveformViewPlusPrivate* v = view->priv;
-
-	if(v->actor){
-		wf_canvas_remove_actor(v->canvas, v->actor);
-		v->actor = NULL;
-	}
-	else dbg(2, " ... no actor");
-	if(view->waveform){
-		_g_object_unref0(view->waveform);
-	}
-
-	if(!filename){
-		gtk_widget_queue_draw((GtkWidget*)view);
-		return;
-	}
-
-	view->waveform = waveform_new(filename);
-
-	typedef struct
+	static void _show_waveform(gpointer _view, gpointer _c)
 	{
-		WaveformViewPlus* view;
-		Waveform*     waveform;
-	} C;
-	C* c = g_new0(C, 1);
-	c->view = view;
-	c->waveform = view->waveform;
+		// this must NOT be called until the canvas is ready
 
-	gboolean waveform_view_plus_load_file_on_idle(gpointer _c)
-	{
-		C* c = _c;
-		WaveformViewPlus* view = c->view;
-		g_return_val_if_fail(view, G_SOURCE_REMOVE);
+		WaveformViewPlus* view = _view;
+		g_return_if_fail(view);
 		WaveformViewPlusPrivate* v = view->priv;
+		g_return_if_fail(v->canvas);
 
-		if(c->waveform == view->waveform){
-			if(!v->canvas_init_done) waveform_view_plus_init_drawable(view);
+		if(v->actor) return; // nothing to do?
 
+		if(!promise(PROMISE_DISP_READY)->is_resolved) waveform_view_plus_init_drawable(view);
+
+		if(view->waveform){ // it is valid for the widget to not have a waveform set.
 			v->actor = (WaveformActor*)waveform_actor(view);
+			if(v->spp_actor) ((SppActor*)v->spp_actor)->wf_actor = v->actor;
 
 			int need_add = false;
-			if(v->canvas_init_done && !v->root->children) waveform_view_plus_add_actors(view);
+			if(promise(PROMISE_DISP_READY)->is_resolved && !v->root->children) waveform_view_plus_add_actors(view);
 			else need_add = true;
 
 			uint64_t n_frames = waveform_get_n_frames(view->waveform);
@@ -374,17 +362,38 @@ waveform_view_plus_load_file (WaveformViewPlus* view, const char* filename)
 					agl_actor__add_child(v->root, (AGlActor*)v->actor);
 					((AGlActor*)v->actor)->set_size((AGlActor*)v->actor);
 				}
+
+				am_promise_resolve(promise(PROMISE_WAVE_READY), NULL);
 			}
 			_waveform_view_plus_set_actor(view);
 
 			gtk_widget_queue_draw((GtkWidget*)view);
-		}else{
-			dbg(2, "waveform changed. ignoring...");
 		}
-		g_free(c);
-		return G_SOURCE_REMOVE;
 	}
-	g_idle_add(waveform_view_plus_load_file_on_idle, c);
+
+
+void
+waveform_view_plus_load_file (WaveformViewPlus* view, const char* filename)
+{
+	WaveformViewPlusPrivate* v = view->priv;
+
+	if(v->actor){
+		wf_canvas_remove_actor(v->canvas, v->actor);
+		v->actor = NULL;
+		if(v->spp_actor) ((SppActor*)v->spp_actor)->wf_actor = NULL;
+	}
+	if(view->waveform){
+		_g_object_unref0(view->waveform);
+	}
+
+	if(!filename){
+		gtk_widget_queue_draw((GtkWidget*)view);
+		return;
+	}
+
+	view->waveform = waveform_new(filename);
+
+	am_promise_add_callback(promise(PROMISE_DISP_READY), _show_waveform, NULL);
 }
 
 
@@ -402,8 +411,8 @@ waveform_view_plus_set_waveform (WaveformViewPlus* view, Waveform* waveform)
 	if(view->waveform){
 		g_object_unref(view->waveform);
 	}
-	gboolean need_init = !_view->canvas_init_done;
-	if(!_view->canvas_init_done) waveform_view_plus_init_drawable(view);
+	gboolean need_init = !promise(PROMISE_DISP_READY)->is_resolved;
+	if(!promise(PROMISE_DISP_READY)->is_resolved) waveform_view_plus_init_drawable(view);
 
 	view->waveform = g_object_ref(waveform);
 	view->zoom = 1.0;
@@ -450,11 +459,12 @@ waveform_view_plus_set_zoom (WaveformViewPlus* view, float zoom)
 	});
 
 	((AGlActor*)v->actor)->cache.valid = false;
-																if(v->grid_actor)
-																	v->grid_actor->cache.enabled = false;
+
+	if(v->grid_actor)
+		v->grid_actor->cache.enabled = false; // TODO temporary
+
 	if(v->grid_actor)
 		v->grid_actor->cache.valid = false;
-	//agl_actor__enable_cache    (AGlActor*, bool);
 
 	if(!view->priv->actor->canvas->draw) gtk_widget_queue_draw((GtkWidget*)view);
 }
@@ -515,24 +525,11 @@ waveform_view_plus_set_colour(WaveformViewPlus* view, uint32_t fg, uint32_t bg, 
 void
 waveform_view_plus_set_time(WaveformViewPlus* view, uint32_t time)
 {
-	WaveformViewPlusPrivate* v = view->priv;
-
-	bool check_playback(gpointer _view)
+	void resolved(gpointer _view, gpointer time)
 	{
-		WaveformViewPlus* view = _view;
-
-		view->priv->play_timeout = 0;
-		gtk_widget_queue_draw((GtkWidget*)view);
-
-		return G_SOURCE_REMOVE;
+		spp_actor_set_time((SppActor*)((WaveformViewPlus*)_view)->priv->spp_actor, GPOINTER_TO_UINT(time));
 	}
-
-	view->time = time;
-
-	if(v->play_timeout) g_source_remove(v->play_timeout);
-	v->play_timeout = g_timeout_add(50, check_playback, view);
-
-	gtk_widget_queue_draw((GtkWidget*)view);
+	am_promise_add_callback(view->priv->ready, resolved, GUINT_TO_POINTER(time));
 }
 
 
@@ -546,6 +543,7 @@ waveform_view_plus_set_show_rms (WaveformViewPlus* view, gboolean _show)
 	gboolean _on_idle(gpointer _view)
 	{
 		WaveformViewPlus* view = _view;
+		g_return_val_if_fail(view->priv->canvas, G_SOURCE_REMOVE);
 
 		view->priv->canvas->show_rms = show;
 		gtk_widget_queue_draw((GtkWidget*)view);
@@ -579,7 +577,7 @@ static void
 waveform_view_plus_realize (GtkWidget* base)
 {
 	PF2;
-	WaveformViewPlus* self = (WaveformViewPlus*)base;
+	WaveformViewPlus* view = (WaveformViewPlus*)base;
 	GdkWindowAttr attrs = {0};
 	GTK_WIDGET_SET_FLAGS (base, GTK_REALIZED);
 	memset (&attrs, 0, sizeof (GdkWindowAttr));
@@ -589,66 +587,31 @@ waveform_view_plus_realize (GtkWidget* base)
 	attrs.event_mask = gtk_widget_get_events(base) | GDK_EXPOSURE_MASK | GDK_KEY_PRESS_MASK | GDK_ENTER_NOTIFY_MASK;
 	_g_object_unref0(base->window);
 	base->window = gdk_window_new (gtk_widget_get_parent_window(base), &attrs, 0);
-	gdk_window_set_user_data (base->window, self);
+	gdk_window_set_user_data (base->window, view);
 	gtk_widget_set_style (base, gtk_style_attach(gtk_widget_get_style(base), base->window));
 	gtk_style_set_background (gtk_widget_get_style (base), base->window, GTK_STATE_NORMAL);
 	gdk_window_move_resize (base->window, base->allocation.x, base->allocation.y, base->allocation.width, base->allocation.height);
 
-	if(!self->priv->canvas_init_done) waveform_view_plus_init_drawable(self);
+	if(!promise(PROMISE_DISP_READY)->is_resolved) waveform_view_plus_init_drawable(view);
 }
 
 
 static void
 waveform_view_plus_unrealize (GtkWidget* widget)
 {
+	// view->waveform can not be unreffed here as it needs to be re-used if the widget is realized again.
+	// The gl context and actors are now preserved through an unrealize/realize cycle - the only thing that changes is the GlDrawable.
 	PF;
-	WaveformViewPlus* self = (WaveformViewPlus*)widget;
+	WaveformViewPlus* view = (WaveformViewPlus*)widget;
+	WaveformViewPlusPrivate* v = view->priv;
 	gdk_window_set_user_data (widget->window, NULL);
 
-	if(self->priv->actor){
-		wf_canvas_remove_actor(self->priv->canvas, self->priv->actor);
-		self->priv->actor = 0;
-		if(self->waveform) _g_object_unref0(self->waveform); // is unreffed by wf_actor_free, but the view also needs to release its reference.
-	}
+	am_promise_unref(promise(PROMISE_DISP_READY));
 
-	if(self->priv->canvas) wf_canvas_free0(self->priv->canvas);
-	self->priv->canvas_init_done = false;
-}
-
-
-static gboolean
-waveform_view_plus_configure_event (GtkWidget* base, GdkEventConfigure* event)
-{
-	gboolean result = FALSE;
-#if 0
-	WaveformViewPlus* self = (WaveformViewPlus*) base;
-	g_return_val_if_fail (event != NULL, FALSE);
-	GdkGLContext* _tmp0_ = gtk_widget_get_gl_context(base);
-	GdkGLContext* glcontext = _g_object_ref0 (_tmp0_);
-	GdkGLDrawable* _tmp2_ = gtk_widget_get_gl_drawable ((GtkWidget*) self);
-	GdkGLDrawable* gldrawable = _g_object_ref0 (_tmp2_);
-	if (!gdk_gl_drawable_gl_begin (gldrawable, glcontext)) {
-		result = FALSE;
-		_g_object_unref0 (gldrawable);
-		_g_object_unref0 (glcontext);
-		return result;
-	}
-	GtkAllocation _tmp7_ = ((GtkWidget*) self)->allocation;
-	gint _tmp8_ = _tmp7_.width;
-	GtkAllocation _tmp9_ = ((GtkWidget*) self)->allocation;
-	gint _tmp10_ = _tmp9_.height;
-	glViewport ((GLint) 0, (GLint) 0, (GLsizei) _tmp8_, (GLsizei) _tmp10_);
-	gboolean _tmp11_ = self->priv->gl_init_done;
-	if (!_tmp11_) {
-		glEnable ((GLenum) GL_TEXTURE_2D);
-		self->priv->gl_init_done = TRUE;
-	}
-	gdk_gl_drawable_gl_end (gldrawable);
-	result = TRUE;
-	_g_object_unref0 (gldrawable);
-	_g_object_unref0 (glcontext);
-#endif
-	return result;
+	// create a new promise that will be resolved if and when the canvas is available again.
+	GList* nth = g_list_nth(v->ready->children, PROMISE_DISP_READY);
+	nth->data = am_promise_new(view);
+	am_promise_add_callback(nth->data, _show_waveform, NULL);
 }
 
 
@@ -659,7 +622,7 @@ waveform_view_plus_on_expose (GtkWidget* widget, GdkEventExpose* event)
 	g_return_val_if_fail (event, FALSE);
 
 	if(!GTK_WIDGET_REALIZED(widget)) return true;
-	if(!gl_initialised || !view->priv->canvas_init_done) return true;
+	if(!gl_initialised || !promise(PROMISE_DISP_READY)->is_resolved) return true;
 
 	WF_VIEW_START_DRAW {
 		// needed for the case of shared contexts, where one of the other contexts modifies the projection.
@@ -762,8 +725,13 @@ waveform_view_plus_add_actors(WaveformViewPlus* view)
 	agl_actor__add_child(v->root, bg_actor(view));
 	if(v->show_grid) agl_actor__add_child(v->root, v->grid_actor = grid_actor(view));
 	agl_actor__add_child(v->root, (AGlActor*)v->actor);
-	agl_actor__add_child(v->root, spp_actor(view));
+	agl_actor__add_child(v->root, v->spp_actor = spp_actor(view));
 	agl_actor__add_child(v->root, v->text_actor = text_actor(view));
+
+	((SppActor*)v->spp_actor)->wf_actor = v->actor;
+	((SppActor*)v->spp_actor)->text_colour = view->text_colour;
+
+	agl_actor__set_size(v->root);
 }
 
 
@@ -775,26 +743,46 @@ waveform_view_plus_init_drawable (WaveformViewPlus* view)
 
 	if(!GTK_WIDGET_REALIZED(widget)) return;
 
-	if(!(view->priv->canvas = wf_canvas_new_from_widget(widget))) return;
+	if(!v->context){
+		if(!(v->canvas = wf_canvas_new_from_widget(widget))){
+			return;
+		}
+		v->context = v->canvas->gl.gdk.context;
 
-	if(!view->fg_colour)     view->fg_colour     = wf_get_gtk_fg_color(widget, GTK_STATE_NORMAL);
-	if(!view->title_colour1) view->title_colour1 = wf_get_gtk_text_color(widget, GTK_STATE_NORMAL);
-	if(!view->text_colour){
-		//TODO because the black background is not a theme colour we need to be careful to use a contrasting colour
-		if(false)
-			view->text_colour = wf_get_gtk_text_color(widget, GTK_STATE_NORMAL);
-		else
-			view->text_colour = wf_get_gtk_base_color(widget, GTK_STATE_NORMAL, 0xaa);
+		if(!view->fg_colour)     view->fg_colour     = wf_get_gtk_fg_color(widget, GTK_STATE_NORMAL);
+		if(!view->title_colour1) view->title_colour1 = wf_get_gtk_text_color(widget, GTK_STATE_NORMAL);
+		if(!view->text_colour){
+			//TODO because the black background is not a theme colour we need to be careful to use a contrasting colour
+			if(false)
+				view->text_colour = wf_get_gtk_text_color(widget, GTK_STATE_NORMAL);
+			else
+				view->text_colour = wf_get_gtk_base_color(widget, GTK_STATE_NORMAL, 0xaa);
+		}
+		view->title_colour2 = 0x0000ffff; //FIXME
+
+		waveform_view_plus_gl_init(view);
+	}else{
+		GdkGLDrawable* gl_drawable = gtk_widget_get_gl_drawable((GtkWidget*)view);
+		if(!gl_drawable) return;
+
+		v->context = gtk_widget_get_gl_context((GtkWidget*)view);
+		if(v->canvas){
+			v->canvas->gl.gdk.context = v->context;
+			v->canvas->gl.gdk.drawable = gl_drawable;
+
+		}else{
+			v->canvas = wf_canvas_new(v->context, gl_drawable);
+		}
 	}
-	view->title_colour2 = 0x0000ffff; //FIXME
 
-	waveform_view_plus_gl_init(view);
 	waveform_view_plus_set_projection(widget);
 
-	v->root = agl_actor__new_root(widget);
-	if(v->actor) waveform_view_plus_add_actors(view);
+	if(!v->root){
+		v->root = agl_actor__new_root(widget);
+		if(v->actor) waveform_view_plus_add_actors(view);
+	}
 
-	view->priv->canvas_init_done = true;
+	am_promise_resolve(g_list_nth_data(view->priv->ready->children, PROMISE_DISP_READY), NULL);
 }
 
 
@@ -809,7 +797,7 @@ waveform_view_plus_allocate (GtkWidget* widget, GdkRectangle* allocation)
 	if ((GTK_WIDGET_FLAGS (widget) & GTK_REALIZED) == 0) return;
 	gdk_window_move_resize(widget->window, widget->allocation.x, widget->allocation.y, widget->allocation.width, widget->allocation.height);
 
-	if(!view->priv->canvas_init_done) waveform_view_plus_init_drawable(view);
+	if(!promise(PROMISE_DISP_READY)->is_resolved) waveform_view_plus_init_drawable(view);
 
 	if(!gl_initialised) return;
 
@@ -824,7 +812,6 @@ waveform_view_plus_class_init (WaveformViewPlusClass * klass)
 {
 	waveform_view_plus_parent_class = g_type_class_peek_parent (klass);
 	g_type_class_add_private (klass, sizeof (WaveformViewPlusPrivate));
-	GTK_WIDGET_CLASS (klass)->configure_event = waveform_view_plus_configure_event;
 	GTK_WIDGET_CLASS (klass)->expose_event = waveform_view_plus_on_expose;
 	GTK_WIDGET_CLASS (klass)->button_press_event = waveform_view_plus_button_press_event;
 	GTK_WIDGET_CLASS (klass)->button_release_event = waveform_view_plus_button_release_event;
@@ -888,11 +875,22 @@ static void
 waveform_view_plus_finalize (GObject* obj)
 {
 	WaveformViewPlus* view = WAVEFORM_VIEW_PLUS(obj);
+	WaveformViewPlusPrivate* v = view->priv;
+
 	if(view->title) _g_free0(view->title);
 	if(view->text)  _g_free0(view->text);
 	//_g_free0 (self->priv->_filename);
-	//TODO free actor?
-	if(view->waveform) waveform_unref0(view->waveform); //TODO should be done in dispose?
+
+	// these should really be done in dispose
+	if(v->actor){
+		wf_actor_clear(v->actor);
+		wf_canvas_remove_actor(v->canvas, v->actor);
+		v->actor = NULL;
+
+	}
+	if(v->canvas) wf_canvas_free0(v->canvas);
+	if(view->waveform) waveform_unref0(view->waveform);
+
 	G_OBJECT_CLASS (waveform_view_plus_parent_class)->finalize(obj);
 
 	if(!--instance_count){
@@ -1161,13 +1159,15 @@ add_key_handlers(GtkWindow* window, WaveformViewPlus* waveform, Key keys[])
 	static bool key_down = false;
 
 	static GHashTable* key_handlers = NULL;
-	if(!key_handlers) key_handlers = g_hash_table_new(g_int_hash, g_int_equal);
+	if(!key_handlers){
+		key_handlers = g_hash_table_new(g_int_hash, g_int_equal);
 
-	int i = 0; while(true){
-		Key* key = &keys[i];
-		if(i > 100 || !key->key) break;
-		g_hash_table_insert(key_handlers, &key->key, key->handler);
-		i++;
+		int i = 0; while(true){
+			Key* key = &keys[i];
+			if(i > 100 || !key->key) break;
+			g_hash_table_insert(key_handlers, &key->key, key->handler);
+			i++;
+		}
 	}
 
 	gboolean key_hold_on_timeout(gpointer user_data)
@@ -1212,15 +1212,16 @@ add_key_handlers(GtkWindow* window, WaveformViewPlus* waveform, Key keys[])
 		return true;
 	}
 
-	g_signal_connect(window, "key-press-event", G_CALLBACK(key_press), waveform);
-	g_signal_connect(window, "key-release-event", G_CALLBACK(key_release), waveform);
+	g_signal_connect(waveform, "key-press-event", G_CALLBACK(key_press), waveform);
+	g_signal_connect(waveform, "key-release-event", G_CALLBACK(key_release), waveform);
 }
 
 
 static void
 remove_key_handlers(GtkWindow* window, WaveformViewPlus* waveform)
 {
-	#warning TODO remove_key_handlers
+	g_signal_handlers_disconnect_matched (waveform, G_SIGNAL_MATCH_ID | G_SIGNAL_MATCH_DATA, g_signal_lookup ("key-press-event", GTK_TYPE_WIDGET), 0, NULL, NULL, waveform);
+	g_signal_handlers_disconnect_matched (waveform, G_SIGNAL_MATCH_ID | G_SIGNAL_MATCH_DATA, g_signal_lookup ("key-release-event", GTK_TYPE_WIDGET), 0, NULL, NULL, waveform);
 }
 
 
@@ -1337,7 +1338,7 @@ waveform_actor(WaveformViewPlus* view)
 	{
 		waveform_actor_size(actor);
 #ifdef AGL_ACTOR_RENDER_CACHE
-		actor->fbo = agl_fbo_new(actor->region.x2 - actor->region.x1, actor->region.y2 - actor->region.y1, 0);
+		actor->fbo = agl_fbo_new(actor->region.x2 - actor->region.x1, actor->region.y2 - actor->region.y1, 0, 0);
 #endif
 		actor->set_size = waveform_actor_size;
 	}
@@ -1373,80 +1374,8 @@ grid_actor(WaveformViewPlus* view)
 	actor->paint = grid_actor_paint;
 	actor->set_size = grid_actor_size;
 #ifdef AGL_ACTOR_RENDER_CACHE
-	actor->fbo = agl_fbo_new(actor->region.x2 - actor->region.x1, actor->region.y2 - actor->region.y1, 0);
+	actor->fbo = agl_fbo_new(actor->region.x2 - actor->region.x1, actor->region.y2 - actor->region.y1, 0, 0);
 #endif
-	return actor;
-}
-
-
-static AGlActor*
-spp_actor(WaveformViewPlus* view)
-{
-	// TODO frame rate is currently too low to give smooth reslts.
-
-	void spp_actor__set_state(AGlActor* actor)
-	{
-		WaveformViewPlus* view = (WaveformViewPlus*)actor->root->widget;
-		WaveformViewPlusPrivate* v = view->priv;
-		WaveformActor* a = v->actor;
-
-		if(view->time != UINT32_MAX){
-			if(agl->use_shaders){
-				cursor.uniform.colour = 0x00ff00ff;
-				cursor.uniform.width = v->play_timeout
-					? MAX(2.0, (WF_ACTOR_PX_PER_FRAME(a) / a->canvas->sample_rate) * (1 << 24) * 4)
-					: 2.0;
-			}else{
-				glColor4f(0.0, 1.0, 0.0, 1.0);
-				glDisable(GL_TEXTURE_2D);
-			}
-		}
-	}
-
-	bool spp_actor__paint(AGlActor* actor)
-	{
-		WaveformViewPlus* view = (WaveformViewPlus*)actor->root->widget;
-		WaveformViewPlusPrivate* v = view->priv;
-		WaveformActor* a = v->actor;
-		if(!v->actor) return false;
-
-		if(view->time != UINT32_MAX){
-#if 0
-			glStringMarkerGREMEDY(3, "SPP");
-#endif
-			float width = 1.0;
-			if(agl->use_shaders){
-				width = cursor.uniform.width;
-			}
-
-			int64_t frame = ((int64_t)view->time) * a->canvas->sample_rate / 1000;
-			float x = floorf(wf_actor_frame_to_x(a, frame) - (width - 1.0));
-			glTranslatef(x, 0, 0); // TODO should be done using actor position instead.
-			agl_rect(
-				0, 0,
-				width, waveform_view_plus_get_height(view)
-			);
-			glTranslatef(-x, 0, 0);
-
-			agl_set_font_string("Roboto 16");
-			char s[16] = {0,};
-			snprintf(s, 15, "%02i:%02i:%03i", (view->time / 1000) / 60, (view->time / 1000) % 60, view->time % 1000);
-			agl_print(2, 2, 0, view->text_colour, s);
-			agl_set_font_string("Roboto 10");
-		}
-		return true;
-	}
-
-	AGlActor* actor = agl_actor__new();
-#ifdef AGL_DEBUG_ACTOR
-	actor->name = "SPP";
-#endif
-	actor->program = (AGlShader*)&cursor;
-	actor->set_state = spp_actor__set_state;
-	actor->paint = spp_actor__paint;
-
-	if(agl->use_shaders) agl_create_program(&cursor.shader);
-
 	return actor;
 }
 
@@ -1517,20 +1446,21 @@ bg_actor(WaveformViewPlus* view)
 
 	void create_background(AGlTextureActor* ta)
 	{
-		//create an alpha-map gradient texture for use as background
+		//create an alpha-map gradient texture
 
 		g_return_if_fail(!ta->texture[0]);
 
 		int width = 256;
 		int height = 256;
 		char* pbuf = g_new0(char, width * height);
-#if 0
+#if 1
 		int y; for(y=0;y<height;y++){
 			int x; for(x=0;x<width;x++){
 				*(pbuf + y * width + x) = ((x+y) * 0xff) / (width * 2);
 			}
 		}
 #else
+		// this gradient is brighter in the middle. It only works for stereo.
 		int nc = 2;
 		int c; for(c=0;c<nc;c++){
 			int top = (height / nc) * c;
@@ -1561,7 +1491,11 @@ bg_actor(WaveformViewPlus* view)
 
 	void bg_actor_set_state(AGlActor* actor)
 	{
-		((AlphaMapShader*)actor->program)->uniform.fg_colour = 0x4488ffff;
+#if 0
+		((AlphaMapShader*)actor->program)->uniform.fg_colour = 0x4488ffff; // TODO use theme colour, or pass as argument.
+#else
+		((AlphaMapShader*)actor->program)->uniform.fg_colour = 0x666666ff;
+#endif
 	}
 
 	bool bg_actor_paint(AGlActor* actor)
@@ -1590,3 +1524,21 @@ bg_actor(WaveformViewPlus* view)
 
 	return actor;
 }
+
+
+static GdkGLContext*
+get_gl_context()
+{
+	static GdkGLContext* share_list = 0;
+
+	if(!share_list){
+		GdkGLConfig* const config = gdk_gl_config_new_by_mode(GDK_GL_MODE_RGBA | GDK_GL_MODE_DOUBLE | GDK_GL_MODE_DEPTH);
+		GdkPixmap* const pixmap = gdk_pixmap_new(0, 8, 8, gdk_gl_config_get_depth(config));
+		gdk_pixmap_set_gl_capability(pixmap, config, 0);
+		share_list = gdk_gl_context_new(gdk_pixmap_get_gl_drawable(pixmap), 0, true, GDK_GL_RGBA_TYPE);
+	}
+
+	return share_list;
+}
+
+

@@ -27,6 +27,7 @@ OPENGL_SOURCES = \
 	grid.c grid.h \
 	texture_cache.c texture_cache.h \
 	fbo.c fbo.h \
+	actors/spp.c \
 	$(ASS_SOURCES)
 endif
 
@@ -41,6 +42,7 @@ libwaveform_la_SOURCES = \
 	audio.c audio.h \
 	audio_file.c audio_file.h \
 	worker.c worker.h \
+	promise.c promise.h \
 	utils.c utils.h
 
 EXTRA_DIST = \

@@ -320,6 +320,7 @@ agl_actor__set_size(AGlActor* actor)
 		int h = actor->region.y2 - actor->region.y1;
 
 		agl_fbo_set_size (actor->fbo, w, h);
+		actor->cache.valid = false;
 	}
 #endif
 
@@ -601,3 +602,30 @@ actor__find_offset(AGlActor* a)
 }
 
 
+#ifdef DEBUG
+void
+agl_actor__print_tree (AGlActor* actor)
+{
+	g_return_if_fail(actor);
+
+	printf("scene graph:\n");
+	static int indent; indent = 1;
+
+	void _print(AGlActor* actor)
+	{
+#ifdef AGL_DEBUG_ACTOR
+		int i; for(i=0;i<indent;i++) printf("  ");
+		printf("%s\n", actor->name);
+#endif
+		indent++;
+		GList* l = actor->children;
+		for(;l;l=l->next){
+			AGlActor* child = l->data;
+			_print(child);
+		}
+		indent--;
+	}
+
+	_print(actor);
+}
+#endif

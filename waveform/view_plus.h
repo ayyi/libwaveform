@@ -59,8 +59,6 @@ struct _WaveformViewPlus {
 
 	char*                    text;
 	uint32_t                 text_colour;
-
-	uint32_t                 time; // milliseconds (maximum of 1193 hours)
 };
 
 struct _WaveformViewPlusClass {

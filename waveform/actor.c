@@ -792,7 +792,7 @@ block_to_fbo(WaveformActor* a, int b, WfGlBlock* blocks, int resolution)
 	g_return_if_fail(b < blocks->size);
 #endif
 	g_return_if_fail(!blocks->fbo[b]);
-	blocks->fbo[b] = agl_fbo_new(256, 256, 0);
+	blocks->fbo[b] = agl_fbo_new(256, 256, 0, 0);
 	{
 		WaveformCanvas* wfc = a->canvas;
 		WaveformActor* actor = a;
@@ -845,7 +845,7 @@ block_to_fbo(WaveformActor* a, int b, WfGlBlock* blocks, int resolution)
 				//now process the first fbo onto the fx_fbo
 
 				if(blocks->fx_fbo[b]) gwarn("%i: fx_fbo: expected empty", b);
-				AGlFBO* fx_fbo = blocks->fx_fbo[b] = agl_fbo_new(256, 256, 0);
+				AGlFBO* fx_fbo = blocks->fx_fbo[b] = agl_fbo_new(256, 256, 0, 0);
 				if(fx_fbo){
 					dbg(1, "%i: rendering to fx fbo. from: id=%i texture=%u - to: texture=%u", b, fbo->id, fbo->texture, fx_fbo->texture);
 					agl_draw_to_fbo(fx_fbo) {
@@ -907,6 +907,30 @@ wf_actor_frame_to_x (WaveformActor* actor, uint64_t frame)
 	#define PIXELS_PER_SAMPLE (a->animatable.rect_len.val.f / a->animatable.len.val.i)
 
 	return (frame - a->animatable.start.val.i) * PIXELS_PER_SAMPLE + a->animatable.rect_left.val.f;
+}
+
+
+/*
+ *  Remove render data. Used for example if the render context has changed.
+ *  Note that the render data is shared by all users of the waveform.
+ */
+void
+wf_actor_clear (WaveformActor* actor)
+{
+	Waveform* w = actor->waveform;
+
+	int m; for(m=0;m<N_MODES;m++){
+		WaveformModeRender** r = &w->priv->render_data[m];
+		if(*r){
+			if(modes[m].renderer->free){
+				modes[m].renderer->free(modes[m].renderer, w);
+			}
+#ifdef DEBUG
+			else gwarn("cannot free render data. mode=%s", modes[m].name);
+#endif
+			*r = 0;
+		}
+	}
 }
 
 

@@ -30,6 +30,7 @@
 #include "agl/fbo.h"
 
 #define NON_SQUARE
+#define texture_level_0 0
 
 typedef struct { int w, h; } iSize;
 
@@ -69,11 +70,13 @@ static GLuint make_fb(AGlFBO*);
 	}
 
 AGlFBO*
-agl_fbo_new(int width, int height, GLuint texture)
+agl_fbo_new(int width, int height, GLuint texture, AGlFBOFlags flags)
 {
-	//if texture is zero, a new texture will be created.
+	// - if texture is zero, a new texture will be created.
+	// - width and height can be zero for newly created objects that dont yet have a size.
 
 	AGlFBO* fbo = g_new0(AGlFBO, 1);
+	fbo->flags = flags;
 	fbo->width = width;
 	fbo->height = height;
 #ifdef NON_SQUARE
@@ -125,15 +128,23 @@ agl_fbo_set_size(AGlFBO* fbo, int width, int height)
 	if(current_size != new_size){
 		dbg(1, "new size: %i", new_size);
 #endif
-		glDeleteTextures(1, &fbo->texture);
-		glDeleteFramebuffers(1, &fbo->id);
 
+		glActiveTexture(GL_TEXTURE0);
+		glEnable(GL_TEXTURE_2D);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+		glBindTexture(GL_TEXTURE_2D, fbo->texture);
 #ifdef NON_SQUARE
-		fbo->texture = make_texture(agl_power_of_two(width), agl_power_of_two(height));
+		glTexImage2D(GL_TEXTURE_2D, 0, 4, agl_power_of_two(width), agl_power_of_two(height), 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
 #else
-		fbo->texture = make_texture(agl_power_of_two(MAX(width, height)));
+		glTexImage2D(GL_TEXTURE_2D, 0, 4, agl_power_of_two(MAX(width, height)), agl_power_of_two(MAX(width, height)), 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
 #endif
-		make_fb(fbo);
+		glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
+
+		if(fbo->flags & AGL_FBO_HAS_STENCIL){
+			glDeleteFramebuffers(1, &fbo->id);
+			make_fb(fbo);
+		}
 	}
 }
 
@@ -169,7 +180,6 @@ attach_depth_and_stencil_buffers(AGlFBO* fbo, GLboolean tryDepthStencil, GLboole
 			// attach to both depth and stencil at once 
 			glFramebufferRenderbuffer(GL_FRAMEBUFFER_EXT, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER_EXT, rb);
 			if (glGetError()) return FALSE;
-			//dbg(0, "successfully attached to both depth and stencil buffer");
 		} else {
 			// attach to depth attachment point
 			glFramebufferRenderbuffer(GL_FRAMEBUFFER_EXT, GL_DEPTH_ATTACHMENT_EXT, GL_RENDERBUFFER_EXT, rb);
@@ -178,7 +188,6 @@ attach_depth_and_stencil_buffers(AGlFBO* fbo, GLboolean tryDepthStencil, GLboole
 			// and attach to stencil attachment point
 			glFramebufferRenderbuffer(GL_FRAMEBUFFER_EXT, GL_STENCIL_ATTACHMENT_EXT, GL_RENDERBUFFER_EXT, rb);
 			if (glGetError()) return FALSE;
-			//dbg(0, "successfully attached to depth and stencil buffer separately rb=%i", rb);
 		}
 
 		status = glCheckFramebufferStatus(GL_FRAMEBUFFER_EXT);
@@ -247,14 +256,13 @@ make_fb(AGlFBO* fbo)
 	glBindFramebuffer(GL_FRAMEBUFFER_EXT, fbo->id);
 
 	dbg(2, "attaching texture %u to fbo...", fbo->texture);
-	int texture_level = 0;
-	glFramebufferTexture2D(GL_FRAMEBUFFER_EXT, GL_COLOR_ATTACHMENT0_EXT, GL_TEXTURE_2D, fbo->texture, texture_level);
+	glFramebufferTexture2D(GL_FRAMEBUFFER_EXT, GL_COLOR_ATTACHMENT0_EXT, GL_TEXTURE_2D, fbo->texture, texture_level_0);
 
 	GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER_EXT);
 	if (status != GL_FRAMEBUFFER_COMPLETE_EXT) gwarn("framebuffer incomplete: 0x%04x", status);
 
 	// Setup depth and stencil buffers - TODO depth buffer not used. remove it?
-	{
+	if(fbo->flags & AGL_FBO_HAS_STENCIL){
 		gboolean b = attach_depth_and_stencil_buffers(fbo, UsePackedDepthStencil, UsePackedDepthStencilBoth, &DepthRB, &StencilRB);
 		if (!b) {
 			// try !UsePackedDepthStencil
