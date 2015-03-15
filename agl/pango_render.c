@@ -175,12 +175,10 @@ tc_clear ()
       tc_texture *next = first_texture->next;
       //cogl_textures_destroy (1, &first_texture->name);
       glDeleteTextures (1, &first_texture->name);
-      printf("   freeing texture: %i\n", first_texture->name);
       g_slice_free (tc_texture, first_texture);
       first_texture = next;
     }
 
-  printf("freeing textures\n");
                                  guint t = 2;
                                  glDeleteTextures (1, &t);
 
