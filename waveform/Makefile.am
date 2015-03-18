@@ -27,7 +27,7 @@ OPENGL_SOURCES = \
 	grid.c grid.h \
 	texture_cache.c texture_cache.h \
 	fbo.c fbo.h \
-	actors/spp.c \
+	actors/spp.c actors/spp.h \
 	$(ASS_SOURCES)
 endif
 

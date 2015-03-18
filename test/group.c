@@ -42,6 +42,7 @@
 #include "waveform/actor.h"
 #include "waveform/gl_utils.h"
 #include "test/ayyi_utils.h"
+#include "test/common2.h"
 
 struct
 {
@@ -58,8 +59,6 @@ float rotate[3] = {30.0, 30.0, 30.0};
 float isometric_rotation[3] = {35.264f, 45.0f, 0.0f};
 
 GdkGLConfig*    glconfig       = NULL;
-GdkGLDrawable*  gl_drawable    = NULL;
-GdkGLContext*   gl_context     = NULL;
 static bool     gl_initialised = false;
 GtkWidget*      canvas         = NULL;
 WaveformCanvas* wfc            = NULL;
@@ -71,7 +70,6 @@ float           zoom           = 1.0;
 float           dz             = 20.0;
 gpointer        tests[]        = {};
 
-static void set_log_handlers   ();
 static void setup_projection   (GtkWidget*);
 static void draw               (GtkWidget*);
 static bool on_expose          (GtkWidget*, GdkEventExpose*, gpointer);
@@ -203,12 +201,10 @@ setup_projection(GtkWidget* widget)
 static void
 draw(GtkWidget* widget)
 {
-	glEnable(GL_BLEND); glEnable(GL_DEPTH_TEST); glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-
 	glPushMatrix(); /* modelview matrix */
 		int i; for(i=0;i<G_N_ELEMENTS(a);i++){
 			WaveformActor* actor = a[(i + a_front + 1) % G_N_ELEMENTS(a)];
-			if(actor) agl_actor__paint((AGlActor*)actor);
+			if(actor) ((AGlActor*)actor)->paint((AGlActor*)actor);
 		}
 	glPopMatrix();
 
@@ -238,14 +234,14 @@ on_expose(GtkWidget* widget, GdkEventExpose* event, gpointer user_data)
 	if(!GTK_WIDGET_REALIZED(widget)) return TRUE;
 	if(!gl_initialised) return TRUE;
 
-	START_DRAW {
+	AGL_ACTOR_START_DRAW(wfc->root) {
 		glClearColor(0.0, 0.0, 0.0, 1.0);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 		draw(widget);
 
-		gdk_gl_drawable_swap_buffers(gl_drawable);
-	} END_DRAW
+		gdk_gl_drawable_swap_buffers(wfc->root->gl.gdk.drawable);
+	} AGL_ACTOR_END_DRAW(wfc->root)
 	return TRUE;
 }
 
@@ -258,12 +254,9 @@ on_canvas_realise(GtkWidget* _canvas, gpointer user_data)
 	if(canvas_init_done) return;
 	if(!GTK_WIDGET_REALIZED (canvas)) return;
 
-	gl_drawable = gtk_widget_get_gl_drawable(canvas);
-	gl_context  = gtk_widget_get_gl_context(canvas);
-
 	gl_initialised = true;
 
-	wfc = wf_canvas_new(gl_context, gl_drawable);
+	wfc = wf_canvas_new((AGlRootActor*)agl_actor__new_root(canvas));
 	//wf_canvas_set_use_shaders(wfc, false);
 
 	canvas_init_done = true;
@@ -419,33 +412,6 @@ toggle_animate()
 		return IDLE_CONTINUE;
 	}
 	g_timeout_add(50, on_idle, NULL);
-}
-
-
-void
-set_log_handlers()
-{
-	void log_handler(const gchar* log_domain, GLogLevelFlags log_level, const gchar* message, gpointer user_data)
-	{
-	  switch(log_level){
-		case G_LOG_LEVEL_CRITICAL:
-		  printf("%s %s\n", ayyi_err, message);
-		  break;
-		case G_LOG_LEVEL_WARNING:
-		  printf("%s %s\n", ayyi_warn, message);
-		  break;
-		default:
-		  printf("log_handler(): level=%i %s\n", log_level, message);
-		  break;
-	  }
-	}
-
-	g_log_set_handler (NULL, G_LOG_LEVEL_WARNING | G_LOG_LEVEL_CRITICAL | G_LOG_FLAG_FATAL | G_LOG_FLAG_RECURSION, log_handler, NULL);
-
-	char* domain[] = {NULL, "Waveform", "GLib-GObject", "GLib", "Gdk", "Gtk"};
-	int i; for(i=0;i<G_N_ELEMENTS(domain);i++){
-		g_log_set_handler (domain[i], G_LOG_LEVEL_MASK | G_LOG_FLAG_FATAL | G_LOG_FLAG_RECURSION, log_handler, NULL);
-	}
 }
 
 

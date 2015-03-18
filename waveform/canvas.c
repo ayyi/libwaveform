@@ -1,5 +1,5 @@
 /*
-  copyright (C) 2012-2014 Tim Orford <tim@orford.org>
+  copyright (C) 2012-2015 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -50,7 +50,7 @@ static AGl* agl = NULL;
 
 #undef is_sdl
 #ifdef USE_SDL
-#  define is_sdl(WFC) (WFC->type == CONTEXT_TYPE_SDL)
+#  define is_sdl(WFC) (WFC->root->type == CONTEXT_TYPE_SDL)
 #else
 #  define is_sdl(WFC) false
 #endif
@@ -59,13 +59,13 @@ static AGl* agl = NULL;
 	if(wa->_draw_depth) gwarn("START_DRAW: already drawing"); \
 	wa->_draw_depth++; \
 	if (is_sdl(wa) || \
-		(wa->_draw_depth > 1) || gdk_gl_drawable_gl_begin (wa->gl.gdk.drawable, wa->gl.gdk.context) \
+		(wa->_draw_depth > 1) || gdk_gl_drawable_gl_begin (wa->root->gl.gdk.drawable, wa->root->gl.gdk.context) \
 		) {
 
 #define WAVEFORM_END_DRAW(wa) \
 	wa->_draw_depth--; \
 	if(!is_sdl(wa)){ \
-		if(!wa->_draw_depth) gdk_gl_drawable_gl_end(wa->gl.gdk.drawable); \
+		if(!wa->_draw_depth) gdk_gl_drawable_gl_end(wa->root->gl.gdk.drawable); \
 	} \
 	} else gwarn("!! gl_begin fail")
 
@@ -171,34 +171,12 @@ waveform_canvas_construct(GType object_type)
 
 
 WaveformCanvas*
-wf_canvas_new(GdkGLContext* gl_context, GdkGLDrawable* gl_drawable)
+wf_canvas_new(AGlRootActor* root)
 {
 	PF;
 
 	WaveformCanvas* wfc = waveform_canvas_construct(TYPE_WAVEFORM_CANVAS);
-	wfc->show_rms = true;
-	wfc->gl.gdk.context = gl_context;
-	wfc->gl.gdk.drawable = gl_drawable;
-	wf_canvas_init(wfc);
-
-	return wfc;
-}
-
-
-WaveformCanvas*
-wf_canvas_new_from_widget(GtkWidget* widget)
-{
-	PF;
-
-	GdkGLDrawable* gl_drawable = gtk_widget_get_gl_drawable(widget);
-	if(!gl_drawable){
-		dbg(2, "cannot get drawable");
-		return NULL;
-	}
-
-	WaveformCanvas* wfc = waveform_canvas_construct(TYPE_WAVEFORM_CANVAS);
-	wfc->gl.gdk.drawable = gl_drawable;
-	wfc->gl.gdk.context = gtk_widget_get_gl_context(widget);
+	wfc->root = root;
 	wf_canvas_init(wfc);
 	return wfc;
 }
@@ -211,8 +189,8 @@ wf_canvas_new_sdl(SDL_GLContext* context)
 	WaveformCanvas* wfc = waveform_canvas_construct(TYPE_WAVEFORM_CANVAS);
 
 	wfc->show_rms       = true;
-	wfc->type           = CONTEXT_TYPE_SDL;
-	wfc->gl.sdl.context = context;
+	wfc->root->type     = CONTEXT_TYPE_SDL;
+	wfc->root->gl.sdl.context = context;
 
 	wf_canvas_init(wfc);
 

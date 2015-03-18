@@ -61,8 +61,6 @@ struct _app
 
 AGl*            agl            = NULL;
 GdkGLConfig*    glconfig       = NULL;
-GdkGLDrawable*  gl_drawable    = NULL;
-GdkGLContext*   gl_context     = NULL;
 static bool     gl_initialised = false;
 GtkWidget*      canvas         = NULL;
 WaveformCanvas* wfc            = NULL;
@@ -178,14 +176,6 @@ gl_init()
 {
 	if(gl_initialised) return;
 
-	START_DRAW {
-
-		if(!agl_shaders_supported()){
-			gwarn("shaders not supported");
-		}
-
-	} END_DRAW
-
 	gl_initialised = true;
 }
 
@@ -243,11 +233,8 @@ textured_rect_1d(WaveformActor* actor, guint texture, float x, float y, float w,
 static void
 draw(GtkWidget* widget)
 {
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-	glEnable(GL_BLEND); glEnable(GL_DEPTH_TEST); glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-
 	glPushMatrix(); /* modelview matrix */
-		int i; for(i=0;i<G_N_ELEMENTS(a);i++) if(a[i]) agl_actor__paint((AGlActor*)a[i]);
+		int i; for(i=0;i<G_N_ELEMENTS(a);i++) if(a[i]) ((AGlActor*)a[i])->paint((AGlActor*)a[i]);
 	glPopMatrix();
 
 #undef SHOW_BOUNDING_BOX
@@ -294,14 +281,14 @@ on_expose(GtkWidget* widget, GdkEventExpose* event, gpointer user_data)
 	if(!GTK_WIDGET_REALIZED(widget)) return TRUE;
 	if(!gl_initialised) return TRUE;
 
-	START_DRAW {
+	AGL_ACTOR_START_DRAW(wfc->root) {
 		glClearColor(0.0, 0.0, 0.0, 1.0);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 		draw(widget);
 
-		gdk_gl_drawable_swap_buffers(gl_drawable);
-	} END_DRAW
+		gdk_gl_drawable_swap_buffers(wfc->root->gl.gdk.drawable);
+	} AGL_ACTOR_END_DRAW(wfc->root);
 	return TRUE;
 }
 
@@ -312,14 +299,11 @@ on_canvas_realise(GtkWidget* _canvas, gpointer user_data)
 	if(wfc) return;
 	if(!GTK_WIDGET_REALIZED (canvas)) return;
 
-	gl_drawable = gtk_widget_get_gl_drawable(canvas);
-	gl_context  = gtk_widget_get_gl_context(canvas);
-
 	agl_get_instance()->pref_use_shaders = USE_SHADERS;
 
 	gl_init();
 
-	wfc = wf_canvas_new(gl_context, gl_drawable);
+	wfc = wf_canvas_new((AGlRootActor*)agl_actor__new_root(canvas));
 
 	char* filename = g_build_filename(g_get_current_dir(), "test/data/mono_1.wav", NULL);
 	w1 = waveform_load_new(filename);

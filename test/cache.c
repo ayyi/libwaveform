@@ -60,8 +60,6 @@ extern void hi_ng_cache_print   ();
 #define WAV2 "test/data/large2.wav"
 
 GdkGLConfig*    glconfig       = NULL;
-GdkGLDrawable*  gl_drawable    = NULL;
-GdkGLContext*   gl_context     = NULL;
 static bool     gl_initialised = false;
 GtkWidget*      canvas         = NULL;
 WaveformCanvas* wfc            = NULL;
@@ -150,16 +148,20 @@ test_shown()
 	assert(wfc, "canvas not created");
 	assert(a[0], "actor not created");
 
+	bool _test_shown(gpointer _)
+	{
 #ifdef AGL_ACTOR_RENDER_CACHE
-	AGlActor* actor = (AGlActor*)a[0];
-	if(actor->cache.valid){
-	}else{
-		extern bool wf_actor_test_is_not_blank(WaveformActor*);
-		assert(wf_actor_test_is_not_blank(a[0]), "output is blank");
-	}
+		AGlActor* actor = (AGlActor*)a[0];
+		if(actor->cache.valid){
+		}else{
+			extern bool wf_actor_test_is_not_blank(WaveformActor*);
+			assert_and_stop(wf_actor_test_is_not_blank(a[0]), "output is blank");
+		}
 #endif
+		FINISH_TEST_TIMER_STOP;
+	}
 
-	FINISH_TEST;
+	g_timeout_add(500, _test_shown, NULL);
 }
 
 
@@ -663,12 +665,6 @@ gl_init()
 {
 	if(gl_initialised) return;
 
-	START_DRAW {
-
-		if(!agl_shaders_supported()) gwarn("shaders not supported");
-
-	} END_DRAW
-
 	gl_initialised = true;
 }
 
@@ -730,14 +726,14 @@ on_expose(GtkWidget* widget, GdkEventExpose* event, gpointer user_data)
 	if(!GTK_WIDGET_REALIZED(widget)) return TRUE;
 	if(!gl_initialised) return TRUE;
 
-	START_DRAW {
+	AGL_ACTOR_START_DRAW(wfc->root) {
 		glClearColor(0.0, 0.0, 0.0, 1.0);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 		draw(widget);
 
-		gdk_gl_drawable_swap_buffers(gl_drawable);
-	} END_DRAW
+		gdk_gl_drawable_swap_buffers(wfc->root->gl.gdk.drawable);
+	} AGL_ACTOR_END_DRAW(wfc->root)
 	return TRUE;
 }
 
@@ -754,14 +750,11 @@ on_canvas_realise(GtkWidget* _canvas, gpointer user_data)
 			return TIMER_CONTINUE;
 		}
 
-		gl_drawable = gtk_widget_get_gl_drawable(canvas);
-		gl_context  = gtk_widget_get_gl_context(canvas);
-
 		//agl_get_instance()->pref_use_shaders = false;
 
 		gl_init();
 
-		wfc = wf_canvas_new(gl_context, gl_drawable);
+		wfc = wf_canvas_new((AGlRootActor*)agl_actor__new_root(canvas));
 
 		char* filename = g_build_filename(g_get_current_dir(), WAV1, NULL);
 		w[0] = waveform_load_new(filename);

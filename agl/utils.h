@@ -11,6 +11,8 @@
 #ifndef __agl_utils_h__
 #define __agl_utils_h__
 #include <GL/gl.h>
+#include <gtkglext-1.0/gdk/gdkgl.h>
+#include <gtkglext-1.0/gtk/gtkgl.h>
 #include <pango/pango.h>
 #include "agl/typedefs.h"
 
@@ -48,7 +50,8 @@ struct _texture_unit
    int         texture;
 };
 
-AGl*      agl_get_instance        ();
+AGl*            agl_get_instance             ();
+GdkGLContext*   agl_get_gl_context           ();
 void      agl_enable              (gulong flags);
 GLboolean agl_shaders_supported   ();
 void      agl_shaders_init        ();

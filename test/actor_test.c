@@ -54,9 +54,6 @@
 #define bool gboolean
 
 GdkGLConfig*    glconfig       = NULL;
-GdkGLDrawable*  gl_drawable    = NULL;
-GdkGLContext*   gl_context     = NULL;
-static bool     gl_initialised = false;
 GtkWidget*      canvas         = NULL;
 WaveformCanvas* wfc            = NULL;
 Waveform*       w1             = NULL;
@@ -149,23 +146,6 @@ main (int argc, char *argv[])
 
 
 static void
-gl_init()
-{
-	if(gl_initialised) return;
-
-	START_DRAW {
-
-		if(!agl_shaders_supported()){
-			gwarn("shaders not supported");
-		}
-
-	} END_DRAW
-
-	gl_initialised = true;
-}
-
-
-static void
 setup_projection(GtkWidget* widget)
 {
 	int vx = 0;
@@ -217,17 +197,18 @@ draw(GtkWidget* widget)
 static gboolean
 on_expose(GtkWidget* widget, GdkEventExpose* event, gpointer user_data)
 {
-	if(!GTK_WIDGET_REALIZED(widget)) return TRUE;
-	if(!gl_initialised) return TRUE;
+	if(!GTK_WIDGET_REALIZED(widget)) return true;
+	if(!wfc || !wfc->root) return true;
 
-	START_DRAW {
+	AGL_ACTOR_START_DRAW(wfc->root) {
 		glClearColor(0.0, 0.0, 0.0, 1.0);
 		glClear(GL_COLOR_BUFFER_BIT);
 
 		draw(widget);
 
-		gdk_gl_drawable_swap_buffers(gl_drawable);
-	} END_DRAW
+		gdk_gl_drawable_swap_buffers(wfc->root->gl.gdk.drawable);
+	} AGL_ACTOR_END_DRAW(wfc->root)
+
 	return TRUE;
 }
 
@@ -238,14 +219,9 @@ on_canvas_realise(GtkWidget* _canvas, gpointer user_data)
 	if(wfc) return;
 	if(!GTK_WIDGET_REALIZED (canvas)) return;
 
-	gl_drawable = gtk_widget_get_gl_drawable(canvas);
-	gl_context  = gtk_widget_get_gl_context(canvas);
-
 	agl_get_instance()->pref_use_shaders = USE_SHADERS;
 
-	gl_init();
-
-	wfc = wf_canvas_new(gl_context, gl_drawable);
+	wfc = wf_canvas_new((AGlRootActor*)agl_actor__new_root(canvas));
 
 	char* filename = g_build_filename(g_get_current_dir(), "test/data/mono_1.wav", NULL);
 	w1 = waveform_load_new(filename);
@@ -288,7 +264,7 @@ on_canvas_realise(GtkWidget* _canvas, gpointer user_data)
 static void
 on_allocate(GtkWidget* widget, GtkAllocation* allocation, gpointer user_data)
 {
-	if(!gl_initialised) return;
+	if(!wfc || !wfc->root) return;
 
 	setup_projection(widget);
 

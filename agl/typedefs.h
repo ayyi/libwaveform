@@ -7,6 +7,7 @@ typedef struct _plain_shader      PlainShader;
 typedef struct _texture_unit      AGlTextureUnit; 
 typedef struct _AGlFBO            AGlFBO;
 typedef struct _AGlActor          AGlActor;
+typedef struct _AGlRootActor      AGlRootActor;
 typedef struct _AGlTextureActor   AGlTextureActor;
 
 typedef struct {int x, y;}             AGliPt;

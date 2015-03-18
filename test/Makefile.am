@@ -10,6 +10,7 @@ endif
 
 if ENABLE_OPENGL
 noinst_PROGRAMS = waveform_test view_test actor_test actor_plus list group hires_test $(ASSPROGRAMS) frame_rate resources write_wav write_short write_block large_files cache 32bit med_textures $(SDLPROGRAMS)
+###noinst_PROGRAMS = waveform_test view_test actor_test actor_plus $(ASSPROGRAMS)
 endif
 
 AM_CFLAGS = \
@@ -75,7 +76,7 @@ hires_test_SOURCES = \
 	hires_test.c
 
 frame_rate_SOURCES = \
-	ayyi_utils.c ayyi_utils.h \
+	$(COMMON2_SOURCES) \
 	frame_rate.c
 
 resources_SOURCES = \

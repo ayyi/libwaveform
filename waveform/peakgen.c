@@ -68,6 +68,11 @@ waveform_get_peak_filename(const char* filename)
 	// filename should be absolute.
 	// caller must g_free the returned value.
 
+	if(wf->load_peak == wf_load_ardour_peak){
+		gwarn("cannot automatically determine path of Ardour peakfile");
+		return NULL;
+	}
+
 	GError* error = NULL;
 	gchar* uri = g_filename_to_uri(filename, NULL, &error);
 	if(error){
@@ -100,6 +105,7 @@ waveform_ensure_peakfile (Waveform* w)
 	char* filename = g_path_is_absolute(w->filename) ? g_strdup(w->filename) : g_build_filename(g_get_current_dir(), w->filename, NULL);
 
 	gchar* peak_filename = waveform_get_peak_filename(filename);
+	if(!peak_filename) goto out;
 
 	if(g_file_test(peak_filename, G_FILE_TEST_EXISTS)){ 
 		dbg (1, "peak file exists. (%s)", peak_filename);

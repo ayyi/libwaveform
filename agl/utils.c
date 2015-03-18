@@ -112,6 +112,26 @@ agl_get_instance()
 }
 
 
+/*   Returns a global GdkGLContext that can be used to share
+ *   OpenGL display lists between multiple drawables with
+ *   dynamic lifetimes.
+ */
+GdkGLContext*
+agl_get_gl_context()
+{
+	static GdkGLContext* share_list = 0;
+
+	if(!share_list){
+		GdkGLConfig* const config = gdk_gl_config_new_by_mode(GDK_GL_MODE_RGBA | GDK_GL_MODE_DOUBLE | GDK_GL_MODE_DEPTH);
+		GdkPixmap* const pixmap = gdk_pixmap_new(0, 8, 8, gdk_gl_config_get_depth(config));
+		gdk_pixmap_set_gl_capability(pixmap, config, 0);
+		share_list = gdk_gl_context_new(gdk_pixmap_get_gl_drawable(pixmap), 0, TRUE, GDK_GL_RGBA_TYPE);
+	}
+
+	return share_list;
+}
+
+
 void
 agl_enable (gulong flags)
 {
@@ -533,14 +553,14 @@ agl_set_font_string(char* font_string)
 	if(font_desc) pango_font_description_free(font_desc);
 	font_desc = pango_font_description_from_string(font_string);
 
-	dbg(1, "requested: %s", font_string);
+	dbg(2, "requested: %s", font_string);
 	// for some reason there seems to be an issue with pixmap fonts
 	if(!font_is_scalable(get_context(), pango_font_description_get_family(font_desc))){
 		strcpy(font_string, "Sans 7");
 		pango_font_description_free(font_desc); //TODO no, just set the family instead
 		font_desc = pango_font_description_from_string(font_string);
 	}
-	dbg(1, "using: %s", font_string);
+	dbg(2, "using: %s", font_string);
 }
 
 

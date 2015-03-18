@@ -235,7 +235,8 @@ wf_animation_remove_animatable(WfAnimation* animation, WfAnimatable* animatable)
 #ifdef WF_DEBUG_ANIMATOR
 	if(/*wf_debug &&*/ !g_list_find(animations, animation)){
 		dbg(0, "*** animation not found %p ***", animation);
-		//return false;
+		// this does happen occasionally. must return, using invalid pointer will cause segfault.
+		return false;
 	}
 #endif
 	GList* m = animation->members;

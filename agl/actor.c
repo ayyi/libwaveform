@@ -52,6 +52,13 @@ agl_actor__new_root(GtkWidget* widget)
 {
 	agl = agl_get_instance();
 
+	if(!GTK_WIDGET_REALIZED(widget)) return NULL;
+
+	GdkGLDrawable* gl_drawable = gtk_widget_get_gl_drawable(widget);
+	if(!gl_drawable){
+		return NULL;
+	}
+
 	AGlRootActor* a = g_new0(AGlRootActor, 1);
 #ifdef AGL_DEBUG_ACTOR
 	((AGlActor*)a)->name = "ROOT";
@@ -62,6 +69,9 @@ agl_actor__new_root(GtkWidget* widget)
 
 	a->viewport.w = widget->allocation.width;
 	a->viewport.h = widget->allocation.height;
+
+	a->gl.gdk.drawable = gl_drawable;
+	a->gl.gdk.context = gtk_widget_get_gl_context(widget);
 
 	return (AGlActor*)a;
 }
@@ -132,19 +142,18 @@ agl_actor__remove_child(AGlActor* actor, AGlActor* child)
 
 
 AGlActor*
-agl_actor__replace_child(AGlActor* actor, AGlActor* child, ActorNew constructor)
+agl_actor__replace_child(AGlActor* actor, AGlActor* child, AGlActor* new_child)
 {
 	GList* l = g_list_find(actor->children, child);
 	if(l){
-		agl_actor__free(child);
-
-		//Actor* new_child = constructor((AyyiPanel*)actor->root->widget);
-		AGlActor* new_child = agl_actor__add_child(actor, constructor(actor->root->widget));
+		agl_actor__add_child(actor, new_child);
 
 		// update the children list such that the original order is preserved
 		actor->children = g_list_remove(actor->children, new_child);
 		GList* j = g_list_find(actor->children, child);
 		j->data = new_child;
+
+		agl_actor__free(child);
 
 		return new_child;
 	}
@@ -613,9 +622,10 @@ agl_actor__print_tree (AGlActor* actor)
 
 	void _print(AGlActor* actor)
 	{
+		g_return_if_fail(actor);
 #ifdef AGL_DEBUG_ACTOR
 		int i; for(i=0;i<indent;i++) printf("  ");
-		printf("%s\n", actor->name);
+		if(actor->name) printf("%s\n", actor->name);
 #endif
 		indent++;
 		GList* l = actor->children;

@@ -12,6 +12,11 @@
 
 #ifndef __gl_actor_h__
 #define __gl_actor_h__
+#include <gtkglext-1.0/gdk/gdkgl.h>
+#include <gtkglext-1.0/gtk/gtkgl.h>
+#ifdef USE_SDL
+#  include "SDL2/SDL.h"
+#endif
 #include "transition/transition.h"
 #include "agl/typedefs.h"
 #include "gtk/gtk.h"
@@ -30,8 +35,12 @@ typedef bool      (*ActorPaint)       (AGlActor*);
 typedef bool      (*ActorOnEvent)     (AGlActor*, GdkEvent*, AGliPt xy, AGliPt scroll_offset);
 typedef void      (*ActorFn)          (AGlActor*);
 
-typedef struct _AGlRootActor  AGlRootActor;
 typedef struct _actor_context AGlActorContext;
+
+typedef enum {
+	CONTEXT_TYPE_GTK = 0,
+	CONTEXT_TYPE_SDL,
+} ContextType;
 
 struct _AGlActor {
 #ifdef AGL_DEBUG_ACTOR
@@ -67,7 +76,7 @@ AGlActor* agl_actor__new_root        (GtkWidget*);
 void      agl_actor__free            (AGlActor*);
 AGlActor* agl_actor__add_child       (AGlActor*, AGlActor*);
 void      agl_actor__remove_child    (AGlActor*, AGlActor*);
-AGlActor* agl_actor__replace_child   (AGlActor*, AGlActor*, ActorNew);
+AGlActor* agl_actor__replace_child   (AGlActor*, AGlActor*, AGlActor*);
 void      agl_actor__init            (AGlActor*, gpointer);              // called once when gl context is available.
 void      agl_actor__paint           (AGlActor*);
 void      agl_actor__set_size        (AGlActor*);
@@ -86,6 +95,19 @@ struct _AGlRootActor {
    AGlActor          actor;
    GtkWidget*        widget;
    AGlRect           viewport;
+
+   union {
+		struct {
+			GdkGLContext*  context;
+			GdkGLDrawable* drawable;
+		}          gdk;
+#ifdef USE_SDL
+		struct {
+			SDL_GLContext context;
+		}          sdl;
+#endif
+   }              gl;
+   ContextType    type;
 };
 
 struct _AGlTextureActor {
@@ -102,5 +124,26 @@ AGlActorContext actor_context;
 #else
 extern AGlActorContext actor_context;
 #endif
+
+#ifdef USE_SDL
+#  define actor_is_sdl(RA) (RA && RA->type == CONTEXT_TYPE_SDL)
+#else
+#  define actor_is_sdl(RA) false
+#endif
+
+#define AGL_ACTOR_START_DRAW(A) \
+	if(__wf_drawing){ gwarn("START_DRAW: already drawing"); } \
+	__draw_depth++; \
+	__wf_drawing = TRUE; \
+	if (actor_is_sdl(((AGlRootActor*)A)) || (__draw_depth > 1) || gdk_gl_drawable_gl_begin (((AGlRootActor*)A)->gl.gdk.drawable, ((AGlRootActor*)A)->gl.gdk.context)) {
+
+#define AGL_ACTOR_END_DRAW(A) \
+	__draw_depth--; \
+	if(actor_is_sdl(((AGlRootActor*)A))){ \
+		if(!__draw_depth) gdk_gl_drawable_gl_end(((AGlRootActor*)A)->gl.gdk.drawable); \
+		else { gwarn("!! gl_begin fail"); } \
+	} \
+	} \
+	(__wf_drawing = FALSE);
 
 #endif

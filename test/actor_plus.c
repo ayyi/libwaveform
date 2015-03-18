@@ -254,12 +254,12 @@ on_canvas_realise(GtkWidget* _canvas, gpointer user_data)
 	if(canvas_init_done) return;
 	if(!GTK_WIDGET_REALIZED (canvas)) return;
 
-	gl_drawable = gtk_widget_get_gl_drawable(canvas);
-	gl_context  = gtk_widget_get_gl_context(canvas);
-
 	gl_init();
 
-	wfc = wf_canvas_new(gl_context, gl_drawable);
+	wfc = wf_canvas_new((AGlRootActor*)agl_actor__new_root(canvas));
+
+	gl_drawable = wfc->root->gl.gdk.drawable;
+	gl_context = wfc->root->gl.gdk.context;
 
 	canvas_init_done = true;
 

@@ -1,5 +1,5 @@
 /*
-  copyright (C) 2012-2014 Tim Orford <tim@orford.org>
+  copyright (C) 2012-2015 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -34,11 +34,6 @@
 
 typedef struct _wf_canvas_priv WfCanvasPriv;
 
-typedef enum {
-	CONTEXT_TYPE_GTK = 0,
-	CONTEXT_TYPE_SDL,
-} ContextType;
-
 struct _waveform_canvas {
 	GObject        parent_instance;
 
@@ -50,18 +45,7 @@ struct _waveform_canvas {
 	void           (*draw)(WaveformCanvas*, gpointer);
 	gpointer       draw_data;
 
-	union {
-		struct {
-			GdkGLContext*  context;
-			GdkGLDrawable* drawable;
-		}          gdk;
-#ifdef USE_SDL
-		struct {
-			SDL_GLContext context;
-		}          sdl;
-#endif
-	}              gl;
-	ContextType    type;
+	AGlRootActor*  root;
 
 	WfViewPort*    viewport;
 	uint32_t       sample_rate;
@@ -100,8 +84,7 @@ struct _WaveformCanvasClass {
 
 struct _vp { double left, top, right, bottom; }; 
 
-WaveformCanvas* wf_canvas_new                       (GdkGLContext*, GdkGLDrawable*);
-WaveformCanvas* wf_canvas_new_from_widget           (GtkWidget*);
+WaveformCanvas* wf_canvas_new                       (AGlRootActor*);
 #ifdef USE_SDL
 WaveformCanvas* wf_canvas_new_sdl                   (SDL_GLContext*);
 #endif

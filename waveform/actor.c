@@ -456,7 +456,8 @@ wf_actor_free(WaveformActor* a)
 		waveform_unref0(a->waveform);
 	}
 	g_free(a->priv);
-	agl_actor__remove_child(actor->parent, actor);
+
+	if(actor->parent) agl_actor__remove_child(actor->parent, actor);
 }
 
 
@@ -487,6 +488,7 @@ void
 wf_actor_set_region(WaveformActor* a, WfSampleRegion* region)
 {
 	g_return_if_fail(a);
+	g_return_if_fail(a->waveform);
 	g_return_if_fail(region);
 	WfActorPriv* _a = a->priv;
 	dbg(1, "region_start=%Lu region_end=%Lu wave_end=%Lu", region->start, (uint64_t)(region->start + region->len), waveform_get_n_frames(a->waveform));

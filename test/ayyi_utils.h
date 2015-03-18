@@ -8,7 +8,7 @@
 #define call(FN, A, ...) if(FN) (FN)(A, ##__VA_ARGS__)
 
 #ifdef USE_SDL
-#  define is_sdl(WFC) (WFC && WFC->type == CONTEXT_TYPE_SDL)
+#  define is_sdl(WFC) (WFC && WFC->root->type == CONTEXT_TYPE_SDL)
 #else
 #  define is_sdl(WFC) false
 #endif

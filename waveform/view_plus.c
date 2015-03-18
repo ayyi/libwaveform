@@ -42,20 +42,19 @@
 #include <gtkglext-1.0/gdk/gdkgl.h>
 #include <gtkglext-1.0/gtk/gtkgl.h>
 #include <ass/ass.h>
-#include "waveform/peak.h"
-#include "waveform/utils.h"
-#include "waveform/peakgen.h"
-
-#include "waveform/gl_utils.h"
 #include "agl/ext.h"
 #include "agl/utils.h"
 #include "agl/actor.h"
+#include "waveform/peak.h"
+#include "waveform/utils.h"
+#include "waveform/peakgen.h"
+#include "waveform/promise.h"
+#include "waveform/gl_utils.h"
 #include "waveform/utils.h"
 #include "waveform/texture_cache.h"
 #include "waveform/actor.h"
 #include "waveform/grid.h"
 #include "waveform/shader.h"
-#include "waveform/promise.h"
 #include "waveform/actors/spp.h"
 #include "view_plus.h"
 
@@ -180,7 +179,6 @@ static uint32_t color_gdk_to_rgba                       (GdkColor*);
 static uint32_t wf_get_gtk_base_color                   (GtkWidget*, GtkStateType, char alpha);
 static void     add_key_handlers                        (GtkWindow*, WaveformViewPlus*, Key keys[]);
 static void     remove_key_handlers                     (GtkWindow*, WaveformViewPlus*);
-static GdkGLContext* get_gl_context                     ();
 
 static void     waveform_view_plus_add_actors           (WaveformViewPlus*);
 static AGlActor* waveform_actor                         (WaveformViewPlus*);
@@ -254,6 +252,8 @@ __init ()
 /*
  *  For use where the widget needs to share an opengl context with other items.
  *  Should be called before any widgets are instantiated.
+ *
+ *  Alternatively, just use the context returned by agl_get_gl_context() for other widgets.
  */
 void
 waveform_view_plus_set_gl (GdkGLContext* _gl_context)
@@ -267,7 +267,7 @@ construct ()
 {
 	WaveformViewPlus* self = (WaveformViewPlus*) g_object_new (TYPE_WAVEFORM_VIEW_PLUS, NULL);
 	gtk_widget_add_events ((GtkWidget*) self, (gint) ((GDK_BUTTON_PRESS_MASK | GDK_BUTTON_RELEASE_MASK) | GDK_POINTER_MOTION_MASK | GDK_LEAVE_NOTIFY_MASK));
-	if(!gtk_widget_set_gl_capability((GtkWidget*)self, glconfig, get_gl_context(), DIRECT, GDK_GL_RGBA_TYPE)){
+	if(!gtk_widget_set_gl_capability((GtkWidget*)self, glconfig, gl_context ? gl_context : agl_get_gl_context(), DIRECT, GDK_GL_RGBA_TYPE)){
 		gwarn("failed to set gl capability");
 	}
 
@@ -330,17 +330,20 @@ _waveform_view_plus_set_actor (WaveformViewPlus* view)
 }
 
 
-	static void _show_waveform(gpointer _view, gpointer _c)
-	{
-		// this must NOT be called until the canvas is ready
+static void
+_show_waveform(gpointer _view, gpointer _c)
+{
+	// this must NOT be called until the canvas is ready
 
-		WaveformViewPlus* view = _view;
-		g_return_if_fail(view);
-		WaveformViewPlusPrivate* v = view->priv;
-		g_return_if_fail(v->canvas);
+	WaveformViewPlus* view = _view;
+	g_return_if_fail(view);
+	WaveformViewPlusPrivate* v = view->priv;
+	g_return_if_fail(v->canvas);
 
-		if(v->actor) return; // nothing to do?
+	if(v->actor){
+		if(((AGlActor*)v->actor)->set_size) ((AGlActor*)v->actor)->set_size((AGlActor*)v->actor);
 
+	}else{
 		if(!promise(PROMISE_DISP_READY)->is_resolved) waveform_view_plus_init_drawable(view);
 
 		if(view->waveform){ // it is valid for the widget to not have a waveform set.
@@ -367,9 +370,10 @@ _waveform_view_plus_set_actor (WaveformViewPlus* view)
 			}
 			_waveform_view_plus_set_actor(view);
 
-			gtk_widget_queue_draw((GtkWidget*)view);
 		}
 	}
+	gtk_widget_queue_draw((GtkWidget*)view);
+}
 
 
 void
@@ -401,28 +405,21 @@ void
 waveform_view_plus_set_waveform (WaveformViewPlus* view, Waveform* waveform)
 {
 	PF;
-	WaveformViewPlusPrivate* _view = view->priv;
+	WaveformViewPlusPrivate* v = view->priv;
 
 	if(__wf_drawing) gwarn("set_waveform called while already drawing");
-	if(_view->actor && _view->canvas){
-		wf_canvas_remove_actor(view->priv->canvas, view->priv->actor);
-		_view->actor = NULL;
+	if(v->actor && v->canvas){
+		wf_canvas_remove_actor(v->canvas, v->actor);
+		v->actor = NULL;
 	}
 	if(view->waveform){
 		g_object_unref(view->waveform);
 	}
-	gboolean need_init = !promise(PROMISE_DISP_READY)->is_resolved;
-	if(!promise(PROMISE_DISP_READY)->is_resolved) waveform_view_plus_init_drawable(view);
 
 	view->waveform = g_object_ref(waveform);
 	view->zoom = 1.0;
-	view->priv->actor = wf_canvas_add_new_actor(view->priv->canvas, waveform);
-	wf_actor_set_region(view->priv->actor, &(WfSampleRegion){0, waveform_get_n_frames(view->waveform)});
 
-	_waveform_view_plus_set_actor(view);
-
-	if(need_init) waveform_view_plus_set_projection((GtkWidget*)view);
-	gtk_widget_queue_draw((GtkWidget*)view);
+	am_promise_add_callback(promise(PROMISE_DISP_READY), _show_waveform, NULL);
 }
 
 
@@ -624,7 +621,7 @@ waveform_view_plus_on_expose (GtkWidget* widget, GdkEventExpose* event)
 	if(!GTK_WIDGET_REALIZED(widget)) return true;
 	if(!gl_initialised || !promise(PROMISE_DISP_READY)->is_resolved) return true;
 
-	WF_VIEW_START_DRAW {
+	AGL_ACTOR_START_DRAW(view->priv->root) {
 		// needed for the case of shared contexts, where one of the other contexts modifies the projection.
 		waveform_view_plus_set_projection(widget);
 
@@ -634,8 +631,8 @@ waveform_view_plus_on_expose (GtkWidget* widget, GdkEventExpose* event)
 
 		waveform_view_plus_draw(view);
 
-		gdk_gl_drawable_swap_buffers(view->priv->canvas->gl.gdk.drawable);
-	} WF_VIEW_END_DRAW
+		gdk_gl_drawable_swap_buffers(((AGlRootActor*)view->priv->root)->gl.gdk.drawable);
+	} AGL_ACTOR_END_DRAW(view->priv->root)
 
 	return true;
 }
@@ -743,11 +740,22 @@ waveform_view_plus_init_drawable (WaveformViewPlus* view)
 
 	if(!GTK_WIDGET_REALIZED(widget)) return;
 
-	if(!v->context){
-		if(!(v->canvas = wf_canvas_new_from_widget(widget))){
-			return;
+	bool try_drawable_again(gpointer _view)
+	{
+		WaveformViewPlus* view = _view;
+		if(!promise(PROMISE_DISP_READY)->is_resolved){
+			waveform_view_plus_init_drawable(view);
 		}
-		v->context = v->canvas->gl.gdk.context;
+		return G_SOURCE_REMOVE;
+	}
+
+	if(!v->context){
+		if(!v->root){
+			if(!(v->root = agl_actor__new_root(widget))) return;
+		}
+
+		v->canvas = wf_canvas_new((AGlRootActor*)v->root);
+		v->context = ((AGlRootActor*)v->root)->gl.gdk.context;
 
 		if(!view->fg_colour)     view->fg_colour     = wf_get_gtk_fg_color(widget, GTK_STATE_NORMAL);
 		if(!view->title_colour1) view->title_colour1 = wf_get_gtk_text_color(widget, GTK_STATE_NORMAL);
@@ -763,24 +771,21 @@ waveform_view_plus_init_drawable (WaveformViewPlus* view)
 		waveform_view_plus_gl_init(view);
 	}else{
 		GdkGLDrawable* gl_drawable = gtk_widget_get_gl_drawable((GtkWidget*)view);
-		if(!gl_drawable) return;
+		if(!gl_drawable){
+			g_idle_add(try_drawable_again, view); // dont always get another realize callback, eg after reparenting.
+			return;
+		}
 
 		v->context = gtk_widget_get_gl_context((GtkWidget*)view);
-		if(v->canvas){
-			v->canvas->gl.gdk.context = v->context;
-			v->canvas->gl.gdk.drawable = gl_drawable;
+		((AGlRootActor*)v->root)->gl.gdk.context = v->context;
+		((AGlRootActor*)v->root)->gl.gdk.drawable = gl_drawable;
 
-		}else{
-			v->canvas = wf_canvas_new(v->context, gl_drawable);
+		if(!v->canvas){
+			v->canvas = wf_canvas_new((AGlRootActor*)v->root);
 		}
 	}
 
 	waveform_view_plus_set_projection(widget);
-
-	if(!v->root){
-		v->root = agl_actor__new_root(widget);
-		if(v->actor) waveform_view_plus_add_actors(view);
-	}
 
 	am_promise_resolve(g_list_nth_data(view->priv->ready->children, PROMISE_DISP_READY), NULL);
 }
@@ -1261,7 +1266,7 @@ waveform_view_plus_gl_init(WaveformViewPlus* view)
 	PF;
 	if(gl_initialised) return;
 
-	WF_VIEW_START_DRAW {
+	AGL_ACTOR_START_DRAW(view->priv->root) {
 
 		agl_set_font_string("Roboto 10");
 		if(agl_get_instance()->use_shaders){
@@ -1269,7 +1274,7 @@ waveform_view_plus_gl_init(WaveformViewPlus* view)
 			wf_shaders.ass->uniform.colour2 = view->title_colour2;
 		}
 
-	} WF_VIEW_END_DRAW
+	} AGL_ACTOR_END_DRAW(view->priv->root)
 
 	gl_initialised = true;
 }
@@ -1391,31 +1396,33 @@ text_actor(WaveformViewPlus* view)
 
 		agl_print(2, waveform_view_plus_get_height(view) - 16, 0, view->text_colour, view->text);
 
-		if(!v->title_is_rendered) waveform_view_plus_render_text(view);
+		if(view->title){
+			if(!v->title_is_rendered) waveform_view_plus_render_text(view);
 
-		// title text:
-		if(agl->use_shaders){
-			glEnable(GL_TEXTURE_2D);
-			glActiveTexture(GL_TEXTURE0);
+			// title text:
+			if(agl->use_shaders){
+				glEnable(GL_TEXTURE_2D);
+				glActiveTexture(GL_TEXTURE0);
 
-			agl_use_program((AGlShader*)wf_shaders.ass);
+				agl_use_program((AGlShader*)wf_shaders.ass);
 
-			float th = ((TextActor*)actor)->texture.height;
+				float th = ((TextActor*)actor)->texture.height;
 
 #undef ALIGN_TOP
 #ifdef ALIGN_TOP
-			float y1 = -((int)th - view->title_height - view->title_y_offset);
-			agl_textured_rect(v->ass_textures[0], waveform_view_plus_get_width(view) - v->title.width - 4.0f, y, v->title.width, th, &(AGlRect){0.0, 0.0, ((float)v->title.width) / ta->texture.width, 1.0});
+				float y1 = -((int)th - view->title_height - view->title_y_offset);
+				agl_textured_rect(v->ass_textures[0], waveform_view_plus_get_width(view) - v->title.width - 4.0f, y, v->title.width, th, &(AGlRect){0.0, 0.0, ((float)v->title.width) / ta->texture.width, 1.0});
 #else
-			float y = waveform_view_plus_get_height(view) - th;
-			agl_textured_rect(ta->texture.ids[0],
-				waveform_view_plus_get_width(view) - v->title.width - 4.0f,
-				y + ((TextActor*)actor)->baseline - 4.0f,
-				v->title.width,
-				th,
-				&(AGlQuad){0.0, 0.0, ((float)v->title.width) / ta->texture.width, 1.0}
-			);
+				float y = waveform_view_plus_get_height(view) - th;
+				agl_textured_rect(ta->texture.ids[0],
+					waveform_view_plus_get_width(view) - v->title.width - 4.0f,
+					y + ((TextActor*)actor)->baseline - 4.0f,
+					v->title.width,
+					th,
+					&(AGlQuad){0.0, 0.0, ((float)v->title.width) / ta->texture.width, 1.0}
+				);
 #endif
+			}
 		}
 
 		return true;
@@ -1523,22 +1530,6 @@ bg_actor(WaveformViewPlus* view)
 	create_background(ta);
 
 	return actor;
-}
-
-
-static GdkGLContext*
-get_gl_context()
-{
-	static GdkGLContext* share_list = 0;
-
-	if(!share_list){
-		GdkGLConfig* const config = gdk_gl_config_new_by_mode(GDK_GL_MODE_RGBA | GDK_GL_MODE_DOUBLE | GDK_GL_MODE_DEPTH);
-		GdkPixmap* const pixmap = gdk_pixmap_new(0, 8, 8, gdk_gl_config_get_depth(config));
-		gdk_pixmap_set_gl_capability(pixmap, config, 0);
-		share_list = gdk_gl_context_new(gdk_pixmap_get_gl_drawable(pixmap), 0, true, GDK_GL_RGBA_TYPE);
-	}
-
-	return share_list;
 }
 
 

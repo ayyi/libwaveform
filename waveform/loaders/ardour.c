@@ -89,12 +89,12 @@ wf_load_ardour_peak(Waveform* wv, const char* peak_file)
 static size_t
 get_n_words(Waveform* wv, const char* peakfile)
 {
-	//ardour peak files are oversized. To get the useable size, we need to go back to the original file.
-	//-note that at the expense of complicating the api, we could avoid this duplicate file access.
+	//ardour peak files are oversized. To get the useable size, we need to refer to the original file.
 
 	sf_count_t n_frames = waveform_get_n_frames(wv);
 
-	dbg(3, "n_frames=%u n_peaks=%Lu", (unsigned)n_frames, (size_t)(ceil(((float)n_frames) / WF_PEAK_RATIO)));
+	dbg(3, "n_frames=%Li n_peaks=%zu", n_frames, (size_t)(ceil(((float)n_frames) / WF_PEAK_RATIO)));
+
 	return ceil(((float)n_frames) / WF_PEAK_RATIO);
 }
 

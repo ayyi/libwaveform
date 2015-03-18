@@ -47,10 +47,10 @@
 #include <gdk/gdkkeysyms.h>
 #include "waveform/view.h"
 #include "test/ayyi_utils.h"
+#include "test/common2.h"
 
 #define bool gboolean
 
-static void     set_log_handlers ();
 static uint64_t get_time         ();
 
 
@@ -64,42 +64,57 @@ main (int argc, char* argv[])
 	gtk_init(&argc, &argv);
 	GtkWidget* window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
 
-	WaveformView* waveform = waveform_view_new(NULL);
-	waveform_view_set_show_rms(waveform, false);
+	GtkWidget* box = gtk_vbox_new(FALSE, 4);
+	gtk_container_add((GtkContainer*)window, box);
+
+	WaveformView* waveform[2] = {waveform_view_new(NULL),};
+	waveform_view_set_show_rms(waveform[0], false);
 	#if 0
 	WaveformCanvas* wfc = waveform_view_get_canvas(waveform);
 	wf_canvas_set_use_shaders(wfc, false);
 	#endif
-	gtk_container_add((GtkContainer*)window, (GtkWidget*)waveform);
+	gtk_box_pack_start((GtkBox*)box, (GtkWidget*)waveform[0], TRUE, TRUE, 0);
 
 	gtk_widget_show_all(window);
 
 	//#define WAV "test/data/mono_1.wav"
 	#define WAV "test/data/stereo_1.wav"
 	char* filename = g_build_filename(g_get_current_dir(), WAV, NULL);
-	waveform_view_load_file(waveform, filename);
+	waveform_view_load_file(waveform[0], filename);
 	g_free(filename);
 
 	gboolean key_press(GtkWidget* widget, GdkEventKey* event, gpointer user_data)
 	{
-		WaveformView* waveform = user_data;
+		WaveformView** waveform = user_data;
 
 		switch(event->keyval){
 			case 61:
-				waveform_view_set_zoom(waveform, waveform->zoom * 1.5);
+				waveform_view_set_zoom(waveform[0], waveform[0]->zoom * 1.5);
 				break;
 			case 45:
-				waveform_view_set_zoom(waveform, waveform->zoom / 1.5);
+				waveform_view_set_zoom(waveform[0], waveform[0]->zoom / 1.5);
 				break;
 			case KEY_Left:
 			case KEY_KP_Left:
 				dbg(0, "left");
-				waveform_view_set_start(waveform, waveform->start_frame - 8192 / waveform->zoom);
+				waveform_view_set_start(waveform[0], waveform[0]->start_frame - 8192 / waveform[0]->zoom);
 				break;
 			case KEY_Right:
 			case KEY_KP_Right:
 				dbg(0, "right");
-				waveform_view_set_start(waveform, waveform->start_frame + 8192 / waveform->zoom);
+				waveform_view_set_start(waveform[0], waveform[0]->start_frame + 8192 / waveform[0]->zoom);
+				break;
+			case GDK_KEY_2:
+				if(!waveform[1]){
+					// TODO fix issues with 2 widgets sharing the same drawable ?
+
+					gtk_box_pack_start((GtkBox*)box, (GtkWidget*)(waveform[1] = waveform_view_new(NULL)), TRUE, TRUE, 0);
+					char* filename = g_build_filename(g_get_current_dir(), WAV, NULL);
+					waveform_view_load_file(waveform[1], filename);
+					g_free(filename);
+					gtk_widget_show(waveform[1]);
+				}
+				dbg(0, "2");
 				break;
 			case GDK_KP_Enter:
 				break;
@@ -140,7 +155,7 @@ main (int argc, char* argv[])
 		frame++;
 		return IDLE_CONTINUE;
 	}
-	g_timeout_add(15, on_timeout, waveform);
+	g_timeout_add(15, on_timeout, waveform[0]);
 
 	gtk_main();
 
@@ -154,36 +169,6 @@ get_time()
 	struct timeval start;
 	gettimeofday(&start, NULL);
 	return start.tv_sec * 1000 + start.tv_usec / 1000;
-}
-
-
-void
-set_log_handlers()
-{
-	void log_handler(const gchar* log_domain, GLogLevelFlags log_level, const gchar* message, gpointer user_data)
-	{
-	  switch(log_level){
-		case G_LOG_LEVEL_CRITICAL:
-		  printf("%s %s\n", ayyi_err, message);
-		  break;
-		case G_LOG_LEVEL_WARNING:
-		  printf("%s %s\n", ayyi_warn, message);
-		  break;
-		default:
-		  dbg(0, "level=%i %s", log_level, message);
-		  break;
-	  }
-	}
-
-	g_log_set_handler (NULL, G_LOG_LEVEL_WARNING | G_LOG_LEVEL_CRITICAL | G_LOG_FLAG_FATAL | G_LOG_FLAG_RECURSION, log_handler, NULL);
-	g_log_set_handler ("Gtk", G_LOG_LEVEL_CRITICAL | G_LOG_FLAG_FATAL | G_LOG_FLAG_RECURSION, log_handler, NULL);
-	g_log_set_handler ("Gdk", G_LOG_LEVEL_CRITICAL | G_LOG_FLAG_FATAL | G_LOG_FLAG_RECURSION, log_handler, NULL);
-	g_log_set_handler ("GLib", G_LOG_LEVEL_MASK | G_LOG_FLAG_FATAL | G_LOG_FLAG_RECURSION, log_handler, NULL);
-	g_log_set_handler ("GLib-GObject", G_LOG_LEVEL_MASK | G_LOG_FLAG_FATAL | G_LOG_FLAG_RECURSION, log_handler, NULL);
-	char* domain[] = {"Waveform"};
-	int i; for(i=0;i<G_N_ELEMENTS(domain);i++){
-		g_log_set_handler (domain[i], G_LOG_LEVEL_MASK | G_LOG_FLAG_FATAL | G_LOG_FLAG_RECURSION, log_handler, NULL);
-	}
 }
 
 

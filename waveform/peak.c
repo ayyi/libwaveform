@@ -307,9 +307,7 @@ waveform_get_sf_data(Waveform* w)
 uint64_t
 waveform_get_n_frames(Waveform* w)
 {
-	if(w->n_frames) return w->n_frames;
-
-	waveform_get_sf_data(w);
+	if(!w->n_frames) waveform_get_sf_data(w);
 
 	return w->n_frames;
 }
@@ -367,23 +365,6 @@ waveform_load_peak(Waveform* w, const char* peak_file, int ch_num)
 	_w->num_peaks = _w->peak.size / WF_PEAK_VALUES_PER_SAMPLE;
 	_w->n_blocks = _w->num_peaks / WF_TEXTURE_VISIBLE_SIZE + ((_w->num_peaks % WF_TEXTURE_VISIBLE_SIZE) ? 1 : 0);
 	dbg(1, "ch=%i num_peaks=%i", ch_num, _w->num_peaks);
-
-	// dont initialise until needed. gl init may not yet have run.
-#if 0
-	if(!_w->render_data[MODE_MED]){
-		if(!agl_get_instance()->use_shaders) _w->render_data[MODE_MED] = (WaveformModeRender*)wf_texture_array_new(_w->n_blocks, (ch_num == 1 || n_channels == 2) ? 2 : 1);
-#ifdef WF_SHOW_RMS
-		gerr("rms TODO");
-		w->textures->rms_texture = g_new0(unsigned, w->textures->size);
-#warning TODO where best to init rms textures? see peak_textures
-		extern void glGenTextures(size_t n, uint32_t* textures);
-		glGenTextures(w->textures->size, w->textures->rms_texture); //note currently doesnt use the texture_cache
-#endif
-
-	}else{
-		if(ch_num) wf_texture_array_add_ch((WfGlBlock*)_w->render_data[MODE_MED], WF_RIGHT);
-	}
-#endif
 
 	return !!w->priv->peak.buf[ch_num];
 }
