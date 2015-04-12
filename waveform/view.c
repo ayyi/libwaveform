@@ -90,7 +90,6 @@ static void     draw                               (WaveformView*);
 static int      waveform_view_get_width            (WaveformView*);
 
 
-
 static gboolean
 __init ()
 {
@@ -259,7 +258,6 @@ waveform_view_set_waveform (WaveformView* view, Waveform* waveform)
 	PF;
 	WaveformViewPrivate* _view = view->priv;
 
-	if(__wf_drawing) gwarn("set_waveform called while already drawing");
 	if(_view->actor && _view->canvas){
 		wf_canvas_remove_actor(_view->canvas, _view->actor);
 		_view->actor = NULL;

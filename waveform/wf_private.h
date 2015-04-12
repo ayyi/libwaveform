@@ -96,6 +96,7 @@ struct _waveform_priv
 	int             num_peaks;      // peak_buflen / PEAK_VALUES_PER_SAMPLE
 	int             n_blocks;
 
+	                                // render_data is owned, managed, and shared by all the WfActor's using this waveform.
 	WaveformModeRender* render_data[N_MODES];
 
 	short           max_db;         // TODO should be in db?

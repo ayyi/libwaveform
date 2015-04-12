@@ -1,5 +1,5 @@
 /*
-  copyright (C) 2014 Tim Orford <tim@orford.org>
+  copyright (C) 2014-2015 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -138,7 +138,7 @@ ng_gl2_load_block(Renderer* renderer, WaveformActor* actor, int b)
 		}
 	}
 
-	inline void med_peakbuf_to_texture(Renderer* renderer, WaveformActor* actor, int b, Section* section, int n_chans, int block_size)
+	inline void lo_peakbuf_to_texture(Renderer* renderer, WaveformActor* actor, int b, Section* section, int n_chans, int block_size)
 	{
 		// borders: source data is not blocked so borders need to be added here.
 
@@ -152,12 +152,59 @@ ng_gl2_load_block(Renderer* renderer, WaveformActor* actor, int b)
 		int* lod_min = ((NGRenderer*)renderer)->mmidx_min;
 
 		#define B_SIZE (WF_PEAK_TEXTURE_SIZE - 2 * TEX_BORDER)
-		int stop = (b == waveform_get_n_audio_blocks(waveform) - 1)
-			? peak->size / WF_PEAK_VALUES_PER_SAMPLE + TEX_BORDER - B_SIZE * b
+		#define is_last_block(W, b) (b == ((HiResNGWaveform*)W->render_data[MODE_LOW])->n_blocks - 1)
+
+		int stop = is_last_block(w, b)
+			? peak->size / (WF_PEAK_VALUES_PER_SAMPLE * WF_PEAK_STD_TO_LO) + TEX_BORDER - B_SIZE * b
 			: WF_PEAK_TEXTURE_SIZE;
 
 		int c; for(c=0;c<n_chans;c++){
-			int src = WF_PEAK_VALUES_PER_SAMPLE * (_b * B_SIZE - TEX_BORDER);
+			int src = WF_PEAK_VALUES_PER_SAMPLE * (b * B_SIZE - TEX_BORDER) * WF_PEAK_STD_TO_LO;
+			int dest = _b * block_size + (c * block_size / 2);
+
+			int t = 0;
+			if(b == 0){
+				for(t=0;t<TEX_BORDER;t++){
+					ng_gl2_set(section, dest + lod_max[mm_level] + t, 0);
+					ng_gl2_set(section, dest + lod_min[mm_level] + t, 0);
+				}
+				src = 0;
+			}
+
+			for(; t<stop; t++, src+=2*WF_PEAK_STD_TO_LO){
+				WfPeakSample p = {0, 0};
+				int j; for(j=0;j<2*WF_PEAK_STD_TO_LO;j+=WF_PEAK_VALUES_PER_SAMPLE){
+					p.positive = MAX(p.positive, peak->buf[c][src + j    ]);
+					p.negative = MIN(p.negative, peak->buf[c][src + j + 1]);
+				}
+
+				ng_gl2_set(section, dest + lod_max[mm_level] + t, short_to_char( p.positive));
+				ng_gl2_set(section, dest + lod_min[mm_level] + t, short_to_char(-p.negative));
+			}
+
+			other_lods(renderer, section, dest);
+		}
+	}
+
+	inline void med_peakbuf_to_texture(Renderer* renderer, WaveformActor* actor, int b, Section* section, int n_chans, int block_size)
+	{
+		// borders: source data is not blocked so borders are added here.
+
+		Waveform* waveform = actor->waveform;
+		WaveformPriv* w = waveform->priv;
+		WfPeakBuf* peak = &w->peak;
+		int _b = b % MAX_BLOCKS_PER_TEXTURE;
+
+		int mm_level = 0;
+		int* lod_max = ((NGRenderer*)renderer)->mmidx_max;
+		int* lod_min = ((NGRenderer*)renderer)->mmidx_min;
+
+		int stop = (b == waveform_get_n_audio_blocks(waveform) - 1)
+			? peak->size / WF_PEAK_VALUES_PER_SAMPLE + TEX_BORDER - WF_TEXTURE_VISIBLE_SIZE * b
+			: WF_PEAK_TEXTURE_SIZE;
+
+		int c; for(c=0;c<n_chans;c++){
+			int src = WF_PEAK_VALUES_PER_SAMPLE * (b * WF_TEXTURE_VISIBLE_SIZE - TEX_BORDER);
 			int dest = _b * block_size + (c * block_size / 2);
 
 			int t = 0;
@@ -263,6 +310,9 @@ ng_gl2_load_block(Renderer* renderer, WaveformActor* actor, int b)
 			texture_changed[s] = true;
 			call(ng_renderer->buf_to_tex, renderer, actor, b);
 			switch(renderer->mode){
+				case MODE_LOW:
+					lo_peakbuf_to_texture(renderer, actor, b, section, n_chans, block_size);
+					break;
 				case MODE_MED:
 					med_peakbuf_to_texture(renderer, actor, b, section, n_chans, block_size);
 					break;
@@ -329,31 +379,34 @@ ng_gl2_pre_render(Renderer* renderer, WaveformActor* actor)
 	shader->uniform.bottom = r->rect.top + r->rect.height;
 	shader->uniform.n_channels = waveform_get_n_channels(w);
 	shader->uniform.tex_width = modes[renderer->mode].texture_size;
-	shader->uniform.tex_height = data->section[0].buffer_size / modes[renderer->mode].texture_size;
+	shader->uniform.tex_height = data->section[r->viewport_blocks.first / MAX_BLOCKS_PER_TEXTURE].buffer_size / modes[renderer->mode].texture_size;
 
-	if(renderer->mode == MODE_MED)
-		shader->uniform.mm_level = r->block_wid > 128
+	shader->uniform.mm_level = (renderer->mode == MODE_MED || renderer->mode == MODE_LOW)
+		? (
+		r->block_wid > 128
 			? 0
 			: r->block_wid > 64
 				? 1
 				: r->block_wid > 32
 					? 2
-					: 3;
-	else
-		shader->uniform.mm_level = r->block_wid > 2048
+					: 3
+		)
+		: (
+		r->block_wid > 2048
 			? 0
 			: r->block_wid > 1024
 				? 1
 				: r->block_wid > 512
 					? 2
-					: 3;
+					: 3
+		);
 
 	agl_use_program(&shader->shader);
 }
 
 
 static bool
-hi_gl2_render_block(Renderer* renderer, WaveformActor* actor, int b, gboolean is_first, gboolean is_last, double x)
+ng_gl2_render_block(Renderer* renderer, WaveformActor* actor, int b, gboolean is_first, gboolean is_last, double x)
 {
 	gl_warn("pre");
 
@@ -363,9 +416,18 @@ hi_gl2_render_block(Renderer* renderer, WaveformActor* actor, int b, gboolean is
 	WfActorPriv* _a = actor->priv;
 	RenderInfo* r  = &_a->render_info;
 
+	int  s = b / MAX_BLOCKS_PER_TEXTURE;
+	int _b = b % MAX_BLOCKS_PER_TEXTURE;
+
 	HiResNGWaveform* data = (HiResNGWaveform*)waveform->priv->render_data[renderer->mode];
 	if(!data) return false; // this can happen when audio data not yet available.
-	Section* section = &data->section[b / MAX_BLOCKS_PER_TEXTURE];
+	Section* section = &data->section[s];
+
+	if(!_b && b != r->viewport_blocks.first){
+		HiResNGShader* shader = actor->canvas->priv->shaders.hires_ng;
+		shader->uniform.tex_height = data->section[b / MAX_BLOCKS_PER_TEXTURE].buffer_size / modes[renderer->mode].texture_size;
+		shader->shader.set_uniforms_(actor);
+	}
 
 																								glActiveTexture(GL_TEXTURE0);
 
@@ -375,10 +437,11 @@ hi_gl2_render_block(Renderer* renderer, WaveformActor* actor, int b, gboolean is
 	if(!wf_actor_get_quad_dimensions(actor, b, is_first, is_last, x, &tex, &tex_x, &block_wid, border, 1)) return false;
 
 	float n_rows = section->buffer_size / modes[renderer->mode].texture_size;
-	float ty = (b % MAX_BLOCKS_PER_TEXTURE) * 4.0 * waveform_get_n_channels(waveform) / n_rows; // this tells the shader which block to use.
+	float ty = (b % MAX_BLOCKS_PER_TEXTURE) * 4.0 * waveform->n_channels / n_rows; // this tells the shader which block to use.
 	AGlQuad tex_rect = {tex.start, ty, tex.end, ty};
 
-																								//dbg(0, "b=%i %u n_rows=%f x=%f y=%f (%f)", b % MAX_BLOCKS_PER_TEXTURE, section->texture, n_rows, tex.start, ty, ((float)(b % MAX_BLOCKS_PER_TEXTURE) * 4.0 * waveform_get_n_channels(waveform)));
+	//dbg(0, "b=%i %u n_rows=%f x=%f-->%f y=%f (%f)", b % MAX_BLOCKS_PER_TEXTURE, section->texture, n_rows, tex.start, tex.end, ty, ((float)(b % MAX_BLOCKS_PER_TEXTURE) * 4.0 * waveform->n_channels));
+
 	agl_textured_rect(section->texture, tex_x, r->rect.top, block_wid, r->rect.height, &tex_rect);
 
 	return true;

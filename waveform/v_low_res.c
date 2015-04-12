@@ -1,5 +1,5 @@
 /*
-  copyright (C) 2014 Tim Orford <tim@orford.org>
+  copyright (C) 2014-2015 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -43,14 +43,14 @@ v_lo_new_gl2(WaveformActor* actor)
 static void
 v_lo_new_gl1(WaveformActor* actor)
 {
-	// TODO check
-
 	WaveformPriv* w = actor->waveform->priv;
 
-	//int n_blocks = waveform_get_n_audio_blocks(w) / WF_MED_TO_V_LOW + (waveform_get_n_audio_blocks(w) % WF_MED_TO_V_LOW ? 1 : 0);
-	int n_blocks = w->num_peaks / (WF_MED_TO_V_LOW * WF_TEXTURE_VISIBLE_SIZE) + ((w->num_peaks % (WF_MED_TO_V_LOW * WF_TEXTURE_VISIBLE_SIZE)) ? 1 : 0);
+	waveform_load(actor->waveform);
+
 	if(!w->render_data[MODE_V_LOW]){
+		int n_blocks = w->num_peaks / (WF_MED_TO_V_LOW * WF_TEXTURE_VISIBLE_SIZE) + ((w->num_peaks % (WF_MED_TO_V_LOW * WF_TEXTURE_VISIBLE_SIZE)) ? 1 : 0);
 		w->render_data[MODE_V_LOW] = (WaveformModeRender*)wf_texture_array_new(n_blocks, actor->waveform->n_channels);
+		w->render_data[MODE_V_LOW]->n_blocks = n_blocks;
 	}
 }
 
@@ -122,8 +122,8 @@ v_lo_is_not_blank(Renderer* renderer, WaveformActor* actor)
 }
 
 
-Renderer v_lo_renderer_gl1 = {MODE_V_LOW, v_lo_new_gl1, low_allocate_block, med_lo_pre_render_gl1, med_lo_render_gl1};
-NGRenderer v_lo_renderer_gl2 = {{MODE_V_LOW, v_lo_new_gl2, ng_gl2_load_block, ng_gl2_pre_render, hi_gl2_render_block, ng_gl2_free_waveform,
+Renderer v_lo_renderer_gl1 = {MODE_V_LOW, v_lo_new_gl1, low_allocate_block_gl1, med_lo_pre_render_gl1, med_lo_render_gl1, med_lo_gl1_free_waveform};
+NGRenderer v_lo_renderer_gl2 = {{MODE_V_LOW, v_lo_new_gl2, ng_gl2_load_block, ng_gl2_pre_render, ng_gl2_render_block, ng_gl2_free_waveform,
 #ifdef USE_TEST
 	.is_not_blank = v_lo_is_not_blank,
 #endif

@@ -140,35 +140,16 @@ __finalize (Waveform* w)
 		if(w->priv->peak.buf[c]) g_free(w->priv->peak.buf[c]);
 	}
 
-#ifdef USE_OPENGL
-	if(_w->render_data[MODE_MED] || _w->render_data[MODE_LOW]) texture_cache_remove_waveform(w);
+	extern int texture_cache_count_by_waveform(Waveform*);
+	if(texture_cache_count_by_waveform(w)){
+		gerr("textures not cleared");
+	}
+#endif
 #endif
 
-	void free_textures(WfGlBlock** _textures)
-	{
-		WfGlBlock* textures = *_textures;
-		if(textures){
-			int c; for(c=0;c<WF_MAX_CH;c++){
-				if(textures->peak_texture[c].main) g_free(textures->peak_texture[c].main); // pos and neg are a single allocation
-			}
-#ifdef USE_FBO
-			if(textures->fbo){
-				int b; for(b=0;b<textures->size;b++) if(textures->fbo[b]) agl_fbo_free(textures->fbo[b]);
-				g_free(textures->fbo);
-			}
-#ifdef USE_FX
-			if(textures->fx_fbo){
-				int b; for(b=0;b<textures->size;b++) if(textures->fx_fbo[b]) agl_fbo_free(textures->fx_fbo[b]);
-				g_free(textures->fx_fbo);
-			}
-#endif
-#endif
-			g_free(textures);
-			*_textures = NULL;
-		}
+	int m; for(m=MODE_V_LOW;m<=MODE_HI;m++){
+		if(_w->render_data[m]) gwarn("actor data not cleared");
 	}
-	free_textures((WfGlBlock**)&_w->render_data[MODE_MED]);
-	free_textures((WfGlBlock**)&_w->render_data[MODE_LOW]);
 
 	extern void wf_actor_free_waveform(Waveform* waveform);
 	wf_actor_free_waveform(w);
@@ -276,7 +257,7 @@ waveform_get_sf_data(Waveform* w)
 		if(!g_file_test(w->filename, G_FILE_TEST_EXISTS)){
 			if(wf_debug) gwarn("file open failure. no such file: %s", w->filename);
 		}else{
-			gwarn("file open failure.");
+			if(wf_debug) g_warning("file open failure (%s) \"%s\"\n", sf_strerror(NULL), w->filename);
 
 			// attempt to work with only a pre-existing peakfile
 			if(waveform_load(w)){

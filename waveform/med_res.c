@@ -1,5 +1,5 @@
 /*
-  copyright (C) 2012-2014 Tim Orford <tim@orford.org>
+  copyright (C) 2012-2015 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -33,10 +33,10 @@ low_new_gl2(WaveformActor* actor)
 	WaveformPriv* w = actor->waveform->priv;
 
 	g_return_if_fail(!w->render_data[MODE_V_HI]);
-
 }
 
 
+#if 0
 // temporary - performance testing
 static void
 use_texture_no_blend(GLuint texture)
@@ -44,6 +44,7 @@ use_texture_no_blend(GLuint texture)
 	glBindTexture(GL_TEXTURE_2D, texture);
 	glDisable(GL_BLEND);
 }
+#endif
 
 
 static void
@@ -52,6 +53,24 @@ med_lo_clear_1d_textures(WfGlBlock* blocks, WaveformBlock* wb)
 	texture_cache_remove(GL_TEXTURE_1D, wb->waveform, wb->block);
 	int b = wb->block & ~WF_TEXTURE_CACHE_LORES_MASK;
 	int c; for(c=0;c<WF_RIGHT;c++) blocks->peak_texture[c].main[b] = blocks->peak_texture[c].neg[b] = 0;
+}
+
+
+static void
+lo_new_gl1(WaveformActor* actor)
+{
+	// TODO this can be combined with v_lo_new_gl1
+
+	Waveform* w = actor->waveform;
+	WaveformPriv* _w = w->priv;
+
+	if(!_w->render_data[MODE_LOW]){
+		//#warning check TEX_BORDER effect not multiplied in WF_PEAK_STD_TO_LO transformation
+		int n_blocks = _w->num_peaks / (WF_PEAK_STD_TO_LO * WF_TEXTURE_VISIBLE_SIZE) + ((_w->num_peaks % (WF_PEAK_STD_TO_LO * WF_TEXTURE_VISIBLE_SIZE)) ? 1 : 0);
+
+		_w->render_data[MODE_LOW] = (WaveformModeRender*)wf_texture_array_new(n_blocks, w->n_channels);
+		_w->render_data[MODE_LOW]->n_blocks = n_blocks;
+	}
 }
 
 
@@ -122,7 +141,7 @@ med_allocate_block_gl1(Renderer* renderer, WaveformActor* a, int b)
 
 
 static void
-low_allocate_block(Renderer* renderer, WaveformActor* a, int b)
+low_allocate_block_gl1(Renderer* renderer, WaveformActor* a, int b)
 {
 	g_return_if_fail(b >= 0);
 
@@ -217,61 +236,6 @@ _med_lo_set_gl_state_for_block(WaveformCanvas* wfc, Waveform* w, WfGlBlock* text
 
 
 static void
-lo_pre_render_gl2(Renderer* renderer, WaveformActor* actor)
-{
-	WaveformCanvas* wfc = actor->canvas;
-	WfCanvasPriv* _c = wfc->priv;
-#if defined (USE_FBO) && defined (multipass)
-	WfActorPriv* _a = actor->priv;
-#endif
-	RenderInfo* r = &actor->priv->render_info;
-
-#if defined (USE_FBO) && defined (multipass)
-#ifdef USE_FX
-	BloomShader* shader = _c->shaders.horizontal;
-	shader->uniform.fg_colour = (actor->fg_colour & 0xffffff00) + MIN(0xff, 0x100 * _a->animatable.opacity.val.f);
-	//shader->uniform.peaks_per_pixel = get_peaks_per_pixel(wfc, &r->region, &r->rect, r->mode) / 1.0;
-	shader->uniform.peaks_per_pixel = r->peaks_per_pixel;
-	agl_use_program(&shader->shader);
-#else
-	BloomShader* shader = wfc->priv->shaders.vertical;
-	_c->shaders.vertical->uniform.fg_colour = (actor->fg_colour & 0xffffff00) + MIN(0xff, 0x100 * _a->animatable.opacity.val.f);
-	_c->shaders.vertical->uniform.peaks_per_pixel = r->peaks_per_pixel_i;
-	//TODO the vertical shader needs to check _all_ the available texture values to get true peak.
-	agl_use_program(&shader->shader);
-#endif // end USE_FX
-
-					glDisable(GL_TEXTURE_1D);
-					glEnable(GL_TEXTURE_2D);
-					glActiveTexture(GL_TEXTURE0);
-#else
-	if(wfc->use_1d_textures){
-		agl_use_program((AGlShader*)_c->shaders.peak);
-
-		//uniforms: (must be done on each paint because some vars are actor-specific)
-		dbg(2, "vpwidth=%.2f region_len=%i region_n_peaks=%.2f peaks_per_pixel=%.2f", (r->viewport.right - r->viewport.left), r->region.len, ((float)r->region.len / WF_PEAK_TEXTURE_SIZE), r->peaks_per_pixel_i);
-		int n_channels = r->textures->peak_texture[WF_RIGHT].main ? 2 : 1;
-		_c->shaders.peak->set_uniforms(r->peaks_per_pixel_i, r->rect.top, r->rect.top + r->rect.height, actor->fg_colour, n_channels);
-	}
-#endif // end FBO && multipass
-
-	//check textures are loaded
-	if(wf_debug > 1){ //textures may initially not be loaded, so don't show this warning too much
-		int n = 0;
-		int b; for(b=r->viewport_blocks.first;b<=r->viewport_blocks.last;b++){
-#if defined (USE_FBO) && defined (multipass)
-			if(!((WfGlBlock*)actor->waveform->priv->render_data[MODE_LOW])->fbo[b]->texture)
-#else
-			if(!((WfGlBlock*)actor->waveform->priv->render_data[MODE_LOW])->peak_texture[WF_LEFT].main[b])
-#endif
-				{ n++; gwarn("texture not loaded: b=%i", b); }
-		}
-		if(n) gwarn("%i textures not loaded", n);
-	}
-}
-
-
-static void
 med_lo_pre_render_gl1(Renderer* renderer, WaveformActor* actor)
 {
 	WfActorPriv* _a = actor->priv;
@@ -347,8 +311,9 @@ med_lo_get_quad_dimensions(WaveformActor* actor, int b, bool is_first, bool is_l
 		}else{
 			//end is trimmed
 			double part_inset_px = wf_actor_samples2gl(r->zoom, r->region.start);
-			//double file_start_px = rect->left - part_inset_px;
-			double distance_from_file_start_to_region_end = part_inset_px + r->rect.len;
+			double region_len_px = wf_actor_samples2gl(r->zoom, r->region.len);
+			// note region may be smaller that the rect during transitions
+			double distance_from_file_start_to_region_end = part_inset_px + MIN(r->rect.len, region_len_px);
 			block_wid = distance_from_file_start_to_region_end - b * r->block_wid;
 #ifdef RECT_ROUNDING
 			block_wid = round(block_wid);
@@ -368,7 +333,7 @@ med_lo_get_quad_dimensions(WaveformActor* actor, int b, bool is_first, bool is_l
 #endif
 
 	dbg (3, "%i: is_last=%i x=%.2f wid=%.2f/%.2f tex_pct=%.3f tex.start=%.2f", b, is_last, x, block_wid, r->block_wid, tex.wid, tex.start);
-	if(tex.wid < 0.0 || tex.start + tex.wid > 1.0) gwarn("tex_pct out of range: %f %.20f", tex.wid, tex.start + tex.wid);
+	if(tex.wid < 0.0 || tex.start + tex.wid > 1.0000001) gwarn("tex_pct out of range: %f %.20f", tex.wid, tex.start + tex.wid);
 
 	*tex_ = (TextureRange){tex.start, tex.start + tex.wid};
 	*qe_ = (QuadExtent){tex_x, block_wid};
@@ -428,64 +393,49 @@ med_lo_render_gl1(Renderer* renderer, WaveformActor* actor, int b, bool is_first
 }
 
 
-static bool
-lo_render_gl2(Renderer* renderer, WaveformActor* actor, int b, bool is_first, bool is_last, double x)
+static void
+med_lo_gl1_free_waveform(Renderer* renderer, Waveform* waveform)
 {
-	WfActorPriv* _a = actor->priv;
-	WaveformCanvas* wfc = actor->canvas;
-	WaveformPriv* w = actor->waveform->priv;
-	RenderInfo* r  = &_a->render_info;
-	WfGlBlock* textures = (WfGlBlock*)w->render_data[MODE_LOW];
+	dbg(1, "%s", modes[renderer->mode].name);
 
-	TextureRange tex;
-	QuadExtent block;
-	if(!med_lo_get_quad_dimensions(actor, b, is_first, is_last, x, &tex, &block)) return false;
+	WaveformPriv* w = waveform->priv;
+	texture_cache_remove_waveform(waveform);
 
-
-#if defined (USE_FBO) && defined (multipass)
-	//rendering from 2d texture not 1d
-	AGlFBO* fbo = false
-		? fbo_test
+	WfGlBlock* textures = (WfGlBlock*)w->render_data[renderer->mode];
+	if(textures){
+		int c; for(c=0;c<WF_MAX_CH;c++){
+			if(textures->peak_texture[c].main) g_free(textures->peak_texture[c].main); // pos and neg are a single allocation
+		}
+#ifdef USE_FBO
+		if(textures->fbo){
+			int b; for(b=0;b<textures->size;b++) if(textures->fbo[b]) agl_fbo_free(textures->fbo[b]);
+			g_free(textures->fbo);
+		}
 #ifdef USE_FX
-		: textures->fx_fbo[b]
-			? textures->fx_fbo[b]
+		if(textures->fx_fbo){
+			int b; for(b=0;b<textures->size;b++) if(textures->fx_fbo[b]) agl_fbo_free(textures->fx_fbo[b]);
+			g_free(textures->fx_fbo);
+		}
 #endif
-			: textures->fbo[b];
-	if(fbo){
-		if(wfc->blend)
-			agl_use_texture(fbo->texture);
-		else
-			use_texture_no_blend(fbo->texture);
-	}else{
-		if(wf_debug) gwarn("%i: missing fbo", b);
-		return false;
+#endif
+		g_free(textures);
+
+		w->render_data[renderer->mode] = NULL;
 	}
-#else
-	_med_lo_set_gl_state_for_block(wfc, actor->waveform, textures, b);
-#endif
-
-	glPushMatrix();
-	glTranslatef(0, 0, _a->animatable.z.val.f);
-	glBegin(GL_QUADS);
-#if defined (USE_FBO) && defined (multipass)
-	_draw_block(tex.start, tex.end - tex.start, block.start, r->rect.top, block.wid, r->rect.height, wfc->v_gain);
-#else
-	_draw_block_from_1d(tex.start, tex.end - tex.start, block.start, r->rect.top, block.wid, r->rect.height, modes[r->mode].texture_size);
-#endif
-	glEnd();
-	glPopMatrix();
-	gl_warn("block=%i", b);
-
-	return true;
 }
 
 
 void
 med_lo_on_steal(WaveformBlock* wb, guint tex)
 {
-	bool lores = wb->block & WF_TEXTURE_CACHE_LORES_MASK;
-	int b = wb->block & ~WF_TEXTURE_CACHE_LORES_MASK;
-	WfGlBlock* blocks = (WfGlBlock*)wb->waveform->priv->render_data[lores ? MODE_LOW : MODE_MED];
+	Mode mode = wb->block & WF_TEXTURE_CACHE_V_LORES_MASK
+		? MODE_V_LOW
+		: wb->block & WF_TEXTURE_CACHE_LORES_MASK
+			? MODE_LOW
+			: MODE_MED;
+	int b = wb->block & ~(WF_TEXTURE_CACHE_V_LORES_MASK | WF_TEXTURE_CACHE_LORES_MASK);
+	WfGlBlock* blocks = (WfGlBlock*)wb->waveform->priv->render_data[mode];
+	g_return_if_fail(blocks);
 	guint* peak_texture[4] = {
 		&blocks->peak_texture[0].main[b],
 		&blocks->peak_texture[0].neg [b],
@@ -515,12 +465,11 @@ med_lo_on_steal(WaveformBlock* wb, guint tex)
 }
 
 
-Renderer med_renderer_gl1 = {MODE_MED, NULL, med_allocate_block_gl1, med_lo_pre_render_gl1, med_lo_render_gl1};
-NGRenderer med_renderer_gl2 = {{MODE_MED, med_renderer_new_gl2, ng_gl2_load_block, ng_gl2_pre_render, hi_gl2_render_block, ng_gl2_free_waveform}};
+Renderer med_renderer_gl1 = {MODE_MED, NULL, med_allocate_block_gl1, med_lo_pre_render_gl1, med_lo_render_gl1, med_lo_gl1_free_waveform};
+NGRenderer med_renderer_gl2 = {{MODE_MED, med_renderer_new_gl2, ng_gl2_load_block, ng_gl2_pre_render, ng_gl2_render_block, ng_gl2_free_waveform}};
 
-Renderer lo_renderer_gl1 = {MODE_LOW, NULL, low_allocate_block, med_lo_pre_render_gl1, med_lo_render_gl1};
-Renderer lo_renderer_gl2 = {MODE_LOW, low_new_gl2, low_allocate_block, lo_pre_render_gl2, lo_render_gl2};
-Renderer lo_renderer;
+Renderer lo_renderer_gl1 = {MODE_LOW, lo_new_gl1, low_allocate_block_gl1, med_lo_pre_render_gl1, med_lo_render_gl1, med_lo_gl1_free_waveform};
+NGRenderer lo_renderer_gl2 = {{MODE_LOW, low_new_gl2, ng_gl2_load_block, ng_gl2_pre_render, ng_gl2_render_block, ng_gl2_free_waveform}};
 
 static Renderer*
 med_renderer_new()
@@ -534,6 +483,21 @@ med_renderer_new()
 	ng_make_lod_levels(&med_renderer_gl2, MODE_MED);
 
 	return (Renderer*)med_renderer;
+}
+
+
+static Renderer*
+lo_renderer_new()
+{
+	g_return_val_if_fail(!med_renderer_gl2.ng_data, NULL);
+
+	static Renderer* lo_renderer = (Renderer*)&lo_renderer_gl2;
+
+	lo_renderer_gl2.ng_data = g_hash_table_new_full(g_direct_hash, g_int_equal, NULL, g_free);
+
+	ng_make_lod_levels(&lo_renderer_gl2, MODE_LOW);
+
+	return (Renderer*)lo_renderer;
 }
 
 

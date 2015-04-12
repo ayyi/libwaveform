@@ -72,7 +72,7 @@ file_load_thread(gpointer data)
 			call(job->work, job->user_data);
 			// no need to free item->user_data, it is done by the caller in the callback.
 		}else{
-			dbg(0, "job cancelled. not calling work fn");
+			dbg(1, "job cancelled. not calling work fn");
 			g_free0(job->user_data);
 		}
 

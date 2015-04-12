@@ -32,7 +32,16 @@
 #include "waveform/texture_cache.h"
 
 #define WF_TEXTURE_ALLOCATION_INCREMENT 20
-#define WF_TEXTURE_MAX                  1024 //never allocate more than this (1024 textures equiv to ~6mins audio at medium res)
+#define WF_TEXTURE_MAX                  1024 // never allocate more than this (1024 textures equiv to ~13 hours audio at medium res with gl2)
+
+static struct {
+	Mode mode;
+	int mask;
+} modes[] = {
+	{MODE_MED, 0},
+	{MODE_LOW, WF_TEXTURE_CACHE_LORES_MASK},
+	{MODE_V_LOW, WF_TEXTURE_CACHE_V_LORES_MASK}
+};
 
 #ifdef WF_USE_TEXTURE_CACHE
 static int time_stamp = 0;
@@ -167,6 +176,7 @@ texture_cache_assign(TextureCache* c, int t, WaveformBlock wb)
 	tx->time_stamp = time_stamp++;
 	dbg(2, "t=%i b=%i time=%i", t, wb.block, time_stamp);
 
+#ifdef DEBUG
 	static guint timeout = 0;
 	if(wf_debug > 1){
 		if(timeout) g_source_remove(timeout);
@@ -178,6 +188,7 @@ texture_cache_assign(TextureCache* c, int t, WaveformBlock wb)
 		}
 		timeout = g_timeout_add(1000, _texture_cache_print, NULL);
 	}
+#endif
 }
 
 
@@ -395,14 +406,12 @@ texture_cache_remove_waveform(Waveform* waveform) //tmp? should probably only be
 
 		int size0 = texture_cache_count_used(c);
 
-		if(w->render_data[MODE_MED]){
-			int b; for(b=0;b<=((WfGlBlock*)w->render_data[MODE_MED])->size;b++){
-				texture_cache_unassign(c, (WaveformBlock){waveform, b});
-			}
-		}
-		if(w->render_data[MODE_LOW]){
-			int b; for(b=0;b<=((WfGlBlock*)w->render_data[MODE_LOW])->size;b++){
-				texture_cache_unassign(c, (WaveformBlock){waveform, b | WF_TEXTURE_CACHE_LORES_MASK});
+		int m; for(m=0;m<G_N_ELEMENTS(modes);m++){
+			Mode mode = modes[m].mode;
+			if(w->render_data[mode]){
+				int b; for(b=0;b<=((WfGlBlock*)w->render_data[mode])->size;b++){
+					texture_cache_unassign(c, (WaveformBlock){waveform, b | modes[m].mask});
+				}
 			}
 		}
 
@@ -410,6 +419,23 @@ texture_cache_remove_waveform(Waveform* waveform) //tmp? should probably only be
 	}
 	if(wf_debug) texture_cache_print();
 }
+
+
+#ifdef DEBUG
+int
+texture_cache_count_by_waveform(Waveform* w)
+{
+	int n_found = 0;
+	int j; for(j=0;j<2;j++){
+		TextureCache* c = j ? c2 : c1;
+		int i; for(i=0;i<c->t->len;i++){
+			Texture* t = &g_array_index(c->t, Texture, i);
+			if(t->wb.waveform == w) n_found++;
+		}
+	}
+	return n_found;
+}
+#endif
 
 
 static int
@@ -435,7 +461,7 @@ texture_cache_print()
 		int n_used = 0;
 		GList* waveforms = NULL;
 		if(c->t->len){
-			printf("         %2s %3s  %3s   %-4s\n", "id", "ts", "b", "wvfm");
+			printf("         %2s %4s  %3s   %-4s\n", "id", "ts", "b", "wvfm");
 			int i; for(i=0;i<c->t->len;i++){
 				Texture* t = &g_array_index(c->t, Texture, i);
 				if(t->wb.waveform){
@@ -444,14 +470,16 @@ texture_cache_print()
 				}
 				char* mode = (!t->wb.waveform)
 					? " "
-					: (t->wb.block & WF_TEXTURE_CACHE_LORES_MASK)
-						? "L"
-						: (t->wb.block & WF_TEXTURE_CACHE_HIRES_MASK)
-							? "h"
-							: (t->wb.block & WF_TEXTURE_CACHE_HIRES_NG_MASK)
-								? "H"
-								: "M";
-				printf("    %3i: %2u %3i %4i %s %4i\n", i, t->id, t->time_stamp, t->wb.block & (~(WF_TEXTURE_CACHE_LORES_MASK | WF_TEXTURE_CACHE_HIRES_NG_MASK)), mode, g_list_index(waveforms, t->wb.waveform) + 1);
+					: (t->wb.block & WF_TEXTURE_CACHE_V_LORES_MASK)
+						? "V"
+						: (t->wb.block & WF_TEXTURE_CACHE_LORES_MASK)
+							? "L"
+							: (t->wb.block & WF_TEXTURE_CACHE_HIRES_MASK)
+								? "h"
+								: (t->wb.block & WF_TEXTURE_CACHE_HIRES_NG_MASK)
+									? "H"
+									: "M";
+				printf("    %3i: %2u %4i %4i %s %4i\n", i, t->id, t->time_stamp, t->wb.block & (~(WF_TEXTURE_CACHE_V_LORES_MASK | WF_TEXTURE_CACHE_LORES_MASK | WF_TEXTURE_CACHE_HIRES_NG_MASK)), mode, g_list_index(waveforms, t->wb.waveform) + 1);
 			}
 		}
 		dbg(0, "array_size=%i n_used=%i n_waveforms=%i", c->t->len, n_used, g_list_length(waveforms));

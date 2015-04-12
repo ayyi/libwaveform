@@ -381,11 +381,6 @@ waveform_view_plus_load_file (WaveformViewPlus* view, const char* filename)
 {
 	WaveformViewPlusPrivate* v = view->priv;
 
-	if(v->actor){
-		wf_canvas_remove_actor(v->canvas, v->actor);
-		v->actor = NULL;
-		if(v->spp_actor) ((SppActor*)v->spp_actor)->wf_actor = NULL;
-	}
 	if(view->waveform){
 		_g_object_unref0(view->waveform);
 	}
@@ -396,6 +391,7 @@ waveform_view_plus_load_file (WaveformViewPlus* view, const char* filename)
 	}
 
 	view->waveform = waveform_new(filename);
+	if(v->actor) wf_actor_set_waveform(v->actor, view->waveform);
 
 	am_promise_add_callback(promise(PROMISE_DISP_READY), _show_waveform, NULL);
 }
@@ -407,7 +403,6 @@ waveform_view_plus_set_waveform (WaveformViewPlus* view, Waveform* waveform)
 	PF;
 	WaveformViewPlusPrivate* v = view->priv;
 
-	if(__wf_drawing) gwarn("set_waveform called while already drawing");
 	if(v->actor && v->canvas){
 		wf_canvas_remove_actor(v->canvas, v->actor);
 		v->actor = NULL;
@@ -1498,11 +1493,15 @@ bg_actor(WaveformViewPlus* view)
 
 	void bg_actor_set_state(AGlActor* actor)
 	{
+		if(agl->use_shaders){
 #if 0
-		((AlphaMapShader*)actor->program)->uniform.fg_colour = 0x4488ffff; // TODO use theme colour, or pass as argument.
+			((AlphaMapShader*)actor->program)->uniform.fg_colour = 0x4488ffff; // TODO use theme colour, or pass as argument.
 #else
-		((AlphaMapShader*)actor->program)->uniform.fg_colour = 0x666666ff;
+			((AlphaMapShader*)actor->program)->uniform.fg_colour = 0x666666ff;
 #endif
+		}else{
+			glColor4f(0.4, 0.4, 0.4, 1.0);
+		}
 	}
 
 	bool bg_actor_paint(AGlActor* actor)

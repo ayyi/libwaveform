@@ -25,7 +25,7 @@ typedef struct _agl_shader_text
 	char*        frag;
 } AGlShaderText;
 
-struct _agl_shader
+struct _AGlShader
 {
 	char*           vertex_file;
 	char*           fragment_file;

@@ -18,6 +18,8 @@
 
   WaveformActor draws a Waveform object onto a shared opengl drawable.
 
+  [ **** The description below is out of date **** ]
+
   The rendering process depends on magnification and hardwave capabilities,
   but for at STD resolution with shaders available, and both USE_FBO and
   'multipass' are defined, the method for each block is as follows:
@@ -84,14 +86,11 @@ static AGl* agl = NULL;
 /*
 	TODO LOD / Mipmapping
 
-	For both the shader and non-shader case, it would be useful to have
+	For the non-shader case, it would be useful to have
 	mipmapping to have proper visibility of short term peaks and/or to reduce
 	the number of expensive (oversampled) texture lookups. Unfortunately
 	Opengl mipmaps cannot be used as we only want detail to be reduced on
 	the x axis and not the y, so a custom solution is needed.
-
-	This is now fully implemented for the shader case at HI_RES but still
-	needs to be done for MED and LOW.
 
  */
 #define USE_MIPMAPPING
@@ -197,10 +196,6 @@ static inline float get_peaks_per_pixel      (WaveformCanvas*, WfSampleRegion*, 
 static inline void _draw_block               (float tex_start, float tex_pct, float x, float y, float width, float height, float gain);
 static inline void _draw_block_from_1d       (float tex_start, float tex_pct, float x, float y, float width, float height, int tsize);
 
-#ifdef USE_FBO
-static AGlFBO* fbo_test = NULL;
-#endif
-
 typedef struct {
 	WaveformActor*  actor;
 	WaveformActorFn callback;
@@ -278,7 +273,7 @@ wf_actor_class_init()
 	modes[MODE_HI].make_texture_data = make_texture_data_hi;
 
 	modes[MODE_V_LOW].renderer = v_lo_renderer_new();
-	modes[MODE_LOW].renderer = &lo_renderer;
+	modes[MODE_LOW].renderer = lo_renderer_new();
 	modes[MODE_MED].renderer = med_renderer_new();
 	modes[MODE_HI].renderer = hi_renderer_new();
 	modes[MODE_V_HI].renderer = (Renderer*)&v_hi_renderer;
@@ -481,6 +476,27 @@ wf_actor_canvas_finalize_notify(gpointer _actor, GObject* was)
 
 	WaveformActor* a = (WaveformActor*)_actor;
 	gwarn("actor should have been freed before canvas finalize. actor=%p", a);
+}
+
+
+void
+wf_actor_set_waveform(WaveformActor* a, Waveform* waveform)
+{
+	g_return_if_fail(a);
+
+	waveform_get_n_frames(waveform);
+	if(!waveform->renderable) return;
+
+	if(a->waveform){
+		wf_actor_clear(a);
+		g_object_unref(a->waveform);
+	}
+	a->waveform = g_object_ref(waveform);
+
+	waveform_load(a->waveform);
+
+	if(waveform_get_n_frames(a->waveform))
+	wf_actor_set_region(a, &(WfSampleRegion){0, waveform_get_n_frames(a->waveform) - 1});
 }
 
 
@@ -711,20 +727,19 @@ wf_actor_get_visible_block_range(WfSampleRegion* region, WfRectangle* rect, doub
 	double region_inset_px = wf_actor_samples2gl(zoom, region->start);
 	double file_start_px = rect->left - region_inset_px;
 	double block_wid = wf_actor_samples2gl(zoom, samples_per_texture);
-	int region_start_block = region->start / samples_per_texture;
-
-	int region_end_block; {
+	BlockRange region_blocks = {region->start / samples_per_texture, -1};
+	{
 		float _end_block = ((float)(region->start + region->len)) / samples_per_texture;
-		dbg(2, "%s region_start=%Li region_end=%i start_block=%i end_block=%.2f(%.i) n_peak_frames=%i n_blocks=%i", modes[mode].name, region->start, ((int)region->start) + region->len, region_start_block, _end_block, (int)ceil(_end_block), n_blocks * 256, n_blocks);
+		dbg(2, "%s region=%Li-->%i blocks=%i-->%.2f(%.i) n_peak_frames=%i n_blocks=%i", modes[mode].name, region->start, ((int)region->start) + region->len, region_blocks.first, _end_block, (int)ceil(_end_block), n_blocks * 256, n_blocks);
 
 		// round _down_ as the block corresponds to the _start_ of a section.
-		region_end_block = MIN(((int)_end_block), n_blocks - 1);
+		region_blocks.last = MIN(((int)_end_block), n_blocks - 1);
 	}
 
 	// find first block
 	if(rect->left <= viewport_px->right){
 
-		int b; for(b=region_start_block;b<=region_end_block-1;b++){ // stop before the last block
+		int b; for(b=region_blocks.first;b<=region_blocks.last-1;b++){ // stop before the last block
 			int block_start_px = file_start_px + b * block_wid;
 			double block_end_px = block_start_px + block_wid;
 			dbg(3, "block_pos_px=%i", block_start_px);
@@ -748,15 +763,15 @@ wf_actor_get_visible_block_range(WfSampleRegion* region, WfRectangle* rect, doub
 
 	// find last block
 	if(rect->left <= viewport_px->right){
-		range.last = MIN(range.first + WF_MAX_BLOCK_RANGE, region_end_block);
+		range.last = MIN(range.first + WF_MAX_BLOCK_RANGE, region_blocks.last);
 
 		g_return_val_if_fail(viewport_px->right - viewport_px->left > 0.01, range);
 
 		//crop to viewport:
-		int b; for(b=region_start_block;b<=range.last-1;b++){ //note we dont check the last block which can be partially outside the viewport
+		int b; for(b=region_blocks.first;b<=range.last-1;b++){ //note we dont check the last block which can be partially outside the viewport
 			float block_end_px = file_start_px + (b + 1) * block_wid;
 			//dbg(1, " %i: block_px: %.1f --> %.1f", b, block_end_px - (int)block_wid, block_end_px);
-			if(block_end_px > viewport_px->right) dbg(2, "end %i clipped by viewport at block %i. vp.right=%.2f block_end=%.1f", region_end_block, MAX(0, b/* - 1*/), viewport_px->right, block_end_px);
+			if(block_end_px > viewport_px->right) dbg(2, "end %i clipped by viewport at block %i. vp.right=%.2f block_end=%.1f", region_blocks.last, MAX(0, b/* - 1*/), viewport_px->right, block_end_px);
 			if(block_end_px > viewport_px->right){
 				range.last = MAX(0, b/* - 1*/);
 				goto out;
@@ -776,7 +791,7 @@ wf_actor_get_visible_block_range(WfSampleRegion* region, WfRectangle* rect, doub
 			goto out;
 		}
 
-		dbg(2, "end not outside viewport. vp_right=%.2f last=%i", viewport_px->right, region_end_block);
+		dbg(2, "end not outside viewport. vp_right=%.2f last=%i", viewport_px->right, region_blocks.last);
 	}
 
 	out: return range;
@@ -915,6 +930,7 @@ wf_actor_frame_to_x (WaveformActor* actor, uint64_t frame)
 /*
  *  Remove render data. Used for example if the render context has changed.
  *  Note that the render data is shared by all users of the waveform.
+ *  The render data must be removed by a WaveformActor, it cannot be done by the Waveform itself.
  */
 void
 wf_actor_clear (WaveformActor* actor)
@@ -936,23 +952,10 @@ wf_actor_clear (WaveformActor* actor)
 }
 
 
+#if 0
 	int get_min_n_tiers()
 	{
 		return HI_MIN_TIERS;
-	}
-
-#if 0
-	static int get_n_audio_blocks_loaded(Waveform* w)
-	{
-		WfAudioData* audio = w->audio_data;
-
-		int n_loaded = 0;
-		int n_blocks = waveform_get_n_audio_blocks(w);
-		int b; for(b=0;b<n_blocks;b++){
-			if(audio->buf16[b] && audio->buf16[b]->buf[0]) n_loaded++;
-		}
-		dbg(1, "n_loaded=%i", n_loaded);
-		return n_loaded;
 	}
 #endif
 
@@ -1018,12 +1021,7 @@ _wf_actor_allocate_hi(WaveformActor* a)
 	16 * 60 * 60 / hour    => 5760 / hour
 		-because this is relatively high, a hashtable is used instead of an array.
 
-	caching options:
-		- say that is inherently uncachable
-		- have per-waveform texture cache
-		- add to normal texture cache (will cause other stuff to be purged prematurely?)
-		- add low-priority flag to regular texture cache
-		- have separate low-priority texture cache       ****
+	Hi-res mode uses a separate low-priority texture cache.
 
 	*/
 	WfActorPriv* _a = a->priv;
@@ -1155,32 +1153,24 @@ _wf_actor_load_missing_blocks(WaveformActor* a)
 		int b; for(b=viewport_blocks.first;b<=viewport_blocks.last;b++){
 			modes[MODE_MED].renderer->load_block(modes[MODE_MED].renderer, a, b);
 		}
-
-#ifdef USE_FBO
-		if(agl->use_shaders && !fbo_test) fbo_test = fbo_new_test();
-#endif
 	}
 
 	if(mode1 == MODE_LOW || mode2 == MODE_LOW){
 		// TODO low resolution doesnt have the same adjustments to region and viewport like STD mode does.
 		// -this doesnt seem to be causing any problems though
 		dbg(2, "LOW");
+		Renderer* renderer = modes[MODE_LOW].renderer;
 		WfViewPort viewport; _wf_actor_get_viewport_max(a, &viewport);
 		//double zoom_ = MIN(zoom, ZOOM_LO - 0.0001);
 		double zoom_ = MAX(zoom, ZOOM_V_LO + 0.00000001);
 
-		if(!_w->render_data[MODE_LOW]){
-//#warning check TEX_BORDER effect not multiplied in WF_PEAK_STD_TO_LO transformation
-			_w->render_data[MODE_LOW] = (WaveformModeRender*)wf_texture_array_new(_w->num_peaks / (WF_PEAK_STD_TO_LO * WF_TEXTURE_VISIBLE_SIZE) + ((w->priv->num_peaks % (WF_PEAK_STD_TO_LO * WF_TEXTURE_VISIBLE_SIZE)) ? 1 : 0), w->n_channels);
-		}
-
-		WfSampleRegion region = {a->priv->animatable.start.val.i, a->priv->animatable.len.val.i};
+		WfSampleRegion region = {a->priv->animatable.start.val.i, MAX(a->priv->animatable.len.val.i, *a->priv->animatable.len.model_val.i)};
 		WfRectangle rect_ = {a->rect.left, a->rect.top, a->priv->animatable.rect_len.val.f, a->rect.height};
-		BlockRange viewport_blocks = wf_actor_get_visible_block_range (&region, &rect_, zoom_, &viewport, ((WfGlBlock*)_w->render_data[MODE_LOW])->size);
+		BlockRange viewport_blocks = wf_actor_get_visible_block_range (&region, &rect_, zoom_, &viewport, wf_actor_get_n_blocks(w, MODE_LOW));
 		//dbg(2, "LOW block range: %i --> %i", viewport_blocks.first, viewport_blocks.last);
 
 		int b; for(b=viewport_blocks.first;b<=viewport_blocks.last;b++){
-			lo_renderer.load_block(&lo_renderer, a, b);
+			renderer->load_block(renderer, a, b);
 		}
 	}
 
@@ -1190,7 +1180,7 @@ _wf_actor_load_missing_blocks(WaveformActor* a)
 		WfViewPort viewport; _wf_actor_get_viewport_max(a, &viewport);
 		double zoom_ = MIN(zoom, ZOOM_LO - 0.0001);
 
-		WfSampleRegion region = {a->priv->animatable.start.val.i, a->priv->animatable.len.val.i};
+		WfSampleRegion region = {a->priv->animatable.start.val.i, MAX(a->priv->animatable.len.val.i, *a->priv->animatable.len.model_val.i)};
 		WfRectangle rect_ = {a->rect.left, a->rect.top, a->priv->animatable.rect_len.val.f, a->rect.height};
 		BlockRange viewport_blocks = wf_actor_get_visible_block_range (&region, &rect_, zoom_, &viewport, _w->render_data[MODE_V_LOW]->n_blocks);
 
@@ -1458,7 +1448,7 @@ calc_render_info(WaveformActor* actor)
 
 	wf_actor_get_viewport(actor, &r->viewport);
 
-	r->region = (WfSampleRegion){_a->animatable.start.val.i, _a->animatable.len.val.i};
+	r->region = (WfSampleRegion){_a->animatable.start.val.i, MIN(_a->animatable.len.val.i, w->n_frames)};
 	static gboolean region_len_warning_done = false;
 	if(!region_len_warning_done && !r->region.len){ region_len_warning_done = true; gwarn("zero region length"); }
 
@@ -1628,6 +1618,22 @@ wf_actor_paint(AGlActor* _actor)
 			glVertex3f(x_,                top, 0);    glVertex3f(x_,                r->rect.top + 10,0);
 			glVertex3f(x_,                bot, 0);    glVertex3f(x_,                bot - 10,        0);
 		glEnd();
+
+		// add a small marker every 32 blocks
+		if(!(b % 32)){
+			if(agl->use_shaders){
+				agl->shaders.plain->uniform.colour = 0xff7733aa;
+				agl->shaders.plain->shader.set_uniforms_();
+			}
+			glBegin(GL_LINES);
+				glVertex3f(x_+ 1,         top, 0);    glVertex3f(x_ + 1,            r->rect.top + 10,0);
+				glVertex3f(x_+ 1,         bot, 0);    glVertex3f(x_ + 1,            bot - 10,        0);
+			glEnd();
+			if(agl->use_shaders){
+				agl->shaders.plain->uniform.colour = 0x6677ff77;
+				agl->shaders.plain->shader.set_uniforms_();
+			}
+		}
 
 		x += r->block_wid;
 		is_first = false;
@@ -1952,7 +1958,7 @@ wf_actor_get_n_blocks(Waveform* waveform, Mode mode)
 		case MODE_V_LOW:
 			return w->n_blocks / WF_MED_TO_V_LOW;
 		case MODE_LOW:
-			return w->n_blocks / WF_PEAK_STD_TO_LO;
+			return w->n_blocks / WF_PEAK_STD_TO_LO + (w->n_blocks % WF_PEAK_STD_TO_LO ? 1 : 0);
 		case MODE_MED:
 		case MODE_HI:
 		case MODE_V_HI:
@@ -1975,9 +1981,9 @@ wf_actor_on_use_shaders_change()
 		? (Renderer*)&med_renderer_gl2
 		: &med_renderer_gl1;
 
-	lo_renderer = agl->use_shaders
-		? lo_renderer_gl2
-		: lo_renderer_gl1;
+	modes[MODE_LOW].renderer = agl->use_shaders
+		? (Renderer*)&lo_renderer_gl2
+		: &lo_renderer_gl1;
 
 	modes[MODE_V_LOW].renderer = agl->use_shaders
 		? (Renderer*)&v_lo_renderer_gl2

@@ -45,6 +45,7 @@ struct _waveform_actor {
 };
 
 void            wf_actor_free                       (WaveformActor*);
+void            wf_actor_set_waveform               (WaveformActor*, Waveform*);
 void            wf_actor_set_region                 (WaveformActor*, WfSampleRegion*);
 void            wf_actor_set_rect                   (WaveformActor*, WfRectangle*);
 void            wf_actor_set_colour                 (WaveformActor*, uint32_t fg_colour);

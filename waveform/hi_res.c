@@ -476,8 +476,8 @@ wf_actor_get_quad_dimensions(WaveformActor* actor, int b, bool is_first, bool is
 		}else{
 			//end is trimmed
 			double part_inset_px = wf_actor_samples2gl(r->zoom, r->region.start);
-			//double file_start_px = rect->left - part_inset_px;
-			double distance_from_file_start_to_region_end = part_inset_px + r->rect.len;
+			double region_len_px = wf_actor_samples2gl(r->zoom, r->region.len);
+			double distance_from_file_start_to_region_end = part_inset_px + MIN(r->rect.len, region_len_px);
 			block_wid = distance_from_file_start_to_region_end - b * r->block_wid;
 			dbg(2, " %i: inset=%.2f s->e=%.2f i*b=%.2f", b, part_inset_px, distance_from_file_start_to_region_end, b * r->block_wid);
 			if(b * r->block_wid > distance_from_file_start_to_region_end){ gwarn("!!"); return false; }
@@ -608,7 +608,7 @@ _wf_actor_print_hires_textures(WaveformActor* a)
 }
 
 
-NGRenderer hi_renderer_gl2 = {{MODE_HI, NULL, ng_gl2_load_block, ng_gl2_pre_render, hi_gl2_render_block, ng_gl2_free_waveform}};
+NGRenderer hi_renderer_gl2 = {{MODE_HI, NULL, ng_gl2_load_block, ng_gl2_pre_render, ng_gl2_render_block, ng_gl2_free_waveform}};
 HiRenderer hi_renderer_gl1 = {{MODE_HI, hi_new_gl1, hi_gl1_load_block, hi_gl1_pre_render,
 #ifdef HIRES_NONSHADER_TEXTURES
 				hi_gl1_render_block,
