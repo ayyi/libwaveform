@@ -37,7 +37,7 @@ print_help ()
 {
 	printf("Usage: " PACKAGE_STRING " [OPTIONS] <output_filename>\n"
 	     "  -c, --channels                   number of audio channels. 1 or 2 expected. default 1\n"
-	     "  -n, --numblocks                  number of blocks. >= 1 expected. default 1\n"
+	     "  -n, --numblocks                  number of blocks >= 1. default 1\n"
 	     "  -v, --version                    Show version information\n"
 	     "  -h, --help                       Print this message\n"
 	     "  -d, --debug     level            Output debug info to stdout\n"
@@ -51,7 +51,7 @@ int main(int argc, char* argv[])
 	int n_channels = MONO;
 	int n_blocks = 1;
 
-	const char* optstring = "c:hvd:";
+	const char* optstring = "c:n:hvd:";
 
 	const struct option longopts[] = {
 		{ "channels", 1, 0, 'c' },
@@ -82,7 +82,7 @@ int main(int argc, char* argv[])
 
 		case 'n':
 			n_blocks = atoi(optarg);
-			if(n_blocks < 1 || n_blocks > 10){ printf("n_blocks out of range: %i\n", n_blocks); return EXIT_FAILURE; }
+			if(n_blocks < 1 || n_blocks > 64){ printf("n_blocks out of range: %i\n", n_blocks); return EXIT_FAILURE; }
 			break;
 
 		case 'v':
@@ -128,6 +128,10 @@ int main(int argc, char* argv[])
 	for(int i=0;i<n_blocks;i++){
 		buffer[(i    ) * n_frames_per_block * n_channels    ] =  1.0; // start of block
 		buffer[(i + 1) * n_frames_per_block * n_channels - 1] = -1.0; // end of block
+
+		buffer[(i    ) * n_frames_per_block * n_channels + (n_frames_per_block * n_channels)     / 2] =  0.25; // half way
+		buffer[(i    ) * n_frames_per_block * n_channels + (n_frames_per_block * n_channels)     / 4] = -0.125; // quarter
+		buffer[(i    ) * n_frames_per_block * n_channels + (n_frames_per_block * n_channels) * 3 / 4] = -0.125; // quarter
 	}
 
 	//------------------- save --------------------
