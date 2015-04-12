@@ -144,8 +144,6 @@ __finalize (Waveform* w)
 	if(texture_cache_count_by_waveform(w)){
 		gerr("textures not cleared");
 	}
-#endif
-#endif
 
 	int m; for(m=MODE_V_LOW;m<=MODE_HI;m++){
 		if(_w->render_data[m]) gwarn("actor data not cleared");
