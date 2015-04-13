@@ -112,7 +112,7 @@ main (int argc, char* argv[])
 					char* filename = g_build_filename(g_get_current_dir(), WAV, NULL);
 					waveform_view_load_file(waveform[1], filename);
 					g_free(filename);
-					gtk_widget_show(waveform[1]);
+					gtk_widget_show((GtkWidget*)waveform[1]);
 				}
 				dbg(0, "2");
 				break;

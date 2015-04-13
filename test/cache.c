@@ -11,7 +11,7 @@
 
   ---------------------------------------------------------------
 
-  copyright (C) 2013-2014 Tim Orford <tim@orford.org>
+  copyright (C) 2013-2015 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -47,6 +47,7 @@
 #include "waveform/audio.h"
 #include "waveform/gl_utils.h"
 #include "waveform/texture_cache.h"
+#include "waveform/promise.h"
 #include "test/common.h"
 
 extern void texture_cache_print ();
@@ -66,6 +67,7 @@ WaveformCanvas* wfc            = NULL;
 Waveform*       w[2]           = {NULL,};
 WaveformActor*  a[2]           = {NULL,};
 bool            files_created  = false;
+AMPromise*      ready          = NULL;
 
 static void setup_projection   (GtkWidget*);
 static void draw               (GtkWidget*);
@@ -92,6 +94,8 @@ main (int argc, char *argv[])
 {
 	wf_debug = 0;
 	test_init(tests, G_N_ELEMENTS(tests));
+ 
+	ready = am_promise_new(NULL);
 
 	gtk_init(&argc, &argv);
 	if(!(glconfig = gdk_gl_config_new_by_mode(GDK_GL_MODE_RGBA | GDK_GL_MODE_DEPTH | GDK_GL_MODE_DOUBLE))){
@@ -582,66 +586,107 @@ test_add_remove()
 
 	START_TEST;
 
-	wf_cancel_jobs(a[0]->waveform);
-
-	void set_low_res()
-	{
-		int i; for(i=0;i<G_N_ELEMENTS(a)&&a[i];i++)
-			wf_actor_set_region(a[i], &(WfSampleRegion){
-				0,
-				a[i]->waveform->n_frames - 1             //TODO this won't neccesarily be LOW_RES for all wav's
-			});
-	}
-	set_low_res();
-
-	static WaveformBlock wb; wb = (WaveformBlock){a[0]->waveform, 0 | WF_TEXTURE_CACHE_LORES_MASK};
-
-	gboolean check_not_in_cache(gpointer user_data)
-	{
-		int t = texture_cache_lookup(GL_TEXTURE_1D, wb);
-		assert_and_stop((t == -1), "cache not cleared: lookup got texture: %i", t);
-
-		texture_cache_print();
-
-		FINISH_TEST_TIMER_STOP;
+	//TODO support other render modes
+	static Mode mode = MODE_LOW;
+	// calculate the region length needed to ensure that the view is of the above mode type.
+	static int len;
+	switch(mode){
+		case MODE_LOW:
+			len = 2 * GL_WIDTH * WF_PEAK_RATIO * WF_PEAK_STD_TO_LO;
+			break;
+		case MODE_V_LOW:
+			len = 2 * GL_WIDTH * WF_PEAK_RATIO * WF_MED_TO_V_LOW;
+			break;
+		default:
+			break;
 	}
 
-	gboolean check_in_cache(gpointer user_data)
+	files_created = true; // hack needed if earlier tests are disabled
+
+	void on_ready (gpointer user_data, gpointer _)
 	{
-		WaveformPriv* _w = w[0]->priv;
+		wf_cancel_jobs(a[0]->waveform);
 
-		WfSampleRegion* region = &a[0]->region;
-		assert_and_stop((region->start == 0), "region start");
+		// TODO support gl2 mode also
+		assert(!agl_get_instance()->use_shaders, "shaders must be disabled for this test");
 
-		assert_and_stop(_w->render_data[MODE_LOW], "low res mode not initialised");
+		void set_res()
+		{
+			int i; for(i=0;i<G_N_ELEMENTS(a)&&a[i];i++)
+				wf_actor_set_region(a[i], &(WfSampleRegion){
+					0,
+					MIN(len, a[i]->waveform->n_frames - 1)
+				});
+		}
+		set_res();
 
-		// In fact the 1d textures are no longer kept if rendering from fbo
+		static WaveformBlock wb; wb = (WaveformBlock){a[0]->waveform, 0 | WF_TEXTURE_CACHE_LORES_MASK};
+
+		gboolean check_not_in_cache(gpointer user_data)
+		{
+			int t = texture_cache_lookup(GL_TEXTURE_1D, wb);
+			assert_and_stop((t == -1), "cache not cleared: lookup got texture: %i", t);
+
+			texture_cache_print();
+
+			FINISH_TEST_TIMER_STOP;
+		}
+
+		gboolean check_in_cache(gpointer user_data)
+		{
+			WaveformPriv* _w = w[0]->priv;
+
+			WfSampleRegion* region = &a[0]->region;
+			assert_and_stop((region->start == 0), "region start");
+
+			dbg(0, "%s %p", modes[MODE_V_LOW].name, _w->render_data[MODE_V_LOW]);
+			dbg(0, "%s %p", modes[MODE_LOW].name, _w->render_data[MODE_LOW]);
+			dbg(0, "%s %p", modes[MODE_MED].name, _w->render_data[MODE_MED]);
+
+			assert_and_stop(_w->render_data[mode], "%s mode not initialised", modes[mode].name);
+			assert_and_stop(_w->render_data[mode]->n_blocks, "%s n_blocks not set", modes[mode].name);
+
 #ifdef USE_FBO
-		assert_and_stop(((WfGlBlock*)_w->render_data[MODE_LOW])->fbo[0] && ((WfGlBlock*)_w->render_data[MODE_LOW])->fbo[0]->texture, "fbo texture");
-#else
-		// This will fail if the cache size is too small to fit all low_res blocks
-		// In fact with multiple v long wavs, is almost guaranteed to fail.
+			int b = 0;
 
-		int t = texture_cache_lookup(GL_TEXTURE_1D, wb);
-		assert_and_stop((t != -1), "block 0 not found in cache");
+			WfGlBlock* blocks = (WfGlBlock*)_w->render_data[mode];
+			guint tex = blocks->peak_texture[WF_LEFT ].main[b];
+			// with shaders not available, the peak_texture will contain a 2D texture
+			assert_and_stop(tex, "main texture not set");
+			assert_and_stop(glIsTexture(tex), "texture is not texture");
+			assert_and_stop((!blocks->peak_texture[WF_RIGHT].main[b]), "only one texture should be set?");
+
+			dbg(0, "fbo=%p", ((WfGlBlock*)_w->render_data[mode])->fbo[b]);
+#else
+			// This will fail if the cache size is too small to fit all low_res blocks
+			// In fact with multiple v long wavs, is almost guaranteed to fail.
+			// [should be better now with addition of MODE_V_LOW]
+
+			int t = texture_cache_lookup(GL_TEXTURE_1D, wb);
+			assert_and_stop((t != -1), "block 0 not found in cache");
 #endif
 
-		int i; for(i=0;i<G_N_ELEMENTS(a);i++){
-			wf_canvas_remove_actor(wfc, a[i]);
-			a[i] = 0;
-		}
-		for(i=0;i<G_N_ELEMENTS(w);i++){
-			if(w[i]){
-				g_object_unref(w[i]);
-				w[i] = NULL;
+			int i; for(i=0;i<G_N_ELEMENTS(a);i++){
+				if(a[i]){
+					wf_canvas_remove_actor(wfc, a[i]);
+					a[i] = 0;
+				}
 			}
+			for(i=0;i<G_N_ELEMENTS(w);i++){
+				if(w[i]){
+					g_object_unref(w[i]);
+					w[i] = NULL;
+				}
+			}
+
+			g_timeout_add(2000, check_not_in_cache, NULL);
+			return TIMER_STOP;
 		}
 
-		g_timeout_add(2000, check_not_in_cache, NULL);
-		return TIMER_STOP;
+		g_timeout_add(5000, check_in_cache, NULL);
 	}
 
-	g_timeout_add(5000, check_in_cache, NULL);
+	am_promise_add_callback(ready, on_ready, NULL);
 }
 
 
@@ -785,6 +830,8 @@ on_canvas_realise(GtkWidget* _canvas, gpointer user_data)
 			gdk_window_invalidate_rect(canvas->window, NULL, false);
 		}
 		wfc->draw = _on_wf_canvas_requests_redraw;
+
+		am_promise_resolve(ready, NULL);
 
 		return TIMER_STOP;
 	}
