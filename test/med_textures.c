@@ -4,7 +4,7 @@
 
   ---------------------------------------------------------------
 
-  copyright (C) 2012-2014 Tim Orford <tim@orford.org>
+  copyright (C) 2012-2015 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -57,7 +57,6 @@ struct _app
 #define GL_WIDTH 256.0
 #define GL_HEIGHT 256.0
 #define VBORDER 8
-#define bool gboolean
 
 AGl*            agl            = NULL;
 GdkGLConfig*    glconfig       = NULL;

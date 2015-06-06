@@ -12,15 +12,18 @@
   This will create a new Gtk widget that you pack and show as normal.
 
   In addition to the functions above that are also available in
-  the simpler WaveformView widget, further options are available which
-  support the display of title text and info text:
-      void waveform_view_plus_set_title  (WaveformViewPlus*, const char*);
-      void waveform_view_plus_set_text   (WaveformViewPlus*, const char*);
-      void waveform_view_plus_set_colour (WaveformViewPlus*, uint32_t fg, uint32_t bg, uint32_t title1, uint32_t title2);
+  the simpler WaveformView widget, additional 'layers' can be added,
+  supporting, for example, the display of title text and info text:
 
-  It also offers a 'play counter'. To display a cursor and readout of the
-  current time, set the time to a non-default value and redraw.
-      void waveform_view_plus_set_time  (WaveformViewPlus*, uint32_t time_in_milliseconds);
+    AGlActor* text_layer = waveform_view_plus_add_layer(waveform, text_actor(NULL), 0);
+    ((TextActor*)text_layer)->title = g_strdup("Waveform Title");
+    text_actor_set_colour((TextActor*)text_layer, 0x33aaffff, 0xffff00ff);
+
+  The SPP layer provides a 'play counter'. To display a cursor and readout
+  of the current time, set the time to a non-default value and redraw.
+
+    AGlActor* spp = waveform_view_plus_get_layer(waveform, 5);
+    spp_actor_set_time((SppActor*)spp, time_in_milliseconds);
 
   The WaveformView interface is designed to be easy to use.
   For a more powerful but more complicated interface, see WaveformActor
@@ -59,11 +62,12 @@
 #include <gtk/gtk.h>
 #include <gdk/gdkkeysyms.h>
 #include "agl/utils.h"
+#include "agl/actor.h"
 #include "waveform/view_plus.h"
+#include "waveform/actors/text.h"
+#include "waveform/actors/spp.h"
 #include "test/ayyi_utils.h"
 #include "common.h"
-
-#define bool gboolean
 
 const char* wavs[] = {
 	"test/data/stereo_1.wav",
@@ -130,15 +134,20 @@ main (int argc, char *argv[])
 	#endif
 
 	WaveformViewPlus* waveform = waveform_view_plus_new(NULL);
-	waveform_view_plus_set_title(waveform, "Waveform Title");
-	waveform_view_plus_set_text(waveform, "Waveform text waveform text");
 	waveform_view_plus_set_show_rms(waveform, false);
-	waveform_view_plus_set_colour(waveform, 0xccccddaa, 0x000000ff, 0x33aaffff, 0xffff00ff);
-	waveform_view_plus_set_time(waveform, _time);
+	waveform_view_plus_set_colour(waveform, 0xccccddaa, 0x000000ff);
 	waveform_view_plus_set_show_grid(waveform, true);
-	#if 0
-	wf_canvas_set_use_shaders(wfc, false);
-	#endif
+
+	AGlActor* text_layer = waveform_view_plus_add_layer(waveform, text_actor(NULL), 3);
+	((TextActor*)text_layer)->title = g_strdup("Waveform Title");
+	((TextActor*)text_layer)->text = g_strdup("Waveform text waveform text");
+	text_actor_set_colour((TextActor*)text_layer, 0x33aaffff, 0xffff00ff);
+
+	AGlActor* spp = waveform_view_plus_get_layer(waveform, 5);
+	if(spp){
+		spp_actor_set_time((SppActor*)spp, (_time += 50, _time));
+	}
+
 	gtk_widget_set_size_request((GtkWidget*)waveform, 480, 160);
 
 	GtkWidget* scrolledwindow = gtk_scrolled_window_new (NULL, NULL);
@@ -254,9 +263,9 @@ void next_wav(WaveformView* waveform)
 void
 toggle_shaders(WaveformView* view)
 {
-	printf("...\n");
-	WaveformCanvas* wfc = waveform_view_get_canvas(view);
-	wf_canvas_set_use_shaders(wfc, !agl_get_instance()->use_shaders);
+	printf(">> %s ...\n", __func__);
+
+	agl_actor__set_use_shaders(((AGlActor*)waveform_view_plus_get_actor((WaveformViewPlus*)view))->root, !agl_get_instance()->use_shaders);
 
 	char* filename = find_wav(wavs[0]);
 	waveform_view_plus_load_file((WaveformViewPlus*)view, filename);
@@ -293,27 +302,33 @@ unrealise(WaveformView* view)
 static guint play_timer = 0;
 
 void
-stop(WaveformView* waveform)
+stop(WaveformView* view)
 {
 	if(play_timer){
 		g_source_remove (play_timer);
 		play_timer = 0;
 	}else{
-		waveform_view_plus_set_time((WaveformViewPlus*)waveform, (_time = 0));
+		AGlActor* spp = waveform_view_plus_get_layer((WaveformViewPlus*)view, 5);
+		if(spp){
+			spp_actor_set_time((SppActor*)spp, (_time = 0));
+		}
 	}
 }
 
 
 void
-play(WaveformView* waveform)
+play(WaveformView* view)
 {
-	bool tick(gpointer waveform)
+	bool tick(gpointer view)
 	{
-		waveform_view_plus_set_time((WaveformViewPlus*)waveform, (_time += 50, _time));
+		AGlActor* spp = waveform_view_plus_get_layer(view, 5);
+		if(spp){
+			spp_actor_set_time((SppActor*)spp, (_time += 50, _time));
+		}
 		return true;
 	}
 
-	if(!play_timer) play_timer = g_timeout_add(50, tick, waveform);
+	if(!play_timer) play_timer = g_timeout_add(50, tick, view);
 }
 
 

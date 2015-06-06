@@ -21,6 +21,33 @@ typedef HiResNGWaveform NGWaveform;
 
 
 static void
+wf_texture_array_add_ch(WfGlBlock* textures, int c)
+{
+	dbg(2, "adding glbocks: c=%i num_blocks=%i", c, textures->size);
+	unsigned* a = g_new0(unsigned, textures->size * 2); // single allocation for both pos and neg
+	textures->peak_texture[c].main = a;
+	textures->peak_texture[c].neg  = a + textures->size;
+}
+
+
+static WfGlBlock*
+wf_texture_array_new(int size, int n_channels)
+{
+	WfGlBlock* textures = g_new0(WfGlBlock, 1);
+	textures->size = size;
+	dbg(1, "creating glbocks: num_blocks=%i n_ch=%i", textures->size, n_channels);
+	int c; for(c=0;c<n_channels;c++){
+		wf_texture_array_add_ch(textures, c);
+	}
+	textures->fbo = g_new0(AGlFBO*, textures->size); //note: only an array of _pointers_
+#ifdef USE_FX
+	textures->fx_fbo = g_malloc0(sizeof(AGlFBO*) * textures->size);
+#endif
+	return textures;
+}
+
+
+static void
 med_renderer_new_gl2(WaveformActor* actor)
 {
 	// nothing needed as is done in ng_renderer.load_block
@@ -89,15 +116,13 @@ med_allocate_block_gl1(Renderer* renderer, WaveformActor* a, int b)
 	WaveformBlock wb = {w, b};
 
 	int c = WF_LEFT;
-	if(blocks->peak_texture[c].main[b]){
-		if(glIsTexture(blocks->peak_texture[c].main[b])){
-			//gwarn("waveform texture already assigned for block %i: %i", b, blocks->peak_texture[c].main[b]);
-			return;
-		}else{
-			//if we get here something has gone badly wrong. Most likely unrecoverable.
-			gwarn("removing invalid texture...");
-			med_lo_clear_1d_textures(blocks, &wb);
-		}
+	if(blocks->peak_texture[c].main[b]
+#ifdef WF_DEBUG
+		&& glIsTexture(blocks->peak_texture[c].main[b])
+#endif
+	){
+		texture_cache_freshen(GL_TEXTURE_2D, wb);
+		return;
 	}
 
 	int texture_id = blocks->peak_texture[c].main[b] = texture_cache_assign_new(a->canvas->use_1d_textures ? GL_TEXTURE_1D : GL_TEXTURE_2D, wb);
@@ -152,7 +177,6 @@ low_allocate_block_gl1(Renderer* renderer, WaveformActor* a, int b)
 	g_return_if_fail(b < blocks->size);
 #endif
 
-	int texture_type = a->canvas->use_1d_textures ? GL_TEXTURE_1D : GL_TEXTURE_2D;
 	WaveformBlock wb = {w, b | (renderer->mode == MODE_LOW ? WF_TEXTURE_CACHE_LORES_MASK : WF_TEXTURE_CACHE_V_LORES_MASK)};
 
 #ifdef USE_FBO
@@ -166,49 +190,16 @@ low_allocate_block_gl1(Renderer* renderer, WaveformActor* a, int b)
 #endif
 	){
 		//gwarn("waveform low-res texture already assigned for block %i: %i", b, blocks->peak_texture[c].main[b]);
-		texture_cache_freshen(texture_type, wb);
-																				// TODO do the same for MED
+		texture_cache_freshen(GL_TEXTURE_2D, wb);
 		return;
 	}
 
-	int texture_id = blocks->peak_texture[c].main[b] = texture_cache_assign_new(texture_type, wb);
+	int texture_id = blocks->peak_texture[c].main[b] = texture_cache_assign_new(GL_TEXTURE_2D, wb);
 
-	if(a->canvas->use_1d_textures){
-		guint* peak_texture[4] = {
-			&blocks->peak_texture[WF_LEFT ].main[b],
-			&blocks->peak_texture[WF_LEFT ].neg[b],
-			&blocks->peak_texture[WF_RIGHT].main[b],
-			&blocks->peak_texture[WF_RIGHT].neg[b]
-		};
-		blocks->peak_texture[c].neg[b] = texture_cache_assign_new (GL_TEXTURE_1D, wb);
-
-		if(a->waveform->priv->peak.buf[WF_RIGHT]){
-			if(peak_texture[2]){
-				int i; for(i=2;i<4;i++){
-					*peak_texture[i] = texture_cache_assign_new (GL_TEXTURE_1D, wb);
-				}
-				dbg(1, "rhs: %i: texture=%i %i %i %i", b, *peak_texture[0], *peak_texture[1], *peak_texture[2], *peak_texture[3]);
-			}
-		}else{
-			dbg(1, "* %i: textures=%i,%i (rhs peak.buf not loaded)", b, texture_id, *peak_texture[1]);
-		}
-
-		wf_actor_load_texture1d(w, MODE_LOW, (WfGlBlock*)w->priv->render_data[renderer->mode], b);
-#if defined (USE_FBO) && defined (multipass)
-		if(!blocks->fbo[b]){
-			block_to_fbo(a, b, blocks, 1024);
-			if(blocks->fbo[b]){
-				// original texture no longer needed
-				med_lo_clear_1d_textures(blocks, &wb);
-			}
-		}
-#endif
-	}else{
-		dbg(1, "* %i: texture=%i", b, texture_id);
-		AlphaBuf* alphabuf = wf_alphabuf_new(w, b, (renderer->mode == MODE_LOW ? WF_PEAK_STD_TO_LO : WF_MED_TO_V_LOW), false, TEX_BORDER);
-		wf_canvas_load_texture_from_alphabuf(a->canvas, texture_id, alphabuf);
-		wf_alphabuf_free(alphabuf);
-	}
+	dbg(1, "* %i: texture=%i", b, texture_id);
+	AlphaBuf* alphabuf = wf_alphabuf_new(w, b, (renderer->mode == MODE_LOW ? WF_PEAK_STD_TO_LO : WF_MED_TO_V_LOW), false, TEX_BORDER);
+	wf_canvas_load_texture_from_alphabuf(a->canvas, texture_id, alphabuf);
+	wf_alphabuf_free(alphabuf);
 }
 
 
@@ -240,7 +231,7 @@ med_lo_pre_render_gl1(Renderer* renderer, WaveformActor* actor)
 {
 	WfActorPriv* _a = actor->priv;
 
-	glEnable(GL_TEXTURE_2D);
+	agl_enable(AGL_ENABLE_TEXTURE_2D | AGL_ENABLE_BLEND);
 
 	AGlColourFloat fg; wf_colour_rgba_to_float(&fg, actor->fg_colour);
 

@@ -51,7 +51,6 @@
 #define GL_WIDTH 256.0
 #define GL_HEIGHT 256.0
 #define VBORDER 8
-#define bool gboolean
 
 GdkGLConfig*    glconfig       = NULL;
 GtkWidget*      canvas         = NULL;

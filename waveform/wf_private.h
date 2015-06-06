@@ -1,5 +1,5 @@
 /*
-  copyright (C) 2012-2014 Tim Orford <tim@orford.org>
+  copyright (C) 2012-2015 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -221,8 +221,7 @@ void           waveform_peak_to_alphabuf   (Waveform*, AlphaBuf*, int scale, int
 void           waveform_peak_to_alphabuf_hi(Waveform*, AlphaBuf*, int block, WfSampleRegion, GdkColor*);
 void           waveform_rms_to_alphabuf    (Waveform*, AlphaBuf*, int* start, int* end, double samples_per_px, GdkColor* colour, uint32_t colour_bg);
 
-WfGlBlock*     wf_texture_array_new        (int size, int n_channels);
-void           wf_texture_array_add_ch     (WfGlBlock*, int);
+void           waveform_free_render_data   (Waveform*);
 
 void           waveform_audio_free         (Waveform*);
 gboolean       waveform_load_audio_block   (Waveform*, WfBuf16*, int block_num);

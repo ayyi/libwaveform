@@ -172,8 +172,7 @@ fbo_print(WaveformActor* actor, int x, int y, double scale, uint32_t colour, int
 				glVertex2f(100.0, 100.0);
 				glVertex2f( 50.0, 100.0);
 				glEnd();
-			glEnable(GL_TEXTURE_2D);
-					glEnable(GL_BLEND);
+			agl_enable(AGL_ENABLE_TEXTURE_2D | AGL_ENABLE_BLEND);
 		} end_draw_to_fbo;
 	}
 
@@ -205,14 +204,13 @@ fbo_print(WaveformActor* actor, int x, int y, double scale, uint32_t colour, int
 			agl_use_program(actor->canvas, &vertical.shader);
 		}
 		glColor4f(1.0, 1.0, 1.0, alpha / 256.0);
-						glEnable(GL_TEXTURE_2D);
+		agl_enable(AGL_ENABLE_TEXTURE_2D);
 		glBindTexture(GL_TEXTURE_2D, fbo0->texture);
 		if(!glIsTexture(fbo0->texture)) gwarn("not texture");
 //TODO why have to disable blending?
 glDisable(GL_BLEND);
+//		agl_enable(AGL_ENABLE_BLEND | AGL_ENABLE_TEXTURE_2D);
 //glBindTexture(GL_TEXTURE_2D, 1);
-//		glEnable(GL_BLEND);
-//		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 		double top = y;
 		double bot = y + fbo0->height * scale;
 		double x1 = x;

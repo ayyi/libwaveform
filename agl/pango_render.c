@@ -58,11 +58,6 @@ static PangoGlRendererClass* PGRC = NULL;
 #define TC_HEIGHT 256
 #define TC_ROUND  4
 
-#define GL_ENABLE_BLEND        (1<<1)
-#define GL_ENABLE_TEXTURE_2D   (1<<2)
-#define GL_ENABLE_ALPHA_TEST   (1<<3)
-#define GL_ENABLE_TEXTURE_RECT (1<<4)
-
 /* Defines duped - fun,fun.. */
 #ifndef PANGO_GLYPH_EMPTY
 #define PANGO_GLYPH_EMPTY           ((PangoGlyph)0x0FFFFFFF)
@@ -91,8 +86,6 @@ static PangoGlRendererClass* PGRC = NULL;
 #endif
 
 const double _magic = 68719476736.0*1.5;
-
-static gulong __enable_flags = 0;
 
 static void prepare_run              (PangoRenderer*, PangoLayoutRun*);
 static void gl_pango_draw_begin      (PangoRenderer*);
@@ -535,7 +528,7 @@ draw_trapezoid (PangoRenderer   *renderer_,
     }
 
   /* Turn texturing off */
-  agl_enable (GL_ENABLE_BLEND);
+  agl_enable (AGL_ENABLE_BLEND);
 
   gl_trapezoid ((gint) y01,
 		  (gint) x11,
@@ -545,7 +538,7 @@ draw_trapezoid (PangoRenderer   *renderer_,
 		  (gint) x22);
 
   /* Turn it back on again */
-  agl_enable (GL_ENABLE_TEXTURE_2D|GL_ENABLE_BLEND);
+  agl_enable (AGL_ENABLE_TEXTURE_2D|AGL_ENABLE_BLEND);
 }
 
 void
@@ -708,7 +701,7 @@ gl_pango_draw_begin (PangoRenderer *renderer_)
 
   renderer->cur_tex = 0;
 
-  agl_enable (GL_ENABLE_TEXTURE_2D | GL_ENABLE_BLEND);
+  agl_enable (AGL_ENABLE_TEXTURE_2D | AGL_ENABLE_BLEND);
 
 #if 0
   (also commented out in clutter)
@@ -775,9 +768,9 @@ gl_texture_quad (gint x1, gint x2, gint y1, gint y2, Fixed tx1, Fixed ty1, Fixed
   //dbg(4, "%.2f %.2f %.2f %.2f", txf1, tyf1, txf2, tyf2);
 
   //agl_enable (GL_ENABLE_BLEND);//no textures
-#undef USE_GL_ENABLE //wont work unless we use it everywhere - flags will be wrong.
+#define USE_GL_ENABLE // wont work unless we use it everywhere - flags will be wrong.
 #ifdef USE_GL_ENABLE
-  agl_enable (GL_ENABLE_TEXTURE_2D|GL_ENABLE_BLEND);
+  agl_enable (AGL_ENABLE_TEXTURE_2D | AGL_ENABLE_BLEND);
 #else
   glEnable(GL_TEXTURE_2D);
   /*
@@ -849,9 +842,13 @@ pango_gl_debug_textures()
   tc_texture* tex = first_texture;
 
   glBindTexture(GL_TEXTURE_2D, tex->name);
+#ifdef USE_GL_ENABLE
+  agl_enable (AGL_ENABLE_TEXTURE_2D | AGL_ENABLE_BLEND);
+#else
   glEnable(GL_TEXTURE_2D);
   glEnable(GL_BLEND);
-  glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);      
+  glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+#endif
   glColor3f(1.0, 0.0, 0.0);
 
   double x = 100, y = -100;

@@ -32,6 +32,9 @@
 #define peak_byte_depth 2 // value are stored in the peak file as int16.
 
 
+/*
+ *   Load the given peak_file into a buffer and return the number of channels loaded.
+ */
 int
 wf_load_riff_peak(Waveform* wv, const char* peak_file)
 {

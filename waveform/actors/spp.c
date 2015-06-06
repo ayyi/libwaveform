@@ -44,11 +44,17 @@ static AGl* agl = NULL;
 
 
 AGlActor*
-spp_actor(WaveformViewPlus* view)
+spp_actor(WaveformActor* wf_actor)
 {
 	// TODO frame rate is currently too low to give smooth reslts.
 
 	agl = agl_get_instance();
+
+	void spp_actor__init(AGlActor* actor)
+	{
+		if(agl->use_shaders) agl_create_program(&cursor.shader);
+		if(!((SppActor*)actor)->text_colour) ((SppActor*)actor)->text_colour = wf_get_gtk_base_color(actor->root->widget, GTK_STATE_NORMAL, 0xaa);
+	}
 
 	void spp_actor__set_state(AGlActor* actor)
 	{
@@ -120,13 +126,13 @@ spp_actor(WaveformViewPlus* view)
 	actor->name = "SPP";
 #endif
 	actor->program = (AGlShader*)&cursor;
+	actor->init = spp_actor__init;
 	actor->set_state = spp_actor__set_state;
 	actor->set_size = spp_actor__set_size;
 	actor->paint = spp_actor__paint;
 
+	spp->wf_actor = wf_actor;
 	spp->time = WF_SPP_TIME_NONE;
-
-	if(agl->use_shaders) agl_create_program(&cursor.shader);
 
 	return actor;
 }
@@ -153,7 +159,7 @@ spp_actor_set_time(SppActor* spp, uint32_t time)
 	spp->time = time;
 
 	if(spp->play_timeout) g_source_remove(spp->play_timeout);
-	spp->play_timeout = g_timeout_add(50, check_playback, spp);
+	spp->play_timeout = g_timeout_add(100, check_playback, spp);
 
 	gtk_widget_queue_draw(((AGlActor*)spp)->root->widget);
 }

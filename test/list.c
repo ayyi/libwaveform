@@ -54,7 +54,6 @@ struct _app
 #define GL_WIDTH 256.0
 #define GL_HEIGHT 256.0
 #define VBORDER 8
-#define bool gboolean
 
 GdkGLConfig*    glconfig       = NULL;
 static bool     gl_initialised = false;
@@ -242,7 +241,6 @@ on_canvas_realise(GtkWidget* _canvas, gpointer user_data)
 	gl_init();
 
 	wfc = wf_canvas_new((AGlRootActor*)agl_actor__new_root(canvas));
-	//wf_canvas_set_use_shaders(wfc, false);
 	//wfc->enable_animations = false;
 
 	char* filename = g_build_filename(g_get_current_dir(), "test/data/mono_1.wav", NULL);

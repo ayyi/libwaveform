@@ -10,8 +10,8 @@
 *
 */
 
-#ifndef __gl_actor_h__
-#define __gl_actor_h__
+#ifndef __agl_actor_h__
+#define __agl_actor_h__
 #include <gtkglext-1.0/gdk/gdkgl.h>
 #include <gtkglext-1.0/gtk/gtkgl.h>
 #ifdef USE_SDL
@@ -24,18 +24,13 @@
 #undef AGL_DEBUG_ACTOR
 #define AGL_ACTOR_RENDER_CACHE
 
-#ifndef bool
-#  define bool int
-#endif
+typedef AGlActor* (AGlActorNew)       (GtkWidget*);
+typedef void      (*AGlActorSetState) (AGlActor*);
+typedef bool      (*AGlActorPaint)    (AGlActor*);
+typedef bool      (*AGlActorOnEvent)  (AGlActor*, GdkEvent*, AGliPt xy, AGliPt scroll_offset);
+typedef void      (*AGlActorFn)       (AGlActor*);
 
-typedef AGlActor* (ActorNew)          (GtkWidget*);
-typedef void      (*ActorInit)        (AGlActor*, gpointer);
-typedef void      (*ActorSetState)    (AGlActor*);
-typedef bool      (*ActorPaint)       (AGlActor*);
-typedef bool      (*ActorOnEvent)     (AGlActor*, GdkEvent*, AGliPt xy, AGliPt scroll_offset);
-typedef void      (*ActorFn)          (AGlActor*);
-
-typedef struct _actor_context AGlActorContext;
+typedef struct _AGlActorContext AGlActorContext;
 
 typedef enum {
 	CONTEXT_TYPE_GTK = 0,
@@ -48,22 +43,24 @@ struct _AGlActor {
 #endif
 	AGlActor*        parent;
 	AGlRootActor*    root;
-	ActorInit        init;            // called once when gl context is available.
-	ActorFn          set_size;        // called when the parent widget is resized.
-	ActorSetState    set_state;       // called once per expose
-	ActorFn          invalidate;      // clear fbo caches (and most likely other cached render information too)
-	ActorPaint       paint;           // called multiple times per expose, once for each object.
-	ActorOnEvent     on_event;
-	ActorFn          free;
+	AGlActorFn       init;            // called once when gl context is available.
+	AGlActorFn       set_size;        // called when the parent widget is resized.
+	AGlActorSetState set_state;       // called once per expose
+	AGlActorFn       invalidate;      // clear fbo caches (and most likely other cached render information too)
+	AGlActorPaint    paint;           // called multiple times per expose, once for each object.
+	AGlActorOnEvent  on_event;
+	AGlActorFn       free;
 	AGliRegion       region;
 	AGlShader*       program;
 	uint32_t         colour;
-	GList*           transitions;     // list of WfAnimation*
+	int              z;               // controls the order objects with the same parent are drawn.
+	bool             disabled;        // when disabled, actor and children are greyed-out and are non-interactive.
 	GList*           children;        // type AGlActor
+	GList*           transitions;     // list of WfAnimation*'s that are currently active.
 #ifdef AGL_ACTOR_RENDER_CACHE
 	AGlFBO*          fbo;
 	struct {
-	    bool         enabled;         // if false caching must be disabled. if true, caching is used only if fbo is present.
+	    bool         enabled;         // if false, caching must be disabled. if true, caching is used only if fbo is present.
 	    bool         valid;
 	}                cache;
 #endif
@@ -77,14 +74,16 @@ void      agl_actor__free            (AGlActor*);
 AGlActor* agl_actor__add_child       (AGlActor*, AGlActor*);
 void      agl_actor__remove_child    (AGlActor*, AGlActor*);
 AGlActor* agl_actor__replace_child   (AGlActor*, AGlActor*, AGlActor*);
-void      agl_actor__init            (AGlActor*, gpointer);              // called once when gl context is available.
 void      agl_actor__paint           (AGlActor*);
 void      agl_actor__set_size        (AGlActor*);
+void      agl_actor__set_use_shaders (AGlRootActor*, gboolean);
 void      agl_actor__grab            (AGlActor*);
 void      agl_actor__invalidate      (AGlActor*);
 void      agl_actor__enable_cache    (AGlActor*, bool);
 void      agl_actor__start_transition(AGlActor*, GList* animatables, AnimationFn done, gpointer);
+bool      agl_actor__is_disabled     (AGlActor*);
 bool      agl_actor__on_event        (AGlRootActor*, GdkEvent*);
+AGlActor* agl_actor__find_by_z       (AGlActor*, int);
 bool      agl_actor__null_painter    (AGlActor*);
 
 #ifdef DEBUG
@@ -115,11 +114,11 @@ struct _AGlTextureActor {
    guint             texture[1];
 };
 
-struct _actor_context {
+struct _AGlActorContext {
    AGlActor*         grabbed;         // to enable dragging outside an actors boundaries.
 };
 
-#ifdef __gl_actor_c__
+#ifdef __agl_actor_c__
 AGlActorContext actor_context;
 #else
 extern AGlActorContext actor_context;

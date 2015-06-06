@@ -46,8 +46,6 @@
 #include "waveform/view.h"
 #include "test/ayyi_utils.h"
 
-#define bool gboolean
-
 static void  set_log_handlers();
 static char* find_wav();
 
@@ -70,10 +68,6 @@ main (int argc, char *argv[])
 	waveform_view_set_show_rms(waveform, false);
 	#if 0
 	waveform_view_set_show_grid(waveform, true);
-	#endif
-	#if 0
-	WaveformCanvas* wfc = waveform_view_get_canvas(waveform);
-	wf_canvas_set_use_shaders(wfc, false);
 	#endif
 	gtk_container_add((GtkContainer*)window, (GtkWidget*)waveform);
 

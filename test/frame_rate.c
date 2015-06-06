@@ -6,11 +6,14 @@
   Redraws are requested at 100Hz and the resultant number of draws
   is counted.
 
+  (2012.10.05).
   On budget hardware, full screen drawing while continuously animating
   doesnt report more than 1% cpu usage, even when frame-rate drops.
   With all effects enabled, framerate drops to 18fps at fullscreen,
   though this is due entirely to the shader fx.
-  (2012.10.05).
+
+  (2015.01.01)
+  Framerate is now maintained at 60fps for fullscreen 1920x1080
 
   --------------------------------------------------------------
 
@@ -49,8 +52,6 @@
 #include "test/ayyi_utils.h"
 #include "test/common2.h"
 
-#define bool gboolean
-
 static uint64_t get_time         ();
 
 
@@ -69,10 +70,6 @@ main (int argc, char* argv[])
 
 	WaveformView* waveform[2] = {waveform_view_new(NULL),};
 	waveform_view_set_show_rms(waveform[0], false);
-	#if 0
-	WaveformCanvas* wfc = waveform_view_get_canvas(waveform);
-	wf_canvas_set_use_shaders(wfc, false);
-	#endif
 	gtk_box_pack_start((GtkBox*)box, (GtkWidget*)waveform[0], TRUE, TRUE, 0);
 
 	gtk_widget_show_all(window);

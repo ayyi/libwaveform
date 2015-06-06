@@ -36,7 +36,6 @@
 #include "agl/utils.h"
 #include "waveform/peak.h"
 #include "waveform/utils.h"
-#include "waveform/peakgen.h"
 #include "waveform/promise.h"
 #include "waveform/gl_utils.h"
 #include "waveform/utils.h"
@@ -65,6 +64,7 @@ struct _WaveformViewPrivate {
 	AGlActor*       root;
 	WaveformCanvas* canvas;
 	WaveformActor*  actor;
+	AGlActor*       grid;
 	gboolean        show_grid;
 	AMPromise*      ready;
 };
@@ -84,9 +84,7 @@ static void     waveform_view_unrealize            (GtkWidget*);
 static void     waveform_view_allocate             (GtkWidget*, GdkRectangle*);
 static void     waveform_view_finalize             (GObject*);
 static void     waveform_view_set_projection       (GtkWidget*);
-static void     waveform_view_init_drawable        (WaveformView*);
 static void     waveform_view_gl_on_allocate       (WaveformView*);
-static void     draw                               (WaveformView*);
 static int      waveform_view_get_width            (WaveformView*);
 
 
@@ -146,6 +144,7 @@ waveform_view_new (Waveform* waveform)
 
 	WaveformView* view = construct ();
 	GtkWidget* widget = (GtkWidget*)view;
+	WaveformViewPrivate* v = view->priv;
 
 	view->waveform = waveform ? g_object_ref(waveform) : NULL;
 
@@ -159,7 +158,6 @@ waveform_view_new (Waveform* waveform)
 		WaveformView* view = _view;
 		g_return_val_if_fail(view, G_SOURCE_REMOVE);
 		if(!promise(PROMISE_DISP_READY)->is_resolved){
-			waveform_view_init_drawable(view);
 			gtk_widget_queue_draw((GtkWidget*)view); //testing.
 		}
 		return G_SOURCE_REMOVE;
@@ -170,6 +168,20 @@ waveform_view_new (Waveform* waveform)
 
 	view->priv->ready = am_promise_new(view);
 	am_promise_when(view->priv->ready, am_promise_new(view), am_promise_new(view), NULL);
+
+	void root_ready(AGlActor* a)
+	{
+		WaveformView* view = (WaveformView*)((AGlRootActor*)a)->widget;
+		WaveformViewPrivate* v = view->priv;
+		v->canvas = wf_canvas_new((AGlRootActor*)v->root);
+
+		waveform_view_set_projection(((AGlRootActor*)a)->widget);
+
+		am_promise_resolve(g_list_nth_data(v->ready->children, PROMISE_DISP_READY), NULL);
+	}
+
+	v->root = agl_actor__new_root(widget);
+	v->root->init = root_ready;
 
 	return view;
 }
@@ -202,12 +214,16 @@ _show_waveform(gpointer _view, gpointer _c)
 	WaveformViewPrivate* v = view->priv;
 	g_return_if_fail(v->canvas);
 
-	if(v->actor) return; // nothing to do?
+	if(v->actor) return; // nothing to do
 
-	if(!promise(PROMISE_DISP_READY)->is_resolved) waveform_view_init_drawable(view);
+	if(!promise(PROMISE_DISP_READY)->is_resolved) gwarn("impossible condition!");
 
 	if(view->waveform){ // it is valid for the widget to not have a waveform set.
 		v->actor = wf_canvas_add_new_actor(v->canvas, view->waveform);
+
+		if(v->show_grid) agl_actor__add_child(v->root, v->grid = grid_actor(v->actor));
+
+		agl_actor__add_child(v->root, (AGlActor*)v->actor);
 
 		uint64_t n_frames = waveform_get_n_frames(view->waveform);
 		if(n_frames){
@@ -348,6 +364,7 @@ waveform_view_set_show_rms (WaveformView* view, gboolean _show)
 	{
 		WaveformView* view = _view;
 
+													if(!view->priv->canvas) return G_SOURCE_CONTINUE;
 		view->priv->canvas->show_rms = show;
 		gtk_widget_queue_draw((GtkWidget*)view);
 
@@ -383,8 +400,6 @@ waveform_view_realize (GtkWidget* base)
 	gtk_widget_set_style (base, gtk_style_attach(gtk_widget_get_style(base), base->window));
 	gtk_style_set_background (gtk_widget_get_style (base), base->window, GTK_STATE_NORMAL);
 	gdk_window_move_resize (base->window, base->allocation.x, base->allocation.y, base->allocation.width, base->allocation.height);
-
-	if(!promise(PROMISE_DISP_READY)->is_resolved) waveform_view_init_drawable(view);
 }
 
 
@@ -413,7 +428,7 @@ waveform_view_on_expose (GtkWidget* widget, GdkEventExpose* event)
 	g_return_val_if_fail (event, false);
 
 	if(!GTK_WIDGET_REALIZED(widget)) return true;
-	if(/*!v->root || */!promise(PROMISE_DISP_READY)->is_resolved) return true;
+	if(!promise(PROMISE_DISP_READY)->is_resolved) return true;
 
 	AGL_ACTOR_START_DRAW(v->root) {
 		// needed for the case of shared contexts, where one of the other contexts modifies the projection.
@@ -422,7 +437,22 @@ waveform_view_on_expose (GtkWidget* widget, GdkEventExpose* event)
 		glClearColor(0.0, 0.0, 0.0, 1.0);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-		draw(view);
+#if 0 // white border
+		glPushMatrix(); /* modelview matrix */
+			glNormal3f(0, 0, 1); glDisable(GL_TEXTURE_2D);
+			glLineWidth(1);
+			glColor3f(1.0, 1.0, 1.0);
+
+			int wid = GL_WIDTH;
+			int h   = GL_HEIGHT;
+			glBegin(GL_LINES);
+			glVertex3f(0.0, 0.0, 1); glVertex3f(wid, 0.0, 1);
+			glVertex3f(wid, h,   1); glVertex3f(0.0,   h, 1);
+			glEnd();
+		glPopMatrix();
+#endif
+
+		agl_actor__paint(v->root);
 
 		gdk_gl_drawable_swap_buffers(((AGlRootActor*)v->root)->gl.gdk.drawable);
 	} AGL_ACTOR_END_DRAW(v->root)
@@ -458,25 +488,31 @@ waveform_view_motion_notify_event (GtkWidget* widget, GdkEventMotion* event)
 }
 
 
+#if 0
 static void
-waveform_view_init_drawable (WaveformView* view)
+waveform_view_init_display (WaveformView* view)
 {
-	WaveformViewPrivate* v = view->priv;
-
 	GtkWidget* widget = (GtkWidget*)view;
 
 	if(!GTK_WIDGET_REALIZED(widget)) return;
 
-	if(!v->root){
-		if(!(v->root = agl_actor__new_root(widget))) return;
+	void root_ready(AGlActor* a, gpointer user_data)
+	{
+		WaveformView* view = (WaveformView*)((AGlRootActor*)a)->widget;
+		WaveformViewPrivate* v = view->priv;
+		v->canvas = wf_canvas_new((AGlRootActor*)v->root);
+
+		waveform_view_set_projection(((AGlRootActor*)a)->widget);
+
+		am_promise_resolve(g_list_nth_data(v->ready->children, PROMISE_DISP_READY), NULL);
 	}
 
-	v->canvas = wf_canvas_new((AGlRootActor*)v->root);
-
-	waveform_view_set_projection(widget);
-
-	am_promise_resolve(g_list_nth_data(view->priv->ready->children, PROMISE_DISP_READY), NULL);
+	if(!v->root){
+		v->root = agl_actor__new_root(widget);
+		v->root->init = root_ready;
+	}
 }
+#endif
 
 
 static void
@@ -489,8 +525,6 @@ waveform_view_allocate (GtkWidget* widget, GdkRectangle* allocation)
 	widget->allocation = (GtkAllocation)(*allocation);
 	if ((GTK_WIDGET_FLAGS (widget) & GTK_REALIZED) == 0) return;
 	gdk_window_move_resize(widget->window, widget->allocation.x, widget->allocation.y, widget->allocation.width, widget->allocation.height);
-
-	if(!promise(PROMISE_DISP_READY)->is_resolved) waveform_view_init_drawable(view);
 
 	if(!promise(PROMISE_DISP_READY)->is_resolved) return;
 
@@ -575,36 +609,6 @@ waveform_view_set_projection(GtkWidget* widget)
 	double top   = GL_HEIGHT;
 	double bottom = 0.0;
 	glOrtho (left, right, bottom, top, 10.0, -100.0);
-}
-
-
-static void
-draw(WaveformView* view)
-{
-	Waveform* w = view->waveform;
-	WaveformViewPrivate* v = view->priv;
-	WaveformActor* actor = view->priv->actor;
-
-#if 0 // white border
-	glPushMatrix(); /* modelview matrix */
-		glNormal3f(0, 0, 1); glDisable(GL_TEXTURE_2D);
-		glLineWidth(1);
-		glColor3f(1.0, 1.0, 1.0);
-
-		int wid = GL_WIDTH;
-		int h   = GL_HEIGHT;
-		glBegin(GL_LINES);
-		glVertex3f(0.0, 0.0, 1); glVertex3f(wid, 0.0, 1);
-		glVertex3f(wid, h,   1); glVertex3f(0.0,   h, 1);
-		glEnd();
-	glPopMatrix();
-#endif
-
-	if(!w) return;
-
-	((AGlActor*)actor)->paint((AGlActor*)actor);
-
-	if(v->show_grid) wf_grid_paint(v->canvas, actor);
 }
 
 

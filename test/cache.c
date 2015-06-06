@@ -56,7 +56,6 @@ extern void hi_ng_cache_print   ();
 #define GL_WIDTH 512.0
 #define GL_HEIGHT 128.0
 #define VBORDER 8
-#define bool gboolean
 #define WAV1 "test/data/large1.wav"
 #define WAV2 "test/data/large2.wav"
 
@@ -437,9 +436,7 @@ test_scroll()
 			assert_and_stop(animatable->val.i == *animatable->model_val.i, "animation not finished");
 			*/
 
-			//GList* transitions = wf_actor_get_transitions(a[0]);
-			//dbg(0, "n_transitions=%i", g_list_length(transitions));
-			if(g_list_length(wf_actor_get_transitions(a[0]))) return TIMER_CONTINUE; // not yet ready
+			if(g_list_length(((AGlActor*)a[0])->transitions)) return TIMER_CONTINUE; // not yet ready
 
 			wait_count++;
 
@@ -529,9 +526,7 @@ test_hi_double()
 			assert_and_stop(animatable->val.i == *animatable->model_val.i, "animation not finished");
 			*/
 
-			//GList* transitions = wf_actor_get_transitions(a[0]);
-			//dbg(0, "n_transitions=%i", g_list_length(transitions));
-			if(g_list_length(wf_actor_get_transitions(a[0]))) return TIMER_CONTINUE; // not yet ready
+			if(g_list_length(((AGlActor*)a[0])->transitions)) return TIMER_CONTINUE; // not yet ready
 
 			wait_count++;
 

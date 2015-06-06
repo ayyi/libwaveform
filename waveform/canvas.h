@@ -54,7 +54,6 @@ struct _waveform_canvas {
 
 	WfCanvasPriv*  priv;
 	int           _draw_depth;
-	guint         _queued;
 	AGlTextureUnit* texture_unit[4];
 };
 
@@ -75,6 +74,8 @@ struct _wf_canvas_priv {
 	guint64       _last_redraw_time;
 	bool          is_animating;
 #endif
+	guint         _queued;
+	guint         pending_init;
 };
 #endif
 
@@ -89,7 +90,6 @@ WaveformCanvas* wf_canvas_new                       (AGlRootActor*);
 WaveformCanvas* wf_canvas_new_sdl                   (SDL_GLContext*);
 #endif
 void            wf_canvas_free                      (WaveformCanvas*);
-void            wf_canvas_set_use_shaders           (WaveformCanvas*, gboolean);
 void            wf_canvas_set_viewport              (WaveformCanvas*, WfViewPort*);
 void            wf_canvas_set_share_list            (WaveformCanvas*);
 void            wf_canvas_set_rotation              (WaveformCanvas*, float);

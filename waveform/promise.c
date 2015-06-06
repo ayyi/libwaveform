@@ -103,6 +103,9 @@ am_promise_fail(AMPromise* p)
 }
 
 
+/*
+ *  The promise will be resolved when all the child promises are resolved.
+ */
 void
 am_promise_when(AMPromise* promise, AMPromise* p, ...)
 {

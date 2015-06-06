@@ -481,7 +481,7 @@ ng_gl2_free_section(Renderer* renderer, Waveform* waveform, Section* section, in
 static void
 ng_gl2_free_waveform(Renderer* renderer, Waveform* waveform)
 {
-	PF;
+	dbg(1, "%s", modes[renderer->mode].name);
 
 #ifdef NG_HASHTABLE
 	HiResNGWaveform* data = g_hash_table_lookup(((NGRenderer*)renderer)->ng_data, waveform);
@@ -496,7 +496,7 @@ ng_gl2_free_waveform(Renderer* renderer, Waveform* waveform)
 		}
 #ifdef NG_HASHTABLE
 		// removing from the hash table will cause the item to be free'd.
-		if(!g_hash_table_remove(((NGRenderer*)renderer)->ng_data, waveform)) dbg(1, "failed to remove hi-res data");
+		if(!g_hash_table_remove(((NGRenderer*)renderer)->ng_data, waveform)) dbg(1, "failed to remove render data");
 #endif
 
 		waveform->priv->render_data[renderer->mode] = NULL;

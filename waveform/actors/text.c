@@ -1,0 +1,412 @@
+/*
+  copyright (C) 2012-2015 Tim Orford <tim@orford.org>
+
+  This program is free software; you can redistribute it and/or modify
+  it under the terms of the GNU General Public License version 3
+  as published by the Free Software Foundation.
+
+  This program is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+  GNU General Public License for more details.
+
+  You should have received a copy of the GNU General Public License
+  along with this program; if not, write to the Free Software
+  Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+*/
+#define __wf_private__
+#include "config.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <math.h>
+#include <gtk/gtk.h>
+#include <gdk/gdkkeysyms.h>
+#include <GL/gl.h>
+#include <GL/glx.h>
+#include <GL/glxext.h>
+#include <gtkglext-1.0/gdk/gdkgl.h>
+#include <gtkglext-1.0/gtk/gtkgl.h>
+#include <ass/ass.h>
+#include "agl/ext.h"
+#include "agl/utils.h"
+#include "agl/actor.h"
+#include "waveform/peak.h"
+#include "waveform/utils.h"
+#include "waveform/peakgen.h"
+#include "waveform/gl_utils.h"
+#include "waveform/utils.h"
+#include "waveform/shader.h"
+#include "waveform/actor.h"
+#include "waveform/actors/text.h"
+
+#define _g_free0(var) (var = (g_free (var), NULL))
+
+#define FONT \
+	"Droid Sans"
+	//"Ubuntu"
+	//"Open Sans Rg"
+	//"Fontin Sans Rg"
+
+#define FONT_SIZE 18 //TODO
+
+extern AssShader ass;
+
+static AGl* agl = NULL;
+static int instance_count = 0;
+
+
+static void text_actor_render_text (TextActor*);
+
+char* script = 
+	"[Script Info]\n"
+	"ScriptType: v4.00+\n"
+	"PlayResX: %i\n"
+	"PlayResY: %i\n"
+	"ScaledBorderAndShadow: yes\n"
+	"[V4+ Styles]\n"
+	"Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding\n"
+	/*
+		PrimaryColour:   filling color
+		SecondaryColour: for animations
+		OutlineColour:   border color
+		BackColour:      shadow color
+
+		hex format appears to be AALLXXXXXX where AA=alpha (00=opaque, FF=transparent) and LL=luminance
+	*/
+	//"Style: Default,Fontin Sans Rg,%i,&H000000FF,&HFF0000FF,&H00FF0000,&H00000000,-1,0,0,0,100,100,0,0,1,2.5,0,1,2,2,2,1\n"
+	"Style: Default," FONT ",%i,&H3FFF00FF,&HFF0000FF,&H000000FF,&H00000000,-1,0,0,0,100,100,0,0,1,2.5,0,1,2,2,2,1\n"
+	"[Events]\n"
+	"Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\n"
+	"Dialogue: 0,0:00:00.00,0:00:15.00,Default,,0000,0000,0000,,%s \n";
+
+typedef struct
+{
+    int width, height, stride;
+    unsigned char* buf;      // 8 bit alphamap
+} image_t;
+
+static ASS_Library*  ass_library = NULL;
+static ASS_Renderer* ass_renderer = NULL;
+
+
+static void
+_init()
+{
+	static bool init_done = false;
+
+	void ass_init()
+	{
+		void msg_callback(int level, const char* fmt, va_list va, void* data)
+		{
+			if (!wf_debug || level > 6) return;
+			printf("libass: ");
+			vprintf(fmt, va);
+			printf("\n");
+		}
+
+		ass_library = ass_library_init();
+		if (!ass_library) {
+			printf("ass_library_init failed!\n");
+			exit(EXIT_FAILURE);
+		}
+
+		ass_set_message_cb(ass_library, msg_callback, NULL);
+
+		ass_renderer = ass_renderer_init(ass_library);
+		if (!ass_renderer) {
+			printf("ass_renderer_init failed!\n");
+			exit(EXIT_FAILURE);
+		}
+
+		ass_set_fonts(ass_renderer, NULL, "Sans", 1, NULL, 1);
+	}
+
+	if(!init_done){
+		agl = agl_get_instance();
+		ass_init();
+
+		init_done = true;
+	}
+}
+
+
+AGlActor*
+text_actor(WaveformActor* _)
+{
+	instance_count++;
+
+	_init();
+
+	bool text_actor_paint(AGlActor* actor)
+	{
+		TextActor* ta = (TextActor*)actor;
+
+		agl_print(2, actor->parent->region.y2 - 16, 0, ta->text_colour, ta->text);
+
+		if(ta->title){
+			if(!ta->title_is_rendered) text_actor_render_text(ta);
+
+			// title text:
+			if(agl->use_shaders){
+				glEnable(GL_TEXTURE_2D);
+				glActiveTexture(GL_TEXTURE0);
+
+				agl_use_program((AGlShader*)&ass);
+
+				float th = ((TextActor*)actor)->texture.height;
+
+#undef ALIGN_TOP
+#ifdef ALIGN_TOP
+				float y1 = -((int)th - view->title_height - view->title_y_offset);
+				agl_textured_rect(v->ass_textures[0], waveform_view_plus_get_width(view) - v->title.width - 4.0f, y, v->title.width, th, &(AGlRect){0.0, 0.0, ((float)v->title.width) / ta->texture.width, 1.0});
+#else
+				float y = actor->parent->region.y2 - th;
+				agl_textured_rect(ta->texture.ids[0],
+					actor->parent->region.x2 - ta->_title.width - 4.0f,
+					y + ((TextActor*)actor)->baseline - 4.0f,
+					ta->_title.width,
+					th,
+					&(AGlQuad){0.0, 0.0, ((float)ta->_title.width) / ta->texture.width, 1.0}
+				);
+#endif
+			}
+		}
+
+		return true;
+	}
+
+	void text_actor_init(AGlActor* a)
+	{
+		TextActor* ta = (TextActor*)a;
+
+		if(!ta->title_colour1) ta->title_colour1 = wf_get_gtk_text_color(a->root->widget, GTK_STATE_NORMAL);
+		if(!ta->text_colour) ta->text_colour = wf_get_gtk_base_color(a->root->widget, GTK_STATE_NORMAL, 0xaa);
+
+		if(agl_get_instance()->use_shaders){
+			agl_create_program((AGlShader*)&ass);
+			ass.uniform.colour1 = ((TextActor*)a)->title_colour1;
+			ass.uniform.colour2 = ((TextActor*)a)->title_colour2;
+		}
+	}
+
+	void text_actor_free(AGlActor* actor)
+	{
+		TextActor* ta = (TextActor*)actor;
+
+		if(ta->title) _g_free0(ta->title);
+		if(ta->text) _g_free0(ta->text);
+
+		if(!--instance_count){
+			ass_renderer_done(ass_renderer);
+			ass_library_done(ass_library);
+			ass_renderer = NULL;
+			ass_library = NULL;
+		}
+	}
+
+	TextActor* ta = g_new0(TextActor, 1);
+	AGlActor* actor = (AGlActor*)ta;
+#ifdef AGL_DEBUG_ACTOR
+	actor->name = "Text";
+#endif
+	actor->init = text_actor_init;
+	actor->free = text_actor_free;
+	actor->paint = text_actor_paint;
+
+	ta->title_colour1 = 0xff0000ff;
+	//ta->title_colour2 = 0xffffffaa;
+	ta->title_colour2 = 0x0000ffff; //FIXME
+
+	return actor;
+}
+
+
+void
+text_actor_set_colour (TextActor* ta, uint32_t title1, uint32_t title2)
+{
+	ass.uniform.colour1 = ta->title_colour1 = title1;
+	ass.uniform.colour2 = ta->title_colour2 = title2;
+
+	gtk_widget_queue_draw(((AGlActor*)ta)->root->widget);
+}
+
+
+/*
+ *  The text is owned by the actor and will be freed later.
+ */
+void
+text_actor_set_text (TextActor* ta, char* title, char* text)
+{
+	if(ta->title) _g_free0(ta->title);
+	if(ta->text) _g_free0(ta->text);
+
+	ta->title = title;
+	ta->text = text;
+	ta->title_is_rendered = false;
+
+	gtk_widget_queue_draw(((AGlActor*)ta)->root->widget);
+}
+
+
+#define _r(c)  ( (c)>>24)
+#define _g(c)  (((c)>>16)&0xFF)
+#define _b(c)  (((c)>> 8)&0xFF)
+#define _a(c)  (((c)    )&0xFF)
+
+#define N_CHANNELS 2 // luminance + alpha
+
+static void
+blend_single(image_t* frame, ASS_Image* img)
+{
+	// composite img onto frame
+
+	int x, y;
+	unsigned char opacity = 255 - _a(img->color);
+	unsigned char b = _b(img->color);
+	dbg(2, "  %ix%i stride=%i x=%i", img->w, img->h, img->stride, img->dst_x);
+
+	#define LUMINANCE_CHANNEL (x * N_CHANNELS)
+	#define ALPHA_CHANNEL (x * N_CHANNELS + 1)
+	unsigned char* src = img->bitmap;
+	unsigned char* dst = frame->buf + img->dst_y * frame->stride + img->dst_x * N_CHANNELS;
+	for (y = 0; y < img->h; ++y) {
+		for (x = 0; x < img->w; ++x) {
+			unsigned k = ((unsigned) src[x]) * opacity / 255;
+			dst[LUMINANCE_CHANNEL] = (k * b + (255 - k) * dst[LUMINANCE_CHANNEL]) / 255;
+			dst[ALPHA_CHANNEL] = (k * 255 + (255 - k) * dst[ALPHA_CHANNEL]) / 255;
+		}
+		src += img->stride;
+		dst += frame->stride;
+	}
+}
+
+
+static void
+text_actor_render_text(TextActor* ta)
+{
+	AGlActor* actor = (AGlActor*)ta;
+
+	PF;
+	if(ta->title_is_rendered) gwarn("title is already rendered");
+
+	GError* error = NULL;
+	GRegexMatchFlags flags = 0;
+	static GRegex* regex = NULL;
+	if(!regex) regex = g_regex_new("[_]", 0, flags, &error);
+	gchar* str = g_regex_replace(regex, ta->title, -1, 0, " ", flags, &error);
+
+	char* title = g_strdup_printf("%s", str);
+	g_free(str);
+
+	int fh = agl_power_of_two(FONT_SIZE + 4);
+	int fw = ta->texture.width = agl_power_of_two(strlen(title) * 20);
+	ass_set_frame_size(ass_renderer, fw, fh);
+
+	void title_render(const char* text, image_t* out, Title* t)
+	{
+		char* script2 = g_strdup_printf(script, fw, fh, FONT_SIZE, text);
+
+		ASS_Track* track = ass_read_memory(ass_library, script2, strlen(script2), NULL);
+		g_free(script2);
+		if (!track) {
+			printf("track init failed!\n");
+			return;
+		}
+
+		ASS_Image* img = ass_render_frame(ass_renderer, track, 100, NULL);
+
+		*t = (Title){
+			.y_offset = fh,
+		};
+
+		ASS_Image* i = img;
+		for(;i;i=i->next){
+			t->height   = MAX(t->height, i->h);
+			t->width    = MAX(t->width,  i->dst_x + i->w);
+			t->y_offset = MIN(t->y_offset, fh - i->dst_y - i->h); // dst_y is distance from bottom.
+		}
+
+		*out = (image_t){fw, fh, fw * N_CHANNELS, g_new0(guchar, fw * fh * N_CHANNELS)};
+		for(i=img;i;i=i->next){
+			blend_single(out, i); // blend each glyph onto the output buffer.
+		}
+
+		ass_free_track(track);
+		if(false){
+			char* buf = g_new0(char, out->width * out->height * 4);
+			int stride = out->width * 4;
+			int y; for(y=0;y<fh;y++){
+				int x; for(x=0;x<out->width;x++){
+					*(buf + y * stride + x * 4    ) = *(out->buf + y * out->stride + x * N_CHANNELS);
+					*(buf + y * stride + x * 4 + 1) = 0;
+					*(buf + y * stride + x * 4 + 2) = 0;
+					*(buf + y * stride + x * 4 + 3) = *(out->buf + y * out->stride + x * N_CHANNELS + 1);
+				}
+			}
+			GdkPixbuf* pixbuf = gdk_pixbuf_new_from_data((const guchar*)buf, GDK_COLORSPACE_RGB, /*HAS_ALPHA_*/TRUE, 8, out->width, out->height, stride, NULL, NULL);
+			gdk_pixbuf_save(pixbuf, "tmp1.png", "png", NULL, NULL);
+			g_object_unref(pixbuf);
+			g_free(buf);
+		}
+
+	}
+
+	// do some test renders to find where the baseline is
+	{
+		image_t out;
+		Title t;
+
+		title_render("iey", &out, &t);
+		((TextActor*)actor)->baseline = t.height;
+		fh = agl_power_of_two(t.height);
+
+		title_render("ie", &out, &t);
+		((TextActor*)actor)->baseline -= t.height -1; // 1 because of spill below baseline
+	}
+
+	image_t out;
+	title_render(title, &out, &ta->_title);
+
+	{
+		if(!((TextActor*)actor)->texture.ids[0]){
+			glGenTextures(1, ((TextActor*)actor)->texture.ids);
+			if(gl_error){ gerr ("couldnt create ass_texture."); goto out; }
+		}
+		((TextActor*)actor)->texture.height = out.height;
+
+		int pixel_format = GL_LUMINANCE_ALPHA;
+		glBindTexture  (GL_TEXTURE_2D, ((TextActor*)actor)->texture.ids[0]);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_LUMINANCE8_ALPHA8, out.width, out.height, 0, pixel_format, GL_UNSIGNED_BYTE, out.buf);
+		gl_warn("gl error using ass texture");
+
+#if 0
+		{
+			char* buf = g_new0(char, out.width * out.height * 4);
+			int stride = out.width * 4;
+			int y; for(y=0;y<fh;y++){
+				int x; for(x=0;x<out.width;x++){
+					*(buf + y * stride + x * 4    ) = *(out.buf + y * out.stride + x * N_CHANNELS);
+					*(buf + y * stride + x * 4 + 1) = 0;//*(out.buf + y * out.stride + x * N_CHANNELS);
+					*(buf + y * stride + x * 4 + 2) = 0;//*(out.buf + y * out.stride + x * N_CHANNELS);
+					*(buf + y * stride + x * 4 + 3) = *(out.buf + y * out.stride + x * N_CHANNELS + 1);
+				}
+			}
+			GdkPixbuf* pixbuf = gdk_pixbuf_new_from_data((const guchar*)buf, GDK_COLORSPACE_RGB, /*HAS_ALPHA_*/TRUE, 8, out.width, out.height, stride, NULL, NULL);
+			gdk_pixbuf_save(pixbuf, "tmp.png", "png", NULL, NULL);
+			g_object_unref(pixbuf);
+			g_free(buf);
+		}
+#endif
+	}
+
+	ta->title_is_rendered = true;
+
+  out:
+	g_free(out.buf);
+	g_free(title);
+}
+
+

@@ -50,14 +50,9 @@ struct _WaveformViewPlus {
 	float                    zoom;
 	uint64_t                 start_frame;
 	WaveformViewPlusPrivate* priv;
-	//---------
-	char*                    title;
+
 	uint32_t                 fg_colour;
 	uint32_t                 bg_colour;
-	uint32_t                 title_colour1;
-	uint32_t                 title_colour2;
-
-	char*                    text;
 	uint32_t                 text_colour;
 };
 
@@ -72,17 +67,17 @@ void              waveform_view_plus_set_gl        (GdkGLContext*);
 WaveformViewPlus* waveform_view_plus_new           (Waveform*);
 void              waveform_view_plus_load_file     (WaveformViewPlus*, const char*); //be careful, it force loads, even if already loaded.
 void              waveform_view_plus_set_waveform  (WaveformViewPlus*, Waveform*);
-void              waveform_view_plus_set_title     (WaveformViewPlus*, const char*);
-void              waveform_view_plus_set_text      (WaveformViewPlus*, const char*);
 void              waveform_view_plus_set_zoom      (WaveformViewPlus*, float);
 void              waveform_view_plus_set_start     (WaveformViewPlus*, int64_t);
 void              waveform_view_plus_set_region    (WaveformViewPlus*, int64_t, int64_t);
-void              waveform_view_plus_set_colour    (WaveformViewPlus*, uint32_t fg, uint32_t bg, uint32_t title1, uint32_t title2);
-void              waveform_view_plus_set_time      (WaveformViewPlus*, uint32_t milliseconds);
+void              waveform_view_plus_set_colour    (WaveformViewPlus*, uint32_t fg, uint32_t bg);
 void              waveform_view_plus_set_show_rms  (WaveformViewPlus*, gboolean);
 void              waveform_view_plus_set_show_grid (WaveformViewPlus*, gboolean);
+AGlActor*         waveform_view_plus_add_layer     (WaveformViewPlus*, AGlActor*, int z);
+AGlActor*         waveform_view_plus_get_layer     (WaveformViewPlus*, int);
 
 WaveformCanvas*   waveform_view_plus_get_canvas    (WaveformViewPlus*);
+WaveformActor*    waveform_view_plus_get_actor     (WaveformViewPlus*);
 
 
 G_END_DECLS

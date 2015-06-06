@@ -60,9 +60,4 @@ void            wf_actor_clear                      (WaveformActor*);
 
 #define         WF_ACTOR_PX_PER_FRAME(A) (A->rect.len / A->region.len)
 
-#ifdef USE_TEST
-// access to private data
-GList*          wf_actor_get_transitions            (WaveformActor*);
-#endif
-
 #endif //__waveform_actor_h__

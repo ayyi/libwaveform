@@ -43,8 +43,6 @@ extern void wf_debug_printf (const char* func, int level, const char* format, ..
 #define dbg(A, B, ...) wf_debug_printf(__func__, A, B, ##__VA_ARGS__)
 
 static gulong __enable_flags = 0;
-#define GL_ENABLE_BLEND        (1<<1)
-#define GL_ENABLE_TEXTURE_2D   (1<<2)
 #define GL_ENABLE_ALPHA_TEST   (1<<3)
 #define GL_ENABLE_TEXTURE_RECT (1<<4)
 
@@ -138,33 +136,34 @@ agl_enable (gulong flags)
   /* This function essentially caches glEnable state() in the
    * hope of lessening number GL traffic.
   */
-  if (flags & GL_ENABLE_BLEND)
+  if (flags & AGL_ENABLE_BLEND)
     {
-      if (!(__enable_flags & GL_ENABLE_BLEND))
+      if (!(__enable_flags & AGL_ENABLE_BLEND))
         {
           glEnable (GL_BLEND);
           glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
         }
-      __enable_flags |= GL_ENABLE_BLEND;
+      __enable_flags |= AGL_ENABLE_BLEND;
     }
-  else if (__enable_flags & GL_ENABLE_BLEND)
+  else if (__enable_flags & AGL_ENABLE_BLEND)
     {
       glDisable (GL_BLEND);
-      __enable_flags &= ~GL_ENABLE_BLEND;
+      __enable_flags &= ~AGL_ENABLE_BLEND;
     }
 
-  if (flags & GL_ENABLE_TEXTURE_2D)
+  if (flags & AGL_ENABLE_TEXTURE_2D)
     {
-      if (!(__enable_flags & GL_ENABLE_TEXTURE_2D))
+      if (!(__enable_flags & AGL_ENABLE_TEXTURE_2D))
         glEnable (GL_TEXTURE_2D);
-      __enable_flags |= GL_ENABLE_TEXTURE_2D;
+      __enable_flags |= AGL_ENABLE_TEXTURE_2D;
     }
-  else if (__enable_flags & GL_ENABLE_TEXTURE_2D)
+  else if (__enable_flags & AGL_ENABLE_TEXTURE_2D)
     {
       glDisable (GL_TEXTURE_2D);
-      __enable_flags &= ~GL_ENABLE_TEXTURE_2D;
+      __enable_flags &= ~AGL_ENABLE_TEXTURE_2D;
     }
 
+																			#if 0
 #ifdef GL_TEXTURE_RECTANGLE_ARB
   if (flags & GL_ENABLE_TEXTURE_RECT)
     {
@@ -191,11 +190,12 @@ agl_enable (gulong flags)
       glDisable (GL_ALPHA_TEST);
       __enable_flags &= ~GL_ENABLE_ALPHA_TEST;
     }
+																			#endif
 
 #if 0
-  if (__enable_flags & GL_ENABLE_BLEND)      dbg(0, "blend is enabled.");
-  if (__enable_flags & GL_ENABLE_TEXTURE_2D) dbg(0, "texture is enabled.");
-  if (__enable_flags & GL_ENABLE_ALPHA_TEST) dbg(0, "alpha_test is enabled."); else dbg(0, "alpha_test is NOT enabled.");
+  if (__enable_flags & AGL_ENABLE_BLEND)      dbg(0, "blend is enabled.");
+  if (__enable_flags & AGL_ENABLE_TEXTURE_2D) dbg(0, "texture is enabled.");
+  if (__enable_flags & AGL_ENABLE_ALPHA_TEST) dbg(0, "alpha_test is enabled."); else dbg(0, "alpha_test is NOT enabled.");
 #endif
 }
 
@@ -209,8 +209,7 @@ agl_shaders_supported()
 
 	if(!version){
 		gwarn("cannot get gl version. incorrect mode?");
-		agl->use_shaders = FALSE;
-		return GL_FALSE;
+		goto no_shaders;
 	}
 
 	if (version[0] == '2' && version[1] == '.') {
@@ -299,10 +298,10 @@ agl_compile_shader_text(GLenum shaderType, const char* text)
       GLchar log[1000];
       GLsizei len;
       glGetShaderInfoLog(shader, 1000, &len, log);
-      g_error("problem compiling shader: %s\n", log);
-      exit(1);
-   }
-   return shader;
+		g_error("problem compiling shader: '%s'\n", log);
+		return 0;
+	}
+	return shader;
 }
 
 
@@ -572,15 +571,11 @@ agl_print(int x, int y, double z, uint32_t colour, const char *fmt, ...)
 	va_list args;
 	va_start(args, fmt);
 	gchar* text = g_strdup_vprintf(fmt, args);
-	va_end(args); //text now contains the string.
+	va_end(args); // text now contains the string.
 
-#if 0
-	gboolean first_time = FALSE;
-#endif
 	PangoGlRendererClass* PGRC = g_type_class_peek(PANGO_TYPE_GL_RENDERER);
 #if 0
 	if(!PGRC->context){
-		first_time = TRUE;
 		PangoFontMap* fontmap = pango_gl_font_map_new();
 		//pango_gl_font_map_set_resolution (PANGO_GL_FONT_MAP(fontmap), 96.0);
 		PGRC->context = pango_gl_font_map_create_context(PANGO_GL_FONT_MAP(fontmap));
@@ -614,16 +609,9 @@ agl_print(int x, int y, double z, uint32_t colour, const char *fmt, ...)
 	PangoRenderer* renderer = pango_gl_font_map_get_renderer (PANGO_GL_FONT_MAP (fontmap));
 #endif
 
-	//------------------------------
-
-	/*
-	AGlColourFloat cf;
-	colour_rgba_to_float(&cf, colour);
-	Colour32 c32 = {MIN(0xffU, cf.r * 256.0), MIN(0xffU, cf.g * 256.0), MIN(0xffU, cf.b * 256.0), colour & 0xffU};
-	*/
 	//pango_renderer_draw_layout (renderer, layout, 10 * PANGO_SCALE, -20 * PANGO_SCALE);
 	pango_gl_render_layout (layout, x, y, z, (Colour32*)&colour, 0);
-	//pango_gl_render_layout (layout, x, y, z, &c32, 0);
+	g_object_unref(layout);
 
 #ifdef TEST
 	//prints the whole texture with all glyphs.
@@ -703,17 +691,20 @@ agl_use_texture(GLuint texture)
 {
 	//note: 2d texture
 
-	glBindTexture(GL_TEXTURE_2D, texture);
-
-#if 0
-    if(!(__enable_flags & GL_ENABLE_BLEND)){
+#if 1
+	agl_enable(AGL_ENABLE_TEXTURE_2D | AGL_ENABLE_BLEND);
+	/*
+    if(!(__enable_flags & AGL_ENABLE_BLEND)){
 		agl_enable(GL_BLEND);
 		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 	}
+	*/
 #else
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 #endif
+
+	glBindTexture(GL_TEXTURE_2D, texture);
 }
 
 
@@ -868,10 +859,13 @@ agl_texture_unit_use_texture(AGlTextureUnit* unit, int texture)
 	}
 	glBindTexture(GL_TEXTURE_1D, texture);
 	glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
-#if 0
-	if(!(__enable_flags & GL_ENABLE_BLEND)){
+#if 1
+	agl_enable(AGL_ENABLE_TEXTURE_2D | AGL_ENABLE_BLEND);
+	/*
+	if(!(__enable_flags & AGL_ENABLE_BLEND)){
 		agl_enable(GL_BLEND);
 	}
+	*/
 #else
 	glEnable(GL_BLEND);
 #endif

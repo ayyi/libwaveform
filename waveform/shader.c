@@ -96,11 +96,15 @@ static AGlUniformInfo uniforms3[] = {
 };
 BloomShader vertical = {{NULL, NULL, 0, uniforms3, _vertical_set_uniforms, &vertical_text}};
 
-static AGlUniformInfo uniforms6[] = {
-   {"tex2d",     1, GL_INT,   { 0, 0, 0, 0 }, -1},
-   END_OF_UNIFORMS
-};
-AssShader ass = {{NULL, NULL, 0, uniforms6, _ass_set_uniforms, &ass_text}};
+AssShader ass = {{
+   NULL, NULL, 0,
+   (AGlUniformInfo[]){
+      {"tex2d",     1, GL_INT,   { 0, 0, 0, 0 }, -1},
+      END_OF_UNIFORMS
+   },
+   _ass_set_uniforms, &ass_text
+}};
+
 
 static AGlUniformInfo uniforms5[] = {
    END_OF_UNIFORMS
@@ -271,8 +275,6 @@ _cursor_set_uniforms()
 void
 wf_shaders_init()
 {
-	agl_shaders_init();
-
 	agl_create_program(&peak_shader.shader);
 #ifdef USE_FBO
 	agl_create_program(&peak_nonscaling.shader);
@@ -282,10 +284,7 @@ wf_shaders_init()
 	agl_create_program(&horizontal.shader);
 	agl_create_program(&vertical.shader);
 	agl_create_program(&ruler.shader);
-	agl_create_program(&ass.shader);
 	agl_create_program(&lines.shader);
-
-	wf_shaders.ass = &ass;
 }
 
 

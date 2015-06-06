@@ -28,6 +28,7 @@ OPENGL_SOURCES = \
 	texture_cache.c texture_cache.h \
 	fbo.c fbo.h \
 	actors/spp.c actors/spp.h \
+	actors/text.c actors/text.h \
 	$(ASS_SOURCES)
 endif
 
@@ -71,6 +72,7 @@ pkginclude_HEADERS = \
 	fbo.h \
 	texture_cache.h \
 	alphabuf.h \
+	promise.h \
 	grid.h \
 	utils.h \
 	gl_utils.h \

@@ -45,6 +45,8 @@
 #include "waveform/gl_utils.h"
 #include "test/ayyi_utils.h"
 
+extern AssShader ass;
+
 struct
 {
 	int timeout;
@@ -57,12 +59,9 @@ struct
 	const int frame_w = 512;
 	const int frame_h =  64;
 #define VBORDER 8
-#define bool gboolean
 #define WAV "test/data/mono_1.wav"
 
 GdkGLConfig*    glconfig       = NULL;
-GdkGLDrawable*  gl_drawable    = NULL;
-GdkGLContext*   gl_context     = NULL;
 static bool     gl_initialised = false;
 GtkWidget*      canvas         = NULL;
 WaveformCanvas* wfc            = NULL;
@@ -325,10 +324,10 @@ draw(GtkWidget* widget)
 		glBindTexture(GL_TEXTURE_2D, ass_textures[0]);
 		if(!glIsTexture(ass_textures[0])) gwarn("not texture");
 
-		wf_shaders.ass->uniform.colour1 = 0xffffffff;
-		wf_shaders.ass->uniform.colour2 = 0xff0000ff;
+		ass.uniform.colour1 = 0xffffffff;
+		ass.uniform.colour2 = 0xff0000ff;
 
-		agl_use_program((AGlShader*)wf_shaders.ass);
+		agl_use_program((AGlShader*)&ass);
 
 		float w = GL_WIDTH;
 		float h = frame_h;
@@ -370,14 +369,14 @@ on_expose(GtkWidget* widget, GdkEventExpose* event, gpointer user_data)
 	if(!GTK_WIDGET_REALIZED(widget)) return TRUE;
 	if(!gl_initialised) return TRUE;
 
-	START_DRAW {
+	AGL_ACTOR_START_DRAW(wfc->root) {
 		glClearColor(0.0, 0.0, 0.0, 1.0);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 		draw(widget);
 
-		gdk_gl_drawable_swap_buffers(gl_drawable);
-	} END_DRAW
+		gdk_gl_drawable_swap_buffers(wfc->root->gl.gdk.drawable);
+	} AGL_ACTOR_END_DRAW(wfc->root)
 	return TRUE;
 }
 
@@ -391,10 +390,8 @@ on_canvas_realise(GtkWidget* _canvas, gpointer user_data)
 	if(!GTK_WIDGET_REALIZED (canvas)) return;
 
 	wfc = wf_canvas_new((AGlRootActor*)agl_actor__new_root(canvas));
-	//wf_canvas_set_use_shaders(wfc, false);
 
-	gl_drawable = wfc->root->gl.gdk.drawable;
-	gl_context = wfc->root->gl.gdk.context;
+	if(!ass.shader.program) agl_create_program(&ass.shader);
 
 	gl_initialised = true;
 	canvas_init_done = true;

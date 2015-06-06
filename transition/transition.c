@@ -33,7 +33,7 @@
 
   Basic usage:
   1- create a property to animate (WfAnimatable).
-  2- create an animation using wf_animation_add_new().
+  2- create an animation using wf_animation_new().
   3- add the animatable to the animation using wf_transition_add_member().
   4- start the animation using wf_animation_start().
 
@@ -91,7 +91,7 @@ GList* transitions = NULL; // list of currently running transitions (type WfAnim
 
 
 WfAnimation*
-wf_animation_add_new(AnimationFn on_finished, gpointer user_data)
+wf_animation_new(AnimationFn on_finished, gpointer user_data)
 {
 	WfAnimation* animation = g_new0(WfAnimation, 1);
 	animation->length = wf_transition.length;

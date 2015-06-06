@@ -58,7 +58,6 @@
 #define VBORDER 8
 //#define HBORDER 0
 //#define VBORDER 0
-#define bool gboolean
 
 AGl*            agl            = NULL;
 GdkGLConfig*    glconfig       = NULL;
@@ -365,7 +364,7 @@ void
 toggle_shaders(WaveformView* _)
 {
 	PF0;
-	wf_canvas_set_use_shaders(wfc, !agl->use_shaders);
+	agl_actor__set_use_shaders((AGlActor*)wfc->root, !agl->use_shaders);
 }
 
 

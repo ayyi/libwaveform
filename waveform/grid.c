@@ -37,7 +37,9 @@
 #include "waveform/canvas.h"
 #include "waveform/actor.h"
 #include "waveform/grid.h"
+																				// TODO draw over whole viewport not just the wfactor.
 
+#if 0
 struct _grid
 {
 	struct {
@@ -47,18 +49,53 @@ struct _grid
 	WfAnimation     animation;
 	guint           timer_id;
 };
+#endif
+
+static bool grid_actor_paint(AGlActor*);
 
 
-void
-wf_grid_paint(WaveformCanvas* canvas, WaveformActor* actor)
+AGlActor*
+grid_actor(WaveformActor* wf_actor)
+{
+	void grid_actor_size(AGlActor* actor)
+	{
+		actor->region = actor->parent->region;
+	}
+
+	void grid_actor_init(AGlActor* actor)
+	{
+#ifdef AGL_ACTOR_RENDER_CACHE
+		actor->fbo = agl_fbo_new(actor->region.x2 - actor->region.x1, actor->region.y2 - actor->region.y1, 0, 0);
+#endif
+	}
+
+	GridActor* grid = g_new0(GridActor, 1);
+	grid->wf_actor = wf_actor;
+
+	AGlActor* actor = (AGlActor*)grid;
+#ifdef AGL_DEBUG_ACTOR
+	actor->name = "grid";
+#endif
+	actor->init = grid_actor_init;
+	actor->paint = grid_actor_paint;
+	actor->set_size = grid_actor_size;
+	return actor;
+}
+
+
+static bool
+grid_actor_paint(AGlActor* _actor)
 {
 	//draw a vertical line every 1 second.
 
 	//only the case of a canvas with a single Waveform is supported.
 
-	g_return_if_fail(canvas);
-
 	AGl* agl = agl_get_instance();
+	WaveformActor* actor = ((GridActor*)_actor)->wf_actor;
+	Waveform* w = actor->waveform;
+	WaveformCanvas* canvas = actor->canvas;
+
+	g_return_if_fail(canvas);
 
 	WfViewPort viewport; wf_actor_get_viewport(actor, &viewport);
 
@@ -74,7 +111,8 @@ wf_grid_paint(WaveformCanvas* canvas, WaveformActor* actor)
 		glEnable(GL_BLEND);
 		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-		agl->shaders.plain->uniform.colour = 0x1133bbaa;
+															// TODO make fixed contrast with background
+		agl->shaders.plain->uniform.colour = 0x1133bb55;
 		agl_use_program((AGlShader*)agl->shaders.plain);
 
 		for(; (f < region_end) && (i < 0xff); f += interval, i++){
@@ -82,14 +120,19 @@ wf_grid_paint(WaveformCanvas* canvas, WaveformActor* actor)
 		}
 
 		agl_set_font_string("Roboto 7");
-		uint32_t colour = (actor->fg_colour & 0xffffff00) + (actor->fg_colour & 0x000000ff) * 0x66 / 0xff;
+		uint32_t colour = (actor->fg_colour & 0xffffff00) + (actor->fg_colour & 0x000000ff) * 0x44 / 0xff;
 		char s[16] = {0,};
 		int x_ = 0;
 		uint64_t f = ((int)(actor->region.start / interval)) * interval;
 		for(; (f < region_end) && (i < 0xff); f += interval, i++){
 			int x = wf_actor_frame_to_x(actor, f) + 3;
 			if(x - x_ > 60){
-				snprintf(s, 15, "%.1f", ((float)f) / actor->canvas->sample_rate);
+				if(w->n_frames / actor->canvas->sample_rate < 60)
+					snprintf(s, 15, "%.1f", ((float)f) / actor->canvas->sample_rate);
+				else{
+					uint64_t mins = f / (60 * actor->canvas->sample_rate);
+					snprintf(s, 15, "%Lu:%.1f", mins, ((float)f) / actor->canvas->sample_rate - 60 * mins);
+				}
 				agl_print(x, 0, 0, colour, s);
 				x_ = x;
 			}
@@ -112,6 +155,7 @@ wf_grid_paint(WaveformCanvas* canvas, WaveformActor* actor)
 			glEnd();
 		}
 	}
+	return true;
 }
 
 

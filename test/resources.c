@@ -41,8 +41,6 @@
 #include "test/ayyi_utils.h"
 #include "test/common2.h"
 
-#define bool gboolean
-
 #define WAV1 "test/data/mono_1.wav"
 #define WAV2 "test/data/stereo_1.wav"
 
@@ -60,10 +58,6 @@ main (int argc, char *argv[])
 
 	static WaveformView* waveform; waveform = waveform_view_new(NULL);
 	waveform_view_set_show_rms(waveform, false);
-	#if 0
-	WaveformCanvas* wfc = waveform_view_get_canvas(waveform);
-	wf_canvas_set_use_shaders(wfc, false);
-	#endif
 	gtk_container_add((GtkContainer*)window, (GtkWidget*)waveform);
 
 	gtk_widget_show_all(window);

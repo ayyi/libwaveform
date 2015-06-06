@@ -35,7 +35,7 @@ v_lo_new_gl2(WaveformActor* actor)
 		};
 
 		g_object_weak_ref((GObject*)waveform, ng_gl2_finalize_notify, renderer);
-		g_hash_table_insert(((NGRenderer*)renderer)->ng_data, w, *data);
+		g_hash_table_insert(((NGRenderer*)renderer)->ng_data, waveform, *data);
 	}
 }
 

@@ -52,7 +52,6 @@ struct
 #define GL_WIDTH 256.0
 #define GL_HEIGHT 256.0
 #define VBORDER 8
-#define bool gboolean
 
 //float rotate[3] = {45.0, 45.0, 45.0};
 float rotate[3] = {30.0, 30.0, 30.0};
@@ -257,7 +256,6 @@ on_canvas_realise(GtkWidget* _canvas, gpointer user_data)
 	gl_initialised = true;
 
 	wfc = wf_canvas_new((AGlRootActor*)agl_actor__new_root(canvas));
-	//wf_canvas_set_use_shaders(wfc, false);
 
 	canvas_init_done = true;
 

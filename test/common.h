@@ -4,7 +4,6 @@
 #include "waveform/typedefs.h"
 #include "test/common2.h"
 
-#define bool gboolean
 #define TIMER_CONTINUE TRUE
 #define TIMER_STOP FALSE
 

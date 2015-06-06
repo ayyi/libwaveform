@@ -1,5 +1,5 @@
 /*
-  copyright (C) 2013 Tim Orford <tim@orford.org>
+  copyright (C) 2013-2015 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -136,6 +136,17 @@ wf_get_gtk_text_color(GtkWidget* widget, GtkStateType state)
 }
 
 
+uint32_t
+wf_get_gtk_base_color(GtkWidget* widget, GtkStateType state, char alpha)
+{
+	GtkStyle* style = gtk_style_copy(gtk_widget_get_style(widget));
+	GdkColor c = style->base[state];
+	g_object_unref(style);
+
+	return (wf_color_gdk_to_rgba(&c) & 0xffffff00) | alpha;
+}
+
+
 void
 wf_colour_rgba_to_float(AGlColourFloat* colour, uint32_t rgba)
 {
@@ -146,6 +157,13 @@ wf_colour_rgba_to_float(AGlColourFloat* colour, uint32_t rgba)
 	colour->r = (float)((rgba & 0xff000000) >> 24) / 0xff;
 	colour->g = (float)((rgba & 0x00ff0000) >> 16) / 0xff;
 	colour->b = (float)((rgba & 0x0000ff00) >>  8) / 0xff;
+}
+
+
+uint32_t
+wf_color_gdk_to_rgba(GdkColor* color)
+{
+	return ((color->red / 0x100) << 24) + ((color->green / 0x100) << 16) + ((color->blue / 0x100) << 8) + 0xff;
 }
 
 

@@ -149,9 +149,7 @@ __finalize (Waveform* w)
 		if(_w->render_data[m]) gwarn("actor data not cleared");
 	}
 
-	extern void wf_actor_free_waveform(Waveform* waveform);
-	wf_actor_free_waveform(w);
-
+	waveform_free_render_data(w);
 	waveform_audio_free(w);
 	g_free(w->priv);
 	g_free(w->filename);
@@ -194,33 +192,6 @@ _waveform_get_property (GObject* object, guint property_id, GValue* value, GPara
 			G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
 			break;
 	}
-}
-
-
-WfGlBlock*
-wf_texture_array_new(int size, int n_channels)
-{
-	WfGlBlock* textures = g_new0(WfGlBlock, 1);
-	textures->size = size;
-	dbg(1, "creating glbocks: num_blocks=%i n_ch=%i", textures->size, n_channels);
-	int c; for(c=0;c<n_channels;c++){
-		wf_texture_array_add_ch(textures, c);
-	}
-	textures->fbo = g_new0(AGlFBO*, textures->size); //note: only an array of _pointers_
-#ifdef USE_FX
-	textures->fx_fbo = g_malloc0(sizeof(AGlFBO*) * textures->size);
-#endif
-	return textures;
-}
-
-
-void
-wf_texture_array_add_ch(WfGlBlock* textures, int c)
-{
-	dbg(2, "adding glbocks: c=%i num_blocks=%i", c, textures->size);
-	unsigned* a = g_new0(unsigned, textures->size * 2); // single allocation for both pos and neg
-	textures->peak_texture[c].main = a;
-	textures->peak_texture[c].neg  = a + textures->size;
 }
 
 
@@ -784,7 +755,7 @@ io_ratio = 1;
 
 
 void
-waveform_rms_to_alphabuf(Waveform* pool_item, AlphaBuf* pixbuf, int* start, int* end, double samples_per_px, GdkColor* colour, uint32_t colour_bg)
+waveform_rms_to_alphabuf(Waveform* waveform, AlphaBuf* pixbuf, int* start, int* end, double samples_per_px, GdkColor* colour, uint32_t colour_bg)
 {
 	/*
 
@@ -793,7 +764,7 @@ waveform_rms_to_alphabuf(Waveform* pool_item, AlphaBuf* pixbuf, int* start, int*
 	*/
 
 	g_return_if_fail(pixbuf);
-	g_return_if_fail(pool_item);
+	g_return_if_fail(waveform);
 
 	/*
 	int fg_red = colour->red   >> 8;
@@ -810,22 +781,11 @@ waveform_rms_to_alphabuf(Waveform* pool_item, AlphaBuf* pixbuf, int* start, int*
 	WfPeakSample sample;
 	short min;                //negative peak value for each pixel.
 	short max;                //positive peak value for each pixel.
-//	if(!pool_item->valid) return;
-//	if(!pool_item->source_id){ gerr ("bad core source id: %Lu.", pool_item->source_id[0]); return; }
 
-	float gain       = 1.0;//ARRANGE_FIRST->peak_gain;
+	float gain       = 1.0;
 	dbg(3, "peak_gain=%.2f", gain);
 
-		int
-		_get_width(Waveform* w)
-		{
-		  //if(w->rms_buf1) return 2;
-		  //if(w->rms_buf0) return 1;
-		  if(w->priv->peak.buf[1]) return 2;
-		  if(w->priv->peak.buf[0]) return 1;
-		  return 0;
-		}
-	int n_chans      = _get_width(pool_item);
+	int n_chans      = waveform_get_n_channels(waveform);
 if(!n_chans){ gerr("n_chans"); n_chans = 1; }
 
 	int width        = pixbuf->width;
@@ -853,9 +813,9 @@ if(!n_chans){ gerr("n_chans"); n_chans = 1; }
 		//we use the same part of Line for each channel, it is then render it to the pixbuf with a channel offset.
 		dbg (2, "ch=%i", ch);
 
-		RmsBuf* rb = pool_item->priv->rms_buf0;
+		RmsBuf* rb = waveform->priv->rms_buf0;
 		if(!rb){
-			if(!(rb = waveform_load_rms_file(pool_item, ch))) continue;
+			if(!(rb = waveform_load_rms_file(waveform, ch))) continue;
 		}
 
 		//-----------------------------------------
@@ -1032,7 +992,7 @@ if(!n_chans){ gerr("n_chans"); n_chans = 1; }
 				//gdk_draw_line(GDK_DRAWABLE(pixmap), gc, px, 0, px, height);//x1, y1, x2, y2
 				WfDRect pts = {px, 0, px, ch_height};
 				alphabuf_draw_line(pixbuf, &pts, 1.0, colour);
-//				warn_no_src_data(pool_item, b.len, src_stop);
+//				warn_no_src_data(waveform, b.len, src_stop);
 				printf("*"); fflush(stdout);
 			}
 			//next = srcidx + 1;
@@ -2087,6 +2047,7 @@ void
 waveform_print_blocks(Waveform* w)
 {
 	g_return_if_fail(w);
+	g_return_if_fail(!agl_get_instance()->use_shaders);
 
 	printf("%s {\n", __func__);
 	WfGlBlock* blocks = (WfGlBlock*)w->priv->render_data[MODE_MED];

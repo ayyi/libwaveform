@@ -129,7 +129,6 @@ struct _actor_priv
 
 	gulong          peakdata_ready_handler;
 	gulong          dimensions_changed_handler;
-	gulong          use_shaders_changed_handler;
 
 	// cached values used for rendering. cleared when rect/region/viewport changed.
 	struct _RenderInfo {
@@ -402,22 +401,24 @@ wf_actor_new(Waveform* w, WaveformCanvas* wfc)
 	}
 	_a->dimensions_changed_handler = g_signal_connect((gpointer)a->canvas, "dimensions-changed", (GCallback)wf_actor_on_dimensions_changed, a);
 
-	void on_use_shaders_changed(WaveformCanvas* wfc, gpointer _actor)
+	void wf_actor_on_init(AGlActor* actor)
 	{
-		WaveformActor* a = _actor;
+		WaveformActor* a = (WaveformActor*)actor;
 
 		int m; for(m=0;m<N_MODES;m++){
 			call(modes[m].renderer->free, modes[m].renderer, a->waveform);
 		}
 		a->priv->render_info.valid = false;
 
+		a->canvas->use_1d_textures = agl->use_shaders;
+
 		wf_actor_on_use_shaders_change();
 
-		waveform_load(a->waveform);
+		if(!a->waveform->priv->peak.size) waveform_load(a->waveform);
 		_wf_actor_load_missing_blocks(a);
 		if(a->canvas->draw) wf_canvas_queue_redraw(a->canvas);
 	}
-	_a->use_shaders_changed_handler = g_signal_connect((gpointer)a->canvas, "use-shaders-changed", (GCallback)on_use_shaders_changed, a);
+	actor->init = wf_actor_on_init;
 
 	g_object_weak_ref((GObject*)a->canvas, wf_actor_canvas_finalize_notify, a);
 	return a;
@@ -443,8 +444,8 @@ wf_actor_free(WaveformActor* a)
 		_a->peakdata_ready_handler = 0;
 		g_signal_handler_disconnect((gpointer)a->canvas, _a->dimensions_changed_handler);
 		_a->dimensions_changed_handler = 0;
-		g_signal_handler_disconnect((gpointer)a->canvas, _a->use_shaders_changed_handler);
-		_a->use_shaders_changed_handler = 0;
+
+		waveform_free_render_data(a->waveform);
 
 		g_object_weak_unref((GObject*)a->canvas, wf_actor_canvas_finalize_notify, a);
 
@@ -456,9 +457,8 @@ wf_actor_free(WaveformActor* a)
 }
 
 
-// temporary. only here because of private data
 void
-wf_actor_free_waveform(Waveform* waveform)
+waveform_free_render_data(Waveform* waveform)
 {
 	int m; for(m=0;m<N_MODES;m++){
 		if(waveform->priv->render_data[m]){
@@ -923,7 +923,7 @@ wf_actor_frame_to_x (WaveformActor* actor, uint64_t frame)
 	WfActorPriv* a = actor->priv;
 	#define PIXELS_PER_SAMPLE (a->animatable.rect_len.val.f / a->animatable.len.val.i)
 
-	return (frame - a->animatable.start.val.i) * PIXELS_PER_SAMPLE + a->animatable.rect_left.val.f;
+	return ((float)frame - a->animatable.start.val.i) * PIXELS_PER_SAMPLE + a->animatable.rect_left.val.f;
 }
 
 
@@ -1602,9 +1602,7 @@ wf_actor_paint(AGlActor* _actor)
 		agl_use_program((AGlShader*)agl->shaders.plain);
 		glDisable(GL_TEXTURE_1D);
 	}else{
-		glDisable(GL_TEXTURE_2D);
-		glEnable(GL_BLEND);
-		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+		agl_enable(AGL_ENABLE_BLEND); // !AGL_ENABLE_TEXTURE_2D
 		glColor4f(1.0, 0.0, 1.0, 0.75);
 	}
 	for(b=r->viewport_blocks.first;b<=r->viewport_blocks.last;b++){
@@ -2001,13 +1999,6 @@ closure(C _c)
 
 
 #ifdef USE_TEST
-GList*
-wf_actor_get_transitions(WaveformActor* a)
-{
-	return ((AGlActor*)a)->transitions;
-}
-
-
 bool
 wf_actor_test_is_not_blank(WaveformActor* a)
 {

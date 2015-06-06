@@ -89,7 +89,7 @@ struct _animation
    guint       timeout;                                             // for debugging only
 };
 
-WfAnimation* wf_animation_add_new           (AnimationFn, gpointer);
+WfAnimation* wf_animation_new               (AnimationFn, gpointer);
 void         wf_transition_add_member       (WfAnimation*, GList* animatables);
 void         wf_animation_remove            (WfAnimation*);
 gboolean     wf_animation_remove_animatable (WfAnimation*, WfAnimatable*);

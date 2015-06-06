@@ -18,4 +18,13 @@ typedef struct {float x0, y0, x1, y1;} AGlQuad;
 typedef struct {float r, g, b;}        AGlColourFloat;
 
 
+#ifndef bool
+#  define bool int
+#endif
+
+#define AGL_ENABLE_BLEND        (1<<1)
+#define AGL_ENABLE_TEXTURE_2D   (1<<2)
+#define AGL_ENABLE_ALPHA_TEST   (1<<3)
+#define AGL_ENABLE_TEXTURE_RECT (1<<4)
+
 #endif //__agl_typedefs_h__

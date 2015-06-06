@@ -49,7 +49,7 @@ static GLuint make_fb(AGlFBO*);
 #endif
 	{
 					glActiveTexture(GL_TEXTURE0);
-					glEnable(GL_TEXTURE_2D);
+		agl_enable(AGL_ENABLE_TEXTURE_2D | AGL_ENABLE_BLEND);
 		GLuint texture;
 		glGenTextures(1, &texture);
 		glBindTexture(GL_TEXTURE_2D, texture);
@@ -130,7 +130,7 @@ agl_fbo_set_size(AGlFBO* fbo, int width, int height)
 #endif
 
 		glActiveTexture(GL_TEXTURE0);
-		glEnable(GL_TEXTURE_2D);
+		agl_enable(AGL_ENABLE_TEXTURE_2D | AGL_ENABLE_BLEND);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 		glBindTexture(GL_TEXTURE_2D, fbo->texture);

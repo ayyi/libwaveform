@@ -9,7 +9,7 @@
 * +----------------------------------------------------------------------+
 *
 */
-#define __gl_actor_c__
+#define __agl_actor_c__
 #define __gl_canvas_priv__
 #include "config.h"
 #include <stdio.h>
@@ -33,7 +33,8 @@ static AGl* agl = NULL;
 
 static bool   actor__is_onscreen (AGlActor*);
 static AGliPt actor__find_offset (AGlActor*);
-static bool  _actor__on_event    (AGlActor*, void* widget, GdkEvent*, AGliPt);
+static bool  _actor__on_event    (AGlActor*, GdkEvent*, AGliPt);
+static void   agl_actor__init    (AGlActor*);              // called once when gl context is available. and again if gl context changes, eg after re-realize.
 
 
 AGlActor*
@@ -52,11 +53,83 @@ agl_actor__new_root(GtkWidget* widget)
 {
 	agl = agl_get_instance();
 
-	if(!GTK_WIDGET_REALIZED(widget)) return NULL;
+	void have_drawable(AGlRootActor* a, GdkGLDrawable* drawable)
+	{
+		g_return_if_fail(!a->gl.gdk.drawable);
+		g_return_if_fail(!a->gl.gdk.context);
 
-	GdkGLDrawable* gl_drawable = gtk_widget_get_gl_drawable(widget);
-	if(!gl_drawable){
-		return NULL;
+		static bool first_time = true;
+
+		a->viewport.w = a->widget->allocation.width;
+		a->viewport.h = a->widget->allocation.height;
+
+		a->gl.gdk.drawable = drawable;
+		a->gl.gdk.context = gtk_widget_get_gl_context(a->widget);
+
+		if(first_time){
+			get_gl_extensions();
+
+			gdk_gl_drawable_gl_begin (a->gl.gdk.drawable, a->gl.gdk.context);
+
+				int version = 0;
+				const char* _version = (const char*)glGetString(GL_VERSION);
+				if(_version){
+					gchar** split = g_strsplit(_version, ".", 2);
+					if(split){
+						version = atoi(split[0]);
+						printf("gl version: %i\n", version);
+						g_strfreev(split);
+					}
+				}
+
+			if(agl->pref_use_shaders && !agl_shaders_supported()){
+				printf("gl shaders not supported. expect reduced functionality.\n");
+				//agl_use_program(NULL);
+				//wfc->use_1d_textures = false;
+			}
+			if(wf_debug) printf("GL_RENDERER = %s\n", (const char*)glGetString(GL_RENDERER));
+			agl_shaders_init();
+
+			gdk_gl_drawable_gl_end(a->gl.gdk.drawable);
+		}
+
+		gdk_gl_drawable_gl_begin (a->gl.gdk.drawable, a->gl.gdk.context);
+
+		agl_actor__init((AGlActor*)a);
+
+		gdk_gl_drawable_gl_end(a->gl.gdk.drawable);
+
+		first_time = false;
+	}
+
+	bool try_drawable(gpointer _actor)
+	{
+		AGlRootActor* a = _actor;
+		if(!a->gl.gdk.drawable){
+			GdkGLDrawable* drawable = gtk_widget_get_gl_drawable(a->widget);
+			if(drawable){
+				have_drawable(a, drawable);
+			}
+		}
+		return G_SOURCE_REMOVE;
+	}
+
+	void agl_actor__on_unrealise(GtkWidget* widget, gpointer _actor)
+	{
+		AGlRootActor* a = _actor;
+
+		a->gl.gdk.drawable = NULL;
+		a->gl.gdk.context  = NULL;
+	}
+
+	void agl_actor__on_realise(GtkWidget* widget, gpointer _actor)
+	{
+		AGlRootActor* a = _actor;
+
+		try_drawable(a);
+		if(!a->gl.gdk.drawable){
+			g_idle_add(try_drawable, a);
+		}
 	}
 
 	AGlRootActor* a = g_new0(AGlRootActor, 1);
@@ -67,11 +140,11 @@ agl_actor__new_root(GtkWidget* widget)
 	((AGlActor*)a)->root = a;
 	((AGlActor*)a)->paint = agl_actor__null_painter;
 
-	a->viewport.w = widget->allocation.width;
-	a->viewport.h = widget->allocation.height;
-
-	a->gl.gdk.drawable = gl_drawable;
-	a->gl.gdk.context = gtk_widget_get_gl_context(widget);
+	if(GTK_WIDGET_REALIZED(widget)){
+		agl_actor__on_realise(widget, a);
+	}
+	g_signal_connect((gpointer)widget, "realize", G_CALLBACK(agl_actor__on_realise), a);
+	g_signal_connect((gpointer)widget, "unrealize", G_CALLBACK(agl_actor__on_unrealise), a);
 
 	return (AGlActor*)a;
 }
@@ -106,8 +179,18 @@ agl_actor__add_child(AGlActor* actor, AGlActor* child)
 	g_return_val_if_fail(!g_list_find(actor->children, child), NULL);
 #endif
 
-	actor->children = g_list_append(actor->children, child);
+	GList* pos = NULL;
+	GList* l = actor->children;
+	for(;l;l=l->next){
+		if(child->z < ((AGlActor*)l->data)->z){
+			pos = l->prev;
+			break;
+		}
+	}
+	actor->children = pos ? g_list_insert_before (actor->children, l, child) : g_list_append(actor->children, child);
+
 	child->parent = actor;
+
 	if(actor->root){
 		child->root = actor->root;
 
@@ -123,6 +206,8 @@ agl_actor__add_child(AGlActor* actor, AGlActor* child)
 			}
 		}
 		set_child_roots(child);
+
+		if(child->init && GTK_WIDGET_REALIZED(child->root->widget)) child->init(child);
 	}
 
 	return child;
@@ -161,13 +246,13 @@ agl_actor__replace_child(AGlActor* actor, AGlActor* child, AGlActor* new_child)
 }
 
 
-void
-agl_actor__init(AGlActor* a, gpointer user_data)
+static void
+agl_actor__init(AGlActor* a)
 {
-	call(a->init, a, user_data);
+	call(a->init, a);
 
 	GList* l = a->children;
-	for(;l;l=l->next) agl_actor__init((AGlActor*)l->data, user_data);
+	for(;l;l=l->next) agl_actor__init((AGlActor*)l->data);
 }
 
 
@@ -211,7 +296,7 @@ render_from_fbo(AGlActor* a)
 		agl->shaders.texture->uniform.fg_colour = 0xffffffff;
 		agl_use_program((AGlShader*)agl->shaders.texture);
 	}else{
-		glEnable(GL_TEXTURE_2D);
+		agl_enable(AGL_ENABLE_TEXTURE_2D | AGL_ENABLE_BLEND);
 		glColor4f(1.0, 1.0, 1.0, 1.0); // seems to make a difference for alpha
 	}
 	glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
@@ -220,6 +305,13 @@ render_from_fbo(AGlActor* a)
 	float h = fbo->height;
 
 	agl_textured_rect_(fbo->texture, 0.0, 0.0, w, h, &(AGlQuad){0.0, h / agl_power_of_two(h), w / agl_power_of_two(w), 0.0}); // TODO y is reversed - why needed?
+
+#undef FBO_MARKER // show red dot in top left corner of fbos for debugging
+#ifdef FBO_MARKER
+	agl->shaders.plain->uniform.colour = 0xff0000ff;
+	agl_use_program((AGlShader*)agl->shaders.plain);
+	glRectf(2, 2, 8, 8);
+#endif
 
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
@@ -241,8 +333,12 @@ agl_actor__paint(AGlActor* a)
 		glTranslatef(a->region.x1, a->region.y1, 0.0);
 	}
 
+	// TODO remove special case - create agl_root_actor__paint() ?
+	if(a == (AGlActor*)a->root) glTranslatef(0, -((AGlRootActor*)a)->viewport.y, 0);
+
 #ifdef AGL_ACTOR_RENDER_CACHE
 	// TODO check case where actor is translated and is partially offscreen.
+	// TODO actor may be huge. do we need to crop to viewport ?
 	if(a->fbo && a->cache.enabled && !(a->region.x2 - a->region.x1 > AGL_MAX_FBO_WIDTH)){
 		if(!a->cache.valid){
 			agl_draw_to_fbo(a->fbo) {
@@ -253,6 +349,12 @@ agl_actor__paint(AGlActor* a)
 				if(agl->use_shaders && a->program) agl_use_program(a->program);
 
 				a->paint(a);
+
+				// TODO check assumptions are correct, eg check children not also cached to fbo.
+				GList* l = a->children;
+				for(;l;l=l->next){
+					agl_actor__paint((AGlActor*)l->data);
+				}
 			} agl_end_draw_to_fbo;
 			a->cache.valid = true;
 		}
@@ -268,10 +370,16 @@ agl_actor__paint(AGlActor* a)
 		a->paint(a);
 	}
 
-	GList* l = a->children;
-	for(;l;l=l->next){
-		agl_actor__paint((AGlActor*)l->data);
+#ifdef AGL_ACTOR_RENDER_CACHE
+	if(!a->cache.valid){
+#endif
+		GList* l = a->children;
+		for(;l;l=l->next){
+			agl_actor__paint((AGlActor*)l->data);
+		}
+#ifdef AGL_ACTOR_RENDER_CACHE
 	}
+#endif
 
 	if(a->region.x1 || a->region.y1){
 		glPopMatrix();
@@ -341,8 +449,38 @@ agl_actor__set_size(AGlActor* actor)
 }
 
 
+void
+agl_actor__set_use_shaders (AGlRootActor* actor, gboolean val)
+{
+	AGl* agl = agl_get_instance();
+
+	bool changed = (val != agl->use_shaders);
+	agl->pref_use_shaders = val;
+	if(((AGlRootActor*)actor)->gl.gdk.drawable && !val) agl_use_program(NULL); // must do before set use_shaders
+	if(!val) agl->use_shaders = false;
+
+	if(((AGlRootActor*)actor)->gl.gdk.drawable){
+		agl->use_shaders = val;
+
+		if(changed){
+			void _agl_actor__init(AGlActor* actor)
+			{
+				if(actor->init) actor->init(actor);
+
+				GList* l = actor->children;
+				for(;l;l=l->next){
+					_agl_actor__init(l->data);
+				}
+			}
+
+			_agl_actor__init((AGlActor*)actor);
+		}
+	}
+}
+
+
 static bool
-_actor__on_event(AGlActor* a, void* widget, GdkEvent* event, AGliPt xy)
+_actor__on_event(AGlActor* a, GdkEvent* event, AGliPt xy)
 {
 	// xy is the event coordinates relative to the top left of the actor's parent.
 	// ie the coordinate system is the same one as the actor's region.
@@ -403,10 +541,10 @@ agl_actor__on_event(AGlRootActor* root, GdkEvent* event)
 		GList* l = g_list_last(actor->children); // iterate backwards so that the 'top' actor get the events first.
 		for(;l;l=l->prev){
 			AGlActor* child = l->data;
-			if(region_match(&child->region, xy.x, xy.y)){
+			if(!child->disabled && region_match(&child->region, xy.x, xy.y)){
 				AGlActor* sub = child_region_hit(child, (AGliPt){xy.x - child->region.x1, xy.y - child->region.y1});
 				if(sub) return sub;
-				//dbg(0, "  match. y=%i y0=%i y1=%i x=%i-->%i type=%i", y, child->region.y1, child->region.y2, child->region.x1, child->region.x2, child->type);
+				//printf("  match. y=%i y0=%i y1=%i x=%i-->%i type=%i\n", xy.y, child->region.y1, child->region.y2, child->region.x1, child->region.x2, child->type);
 				return child;
 			}
 		}
@@ -415,7 +553,7 @@ agl_actor__on_event(AGlRootActor* root, GdkEvent* event)
 
 	if(actor_context.grabbed){
 		AGliPt offset = (actor_context.grabbed->parent == actor) ? (AGliPt){0, 0} : actor__find_offset(actor_context.grabbed->parent);
-		bool handled = _actor__on_event(actor_context.grabbed, widget, event, (AGliPt){xy.x - offset.x, xy.y - offset.y});
+		bool handled = _actor__on_event(actor_context.grabbed, event, (AGliPt){xy.x - offset.x, xy.y - offset.y});
 
 		if(event->type == GDK_BUTTON_RELEASE){
 			actor_context.grabbed = NULL;
@@ -429,19 +567,42 @@ agl_actor__on_event(AGlRootActor* root, GdkEvent* event)
 
 	AGlActor* a = child_region_hit(actor, xy);
 
+	switch(event->type){
+		case GDK_MOTION_NOTIFY:
+			if(hovered){
+				if(!a || (a && a != hovered)){
+					//if(hovered) hovered->hover = false;
+					//hovered = NULL;
+					GdkEvent leave = {
+						.type = GDK_LEAVE_NOTIFY,
+					};
+					_actor__on_event(hovered, &leave, xy);
+				}
+			}
+
+			break;
+		case GDK_BUTTON_RELEASE:
+			return _actor__on_event(a, event, xy);
+		default:
+			break;
+	}
+
 	if(a && a != actor){
 		if(event->type == GDK_MOTION_NOTIFY){
 			if(a != hovered && !actor_context.grabbed){
 				if(hovered) hovered->hover = false;
 				hovered = a;
 				a->hover = true;
-				gdk_window_set_cursor(widget->window, NULL);
-				gtk_widget_queue_draw(widget); // TODO not always needed
+
+				GdkEvent enter = {
+					.type = GDK_ENTER_NOTIFY,
+				};
+				return _actor__on_event(a, &enter, xy);
 			}
 		}
 
 		AGliPt offset = (a->parent == actor) ? (AGliPt){0, 0} : actor__find_offset(a->parent);
-		return _actor__on_event(a, widget, event, (AGliPt){xy.x - offset.x, xy.y - offset.y});
+		return _actor__on_event(a, event, (AGliPt){xy.x - offset.x, xy.y - offset.y});
 
 	}else{
 		if(event->type == GDK_MOTION_NOTIFY){
@@ -455,6 +616,18 @@ agl_actor__on_event(AGlRootActor* root, GdkEvent* event)
 	}
 
 	return NOT_HANDLED;
+}
+
+
+AGlActor*
+agl_actor__find_by_z(AGlActor* actor, int z)
+{
+	GList* l = actor->children;
+	for(;l;l=l->next){
+		AGlActor* a = l->data;
+		if(a->z == z) return a;
+	}
+	return NULL;
 }
 
 
@@ -475,19 +648,26 @@ agl_actor__grab(AGlActor* actor)
 void
 agl_actor__invalidate(AGlActor* actor)
 {
-	actor->cache.valid = false;
-	call(actor->invalidate, actor);
-
-	GList* l = actor->children;
-	for(;l;l=l->next){
-		AGlActor* a = l->data;
-		agl_actor__invalidate(a);
-	}
-
-	while(actor){
+#ifdef AGL_ACTOR_RENDER_CACHE
+	void _agl_actor__invalidate(AGlActor* actor)
+	{
 		actor->cache.valid = false;
-		actor = actor->parent;
+		call(actor->invalidate, actor);
+
+		GList* l = actor->children;
+		for(;l;l=l->next){
+			AGlActor* a = l->data;
+			_agl_actor__invalidate(a);
+		}
+
+		while(actor){
+			actor->cache.valid = false;
+			actor = actor->parent;
+		}
 	}
+	_agl_actor__invalidate(actor);
+	gtk_widget_queue_draw(actor->root->widget);
+#endif
 }
 
 
@@ -498,11 +678,13 @@ agl_actor__invalidate(AGlActor* actor)
 void
 agl_actor__enable_cache(AGlActor* actor, bool enable)
 {
+#ifdef AGL_ACTOR_RENDER_CACHE
 	while(actor){
 		actor->cache.enabled = enable;
 		if(!enable) actor->cache.valid = false;
 		actor = actor->parent;
 	}
+#endif
 }
 
 
@@ -589,7 +771,7 @@ agl_actor__start_transition(AGlActor* actor, GList* animatables, AnimationFn don
 	}
 
 	if(animatables){
-		WfAnimation* animation = wf_animation_add_new(_on_animation_finished, c);
+		WfAnimation* animation = wf_animation_new(_on_animation_finished, c);
 		animation->on_frame = on_frame;
 		actor->transitions = g_list_append(actor->transitions, animation);
 		wf_transition_add_member(animation, animatables);
@@ -611,6 +793,17 @@ actor__find_offset(AGlActor* a)
 }
 
 
+bool
+agl_actor__is_disabled(AGlActor* a)
+{
+	do{
+		if(a->disabled) return true;
+	} while((a = a->parent));
+
+	return false;
+}
+
+
 #ifdef DEBUG
 void
 agl_actor__print_tree (AGlActor* actor)
@@ -625,7 +818,9 @@ agl_actor__print_tree (AGlActor* actor)
 		g_return_if_fail(actor);
 #ifdef AGL_DEBUG_ACTOR
 		int i; for(i=0;i<indent;i++) printf("  ");
-		if(actor->name) printf("%s\n", actor->name);
+#ifdef AGL_ACTOR_RENDER_CACHE
+		if(actor->name) printf("%s (%i)\n", actor->name, actor->cache.valid);
+#endif
 #endif
 		indent++;
 		GList* l = actor->children;

@@ -14,14 +14,37 @@
   along with this program; if not, write to the Free Software
   Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 */
-#ifndef __wf_grid_h__
-#define __wf_grid_h__
-
-AGlActor* grid_actor(WaveformActor*);
+#ifndef __text_actor_h__
+#define __text_actor_h__
 
 typedef struct {
-    AGlActor        actor;
-    WaveformActor*  wf_actor;     // TODO needs refactoring. maybe move some properties to the canvas.
-} GridActor;
+	int         width;
+	int         height;
+	int         y_offset;
+} Title;
 
-#endif //__wf_grid_h__
+typedef struct {
+    AGlActor    actor;
+
+    char*       title;
+    Title       _title;
+    char*       text;
+    uint32_t    text_colour;
+    uint32_t    title_colour1;
+    uint32_t    title_colour2;
+
+    int         baseline;
+	struct {
+        GLuint  ids[1];
+        int     width;
+        int     height;
+    }           texture;
+
+	gboolean    title_is_rendered;
+} TextActor;
+
+AGlActor* text_actor            (WaveformActor*);
+void      text_actor_set_colour (TextActor*, uint32_t, uint32_t);
+void      text_actor_set_text   (TextActor*, char* title, char* text);
+
+#endif

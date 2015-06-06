@@ -16,7 +16,7 @@
 
   ---------------------------------------------------------------
 
-  WaveformActor draws a Waveform object onto a shared opengl drawable.
+  WaveformCanvas acts as a shared context for drawing multiple related Waveform Actors.
 
 */
 #define __wf_private__
@@ -119,15 +119,14 @@ wf_canvas_class_init(WaveformCanvasClass* klass)
 	//g_type_class_add_private (klass, sizeof (WaveformCanvasPrivate));
 	G_OBJECT_CLASS (klass)->finalize = wf_canvas_finalize;
 	g_signal_new ("dimensions_changed", TYPE_WAVEFORM_CANVAS, G_SIGNAL_RUN_LAST, 0, NULL, NULL, g_cclosure_marshal_VOID__VOID, G_TYPE_NONE, 0);
-	g_signal_new ("use_shaders_changed", TYPE_WAVEFORM_CANVAS, G_SIGNAL_RUN_LAST, 0, NULL, NULL, g_cclosure_marshal_VOID__VOID, G_TYPE_NONE, 0);
+
+	agl = agl_get_instance();
 }
 
 
-//TODO merge with below
 static void
 wf_canvas_instance_init(WaveformCanvas* self)
 {
-	//self->priv = WAVEFORM_CANVAS_GET_PRIVATE (self); // does what exactly?
 }
 
 
@@ -143,8 +142,6 @@ wf_canvas_init(WaveformCanvas* wfc)
 {
 	wfc->priv = g_new0(WfCanvasPriv, 1);
 
-	agl = agl_get_instance();
-
 	wfc->enable_animations = true;
 	wfc->blend = true;
 	wfc->sample_rate = 44100;
@@ -153,12 +150,25 @@ wf_canvas_init(WaveformCanvas* wfc)
 	wfc->texture_unit[1] = agl_texture_unit_new(WF_TEXTURE1);
 	wfc->texture_unit[2] = agl_texture_unit_new(WF_TEXTURE2);
 	wfc->texture_unit[3] = agl_texture_unit_new(WF_TEXTURE3);
-	wf_canvas_init_gl(wfc);
-	wfc->use_1d_textures = agl->use_shaders;
+
+	bool try_drawable(gpointer _wfc)
+	{
+		WaveformCanvas* wfc = _wfc;
+
+		if(!wfc->root->gl.gdk.drawable){
+			dbg(0, "waiting...");
+			return G_SOURCE_CONTINUE;
+		}
+
+		wf_canvas_init_gl(wfc);
+		wfc->use_1d_textures = agl->use_shaders;
 
 #ifdef USE_FRAME_CLOCK
-	frame_clock_connect(G_CALLBACK(wf_canvas_on_paint_update), wfc);
+		frame_clock_connect(G_CALLBACK(wf_canvas_on_paint_update), wfc);
 #endif
+		return G_SOURCE_REMOVE;
+	}
+	if(try_drawable(wfc)) wfc->priv->pending_init = g_idle_add(try_drawable, wfc);
 }
 
 
@@ -215,42 +225,17 @@ wf_canvas_free (WaveformCanvas* wfc)
 {
 	g_return_if_fail(wfc);
 	PF;
+	WfCanvasPriv* c = wfc->priv;
 
 #ifdef USE_FRAME_CLOCK
 	frame_clock_disconnect(G_CALLBACK(wf_canvas_on_paint_update), wfc);
 #endif
 
-	if(wfc->_queued){ g_source_remove(wfc->_queued); wfc->_queued = false; }
-	//if(wfc->priv->peak_shader) g_free(wfc->priv->peak_shader);
+	if(c->pending_init){ g_source_remove(c->pending_init); c->pending_init = 0; }
+	if(c->_queued){ g_source_remove(c->_queued); c->_queued = false; }
 	wf_canvas_finalize((GObject*)wfc);
 
 	pango_gl_render_clear_caches();
-}
-
-
-/*
- *  Currently, if an application has multiple canvases and they share Waveforms,
- *  each canvas must have the same use_shaders setting.
- */
-void
-wf_canvas_set_use_shaders(WaveformCanvas* wfc, gboolean val)
-{
-	PF;
-	AGl* agl = agl_get_instance();
-
-	bool changed = (val != agl->use_shaders);
-	agl->pref_use_shaders = val;
-	if(!val) agl->use_shaders = false;
-
-	if(wfc){
-		if(!val){
-			agl_use_program(NULL);
-			wfc->use_1d_textures = false;
-		}
-		agl->use_shaders = val;
-
-		if(changed) g_signal_emit_by_name(wfc, "use-shaders-changed");
-	}
 }
 
 
@@ -258,9 +243,8 @@ static void
 wf_canvas_init_gl(WaveformCanvas* wfc)
 {
 	WfCanvasPriv* priv = wfc->priv;
-	AGl* agl = agl_get_instance();
 
-	get_gl_extensions();
+	if(priv->shaders.peak){ gwarn("already done"); return; }
 
 	if(!agl->pref_use_shaders){
 		agl->use_shaders = false;
@@ -270,8 +254,6 @@ wf_canvas_init_gl(WaveformCanvas* wfc)
 		} WAVEFORM_END_DRAW(wfc);
 		return;
 	}
-
-	if(priv->shaders.peak){ gwarn("already done"); return; }
 
 	WAVEFORM_START_DRAW(wfc) {
 
@@ -286,12 +268,10 @@ wf_canvas_init_gl(WaveformCanvas* wfc)
 			}
 		}
 
-		if(agl->pref_use_shaders && !agl_shaders_supported()){
-			printf("gl shaders not supported. expect reduced functionality.\n");
+		if(!agl->use_shaders){
 			agl_use_program(NULL);
 			wfc->use_1d_textures = false;
 		}
-		if(wf_debug) printf("GL_RENDERER = %s\n", (const char*)glGetString(GL_RENDERER));
 
 		// npot textures are mandatory for opengl 2.0
 		// npot capability also means non-square textures are supported.
@@ -336,6 +316,8 @@ wf_canvas_set_viewport(WaveformCanvas* wfc, WfViewPort* _viewport)
 	//@param viewport - optional. Used to optimise drawing where some of the rect lies outside the viewport.
 	//                  Does not apply clipping.
 	//                  units are not pixels, they are gl units.
+	//                  setting viewport->left allows scrolling.
+	//
 	//                  TODO clarify: can only be omitted if canvas displays only one region?
 	//                                ... no, not true. dont forget, the display is not set here, we only store the viewport property.
 
@@ -343,11 +325,7 @@ wf_canvas_set_viewport(WaveformCanvas* wfc, WfViewPort* _viewport)
 
 	if(_viewport){
 		if(!wfc->viewport) wfc->viewport = g_new(WfViewPort, 1);
-#if 0
-		memcpy(wfc->viewport, _viewport, sizeof(WfViewPort));
-#else
 		*wfc->viewport = *_viewport;
-#endif
 		dbg(1, "x: %.2f --> %.2f", wfc->viewport->left, wfc->viewport->right);
 	}else{
 		dbg(1, "viewport=NULL");
