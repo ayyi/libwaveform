@@ -72,7 +72,6 @@ struct _wf_canvas_priv {
 	}              shaders;
 #ifdef USE_FRAME_CLOCK
 	guint64       _last_redraw_time;
-	bool          is_animating;
 #endif
 	guint         _queued;
 	guint         pending_init;

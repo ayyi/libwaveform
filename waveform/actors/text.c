@@ -142,14 +142,16 @@ text_actor(WaveformActor* _)
 	{
 		TextActor* ta = (TextActor*)actor;
 
-		agl_print(2, actor->parent->region.y2 - 16, 0, ta->text_colour, ta->text);
+		if(!agl->use_shaders) agl_enable(0); // TODO find out why this is needed when AGlActor caching is enabled.
+
+		agl_print(2, actor->region.y2 - actor->region.y1 - 16, 0, ta->text_colour, ta->text);
 
 		if(ta->title){
 			if(!ta->title_is_rendered) text_actor_render_text(ta);
 
 			// title text:
 			if(agl->use_shaders){
-				glEnable(GL_TEXTURE_2D);
+				agl_enable(AGL_ENABLE_TEXTURE_2D | AGL_ENABLE_BLEND);
 				glActiveTexture(GL_TEXTURE0);
 
 				agl_use_program((AGlShader*)&ass);
@@ -161,9 +163,9 @@ text_actor(WaveformActor* _)
 				float y1 = -((int)th - view->title_height - view->title_y_offset);
 				agl_textured_rect(v->ass_textures[0], waveform_view_plus_get_width(view) - v->title.width - 4.0f, y, v->title.width, th, &(AGlRect){0.0, 0.0, ((float)v->title.width) / ta->texture.width, 1.0});
 #else
-				float y = actor->parent->region.y2 - th;
+				float y = actor->region.y2 - actor->region.y1 - th;
 				agl_textured_rect(ta->texture.ids[0],
-					actor->parent->region.x2 - ta->_title.width - 4.0f,
+					actor->region.x2 - ta->_title.width - 4.0f,
 					y + ((TextActor*)actor)->baseline - 4.0f,
 					ta->_title.width,
 					th,
@@ -188,6 +190,16 @@ text_actor(WaveformActor* _)
 			ass.uniform.colour1 = ((TextActor*)a)->title_colour1;
 			ass.uniform.colour2 = ((TextActor*)a)->title_colour2;
 		}
+#ifdef AGL_ACTOR_RENDER_CACHE
+		a->fbo = agl_fbo_new(a->region.x2 - a->region.x1, a->region.y2 - a->region.y1, 0, 0);
+		a->cache.enabled = true;
+#endif
+	}
+
+	void text_actor_set_size(AGlActor* actor)
+	{
+		// the texture height will not be available first time
+		actor->region = (AGliRegion){0, actor->parent->region.y2 - MAX(32, ((TextActor*)actor)->texture.height), actor->parent->region.x2, actor->parent->region.y2};
 	}
 
 	void text_actor_free(AGlActor* actor)
@@ -213,6 +225,7 @@ text_actor(WaveformActor* _)
 	actor->init = text_actor_init;
 	actor->free = text_actor_free;
 	actor->paint = text_actor_paint;
+	actor->set_size = text_actor_set_size;
 
 	ta->title_colour1 = 0xff0000ff;
 	//ta->title_colour2 = 0xffffffaa;
@@ -374,6 +387,7 @@ text_actor_render_text(TextActor* ta)
 			if(gl_error){ gerr ("couldnt create ass_texture."); goto out; }
 		}
 		((TextActor*)actor)->texture.height = out.height;
+		agl_actor__set_size(actor);
 
 		int pixel_format = GL_LUMINANCE_ALPHA;
 		glBindTexture  (GL_TEXTURE_2D, ((TextActor*)actor)->texture.ids[0]);

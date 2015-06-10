@@ -135,8 +135,7 @@ fbo_print(WaveformActor* actor, int x, int y, double scale, uint32_t colour, int
 
 					glUseProgram(0);
 	glActiveTexture(GL_TEXTURE0);
-	glEnable(GL_TEXTURE_2D);
-					glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+	agl_enable(AGL_ENABLE_TEXTURE_2D | AGL_ENABLE_BLEND);
 
 	if(!fbo0) fbo0 = agl_fbo_new(256, 256, 0, 0);
 
@@ -182,7 +181,7 @@ fbo_print(WaveformActor* actor, int x, int y, double scale, uint32_t colour, int
 			glClearColor(0.0, 0.0, 0.0, 1.0); //background colour must be same as foreground for correct antialiasing
 			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 
-			glEnable(GL_TEXTURE_2D);
+			agl_enable(AGL_ENABLE_TEXTURE_2D);
 			glBindTexture(GL_TEXTURE_2D, texture);
 			double top = 0;
 			double bot = fbo0->height;

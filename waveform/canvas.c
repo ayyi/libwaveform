@@ -130,13 +130,17 @@ wf_canvas_instance_init(WaveformCanvas* self)
 }
 
 
-	static void wf_canvas_on_paint_update(GdkFrameClock* clock, void* _canvas)
-	{
-		WaveformCanvas* wfc = _canvas;
+#ifdef USE_FRAME_CLOCK
+static void wf_canvas_on_paint_update(GdkFrameClock* clock, void* _canvas)
+{
+	WaveformCanvas* wfc = _canvas;
 
-		if(wfc->draw) wfc->draw(wfc, wfc->draw_data);
-		wfc->priv->_last_redraw_time = wf_get_time();
-	}
+	if(wfc->draw) wfc->draw(wfc, wfc->draw_data);
+	wfc->priv->_last_redraw_time = wf_get_time();
+}
+#endif
+
+
 static void
 wf_canvas_init(WaveformCanvas* wfc)
 {
@@ -377,7 +381,7 @@ void
 wf_canvas_queue_redraw(WaveformCanvas* wfc)
 {
 #ifdef USE_FRAME_CLOCK
-	if(wfc->priv->is_animating){
+	if(wfc->root->is_animating){
 #if 0 // this is not needed - draw is called via the frame_clock_connect callback
 		if(wfc->draw) wfc->draw(wfc, wfc->draw_data);
 #endif
@@ -390,17 +394,17 @@ wf_canvas_queue_redraw(WaveformCanvas* wfc)
 	}
 
 #else
-	if(wfc->_queued) return;
+	if(wfc->priv->_queued) return;
 
 	gboolean wf_canvas_redraw(gpointer _canvas)
 	{
 		WaveformCanvas* wfc = _canvas;
 		if(wfc->draw) wfc->draw(wfc, wfc->draw_data);
-		wfc->_queued = false;
+		wfc->priv->_queued = false;
 		return G_SOURCE_REMOVE;
 	}
 
-	wfc->_queued = g_timeout_add(CLAMP(WF_FRAME_INTERVAL - (wf_get_time() - wfc->_last_redraw_time), 1, WF_FRAME_INTERVAL), wf_canvas_redraw, wfc);
+	wfc->priv->_queued = g_timeout_add(CLAMP(WF_FRAME_INTERVAL - (wf_get_time() - wfc->_last_redraw_time), 1, WF_FRAME_INTERVAL), wf_canvas_redraw, wfc);
 #endif
 }
 
@@ -426,7 +430,7 @@ wf_canvas_gl_to_px(WaveformCanvas* wfc, float x)
 
 
 void
-wf_canvas_load_texture_from_alphabuf(WaveformCanvas* wa, int texture_name, AlphaBuf* alphabuf)
+wf_canvas_load_texture_from_alphabuf(WaveformCanvas* wfc, int texture_name, AlphaBuf* alphabuf)
 {
 	//load the Alphabuf into the gl texture identified by texture_name.
 	//-the user can usually free the Alphabuf afterwards as it is unlikely to be needed again.
@@ -456,7 +460,7 @@ wf_canvas_load_texture_from_alphabuf(WaveformCanvas* wa, int texture_name, Alpha
 	}
 #endif
 
-	WAVEFORM_START_DRAW(wa) {
+	WAVEFORM_START_DRAW(wfc) {
 		//note: gluBuild2DMipmaps is deprecated. instead use GL_GENERATE_MIPMAP (requires GL 1.4)
 
 		glBindTexture(GL_TEXTURE_2D, texture_name);
@@ -501,7 +505,7 @@ wf_canvas_load_texture_from_alphabuf(WaveformCanvas* wa, int texture_name, Alpha
 
 		glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
 		if(!glIsTexture(texture_name)) gwarn("texture not loaded! %i", texture_name);
-	} WAVEFORM_END_DRAW(wa);
+	} WAVEFORM_END_DRAW(wfc);
 
 	gl_warn("copy to texture");
 }

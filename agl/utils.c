@@ -245,6 +245,8 @@ agl_shaders_init()
 	// initialise shader programs
 	// must not be called until we have and are inside DRAW
 
+	if(!agl->pref_use_shaders) return;
+
 	static gboolean done = FALSE;
 	if(done++) return;
 
@@ -563,6 +565,10 @@ agl_set_font_string(char* font_string)
 }
 
 
+/*
+ *  There is no need for the caller to set GL state.
+ *  GL_TEXTURE_2D and GL_BLEND will be automatically enabled.
+ */
 void
 agl_print(int x, int y, double z, uint32_t colour, const char *fmt, ...)
 {

@@ -51,8 +51,6 @@
 #include "test/ayyi_utils.h"
 #include "common.h"
 
-#define bool gboolean
-
 #define WAV \
 	"test/data/mono_1.wav"
 //	"test/data/mono_1.mp3"

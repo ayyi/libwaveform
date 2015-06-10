@@ -126,9 +126,10 @@ waveform_instance_init (Waveform* self)
 
 
 static void
-__finalize (Waveform* w)
+waveform_finalize (GObject* obj)
 {
 	PF;
+	Waveform* w = WAVEFORM(obj);
 	WaveformPriv* _w = w->priv;
 
 	wf_cancel_jobs(w);
@@ -137,7 +138,7 @@ __finalize (Waveform* w)
 	if(g_hash_table_size(wf->peak_cache) && !g_hash_table_remove(wf->peak_cache, w) && wf_debug) gwarn("failed to remove waveform from peak_cache");
 
 	int c; for(c=0;c<WF_MAX_CH;c++){
-		if(w->priv->peak.buf[c]) g_free(w->priv->peak.buf[c]);
+		if(_w->peak.buf[c]) g_free(_w->peak.buf[c]);
 	}
 
 	extern int texture_cache_count_by_waveform(Waveform*);
@@ -153,15 +154,7 @@ __finalize (Waveform* w)
 	waveform_audio_free(w);
 	g_free(w->priv);
 	g_free(w->filename);
-}
 
-
-static void
-waveform_finalize (GObject* obj)
-{
-	PF;
-	Waveform* w = WAVEFORM(obj);
-	__finalize(w);
 	G_OBJECT_CLASS (waveform_parent_class)->finalize (obj);
 	dbg(1, "done");
 }

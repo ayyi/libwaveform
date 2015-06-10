@@ -70,7 +70,7 @@ spp_actor(WaveformActor* wf_actor)
 					: 2.0;
 			}else{
 				glColor4f(0.0, 1.0, 0.0, 1.0);
-				glDisable(GL_TEXTURE_2D);
+				agl_enable(!AGL_ENABLE_TEXTURE_2D | !AGL_ENABLE_BLEND);
 			}
 		}
 	}

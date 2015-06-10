@@ -253,7 +253,7 @@ waveform_view_plus_new (Waveform* waveform)
 		WaveformViewPlus* view = (WaveformViewPlus*)((AGlRootActor*)a)->widget;
 		WaveformViewPlusPrivate* v = view->priv;
 
-		if(!v->canvas->priv->shaders.peak) return G_SOURCE_CONTINUE;
+		if(agl->use_shaders && !v->canvas->priv->shaders.peak) return G_SOURCE_CONTINUE;
 
 		waveform_view_plus_gl_init(view);
 
@@ -297,7 +297,7 @@ _waveform_view_plus_set_actor (WaveformViewPlus* view)
 
 
 static void
-_show_waveform(gpointer _view, gpointer _c)
+_waveform_view_plus__show_waveform(gpointer _view, gpointer _c)
 {
 	// this must NOT be called until the canvas is ready
 
@@ -345,6 +345,8 @@ _show_waveform(gpointer _view, gpointer _c)
 void
 waveform_view_plus_load_file (WaveformViewPlus* view, const char* filename)
 {
+	dbg(1, "%s", filename);
+
 	WaveformViewPlusPrivate* v = view->priv;
 
 	if(view->waveform){
@@ -357,9 +359,12 @@ waveform_view_plus_load_file (WaveformViewPlus* view, const char* filename)
 	}
 
 	view->waveform = waveform_new(filename);
-	if(v->actor) wf_actor_set_waveform(v->actor, view->waveform);
+	if(v->actor){
+		wf_actor_set_waveform(v->actor, view->waveform);
+		agl_actor__invalidate(((AGlActor*)v->actor)->parent); // we dont seem to track the layers, so have to invalidate everything.
+	}
 
-	am_promise_add_callback(promise(PROMISE_DISP_READY), _show_waveform, NULL);
+	am_promise_add_callback(promise(PROMISE_DISP_READY), _waveform_view_plus__show_waveform, NULL);
 }
 
 
@@ -380,7 +385,7 @@ waveform_view_plus_set_waveform (WaveformViewPlus* view, Waveform* waveform)
 
 	view->zoom = 1.0;
 
-	am_promise_add_callback(promise(PROMISE_DISP_READY), _show_waveform, NULL);
+	am_promise_add_callback(promise(PROMISE_DISP_READY), _waveform_view_plus__show_waveform, NULL);
 }
 
 
@@ -576,7 +581,7 @@ waveform_view_plus_unrealize (GtkWidget* widget)
 	// create a new promise that will be resolved if and when the canvas is available again.
 	GList* nth = g_list_nth(v->ready->children, PROMISE_DISP_READY);
 	nth->data = am_promise_new(view);
-	am_promise_add_callback(nth->data, _show_waveform, NULL);
+	am_promise_add_callback(nth->data, _waveform_view_plus__show_waveform, NULL);
 }
 
 
@@ -587,7 +592,7 @@ waveform_view_plus_on_expose (GtkWidget* widget, GdkEventExpose* event)
 	g_return_val_if_fail (event, FALSE);
 
 	if(!GTK_WIDGET_REALIZED(widget)) return true;
-	if(!gl_initialised || !promise(PROMISE_DISP_READY)->is_resolved) return true;
+	if(!gl_initialised) return true;
 
 	AGL_ACTOR_START_DRAW(view->priv->root) {
 		// needed for the case of shared contexts, where one of the other contexts modifies the projection.
@@ -597,7 +602,9 @@ waveform_view_plus_on_expose (GtkWidget* widget, GdkEventExpose* event)
 		glClearColor(bg.r, bg.g, bg.b, 1.0);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-		waveform_view_plus_draw(view);
+		if(promise(PROMISE_DISP_READY)->is_resolved){
+			waveform_view_plus_draw(view);
+		}
 
 		gdk_gl_drawable_swap_buffers(((AGlRootActor*)view->priv->root)->gl.gdk.drawable);
 	} AGL_ACTOR_END_DRAW(view->priv->root)
@@ -933,6 +940,8 @@ remove_key_handlers(GtkWindow* window, WaveformViewPlus* waveform)
 static void
 scroll_left(WaveformViewPlus* view)
 {
+	if(!view->waveform) return;
+
 	int n_visible_frames = ((float)view->waveform->n_frames) / view->zoom;
 	waveform_view_plus_set_start(view, view->start_frame - n_visible_frames / 10);
 }
@@ -941,6 +950,8 @@ scroll_left(WaveformViewPlus* view)
 static void
 scroll_right(WaveformViewPlus* view)
 {
+	if(!view->waveform) return;
+
 	int n_visible_frames = ((float)view->waveform->n_frames) / view->zoom;
 	waveform_view_plus_set_start(view, view->start_frame + n_visible_frames / 10);
 }
@@ -1040,6 +1051,7 @@ waveform_actor(WaveformViewPlus* view)
 		waveform_actor_size(actor);
 #ifdef AGL_ACTOR_RENDER_CACHE
 		actor->fbo = agl_fbo_new(actor->region.x2 - actor->region.x1, actor->region.y2 - actor->region.y1, 0, 0);
+		actor->cache.enabled = true;
 #endif
 		actor->set_size = waveform_actor_size;
 	}
@@ -1100,7 +1112,7 @@ bg_actor(WaveformViewPlus* view)
 		} 
 #endif
 
-		glEnable(GL_TEXTURE_2D);
+		agl_enable(AGL_ENABLE_TEXTURE_2D | AGL_ENABLE_BLEND);
 
 		glGenTextures(1, ta->texture);
 		if(glGetError() != GL_NO_ERROR){ gerr ("couldnt create bg_texture."); goto out; }

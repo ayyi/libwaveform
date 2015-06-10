@@ -765,10 +765,7 @@ gl_texture_quad (gint x1, gint x2, gint y1, gint y2, Fixed tx1, Fixed ty1, Fixed
   gdouble txf2 = FIXED_TO_DOUBLE (tx2);
   gdouble tyf2 = FIXED_TO_DOUBLE (ty2);
 
-  //dbg(4, "%.2f %.2f %.2f %.2f", txf1, tyf1, txf2, tyf2);
-
-  //agl_enable (GL_ENABLE_BLEND);//no textures
-#define USE_GL_ENABLE // wont work unless we use it everywhere - flags will be wrong.
+#define USE_GL_ENABLE
 #ifdef USE_GL_ENABLE
   agl_enable (AGL_ENABLE_TEXTURE_2D | AGL_ENABLE_BLEND);
 #else

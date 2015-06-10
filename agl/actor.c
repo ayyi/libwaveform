@@ -35,6 +35,7 @@ static bool   actor__is_onscreen (AGlActor*);
 static AGliPt actor__find_offset (AGlActor*);
 static bool  _actor__on_event    (AGlActor*, GdkEvent*, AGliPt);
 static void   agl_actor__init    (AGlActor*);              // called once when gl context is available. and again if gl context changes, eg after re-realize.
+static bool   agl_actor__is_animating (AGlActor*);
 
 
 AGlActor*
@@ -296,6 +297,7 @@ render_from_fbo(AGlActor* a)
 		agl->shaders.texture->uniform.fg_colour = 0xffffffff;
 		agl_use_program((AGlShader*)agl->shaders.texture);
 	}else{
+		agl_enable(0); // TODO find out why this is needed.
 		agl_enable(AGL_ENABLE_TEXTURE_2D | AGL_ENABLE_BLEND);
 		glColor4f(1.0, 1.0, 1.0, 1.0); // seems to make a difference for alpha
 	}
@@ -648,10 +650,11 @@ agl_actor__grab(AGlActor* actor)
 void
 agl_actor__invalidate(AGlActor* actor)
 {
-#ifdef AGL_ACTOR_RENDER_CACHE
 	void _agl_actor__invalidate(AGlActor* actor)
 	{
+#ifdef AGL_ACTOR_RENDER_CACHE
 		actor->cache.valid = false;
+#endif
 		call(actor->invalidate, actor);
 
 		GList* l = actor->children;
@@ -661,13 +664,15 @@ agl_actor__invalidate(AGlActor* actor)
 		}
 
 		while(actor){
+#ifdef AGL_ACTOR_RENDER_CACHE
 			actor->cache.valid = false;
+#endif
+			// should probably also call actor->invalidate here
 			actor = actor->parent;
 		}
 	}
 	_agl_actor__invalidate(actor);
-	gtk_widget_queue_draw(actor->root->widget);
-#endif
+	if(actor->root) gtk_widget_queue_draw(actor->root->widget);
 }
 
 
@@ -745,6 +750,9 @@ agl_actor__start_transition(AGlActor* actor, GList* animatables, AnimationFn don
 #ifdef DEBUG
 		if(g_list_length(a->transitions) != l - 1) gwarn("animation not removed. len=%i-->%i", l, g_list_length(a->transitions));
 #endif
+#ifdef USE_FRAME_CLOCK
+		if(a->root) a->root->is_animating = agl_actor__is_animating((AGlActor*)a->root);
+#endif
 
 		agl_actor__enable_cache(a, true);
 	}
@@ -774,6 +782,9 @@ agl_actor__start_transition(AGlActor* actor, GList* animatables, AnimationFn don
 		WfAnimation* animation = wf_animation_new(_on_animation_finished, c);
 		animation->on_frame = on_frame;
 		actor->transitions = g_list_append(actor->transitions, animation);
+#ifdef USE_FRAME_CLOCK
+		if(actor->root) actor->root->is_animating = true;
+#endif
 		wf_transition_add_member(animation, animatables);
 		wf_animation_start(animation);
 		agl_actor__enable_cache(actor, false);
@@ -800,6 +811,19 @@ agl_actor__is_disabled(AGlActor* a)
 		if(a->disabled) return true;
 	} while((a = a->parent));
 
+	return false;
+}
+
+
+static bool
+agl_actor__is_animating(AGlActor* a)
+{
+	if(a->transitions) return true;
+
+	GList* l = a->children;
+	for(;l;l=l->next){
+		if(agl_actor__is_animating((AGlActor*)l->data)) return true;
+	}
 	return false;
 }
 

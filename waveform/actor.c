@@ -130,6 +130,8 @@ struct _actor_priv
 	gulong          peakdata_ready_handler;
 	gulong          dimensions_changed_handler;
 
+	guint           load_render_data_queue;
+
 	// cached values used for rendering. cleared when rect/region/viewport changed.
 	struct _RenderInfo {
 		bool           valid;
@@ -209,8 +211,6 @@ typedef struct
 } IntBufHi;
 
 typedef void (MakeTextureData)(Waveform*, int ch, IntBufHi*, int blocknum);
-static MakeTextureData
-	make_texture_data_hi;
 
 struct _draw_mode
 {
@@ -255,6 +255,7 @@ static int    wf_actor_get_n_blocks          (Waveform*, Mode);
 
 static void   wf_actor_canvas_finalize_notify(gpointer, GObject*);
 static void   wf_actor_start_transition      (WaveformActor*, GList* /* WfAnimatable* */, AnimationFn, gpointer);
+static void   wf_actor_queue_load_render_data(WaveformActor*);
 static void  _wf_actor_load_missing_blocks   (WaveformActor*);
 static void   wf_actor_on_use_shaders_change ();
 #if 0
@@ -415,7 +416,7 @@ wf_actor_new(Waveform* w, WaveformCanvas* wfc)
 		wf_actor_on_use_shaders_change();
 
 		if(!a->waveform->priv->peak.size) waveform_load(a->waveform);
-		_wf_actor_load_missing_blocks(a);
+		if(a->rect.len > 0.0) _wf_actor_load_missing_blocks(a);
 		if(a->canvas->draw) wf_canvas_queue_redraw(a->canvas);
 	}
 	actor->init = wf_actor_on_init;
@@ -438,6 +439,8 @@ wf_actor_free(WaveformActor* a)
 	GList* l = actor->transitions;
 	for(;l;l=l->next) wf_animation_remove((WfAnimation*)l->data);
 	g_list_free0(actor->transitions);
+
+	if(_a->load_render_data_queue) g_source_remove(_a->load_render_data_queue);
 
 	if(a->waveform){
 		g_signal_handler_disconnect((gpointer)a->waveform, _a->peakdata_ready_handler);
@@ -487,6 +490,8 @@ wf_actor_set_waveform(WaveformActor* a, Waveform* waveform)
 	waveform_get_n_frames(waveform);
 	if(!waveform->renderable) return;
 
+	agl_actor__invalidate((AGlActor*)a);
+
 	if(a->waveform){
 		wf_actor_clear(a);
 		g_object_unref(a->waveform);
@@ -495,8 +500,10 @@ wf_actor_set_waveform(WaveformActor* a, Waveform* waveform)
 
 	waveform_load(a->waveform);
 
-	if(waveform_get_n_frames(a->waveform))
-	wf_actor_set_region(a, &(WfSampleRegion){0, waveform_get_n_frames(a->waveform) - 1});
+	if(waveform_get_n_frames(a->waveform)){
+		wf_actor_queue_load_render_data(a);
+		wf_actor_set_region(a, &(WfSampleRegion){0, waveform_get_n_frames(a->waveform) - 1});
+	}
 }
 
 
@@ -525,7 +532,7 @@ wf_actor_set_region(WaveformActor* a, WfSampleRegion* region)
 
 	if(!start && !end) return;
 
-	if(a->rect.len > 0.00001) _wf_actor_load_missing_blocks(a); // this loads _current_ values, future values are loaded by the animator preview
+	if(a->rect.len > 0.00001) wf_actor_queue_load_render_data(a);
 
 	if(!a->canvas->draw || !a->canvas->enable_animations){
 		a1->val.i = MAX(1, a->region.start);
@@ -799,7 +806,7 @@ wf_actor_get_visible_block_range(WfSampleRegion* region, WfRectangle* rect, doub
 
 
 #if defined (USE_FBO) && defined (multipass)
-// this is only used in gl-1 mode.
+// this is only used in gl-1 mode with the obsolete use_1d_textures options.
 static void
 block_to_fbo(WaveformActor* a, int b, WfGlBlock* blocks, int resolution)
 {
@@ -935,7 +942,13 @@ wf_actor_frame_to_x (WaveformActor* actor, uint64_t frame)
 void
 wf_actor_clear (WaveformActor* actor)
 {
+	WfActorPriv* a = actor->priv;
 	Waveform* w = actor->waveform;
+
+	if(a->load_render_data_queue){
+		g_source_remove(a->load_render_data_queue);
+		a->load_render_data_queue = 0;
+	}
 
 	int m; for(m=0;m<N_MODES;m++){
 		WaveformModeRender** r = &w->priv->render_data[m];
@@ -1099,6 +1112,29 @@ _wf_actor_allocate_hi(WaveformActor* a)
 
 
 static void
+wf_actor_queue_load_render_data(WaveformActor* a)
+{
+	WfActorPriv* _a = a->priv;
+
+	bool load_render_data(gpointer _a)
+	{
+		WaveformActor* a = _a;
+
+		_wf_actor_load_missing_blocks(a); // this loads _current_ values, future values are loaded by the animator preview
+
+		// because this is asynchronous, any caches may consist of an empty render.
+		agl_actor__invalidate((AGlActor*)a);
+
+		if(a->canvas->draw) wf_canvas_queue_redraw(a->canvas);
+		a->priv->load_render_data_queue = 0;
+		return G_SOURCE_REMOVE;
+	}
+
+	if(!_a->load_render_data_queue) _a->load_render_data_queue = g_timeout_add(10, load_render_data, a);
+}
+
+
+static void
 _wf_actor_load_missing_blocks(WaveformActor* a)
 {
 	// during a transition, this will load the _currently_ visible blocks, not for the target.
@@ -1220,7 +1256,7 @@ wf_actor_set_rect(WaveformActor* a, WfRectangle* rect)
 
 	dbg(2, "rect: %.2f --> %.2f", rect->left, rect->left + rect->len);
 
-	if(a->region.len && a->waveform->priv->num_peaks) _wf_actor_load_missing_blocks(a);
+	if(a->region.len && a->waveform->priv->num_peaks) wf_actor_queue_load_render_data(a);
 
 	if(animate){
 		GList* animatables = NULL; //ownership is transferred to the WfAnimation.
@@ -1583,7 +1619,7 @@ wf_actor_paint(AGlActor* _actor)
 #ifdef RECT_ROUNDING
 		i++;
 		x = round(x0 + i * block_wid0);
-		r->block_wid  = round(x0 + (i + 1) * block_wid0) - x; // block_wid is not constant when using rounding
+		r->block_wid = round(x0 + (i + 1) * block_wid0) - x; // block_wid is not constant when using rounding
 #else
 		x += r->block_wid;
 #endif
@@ -1602,7 +1638,7 @@ wf_actor_paint(AGlActor* _actor)
 		agl_use_program((AGlShader*)agl->shaders.plain);
 		glDisable(GL_TEXTURE_1D);
 	}else{
-		agl_enable(AGL_ENABLE_BLEND); // !AGL_ENABLE_TEXTURE_2D
+		agl_enable(AGL_ENABLE_BLEND | !AGL_ENABLE_TEXTURE_2D);
 		glColor4f(1.0, 0.0, 1.0, 0.75);
 	}
 	for(b=r->viewport_blocks.first;b<=r->viewport_blocks.last;b++){
@@ -1803,40 +1839,6 @@ wf_actor_load_texture2d(WaveformActor* a, Mode mode, int texture_id, int blocknu
 
 
 static void
-make_texture_data_hi(Waveform* w, int ch, IntBufHi* buf, int blocknum)
-{
-	//data is transformed from the Waveform hi-res peakbuf into IntBufHi* buf.
-
-	dbg(1, "b=%i", blocknum);
-	int texture_size = modes[MODE_HI].texture_size;
-	Peakbuf* peakbuf = waveform_get_peakbuf_n(w, blocknum);
-	int o = TEX_BORDER_HI; for(;o<texture_size;o++){
-		int i = (o - TEX_BORDER_HI) * WF_PEAK_VALUES_PER_SAMPLE;
-		if(i >= peakbuf->size){
-			dbg(2, "end of peak: %i b=%i n_sec=%.3f", peakbuf->size, blocknum, ((float)((texture_size * blocknum + o) * WF_PEAK_RATIO))/44100); break;
-		}
-
-		short* p = peakbuf->buf[ch];
-		buf->positive[o] =  p[i  ] >> 8;
-		buf->negative[o] = -p[i+1] >> 8;
-	}
-#if 0
-	int j; for(j=0;j<20;j++){
-		printf("  %2i: %5i %5i %5u %5u\n", j, ((short*)peakbuf->buf[ch])[2*j], ((short*)peakbuf->buf[ch])[2*j +1], (guint)(buf->positive[j] * 0x100), (guint)(buf->negative[j] * 0x100));
-	}
-#endif
-				/*
-				//int k; for(k=0;k<20;k++){
-				//	buf->positive[k] = 100;
-				//}
-				int k; for(k=0;k<100;k++){
-					buf->positive[texture_size - 1 - k] = 80;
-				}
-				*/
-}
-
-
-static void
 wf_actor_start_transition(WaveformActor* a, GList* animatables, AnimationFn done, gpointer user_data)
 {
 	WfActorPriv* _a = a->priv;
@@ -1865,19 +1867,10 @@ wf_actor_start_transition(WaveformActor* a, GList* animatables, AnimationFn done
 		C* c = _c;
 		if(c->done) c->done(animation, c->user_data);
 
-#ifdef USE_FRAME_CLOCK
-		if(!((AGlActor*)c->actor)->transitions) c->actor->canvas->priv->is_animating = false;
-#endif
 		g_free(c);
 	}
 
 	agl_actor__start_transition(actor, animatables, _done, c);
-
-	if(animatables){
-#ifdef USE_FRAME_CLOCK
-		a->canvas->priv->is_animating = true;
-#endif
-	}
 
 	// if neccesary load any additional audio needed by the transition.
 	// - currently only changes to the region start are checked.
@@ -1922,7 +1915,7 @@ wf_actor_start_transition(WaveformActor* a, GList* animatables, AnimationFn done
 			}
 		}
 
-		double zoom_start = a->priv->animatable.rect_len.val.f / a->priv->animatable.len.val.i;
+		double zoom_start = _a->animatable.rect_len.val.f / _a->animatable.len.val.i;
 		double zoom_end = a->rect.len / a->region.len;
 		if(zoom_start == 0.0) zoom_start = zoom_end;
 		GList* l = actor->transitions;

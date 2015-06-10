@@ -63,17 +63,6 @@ low_new_gl2(WaveformActor* actor)
 }
 
 
-#if 0
-// temporary - performance testing
-static void
-use_texture_no_blend(GLuint texture)
-{
-	glBindTexture(GL_TEXTURE_2D, texture);
-	glDisable(GL_BLEND);
-}
-#endif
-
-
 static void
 med_lo_clear_1d_textures(WfGlBlock* blocks, WaveformBlock* wb)
 {
@@ -231,6 +220,7 @@ med_lo_pre_render_gl1(Renderer* renderer, WaveformActor* actor)
 {
 	WfActorPriv* _a = actor->priv;
 
+	agl_enable(AGL_ENABLE_BLEND); // TODO find out why GL_TEXTURE_2D needs to be flipped here.
 	agl_enable(AGL_ENABLE_TEXTURE_2D | AGL_ENABLE_BLEND);
 
 	AGlColourFloat fg; wf_colour_rgba_to_float(&fg, actor->fg_colour);
@@ -276,24 +266,24 @@ med_lo_get_quad_dimensions(WaveformActor* actor, int b, bool is_first, bool is_l
 	double border_pct = (1.0 - usable_pct)/2;
 #endif
 
-	double block_wid = r->block_wid;
-#ifdef RECT_ROUNDING
-	block_wid = round(block_wid);
-#endif
-	double tex_x = x;
 	QuadExtent tex = {0.0, 1.0}; // use the whole texture
+#ifdef RECT_ROUNDING
+	QuadExtent quad = {x, round(r->block_wid)};
+#else
+	QuadExtent quad = {x, r->block_wid};
+#endif
 
 	if (is_first){
 		tex.wid = 1.0 - ((double)r->first_offset) / r->samples_per_texture;
 #ifdef RECT_ROUNDING
-		block_wid = round(r->block_wid * tex.wid); // this can be off by a pixel
+		quad.wid = round(r->block_wid * tex.wid); // this can be off by a pixel
 #else
-		block_wid = r->block_wid * tex.wid;
+		quad.wid = r->block_wid * tex.wid;
 #endif
 		tex.start = 1.0 - tex.wid;
 		dbg(3, "rect.left=%.2f region->start=%i first_offset=%i", r->rect.left, r->region.start, r->first_offset);
- 		//if(r->first_offset) tex_x += r->first_offset_px;
-		tex_x = x + r->block_wid - block_wid; // align the block end to the start of the following one
+ 		//if(r->first_offset) quad.start += r->first_offset_px;
+		quad.start = x + r->block_wid - quad.wid; // align the block end to the start of the following one
 	}
 
 	if (is_last){
@@ -303,18 +293,20 @@ med_lo_get_quad_dimensions(WaveformActor* actor, int b, bool is_first, bool is_l
 			//end is trimmed
 			double part_inset_px = wf_actor_samples2gl(r->zoom, r->region.start);
 			double region_len_px = wf_actor_samples2gl(r->zoom, r->region.len);
+																// TODO apply change to other renderers
 			// note region may be smaller that the rect during transitions
 			double distance_from_file_start_to_region_end = part_inset_px + MIN(r->rect.len, region_len_px);
-			block_wid = distance_from_file_start_to_region_end - b * r->block_wid;
+			//                                                                               ^ does this one work in all cases?
+			quad.wid = distance_from_file_start_to_region_end - b * r->block_wid;
 #ifdef RECT_ROUNDING
-			block_wid = round(block_wid);
+			quad.wid = round(quad.wid);
 #else
 			dbg(3, " %i: inset=%.2f s->e=%.2f i*b=%.2f", b, part_inset_px, distance_from_file_start_to_region_end, b * r->block_wid);
 			if(b * r->block_wid > distance_from_file_start_to_region_end){ gwarn("end error! %.2f %.2f", b * r->block_wid, distance_from_file_start_to_region_end); return false; }
 #endif
 		}
 
-		tex.wid = block_wid / r->block_wid;
+		tex.wid = quad.wid / r->block_wid;
 	}
 
 #if defined (USE_FBO) && defined (multipass)
@@ -323,11 +315,11 @@ med_lo_get_quad_dimensions(WaveformActor* actor, int b, bool is_first, bool is_l
 	}
 #endif
 
-	dbg (3, "%i: is_last=%i x=%.2f wid=%.2f/%.2f tex_pct=%.3f tex.start=%.2f", b, is_last, x, block_wid, r->block_wid, tex.wid, tex.start);
+	dbg (3, "%i: is_last=%i x=%.2f wid=%.2f/%.2f tex_pct=%.3f tex.start=%.2f", b, is_last, x, quad.wid, r->block_wid, tex.wid, tex.start);
 	if(tex.wid < 0.0 || tex.start + tex.wid > 1.0000001) gwarn("tex_pct out of range: %f %.20f", tex.wid, tex.start + tex.wid);
 
 	*tex_ = (TextureRange){tex.start, tex.start + tex.wid};
-	*qe_ = (QuadExtent){tex_x, block_wid};
+	*qe_ = quad;
 	return true;
 }
 

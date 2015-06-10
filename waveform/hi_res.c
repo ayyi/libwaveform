@@ -200,6 +200,32 @@ hi_gl1_load_block(Renderer* renderer, WaveformActor* a, int block)
 
 
 static void
+make_texture_data_hi(Waveform* w, int ch, IntBufHi* buf, int blocknum)
+{
+	//data is transformed from the Waveform hi-res peakbuf into IntBufHi* buf.
+
+	dbg(1, "b=%i", blocknum);
+	int texture_size = modes[MODE_HI].texture_size;
+	Peakbuf* peakbuf = waveform_get_peakbuf_n(w, blocknum);
+	int o = TEX_BORDER_HI; for(;o<texture_size;o++){
+		int i = (o - TEX_BORDER_HI) * WF_PEAK_VALUES_PER_SAMPLE;
+		if(i >= peakbuf->size){
+			dbg(2, "end of peak: %i b=%i n_sec=%.3f", peakbuf->size, blocknum, ((float)((texture_size * blocknum + o) * WF_PEAK_RATIO))/44100); break;
+		}
+
+		short* p = peakbuf->buf[ch];
+		buf->positive[o] =  p[i  ] >> 8;
+		buf->negative[o] = -p[i+1] >> 8;
+	}
+#if 0
+	int j; for(j=0;j<20;j++){
+		printf("  %2i: %5i %5i %5u %5u\n", j, ((short*)peakbuf->buf[ch])[2*j], ((short*)peakbuf->buf[ch])[2*j +1], (guint)(buf->positive[j] * 0x100), (guint)(buf->negative[j] * 0x100));
+	}
+#endif
+}
+
+
+static void
 _draw_line(int x1, int y1, int x2, int y2, float r, float g, float b, float a)
 {
 	glColor4f(r, g, b, a);

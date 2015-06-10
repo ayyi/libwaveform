@@ -92,7 +92,7 @@ ng_gl2_load_block(Renderer* renderer, WaveformActor* actor, int b)
 	{
 		int block_size = get_block_size(actor);
 		int buffer_size = block_size * MIN(MAX_BLOCKS_PER_TEXTURE, waveform_get_n_audio_blocks(waveform) - s * MAX_BLOCKS_PER_TEXTURE);
-		dbg(1, "block_size=%ik section->buffer=%ik", block_size / 1024, buffer_size / 1024);
+		dbg(1, "%s block_size=%ik section->buffer=%ik", modes[renderer->mode].name, block_size / 1024, buffer_size / 1024);
 
 		Section* section = &data->section[s];
 		section->buffer = g_malloc0(section->buffer_size = buffer_size);
