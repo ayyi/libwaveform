@@ -107,6 +107,10 @@ struct _AGlRootActor {
 #endif
    }              gl;
    ContextType    type;
+
+#ifdef USE_FRAME_CLOCK
+   bool              is_animating;
+#endif
 };
 
 struct _AGlTextureActor {
