@@ -40,10 +40,11 @@
 #include <glib/gprintf.h>
 #include <glib/gstdio.h>
 #include <sndfile.h>
-#include "waveform/utils.h"
-#include "waveform/peak.h"
+#include "waveform/waveform.h"
 #include "waveform/audio.h"
 #include "waveform/audio_file.h"
+#include "waveform/worker.h"
+#include "waveform/loaders/ardour.h"
 #include "waveform/peakgen.h"
 
 #define BUFFER_LEN 256 // length of the buffer to hold audio during processing. currently must be same as WF_PEAK_RATIO
@@ -60,6 +61,8 @@ static bool          wf_file_is_newer    (const char*, const char*);
 static bool          wf_create_cache_dir ();
 static char*         get_cache_dir       ();
 static void          maintain_file_cache ();
+
+static WfWorker peakgen = {0,};
 
 
 static char*
@@ -95,11 +98,86 @@ waveform_get_peak_filename(const char* filename)
 }
 
 
-char*
-waveform_ensure_peakfile (Waveform* w)
+static bool
+peakfile_is_current(const char* audio_file, const char* peak_file)
 {
-	// caller must g_free the returned value.
+	/*
+	note that this test will fail to detect a modified file, if an older file is now stored at this location.
 
+	The freedesktop thumbnailer spec identifies modifications by comparing with both url and mtime stored in the thumbnail.
+	This will mostly work, but strictly speaking still won't identify a changed file in all cases.
+
+	One relatively simple improvement would be to match the sizes.
+	*/
+
+	if(!g_file_test(peak_file, G_FILE_TEST_EXISTS)){
+		dbg(1, "peakfile does not exist: %s", peak_file);
+		return false;
+	}
+
+	if(wf_file_is_newer(audio_file, peak_file)){
+		dbg(1, "peakfile is too old");
+		return false;
+	}
+
+	return true;
+}
+
+
+/*
+ *  Caller must g_free the returned filename.
+ */
+void
+waveform_ensure_peakfile (Waveform* w, WfPeakfileCallback callback, gpointer user_data)
+{
+	if(!wf_create_cache_dir()) return;
+
+	char* filename = g_path_is_absolute(w->filename) ? g_strdup(w->filename) : g_build_filename(g_get_current_dir(), w->filename, NULL);
+
+	gchar* peak_filename = waveform_get_peak_filename(filename);
+	if(!peak_filename){
+		callback(w, NULL, user_data);
+		goto out;
+	}
+
+	if(w->offline || peakfile_is_current(filename, peak_filename)){
+		callback(w, peak_filename, user_data);
+		goto out;
+	}
+
+	typedef struct {
+		Waveform* waveform;
+		WfPeakfileCallback callback;
+		char* filename;
+		gpointer user_data;
+	} C;
+	C* c = g_new0(C, 1);
+	*c = (C){
+		.waveform = g_object_ref(w),
+		.callback = callback,
+		.filename = peak_filename,
+		.user_data = user_data
+	};
+
+	void waveform_ensure_peakfile_done(Waveform* w, gpointer user_data)
+	{
+		C* c = (C*)user_data;
+		if(c->callback) c->callback(c->waveform, c->filename, c->user_data);
+		else g_free(c->filename);
+		g_object_unref(c->waveform);
+		g_free(c);
+	}
+
+	waveform_peakgen(w, peak_filename, waveform_ensure_peakfile_done, c);
+
+  out:
+	g_free(filename);
+}
+
+
+char*
+waveform_ensure_peakfile__sync (Waveform* w)
+{
 	if(!wf_create_cache_dir()) return NULL;
 
 	char* filename = g_path_is_absolute(w->filename) ? g_strdup(w->filename) : g_build_filename(g_get_current_dir(), w->filename, NULL);
@@ -121,7 +199,7 @@ waveform_ensure_peakfile (Waveform* w)
 		dbg(1, "peakfile is too old");
 	}
 
-	if(!wf_peakgen(filename, peak_filename)){ g_free0(peak_filename); goto out; }
+	if(!wf_peakgen__sync(filename, peak_filename)){ g_free0(peak_filename); goto out; }
 
   out:
 	g_free(filename);
@@ -212,11 +290,76 @@ wf_ff_peakgen(const char* infilename, const char* peak_filename)
 	sf_close (infile); \
 	return false;
 
-bool
-wf_peakgen(const char* infilename, const char* peak_filename)
-{
-	//return true on success
 
+void
+waveform_peakgen(Waveform* w, const char* peak_filename, WfCallback2 callback, gpointer user_data)
+{
+	if(!peakgen.msg_queue) wf_worker_init(&peakgen);
+
+	typedef struct {
+		char*         infilename;
+		const char*   peak_filename;
+		struct {
+			bool          failed; // returned true if peakgen failed
+		}             out;
+		WfCallback2   callback;
+		void*         user_data;
+	} PeakJob;
+
+	PeakJob* job = g_new0(PeakJob, 1);
+	*job = (PeakJob){
+		.infilename = g_path_is_absolute(w->filename) ? g_strdup(w->filename) : g_build_filename(g_get_current_dir(), w->filename, NULL),
+		.peak_filename = peak_filename,
+		.callback = callback,
+		.user_data = user_data,
+	};
+
+	void peakgen_execute_job(Waveform* w, gpointer _job)
+	{
+		// runs in worker thread
+		PeakJob* job = _job;
+
+		if(!wf_peakgen__sync(job->infilename, job->peak_filename)){
+			job->out.failed = true;
+		}
+	}
+
+	void peakgen_free(gpointer item)
+	{
+		PF0;
+		PeakJob* job = item;
+		g_free0(job->infilename);
+		g_free(job);
+	}
+
+	void peakgen_post(Waveform* waveform, gpointer item)
+	{
+		// runs in the main thread
+		// will not be called if the waveform is destroyed.
+
+		PeakJob* job = item;
+// TODO if job->out.failed, still need to notify original caller...
+		job->callback(waveform, job->user_data);
+	}
+
+	wf_worker_push_job(&peakgen, w, peakgen_execute_job, peakgen_post, peakgen_free, job);
+}
+
+
+void
+waveform_peakgen_cancel(Waveform* w)
+{
+	wf_worker_cancel_jobs(&peakgen, w);
+}
+
+
+/*
+ *  Generate a peak file on disk for the given audio file.
+ *  Returns true on success.
+ */
+bool
+wf_peakgen__sync(const char* infilename, const char* peak_filename)
+{
 	g_return_val_if_fail(infilename, false);
 	PF;
 
@@ -369,17 +512,15 @@ process_data (short* data, int data_size_frames, int n_channels, short max[], sh
 }
 
 
-//long is good up to 4.2GB
+/*
+ * Returns time in milliseconds, given the sample number.
+ */
 static unsigned long
 sample2time(SF_INFO sfinfo, long samplenum)
 {
-	//returns time in milliseconds, given the sample number.
+	// long is good up to 4.2GB
 	
-	//int64_t milliseconds;
-	unsigned long milliseconds = (10 * samplenum) / ((sfinfo.samplerate/100) * sfinfo.channels);
-	//printf("                                    %9li 10=%li  milliseconds=%li\n", samplenum, (10 * samplenum), milliseconds);
-	
-	return milliseconds;
+	return (10 * samplenum) / ((sfinfo.samplerate/100) * sfinfo.channels);
 }
 
 
@@ -392,20 +533,6 @@ wf_create_cache_dir()
 	g_free(path);
 	return ret;
 }
-
-
-#if 0
-static gboolean
-is_last_block(Waveform* waveform, int block_num)
-{
-	// dont use hires_peaks->len here - that is the number allocated.
-
-	int n_blocks = waveform_get_n_audio_blocks(waveform);
-
-	dbg(2, "n_blocks=%i block_num=%i", n_blocks, block_num);
-	return (block_num == (n_blocks - 1));
-}
-#endif
 
 
 static void*
@@ -431,25 +558,24 @@ peakbuf_set_n_tiers(Peakbuf* peakbuf, int n_tiers, int resolution)
 }
 
 
+/*
+ *  Generate peak data for the given block number.
+ *  The audio is supplied in @audiobuf and output in @peakbuf.
+ *  @min_tiers specifies the _minimum_ resolution. The peakbuf produced may be of higher resolution than this.
+ *  For thread-safety, the Waveform is not modified.
+ */
 void
-waveform_peakbuf_regen(Waveform* waveform, int block_num, int min_tiers)
+waveform_peakbuf_regen(Waveform* waveform, WfBuf16* audiobuf, Peakbuf* peakbuf, int block_num, int min_output_tiers)
 {
-	// make a ram peakbuf for a single block.
-	//  -the needed audio file data is assumed to be already available nad loaded into the audio_data buffer.
-	// @min_tiers -specifies the _minimum_ resolution. The peakbuf produced may be of higher resolution than this.
-
 	// TODO caching: consider saving to disk, and using kernel caching. clear cache on exit.
 
 	dbg(2, "%i", block_num);
 
-	int min_output_tiers = min_tiers;
-
 	WF* wf = wf_get_instance();
-	WfAudioData* audio = waveform->priv->audio_data;
-	g_return_if_fail(audio);
-	g_return_if_fail(audio->buf16 && (block_num < audio->n_blocks) && audio->buf16[block_num]);
+	g_return_if_fail(audiobuf);
+	g_return_if_fail(peakbuf);
 
-	int input_resolution = 256 / (1 << audio->n_tiers_present); // i think this is the same as "spacing"
+	int input_resolution = TIERS_TO_RESOLUTION(MAX_TIERS);
 
 	//decide the size of the peakbuf:
 	//-------------------------------
@@ -460,6 +586,7 @@ waveform_peakbuf_regen(Waveform* waveform, int block_num, int min_tiers)
 	if(min_output_tiers >  3){ output_resolution = 1;                  output_tiers = 8; } //use the whole file!
 	int io_ratio = output_resolution / input_resolution; //number of input bytes for 1 byte of output
 	dbg(2, "%i: min_output_tiers=%i input_resolution=%i output_resolution=%i io_ratio=%i", block_num, min_output_tiers, input_resolution, output_resolution, io_ratio);
+													dbg(0, "%i: min_output_tiers=%i input_resolution=%i output_resolution=%i io_ratio=%i", block_num, min_output_tiers, input_resolution, output_resolution, io_ratio);
 
 	/*
 
@@ -506,22 +633,14 @@ waveform_peakbuf_regen(Waveform* waveform, int block_num, int min_tiers)
 
 	*/
 
-	Peakbuf* peakbuf = waveform_get_peakbuf_n(waveform, block_num);
-	g_return_if_fail(peakbuf);
 	short* buf = peakbuf->buf[WF_LEFT];
 	dbg(3, "peakbuf=%p buf0=%p", peakbuf, peakbuf->buf);
 	if(!buf){
 		//peakbuf->size = peakbuf_get_max_size_by_resolution(output_resolution);
 		//peakbuf->size = wf_peakbuf_get_max_size(output_tiers);
+		peakbuf->size = audiobuf->size * WF_PEAK_VALUES_PER_SAMPLE / io_ratio;
 		dbg(2, "buf->size=%i blocksize=%i", peakbuf->size, WF_PEAK_BLOCK_SIZE * WF_PEAK_VALUES_PER_SAMPLE / io_ratio);
-		peakbuf->size = audio->buf16[block_num]->size * WF_PEAK_VALUES_PER_SAMPLE / io_ratio;
-		/*
-		if(is_last_block(waveform, block_num)){
-			dbg(2, "is_last_block. (%i)", block_num);
-			//if(block_num == 0) peakbuf->size = pool_item->samplecount / PEAK_BLOCK_TO_GRAPHICS_BLOCK * PEAK_TILE_SIZE;
-		}
-		*/
-		//dbg(0, "block_num=%i of %i. allocating buffer... %i %i %i", block_num, pool_item->hires_peaks->len, PEAK_BLOCK_TO_GRAPHICS_BLOCK, PEAK_TILE_SIZE, (256 >> (output_resolution-1)));
+																		dbg(0, "peakbuf->size=%i blocksize=%i", peakbuf->size, WF_PEAK_BLOCK_SIZE * WF_PEAK_VALUES_PER_SAMPLE / io_ratio);
 		int c; for(c=0;c<waveform_get_n_channels(waveform);c++){
 			buf = peakbuf_allocate(peakbuf, c);
 		}
@@ -535,12 +654,11 @@ waveform_peakbuf_regen(Waveform* waveform, int block_num, int min_tiers)
 	int n_chans = waveform_get_n_channels(waveform);
 	int c; for(c=0;c<n_chans;c++){
 		short* buf = peakbuf->buf[c];
-		WfBuf16* audio_buf = audio->buf16[block_num];
+		WfBuf16* audio_buf = audiobuf;
 									g_return_if_fail(peakbuf->size >= WF_PEAK_BLOCK_SIZE * WF_PEAK_VALUES_PER_SAMPLE / io_ratio);
 		audio_buf->stamp = ++wf->audio.access_counter;
 		int i, p; for(i=0, p=0; p<WF_PEAK_BLOCK_SIZE; i++, p+= io_ratio){
 
-																									// TODO duplicate process_data without channel loop.
 			process_data(&audio_buf->buf[c][p], io_ratio, 1, (short*)&maxplus, (short*)&maxmin);
 
 #if 0

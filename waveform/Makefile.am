@@ -1,4 +1,4 @@
-SUBDIRS = loaders
+SUBDIRS = loaders actors
 
 if ENABLE_LIBASS
 ASS_SOURCES = view_plus.c view_plus.h
@@ -40,7 +40,7 @@ endif
 libwaveform_la_SOURCES = \
 	typedefs.h waveform.h wf_private.h \
 	global.c global.h \
-	peak.c peak.h \
+	peak.c waveform.h \
 	loaders/ardour.c loaders/ardour.h \
 	loaders/riff.c loaders/riff.h \
 	$(OPENGL_SOURCES) \
@@ -63,9 +63,9 @@ pkgincludedir=$(includedir)/waveform
 pkginclude_HEADERS = \
 	waveform.h \
 	typedefs.h \
-	peak.h \
 	peakgen.h \
 	view.h \
+	view_plus.h \
 	actor.h \
 	canvas.h \
 	shader.h \

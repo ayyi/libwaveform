@@ -28,9 +28,8 @@
 #include <sys/time.h>
 #include <sndfile.h>
 #include <gtk/gtk.h>
-#include "waveform/peak.h"
+#include "waveform/waveform.h"
 #include "waveform/loaders/riff.h"
-#include "waveform/utils.h"
 #include "waveform/texture_cache.h"
 
 WF* wf = NULL;
@@ -42,25 +41,17 @@ wf_get_instance()
 {
 	if(!wf){
 		wf = g_new0(WF, 1);
+		wf->domain = "Libwaveform";
 		wf->peak_cache = g_hash_table_new(g_direct_hash, g_direct_equal);
 		wf->audio.cache = g_hash_table_new(g_direct_hash, g_direct_equal);
 																												memset(n_loads, 0, 4096);
 		wf->load_peak = wf_load_riff_peak; //set the default loader
-		wf->msg_queue = g_async_queue_new();
 
 #ifdef WF_USE_TEXTURE_CACHE
 		texture_cache_init();
 #endif
 	}
 	return wf;
-}
-
-
-void
-wf_push_job(gpointer item)
-{
-	g_async_queue_push(wf->msg_queue, item);
-	wf->jobs = g_list_append(wf->jobs, item);
 }
 
 

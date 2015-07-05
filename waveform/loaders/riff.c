@@ -46,7 +46,7 @@ wf_load_riff_peak(Waveform* wv, const char* peak_file)
 	sfinfo.format = 0;
 	if(!(sndfile = sf_open(peak_file, SFM_READ, &sfinfo))){
 		if(!g_file_test(peak_file, G_FILE_TEST_EXISTS)){
-			gwarn("file open failure. file doesnt exist.");
+			gwarn("file open failure. file doesnt exist: %s", peak_file);
 		}else{
 			gwarn("file open failure.");
 		}

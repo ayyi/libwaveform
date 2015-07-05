@@ -58,6 +58,7 @@ print_help ()
 {
 	printf("Usage: " PACKAGE_STRING " [OPTIONS] <output_filename>\n"
 	     "  -c, --channels                   number of audio channels. 1 or 2 expected. default 1\n"
+	     "  -l, --length                     length in seconds\n"
 	     "  -v, --version                    Show version information\n"
 	     "  -h, --help                       Print this message\n"
 	     "  -d, --debug     level            Output debug info to stdout\n"
@@ -213,6 +214,53 @@ class Impulse
 Impulse impulse;
 
 
+void
+create_plain_file(int len_seconds, int n_channels)
+{
+	// if the file length is specified, we fallback to creating a file with no content.
+
+	char filename[64] = {0,};
+	sprintf(filename, "data/mono_%i:%02i.wav", len_seconds / 60, len_seconds % 60);
+	printf("  %s\n", filename);
+
+	long n_frames = 44100;
+	double* buffer = (double*) malloc(n_frames * sizeof(double) * n_channels);
+
+	int i; for(i=0;i<n_frames;i++){
+		float i_f = (float)i;
+		float freq = i_f * (1.0 - i_f / (n_frames * 2.0)) / 5.0; // reducing
+		int c; for(c=0;c<n_channels;c++){
+			buffer[n_channels * i + c] = sin(freq) * (n_frames - i) / n_frames;
+		}
+	}
+
+	SF_INFO info = {
+		0,
+		44100,
+		n_channels,
+		SF_FORMAT_WAV | SF_FORMAT_PCM_16
+	};
+
+	SNDFILE* sndfile = sf_open(filename, SFM_WRITE, &info);
+	if(!sndfile) {
+		fprintf(stderr, "Sndfile open failed: %s\n", sf_strerror(sndfile));
+		return;
+	}
+
+	for(i=0;i<len_seconds;i++){
+		if(sf_writef_double(sndfile, buffer, n_frames) != n_frames){
+			fprintf(stderr, "Write failed\n");
+			sf_close(sndfile);
+			return;
+		}
+	}
+
+	sf_write_sync(sndfile);
+	sf_close(sndfile);
+	free(buffer);
+}
+
+
 int main(int argc, char* argv[])
 {
 	int n_channels = MONO;
@@ -221,6 +269,7 @@ int main(int argc, char* argv[])
 
 	const struct option longopts[] = {
 		{ "channels", 1, 0, 'c' },
+		{ "length", 1, 0, 'l' },
 		{ "version", 0, 0, 'v' },
 		{ "help", 0, 0, 'h' },
 		{ "debug", 1, 0, 'd' },
@@ -248,6 +297,11 @@ int main(int argc, char* argv[])
 		case 'v':
 			printf("version " PACKAGE_VERSION "\n");
 			exit (0);
+			break;
+
+		case 'l':
+			create_plain_file(atoi(optarg), n_channels);
+			return EXIT_SUCCESS;
 			break;
 
 		case 'h':

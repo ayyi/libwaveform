@@ -234,8 +234,8 @@ ng_gl2_load_block(Renderer* renderer, WaveformActor* actor, int b)
 		int _b = b % MAX_BLOCKS_PER_TEXTURE;
 
 		// we are here as notification that audio has loaded so it is an error if not.
-		g_return_if_fail(waveform->priv->audio_data);
-		WfBuf16* audio_buf = waveform->priv->audio_data->buf16[b];
+		g_return_if_fail(waveform->priv->audio.buf16);
+		WfBuf16* audio_buf = waveform->priv->audio.buf16[b];
 		g_return_if_fail(audio_buf);
 
 		#define IO_RATIO 16

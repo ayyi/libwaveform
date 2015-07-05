@@ -1,5 +1,5 @@
 /*
-  copyright (C) 2012-2014 Tim Orford <tim@orford.org>
+  copyright (C) 2012-2015 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -19,17 +19,23 @@
 
 #ifdef __wf_private__
 
-gpointer file_load_thread (gpointer);
+typedef struct _QueueItem QueueItem;
 
-typedef void   (*WfCallback)    (gpointer user_data);
-
-typedef struct _queue_item
+#ifdef __wf_worker_private__
+struct _QueueItem
 {
-	WfCallback       work;
-	WfCallback       done;
+	GWeakRef         ref;
+	WfCallback2      work;
+	WfCallback2      done;
+	WfCallback       free;
 	void*            user_data;
 	gboolean         cancelled;
-} QueueItem;
+};
+#endif
+
+void     wf_worker_init        (WfWorker*);
+void     wf_worker_push_job    (WfWorker*, Waveform*, WfCallback2 work, WfCallback2 done, WfCallback free, gpointer);
+void     wf_worker_cancel_jobs (WfWorker*, Waveform*);
 
 #endif
 #endif

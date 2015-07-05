@@ -52,7 +52,7 @@
 #include "common.h"
 
 #define WAV \
-	"test/data/mono_1.wav"
+	"test/data/mono_0:10.wav"
 //	"test/data/mono_1.mp3"
 //	"test/data/large1.wav"
 //	"test/data/stereo_1.wav"

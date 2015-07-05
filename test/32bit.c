@@ -176,7 +176,7 @@ test_load()
 
 		Waveform* w = waveform_new(wavs[c->wi++]);
 		g_object_weak_ref((GObject*)w, finalize_notify, NULL);
-		waveform_load(w);
+		waveform_load_sync(w);
 
 		#warning invalid access to render_data
 		if(agl_get_instance()->use_shaders) gerr("FIXME invalid access to render_data for current rendering method");
@@ -237,7 +237,7 @@ test_audiodata()
 		dbg(1, ">> block=%i", block);
 		reset_timeout(5000);
 
-		WfAudioData* audio = waveform->priv->audio_data;
+		WfAudioData* audio = &waveform->priv->audio;
 		if(audio->buf16){
 			WfBuf16* buf = audio->buf16[block];
 			assert(buf, "no data in buffer! %i", block);
@@ -274,7 +274,7 @@ test_audiodata()
 		// trying to load the whole file at once is slightly dangerous but seems to work ok.
 		// the callback is called before the cache is cleared for the block.
 		int b; for(b=0;b<tot_blocks;b++){
-			waveform_load_audio_async(w, b, n_tiers_needed);
+			waveform_load_audio(w, b, n_tiers_needed, NULL, NULL);
 		}
 	}
 	c->next = next_wav;

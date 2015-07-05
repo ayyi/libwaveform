@@ -1,5 +1,5 @@
 /*
-  copyright (C) 2012-2013 Tim Orford <tim@orford.org>
+  copyright (C) 2012-2015 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -19,11 +19,6 @@
 #include "waveform/waveform.h"
 
 #define MAX_TIERS 8 //this is related to WF_PEAK_RATIO: WF_PEAK_RATIO = 2 ^ MAX_TIERS.
-struct _audio_data {
-	int                n_blocks;          // the size of the buf array
-	WfBuf16**          buf16;             // pointers to arrays of blocks, one per block.
-	int                n_tiers_present;
-};
 
 #ifdef __wf_private__
 int wf_audio_cache_get_size();

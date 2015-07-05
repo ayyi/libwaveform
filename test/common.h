@@ -50,6 +50,8 @@ void add_key_handlers   (GtkWindow*, WaveformView*, Key[]);
 
 #define START_TEST \
 	static int step = 0;\
+	static int __test_idx; \
+	__test_idx = current_test; \
 	if(!step){ \
 		g_strlcpy(current_test_name, __func__, 64); \
 		printf("%srunning %i of %i: %s%s ...\n", wf_bold, current_test + 1, G_N_ELEMENTS(tests), __func__, wf_white); \
@@ -67,6 +69,7 @@ void add_key_handlers   (GtkWindow*, WaveformView*, Key[]);
 	callback(A, B, C);
 
 #define FINISH_TEST \
+	if(__test_idx != current_test) return; \
 	printf("%s: finish\n", current_test_name); \
 	test_finished = true; \
 	passed = true; \
@@ -74,6 +77,7 @@ void add_key_handlers   (GtkWindow*, WaveformView*, Key[]);
 	return;
 
 #define FINISH_TEST_TIMER_STOP \
+	if(__test_idx != current_test) return G_SOURCE_REMOVE; \
 	test_finished = true; \
 	passed = true; \
 	test_finished_(); \

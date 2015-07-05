@@ -138,7 +138,7 @@ test_load()
 
 		Waveform* w = waveform_new(wavs[wi++]);
 		g_object_weak_ref((GObject*)w, finalize_notify, NULL);
-		waveform_load(w);
+		waveform_load_sync(w);
 
 #if 0 // due to internal changes, these tests are no longer valid
 		WfGlBlock* blocks = (WfGlBlock*)w->priv->render_data[MODE_MED];
@@ -192,7 +192,7 @@ test_audiodata()
 		dbg(1, ">> block=%i", block);
 		reset_timeout(5000);
 
-		WfAudioData* audio = waveform->priv->audio_data;
+		WfAudioData* audio = &waveform->priv->audio;
 		if(audio->buf16){
 			WfBuf16* buf = audio->buf16[block];
 			assert(buf, "no data in buffer! %i", block);
@@ -229,7 +229,7 @@ test_audiodata()
 		// trying to load the whole file at once is slightly dangerous but seems to work ok.
 		// the callback is called before the cache is cleared for the block.
 		int b; for(b=0;b<tot_blocks;b++){
-			waveform_load_audio_async(w, b, n_tiers_needed);
+			waveform_load_audio(w, b, n_tiers_needed, NULL, NULL);
 		}
 
 		//wi++;

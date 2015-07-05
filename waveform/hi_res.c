@@ -34,10 +34,8 @@
 #include <GL/glxext.h>
 #include <gtkglext-1.0/gdk/gdkgl.h>
 #include <gtkglext-1.0/gtk/gtkgl.h>
-#include "waveform/utils.h"
+#include "waveform/waveform.h"
 #include "waveform/canvas.h"
-#include "waveform/actor.h"
-#include "waveform/peak.h"
 
 extern int wf_debug;
 #endif // __actor_c__
@@ -96,9 +94,18 @@ hi_free_gl1(Renderer* renderer, Waveform* w)
 static void
 hi_request_block(WaveformActor* a, int b)
 {
-	if(waveform_load_audio_async(a->waveform, b, HI_MIN_TIERS)){
-		modes[MODE_HI].renderer->load_block(modes[MODE_HI].renderer, a, b);
+	void hi_request_block_done(Waveform* w, int b, gpointer _a)
+	{
+		WaveformActor* a = _a;
+		if(w == a->waveform){ // the actor may have a new waveform and there is currently no way to cancel old requests.
+			modes[MODE_HI].renderer->load_block(modes[MODE_HI].renderer, a, b);
+
+			//TODO check this block is within current viewport
+			if(a->canvas->draw) wf_canvas_queue_redraw(a->canvas);
+		}
 	}
+
+	waveform_load_audio(a->waveform, b, HI_MIN_TIERS, hi_request_block_done, a);
 }
 
 

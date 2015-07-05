@@ -27,8 +27,7 @@
 #include <gtkglext-1.0/gtk/gtkgl.h>
 #include <GL/glx.h>
 #include <GL/glxext.h>
-#include "waveform/utils.h"
-#include "waveform/peak.h"
+#include "waveform/waveform.h"
 #include "waveform/texture_cache.h"
 
 #define WF_TEXTURE_ALLOCATION_INCREMENT 20
@@ -48,7 +47,6 @@ static int time_stamp = 0;
 static TextureCache* c1 = NULL; // 1d textures
 static TextureCache* c2 = NULL; // 2d textures
 #define cache_by_type(T) (T == GL_TEXTURE_2D ? c2 : c1)
-static WF* wf = NULL;
 
 static void texture_cache_gen              (TextureCache*);
 static guint texture_cache_get             (TextureCache*, int);
@@ -70,8 +68,6 @@ void
 texture_cache_init()
 {
 	if(c1) return;
-
-	wf = wf_get_instance();
 
 	c1 = g_new0(TextureCache, 1);
 	c1->t = g_array_new(FALSE, TRUE, sizeof(Texture));

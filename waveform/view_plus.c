@@ -47,13 +47,10 @@
 #include "agl/ext.h"
 #include "agl/utils.h"
 #include "agl/actor.h"
-#include "waveform/peak.h"
-#include "waveform/utils.h"
+#include "waveform/waveform.h"
 #include "waveform/promise.h"
 #include "waveform/gl_utils.h"
-#include "waveform/utils.h"
 #include "waveform/texture_cache.h"
-#include "waveform/actor.h"
 #include "waveform/grid.h"
 #include "waveform/shader.h"
 #include "waveform/actors/spp.h"
@@ -312,28 +309,34 @@ _waveform_view_plus__show_waveform(gpointer _view, gpointer _c)
 		if(view->waveform){ // it is valid for the widget to not have a waveform set.
 			v->actor = (WaveformActor*)waveform_actor(view);
 			((AGlActor*)v->actor)->z = 2;
+			agl_actor__add_child(v->root, (AGlActor*)v->actor);
 			if(v->spp_actor) ((SppActor*)v->spp_actor)->wf_actor = v->actor;
 
-			int need_add = false;
 			if(promise(PROMISE_DISP_READY)->is_resolved && !v->root->children){
 				agl_actor__add_child(v->root, (AGlActor*)v->actor);
 				agl_actor__set_size(v->root);
 			}
-			else need_add = true;
 
 			uint64_t n_frames = waveform_get_n_frames(view->waveform);
 			if(n_frames){
 				wf_actor_set_region(v->actor, &(WfSampleRegion){0, n_frames});
 				wf_actor_set_colour(v->actor, view->fg_colour);
 
-				waveform_load(view->waveform);
+				void _waveform_view_plus__show_waveform_done(Waveform* w, GError* e, gpointer _view)
+				{
+					WaveformViewPlus* view = _view;
+					WaveformViewPlusPrivate* v = view->priv;
 
-				if(need_add){
-					agl_actor__add_child(v->root, (AGlActor*)v->actor);
-					((AGlActor*)v->actor)->set_size((AGlActor*)v->actor);
+					if(w == view->waveform){ // it may have changed during load
+						if(!g_list_find (v->root->children, v->actor)){
+							((AGlActor*)v->actor)->set_size((AGlActor*)v->actor);
+						}
+
+						am_promise_resolve(promise(PROMISE_WAVE_READY), NULL);
+					}
 				}
 
-				am_promise_resolve(promise(PROMISE_WAVE_READY), NULL);
+				waveform_load(view->waveform, _waveform_view_plus__show_waveform_done, view);
 			}
 			_waveform_view_plus_set_actor(view);
 		}
@@ -343,7 +346,7 @@ _waveform_view_plus__show_waveform(gpointer _view, gpointer _c)
 
 
 void
-waveform_view_plus_load_file (WaveformViewPlus* view, const char* filename)
+waveform_view_plus_load_file (WaveformViewPlus* view, const char* filename, WfCallback2 callback, gpointer user_data)
 {
 	dbg(1, "%s", filename);
 
@@ -358,10 +361,21 @@ waveform_view_plus_load_file (WaveformViewPlus* view, const char* filename)
 		return;
 	}
 
+	WfClosure* c = g_new0(WfClosure, 1);
+	*c = (WfClosure){ .callback = callback, .user_data = user_data};
+
+	void waveform_view_plus_load_file_done(WaveformActor* a, gpointer _c)
+	{
+		WfClosure* c = (WfClosure*)_c;
+
+		agl_actor__invalidate(((AGlActor*)a)->parent); // we dont seem to track the layers, so have to invalidate everything.
+		call(c->callback, a->waveform, c->user_data);
+		g_free(c);
+	}
+
 	view->waveform = waveform_new(filename);
 	if(v->actor){
-		wf_actor_set_waveform(v->actor, view->waveform);
-		agl_actor__invalidate(((AGlActor*)v->actor)->parent); // we dont seem to track the layers, so have to invalidate everything.
+		wf_actor_set_waveform(v->actor, view->waveform, waveform_view_plus_load_file_done, c);
 	}
 
 	am_promise_add_callback(promise(PROMISE_DISP_READY), _waveform_view_plus__show_waveform, NULL);
@@ -380,7 +394,7 @@ waveform_view_plus_set_waveform (WaveformViewPlus* view, Waveform* waveform)
 	view->waveform = g_object_ref(waveform);
 
 	if(v->actor){
-		wf_actor_set_waveform(v->actor, waveform);
+		wf_actor_set_waveform_sync(v->actor, waveform);
 	}
 
 	view->zoom = 1.0;
@@ -478,7 +492,6 @@ waveform_view_plus_set_show_rms (WaveformViewPlus* view, gboolean _show)
 	gboolean _on_idle(gpointer _view)
 	{
 		WaveformViewPlus* view = _view;
-																	if(!view->priv->canvas) return G_SOURCE_CONTINUE;
 		g_return_val_if_fail(view->priv->canvas, G_SOURCE_REMOVE);
 
 		view->priv->canvas->show_rms = show;
@@ -774,7 +787,6 @@ waveform_view_plus_finalize (GObject* obj)
 
 	// these should really be done in dispose
 	if(v->actor){
-															// TODO move the clear to be internal to the actor make it private.
 		wf_actor_clear(v->actor);
 		wf_canvas_remove_actor(v->canvas, v->actor);
 		v->actor = NULL;

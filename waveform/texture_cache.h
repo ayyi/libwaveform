@@ -16,7 +16,7 @@
 */
 #ifndef __waveform_texture_cache_h__
 #define __waveform_texture_cache_h__
-#include "waveform/peak.h"
+#include "waveform/waveform.h"
 
 #ifdef WF_USE_TEXTURE_CACHE
 #ifdef __wf_private__

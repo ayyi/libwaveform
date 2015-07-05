@@ -91,6 +91,20 @@ else
   HAVE_GTK_2_10="no"
 fi;
 
+if `pkg-config glib-2.0 --atleast-version=2.32`; then
+  HAVE_GLIB_2_32="yes"
+  AC_DEFINE(HAVE_GLIB_2_32, 1, "we have at least glib version 2.32")
+else
+  HAVE_GLIB_2_32="no"
+fi;
+
+if `pkg-config glib-2.0 --atleast-version=2.36`; then
+  HAVE_GLIB_2_36="yes"
+  AC_DEFINE(HAVE_GLIB_2_36, 1, "we have at least glib version 2.36")
+else
+  HAVE_GLIB_2_36="no"
+fi;
+
 dnl -opengl----------------------------------------------
 
 AC_ARG_ENABLE(
@@ -223,6 +237,7 @@ agl/shaders/Makefile
 transition/Makefile
 sdl/Makefile
 waveform/Makefile
+waveform/actors/Makefile
 waveform/loaders/Makefile
 shaders/Makefile
 test/Makefile

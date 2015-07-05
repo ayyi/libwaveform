@@ -20,10 +20,11 @@
 
 typedef struct _wf                  WF;
 typedef struct _Waveform            Waveform;
-typedef struct _peakbuf             Peakbuf;
+typedef struct _Peakbuf             Peakbuf;
 typedef struct _alpha_buf           AlphaBuf;
-typedef struct _peakbuf1            WfPeakBuf;
+typedef struct _WfPeakBuf           WfPeakBuf;
 typedef struct _buf                 RmsBuf;
+typedef struct _WfBuf16             WfBuf16;
 typedef struct _waveform_canvas     WaveformCanvas;
 typedef struct _WaveformCanvasClass WaveformCanvasClass;
 typedef struct _waveform_actor      WaveformActor;
@@ -31,12 +32,19 @@ typedef struct _wf_texture_list     WfGlBlock;
 typedef struct _textures_hi         WfTexturesHi;
 typedef struct _texture_hi          WfTextureHi;
 typedef struct _waveform_priv       WaveformPriv;
-typedef struct _audio_data          WfAudioData;
+typedef struct _AudioData           WfAudioData;
 typedef struct _vp                  WfViewPort; 
 typedef struct _WaveformView        WaveformView;
 typedef struct _WaveformViewPlus    WaveformViewPlus;
 typedef struct _wf_shaders          WfShaders;
 typedef struct _ass_shader          AssShader;
+typedef struct _WfWorker            WfWorker;
+
+typedef void   (*WfCallback)         (gpointer);
+typedef void   (*WfCallback2)        (Waveform*, gpointer);
+typedef void   (*WfCallback3)        (Waveform*, GError*, gpointer);
+typedef void   (*WfPeakfileCallback) (Waveform*, char* peakfile_name, gpointer);
+typedef void   (*WfAudioCallback)    (Waveform*, int b, gpointer);
 
 #ifdef HAVE_GTK_2_22
 #define KEY_Left     GDK_KEY_Left

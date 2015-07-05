@@ -88,3 +88,7 @@
 -added labelling of time axis in WaveformViewPlus widget.
 -added play-cursor to WaveformViewPlus widget.
 -support rendering to offscreen buffer for caching.
+20150610
+-added asynchronous generation and loading of peakfiles.
+20150704
+-fixes for hi-res rendering to pixbuf.

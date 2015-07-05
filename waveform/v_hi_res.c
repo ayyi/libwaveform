@@ -1,5 +1,5 @@
 /*
-  copyright (C) 2012-2014 Tim Orford <tim@orford.org>
+  copyright (C) 2012-2015 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -111,7 +111,7 @@ draw_wave_buffer_v_hi(Renderer* renderer, WaveformActor* actor, int block, bool 
 	VHiRenderer* vhr = (VHiRenderer*)renderer;
 	const WfRectangle* rect = &ri->rect;
 
-	WfAudioData* audio = w->priv->audio_data;
+	WfAudioData* audio = &w->priv->audio;
 	if(!audio->n_blocks) return false;
 	WfBuf16* buf = audio->buf16[block];
 	if(!buf) return false;
@@ -402,6 +402,13 @@ v_hi_load_block(Renderer* renderer, WaveformActor* a, int b)
 }
 
 
+static void
+v_hi_free_waveform(Renderer* renderer, Waveform* w)
+{
+	if(w->priv->render_data[MODE_V_HI]) g_free0(w->priv->render_data[MODE_V_HI]);
+}
+
+
 #ifdef ANTIALIASED_LINES
 GLuint
 _wf_create_line_texture()
@@ -454,6 +461,6 @@ _wf_create_line_texture()
 #endif
 
 
-VHiRenderer v_hi_renderer = {{MODE_V_HI, v_hi_renderer_new, v_hi_load_block, v_hi_pre_render, draw_wave_buffer_v_hi}};
+VHiRenderer v_hi_renderer = {{MODE_V_HI, v_hi_renderer_new, v_hi_load_block, v_hi_pre_render, draw_wave_buffer_v_hi, v_hi_free_waveform}};
 
 

@@ -9,7 +9,7 @@ SDLPROGRAMS = sdl
 endif
 
 if ENABLE_OPENGL
-noinst_PROGRAMS = waveform_test view_test actor_test actor_plus list group hires_test $(ASSPROGRAMS) frame_rate resources write_wav write_short write_block large_files cache 32bit med_textures $(SDLPROGRAMS)
+noinst_PROGRAMS = waveform_test view_test actor_test actor_plus list group hires_test $(ASSPROGRAMS) frame_rate resources write_wav write_short write_block large_files cache 32bit med_textures pixbuf $(SDLPROGRAMS)
 ###noinst_PROGRAMS = waveform_test view_test actor_test actor_plus $(ASSPROGRAMS)
 endif
 
@@ -99,6 +99,10 @@ med_textures_SOURCES = \
 	$(COMMON_SOURCES) \
 	med_textures.c
 
+pixbuf_SOURCES = \
+	$(COMMON_SOURCES) \
+	pixbuf.c
+
 if ENABLE_SDL
 sdl_SOURCES = \
 	$(COMMON_SOURCES) \
@@ -164,11 +168,14 @@ test_data: Makefile write_block.cc
 	@make write_short
 	@make write_block
 	@if [[ ! -d data ]]; then mkdir data; fi
-	@if [ ! -e "data/mono_1.wav" ] || [ "./write_wav" -nt "data/mono_1.wav" ]; then \
-		./write_wav data/mono_1.wav; \
+	@if [ ! -e "data/mono_0:10.wav" ] || [ "./write_wav" -nt "data/mono_0:10.wav" ]; then \
+		./write_wav data/mono_0:10.wav; \
 	fi;
-	@if [ ! -e "data/stereo_1.wav" ] || [ "./write_wav" -nt "data/stereo_1.wav" ]; then \
+	@if [ ! -e "data/stereo_0:10.wav" ] || [ "./write_wav" -nt "data/stereo_0:10.wav" ]; then \
 		./write_wav --channels=2 data/stereo_1.wav; \
+	fi;
+	@if [ ! -e "data/mono_10:00.wav" ] || [ "./write_wav" -nt "data/mono_10:00.wav" ]; then \
+		./write_wav --length=600  data/mono_10:00.wav; \
 	fi;
 	@if [ ! -e "data/short.wav" ] || [ "./write_short" -nt "data/short.wav" ]; then \
 		./write_short data/short.wav; \

@@ -45,7 +45,7 @@ v_lo_new_gl1(WaveformActor* actor)
 {
 	WaveformPriv* w = actor->waveform->priv;
 
-	waveform_load(actor->waveform);
+	waveform_load_sync(actor->waveform);
 
 	if(!w->render_data[MODE_V_LOW]){
 		int n_blocks = w->num_peaks / (WF_MED_TO_V_LOW * WF_TEXTURE_VISIBLE_SIZE) + ((w->num_peaks % (WF_MED_TO_V_LOW * WF_TEXTURE_VISIBLE_SIZE)) ? 1 : 0);

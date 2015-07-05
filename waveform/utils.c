@@ -32,8 +32,7 @@
 #include <sys/ioctl.h>
 #include <sys/time.h>
 #include <glib.h>
-#include "waveform/peak.h"
-#include "waveform/utils.h"
+#include "waveform/waveform.h"
 
 int wf_debug = 0;
 

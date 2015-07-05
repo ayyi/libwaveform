@@ -43,11 +43,11 @@
 #include <glib/gstdio.h>
 #include "agl/utils.h"
 #include "waveform/waveform.h"
-#include "waveform/actor.h"
 #include "waveform/audio.h"
 #include "waveform/gl_utils.h"
 #include "waveform/texture_cache.h"
 #include "waveform/promise.h"
+#include "waveform/worker.h"
 #include "test/common.h"
 
 extern void texture_cache_print ();
@@ -449,11 +449,12 @@ test_scroll()
 			//WfTextureHi* texture = g_hash_table_lookup(w[0]->textures_hi->textures, &region_start_block);
 			//assert_and_stop(texture, "texture loaded %i", region_start_block);
 
-			WfAudioData* audio = w[0]->priv->audio_data;
+			WfAudioData* audio = &w[0]->priv->audio;
 			assert_and_stop(audio->n_blocks, "n_blocks not set");
 
 			WfBuf16* buf = audio->buf16[region_start_block];
-			int n_jobs = g_list_length(wf->jobs);
+			WfWorker* worker = &wf->audio_worker;
+			int n_jobs = g_list_length(worker->jobs);
 			if(n_jobs || !buf){
 				if(wait_count < 30) return TIMER_CONTINUE;
 			}
@@ -539,11 +540,11 @@ test_hi_double()
 			//WfTextureHi* texture = g_hash_table_lookup(w[0]->textures_hi->textures, &region_start_block);
 			//assert_and_stop(texture, "texture loaded %i", region_start_block);
 
-			WfAudioData* audio = w[0]->priv->audio_data;
+			WfAudioData* audio = &w[0]->priv->audio;
 			assert_and_stop(audio->n_blocks, "n_blocks not set");
 
 			WfBuf16* buf = audio->buf16[region_start_block];
-			int n_jobs = g_list_length(wf->jobs);
+			int n_jobs = g_list_length(wf->audio_worker.jobs);
 			if(n_jobs || !buf){
 				if(wait_count < 30) return TIMER_CONTINUE;
 			}
@@ -600,7 +601,7 @@ test_add_remove()
 
 	void on_ready (gpointer user_data, gpointer _)
 	{
-		wf_cancel_jobs(a[0]->waveform);
+		wf_worker_cancel_jobs(&wf->audio_worker, a[0]->waveform);
 
 		// TODO support gl2 mode also
 		assert(!agl_get_instance()->use_shaders, "shaders must be disabled for this test");

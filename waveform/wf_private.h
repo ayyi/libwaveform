@@ -26,7 +26,7 @@
 #endif
 #endif
 #include "agl/fbo.h"
-#include "waveform/peak.h"
+#include "waveform/waveform.h"
 
 #define WF_PEAK_BLOCK_SIZE (256 * 256) // the number of audio frames per block (64k)
 #define WF_CACHE_BUF_SIZE (1 << 15)
@@ -46,6 +46,9 @@
 #define TEX_BORDER 2
 #define TEX_BORDER_HI (TEX_BORDER * 16.0) // HI has a different border size in order to preserve block boundaries between changes in resolution.
 
+#define TIERS_TO_RESOLUTION(T) (256 / (1 << T))
+#define RESOLUTION_TO_TIERS(R) (8 - (int)floor(log2(R)))
+
 typedef struct _texture_cache TextureCache;
 
 enum
@@ -55,13 +58,13 @@ enum
 	WF_MAX_CH
 };
 
-struct _peakbuf1 {               // WfPeakBuf
+struct _WfPeakBuf {
 	int        size;             // the number of shorts allocated.
 	short*     buf[WF_MAX_CH];   // holds the complete peakfile. The second pointer is only used for stereo files.
 };
 
 //a single hires peak block
-struct _peakbuf {
+struct _Peakbuf {
 	int        block_num;
 	int        size;             // the number of shorts allocated. 2 shorts per value (plus + minus)
 	int        res;
@@ -85,14 +88,24 @@ typedef struct                            // base type for Modes to inherit from
 	int             n_blocks;
 } WaveformModeRender;
 
+typedef enum {
+	WAVEFORM_LOADING = 1 << 0,
+} WaveformState;
+
+struct _AudioData {
+	int                n_blocks;          // the size of the buf array
+	WfBuf16**          buf16;             // pointers to arrays of blocks, one per block.
+	int                n_tiers_present;
+};
+
 struct _waveform_priv
 {
 	WfPeakBuf       peak;
 	RmsBuf*         rms_buf0;
 	RmsBuf*         rms_buf1;
-	WfAudioData*    audio_data;     // tiered hi-res data for peaks.
+	WfAudioData     audio;          // tiered hi-res data for peaks.
 
-	GPtrArray*      hires_peaks;    // array of Peakbuf* TODO how much does audio_data deprecate this?
+	GPtrArray*      hires_peaks;    // array of Peakbuf* TODO how much does priv->audio deprecate this?
 	int             num_peaks;      // peak_buflen / PEAK_VALUES_PER_SAMPLE
 	int             n_blocks;
 
@@ -102,14 +115,21 @@ struct _waveform_priv
 	short           max_db;         // TODO should be in db?
 
 	gboolean        checks_done;    // if audio file is accessed, the peakfile is validated.
+	WaveformState   state;
 
 #if 0
 	gint           _property1;      // just testing
 #endif
 };
 
+struct _WfWorker {
+    GAsyncQueue*  msg_queue;
+    GList*        jobs;
+};
+
 struct _wf
 {
+	const char*     domain;
 	int             peak_mem_size;
 	GHashTable*     peak_cache;
 	PeakLoader      load_peak;
@@ -121,8 +141,7 @@ struct _wf
 		int         access_counter;
 	} audio;
 
-	GAsyncQueue*    msg_queue;
-	GList*          jobs;
+	WfWorker        audio_worker;
 };
 
 //TODO refactor based on _texture_hi (eg reverse order of indirection)
@@ -207,13 +226,12 @@ extern char wf_white [16];
 #endif
 
 WF*            wf_get_instance             ();
-void           wf_push_job                 (gpointer);
-void           wf_cancel_jobs              (Waveform*);
 uint32_t       wf_peakbuf_get_max_size     (int n_tiers);
 
 short*         waveform_peak_malloc        (Waveform*, uint32_t bytes);
 Peakbuf*       waveform_get_peakbuf_n      (Waveform*, int);
-void           waveform_peakbuf_regen      (Waveform*, int block_num, int min_output_resolution);
+void           waveform_peakbuf_assign     (Waveform*, int block_num, Peakbuf*);
+void           waveform_peakbuf_regen      (Waveform*, WfBuf16*, Peakbuf*, int block_num, int min_output_resolution);
 int            waveform_get_n_audio_blocks (Waveform*);
 void           waveform_print_blocks       (Waveform*);
 

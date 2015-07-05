@@ -43,7 +43,6 @@
 #include <gdk/gdkkeysyms.h>
 #include "agl/utils.h"
 #include "waveform/waveform.h"
-#include "waveform/actor.h"
 #include "waveform/gl_utils.h"
 #include "test/common.h"
 #include "test/ayyi_utils.h"
@@ -222,17 +221,17 @@ on_canvas_realise(GtkWidget* _canvas, gpointer user_data)
 
 	wfc = wf_canvas_new((AGlRootActor*)agl_actor__new_root(canvas));
 
-	char* filename = g_build_filename(g_get_current_dir(), "test/data/mono_1.wav", NULL);
+	char* filename = g_build_filename(g_get_current_dir(), "test/data/mono_0:10.wav", NULL);
 	w1 = waveform_load_new(filename);
 	g_free(filename);
 
 	int n_frames = waveform_get_n_frames(w1);
 
 	WfSampleRegion region[] = {
-		{0,            n_frames    },
-		{0,            n_frames / 2},
-		{n_frames / 4, n_frames / 4},
-		{n_frames / 2, n_frames / 2},
+		{0,            n_frames     - 1},
+		{0,            n_frames / 2 - 1},
+		{n_frames / 4, n_frames / 4 - 1},
+		{n_frames / 2, n_frames / 2 - 1},
 	};
 
 	uint32_t colours[4][2] = {

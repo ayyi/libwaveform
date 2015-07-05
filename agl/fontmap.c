@@ -80,8 +80,9 @@ pango_gl_font_map_new (void)
 {
   FT_Error error;
   
-  /* Make sure that the type system is initialized */
+#ifndef HAVE_GLIB_2_36
   g_type_init ();
+#endif
 
   PangoGlFontMap *fontmap = g_object_new (PANGO_TYPE_GL_FONT_MAP, NULL);
   

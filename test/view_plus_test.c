@@ -71,7 +71,8 @@
 
 const char* wavs[] = {
 	"test/data/stereo_1.wav",
-	"test/data/mono_1.wav",
+	"test/data/mono_0:10.wav",
+	"test/data/mono_10:00.wav",
 //	"test/data/1_block.wav",
 //	"test/data/3_blocks.wav",
 //	"test/data/2_blocks.wav",
@@ -161,7 +162,7 @@ main (int argc, char *argv[])
 	gtk_widget_show_all(window);
 
 	char* filename = find_wav(wavs[0]);
-	waveform_view_plus_load_file(waveform, filename);
+	waveform_view_plus_load_file(waveform, filename, NULL, NULL);
 	g_free(filename);
 
 	add_key_handlers((GtkWindow*)window, (WaveformView*)waveform, (Key*)&keys);
@@ -229,7 +230,7 @@ void next_wav(WaveformView* waveform)
 {
 	WaveformViewPlus* view = (WaveformViewPlus*)waveform;
 
-	static int i = 0; i = (i + 1) % 2;
+	static int i = 0; i = (i + 1) % 3;
 
 	printf("next...\n");
 
@@ -244,7 +245,7 @@ void next_wav(WaveformView* waveform)
 	};
 
 	char* filename = find_wav(wavs[i]);
-	waveform_view_plus_load_file(view, filename);
+	waveform_view_plus_load_file(view, filename, NULL, NULL);
 	g_free(filename);
 
 	// TODO fix widget so that zoom can be set imediately
@@ -268,7 +269,7 @@ toggle_shaders(WaveformView* view)
 	agl_actor__set_use_shaders(((AGlActor*)waveform_view_plus_get_actor((WaveformViewPlus*)view))->root, !agl_get_instance()->use_shaders);
 
 	char* filename = find_wav(wavs[0]);
-	waveform_view_plus_load_file((WaveformViewPlus*)view, filename);
+	waveform_view_plus_load_file((WaveformViewPlus*)view, filename, NULL, NULL);
 	g_free(filename);
 }
 

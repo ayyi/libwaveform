@@ -94,8 +94,8 @@ next_test()
 
 	printf("\n");
 	current_test++;
+	if(app.timeout) g_source_remove (app.timeout);
 	if(current_test < __n_tests){
-		if(app.timeout) g_source_remove (app.timeout);
 		test_finished = false;
 		gboolean (*test)() = tests[current_test];
 		dbg(2, "test %i of %i.", current_test + 1, __n_tests);
@@ -212,16 +212,11 @@ get_random_boolean()
 int
 get_random_int(int max)
 {
-	//printf("R=%i %i\n", RAND_MAX, 1 << sizeof(int));
-	//int R = RAND_MAX / 2 + 100000;
-	int t;
-	//int i; for(i=0;i<10;i++){
+	if(max > RAND_MAX) gwarn("too high");
 	int r = rand();
-		int s = RAND_MAX / max;
-		t = r / s;
-	//	printf("r=%i s=%i t=%i\n", r, s, t);
-	//}
-   return t;
+	int s = RAND_MAX / max;
+	int t = r / s;
+	return t;
 }
 
 

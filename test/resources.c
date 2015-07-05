@@ -36,8 +36,8 @@
 #include <signal.h>
 #include <gtk/gtk.h>
 #include <gdk/gdkkeysyms.h>
+#include "waveform/waveform.h"
 #include "waveform/view.h"
-#include "waveform/peak.h"
 #include "test/ayyi_utils.h"
 #include "test/common2.h"
 

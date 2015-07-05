@@ -65,7 +65,7 @@ main (int argc, char* argv[])
 	gtk_init(&argc, &argv);
 	GtkWidget* window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
 
-	GtkWidget* box = gtk_vbox_new(FALSE, 4);
+	static GtkWidget* box; box = gtk_vbox_new(FALSE, 4);
 	gtk_container_add((GtkContainer*)window, box);
 
 	WaveformView* waveform[2] = {waveform_view_new(NULL),};
@@ -74,7 +74,7 @@ main (int argc, char* argv[])
 
 	gtk_widget_show_all(window);
 
-	//#define WAV "test/data/mono_1.wav"
+	//#define WAV "test/data/mono_0:10.wav"
 	#define WAV "test/data/stereo_1.wav"
 	char* filename = g_build_filename(g_get_current_dir(), WAV, NULL);
 	waveform_view_load_file(waveform[0], filename);

@@ -36,11 +36,9 @@
 #include <pango/pangofc-fontmap.h>
 #include "agl/ext.h"
 #include "agl/pango_render.h"
-#include "waveform/utils.h"
-#include "waveform/peak.h"
+#include "waveform/waveform.h"
 #include "waveform/texture_cache.h"
 #include "waveform/gl_utils.h"
-#include "waveform/actor.h"
 #include "waveform/canvas.h"
 #include "waveform/alphabuf.h"
 #include "waveform/shader.h"
@@ -160,7 +158,6 @@ wf_canvas_init(WaveformCanvas* wfc)
 		WaveformCanvas* wfc = _wfc;
 
 		if(!wfc->root->gl.gdk.drawable){
-			dbg(0, "waiting...");
 			return G_SOURCE_CONTINUE;
 		}
 

@@ -44,7 +44,6 @@
 #include <gtkglext-1.0/gtk/gtkgl.h>
 #include "agl/utils.h"
 #include "waveform/waveform.h"
-#include "waveform/actor.h"
 #include "waveform/gl_utils.h"
 #include "waveform/texture_cache.h"
 #include "test/ayyi_utils.h"

@@ -34,13 +34,10 @@
 #include <gtkglext-1.0/gdk/gdkgl.h>
 #include <gtkglext-1.0/gtk/gtkgl.h>
 #include "agl/utils.h"
-#include "waveform/peak.h"
-#include "waveform/utils.h"
+#include "waveform/waveform.h"
 #include "waveform/promise.h"
 #include "waveform/gl_utils.h"
-#include "waveform/utils.h"
 #include "waveform/texture_cache.h"
-#include "waveform/actor.h"
 #include "waveform/grid.h"
 #include "waveform/view.h"
 
@@ -230,7 +227,7 @@ _show_waveform(gpointer _view, gpointer _c)
 			wf_actor_set_region(v->actor, &(WfSampleRegion){0, n_frames});
 
 			// the waveform may be shared so may already be loaded.
-			if(!view->waveform->priv->peak.size) waveform_load(view->waveform);
+			if(!view->waveform->priv->peak.size) waveform_load_sync(view->waveform);
 
 			am_promise_resolve(promise(PROMISE_WAVE_READY), NULL);
 		}

@@ -44,13 +44,12 @@
 #include <gtk/gtk.h>
 #include <gdk/gdkkeysyms.h>
 #include "waveform/waveform.h"
-#include "waveform/actor.h"
 #include "waveform/fbo.h"
 #include "waveform/gl_utils.h"
 #include "test/common.h"
 #include "test/ayyi_utils.h"
 
-#define WAV "test/data/mono_1.wav"
+#define WAV "test/data/mono_0:10.wav"
 
 #define GL_WIDTH 300.0
 #define GL_HEIGHT 256.0
@@ -364,7 +363,7 @@ void
 toggle_shaders(WaveformView* _)
 {
 	PF0;
-	agl_actor__set_use_shaders((AGlActor*)wfc->root, !agl->use_shaders);
+	agl_actor__set_use_shaders(wfc->root, !agl->use_shaders);
 }
 
 

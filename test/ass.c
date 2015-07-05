@@ -40,7 +40,6 @@
 #include <ass.h>
 #include "agl/utils.h"
 #include "waveform/waveform.h"
-#include "waveform/actor.h"
 #define __wf_private__
 #include "waveform/gl_utils.h"
 #include "test/ayyi_utils.h"
@@ -59,7 +58,7 @@ struct
 	const int frame_w = 512;
 	const int frame_h =  64;
 #define VBORDER 8
-#define WAV "test/data/mono_1.wav"
+#define WAV "test/data/mono_0:10.wav"
 
 GdkGLConfig*    glconfig       = NULL;
 static bool     gl_initialised = false;

@@ -31,13 +31,10 @@
 #include "agl/ext.h"
 #include "agl/utils.h"
 #include "agl/actor.h"
-#include "waveform/peak.h"
-#include "waveform/utils.h"
+#include "waveform/waveform.h"
 #include "waveform/peakgen.h"
 #include "waveform/gl_utils.h"
-#include "waveform/utils.h"
 #include "waveform/shader.h"
-#include "waveform/actor.h"
 #include "waveform/actors/text.h"
 
 #define _g_free0(var) (var = (g_free (var), NULL))

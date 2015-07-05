@@ -26,10 +26,7 @@
 #include <glib.h>
 #include <gtk/gtk.h>
 #include <gtk/gtkgl.h>
-#include "waveform/typedefs.h"
-#include "waveform/utils.h"
-#include "waveform/canvas.h"
-#include "waveform/peak.h"
+#include "waveform/waveform.h"
 #include "waveform/view.h"
 
 G_BEGIN_DECLS
@@ -65,7 +62,7 @@ GType             waveform_view_plus_get_type      () G_GNUC_CONST;
 void              waveform_view_plus_set_gl        (GdkGLContext*);
 
 WaveformViewPlus* waveform_view_plus_new           (Waveform*);
-void              waveform_view_plus_load_file     (WaveformViewPlus*, const char*); //be careful, it force loads, even if already loaded.
+void              waveform_view_plus_load_file     (WaveformViewPlus*, const char*, WfCallback2, gpointer); // be careful, it force loads, even if already loaded.
 void              waveform_view_plus_set_waveform  (WaveformViewPlus*, Waveform*);
 void              waveform_view_plus_set_zoom      (WaveformViewPlus*, float);
 void              waveform_view_plus_set_start     (WaveformViewPlus*, int64_t);

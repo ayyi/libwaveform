@@ -29,11 +29,9 @@
 #include <sndfile.h>
 #include <gtk/gtk.h>
 #include "agl/utils.h"
-#include "waveform/utils.h"
-#include "waveform/peak.h"
+#include "waveform/waveform.h"
 #include "waveform/alphabuf.h"
 
-//#define WF_TEXTURE_HEIGHT 128 //1024
 #define WF_TEXTURE_HEIGHT 256 //intel 945 seems to work better with square textures
 #define BITS_PER_PIXEL 8
 

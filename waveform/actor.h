@@ -19,9 +19,8 @@
 #include <gtk/gtkgl.h>
 #include "transition/transition.h"
 #include "agl/actor.h"
-#include "waveform/typedefs.h"
+#include "waveform/waveform.h"
 #include "canvas.h"
-#include "peak.h"
 
 #define HAVE_NON_SQUARE_TEXTURES // TODO change to runtime detection (indicated by AGL->have_npot_textures)
 
@@ -45,7 +44,8 @@ struct _waveform_actor {
 };
 
 void            wf_actor_free                       (WaveformActor*);
-void            wf_actor_set_waveform               (WaveformActor*, Waveform*);
+void            wf_actor_set_waveform               (WaveformActor*, Waveform*, WaveformActorFn, gpointer);
+void            wf_actor_set_waveform_sync          (WaveformActor*, Waveform*);
 void            wf_actor_set_region                 (WaveformActor*, WfSampleRegion*);
 void            wf_actor_set_rect                   (WaveformActor*, WfRectangle*);
 void            wf_actor_set_colour                 (WaveformActor*, uint32_t fg_colour);

@@ -30,8 +30,7 @@
 #include <gtkglext-1.0/gtk/gtkgl.h>
 #include "agl/ext.h"
 #include "agl/utils.h"
-#include "waveform/utils.h"
-#include "waveform/peak.h"
+#include "waveform/waveform.h"
 #include "waveform/gl_utils.h"
 #include "waveform/canvas.h"
 #include "waveform/shader.h"
