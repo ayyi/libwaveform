@@ -92,34 +92,30 @@ typedef enum {
 	WAVEFORM_LOADING = 1 << 0,
 } WaveformState;
 
-struct _AudioData {
+struct _WfAudioData {
 	int                n_blocks;          // the size of the buf array
 	WfBuf16**          buf16;             // pointers to arrays of blocks, one per block.
 	int                n_tiers_present;
 };
 
-struct _waveform_priv
+struct _WaveformPriv
 {
-	WfPeakBuf       peak;
+	WfPeakBuf       peak;           // single buffer of peakdata for use at MED and LOW resolution.
+	GPtrArray*      hires_peaks;    // array of Peakbuf* for use at HI resolution.
 	RmsBuf*         rms_buf0;
 	RmsBuf*         rms_buf1;
-	WfAudioData     audio;          // tiered hi-res data for peaks.
 
-	GPtrArray*      hires_peaks;    // array of Peakbuf* TODO how much does priv->audio deprecate this?
+	WfAudioData     audio;          // tiered hi-res audio data.
+
 	int             num_peaks;      // peak_buflen / PEAK_VALUES_PER_SAMPLE
 	int             n_blocks;
+	short           max_db;         // TODO should be in db?
 
 	                                // render_data is owned, managed, and shared by all the WfActor's using this waveform.
 	WaveformModeRender* render_data[N_MODES];
 
-	short           max_db;         // TODO should be in db?
-
 	gboolean        checks_done;    // if audio file is accessed, the peakfile is validated.
 	WaveformState   state;
-
-#if 0
-	gint           _property1;      // just testing
-#endif
 };
 
 struct _WfWorker {
@@ -232,6 +228,7 @@ short*         waveform_peak_malloc        (Waveform*, uint32_t bytes);
 Peakbuf*       waveform_get_peakbuf_n      (Waveform*, int);
 void           waveform_peakbuf_assign     (Waveform*, int block_num, Peakbuf*);
 void           waveform_peakbuf_regen      (Waveform*, WfBuf16*, Peakbuf*, int block_num, int min_output_resolution);
+void           waveform_peakbuf_free       (Peakbuf*);
 int            waveform_get_n_audio_blocks (Waveform*);
 void           waveform_print_blocks       (Waveform*);
 

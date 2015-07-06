@@ -320,7 +320,10 @@ waveform_peakgen(Waveform* w, const char* peak_filename, WfCallback2 callback, g
 		PeakJob* job = _job;
 
 		if(!wf_peakgen__sync(job->infilename, job->peak_filename)){
-			job->out.failed = true;
+#ifdef DEBUG
+			if(wf_debug) gwarn("peakgen failed");
+#endif
+			job->out.failed = true; // writing to object owned by main thread
 		}
 	}
 
@@ -465,7 +468,7 @@ wf_peakgen__sync(const char* infilename, const char* peak_filename)
 		long ms   = sample2time(sfinfo, samples_read) - 1000 * secs;
 		long mins = secs / 60;
 		secs = secs - mins * 60;
-		printf("size: %'Li bytes %li:%02li:%03li. maxlevel=%i(%fdB)\n", samples_read * sizeof(short), mins, secs, ms, total_max[0], wf_int2db(total_max[0]));
+		dbg(0, "size: %'Li bytes %li:%02li:%03li. maxlevel=%i(%fdB)", samples_read * sizeof(short), mins, secs, ms, total_max[0], wf_int2db(total_max[0]));
 	}
 
 	dbg(1, "total_items_written=%i items_per_channel=%i peaks_per_channel=%i", total_frames_written, total_frames_written/sfinfo.channels, total_frames_written/(sfinfo.channels * WF_PEAK_VALUES_PER_SAMPLE));
@@ -546,6 +549,14 @@ peakbuf_allocate(Peakbuf* peakbuf, int c)
 
 	dbg(2, "c=%i b=%i: size=%i tot_peak_mem=%ikB", c, peakbuf->block_num, peakbuf->size, peak_mem_size / 1024);
 	return peakbuf->buf[c];
+}
+
+
+void
+waveform_peakbuf_free(Peakbuf* p)
+{
+	int c; for(c=0;c<WF_STEREO;c++) if(p->buf[c]) g_free0(p->buf[c]);
+	g_free(p);
 }
 
 

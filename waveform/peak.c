@@ -34,6 +34,7 @@
 #include "waveform/loaders/riff.h"
 #include "waveform/texture_cache.h"
 #include "waveform/audio.h"
+#include "waveform/audio_file.h"
 #include "waveform/alphabuf.h"
 #include "waveform/fbo.h"
 #include "waveform/worker.h"
@@ -134,16 +135,25 @@ waveform_finalize (GObject* obj)
 	Waveform* w = WAVEFORM(obj);
 	WaveformPriv* _w = w->priv;
 
-#if 0 // the worker now use weak references so there is no need to explictly cancel outstanding jobs
+#if 0 // the worker now uses a weak reference so there is no need to explictly cancel outstanding jobs
 	wf_worker_cancel_jobs(&wf->audio_worker, w);
-#endif
 	waveform_peakgen_cancel(w);
+#endif
 
 	// the warning below occurs when the waveform is created and destroyed very quickly.
 	if(g_hash_table_size(wf->peak_cache) && !g_hash_table_remove(wf->peak_cache, w) && wf_debug) gwarn("failed to remove waveform from peak_cache");
 
 	int c; for(c=0;c<WF_MAX_CH;c++){
 		if(_w->peak.buf[c]) g_free(_w->peak.buf[c]);
+	}
+
+	if(_w->hires_peaks){
+		void** data = _w->hires_peaks->pdata;
+		int i; for(i=0;i<_w->hires_peaks->len;i++){
+			Peakbuf* p = data[i];
+			waveform_peakbuf_free(p);
+		}
+		g_ptr_array_free (_w->hires_peaks, false);
 	}
 
 	extern int texture_cache_count_by_waveform(Waveform*);
@@ -258,9 +268,21 @@ waveform_get_sf_data(Waveform* w)
 
 	if(w->offline) return;
 
+#ifdef USE_FFMPEG
+	FF f = {0,};
+
+	if(wf_ff_open(&f, w->filename)){
+		w->n_frames = f.info.frames;
+		w->n_channels = w->n_channels ? w->n_channels : f.info.channels; // file info is not correct in the case of split stereo files.
+		wf_ff_close(&f);
+#else
 	SF_INFO sfinfo = {0,};
 	SNDFILE* sndfile;
-	if(!(sndfile = sf_open(w->filename, SFM_READ, &sfinfo))){
+	if((sndfile = sf_open(w->filename, SFM_READ, &sfinfo))){
+		w->n_frames = sfinfo.frames;
+		w->n_channels = w->n_channels ? w->n_channels : sfinfo.channels; // sfinfo is not correct in the case of split stereo files.
+#endif
+	}else{
 		w->offline = true;
 
 		if(!g_file_test(w->filename, G_FILE_TEST_EXISTS)){
@@ -268,7 +290,7 @@ waveform_get_sf_data(Waveform* w)
 		}else{
 			if(wf_debug) g_warning("file open failure (%s) \"%s\"\n", sf_strerror(NULL), w->filename);
 
-			// attempt to work with only a pre-existing peakfile
+			// attempt to work with only a pre-existing peakfile in case file is temporarily unmounted
 			if(waveform_load_sync(w)){
 				w->n_channels = _w->peak.buf[1] ? 2 : 1;
 				w->n_frames = _w->num_peaks * WF_PEAK_RATIO;
@@ -277,10 +299,9 @@ waveform_get_sf_data(Waveform* w)
 			}
 		}
 	}
+#ifndef USE_FFMPEG
 	sf_close(sndfile);
-
-	w->n_frames = sfinfo.frames;
-	w->n_channels = w->n_channels ? w->n_channels : sfinfo.channels; // sfinfo is not correct in the case of split stereo files.
+#endif
 
 	if(_w->num_peaks && !_w->checks_done){
 		if(w->n_frames > _w->num_peaks * WF_PEAK_RATIO){
@@ -1381,8 +1402,8 @@ waveform_peak_to_pixbuf_async(Waveform* w, GdkPixbuf* pixbuf, WfSampleRegion* re
 	double samples_per_px = region->len / gdk_pixbuf_get_width(pixbuf);
 	bool hires_mode = ((samples_per_px / WF_PEAK_RATIO) < 1.0);
 	if(hires_mode){
-		int b0 = region->start / WF_SAMPLES_PER_TEXTURE; // TODO check borders etc
-		int b1 = (region->start + region->len) / WF_SAMPLES_PER_TEXTURE/* + ((region->start + region->len) % WF_SAMPLES_PER_TEXTURE ? 1 : 0)*/;
+		int b0 = region->start / WF_SAMPLES_PER_TEXTURE;
+		int b1 = (region->start + region->len) / WF_SAMPLES_PER_TEXTURE;
 		c->n_blocks_total = b1 - b0 + 1;
 		int b; for(b=b0;b<=b1;b++){
 			waveform_load_audio(w, b, N_TIERS_NEEDED, waveform_load_audio_done, c);
@@ -1421,6 +1442,8 @@ waveform_peak_to_pixbuf_full(Waveform* waveform, GdkPixbuf* pixbuf, uint32_t reg
 		@param colour_bg      - 0xrrggbbaa. used for antialiasing.
 
 		TODO
+			v-high mode - currently fails if resolution is less than 1:16
+
 			further optimisation:
 				-dont scan pixels above the peaks. Should we record the overall region/file peak level?
 
@@ -1463,7 +1486,6 @@ waveform_peak_to_pixbuf_full(Waveform* waveform, GdkPixbuf* pixbuf, uint32_t reg
 	guchar* pixels   = gdk_pixbuf_get_pixels(pixbuf);
 	int rowstride    = gdk_pixbuf_get_rowstride(pixbuf);
 
-	//TODO
 	cairo_surface_t* surface = cairo_image_surface_create_for_data(pixels, CAIRO_FORMAT_RGB24, width, height, rowstride);
 	cairo_t* cairo = cairo_create(surface);
 
