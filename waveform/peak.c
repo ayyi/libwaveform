@@ -28,7 +28,9 @@
 #include <sys/time.h>
 #include <sndfile.h>
 #include <glib.h>
+#ifdef USE_OPENGL
 #include "agl/utils.h"
+#endif
 #include "waveform/waveform.h"
 #include "waveform/loaders/ardour.h"
 #include "waveform/loaders/riff.h"
@@ -2060,7 +2062,9 @@ void
 waveform_print_blocks(Waveform* w)
 {
 	g_return_if_fail(w);
+#ifdef USE_OPENGL
 	g_return_if_fail(!agl_get_instance()->use_shaders);
+#endif
 
 	printf("%s {\n", __func__);
 	WfGlBlock* blocks = (WfGlBlock*)w->priv->render_data[MODE_MED];
