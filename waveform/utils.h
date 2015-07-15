@@ -69,6 +69,7 @@ uint32_t   wf_get_gtk_base_color      (GtkWidget*, GtkStateType, char alpha);
 uint32_t   wf_color_gdk_to_rgba       (GdkColor*);
 #endif
 void       wf_colour_rgba_to_float    (AGlColourFloat*, uint32_t rgba);
+bool       wf_colour_is_dark_rgba     (uint32_t);
 
 bool       wf_get_filename_for_other_channel(const char* filename, char* other, int n_chars);
 guint64    wf_get_time                ();

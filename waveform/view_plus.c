@@ -566,13 +566,12 @@ waveform_view_plus_realize (GtkWidget* widget)
 	gtk_style_set_background (gtk_widget_get_style (widget), widget->window, GTK_STATE_NORMAL);
 	gdk_window_move_resize (widget->window, widget->allocation.x, widget->allocation.y, widget->allocation.width, widget->allocation.height);
 
-	if(!view->fg_colour) view->fg_colour = wf_get_gtk_fg_color(widget, GTK_STATE_NORMAL);
-	if(!view->text_colour){
-		//TODO because the black background is not a theme colour we need to be careful to use a contrasting colour
-		if(false)
-			view->text_colour = wf_get_gtk_text_color(widget, GTK_STATE_NORMAL);
-		else
-			view->text_colour = wf_get_gtk_base_color(widget, GTK_STATE_NORMAL, 0xaa);
+	if(!view->fg_colour){
+		// currently the waveform background is always dark, so a light colour is needed for the foreground
+		uint32_t base_colour = wf_get_gtk_base_color(widget, GTK_STATE_NORMAL, 0xaa);
+		view->fg_colour = wf_colour_is_dark_rgba(base_colour)
+			? wf_get_gtk_fg_color(widget, GTK_STATE_NORMAL)
+			: base_colour;
 	}
 
 	if(!promise(PROMISE_DISP_READY)->is_resolved) waveform_view_plus_init_drawable(view);

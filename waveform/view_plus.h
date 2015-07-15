@@ -50,7 +50,6 @@ struct _WaveformViewPlus {
 
 	uint32_t                 fg_colour;
 	uint32_t                 bg_colour;
-	uint32_t                 text_colour;
 };
 
 struct _WaveformViewPlusClass {

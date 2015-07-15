@@ -167,6 +167,19 @@ wf_color_gdk_to_rgba(GdkColor* color)
 
 
 gboolean
+wf_colour_is_dark_rgba(uint32_t colour)
+{
+	int r = (colour & 0xff000000) >> 24;
+	int g = (colour & 0x00ff0000) >> 16;
+	int b = (colour & 0x0000ff00) >>  8;
+
+	int average = (r + g + b ) / 3;
+								dbg(0, "is_dark=%i", average < 0x80);
+	return (average < 0x80);
+}
+
+
+gboolean
 wf_get_filename_for_other_channel(const char* filename, char* other, int n_chars)
 {
 	//return the filename of the other half of a split stereo pair.
