@@ -80,6 +80,7 @@ WfTransitionGlobal wf_transition = {300};
 #define WF_DEBUG_ANIMATOR
 
 static uint32_t transition_linear      (WfAnimation*, WfAnimatable*, int time);
+static int64_t  transition_linear_64   (WfAnimation*, WfAnimatable*, int time);
 static float    transition_linear_f    (WfAnimation*, WfAnimatable*, int time);
 
 #ifdef WF_DEBUG_ANIMATOR
@@ -89,6 +90,8 @@ guint idx = 0;
 
 GList* transitions = NULL; // list of currently running transitions (type WfAnimation*).
 
+static WfEasingFn linear[3] = {{.i = transition_linear}, {.b = transition_linear_64}, {.f = transition_linear_f}};
+
 
 WfAnimation*
 wf_animation_new(AnimationFn on_finished, gpointer user_data)
@@ -97,8 +100,7 @@ wf_animation_new(AnimationFn on_finished, gpointer user_data)
 	animation->length = wf_transition.length;
 	animation->on_finish = on_finished;
 	animation->user_data = user_data;
-	animation->frame_i = transition_linear;
-	animation->frame_f = transition_linear_f;
+	animation->frame_fn = linear;
 #ifdef WF_DEBUG_ANIMATOR
 	animation->id = idx++;
 	animations = g_list_append(animations, animation);
@@ -346,11 +348,7 @@ wf_animation_start(WfAnimation* animation)
 #endif
 			for(;k;k=k->next){
 				WfAnimatable* animatable = k->data;
-				if(animatable->type == WF_INT){
-					animatable->val.i = animation->frame_i(animation, animatable, time);
-				}else{
-					animatable->val.f = animation->frame_f(animation, animatable, time);
-				}
+				animatable->val.b = animation->frame_fn[animatable->type].b(animation, animatable, time);
 			}
 		}
 		animation->on_frame(animation, time); // user frame callback
@@ -411,11 +409,7 @@ wf_animation_preview(WfAnimation* animation, AnimationValueFn on_frame, gpointer
 			GList* k = anim_actor->transitions;
 			for(;k;k=k->next,i++){
 				WfAnimatable* animatable = k->data;
-				if(animatable->type == WF_INT){
-					vals[i].i = animation->frame_i(animation, animatable, t_ + animation->start);
-				}else{
-					vals[i].f = animation->frame_f(animation, animatable, t_ + animation->start);
-				}
+				vals[i].b = animation->frame_fn[animatable->type].b(animation, animatable, t_ + animation->start);
 			}
 			on_frame(animation, vals, user_data);
 		}
@@ -431,9 +425,22 @@ transition_linear(WfAnimation* animation, WfAnimatable* animatable, int time)
 	uint64_t t = time - animation->start;
 
 	float time_fraction = MIN(1.0, ((float)t) / len);
-	float orig_val   = animatable->type == WF_INT ? animatable->start_val.i : animatable->start_val.f;
-	float target_val = animatable->type == WF_INT ? *animatable->model_val.i : *animatable->model_val.f;
+	float orig_val   = animatable->start_val.i;
+	float target_val = *animatable->model_val.i;
 	dbg(2, "%.2f orig=%.2f target=%.2f", time_fraction, orig_val, target_val);
+	return  (1.0 - time_fraction) * orig_val + time_fraction * target_val;
+}
+
+
+static int64_t
+transition_linear_64(WfAnimation* animation, WfAnimatable* animatable, int time)
+{
+	uint64_t len = animation->end - animation->start;
+	uint64_t t = time - animation->start;
+
+	float time_fraction = MIN(1.0, ((float)t) / len);
+	float orig_val   = animatable->start_val.b;
+	float target_val = *animatable->model_val.b;
 	return  (1.0 - time_fraction) * orig_val + time_fraction * target_val;
 }
 

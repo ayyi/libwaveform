@@ -30,6 +30,7 @@ WfTransitionGlobal;
 extern WfTransitionGlobal wf_transition;
 #endif
 
+typedef struct _WfAnimation WfAnimation;
 typedef enum {WF_INT, WF_INT64, WF_FLOAT} WfPropType;
 
 typedef union {
@@ -65,18 +66,22 @@ typedef struct _anim_actor
 #endif
 } WfAnimActor;
 
-typedef struct _animation WfAnimation;
 typedef void  (*AnimationFn) (WfAnimation*, gpointer);
 typedef void  (*AnimationFrameFn) (WfAnimation*, int time);
 typedef void  (*AnimationValueFn) (WfAnimation*, UVal[], gpointer);
 
-struct _animation
+typedef union {
+   uint32_t  (*i)(WfAnimation*, WfAnimatable*, int time);
+   int64_t   (*b)(WfAnimation*, WfAnimatable*, int time);
+   float     (*f)(WfAnimation*, WfAnimatable*, int time);
+} WfEasingFn;
+
+struct _WfAnimation
 {
    uint32_t    length;
    uint64_t    start;
    uint64_t    end;
-   uint32_t    (*frame_i)  (WfAnimation*, WfAnimatable*, int time); // easing fn
-   float       (*frame_f)  (WfAnimation*, WfAnimatable*, int time); // easing fn
+   WfEasingFn* frame_fn;                                            // easing fn's
    GList*      members;                                             // list of WfAnimActor*  -- subject to change
 //#ifndef USE_FRAME_CLOCK
    guint       timer;
