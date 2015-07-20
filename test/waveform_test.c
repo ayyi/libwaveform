@@ -119,7 +119,7 @@ test_audiodata()
 			FINISH_TEST;
 		}
 	}
-	ready_handler = g_signal_connect (w, "peakdata-ready", (GCallback)_on_peakdata_ready, NULL);
+	ready_handler = g_signal_connect (w, "hires-ready", (GCallback)_on_peakdata_ready, NULL);
 
 	int b; for(b=0;b<tot_blocks;b++){
 		waveform_load_audio(w, b, n_tiers_needed, NULL, NULL);
@@ -156,7 +156,7 @@ test_audiodata_slow()
 			FINISH_TEST;
 		}
 	}
-	ready_handler = g_signal_connect (w, "peakdata-ready", (GCallback)_on_peakdata_ready, NULL);
+	ready_handler = g_signal_connect (w, "hires-ready", (GCallback)_on_peakdata_ready, NULL);
 
 	waveform_load_audio(w, 0, n_tiers_needed, NULL, NULL);
 }
@@ -206,7 +206,7 @@ test_audio_cache()
 			g_timeout_add(400, after_unref, NULL);
 		}
 	}
-	ready_handler = g_signal_connect (w, "peakdata-ready", (GCallback)_on_peakdata_ready, NULL);
+	ready_handler = g_signal_connect (w, "hires-ready", (GCallback)_on_peakdata_ready, NULL);
 
 	int b; for(b=0;b<tot_blocks;b++){
 		waveform_load_audio(w, b, n_tiers_needed, NULL, NULL);

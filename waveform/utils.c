@@ -174,7 +174,6 @@ wf_colour_is_dark_rgba(uint32_t colour)
 	int b = (colour & 0x0000ff00) >>  8;
 
 	int average = (r + g + b ) / 3;
-								dbg(0, "is_dark=%i", average < 0x80);
 	return (average < 0x80);
 }
 

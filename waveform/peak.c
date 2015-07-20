@@ -116,7 +116,8 @@ waveform_class_init (WaveformClass* klass)
 	G_OBJECT_CLASS (klass)->get_property = _waveform_get_property;
 	G_OBJECT_CLASS (klass)->finalize = waveform_finalize;
 	g_object_class_install_property (G_OBJECT_CLASS (klass), WAVEFORM_PROPERTY1, g_param_spec_int ("property1", "property1", "property1", G_MININT, G_MAXINT, 0, G_PARAM_STATIC_NAME | G_PARAM_STATIC_NICK | G_PARAM_STATIC_BLURB | G_PARAM_READABLE));
-	g_signal_new ("peakdata_ready", TYPE_WAVEFORM, G_SIGNAL_RUN_LAST, 0, NULL, NULL, g_cclosure_marshal_VOID__INT, G_TYPE_NONE, 1, G_TYPE_INT);
+	g_signal_new ("peakdata_ready", TYPE_WAVEFORM, G_SIGNAL_RUN_LAST, 0, NULL, NULL, g_cclosure_marshal_VOID__VOID, G_TYPE_NONE, 0);
+	g_signal_new ("hires_ready", TYPE_WAVEFORM, G_SIGNAL_RUN_LAST, 0, NULL, NULL, g_cclosure_marshal_VOID__INT, G_TYPE_NONE, 1, G_TYPE_INT);
 }
 
 
@@ -237,6 +238,7 @@ waveform_load(Waveform* w, WfCallback3 callback, gpointer user_data)
 				error = g_error_new(g_quark_from_static_string(wf->domain), 1, "failed to load peak");
 			}
 			g_free(peakfile);
+			g_signal_emit_by_name(w, "peakdata-ready");
 		}
 		c->callback(w, error, c->user_data);
 		g_free(c);

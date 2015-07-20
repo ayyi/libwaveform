@@ -115,11 +115,13 @@ v_lo_buf_to_tex(Renderer* renderer, WaveformActor* actor, int b)
 }
 
 
+#ifdef USE_TEST
 static bool
 v_lo_is_not_blank(Renderer* renderer, WaveformActor* actor)
 {
 	return true;
 }
+#endif
 
 
 Renderer v_lo_renderer_gl1 = {MODE_V_LOW, v_lo_new_gl1, low_allocate_block_gl1, med_lo_pre_render_gl1, med_lo_render_gl1, med_lo_gl1_free_waveform};

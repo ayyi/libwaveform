@@ -322,7 +322,7 @@ _waveform_view_plus__show_waveform(gpointer _view, gpointer _c)
 				wf_actor_set_region(v->actor, &(WfSampleRegion){0, n_frames});
 				wf_actor_set_colour(v->actor, view->fg_colour);
 
-				void _waveform_view_plus__show_waveform_done(Waveform* w, GError* e, gpointer _view)
+				void _waveform_view_plus__show_waveform_done(Waveform* w, gpointer _view)
 				{
 					WaveformViewPlus* view = _view;
 					WaveformViewPlusPrivate* v = view->priv;
@@ -336,7 +336,8 @@ _waveform_view_plus__show_waveform(gpointer _view, gpointer _c)
 					}
 				}
 
-				waveform_load(view->waveform, _waveform_view_plus__show_waveform_done, view);
+				//waveform_load(view->waveform, _waveform_view_plus__show_waveform_done, view);
+				g_signal_connect (view->waveform, "peakdata-ready", (GCallback)_waveform_view_plus__show_waveform_done, view);
 			}
 			_waveform_view_plus_set_actor(view);
 		}
@@ -375,6 +376,7 @@ waveform_view_plus_load_file (WaveformViewPlus* view, const char* filename, WfCa
 
 	view->waveform = waveform_new(filename);
 	if(v->actor){
+		// FIXME this path not taken for new views, so callback never called.
 		wf_actor_set_waveform(v->actor, view->waveform, waveform_view_plus_load_file_done, c);
 	}
 
@@ -450,20 +452,32 @@ waveform_view_plus_set_start (WaveformViewPlus* view, int64_t start_frame)
 void
 waveform_view_plus_set_region (WaveformViewPlus* view, int64_t start_frame, int64_t end_frame)
 {
-	uint32_t max_len = waveform_get_n_frames(view->waveform) - start_frame;
-	uint32_t length = MIN(max_len, end_frame - start_frame);
+	g_return_if_fail(end_frame > start_frame);
 
-	view->start_frame = CLAMP(start_frame, 0, (int64_t)waveform_get_n_frames(view->waveform) - 10);
-	view->zoom = waveform_view_plus_get_width(view) / length;
+	WfSampleRegion* region = g_new(WfSampleRegion, 1);
+	*region = (WfSampleRegion){start_frame, end_frame - start_frame};
+
+	int64_t max_len = waveform_get_n_frames(view->waveform) - region->start;
+	region->len = MIN(max_len, region->len);
+
+	view->start_frame = CLAMP(region->start, 0, (int64_t)waveform_get_n_frames(view->waveform) - 10);
+	view->zoom = view->waveform->n_frames / (float)region->len;
 	dbg(1, "start=%Lu", view->start_frame);
 
-	if(view->priv->actor){
-		wf_actor_set_region(view->priv->actor, &(WfSampleRegion){
-			view->start_frame,
-			length
-		});
-		if(!view->priv->actor->canvas->draw) gtk_widget_queue_draw((GtkWidget*)view);
+	void set_region_on_ready(gpointer _view, gpointer _region)
+	{
+		WaveformViewPlus* view = _view;
+		WaveformViewPlusPrivate* v = view->priv;
+		g_return_if_fail(v->actor);
+
+		wf_actor_set_region(v->actor, _region);
+
+		if(!v->actor->canvas->draw) gtk_widget_queue_draw((GtkWidget*)view);
+
+		g_free(_region);
 	}
+
+	am_promise_add_callback(promise(PROMISE_DISP_READY), set_region_on_ready, GUINT_TO_POINTER(region));
 }
 
 
@@ -492,7 +506,7 @@ waveform_view_plus_set_show_rms (WaveformViewPlus* view, gboolean _show)
 	gboolean _on_idle(gpointer _view)
 	{
 		WaveformViewPlus* view = _view;
-		g_return_val_if_fail(view->priv->canvas, G_SOURCE_REMOVE);
+		if(!view->priv->canvas) return G_SOURCE_CONTINUE;
 
 		view->priv->canvas->show_rms = show;
 		gtk_widget_queue_draw((GtkWidget*)view);

@@ -383,7 +383,7 @@ waveform_load_audio(Waveform* waveform, int block_num, int n_tiers_needed, WfAud
 
 				if(pjob->done) pjob->done(waveform, pjob->block_num, pjob->user_data);
 				dbg(2, "--->");
-				g_signal_emit_by_name(waveform, "peakdata-ready", pjob->block_num);
+				g_signal_emit_by_name(waveform, "hires-ready", pjob->block_num);
 			}
 		}
 

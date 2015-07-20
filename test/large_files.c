@@ -162,7 +162,7 @@ test_load()
 void
 test_audiodata()
 {
-	//instantiate a Waveform and check that all the peakdata-ready signals are emitted.
+	//instantiate a Waveform and check that all the hires-ready signals are emitted.
 
 	START_TEST;
 
@@ -221,7 +221,7 @@ test_audiodata()
 
 		Waveform* w = waveform_new(wavs[wi++]);
 		g_object_weak_ref((GObject*)w, finalize_notify, NULL);
-		ready_handler = g_signal_connect (w, "peakdata-ready", (GCallback)test_on_peakdata_ready, c);
+		ready_handler = g_signal_connect (w, "hires-ready", (GCallback)test_on_peakdata_ready, c);
 		n = 0;
 
 		tot_blocks = waveform_get_n_audio_blocks(w);

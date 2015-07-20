@@ -43,13 +43,15 @@ typedef struct _WaveformViewPlusPrivate WaveformViewPlusPrivate;
 
 struct _WaveformViewPlus {
 	GtkDrawingArea           parent_instance;
+
 	Waveform*                waveform;
 	float                    zoom;
 	uint64_t                 start_frame;
-	WaveformViewPlusPrivate* priv;
 
 	uint32_t                 fg_colour;
 	uint32_t                 bg_colour;
+
+	WaveformViewPlusPrivate* priv;
 };
 
 struct _WaveformViewPlusClass {

@@ -73,8 +73,8 @@ enum
 
 typedef struct
 {
-	uint64_t start;              // sample frames
-	uint64_t len;                // sample frames
+	int64_t start;              // sample frames
+	int64_t len;                // sample frames
 } WfSampleRegion;
 
 typedef struct

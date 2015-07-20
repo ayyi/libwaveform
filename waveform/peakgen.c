@@ -329,7 +329,6 @@ waveform_peakgen(Waveform* w, const char* peak_filename, WfCallback2 callback, g
 
 	void peakgen_free(gpointer item)
 	{
-		PF0;
 		PeakJob* job = item;
 		g_free0(job->infilename);
 		g_free(job);
@@ -597,7 +596,6 @@ waveform_peakbuf_regen(Waveform* waveform, WfBuf16* audiobuf, Peakbuf* peakbuf, 
 	if(min_output_tiers >  3){ output_resolution = 1;                  output_tiers = 8; } //use the whole file!
 	int io_ratio = output_resolution / input_resolution; //number of input bytes for 1 byte of output
 	dbg(2, "%i: min_output_tiers=%i input_resolution=%i output_resolution=%i io_ratio=%i", block_num, min_output_tiers, input_resolution, output_resolution, io_ratio);
-													dbg(0, "%i: min_output_tiers=%i input_resolution=%i output_resolution=%i io_ratio=%i", block_num, min_output_tiers, input_resolution, output_resolution, io_ratio);
 
 	/*
 
@@ -651,7 +649,6 @@ waveform_peakbuf_regen(Waveform* waveform, WfBuf16* audiobuf, Peakbuf* peakbuf, 
 		//peakbuf->size = wf_peakbuf_get_max_size(output_tiers);
 		peakbuf->size = audiobuf->size * WF_PEAK_VALUES_PER_SAMPLE / io_ratio;
 		dbg(2, "buf->size=%i blocksize=%i", peakbuf->size, WF_PEAK_BLOCK_SIZE * WF_PEAK_VALUES_PER_SAMPLE / io_ratio);
-																		dbg(0, "peakbuf->size=%i blocksize=%i", peakbuf->size, WF_PEAK_BLOCK_SIZE * WF_PEAK_VALUES_PER_SAMPLE / io_ratio);
 		int c; for(c=0;c<waveform_get_n_channels(waveform);c++){
 			buf = peakbuf_allocate(peakbuf, c);
 		}
