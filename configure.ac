@@ -1,6 +1,6 @@
 AC_PREREQ(2.59)
 AC_INIT([Libwaveform],[0.1.0],[tim@orford.org])
-AC_CONFIG_SRCDIR([waveform/peak.c])
+AC_CONFIG_SRCDIR([waveform/waveform.c])
 AC_CONFIG_HEADER([config.h])
 AM_INIT_AUTOMAKE
 AM_PROG_AR
