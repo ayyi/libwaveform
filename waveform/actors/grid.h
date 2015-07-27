@@ -14,14 +14,9 @@
   along with this program; if not, write to the Free Software
   Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 */
-#ifndef __wf_grid_h__
-#define __wf_grid_h__
+#ifndef __wf_grid_actor_h__
+#define __wf_grid_actor_h__
 
 AGlActor* grid_actor(WaveformActor*);
 
-typedef struct {
-    AGlActor        actor;
-    WaveformActor*  wf_actor;     // TODO needs refactoring. maybe move some properties to the canvas.
-} GridActor;
-
-#endif //__wf_grid_h__
+#endif //__wf_grid_actor_h__

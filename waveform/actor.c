@@ -245,6 +245,8 @@ static void   block_to_fbo                   (WaveformActor*, int b, WfGlBlock*,
 
 static bool   wf_actor_get_quad_dimensions   (WaveformActor*, int b, bool is_first, bool is_last, double x, TextureRange*, double* tex_x, double* block_wid, int border, int multiplier);
 static int    wf_actor_get_n_blocks          (Waveform*, Mode);
+static void   wf_actor_connect_waveform      (WaveformActor*);
+static void   wf_actor_disconnect_waveform   (WaveformActor*);
 
 #include "waveform/renderer_ng.c"
 #include "waveform/med_res.c"
@@ -296,8 +298,10 @@ wf_actor_new(Waveform* w, WaveformCanvas* wfc)
 
 	if(!modes[MODE_LOW].renderer) wf_actor_class_init();
 
-	waveform_get_n_frames(w);
-	if(!w->renderable) return NULL;
+	if(w){
+		waveform_get_n_frames(w);
+		if(!w->renderable) return NULL;
+	}
 
 	WaveformActor* a = g_new0(WaveformActor, 1);
 	a->priv = g_new0(WfActorPriv, 1);
@@ -305,7 +309,7 @@ wf_actor_new(Waveform* w, WaveformCanvas* wfc)
 
 	a->canvas = wfc;
 	a->vzoom = 1.0;
-	a->waveform = g_object_ref(w);
+	a->waveform = w ? g_object_ref(w) : NULL;
 	wf_actor_set_colour(a, 0xffffffff);
 
 	_a->animatable = (struct Animatable){
@@ -370,33 +374,7 @@ wf_actor_new(Waveform* w, WaveformCanvas* wfc)
 	}
 	actor->invalidate = _wf_actor_invalidate;
 
-	void _wf_actor_on_peakdata_available(Waveform* waveform, int block, gpointer _actor)
-	{
-		// because there can be many actors showing the same waveform
-		// this can be called multiple times, but the texture must only
-		// be updated once.
-		// if the waveform has changed, the existing data must be cleared first.
-		//
-		// Even though low res renderers do not use the audio directly, they must handle this signal
-		// in case that the audio has changed (old textures must have previously been cleared).
-		// TODO file changes need better testing.
-
-		WaveformActor* a = _actor;
-		dbg(1, "block=%i", block);
-
-		agl_actor__invalidate((AGlActor*)a);
-
-		ModeRange mode = mode_range(a);
-		int upper = MAX(mode.lower, mode.upper);
-		int lower = MIN(mode.lower, mode.upper);
-		int m; for(m=lower; m<=upper; m+=MAX(1, upper - lower)){
-			Renderer* renderer = modes[m].renderer;
-			call(renderer->load_block, renderer, a, m == MODE_LOW ? (block / WF_PEAK_STD_TO_LO) : block);
-		}
-		if(a->canvas->draw) wf_canvas_queue_redraw(a->canvas);
-
-	}
-	_a->peakdata_ready_handler = g_signal_connect (w, "hires-ready", (GCallback)_wf_actor_on_peakdata_available, a);
+	if(w) wf_actor_connect_waveform(a);
 
 	void wf_actor_on_dimensions_changed(WaveformCanvas* wfc, gpointer _actor)
 	{
@@ -436,6 +414,54 @@ wf_actor_new(Waveform* w, WaveformCanvas* wfc)
 
 	g_object_weak_ref((GObject*)a->canvas, wf_actor_canvas_finalize_notify, a);
 	return a;
+}
+
+
+static void
+wf_actor_connect_waveform(WaveformActor* a)
+{
+	WfActorPriv* _a = a->priv;
+	g_return_if_fail(!_a->peakdata_ready_handler);
+
+	void _wf_actor_on_peakdata_available(Waveform* waveform, int block, gpointer _actor)
+	{
+		// because there can be many actors showing the same waveform
+		// this can be called multiple times, but the texture must only
+		// be updated once.
+		// if the waveform has changed, the existing data must be cleared first.
+		//
+		// Even though low res renderers do not use the audio directly, they must handle this signal
+		// in case that the audio has changed (old textures must have previously been cleared).
+		// TODO file changes need better testing.
+
+		WaveformActor* a = _actor;
+		dbg(1, "block=%i", block);
+
+		agl_actor__invalidate((AGlActor*)a);
+
+		ModeRange mode = mode_range(a);
+		int upper = MAX(mode.lower, mode.upper);
+		int lower = MIN(mode.lower, mode.upper);
+		int m; for(m=lower; m<=upper; m+=MAX(1, upper - lower)){
+			Renderer* renderer = modes[m].renderer;
+			call(renderer->load_block, renderer, a, m == MODE_LOW ? (block / WF_PEAK_STD_TO_LO) : block);
+		}
+		if(a->canvas->draw) wf_canvas_queue_redraw(a->canvas);
+
+	}
+
+	_a->peakdata_ready_handler = g_signal_connect (a->waveform, "hires-ready", (GCallback)_wf_actor_on_peakdata_available, a);
+}
+
+
+static void
+wf_actor_disconnect_waveform(WaveformActor* a)
+{
+	WfActorPriv* _a = a->priv;
+	g_return_if_fail(_a->peakdata_ready_handler);
+
+	g_signal_handler_disconnect((gpointer)a->waveform, _a->peakdata_ready_handler);
+	_a->peakdata_ready_handler = 0;
 }
 
 
@@ -507,9 +533,13 @@ wf_actor_set_waveform(WaveformActor* a, Waveform* waveform, WaveformActorFn call
 
 	if(a->waveform){
 		wf_actor_clear(a);
+		wf_actor_disconnect_waveform(a);
 		g_object_unref(a->waveform);
 	}
 	a->waveform = g_object_ref(waveform);
+	wf_actor_set_region(a, &(WfSampleRegion){0, waveform->n_frames});
+
+	wf_actor_connect_waveform(a);
 
 	typedef struct { WaveformActor* actor; WaveformActorFn callback; gpointer user_data; } C;
 	C* c = g_new0(C, 1);
@@ -521,7 +551,6 @@ wf_actor_set_waveform(WaveformActor* a, Waveform* waveform, WaveformActorFn call
 
 		if(waveform_get_n_frames(w)){
 			wf_actor_queue_load_render_data(c->actor);
-			wf_actor_set_region(c->actor, &(WfSampleRegion){0, waveform_get_n_frames(w)});
 		}
 
 		if(c->callback) c->callback(c->actor, c->user_data);
@@ -545,9 +574,11 @@ wf_actor_set_waveform_sync(WaveformActor* a, Waveform* waveform)
 
 	if(a->waveform){
 		wf_actor_clear(a);
+		wf_actor_disconnect_waveform(a);
 		g_object_unref(a->waveform);
 	}
 	a->waveform = g_object_ref(waveform);
+	wf_actor_connect_waveform(a);
 
 	waveform_load_sync(a->waveform);
 

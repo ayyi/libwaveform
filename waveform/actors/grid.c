@@ -34,8 +34,12 @@
 #include <gtkglext-1.0/gtk/gtkgl.h>
 #include "waveform/waveform.h"
 #include "waveform/canvas.h"
-#include "waveform/grid.h"
+#include "waveform/actors/grid.h"
 																				// TODO draw over whole viewport not just the wfactor.
+typedef struct {
+    AGlActor        actor;
+    WaveformActor*  wf_actor;     // TODO needs refactoring. maybe move some properties to the canvas.
+} GridActor;
 
 #if 0
 struct _grid
@@ -55,6 +59,8 @@ static bool grid_actor_paint(AGlActor*);
 AGlActor*
 grid_actor(WaveformActor* wf_actor)
 {
+	g_return_val_if_fail(wf_actor, NULL);
+
 	void grid_actor_size(AGlActor* actor)
 	{
 		actor->region = actor->parent->region;
@@ -106,8 +112,12 @@ grid_actor_paint(AGlActor* _actor)
 	int i = 0;
 	uint64_t f = ((int)(actor->region.start / interval)) * interval;
 	if(agl->use_shaders){
+#if 0
 		glEnable(GL_BLEND);
 		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+#else
+		agl_enable(AGL_ENABLE_BLEND | !AGL_ENABLE_TEXTURE_2D);
+#endif
 
 															// TODO make fixed contrast with background
 		agl->shaders.plain->uniform.colour = 0x1133bb55;
@@ -141,8 +151,12 @@ grid_actor_paint(AGlActor* _actor)
 		glDisable(GL_TEXTURE_2D);
 		glLineWidth(1);
 		glColor4f(0.5, 0.5, 1.0, 0.25);
+#if 0
 		glEnable(GL_BLEND);
 		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+#else
+		agl_enable(AGL_ENABLE_BLEND | !AGL_ENABLE_TEXTURE_2D);
+#endif
 
 		for(; (f < region_end) && (i < 0xff); f += interval, i++){
 			float x = wf_actor_frame_to_x(actor, f);

@@ -224,6 +224,8 @@ agl_actor__remove_child(AGlActor* actor, AGlActor* child)
 	actor->children = g_list_remove(actor->children, child);
 
 	agl_actor__free(child);
+
+	agl_actor__invalidate(actor);
 }
 
 

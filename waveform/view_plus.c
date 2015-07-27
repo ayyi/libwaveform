@@ -51,10 +51,7 @@
 #include "waveform/promise.h"
 #include "waveform/gl_utils.h"
 #include "waveform/texture_cache.h"
-#include "waveform/grid.h"
 #include "waveform/shader.h"
-#include "waveform/actors/spp.h"
-#include "waveform/actors/text.h"
 #include "view_plus.h"
 
 #define DIRECT 1
@@ -106,9 +103,6 @@ struct _WaveformViewPlusPrivate {
 	WaveformCanvas* canvas;
 	WaveformActor*  actor;
 	AGlActor*       root;
-	gboolean        show_grid;
-
-	AGlActor*       grid_actor;
 	AGlActor*       spp_actor;
 
 	AMPromise*      ready;
@@ -269,7 +263,9 @@ waveform_view_plus_new (Waveform* waveform)
 	v->canvas = wf_canvas_new((AGlRootActor*)v->root);
 
 	agl_actor__add_child(v->root, bg_actor(view));
-	if(v->show_grid) agl_actor__add_child(v->root, v->grid_actor = grid_actor(v->actor));
+
+	v->actor = (WaveformActor*)waveform_actor(view);
+	((AGlActor*)v->actor)->z = 2;
 
 	agl_actor__add_child(v->root, (v->spp_actor = spp_actor(v->actor), v->spp_actor->z = 5, v->spp_actor));
 
@@ -303,12 +299,8 @@ _waveform_view_plus__show_waveform(gpointer _view, gpointer _c)
 	WaveformViewPlusPrivate* v = view->priv;
 	g_return_if_fail(v->canvas);
 
-	if(!v->actor){
-		if(!promise(PROMISE_DISP_READY)->is_resolved) waveform_view_plus_init_drawable(view);
-
+	if(!((AGlActor*)v->actor)->parent){
 		if(view->waveform){ // it is valid for the widget to not have a waveform set.
-			v->actor = (WaveformActor*)waveform_actor(view);
-			((AGlActor*)v->actor)->z = 2;
 			agl_actor__add_child(v->root, (AGlActor*)v->actor);
 			if(v->spp_actor) ((SppActor*)v->spp_actor)->wf_actor = v->actor;
 
@@ -319,7 +311,9 @@ _waveform_view_plus__show_waveform(gpointer _view, gpointer _c)
 
 			uint64_t n_frames = waveform_get_n_frames(view->waveform);
 			if(n_frames){
-				wf_actor_set_region(v->actor, &(WfSampleRegion){0, n_frames});
+				if(!v->actor->region.len){
+					wf_actor_set_region(v->actor, &(WfSampleRegion){0, n_frames});
+				}
 				wf_actor_set_colour(v->actor, view->fg_colour);
 
 				void _waveform_view_plus__show_waveform_done(Waveform* w, gpointer _view)
@@ -336,7 +330,6 @@ _waveform_view_plus__show_waveform(gpointer _view, gpointer _c)
 					}
 				}
 
-				//waveform_load(view->waveform, _waveform_view_plus__show_waveform_done, view);
 				g_signal_connect (view->waveform, "peakdata-ready", (GCallback)_waveform_view_plus__show_waveform_done, view);
 			}
 			_waveform_view_plus_set_actor(view);
@@ -369,14 +362,14 @@ waveform_view_plus_load_file (WaveformViewPlus* view, const char* filename, WfCa
 	{
 		WfClosure* c = (WfClosure*)_c;
 
-		agl_actor__invalidate(((AGlActor*)a)->parent); // we dont seem to track the layers, so have to invalidate everything.
+		if(((AGlActor*)a)->parent) agl_actor__invalidate(((AGlActor*)a)->parent); // we dont seem to track the layers, so have to invalidate everything.
+
 		call(c->callback, a->waveform, c->user_data);
 		g_free(c);
 	}
 
 	view->waveform = waveform_new(filename);
 	if(v->actor){
-		// FIXME this path not taken for new views, so callback never called.
 		wf_actor_set_waveform(v->actor, view->waveform, waveform_view_plus_load_file_done, c);
 	}
 
@@ -392,6 +385,7 @@ waveform_view_plus_set_waveform (WaveformViewPlus* view, Waveform* waveform)
 
 	if(view->waveform){
 		g_object_unref(view->waveform);
+		v->actor->region.len = 0; // force it to be set once the wav is loaded
 	}
 	view->waveform = g_object_ref(waveform);
 
@@ -422,12 +416,6 @@ waveform_view_plus_set_zoom (WaveformViewPlus* view, float zoom)
 
 #ifdef AGL_ACTOR_RENDER_CACHE
 	((AGlActor*)v->actor)->cache.valid = false;
-
-	if(v->grid_actor)
-		v->grid_actor->cache.enabled = false; // TODO temporary
-
-	if(v->grid_actor)
-		v->grid_actor->cache.valid = false;
 #endif
 
 	if(!view->priv->actor->canvas->draw) gtk_widget_queue_draw((GtkWidget*)view);
@@ -452,32 +440,22 @@ waveform_view_plus_set_start (WaveformViewPlus* view, int64_t start_frame)
 void
 waveform_view_plus_set_region (WaveformViewPlus* view, int64_t start_frame, int64_t end_frame)
 {
+	g_return_if_fail(view->waveform);
 	g_return_if_fail(end_frame > start_frame);
+	WaveformViewPlusPrivate* v = view->priv;
+	g_return_if_fail(v->actor);
 
-	WfSampleRegion* region = g_new(WfSampleRegion, 1);
-	*region = (WfSampleRegion){start_frame, end_frame - start_frame};
+	WfSampleRegion region = (WfSampleRegion){start_frame, end_frame - start_frame};
 
-	int64_t max_len = waveform_get_n_frames(view->waveform) - region->start;
-	region->len = MIN(max_len, region->len);
+	region.len = MIN(region.len, waveform_get_n_frames(view->waveform) - region.start);
 
-	view->start_frame = CLAMP(region->start, 0, (int64_t)waveform_get_n_frames(view->waveform) - 10);
-	view->zoom = view->waveform->n_frames / (float)region->len;
+	view->start_frame = CLAMP(region.start, 0, (int64_t)waveform_get_n_frames(view->waveform) - 10);
+	view->zoom = view->waveform->n_frames / (float)region.len;
 	dbg(1, "start=%Lu", view->start_frame);
 
-	void set_region_on_ready(gpointer _view, gpointer _region)
-	{
-		WaveformViewPlus* view = _view;
-		WaveformViewPlusPrivate* v = view->priv;
-		g_return_if_fail(v->actor);
+	wf_actor_set_region(v->actor, &region);
 
-		wf_actor_set_region(v->actor, _region);
-
-		if(!v->actor->canvas->draw) gtk_widget_queue_draw((GtkWidget*)view);
-
-		g_free(_region);
-	}
-
-	am_promise_add_callback(promise(PROMISE_DISP_READY), set_region_on_ready, GUINT_TO_POINTER(region));
+	if(!v->actor->canvas->draw) gtk_widget_queue_draw((GtkWidget*)view);
 }
 
 
@@ -517,31 +495,6 @@ waveform_view_plus_set_show_rms (WaveformViewPlus* view, gboolean _show)
 }
 
 
-void
-waveform_view_plus_set_show_grid (WaveformViewPlus* view, gboolean show)
-{
-	WaveformViewPlusPrivate* v = view->priv;
-
-	void resolved(gpointer _view, gpointer time)
-	{
-		WaveformViewPlus* view = _view;
-		WaveformViewPlusPrivate* v = view->priv;
-
-		if((v->show_grid))
-			agl_actor__add_child((AGlActor*)v->root, v->grid_actor = v->grid_actor ? v->grid_actor : grid_actor(v->actor));
-		else
-			if(v->grid_actor) agl_actor__remove_child((AGlActor*)v->root, v->grid_actor);
-
-		gtk_widget_queue_draw((GtkWidget*)view);
-	}
-
-	if(show != v->show_grid){
-		v->show_grid = show;
-		am_promise_add_callback(view->priv->ready, resolved, GUINT_TO_POINTER(time));
-	}
-}
-
-
 AGlActor*
 waveform_view_plus_add_layer(WaveformViewPlus* view, AGlActor* actor, int z)
 {
@@ -549,6 +502,8 @@ waveform_view_plus_add_layer(WaveformViewPlus* view, AGlActor* actor, int z)
 
 	actor->z = z;
 	agl_actor__add_child(v->root, actor);
+
+	agl_actor__invalidate(v->root);
 
 	return actor;
 }
@@ -558,6 +513,15 @@ AGlActor*
 waveform_view_plus_get_layer(WaveformViewPlus* view, int z)
 {
 	return agl_actor__find_by_z(view->priv->root, z);
+}
+
+
+void
+waveform_view_plus_remove_layer(WaveformViewPlus* view, AGlActor* actor)
+{
+	WaveformViewPlusPrivate* v = view->priv;
+
+	agl_actor__remove_child(v->root, actor);
 }
 
 

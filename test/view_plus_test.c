@@ -64,6 +64,7 @@
 #include "agl/utils.h"
 #include "agl/actor.h"
 #include "waveform/view_plus.h"
+#include "waveform/actors/grid.h"
 #include "waveform/actors/text.h"
 #include "waveform/actors/spp.h"
 #include "test/ayyi_utils.h"
@@ -116,6 +117,9 @@ Key keys[] = {
 gpointer tests[] = {};
 uint32_t _time = 1000 + 321;
 GtkWidget* table = NULL;
+struct Layers {
+    AGlActor* grid;
+} layers;
 
 
 int
@@ -137,7 +141,12 @@ main (int argc, char *argv[])
 	WaveformViewPlus* waveform = waveform_view_plus_new(NULL);
 	waveform_view_plus_set_show_rms(waveform, false);
 	waveform_view_plus_set_colour(waveform, 0xccccddaa, 0x000000ff);
-	waveform_view_plus_set_show_grid(waveform, true);
+
+	char* filename = find_wav(wavs[0]);
+	waveform_view_plus_load_file(waveform, filename, NULL, NULL);
+	g_free(filename);
+
+	layers.grid = waveform_view_plus_add_layer(waveform, grid_actor(waveform_view_plus_get_actor(waveform)), 0);
 
 	AGlActor* text_layer = waveform_view_plus_add_layer(waveform, text_actor(NULL), 3);
 	((TextActor*)text_layer)->title = g_strdup("Waveform Title");
@@ -160,10 +169,6 @@ main (int argc, char *argv[])
 	gtk_scrolled_window_add_with_viewport((GtkScrolledWindow*)scrolledwindow, table);
 
 	gtk_widget_show_all(window);
-
-	char* filename = find_wav(wavs[0]);
-	waveform_view_plus_load_file(waveform, filename, NULL, NULL);
-	g_free(filename);
 
 	add_key_handlers((GtkWindow*)window, (WaveformView*)waveform, (Key*)&keys);
 
@@ -279,7 +284,12 @@ void
 toggle_grid(WaveformView* view)
 {
 	static bool visible = true;
-	waveform_view_plus_set_show_grid((WaveformViewPlus*)view, visible = !visible);
+	visible = !visible;
+	if(visible){
+		layers.grid = waveform_view_plus_add_layer((WaveformViewPlus*)view, grid_actor(waveform_view_plus_get_actor((WaveformViewPlus*)view)), 0);
+	}else{
+		waveform_view_plus_remove_layer((WaveformViewPlus*)view, layers.grid);
+	}
 }
 
 

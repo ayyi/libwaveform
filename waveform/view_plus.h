@@ -27,6 +27,9 @@
 #include <gtk/gtk.h>
 #include <gtk/gtkgl.h>
 #include "waveform/waveform.h"
+#include "waveform/actors/grid.h"
+#include "waveform/actors/spp.h"
+#include "waveform/actors/text.h"
 #include "waveform/view.h"
 
 G_BEGIN_DECLS
@@ -70,9 +73,9 @@ void              waveform_view_plus_set_start     (WaveformViewPlus*, int64_t);
 void              waveform_view_plus_set_region    (WaveformViewPlus*, int64_t, int64_t);
 void              waveform_view_plus_set_colour    (WaveformViewPlus*, uint32_t fg, uint32_t bg);
 void              waveform_view_plus_set_show_rms  (WaveformViewPlus*, gboolean);
-void              waveform_view_plus_set_show_grid (WaveformViewPlus*, gboolean);
 AGlActor*         waveform_view_plus_add_layer     (WaveformViewPlus*, AGlActor*, int z);
 AGlActor*         waveform_view_plus_get_layer     (WaveformViewPlus*, int);
+void              waveform_view_plus_remove_layer  (WaveformViewPlus*, AGlActor*);
 
 WaveformCanvas*   waveform_view_plus_get_canvas    (WaveformViewPlus*);
 WaveformActor*    waveform_view_plus_get_actor     (WaveformViewPlus*);

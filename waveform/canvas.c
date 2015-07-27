@@ -345,7 +345,7 @@ wf_canvas_add_new_actor(WaveformCanvas* wfc, Waveform* w)
 {
 	g_return_val_if_fail(wfc, NULL);
 
-	g_object_ref(w);
+	if(w) g_object_ref(w);
 
 	WaveformActor* a = wf_actor_new(w, wfc);
 #ifdef TRACK_ACTORS

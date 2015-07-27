@@ -38,7 +38,7 @@
 #include "waveform/promise.h"
 #include "waveform/gl_utils.h"
 #include "waveform/texture_cache.h"
-#include "waveform/grid.h"
+#include "waveform/actors/grid.h"
 #include "waveform/view.h"
 
 #define DIRECT 1

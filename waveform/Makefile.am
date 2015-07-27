@@ -24,9 +24,9 @@ OPENGL_SOURCES = \
 	gl_utils.c gl_utils.h \
 	shader.c shader.h \
 	alphabuf.c alphabuf.h \
-	grid.c grid.h \
 	texture_cache.c texture_cache.h \
 	fbo.c fbo.h \
+	actors/grid.c actors/grid.h \
 	actors/spp.c actors/spp.h \
 	actors/text.c actors/text.h \
 	$(ASS_SOURCES)
@@ -40,7 +40,7 @@ endif
 libwaveform_la_SOURCES = \
 	typedefs.h waveform.h wf_private.h \
 	global.c global.h \
-	peak.c waveform.h \
+	waveform.c waveform.h \
 	loaders/ardour.c loaders/ardour.h \
 	loaders/riff.c loaders/riff.h \
 	$(OPENGL_SOURCES) \
@@ -73,7 +73,6 @@ pkginclude_HEADERS = \
 	texture_cache.h \
 	alphabuf.h \
 	promise.h \
-	grid.h \
 	utils.h \
 	gl_utils.h \
 	wf_private.h

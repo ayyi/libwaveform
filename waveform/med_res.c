@@ -59,7 +59,7 @@ low_new_gl2(WaveformActor* actor)
 {
 	WaveformPriv* w = actor->waveform->priv;
 
-	g_return_if_fail(!w->render_data[MODE_V_HI]);
+	g_return_if_fail(!w->render_data[MODE_LOW]);
 }
 
 
