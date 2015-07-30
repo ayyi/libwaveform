@@ -112,7 +112,7 @@ draw_wave_buffer_v_hi(Renderer* renderer, WaveformActor* actor, int block, bool 
 	const WfRectangle* rect = &ri->rect;
 
 	WfAudioData* audio = &w->priv->audio;
-	if(!audio->n_blocks) return false;
+	if(!audio->n_blocks || w->offline) return false;
 	WfBuf16* buf = audio->buf16[block];
 	if(!buf) return false;
 
