@@ -348,7 +348,7 @@ wf_animation_start(WfAnimation* animation)
 #endif
 			for(;k;k=k->next){
 				WfAnimatable* animatable = k->data;
-				animatable->val.b = animation->frame_fn[animatable->type].b(animation, animatable, time);
+				animation->frame_fn[animatable->type].b(animation, animatable, time);
 			}
 		}
 		animation->on_frame(animation, time); // user frame callback
@@ -428,7 +428,7 @@ transition_linear(WfAnimation* animation, WfAnimatable* animatable, int time)
 	float orig_val   = animatable->start_val.i;
 	float target_val = *animatable->model_val.i;
 	dbg(2, "%.2f orig=%.2f target=%.2f", time_fraction, orig_val, target_val);
-	return  (1.0 - time_fraction) * orig_val + time_fraction * target_val;
+	return  animatable->val.i = (1.0 - time_fraction) * orig_val + time_fraction * target_val;
 }
 
 
@@ -441,7 +441,7 @@ transition_linear_64(WfAnimation* animation, WfAnimatable* animatable, int time)
 	float time_fraction = MIN(1.0, ((float)t) / len);
 	float orig_val   = animatable->start_val.b;
 	float target_val = *animatable->model_val.b;
-	return  (1.0 - time_fraction) * orig_val + time_fraction * target_val;
+	return  animatable->val.b = (1.0 - time_fraction) * orig_val + time_fraction * target_val;
 }
 
 
@@ -455,7 +455,7 @@ transition_linear_f(WfAnimation* animation, WfAnimatable* animatable, int time)
 	float orig_val   = animatable->start_val.f;
 	float target_val = *animatable->model_val.f;
 	dbg(2, "%.2f orig=%.2f target=%.2f", time_fraction, orig_val, target_val);
-	return  (1.0 - time_fraction) * orig_val + time_fraction * target_val;
+	return  animatable->val.f = (1.0 - time_fraction) * orig_val + time_fraction * target_val;
 }
 
 
