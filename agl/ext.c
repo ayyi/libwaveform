@@ -7,7 +7,7 @@
 #include <GL/glxext.h>
 #include "agl/ext.h"
 
-#define getProcAddress(x) (*glXGetProcAddressARB)((const GLubyte*)x) //TODO check glXGetProcAddress is exported by nvidia
+#define getProcAddress(x) (*glXGetProcAddressARB)((const GLubyte*)x)
 void
 get_gl_extensions()
 {
@@ -19,9 +19,9 @@ get_gl_extensions()
    glCompileShader = (PFNGLCOMPILESHADERPROC) getProcAddress("glCompileShader");
    glCreateProgram = (PFNGLCREATEPROGRAMPROC) getProcAddress("glCreateProgram");
    glCreateShader = (PFNGLCREATESHADERPROC) getProcAddress("glCreateShader");
-#if 0
    glDeleteProgram = (PFNGLDELETEPROGRAMPROC) getProcAddress("glDeleteProgram");
    glDeleteShader = (PFNGLDELETESHADERPROC) getProcAddress("glDeleteShader");
+#if 0
    glGetActiveAttrib_func = (PFNGLGETACTIVEATTRIBPROC) getProcAddress("glGetActiveAttrib");
    glGetActiveUniform_func = (PFNGLGETACTIVEUNIFORMPROC) getProcAddress("glGetActiveUniform");
    glGetAttachedShaders_func = (PFNGLGETATTACHEDSHADERSPROC) getProcAddress("glGetAttachedShaders");
@@ -37,9 +37,9 @@ get_gl_extensions()
    glGetUniformLocation = (PFNGLGETUNIFORMLOCATIONPROC) getProcAddress("glGetUniformLocation");
 #if 0
    glGetUniformfv_func = (PFNGLGETUNIFORMFVPROC) getProcAddress("glGetUniformfv");
-   glIsProgram_func = (PFNGLISPROGRAMPROC) getProcAddress("glIsProgram");
-   glIsShader_func = (PFNGLISSHADERPROC) getProcAddress("glIsShader");
 #endif
+   glIsProgram = (PFNGLISPROGRAMPROC) getProcAddress("glIsProgram");
+   glIsShader = (PFNGLISSHADERPROC) getProcAddress("glIsShader");
    glLinkProgram = (PFNGLLINKPROGRAMPROC) getProcAddress("glLinkProgram");
    glShaderSource = (PFNGLSHADERSOURCEPROC) getProcAddress("glShaderSource");
    glUniform1i = (PFNGLUNIFORM1IPROC) getProcAddress("glUniform1i");

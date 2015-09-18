@@ -1,5 +1,5 @@
 /*
-  copyright (C) 2013-2014 Tim Orford <tim@orford.org>
+  copyright (C) 2013-2015 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -212,7 +212,7 @@ agl_shaders_supported()
 		goto no_shaders;
 	}
 
-	if (version[0] == '2' && version[1] == '.') {
+	if ((version[0] >= '2' || version[0] <= '4') && version[1] == '.') {
 
 		// some hardware cannot support shaders and software fallbacks are too slow
 		if(g_strrstr((char*)glGetString(GL_RENDERER), "Intel") && g_strrstr((char*)glGetString(GL_RENDERER), "945")){
