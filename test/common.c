@@ -170,7 +170,7 @@ add_key_handlers(GtkWindow* window, WaveformView* waveform, Key keys[])
 
 	gboolean key_release(GtkWidget* widget, GdkEventKey* event, gpointer user_data)
 	{
-		PF0;
+		PF;
 		if(!key_down){ /* gwarn("key_down not set"); */ return true; } //sometimes happens at startup
 
 		key_down = false;

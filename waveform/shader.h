@@ -19,8 +19,9 @@
 #include "agl/typedefs.h"
 #ifdef __gl_h_
 #include "agl/shader.h"
+#include "waveform/typedefs.h"
 
-typedef struct {
+struct _PeakShader {
 	AGlShader shader;
 	void      (*set_uniforms)(float peaks_per_pixel, float top, float bottom, uint32_t _fg_colour, int n_channels);
 	struct {
@@ -28,7 +29,7 @@ typedef struct {
 		float fg_colour[4];
 		int   n_channels;
 	}         uniform;
-} PeakShader;
+};
 
 typedef struct {
 	AGlShader shader;
@@ -62,7 +63,7 @@ typedef struct {
 	}         uniform;
 } BloomShader;
 
-typedef struct {
+struct _RulerShader {
 	AGlShader    shader;
 	struct {
 		uint32_t fg_colour;
@@ -70,7 +71,7 @@ typedef struct {
 		float    viewport_left;
 		int      markers[10];
 	}            uniform;
-} RulerShader;
+};
 
 typedef struct {
 	AGlShader    shader;
@@ -89,13 +90,13 @@ struct _ass_shader {
 	}            uniform;
 };
 
-typedef struct {
+struct _CursorShader {
 	AGlShader    shader;
 	struct {
 		uint32_t colour;
 		float    width;
 	}            uniform;
-} CursorShader;
+};
 #ifndef __wf_shader_c__
 extern CursorShader cursor;
 #endif

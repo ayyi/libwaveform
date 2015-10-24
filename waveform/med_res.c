@@ -15,6 +15,8 @@
   Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 */
 
+extern HiResNGShader hires_ng_shader;
+
 typedef HiResNGWaveform NGWaveform;
 
 #define RENDER_DATA_MED(A) ((NGWaveform*)A->render_data[MODE_MED])
@@ -50,7 +52,13 @@ wf_texture_array_new(int size, int n_channels)
 static void
 med_renderer_new_gl2(WaveformActor* actor)
 {
-	// nothing needed as is done in ng_renderer.load_block
+	AGlShader** shader = &((NGRenderer*)modes[MODE_MED].renderer)->shader;
+	if(!*shader){
+		*shader = &hires_ng_shader.shader;
+		if(!(*shader)->program) agl_create_program(*shader);
+	}
+
+	// other data is created in ng_renderer.load_block
 }
 
 
@@ -60,6 +68,12 @@ low_new_gl2(WaveformActor* actor)
 	WaveformPriv* w = actor->waveform->priv;
 
 	g_return_if_fail(!w->render_data[MODE_LOW]);
+
+	NGRenderer* renderer = (NGRenderer*)modes[MODE_LOW].renderer;
+	if(!renderer->shader){
+		renderer->shader = &hires_ng_shader.shader;
+		if(!renderer->shader->program) agl_create_program(&hires_ng_shader.shader);
+	}
 }
 
 

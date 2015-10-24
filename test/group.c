@@ -48,6 +48,8 @@ struct
 	int timeout;
 } app;
 
+#define WAV "test/data/mono_0:10.wav"
+
 #define GL_WIDTH 256.0
 #define GL_HEIGHT 256.0
 #define VBORDER 8
@@ -60,6 +62,7 @@ GdkGLConfig*    glconfig       = NULL;
 static bool     gl_initialised = false;
 GtkWidget*      canvas         = NULL;
 WaveformCanvas* wfc            = NULL;
+AGlScene*       scene          = NULL;
 Waveform*       w1             = NULL;
 Waveform*       w2             = NULL;
 WaveformActor*  a[]            = {NULL, NULL, NULL, NULL};
@@ -69,8 +72,6 @@ float           dz             = 20.0;
 gpointer        tests[]        = {};
 
 static void setup_projection   (GtkWidget*);
-static void draw               (GtkWidget*);
-static bool on_expose          (GtkWidget*, GdkEventExpose*, gpointer);
 static void on_canvas_realise  (GtkWidget*, gpointer);
 static void on_allocate        (GtkWidget*, GtkAllocation*, gpointer);
 static void start_zoom         (float target_zoom);
@@ -87,8 +88,6 @@ main (int argc, char *argv[])
 
 	wf_debug = 0;
 
-	memset(&app, 0, sizeof(app));
-
 	gtk_init(&argc, &argv);
 	if(!(glconfig = gdk_gl_config_new_by_mode(GDK_GL_MODE_RGBA | GDK_GL_MODE_DEPTH | GDK_GL_MODE_DOUBLE))){
 		gerr ("Cannot initialise gtkglext."); return EXIT_FAILURE;
@@ -104,9 +103,18 @@ main (int argc, char *argv[])
 	gtk_widget_set_gl_capability (canvas, glconfig, NULL, 1, GDK_GL_RGBA_TYPE);
 	gtk_widget_add_events        (canvas, GDK_POINTER_MOTION_MASK | GDK_BUTTON_PRESS_MASK | GDK_BUTTON_RELEASE_MASK);
 	gtk_container_add((GtkContainer*)window, (GtkWidget*)canvas);
+
+	scene = (AGlScene*)agl_actor__new_root(canvas);
+
+	wfc = wf_canvas_new(scene);
+
+	char* filename = g_build_filename(g_get_current_dir(), WAV, NULL);
+	w1 = waveform_load_new(filename);
+	g_free(filename);
+
 	g_signal_connect((gpointer)canvas, "realize",       G_CALLBACK(on_canvas_realise), NULL);
 	g_signal_connect((gpointer)canvas, "size-allocate", G_CALLBACK(on_allocate), NULL);
-	g_signal_connect((gpointer)canvas, "expose_event",  G_CALLBACK(on_expose), NULL);
+	g_signal_connect((gpointer)canvas, "expose-event",  G_CALLBACK(agl_actor__on_expose), scene);
 
 	gtk_widget_show_all(window);
 
@@ -168,82 +176,6 @@ main (int argc, char *argv[])
 }
 
 
-static void
-setup_projection(GtkWidget* widget)
-{
-	int vx = 0;
-	int vy = 0;
-	int vw = widget->allocation.width;
-	int vh = widget->allocation.height;
-	glViewport(vx, vy, vw, vh);
-	dbg (0, "viewport: %i %i %i %i", vx, vy, vw, vh);
-	glMatrixMode(GL_PROJECTION);
-	glLoadIdentity();
-
-	double hborder = GL_WIDTH / 32;
-
-	double left = -hborder;
-	double right = GL_WIDTH + hborder;
-	double bottom = GL_HEIGHT + VBORDER;
-	double top = -VBORDER;
-	glOrtho (left, right, bottom, top, 512.0, -512.0);
-
-	glMatrixMode(GL_MODELVIEW);
-	glLoadIdentity();
-	glRotatef(rotate[0], 1.0f, 0.0f, 0.0f);
-	glRotatef(rotate[1], 0.0f, 1.0f, 0.0f);
-	glScalef(1.0f, 1.0f, -1.0f);
-}
-
-
-static void
-draw(GtkWidget* widget)
-{
-	glPushMatrix(); /* modelview matrix */
-		int i; for(i=0;i<G_N_ELEMENTS(a);i++){
-			WaveformActor* actor = a[(i + a_front + 1) % G_N_ELEMENTS(a)];
-			if(actor) ((AGlActor*)actor)->paint((AGlActor*)actor);
-		}
-	glPopMatrix();
-
-#undef SHOW_BOUNDING_BOX
-#ifdef SHOW_BOUNDING_BOX
-	glPushMatrix(); /* modelview matrix */
-		glTranslatef(0.0, 0.0, 0.0);
-		glNormal3f(0, 0, 1);
-		glDisable(GL_TEXTURE_2D);
-		glLineWidth(1);
-
-		int w = GL_WIDTH;
-		int h = GL_HEIGHT/2;
-		glBegin(GL_QUADS);
-		glVertex3f(-0.2, -0.2, 1); glVertex3f(w, -0.2, 1);
-		glVertex3f(w, h, 1);       glVertex3f(-0.2, h, 1);
-		glEnd();
-		glEnable(GL_TEXTURE_2D);
-	glPopMatrix();
-#endif
-}
-
-
-static gboolean
-on_expose(GtkWidget* widget, GdkEventExpose* event, gpointer user_data)
-{
-	if(!GTK_WIDGET_REALIZED(widget)) return TRUE;
-	if(!gl_initialised) return TRUE;
-
-	AGL_ACTOR_START_DRAW(wfc->root) {
-		glClearColor(0.0, 0.0, 0.0, 1.0);
-		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-		draw(widget);
-
-		gdk_gl_drawable_swap_buffers(wfc->root->gl.gdk.drawable);
-	} AGL_ACTOR_END_DRAW(wfc->root)
-	return TRUE;
-}
-
-
 static gboolean canvas_init_done = false;
 static void
 on_canvas_realise(GtkWidget* _canvas, gpointer user_data)
@@ -254,13 +186,7 @@ on_canvas_realise(GtkWidget* _canvas, gpointer user_data)
 
 	gl_initialised = true;
 
-	wfc = wf_canvas_new((AGlRootActor*)agl_actor__new_root(canvas));
-
 	canvas_init_done = true;
-
-	char* filename = g_build_filename(g_get_current_dir(), "test/data/mono_1.wav", NULL);
-	w1 = waveform_load_new(filename);
-	g_free(filename);
 
 	int n_frames = waveform_get_n_frames(w1);
 
@@ -279,7 +205,7 @@ on_canvas_realise(GtkWidget* _canvas, gpointer user_data)
 	};
 
 	int i; for(i=0;i<G_N_ELEMENTS(a);i++){
-		a[i] = wf_canvas_add_new_actor(wfc, w1);
+		agl_actor__add_child((AGlActor*)scene, (AGlActor*)(a[i] = wf_canvas_add_new_actor(wfc, w1)));
 
 		wf_actor_set_region (a[i], &region[i]);
 		wf_actor_set_colour (a[i], colours[i][0]);
@@ -308,6 +234,34 @@ on_allocate(GtkWidget* widget, GtkAllocation* allocation, gpointer user_data)
 	wf_canvas_set_viewport(wfc, &(WfViewPort){0, 0, GL_WIDTH, GL_HEIGHT});
 
 	start_zoom(zoom);
+}
+
+
+static void
+setup_projection(GtkWidget* widget)
+{
+	int vx = 0;
+	int vy = 0;
+	int vw = widget->allocation.width;
+	int vh = widget->allocation.height;
+	glViewport(vx, vy, vw, vh);
+	dbg (0, "viewport: %i %i %i %i", vx, vy, vw, vh);
+	glMatrixMode(GL_PROJECTION);
+	glLoadIdentity();
+
+	double hborder = GL_WIDTH / 32;
+
+	double left = -hborder;
+	double right = GL_WIDTH + hborder;
+	double bottom = GL_HEIGHT + VBORDER;
+	double top = -VBORDER;
+	glOrtho (left, right, bottom, top, 512.0, -512.0);
+
+	glMatrixMode(GL_MODELVIEW);
+	glLoadIdentity();
+	glRotatef(rotate[0], 1.0f, 0.0f, 0.0f);
+	glRotatef(rotate[1], 0.0f, 1.0f, 0.0f);
+	glScalef(1.0f, 1.0f, -1.0f);
 }
 
 

@@ -53,8 +53,8 @@ struct _texture_unit
 AGl*            agl_get_instance             ();
 GdkGLContext*   agl_get_gl_context           ();
 void      agl_enable              (gulong flags);
+void      agl_gl_init             ();
 GLboolean agl_shaders_supported   ();
-void      agl_shaders_init        ();
 GLuint    agl_create_program      (AGlShader*);
 GLuint    agl_compile_shader_text (GLenum shaderType, const char* text);
 GLuint    agl_compile_shader_file (GLenum shaderType, const char* filename);
@@ -97,6 +97,7 @@ struct _agl
 		PlainShader*    plain;
 		AlphaMapShader* text;
 	}               shaders;
+	int             debug;
 };
 
 #define END_OF_UNIFORMS   { NULL, 0, GL_NONE, { 0, 0, 0, 0 }, -1 }

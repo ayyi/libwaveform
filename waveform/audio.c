@@ -81,7 +81,7 @@ waveform_audio_free(Waveform* waveform)
 				audio_cache_free(waveform, b);
 			}
 		}
-		g_free(audio->buf16);
+		g_free0(audio->buf16);
 	}
 }
 
@@ -336,7 +336,6 @@ waveform_load_audio(Waveform* waveform, int block_num, int n_tiers_needed, WfAud
 
 			return peakbuf;
 		}
-
 
 		void audio_run_job(Waveform* waveform, gpointer _pjob)
 		{

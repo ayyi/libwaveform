@@ -52,9 +52,7 @@ agl_actor__new()
 AGlActor*
 agl_actor__new_root(GtkWidget* widget)
 {
-	agl = agl_get_instance();
-
-	void have_drawable(AGlRootActor* a, GdkGLDrawable* drawable)
+	void agl_actor__have_drawable(AGlRootActor* a, GdkGLDrawable* drawable)
 	{
 		g_return_if_fail(!a->gl.gdk.drawable);
 		g_return_if_fail(!a->gl.gdk.context);
@@ -68,7 +66,7 @@ agl_actor__new_root(GtkWidget* widget)
 		a->gl.gdk.context = gtk_widget_get_gl_context(a->widget);
 
 		if(first_time){
-			get_gl_extensions();
+			agl_get_extensions();
 
 			gdk_gl_drawable_gl_begin (a->gl.gdk.drawable, a->gl.gdk.context);
 
@@ -83,13 +81,7 @@ agl_actor__new_root(GtkWidget* widget)
 					}
 				}
 
-			if(agl->pref_use_shaders && !agl_shaders_supported()){
-				printf("gl shaders not supported. expect reduced functionality.\n");
-				//agl_use_program(NULL);
-				//wfc->use_1d_textures = false;
-			}
-			if(wf_debug) printf("GL_RENDERER = %s\n", (const char*)glGetString(GL_RENDERER));
-			agl_shaders_init();
+			agl_gl_init();
 
 			gdk_gl_drawable_gl_end(a->gl.gdk.drawable);
 		}
@@ -103,13 +95,13 @@ agl_actor__new_root(GtkWidget* widget)
 		first_time = false;
 	}
 
-	bool try_drawable(gpointer _actor)
+	bool agl_actor__try_drawable(gpointer _actor)
 	{
 		AGlRootActor* a = _actor;
 		if(!a->gl.gdk.drawable){
 			GdkGLDrawable* drawable = gtk_widget_get_gl_drawable(a->widget);
 			if(drawable){
-				have_drawable(a, drawable);
+				agl_actor__have_drawable(a, drawable);
 			}
 		}
 		return G_SOURCE_REMOVE;
@@ -127,25 +119,37 @@ agl_actor__new_root(GtkWidget* widget)
 	{
 		AGlRootActor* a = _actor;
 
-		try_drawable(a);
+		agl_actor__try_drawable(a);
 		if(!a->gl.gdk.drawable){
-			g_idle_add(try_drawable, a);
+			g_idle_add(agl_actor__try_drawable, a);
 		}
 	}
 
-	AGlRootActor* a = g_new0(AGlRootActor, 1);
-#ifdef AGL_DEBUG_ACTOR
-	((AGlActor*)a)->name = "ROOT";
-#endif
+	AGlRootActor* a = (AGlRootActor*)agl_actor__new_root_(CONTEXT_TYPE_GTK);
 	a->widget = widget;
-	((AGlActor*)a)->root = a;
-	((AGlActor*)a)->paint = agl_actor__null_painter;
 
 	if(GTK_WIDGET_REALIZED(widget)){
 		agl_actor__on_realise(widget, a);
 	}
 	g_signal_connect((gpointer)widget, "realize", G_CALLBACK(agl_actor__on_realise), a);
 	g_signal_connect((gpointer)widget, "unrealize", G_CALLBACK(agl_actor__on_unrealise), a);
+
+	return (AGlActor*)a;
+}
+
+
+AGlActor*
+agl_actor__new_root_(ContextType type)
+{
+	agl = agl_get_instance();
+
+	AGlRootActor* a = g_new0(AGlRootActor, 1);
+	a->type = type;
+#ifdef AGL_DEBUG_ACTOR
+	((AGlActor*)a)->name = "ROOT";
+#endif
+	((AGlActor*)a)->root = a;
+	((AGlActor*)a)->paint = agl_actor__null_painter;
 
 	return (AGlActor*)a;
 }
@@ -208,7 +212,8 @@ agl_actor__add_child(AGlActor* actor, AGlActor* child)
 		}
 		set_child_roots(child);
 
-		if(child->init && GTK_WIDGET_REALIZED(child->root->widget)) child->init(child);
+		#define READY_FOR_INIT(A) (A->root->widget ? GTK_WIDGET_REALIZED(A->root->widget) : true)
+		if(child->init && READY_FOR_INIT(child)) child->init(child);
 	}
 
 	return child;
@@ -252,6 +257,8 @@ agl_actor__replace_child(AGlActor* actor, AGlActor* child, AGlActor* new_child)
 static void
 agl_actor__init(AGlActor* a)
 {
+	if(agl->use_shaders && a->program && !a->program->program) agl_create_program(a->program);
+
 	call(a->init, a);
 
 	GList* l = a->children;
@@ -262,12 +269,15 @@ agl_actor__init(AGlActor* a)
 static bool
 actor__is_onscreen(AGlActor* a)
 {
-	int h = a->root->widget->allocation.height; // TODO use viewport->height
-	AGlRect* viewport = &a->root->viewport;
-	AGliPt offset = actor__find_offset(a);
-	//gwarn("   %s %i %.1f x %i %.1f, offset: x=%i y=%i viewport=%.1f %.1f", a->name, w, viewport->width, h, viewport->height, offset.x, offset.y, viewport->x, viewport->y);
-	//if(offset.y + a->region.y2  < viewport->y || offset.y > viewport->y + h) dbg(0, "         offscreen: %s", a->name);
-	return !(offset.y + a->region.y2  < viewport->y || offset.y > viewport->y + h);
+	if(a->root->widget){
+		int h = a->root->widget->allocation.height; // TODO use viewport->height
+		AGlRect* viewport = &a->root->viewport;
+		AGliPt offset = actor__find_offset(a);
+		//gwarn("   %s %i %.1f x %i %.1f, offset: x=%i y=%i viewport=%.1f %.1f", a->name, w, viewport->width, h, viewport->height, offset.x, offset.y, viewport->x, viewport->y);
+		//if(offset.y + a->region.y2  < viewport->y || offset.y > viewport->y + h) dbg(0, "         offscreen: %s", a->name);
+		return !(offset.y + a->region.y2  < viewport->y || offset.y > viewport->y + h);
+	}
+	return true;
 }
 
 
@@ -623,6 +633,45 @@ agl_actor__on_event(AGlRootActor* root, GdkEvent* event)
 }
 
 
+/*
+ *  Utility function for use as a gtk "expose-event" handler.
+ *  Application must pass the root actor as user_data
+ */
+static bool __wf_drawing = FALSE; // FIXME AGL_ACTOR_START_DRAW should not rely on a variable defined in waveform/
+static int __draw_depth = 0;
+bool
+agl_actor__on_expose(GtkWidget* widget, GdkEventExpose* event, gpointer user_data)
+{
+	AGlRootActor* root = user_data;
+	g_return_val_if_fail(root, false);
+
+	if(!GTK_WIDGET_REALIZED(widget)) return true;
+
+	AGL_ACTOR_START_DRAW(root) {
+		glClearColor(0.0, 0.0, 0.0, 1.0);
+		glClear(GL_COLOR_BUFFER_BIT);
+
+		agl_actor__paint((AGlActor*)root);
+
+#undef SHOW_BOUNDING_BOX
+#ifdef SHOW_BOUNDING_BOX
+		glDisable(GL_TEXTURE_2D);
+
+		int w = GL_WIDTH;
+		int h = GL_HEIGHT/2;
+		glBegin(GL_QUADS);
+		glVertex3f(-0.2, -0.2, 1); glVertex3f(w, -0.2, 1);
+		glVertex3f(w, h, 1);       glVertex3f(-0.2, h, 1);
+		glEnd();
+		glEnable(GL_TEXTURE_2D);
+#endif
+		gdk_gl_drawable_swap_buffers(root->gl.gdk.drawable);
+	} AGL_ACTOR_END_DRAW(root)
+
+	return true;
+}
+
+
 AGlActor*
 agl_actor__find_by_z(AGlActor* actor, int z)
 {
@@ -674,7 +723,7 @@ agl_actor__invalidate(AGlActor* actor)
 		}
 	}
 	_agl_actor__invalidate(actor);
-	if(actor->root) gtk_widget_queue_draw(actor->root->widget);
+	if(actor->root && actor->root->type == CONTEXT_TYPE_GTK) gtk_widget_queue_draw(actor->root->widget);
 }
 
 
@@ -845,7 +894,9 @@ agl_actor__print_tree (AGlActor* actor)
 #ifdef AGL_DEBUG_ACTOR
 		int i; for(i=0;i<indent;i++) printf("  ");
 #ifdef AGL_ACTOR_RENDER_CACHE
-		if(actor->name) printf("%s (%i)\n", actor->name, actor->cache.valid);
+		if(actor->name) printf("%s (%i,%i)\n", actor->name, actor->cache.enabled, actor->cache.valid);
+#else
+		if(actor->name) printf("%s\n", actor->name);
 #endif
 #endif
 		indent++;

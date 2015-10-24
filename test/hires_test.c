@@ -41,6 +41,7 @@
 #include <sys/ipc.h>
 #include <sys/shm.h>
 #include <signal.h>
+#include <GL/gl.h>
 #include <gtk/gtk.h>
 #include <gdk/gdkkeysyms.h>
 #include "waveform/view.h"

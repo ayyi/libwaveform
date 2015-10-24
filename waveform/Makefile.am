@@ -26,6 +26,8 @@ OPENGL_SOURCES = \
 	alphabuf.c alphabuf.h \
 	texture_cache.c texture_cache.h \
 	fbo.c fbo.h \
+	actors/background.c actors/background.h \
+	actors/ruler.c actors/ruler.h \
 	actors/grid.c actors/grid.h \
 	actors/spp.c actors/spp.h \
 	actors/text.c actors/text.h \

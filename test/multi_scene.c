@@ -1,8 +1,12 @@
 /*
   Demonstration of the libwaveform WaveformActor interface
 
-  A single waveform is cut into several regions that should be
-  seamlessly displayed to look like a single region.
+  Several waveforms are drawn onto a single canvas with
+  different colours and zoom levels. The canvas can be zoomed
+  and panned.
+
+  This example demonstrates the use of two separate agl scenes
+  rendered together on the same display.
 
   ---------------------------------------------------------------
 
@@ -22,6 +26,8 @@
   Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
 */
+#define USE_SHADERS true
+
 #define __wf_private__
 #include "config.h"
 #include <stdlib.h>
@@ -36,44 +42,64 @@
 #include <sys/ipc.h>
 #include <sys/shm.h>
 #include <signal.h>
-#include <GL/gl.h>
 #include <gtk/gtk.h>
 #include <gdk/gdkkeysyms.h>
 #include "agl/utils.h"
 #include "waveform/waveform.h"
 #include "waveform/gl_utils.h"
+#include "test/common.h"
 #include "test/ayyi_utils.h"
-#include "test/common2.h"
-
-struct _app
-{
-	int timeout;
-} app;
-
-#define WAV "test/data/mono_0:10.wav"
 
 #define GL_WIDTH 256.0
 #define GL_HEIGHT 256.0
 #define VBORDER 8
 
 GdkGLConfig*    glconfig       = NULL;
-static bool     gl_initialised = false;
 GtkWidget*      canvas         = NULL;
+AGlRootActor*   scene1         = NULL;
+AGlRootActor*   scene2         = NULL;
 WaveformCanvas* wfc            = NULL;
 Waveform*       w1             = NULL;
 Waveform*       w2             = NULL;
 WaveformActor*  a[]            = {NULL, NULL, NULL, NULL};
 float           zoom           = 1.0;
+float           vzoom          = 1.0;
 gpointer        tests[]        = {};
 
 static void setup_projection   (GtkWidget*);
-static void draw               (GtkWidget*);
-static bool on_expose          (GtkWidget*, GdkEventExpose*, gpointer);
 static void on_canvas_realise  (GtkWidget*, gpointer);
 static void on_allocate        (GtkWidget*, GtkAllocation*, gpointer);
+static bool on_expose          (GtkWidget*, GdkEventExpose*, gpointer);
 static void start_zoom         (float target_zoom);
-static void toggle_animate     ();
 uint64_t    get_time           ();
+
+KeyHandler
+	zoom_in,
+	zoom_out,
+	vzoom_up,
+	vzoom_down,
+	scroll_left,
+	scroll_right,
+	toggle_animate,
+	quit;
+
+Key keys[] = {
+	{KEY_Left,      scroll_left},
+	{KEY_KP_Left,   scroll_left},
+	{KEY_Right,     scroll_right},
+	{KEY_KP_Right,  scroll_right},
+	{61,            zoom_in},
+	{45,            zoom_out},
+	{(char)'w',     vzoom_up},
+	{(char)'s',     vzoom_down},
+	{GDK_KP_Enter,  NULL},
+	{(char)'<',     NULL},
+	{(char)'>',     NULL},
+	{(char)'a',     toggle_animate},
+	{GDK_Delete,    NULL},
+	{113,           quit},
+	{0},
+};
 
 
 int
@@ -100,49 +126,50 @@ main (int argc, char *argv[])
 	gtk_widget_add_events        (canvas, GDK_POINTER_MOTION_MASK | GDK_BUTTON_PRESS_MASK | GDK_BUTTON_RELEASE_MASK);
 	gtk_container_add((GtkContainer*)window, (GtkWidget*)canvas);
 
+	scene1 = (AGlRootActor*)agl_actor__new_root(canvas);
+	scene2 = (AGlRootActor*)agl_actor__new_root(canvas);
+
+	char* filename = g_build_filename(g_get_current_dir(), "test/data/mono_0:10.wav", NULL);
+	w1 = waveform_load_new(filename);
+	g_free(filename);
+
+	agl_get_instance()->pref_use_shaders = USE_SHADERS;
+
+										// TODO dont pass root
+	wfc = wf_canvas_new(scene1);
+	//wfc = wf_canvas_new(NULL);
+
+	int n_frames = waveform_get_n_frames(w1);
+
+	WfSampleRegion region[] = {
+		{0,            n_frames     - 1},
+		{0,            n_frames / 2 - 1},
+		{n_frames / 4, n_frames / 4 - 1},
+		{n_frames / 2, n_frames / 2 - 1},
+	};
+
+	uint32_t colours[4][2] = {
+		{0xffffff77, 0x0000ffff},
+		{0x66eeffff, 0x0000ffff},
+		{0xffdd66ff, 0x0000ffff},
+		{0x66ff66ff, 0x0000ffff},
+	};
+
+	int i; for(i=0;i<G_N_ELEMENTS(a);i++){
+		a[i] = wf_canvas_add_new_actor(wfc, w1);
+		agl_actor__add_child((AGlActor*)(i < 2 ? scene1 : scene2), (AGlActor*)a[i]);
+
+		wf_actor_set_region(a[i], &region[i]);
+		wf_actor_set_colour(a[i], colours[i][0]);
+	}
+
 	g_signal_connect((gpointer)canvas, "realize",       G_CALLBACK(on_canvas_realise), NULL);
 	g_signal_connect((gpointer)canvas, "size-allocate", G_CALLBACK(on_allocate), NULL);
-	g_signal_connect((gpointer)canvas, "expose_event",  G_CALLBACK(on_expose), NULL);
+	g_signal_connect((gpointer)canvas, "expose-event",  G_CALLBACK(on_expose), NULL);
 
 	gtk_widget_show_all(window);
 
-	gboolean key_press(GtkWidget* widget, GdkEventKey* event, gpointer user_data)
-	{
-		switch(event->keyval){
-			case 61:
-				start_zoom(zoom * 1.5);
-				break;
-			case 45:
-				start_zoom(zoom / 1.5);
-				break;
-			case KEY_Left:
-			case KEY_KP_Left:
-				dbg(0, "left");
-				//waveform_view_set_start(waveform, waveform->start_frame - 8192 / waveform->zoom);
-				break;
-			case KEY_Right:
-			case KEY_KP_Right:
-				dbg(0, "right");
-				//waveform_view_set_start(waveform, waveform->start_frame + 8192 / waveform->zoom);
-				break;
-			case (char)'a':
-				toggle_animate();
-				break;
-			case GDK_KP_Enter:
-				break;
-			case 113:
-				exit(EXIT_SUCCESS);
-				break;
-			case GDK_Delete:
-				break;
-			default:
-				dbg(0, "%i", event->keyval);
-				break;
-		}
-		return TRUE;
-	}
-
-	g_signal_connect(window, "key-press-event", G_CALLBACK(key_press), NULL);
+	add_key_handlers((GtkWindow*)window, NULL, (Key*)&keys);
 
 	gboolean window_on_delete(GtkWidget* widget, GdkEvent* event, gpointer user_data){
 		gtk_main_quit();
@@ -153,15 +180,6 @@ main (int argc, char *argv[])
 	gtk_main();
 
 	return EXIT_SUCCESS;
-}
-
-
-static void
-gl_init()
-{
-	if(gl_initialised) return;
-
-	gl_initialised = true;
 }
 
 
@@ -188,90 +206,10 @@ setup_projection(GtkWidget* widget)
 
 
 static void
-draw(GtkWidget* widget)
-{
-	glPushMatrix(); /* modelview matrix */
-		int i; for(i=0;i<G_N_ELEMENTS(a);i++) if(a[i]) ((AGlActor*)a[i])->paint((AGlActor*)a[i]);
-	glPopMatrix();
-
-#undef SHOW_BOUNDING_BOX
-#ifdef SHOW_BOUNDING_BOX
-	glPushMatrix(); /* modelview matrix */
-		glTranslatef(0.0, 0.0, 0.0);
-		glNormal3f(0, 0, 1);
-		glDisable(GL_TEXTURE_2D);
-		glLineWidth(1);
-
-		int w = GL_WIDTH;
-		int h = GL_HEIGHT/2;
-		glBegin(GL_QUADS);
-		glVertex3f(-0.2, -0.2, 1); glVertex3f(w, -0.2, 1);
-		glVertex3f(w, h, 1);       glVertex3f(-0.2, h, 1);
-		glEnd();
-		glEnable(GL_TEXTURE_2D);
-	glPopMatrix();
-#endif
-}
-
-
-static gboolean
-on_expose(GtkWidget* widget, GdkEventExpose* event, gpointer user_data)
-{
-	if(!GTK_WIDGET_REALIZED(widget)) return TRUE;
-	if(!gl_initialised) return TRUE;
-
-	AGL_ACTOR_START_DRAW(wfc->root) {
-		glClearColor(0.0, 0.0, 0.0, 1.0);
-		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-		draw(widget);
-
-		gdk_gl_drawable_swap_buffers(wfc->root->gl.gdk.drawable);
-	} AGL_ACTOR_END_DRAW(wfc->root)
-	return TRUE;
-}
-
-
-static void
 on_canvas_realise(GtkWidget* _canvas, gpointer user_data)
 {
-	PF;
-	if(wfc) return;
+	if(wfc->draw) return;
 	if(!GTK_WIDGET_REALIZED (canvas)) return;
-
-	gl_init();
-
-	wfc = wf_canvas_new((AGlRootActor*)agl_actor__new_root(canvas));
-	//wfc->enable_animations = false;
-
-	char* filename = g_build_filename(g_get_current_dir(), WAV, NULL);
-	w1 = waveform_load_new(filename);
-	g_free(filename);
-
-	int n_frames = waveform_get_n_frames(w1);
-
-	WfSampleRegion region[] = {
-		{0,                  n_frames / 4},
-		{(1 * n_frames) / 4, n_frames / 4},
-		{(2 * n_frames) / 4, n_frames / 4},
-		{(3 * n_frames) / 4, n_frames / 4},
-	};
-
-	uint32_t colours[4][2] = {
-		{0xffffff77, 0x0000ffff},
-		{0x66eeffff, 0x0000ffff},
-		{0xffdd66ff, 0x0000ffff},
-		{0x66ff66ff, 0x0000ffff},
-	};
-
-	int i; for(i=0;i<G_N_ELEMENTS(a);i++){
-		a[i] = wf_canvas_add_new_actor(wfc, w1);
-
-		wf_actor_set_region(a[i], &region[i]);
-		wf_actor_set_colour(a[i], colours[i][0]);
-
-		//a[i]->enable_animations = false;
-	}
 
 	on_allocate(canvas, &canvas->allocation, user_data);
 
@@ -287,7 +225,7 @@ on_canvas_realise(GtkWidget* _canvas, gpointer user_data)
 static void
 on_allocate(GtkWidget* widget, GtkAllocation* allocation, gpointer user_data)
 {
-	if(!gl_initialised) return;
+	if(!wfc) return;
 
 	setup_projection(widget);
 
@@ -298,27 +236,119 @@ on_allocate(GtkWidget* widget, GtkAllocation* allocation, gpointer user_data)
 }
 
 
+static gboolean
+on_expose(GtkWidget* widget, GdkEventExpose* event, gpointer user_data)
+{
+	if(!GTK_WIDGET_REALIZED(widget)) return true;
+	if(!wfc) return true;
+
+	AGL_ACTOR_START_DRAW(scene1) {
+		glClearColor(0.0, 0.0, 0.0, 1.0);
+		glClear(GL_COLOR_BUFFER_BIT);
+
+		agl_actor__paint((AGlActor*)scene1);
+		agl_actor__paint((AGlActor*)scene2);
+
+#ifdef RENDER_SAME_SCENE_MULTIPLE_TIMES
+		glPushMatrix();
+		glTranslatef(10.0, 10.0, 0.0);
+		agl_actor__paint((AGlActor*)scene1);
+		glPopMatrix();
+#endif
+
+#undef SHOW_BOUNDING_BOX
+#ifdef SHOW_BOUNDING_BOX
+		glPushMatrix();
+			glDisable(GL_TEXTURE_2D);
+			glLineWidth(1);
+
+			int w = GL_WIDTH;
+			int h = GL_HEIGHT/2;
+			glBegin(GL_QUADS);
+			glVertex3f(-0.2, -0.2, 1); glVertex3f(w, -0.2, 1);
+			glVertex3f(w, h, 1);       glVertex3f(-0.2, h, 1);
+			glEnd();
+			glEnable(GL_TEXTURE_2D);
+		glPopMatrix();
+#endif
+
+		gdk_gl_drawable_swap_buffers(scene1->gl.gdk.drawable);
+	} AGL_ACTOR_END_DRAW(scene1)
+
+	return TRUE;
+}
+
+
 static void
 start_zoom(float target_zoom)
 {
-	// when zooming in, the Region is preserved so the box gets bigger.
-	// Drawing is clipped by the Viewport.
+	//when zooming in, the Region is preserved so the box gets bigger. Drawing is clipped by the Viewport.
 
 	PF0;
 	zoom = MAX(0.1, target_zoom);
 
 	int i; for(i=0;i<G_N_ELEMENTS(a);i++)
 		if(a[i]) wf_actor_set_rect(a[i], &(WfRectangle){
-			GL_WIDTH * target_zoom * i / 4,
 			0.0,
-			GL_WIDTH * target_zoom / 4,
-			GL_HEIGHT / 4
+			i * GL_HEIGHT / 4,
+			GL_WIDTH * target_zoom,
+			GL_HEIGHT / 4 * 0.95
 		});
 }
 
 
-static void
-toggle_animate()
+void
+zoom_in(WaveformView* waveform)
+{
+	start_zoom(zoom * 1.5);
+}
+
+
+void
+zoom_out(WaveformView* waveform)
+{
+	start_zoom(zoom / 1.5);
+}
+
+
+void
+vzoom_up(WaveformView* _)
+{
+	vzoom *= 1.1;
+	zoom = MIN(vzoom, 100.0);
+	int i; for(i=0;i<G_N_ELEMENTS(a);i++)
+		if(a[i]) wf_actor_set_vzoom(a[i], vzoom);
+}
+
+
+void
+vzoom_down(WaveformView* _)
+{
+	vzoom /= 1.1;
+	zoom = MAX(vzoom, 1.0);
+	int i; for(i=0;i<G_N_ELEMENTS(a);i++)
+		if(a[i]) wf_actor_set_vzoom(a[i], vzoom);
+}
+
+
+void
+scroll_left(WaveformView* waveform)
+{
+	//int n_visible_frames = ((float)waveform->waveform->n_frames) / waveform->zoom;
+	//waveform_view_set_start(waveform, waveform->start_frame - n_visible_frames / 10);
+}
+
+
+void
+scroll_right(WaveformView* waveform)
+{
+	//int n_visible_frames = ((float)waveform->waveform->n_frames) / waveform->zoom;
+	//waveform_view_set_start(waveform, waveform->start_frame + n_visible_frames / 10);
+}
+
+
+void
+toggle_animate(WaveformView* _)
 {
 	PF0;
 	gboolean on_idle(gpointer _)
@@ -343,6 +373,13 @@ toggle_animate()
 	//g_idle_add(on_idle, NULL);
 	//g_idle_add_full(G_PRIORITY_LOW, on_idle, NULL, NULL);
 	g_timeout_add(50, on_idle, NULL);
+}
+
+
+void
+quit(WaveformView* waveform)
+{
+	exit(EXIT_SUCCESS);
 }
 
 

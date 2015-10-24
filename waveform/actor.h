@@ -21,6 +21,9 @@
 #include "agl/actor.h"
 #include "waveform/waveform.h"
 #include "canvas.h"
+#include "waveform/actors/background.h"
+#include "waveform/actors/ruler.h"
+#include "waveform/actors/grid.h"
 
 #define HAVE_NON_SQUARE_TEXTURES // TODO change to runtime detection (indicated by AGL->have_npot_textures)
 

@@ -5,6 +5,9 @@
   different colours and zoom levels. The canvas can be zoomed
   and panned.
 
+  In this example, drawing is managed by the AGl scene graph.
+  See actor_no_scene.c for a version that doesnt use the scene graph.
+
   ---------------------------------------------------------------
 
   copyright (C) 2012-2015 Tim Orford <tim@orford.org>
@@ -53,6 +56,7 @@
 
 GdkGLConfig*    glconfig       = NULL;
 GtkWidget*      canvas         = NULL;
+AGlRootActor*   scene          = NULL;
 WaveformCanvas* wfc            = NULL;
 Waveform*       w1             = NULL;
 Waveform*       w2             = NULL;
@@ -62,8 +66,6 @@ float           vzoom          = 1.0;
 gpointer        tests[]        = {};
 
 static void setup_projection   (GtkWidget*);
-static void draw               (GtkWidget*);
-static bool on_expose          (GtkWidget*, GdkEventExpose*, gpointer);
 static void on_canvas_realise  (GtkWidget*, gpointer);
 static void on_allocate        (GtkWidget*, GtkAllocation*, gpointer);
 static void start_zoom         (float target_zoom);
@@ -105,8 +107,6 @@ main (int argc, char *argv[])
 
 	wf_debug = 1;
 
-	memset(&app, 0, sizeof(struct _app));
-
 	gtk_init(&argc, &argv);
 	if(!(glconfig = gdk_gl_config_new_by_mode(GDK_GL_MODE_RGBA | GDK_GL_MODE_DEPTH | GDK_GL_MODE_DOUBLE))){
 		gerr ("Cannot initialise gtkglext."); return EXIT_FAILURE;
@@ -115,6 +115,7 @@ main (int argc, char *argv[])
 	GtkWidget* window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
 
 	canvas = gtk_drawing_area_new();
+
 #ifdef HAVE_GTK_2_18
 	gtk_widget_set_can_focus     (canvas, true);
 #endif
@@ -123,9 +124,43 @@ main (int argc, char *argv[])
 	gtk_widget_add_events        (canvas, GDK_POINTER_MOTION_MASK | GDK_BUTTON_PRESS_MASK | GDK_BUTTON_RELEASE_MASK);
 	gtk_container_add((GtkContainer*)window, (GtkWidget*)canvas);
 
+	agl_get_instance()->pref_use_shaders = USE_SHADERS;
+
+	scene = (AGlRootActor*)agl_actor__new_root(canvas);
+
+	char* filename = g_build_filename(g_get_current_dir(), "test/data/mono_0:10.wav", NULL);
+	w1 = waveform_load_new(filename);
+	g_free(filename);
+
+	wfc = wf_canvas_new(scene);
+
+	int n_frames = waveform_get_n_frames(w1);
+
+	WfSampleRegion region[] = {
+		{0,            n_frames     - 1},
+		{0,            n_frames / 2 - 1},
+		{n_frames / 4, n_frames / 4 - 1},
+		{n_frames / 2, n_frames / 2 - 1},
+	};
+
+	uint32_t colours[4][2] = {
+		{0xffffff77, 0x0000ffff},
+		{0x66eeffff, 0x0000ffff},
+		{0xffdd66ff, 0x0000ffff},
+		{0x66ff66ff, 0x0000ffff},
+	};
+
+	int i; for(i=0;i<G_N_ELEMENTS(a);i++){
+		a[i] = wf_canvas_add_new_actor(wfc, w1);
+		agl_actor__add_child((AGlActor*)scene, (AGlActor*)a[i]);
+
+		wf_actor_set_region(a[i], &region[i]);
+		wf_actor_set_colour(a[i], colours[i][0]);
+	}
+
 	g_signal_connect((gpointer)canvas, "realize",       G_CALLBACK(on_canvas_realise), NULL);
 	g_signal_connect((gpointer)canvas, "size-allocate", G_CALLBACK(on_allocate), NULL);
-	g_signal_connect((gpointer)canvas, "expose_event",  G_CALLBACK(on_expose), NULL);
+	g_signal_connect((gpointer)canvas, "expose-event",  G_CALLBACK(agl_actor__on_expose), scene);
 
 	gtk_widget_show_all(window);
 
@@ -166,87 +201,10 @@ setup_projection(GtkWidget* widget)
 
 
 static void
-draw(GtkWidget* widget)
-{
-	glPushMatrix(); /* modelview matrix */
-		int i; for(i=0;i<G_N_ELEMENTS(a);i++) if(a[i]) ((AGlActor*)a[i])->paint((AGlActor*)a[i]);
-	glPopMatrix();
-
-#undef SHOW_BOUNDING_BOX
-#ifdef SHOW_BOUNDING_BOX
-	glPushMatrix(); /* modelview matrix */
-		glTranslatef(0.0, 0.0, 0.0);
-		glNormal3f(0, 0, 1);
-		glDisable(GL_TEXTURE_2D);
-		glLineWidth(1);
-
-		int w = GL_WIDTH;
-		int h = GL_HEIGHT/2;
-		glBegin(GL_QUADS);
-		glVertex3f(-0.2, -0.2, 1); glVertex3f(w, -0.2, 1);
-		glVertex3f(w, h, 1);       glVertex3f(-0.2, h, 1);
-		glEnd();
-		glEnable(GL_TEXTURE_2D);
-	glPopMatrix();
-#endif
-}
-
-
-static gboolean
-on_expose(GtkWidget* widget, GdkEventExpose* event, gpointer user_data)
-{
-	if(!GTK_WIDGET_REALIZED(widget)) return true;
-	if(!wfc || !wfc->root) return true;
-
-	AGL_ACTOR_START_DRAW(wfc->root) {
-		glClearColor(0.0, 0.0, 0.0, 1.0);
-		glClear(GL_COLOR_BUFFER_BIT);
-
-		draw(widget);
-
-		gdk_gl_drawable_swap_buffers(wfc->root->gl.gdk.drawable);
-	} AGL_ACTOR_END_DRAW(wfc->root)
-
-	return TRUE;
-}
-
-
-static void
 on_canvas_realise(GtkWidget* _canvas, gpointer user_data)
 {
-	if(wfc) return;
+	if(wfc->draw) return;
 	if(!GTK_WIDGET_REALIZED (canvas)) return;
-
-	agl_get_instance()->pref_use_shaders = USE_SHADERS;
-
-	wfc = wf_canvas_new((AGlRootActor*)agl_actor__new_root(canvas));
-
-	char* filename = g_build_filename(g_get_current_dir(), "test/data/mono_0:10.wav", NULL);
-	w1 = waveform_load_new(filename);
-	g_free(filename);
-
-	int n_frames = waveform_get_n_frames(w1);
-
-	WfSampleRegion region[] = {
-		{0,            n_frames     - 1},
-		{0,            n_frames / 2 - 1},
-		{n_frames / 4, n_frames / 4 - 1},
-		{n_frames / 2, n_frames / 2 - 1},
-	};
-
-	uint32_t colours[4][2] = {
-		{0xffffff77, 0x0000ffff},
-		{0x66eeffff, 0x0000ffff},
-		{0xffdd66ff, 0x0000ffff},
-		{0x66ff66ff, 0x0000ffff},
-	};
-
-	int i; for(i=0;i<G_N_ELEMENTS(a);i++){
-		a[i] = wf_canvas_add_new_actor(wfc, w1);
-
-		wf_actor_set_region(a[i], &region[i]);
-		wf_actor_set_colour(a[i], colours[i][0]);
-	}
 
 	on_allocate(canvas, &canvas->allocation, user_data);
 
@@ -262,7 +220,7 @@ on_canvas_realise(GtkWidget* _canvas, gpointer user_data)
 static void
 on_allocate(GtkWidget* widget, GtkAllocation* allocation, gpointer user_data)
 {
-	if(!wfc || !wfc->root) return;
+	if(!wfc) return;
 
 	setup_projection(widget);
 

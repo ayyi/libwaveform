@@ -42,6 +42,7 @@ extern "C" {
 //#endif
 #endif
 #include "waveform/utils.h"
+#include "waveform/promise.h"
 
 G_BEGIN_DECLS
 

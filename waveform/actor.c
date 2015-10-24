@@ -60,8 +60,6 @@
 #include <GL/gl.h>
 #include <GL/glx.h>
 #include <GL/glxext.h>
-#include <gtkglext-1.0/gdk/gdkgl.h>
-#include <gtkglext-1.0/gtk/gtkgl.h>
 #include "agl/ext.h"
 #include "transition/transition.h"
 #include "waveform/waveform.h"
@@ -269,8 +267,8 @@ static void  _wf_actor_get_viewport_max       (WaveformActor*, WfViewPort*);
 static void
 wf_actor_class_init()
 {
-	get_gl_extensions();
 	agl = agl_get_instance();
+	agl_get_extensions();
 
 	modes[MODE_HI].make_texture_data = make_texture_data_hi;
 
@@ -284,6 +282,9 @@ wf_actor_class_init()
 }
 
 
+/*
+ *  Normally called by the parent canvas from wf_canvas_add_new_actor.
+ */
 WaveformActor*
 wf_actor_new(Waveform* w, WaveformCanvas* wfc)
 {
@@ -525,6 +526,7 @@ void
 wf_actor_set_waveform(WaveformActor* a, Waveform* waveform, WaveformActorFn callback, gpointer user_data)
 {
 	g_return_if_fail(a);
+	PF;
 
 	waveform_get_n_frames(waveform);
 	if(!waveform->renderable) return;
@@ -1322,7 +1324,7 @@ wf_actor_set_rect(WaveformActor* a, WfRectangle* rect)
 {
 	g_return_if_fail(a);
 	g_return_if_fail(rect);
-	rect->len = MAX(1, rect->len);
+	rect->len = MAX(1.0, rect->len);
 	WfActorPriv* _a = a->priv;
 
 	if(rect->len == a->rect.len && rect->left == a->rect.left && rect->height == a->rect.height && rect->top == a->rect.top) return;

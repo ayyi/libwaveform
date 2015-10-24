@@ -9,7 +9,7 @@
 
 #define getProcAddress(x) (*glXGetProcAddressARB)((const GLubyte*)x)
 void
-get_gl_extensions()
+agl_get_extensions()
 {
    /* OpenGL 2.0 */
    glAttachShader = (PFNGLATTACHSHADERPROC) getProcAddress("glAttachShader");

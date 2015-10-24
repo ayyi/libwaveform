@@ -274,15 +274,15 @@ _cursor_set_uniforms()
 void
 wf_shaders_init()
 {
+	// deprecated. actors should call agl_create_program in their init fn.
+
 	agl_create_program(&peak_shader.shader);
 #ifdef USE_FBO
 	agl_create_program(&peak_nonscaling.shader);
 #endif
 	agl_create_program(&hires_shader.shader);
-	agl_create_program(&hires_ng_shader.shader);
 	agl_create_program(&horizontal.shader);
 	agl_create_program(&vertical.shader);
-	agl_create_program(&ruler.shader);
 	agl_create_program(&lines.shader);
 }
 

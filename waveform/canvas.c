@@ -53,16 +53,16 @@ static AGl* agl = NULL;
 #  define is_sdl(WFC) false
 #endif
 
-#define WAVEFORM_START_DRAW(wa) \
-	if(wa->_draw_depth) gwarn("START_DRAW: already drawing"); \
-	wa->_draw_depth++; \
-	if (is_sdl(wa) || \
-		(wa->_draw_depth > 1) || gdk_gl_drawable_gl_begin (wa->root->gl.gdk.drawable, wa->root->gl.gdk.context) \
+#define WAVEFORM_START_DRAW(wfc) \
+	if(wfc->_draw_depth) gwarn("START_DRAW: already drawing"); \
+	wfc->_draw_depth++; \
+	if (actor_not_is_gtk(wfc->root) || \
+		(wfc->_draw_depth > 1) || gdk_gl_drawable_gl_begin (wfc->root->gl.gdk.drawable, wfc->root->gl.gdk.context) \
 		) {
 
 #define WAVEFORM_END_DRAW(wa) \
 	wa->_draw_depth--; \
-	if(!is_sdl(wa)){ \
+	if(wa->root->type == CONTEXT_TYPE_GTK){ \
 		if(!wa->_draw_depth) gdk_gl_drawable_gl_end(wa->root->gl.gdk.drawable); \
 	} \
 	} else gwarn("!! gl_begin fail")
@@ -77,7 +77,6 @@ static void wf_canvas_finalize      (GObject*);
 
 extern PeakShader peak_shader, peak_nonscaling;
 extern HiResShader hires_shader;
-extern HiResNGShader hires_ng_shader;
 extern BloomShader horizontal;
 extern BloomShader vertical;
 extern AlphaMapShader tex2d, ass;
@@ -140,7 +139,7 @@ static void wf_canvas_on_paint_update(GdkFrameClock* clock, void* _canvas)
 
 
 static void
-wf_canvas_init(WaveformCanvas* wfc)
+wf_canvas_init(WaveformCanvas* wfc, AGlRootActor* root)
 {
 	wfc->priv = g_new0(WfCanvasPriv, 1);
 
@@ -153,23 +152,32 @@ wf_canvas_init(WaveformCanvas* wfc)
 	wfc->texture_unit[2] = agl_texture_unit_new(WF_TEXTURE2);
 	wfc->texture_unit[3] = agl_texture_unit_new(WF_TEXTURE3);
 
-	bool try_drawable(gpointer _wfc)
-	{
-		WaveformCanvas* wfc = _wfc;
+	wfc->shaders.peak = &peak_shader;
+	wfc->shaders.ruler = &ruler;
+	wfc->shaders.cursor = &cursor;
 
-		if(!wfc->root->gl.gdk.drawable){
-			return G_SOURCE_CONTINUE;
-		}
+	if(wfc->root){
 
-		wf_canvas_init_gl(wfc);
-		wfc->use_1d_textures = agl->use_shaders;
+		bool wf_canvas_try_drawable(gpointer _wfc)
+		{
+			WaveformCanvas* wfc = _wfc;
+
+			if((wfc->root->type == CONTEXT_TYPE_GTK) && !wfc->root->gl.gdk.drawable){
+				return G_SOURCE_CONTINUE;
+			}
+
+			wf_canvas_init_gl(wfc);
+
+			if(wfc->draw) wf_canvas_queue_redraw(wfc);
+			wfc->use_1d_textures = agl->use_shaders;
 
 #ifdef USE_FRAME_CLOCK
-		frame_clock_connect(G_CALLBACK(wf_canvas_on_paint_update), wfc);
+			frame_clock_connect(G_CALLBACK(wf_canvas_on_paint_update), wfc);
 #endif
-		return G_SOURCE_REMOVE;
+			return G_SOURCE_REMOVE;
+		}
+		if(wf_canvas_try_drawable(wfc)) wfc->priv->pending_init = g_idle_add(wf_canvas_try_drawable, wfc);
 	}
-	if(try_drawable(wfc)) wfc->priv->pending_init = g_idle_add(try_drawable, wfc);
 }
 
 
@@ -188,7 +196,7 @@ wf_canvas_new(AGlRootActor* root)
 
 	WaveformCanvas* wfc = waveform_canvas_construct(TYPE_WAVEFORM_CANVAS);
 	wfc->root = root;
-	wf_canvas_init(wfc);
+	wf_canvas_init(wfc, root);
 	return wfc;
 }
 
@@ -197,13 +205,16 @@ wf_canvas_new(AGlRootActor* root)
 WaveformCanvas*
 wf_canvas_new_sdl(SDL_GLContext* context)
 {
+	PF;
+
 	WaveformCanvas* wfc = waveform_canvas_construct(TYPE_WAVEFORM_CANVAS);
 
-	wfc->show_rms       = true;
-	wfc->root->type     = CONTEXT_TYPE_SDL;
+	wfc->show_rms = true;
+
+	AGlRootActor* a = wfc->root = (AGlScene*)agl_actor__new_root_(CONTEXT_TYPE_SDL);
 	wfc->root->gl.sdl.context = context;
 
-	wf_canvas_init(wfc);
+	wf_canvas_init(wfc, a);
 
 	return wfc;
 }
@@ -245,66 +256,42 @@ wf_canvas_init_gl(WaveformCanvas* wfc)
 {
 	WfCanvasPriv* priv = wfc->priv;
 
-	if(priv->shaders.peak){ gwarn("already done"); return; }
+	if(wfc->shaders.peak->shader.program){
+#ifdef DEBUG
+		gwarn("already done");
+#endif
+		return;
+	}
 
 	if(!agl->pref_use_shaders){
-		agl->use_shaders = false;
 		wfc->use_1d_textures = false;
+#if 0
 		WAVEFORM_START_DRAW(wfc) {
 			if(wf_debug) printf("GL_RENDERER = %s\n", (const char*)glGetString(GL_RENDERER));
 		} WAVEFORM_END_DRAW(wfc);
+#endif
 		return;
 	}
 
 	WAVEFORM_START_DRAW(wfc) {
 
-		int version = 0;
-		const char* _version = (const char*)glGetString(GL_VERSION);
-		if(_version){
-			gchar** split = g_strsplit(_version, ".", 2);
-			if(split){
-				version = atoi(split[0]);
-				dbg(1, "gl_version=%i", version);
-				g_strfreev(split);
-			}
-		}
+		agl_gl_init();
 
 		if(!agl->use_shaders){
 			agl_use_program(NULL);
 			wfc->use_1d_textures = false;
 		}
 
-		// npot textures are mandatory for opengl 2.0
-		// npot capability also means non-square textures are supported.
-		// some older hardware (eg radeon x1600) may not have full support, and may drop back to software rendering if certain features are used.
-		if(GL_ARB_texture_non_power_of_two || version > 1){
-			if(wf_debug) printf("non_power_of_two textures are available.\n");
-			agl->have_npot_textures = true;
-		}else{
-			fprintf(stderr, "GL_ARB_texture_non_power_of_two extension is not available!\n");
-			fprintf(stderr, "Framebuffer effects will be lower resolution (lower quality).\n\n");
-		}
-
-		// just testing. there is probably a better test.
-		if(glBindVertexArrayAPPLE){
-			if(wf_debug) printf("vertex arrays available.\n");
-		}else{
-			fprintf(stderr, "vertex arrays not available!\n");
-		}
-
 		if(agl->use_shaders){
 			wf_shaders_init();
-			priv->shaders.peak = &peak_shader;
+
 #ifdef USE_FBO
 			priv->shaders.peak_nonscaling = &peak_nonscaling;
 #endif
 			priv->shaders.hires = &hires_shader;
-			priv->shaders.hires_ng = &hires_ng_shader;
 			priv->shaders.vertical = &vertical;
 			priv->shaders.horizontal = &horizontal;
-			priv->shaders.ruler = &ruler;
 			priv->shaders.lines = &lines;
-			priv->shaders.cursor = &cursor;
 		}
 
 	} WAVEFORM_END_DRAW(wfc);

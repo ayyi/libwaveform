@@ -5,7 +5,7 @@
 
   ---------------------------------------------------------------
 
-  copyright (C) 2012-2014 Tim Orford <tim@orford.org>
+  copyright (C) 2012-2015 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -22,7 +22,6 @@
 
 */
 #define __wf_private__
-#define __wf_canvas_priv__
 #include "config.h"
 #include <stdlib.h>
 #include <stdint.h>
@@ -38,16 +37,10 @@
 #include <sys/shm.h>
 #include <signal.h>
 #include <GL/gl.h>
-#include <GL/glext.h>
-#include <GL/glx.h>
-#include <GL/glxext.h>
 #include <gtk/gtk.h>
 #include <gdk/gdkkeysyms.h>
 #include "waveform/waveform.h"
-#include "waveform/fbo.h"
-#include "waveform/gl_utils.h"
 #include "test/common.h"
-#include "test/ayyi_utils.h"
 
 #define WAV "test/data/mono_0:10.wav"
 
@@ -55,20 +48,16 @@
 #define GL_HEIGHT 256.0
 #define HBORDER (GL_WIDTH / 32.0)
 #define VBORDER 8
-//#define HBORDER 0
-//#define VBORDER 0
 
 AGl*            agl            = NULL;
-GdkGLConfig*    glconfig       = NULL;
-GdkGLDrawable*  gl_drawable    = NULL;
-GdkGLContext*   gl_context     = NULL;
 static bool     gl_initialised = false;
 GtkWidget*      canvas         = NULL;
+AGlRootActor*   scene          = NULL;
 WaveformCanvas* wfc            = NULL;
 Waveform*       w1             = NULL;
 WaveformActor*  a[]            = {NULL};
 float           zoom           = 1.0;
-GLuint          bg_textures[2] = {0, 0};
+GLuint          bg_textures[2] = {0,};
 gpointer        tests[]        = {};
 
 KeyHandler
@@ -98,14 +87,9 @@ Key keys[] = {
 };
 
 static void setup_projection   (GtkWidget*);
-static void draw               (GtkWidget*);
-static bool on_expose          (GtkWidget*, GdkEventExpose*, gpointer);
 static void on_canvas_realise  (GtkWidget*, gpointer);
 static void on_allocate        (GtkWidget*, GtkAllocation*, gpointer);
 static void start_zoom         (float target_zoom);
-static void create_background  ();
-static void background_paint   (GtkWidget*);
-static void ruler_paint        (GtkWidget*);
 uint64_t    get_time           ();
 
 
@@ -116,27 +100,34 @@ main (int argc, char *argv[])
 
 	wf_debug = 1;
 
-	memset(&app, 0, sizeof(struct _app));
-
 	gtk_init(&argc, &argv);
+	GdkGLConfig* glconfig;
 	if(!(glconfig = gdk_gl_config_new_by_mode(GDK_GL_MODE_RGBA | GDK_GL_MODE_DEPTH | GDK_GL_MODE_DOUBLE))){
 		gerr ("Cannot initialise gtkglext."); return EXIT_FAILURE;
 	}
 
-	agl = agl_get_instance();
-
 	GtkWidget* window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
 
 	canvas = gtk_drawing_area_new();
-	gtk_widget_set_can_focus(canvas, true);
-	gtk_widget_set_size_request(GTK_WIDGET(canvas), GL_WIDTH + 2 * HBORDER, 128);
-	gtk_widget_set_gl_capability(canvas, glconfig, NULL, 1, GDK_GL_RGBA_TYPE);
-	gtk_widget_add_events(canvas, GDK_POINTER_MOTION_MASK | GDK_BUTTON_PRESS_MASK | GDK_BUTTON_RELEASE_MASK);
+	gtk_widget_set_can_focus     (canvas, true);
+	gtk_widget_set_size_request  (canvas, GL_WIDTH + 2 * HBORDER, 128);
+	gtk_widget_set_gl_capability (canvas, glconfig, NULL, 1, GDK_GL_RGBA_TYPE);
+	gtk_widget_add_events        (canvas, GDK_POINTER_MOTION_MASK | GDK_BUTTON_PRESS_MASK | GDK_BUTTON_RELEASE_MASK);
 	gtk_container_add((GtkContainer*)window, (GtkWidget*)canvas);
+
+	agl = agl_get_instance();
+
+	scene = (AGlRootActor*)agl_actor__new_root(canvas);
+
+	wfc = wf_canvas_new((AGlRootActor*)scene);
+
+	char* filename = find_wav(WAV);
+	w1 = waveform_load_new(filename);
+	g_free(filename);
 
 	g_signal_connect((gpointer)canvas, "realize",       G_CALLBACK(on_canvas_realise), NULL);
 	g_signal_connect((gpointer)canvas, "size-allocate", G_CALLBACK(on_allocate), NULL);
-	g_signal_connect((gpointer)canvas, "expose_event",  G_CALLBACK(on_expose), NULL);
+	g_signal_connect((gpointer)canvas, "expose-event",  G_CALLBACK(agl_actor__on_expose), scene);
 
 	gtk_widget_show_all(window);
 
@@ -159,17 +150,6 @@ gl_init()
 {
 	if(gl_initialised) return;
 
-	START_DRAW {
-
-		if(!agl_shaders_supported()){
-			gwarn("shaders not supported");
-		}
-		printf("GL_RENDERER = %s\n", (const char*)glGetString(GL_RENDERER));
-
-		create_background();
-
-	} END_DRAW
-
 	gl_initialised = true;
 }
 
@@ -182,65 +162,15 @@ setup_projection(GtkWidget* widget)
 	int vw = widget->allocation.width;
 	int vh = widget->allocation.height;
 	glViewport(vx, vy, vw, vh);
-	dbg (0, "viewport: %i %i %i %i", vx, vy, vw, vh);
+	dbg (1, "viewport: %i %i %i %i", vx, vy, vw, vh);
 	glMatrixMode(GL_PROJECTION);
 	glLoadIdentity();
 
 	double left = -((int)HBORDER);
-	double right = vw + left;            //now tracks the allocation so we can get consistent ruler markings.
-	double bottom = GL_HEIGHT + VBORDER;
+	double right = vw + left;
 	double top = -VBORDER;
+	double bottom = vh + VBORDER;
 	glOrtho (left, right, bottom, top, 10.0, -100.0);
-}
-
-
-static void
-draw(GtkWidget* widget)
-{
-	background_paint(widget);
-	ruler_paint(widget);
-
-	//glPushMatrix(); /* modelview matrix */
-		int i; for(i=0;i<G_N_ELEMENTS(a);i++) if(a[i]) ((AGlActor*)a[i])->paint((AGlActor*)a[i]);
-	//glPopMatrix();
-
-#undef SHOW_BOUNDING_BOX
-#ifdef SHOW_BOUNDING_BOX
-	glPushMatrix(); /* modelview matrix */
-		glTranslatef(0.0, 0.0, 0.0);
-		glNormal3f(0, 0, 1);
-		glDisable(GL_TEXTURE_2D);
-		glLineWidth(1);
-
-		int w = GL_WIDTH;
-		int h = GL_HEIGHT/2;
-		glBegin(GL_QUADS);
-		glVertex3f(-0.2, -0.2, 1); glVertex3f(w, -0.2, 1);
-		glVertex3f(w, h, 1);       glVertex3f(-0.2, h, 1);
-		glEnd();
-		glEnable(GL_TEXTURE_2D);
-	glPopMatrix();
-#endif
-
-	//fbo_print(a[0], 0, GL_HEIGHT * 0.5, 0.5, 0xffffffff, 0xff);
-}
-
-
-static bool
-on_expose(GtkWidget* widget, GdkEventExpose* event, gpointer user_data)
-{
-	if(!GTK_WIDGET_REALIZED(widget)) return true;
-	if(!gl_initialised) return true;
-
-	START_DRAW {
-		glClearColor(0.0, 0.0, 0.0, 1.0);
-		glClear(GL_COLOR_BUFFER_BIT);
-
-		draw(widget);
-
-		gdk_gl_drawable_swap_buffers(gl_drawable);
-	} END_DRAW
-	return true;
 }
 
 
@@ -254,16 +184,7 @@ on_canvas_realise(GtkWidget* _canvas, gpointer user_data)
 
 	gl_init();
 
-	wfc = wf_canvas_new((AGlRootActor*)agl_actor__new_root(canvas));
-
-	gl_drawable = wfc->root->gl.gdk.drawable;
-	gl_context = wfc->root->gl.gdk.context;
-
 	canvas_init_done = true;
-
-	char* filename = find_wav(WAV);
-	w1 = waveform_load_new(filename);
-	g_free(filename);
 
 	int n_frames = waveform_get_n_frames(w1);
 
@@ -282,11 +203,15 @@ on_canvas_realise(GtkWidget* _canvas, gpointer user_data)
 	};
 
 	int i; for(i=0;i<G_N_ELEMENTS(a);i++){
-		a[i] = wf_canvas_add_new_actor(wfc, w1);
+		agl_actor__add_child((AGlActor*)scene, (AGlActor*)(a[i] = wf_canvas_add_new_actor(wfc, w1)));
 
 		wf_actor_set_region(a[i], &region[i]);
 		wf_actor_set_colour(a[i], colours[i][0]);
 	}
+
+	agl_actor__add_child((AGlActor*)scene, background_actor(a[0]));
+	AGlActor* ruler = agl_actor__add_child((AGlActor*)scene, ruler_actor(a[0]));
+	ruler->region = (AGliRegion){0, 0, 0, 20};
 
 	on_allocate(canvas, &canvas->allocation, user_data);
 
@@ -306,6 +231,12 @@ on_allocate(GtkWidget* widget, GtkAllocation* allocation, gpointer user_data)
 
 	setup_projection(widget);
 
+	double width = canvas->allocation.width - 2 * ((int)HBORDER);
+	wfc->beats_per_pixel = 0.1 * (GL_WIDTH / width) / zoom;
+
+	((AGlActor*)scene)->region = (AGliRegion){0, 0, width, allocation->height};
+	agl_actor__set_size((AGlActor*)scene);
+
 	//optimise drawing by telling the canvas which area is visible
 	wf_canvas_set_viewport(wfc, &(WfViewPort){0, 0, allocation->width - ((int)HBORDER), GL_HEIGHT});
 
@@ -321,12 +252,14 @@ start_zoom(float target_zoom)
 	PF0;
 	zoom = MAX(0.1, target_zoom);
 
+	float ruler_height = 20.0;
+
 	int i; for(i=0;i<G_N_ELEMENTS(a);i++)
 		if(a[i]) wf_actor_set_rect(a[i], &(WfRectangle){
 			0.0,
-			i * GL_HEIGHT / 2,
+			ruler_height + 5 + i * ((AGlActor*)scene)->region.y2 / 2,
 			(canvas->allocation.width - ((int)HBORDER) * 2) * target_zoom,
-			GL_HEIGHT / 2 * 0.95
+			((AGlActor*)scene)->region.y2 / 2 * 0.95
 		});
 }
 
@@ -363,7 +296,7 @@ void
 toggle_shaders(WaveformView* _)
 {
 	PF0;
-	agl_actor__set_use_shaders(wfc->root, !agl->use_shaders);
+	agl_actor__set_use_shaders(scene, !agl->use_shaders);
 }
 
 
@@ -401,126 +334,6 @@ void
 quit(WaveformView* waveform)
 {
 	exit(EXIT_SUCCESS);
-}
-
-
-static void
-create_background()
-{
-	//create an alpha-map gradient texture for use as background
-
-	if(bg_textures[0]) return;
-
-	int width = 256;
-	int height = 256;
-	char* pbuf = g_new0(char, width * height);
-	int y; for(y=0;y<height;y++){
-		int x; for(x=0;x<width;x++){
-			*(pbuf + y * width + x) = ((x+y) * 0xff) / (width * 2);
-		}
-	}
-
-	glEnable(GL_TEXTURE_2D);
-
-	glGenTextures(1, bg_textures);
-	if(glGetError() != GL_NO_ERROR){ gerr ("couldnt create bg_texture."); goto out; }
-	dbg(0, "bg_texture=%i", bg_textures[0]);
-
-	int pixel_format = GL_ALPHA;
-	glBindTexture  (GL_TEXTURE_2D, bg_textures[0]);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_ALPHA, width, height, 0, pixel_format, GL_UNSIGNED_BYTE, pbuf);
-	gl_warn("binding bg texture");
-
-  out:
-	g_free(pbuf);
-}
-
-
-static void
-background_paint(GtkWidget* widget)
-{
-	if(agl->use_shaders){
-		glEnable(GL_TEXTURE_2D);
-		glActiveTexture(GL_TEXTURE0);
-		if(!glIsTexture(bg_textures[0])) gwarn("not texture");
-		glBindTexture(GL_TEXTURE_2D, bg_textures[0]);
-
-		agl->shaders.alphamap->uniform.fg_colour = 0x0000ffff;
-		agl_use_program((AGlShader*)agl->shaders.alphamap);
-
-	}else{
-		glColor4f(1.0, 0.7, 0.0, 1.0);
-
-		glEnable(GL_TEXTURE_2D);
-				glActiveTexture(GL_TEXTURE0);
-				if(!glIsTexture(bg_textures[0])) gwarn("not texture");
-		glBindTexture(GL_TEXTURE_2D, bg_textures[0]);
-				glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
-				glEnable(GL_BLEND);
-		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-
-		agl_use_program(0);
-	}
-
-	double top = -VBORDER;
-	double bot = GL_HEIGHT + VBORDER;
-	double x1 = -HBORDER;
-	double x2 = widget->allocation.width + HBORDER;
-	glBegin(GL_QUADS);
-	glTexCoord2d(1.0, 1.0); glVertex2d(x1, top);
-	glTexCoord2d(0.0, 1.0); glVertex2d(x2, top);
-	glTexCoord2d(0.0, 0.0); glVertex2d(x2, bot);
-	glTexCoord2d(1.0, 0.0); glVertex2d(x1, bot);
-	glEnd();
-}
-
-
-static void
-ruler_paint(GtkWidget* widget)
-{
-	if(!agl_get_instance()->use_shaders) return;
-
-	double width = canvas->allocation.width - 2 * ((int)HBORDER);
-
-	wfc->priv->shaders.ruler->uniform.fg_colour = 0xffffff7f;
-	wfc->priv->shaders.ruler->uniform.beats_per_pixel = 0.1 * (GL_WIDTH / width) / zoom;
-	agl_use_program((AGlShader*)wfc->priv->shaders.ruler);
-
-#if 0 //shader debugging
-	{
-		float smoothstep(float edge0, float edge1, float x)
-		{
-			float t = CLAMP((x - edge0) / (edge1 - edge0), 0.0, 1.0);
-			return t * t * (3.0 - 2.0 * t);
-		}
-
-		float pixels_per_beat = 1.0 / wfc->priv->shaders.ruler->uniform.beats_per_pixel;
-		dbg(0, "ppb=%.2f", pixels_per_beat);
-		int x; for(x=0;x<30;x++){
-			float m = (x * 100) % ((int)pixels_per_beat * 100);
-			float m_ = x - pixels_per_beat * floor(x / pixels_per_beat);
-			printf("  %.2f %.2f %.2f\n", m / 100, m_, smoothstep(0.0, 0.5, m_));
-		}
-	}
-#endif
-
-	double top = 0;
-	double bot = GL_HEIGHT * 0.25;
-	double x1 = 0;
-	double x2 = width;
-
-	glPushMatrix();
-	glScalef(1.0, -1.0, 1.0);           // inverted vertically to make alignment of marks to bottom easier in the shader
-	glTranslatef(0.0, -GL_HEIGHT, 0.0); // making more negative moves downward
-	glBegin(GL_QUADS);
-	glVertex2d(x1, top);
-	glVertex2d(x2, top);
-	glVertex2d(x2, bot);
-	glVertex2d(x1, bot);
-	glEnd();
-	glPopMatrix();
 }
 
 

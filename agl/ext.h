@@ -2,6 +2,8 @@
  * Utility for getting OpenGL extension function pointers
  */
 
+void agl_get_extensions();
+
 #ifndef APIENTRYP
 	#define APIENTRYP APIENTRY *
 #endif
@@ -161,6 +163,4 @@ static PFNGLRENDERBUFFERSTORAGEMULTISAMPLEPROC glRenderbufferStorageMultisample_
 static PFNGLFRAMEBUFFERTEXTURELAYERPROC glFramebufferTextureLayer_func;
 #endif
 PFNGLSTRINGMARKERGREMEDYPROC glStringMarkerGREMEDY;
-
-void get_gl_extensions();
 

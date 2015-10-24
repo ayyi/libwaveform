@@ -41,6 +41,11 @@
 extern void wf_debug_printf (const char* func, int level, const char* format, ...); //TODO, perhaps just remove custom debugging messages...
 #define gwarn(A, ...) g_warning("%s(): "A, __func__, ##__VA_ARGS__);
 #define dbg(A, B, ...) wf_debug_printf(__func__, A, B, ##__VA_ARGS__)
+#ifdef DEBUG
+#define AGL_DEBUG agl->debug
+#else
+#define AGL_DEBUG false
+#endif
 
 static gulong __enable_flags = 0;
 #define GL_ENABLE_ALPHA_TEST   (1<<3)
@@ -51,7 +56,7 @@ static gulong __enable_flags = 0;
 int _program = 0;
 GLenum _wf_ge = 0;
 
-static gboolean font_is_scalable(PangoContext*, const char* font_name);
+static gboolean font_is_scalable (PangoContext*, const char* font_name);
 
 static void  _alphamap_set_uniforms();
 static AGlUniformInfo uniforms[] = {
@@ -85,8 +90,6 @@ PlainShader plain = {{NULL, NULL, 0, NULL, _plain_set_uniforms, &plain_colour_te
 static void
 _plain_set_uniforms()
 {
-	//AGlShader* shader = &plain.shader;
-
 	float colour[4] = {0.0, 0.0, 0.0, ((float)(plain.uniform.colour & 0xff)) / 0x100};
 	agl_rgba_to_float(plain.uniform.colour, &colour[0], &colour[1], &colour[2]);
 	glUniform4fv(glGetUniformLocation(plain.shader.program, "colour"), 1, colour);
@@ -240,21 +243,66 @@ agl_shaders_supported()
 
 
 void
-agl_shaders_init()
+agl_gl_init()
 {
-	// initialise shader programs
-	// must not be called until we have and are inside DRAW
-
-	if(!agl->pref_use_shaders) return;
-
 	static gboolean done = FALSE;
 	if(done++) return;
 
-	agl_create_program(&alphamap.shader);
-	agl_create_program(&tex2d.shader);
-	agl_create_program(&plain.shader);
+	if(agl->pref_use_shaders && !agl_shaders_supported()){
+		printf("gl shaders not supported. expect reduced functionality.\n");
+		//agl_use_program(NULL);
+		//wfc->use_1d_textures = false;
+	}
+	if(AGL_DEBUG) printf("GL_RENDERER = %s\n", (const char*)glGetString(GL_RENDERER));
 
-	agl->shaders.text = &alphamap;
+	int version = 0;
+	const char* _version = (const char*)glGetString(GL_VERSION);
+	if(_version){
+		gchar** split = g_strsplit(_version, ".", 2);
+		if(split){
+			version = atoi(split[0]);
+			dbg(1, "gl_version=%i", version);
+			g_strfreev(split);
+		}
+	}
+
+	// npot textures are mandatory for opengl 2.0
+	// npot capability also means non-square textures are supported.
+	// some older hardware (eg radeon x1600) may not have full support, and may drop back to software rendering if certain features are used.
+	if(GL_ARB_texture_non_power_of_two || version > 1){
+		if(AGL_DEBUG) printf("non_power_of_two textures are available.\n");
+		agl->have_npot_textures = TRUE;
+	}else{
+		if(AGL_DEBUG){
+			fprintf(stderr, "GL_ARB_texture_non_power_of_two extension is not available!\n");
+			fprintf(stderr, "Framebuffer effects will be lower resolution (lower quality).\n\n");
+		}
+	}
+
+#if 0
+	// just testing. there is probably a better test.
+	if(glBindVertexArrayAPPLE){
+		if(wf_debug) printf("vertex arrays available.\n");
+	}else{
+		fprintf(stderr, "vertex arrays not available!\n");
+	}
+#endif
+
+	void
+	agl_shaders_init()
+	{
+		// initialise shader programs
+
+		agl_create_program(&alphamap.shader);
+		agl_create_program(&tex2d.shader);
+		agl_create_program(&plain.shader);
+
+		agl->shaders.text = &alphamap;
+	}
+
+	if(agl->use_shaders){
+		agl_shaders_init();
+	}
 }
 
 
@@ -279,6 +327,7 @@ agl_create_program(AGlShader* sh)
 	dbg(2, "%u %u program=%u", vert_shader, frag_shader, program);
 
 	glUseProgram(program);
+	_program = program;
 
 	AGlUniformInfo* uniforms = sh->uniforms;
 	agl_uniforms_init(program, uniforms);

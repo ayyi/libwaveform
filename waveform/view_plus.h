@@ -27,6 +27,7 @@
 #include <gtk/gtk.h>
 #include <gtk/gtkgl.h>
 #include "waveform/waveform.h"
+#include "waveform/actors/background.h"
 #include "waveform/actors/grid.h"
 #include "waveform/actors/spp.h"
 #include "waveform/actors/text.h"

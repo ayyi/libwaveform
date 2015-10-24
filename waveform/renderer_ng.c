@@ -42,6 +42,7 @@ typedef struct {
 	int         mmidx_max[N_LOD];
 	int         mmidx_min[N_LOD];
 	int         time_stamp;
+	AGlShader*  shader;
 } NGRenderer;
 
 
@@ -365,7 +366,6 @@ ng_gl2_load_block(Renderer* renderer, WaveformActor* actor, int b)
 static void
 ng_gl2_pre_render(Renderer* renderer, WaveformActor* actor)
 {
-	WaveformCanvas* wfc = actor->canvas;
 	Waveform* w = actor->waveform;
 	WfActorPriv* _a = actor->priv;
 	RenderInfo* r  = &_a->render_info;
@@ -373,7 +373,7 @@ ng_gl2_pre_render(Renderer* renderer, WaveformActor* actor)
 	HiResNGWaveform* data = (HiResNGWaveform*)w->priv->render_data[renderer->mode];
 	if(!data) return; // this can happen when we fall through from v hi res.
 
-	HiResNGShader* shader = wfc->priv->shaders.hires_ng;
+	HiResNGShader* shader = (HiResNGShader*)((NGRenderer*)renderer)->shader;
 	shader->uniform.fg_colour = (actor->fg_colour & 0xffffff00) + (unsigned)(0x100 * _a->animatable.opacity.val.f);
 	shader->uniform.top = r->rect.top;
 	shader->uniform.bottom = r->rect.top + r->rect.height;
@@ -424,7 +424,7 @@ ng_gl2_render_block(Renderer* renderer, WaveformActor* actor, int b, gboolean is
 	Section* section = &data->section[s];
 
 	if(!_b && b != r->viewport_blocks.first){
-		HiResNGShader* shader = actor->canvas->priv->shaders.hires_ng;
+		HiResNGShader* shader = (HiResNGShader*)((NGRenderer*)renderer)->shader;
 		shader->uniform.tex_height = data->section[b / MAX_BLOCKS_PER_TEXTURE].buffer_size / modes[renderer->mode].texture_size;
 		shader->shader.set_uniforms_(actor);
 	}

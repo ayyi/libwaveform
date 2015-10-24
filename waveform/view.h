@@ -24,6 +24,7 @@
 #define __waveform_view_h__
 
 #include <glib.h>
+#include <GL/gl.h>
 #include <gtk/gtk.h>
 #include <gtk/gtkgl.h>
 #include "waveform/typedefs.h"
@@ -66,7 +67,6 @@ void            waveform_view_set_start     (WaveformView*, int64_t);
 void            waveform_view_set_region    (WaveformView*, int64_t, int64_t);
 void            waveform_view_set_colour    (WaveformView*, uint32_t fg, uint32_t bg);
 void            waveform_view_set_show_rms  (WaveformView*, gboolean);
-void            waveform_view_set_show_grid (WaveformView*, gboolean);
 
 WaveformCanvas* waveform_view_get_canvas    (WaveformView*);
 

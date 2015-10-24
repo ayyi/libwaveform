@@ -9,7 +9,7 @@ SDLPROGRAMS = sdl
 endif
 
 if ENABLE_OPENGL
-noinst_PROGRAMS = waveform_test view_test actor_test actor_plus list group hires_test $(ASSPROGRAMS) frame_rate resources write_wav write_short write_block large_files cache 32bit med_textures pixbuf $(SDLPROGRAMS)
+noinst_PROGRAMS = waveform_test view_test actor_test actor_plus actor_no_scene list group hires_test multi_scene $(ASSPROGRAMS) frame_rate resources write_wav write_short write_block large_files cache 32bit med_textures pixbuf glx $(SDLPROGRAMS)
 ###noinst_PROGRAMS = waveform_test view_test actor_test actor_plus $(ASSPROGRAMS)
 endif
 
@@ -56,6 +56,14 @@ view_plus_test_SOURCES = \
 actor_test_SOURCES = \
 	$(COMMON_SOURCES) \
 	actor_test.c
+
+actor_no_scene_SOURCES = \
+	$(COMMON_SOURCES) \
+	actor_no_scene.c
+
+multi_scene_SOURCES = \
+	$(COMMON_SOURCES) \
+	multi_scene.c
 
 actor_plus_SOURCES = \
 	$(COMMON_SOURCES) \
@@ -109,6 +117,10 @@ sdl_SOURCES = \
 	sdl.c
 endif
 
+glx_sources = \
+	$(COMMON_SOURCES) \
+	glx.c
+
 write_wav_SOURCES = \
 	generator.cc generator.h \
 	cpgrs.cc cpgrs.h \
@@ -136,6 +148,10 @@ actor_test_LDADD = \
 	$(OPENGL_LDFLAGS) \
 	$(TEST_LDFLAGS)
 
+actor_no_scene_LDADD = \
+	$(OPENGL_LDFLAGS) \
+	$(TEST_LDFLAGS)
+
 actor_plus_LDADD = \
 	$(OPENGL_LDFLAGS) \
 	$(TEST_LDFLAGS)
@@ -149,6 +165,10 @@ sdl_LDADD = \
 	$(OPENGL_LDFLAGS) \
 	$(SDL_LIBS) \
 	$(top_srcdir)/sdl/libsdlframerate.a \
+	$(TEST_LDFLAGS)
+
+glx_LDADD = \
+	$(OPENGL_LDFLAGS) \
 	$(TEST_LDFLAGS)
 
 LDADD = \

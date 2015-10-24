@@ -105,7 +105,7 @@ texture_cache_gen(TextureCache* c)
 	guint textures[WF_TEXTURE_ALLOCATION_INCREMENT];
 	glGenTextures(WF_TEXTURE_ALLOCATION_INCREMENT, textures);
 	dbg(2, "size=%i-->%i textures=%u...%u", size-WF_TEXTURE_ALLOCATION_INCREMENT, size, textures[0], textures[WF_TEXTURE_ALLOCATION_INCREMENT-1]);
-	if(glGetError() != GL_NO_ERROR) gwarn("failed to generate %i textures. cache_size=%i", WF_TEXTURE_ALLOCATION_INCREMENT, c->t->len);
+	gl_warn("failed to generate %i textures. cache_size=%i", WF_TEXTURE_ALLOCATION_INCREMENT, c->t->len);
 
 	int t;
 #ifdef WF_DEBUG

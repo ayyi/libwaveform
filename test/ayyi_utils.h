@@ -7,28 +7,6 @@
 #define TIMER_STOP FALSE
 #define call(FN, A, ...) if(FN) (FN)(A, ##__VA_ARGS__)
 
-#ifdef USE_SDL
-#  define is_sdl(WFC) (WFC && WFC->root->type == CONTEXT_TYPE_SDL)
-#else
-#  define is_sdl(WFC) false
-#endif
-
-#ifndef __common_c__
-extern gboolean __wf_drawing;
-#endif
-#define START_DRAW \
-	if(__wf_drawing){ gwarn("START_DRAW: already drawing"); } \
-	__draw_depth++; \
-	__wf_drawing = TRUE; \
-	if (is_sdl(wfc) || (__draw_depth > 1) || gdk_gl_drawable_gl_begin (gl_drawable, gl_context)) {
-#define END_DRAW \
-	__draw_depth--; \
-	if(!is_sdl(wfc)){ \
-		if(!__draw_depth) gdk_gl_drawable_gl_end(gl_drawable); \
-		} else { gwarn("!! gl_begin fail"); } \
-	} \
-	(__wf_drawing = FALSE);
-
 void        errprintf                (char* fmt, ...);
 void        errprintf2               (const char* func, char* format, ...);
 void        warn_gerror              (const char* msg, GError**);

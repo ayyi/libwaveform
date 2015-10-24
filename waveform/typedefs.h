@@ -39,6 +39,9 @@ typedef struct _WaveformViewPlus    WaveformViewPlus;
 typedef struct _wf_shaders          WfShaders;
 typedef struct _ass_shader          AssShader;
 typedef struct _WfWorker            WfWorker;
+typedef struct _PeakShader          PeakShader;
+typedef struct _RulerShader         RulerShader;
+typedef struct _CursorShader        CursorShader;
 
 typedef void   (*WfCallback)         (gpointer);
 typedef void   (*WfCallback2)        (Waveform*, gpointer);

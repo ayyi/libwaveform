@@ -88,7 +88,7 @@ gpointer tests[] = {};
 
 
 int
-main (int argc, char *argv[])
+main (int argc, char* argv[])
 {
 	if(sizeof(off_t) != 8){ gerr("sizeof(off_t)=%i\n", sizeof(off_t)); return EXIT_FAILURE; }
 
@@ -106,7 +106,7 @@ main (int argc, char *argv[])
 	WaveformView* waveform = waveform_view_new(NULL);
 	waveform_view_set_show_rms(waveform, false);
 	#if 0
-	waveform_view_set_show_grid(waveform, true);
+	waveform_view_add_layer(waveform, grid_actor(waveform_view_get_actor(waveform)), 0);
 	#endif
 	#if 0
 	gboolean on_idle(gpointer data)

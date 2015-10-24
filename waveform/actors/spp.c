@@ -23,10 +23,6 @@
 #include <gtk/gtk.h>
 #include <gdk/gdkkeysyms.h>
 #include <GL/gl.h>
-#include <GL/glx.h>
-#include <GL/glxext.h>
-#include <gtkglext-1.0/gdk/gdkgl.h>
-#include <gtkglext-1.0/gtk/gtkgl.h>
 #include <ass/ass.h>
 #include "agl/ext.h"
 #include "agl/utils.h"
@@ -42,13 +38,12 @@ static AGl* agl = NULL;
 AGlActor*
 spp_actor(WaveformActor* wf_actor)
 {
-	// TODO frame rate is currently too low to give smooth reslts.
+	g_return_val_if_fail(wf_actor, NULL);
 
 	agl = agl_get_instance();
 
 	void spp_actor__init(AGlActor* actor)
 	{
-		if(agl->use_shaders) agl_create_program(&cursor.shader);
 		if(!((SppActor*)actor)->text_colour) ((SppActor*)actor)->text_colour = wf_get_gtk_base_color(actor->root->widget, GTK_STATE_NORMAL, 0xaa);
 	}
 

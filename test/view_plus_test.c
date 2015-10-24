@@ -64,9 +64,6 @@
 #include "agl/utils.h"
 #include "agl/actor.h"
 #include "waveform/view_plus.h"
-#include "waveform/actors/grid.h"
-#include "waveform/actors/text.h"
-#include "waveform/actors/spp.h"
 #include "test/ayyi_utils.h"
 #include "common.h"
 
@@ -119,11 +116,12 @@ uint32_t _time = 1000 + 321;
 GtkWidget* table = NULL;
 struct Layers {
     AGlActor* grid;
+    AGlActor* spp;
 } layers;
 
 
 int
-main (int argc, char *argv[])
+main (int argc, char* argv[])
 {
 	if(sizeof(off_t) != 8){ gerr("sizeof(off_t)=%i\n", sizeof(off_t)); return EXIT_FAILURE; }
 
@@ -146,6 +144,8 @@ main (int argc, char *argv[])
 	waveform_view_plus_load_file(waveform, filename, NULL, NULL);
 	g_free(filename);
 
+	waveform_view_plus_add_layer(waveform, background_actor(NULL), 0);
+
 	layers.grid = waveform_view_plus_add_layer(waveform, grid_actor(waveform_view_plus_get_actor(waveform)), 0);
 
 	AGlActor* text_layer = waveform_view_plus_add_layer(waveform, text_actor(NULL), 3);
@@ -153,10 +153,8 @@ main (int argc, char *argv[])
 	((TextActor*)text_layer)->text = g_strdup("Waveform text waveform text");
 	text_actor_set_colour((TextActor*)text_layer, 0x33aaffff, 0xffff00ff);
 
-	AGlActor* spp = waveform_view_plus_get_layer(waveform, 5);
-	if(spp){
-		spp_actor_set_time((SppActor*)spp, (_time += 50, _time));
-	}
+	layers.spp = waveform_view_plus_add_layer(waveform, spp_actor(waveform_view_plus_get_actor(waveform)), 0);
+	spp_actor_set_time((SppActor*)layers.spp, (_time += 50, _time));
 
 	gtk_widget_set_size_request((GtkWidget*)waveform, 480, 160);
 
@@ -319,10 +317,7 @@ stop(WaveformView* view)
 		g_source_remove (play_timer);
 		play_timer = 0;
 	}else{
-		AGlActor* spp = waveform_view_plus_get_layer((WaveformViewPlus*)view, 5);
-		if(spp){
-			spp_actor_set_time((SppActor*)spp, (_time = 0));
-		}
+		spp_actor_set_time((SppActor*)layers.spp, (_time = 0));
 	}
 }
 
@@ -332,10 +327,7 @@ play(WaveformView* view)
 {
 	bool tick(gpointer view)
 	{
-		AGlActor* spp = waveform_view_plus_get_layer(view, 5);
-		if(spp){
-			spp_actor_set_time((SppActor*)spp, (_time += 50, _time));
-		}
+		spp_actor_set_time((SppActor*)layers.spp, (_time += 50, _time));
 		return true;
 	}
 

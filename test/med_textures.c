@@ -203,11 +203,11 @@ setup_projection(GtkWidget* widget)
 static void
 textured_rect_1d(WaveformActor* actor, guint texture, float x, float y, float w, float h)
 {
-	agl_use_program((AGlShader*)wfc->priv->shaders.peak);
+	agl_use_program((AGlShader*)wfc->shaders.peak);
 
 	int n_channels = 1;
 	float ppp = 1.0;
-	wfc->priv->shaders.peak->set_uniforms(ppp, y, y + h, 0xffff00ff, n_channels);
+	wfc->shaders.peak->set_uniforms(ppp, y, y + h, 0xffff00ff, n_channels);
 
 	glActiveTexture(WF_TEXTURE0);
 	glBindTexture(GL_TEXTURE_1D, texture);

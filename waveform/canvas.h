@@ -24,6 +24,7 @@
 #endif
 #include "waveform/typedefs.h"
 #include "waveform/shader.h"
+#include "waveform/utils.h"
 
 #define TYPE_WAVEFORM_CANVAS (waveform_canvas_get_type ())
 #define WAVEFORM_CANVAS(obj) (G_TYPE_CHECK_INSTANCE_CAST ((obj), TYPE_WAVEFORM_CANVAS, WaveformCanvas))
@@ -42,15 +43,22 @@ struct _waveform_canvas {
 	gboolean       enable_animations;
 	gboolean       blend;              // true by default - set to false to increase performance if using without background (doesnt make much difference). Flag currently not honoured in all cases.
 
-	void           (*draw)(WaveformCanvas*, gpointer);
-	gpointer       draw_data;
+	void           (*draw)(WaveformCanvas*, gpointer); // application callback - called when the application needs to initiate a redraw.
+	gpointer       draw_data;                          // user data for draw callback.
 
 	AGlRootActor*  root;
 
 	WfViewPort*    viewport;
 	uint32_t       sample_rate;
+	float          beats_per_pixel;
 	float          rotation;
 	float          v_gain;
+
+	struct {
+		PeakShader*     peak;
+		RulerShader*    ruler;
+		CursorShader*   cursor;
+	}              shaders;
 
 	WfCanvasPriv*  priv;
 	int           _draw_depth;
@@ -60,15 +68,11 @@ struct _waveform_canvas {
 #ifdef __wf_canvas_priv__
 struct _wf_canvas_priv {
 	struct {
-		PeakShader*     peak;
 		PeakShader*     peak_nonscaling;
 		HiResShader*    hires;
-		HiResNGShader*  hires_ng;
 		BloomShader*    vertical;
 		BloomShader*    horizontal;
-		RulerShader*    ruler;
 		LinesShader*    lines;
-		CursorShader*   cursor;
 	}              shaders;
 #ifdef USE_FRAME_CLOCK
 	guint64       _last_redraw_time;

@@ -14,20 +14,9 @@
   along with this program; if not, write to the Free Software
   Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 */
-#ifndef __spp_actor_h__
-#define __spp_actor_h__
+#ifndef __wf_ruler_actor_h__
+#define __wf_ruler_actor_h__
 
-typedef struct {
-    AGlActor       actor;
-	WaveformActor* wf_actor;     // TODO needs refactoring. maybe move some properties to the canvas.
-	uint32_t       text_colour;
-    uint32_t       time;         // milliseconds (maximum of 1193 hours)
-    uint32_t       play_timeout;
-} SppActor;
+AGlActor* ruler_actor(WaveformActor*);
 
-AGlActor* spp_actor          (WaveformActor*);
-void      spp_actor_set_time (SppActor*, uint32_t);
-
-#define WF_SPP_TIME_NONE UINT32_MAX
-
-#endif
+#endif //__wf_ruler_actor_h__

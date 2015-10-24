@@ -8,6 +8,7 @@ typedef struct _texture_unit      AGlTextureUnit;
 typedef struct _AGlFBO            AGlFBO;
 typedef struct _AGlActor          AGlActor;
 typedef struct _AGlRootActor      AGlRootActor;
+typedef struct _AGlRootActor      AGlScene;
 typedef struct _AGlTextureActor   AGlTextureActor;
 
 typedef struct {int x, y;}             AGliPt;

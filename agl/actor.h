@@ -35,6 +35,7 @@ typedef struct _AGlActorContext AGlActorContext;
 typedef enum {
 	CONTEXT_TYPE_GTK = 0,
 	CONTEXT_TYPE_SDL,
+	CONTEXT_TYPE_GLX,
 } ContextType;
 
 struct _AGlActor {
@@ -70,6 +71,7 @@ struct _AGlActor {
 
 AGlActor* agl_actor__new             ();
 AGlActor* agl_actor__new_root        (GtkWidget*);
+AGlActor* agl_actor__new_root_       (ContextType);
 void      agl_actor__free            (AGlActor*);
 AGlActor* agl_actor__add_child       (AGlActor*, AGlActor*);
 void      agl_actor__remove_child    (AGlActor*, AGlActor*);
@@ -85,6 +87,7 @@ bool      agl_actor__is_disabled     (AGlActor*);
 bool      agl_actor__on_event        (AGlRootActor*, GdkEvent*);
 AGlActor* agl_actor__find_by_z       (AGlActor*, int);
 bool      agl_actor__null_painter    (AGlActor*);
+bool      agl_actor__on_expose       (GtkWidget*, GdkEventExpose*, gpointer);
 
 #ifdef DEBUG
 void      agl_actor__print_tree      (AGlActor*);
@@ -105,8 +108,12 @@ struct _AGlRootActor {
 			SDL_GLContext context;
 		}          sdl;
 #endif
-   }              gl;
-   ContextType    type;
+		struct {
+		}            glx;
+   }                 gl;
+   ContextType       type;
+
+   gpointer          user_data;
 
 #ifdef USE_FRAME_CLOCK
    bool              is_animating;
@@ -133,9 +140,10 @@ extern AGlActorContext actor_context;
 #else
 #  define actor_is_sdl(RA) false
 #endif
+#define actor_not_is_gtk(RA) (RA && RA->type != CONTEXT_TYPE_GTK)
 
 #define AGL_ACTOR_START_DRAW(A) \
-	if(__wf_drawing){ gwarn("START_DRAW: already drawing"); } \
+	if(__wf_drawing){ gwarn("AGL_ACTOR_START_DRAW: already drawing"); } \
 	__draw_depth++; \
 	__wf_drawing = TRUE; \
 	if (actor_is_sdl(((AGlRootActor*)A)) || (__draw_depth > 1) || gdk_gl_drawable_gl_begin (((AGlRootActor*)A)->gl.gdk.drawable, ((AGlRootActor*)A)->gl.gdk.context)) {

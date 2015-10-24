@@ -67,6 +67,7 @@ WaveformCanvas* wfc            = NULL;
 Waveform*       w1             = NULL;
 Waveform*       w2             = NULL;
 WaveformActor*  actor          = NULL;
+AGlRootActor*   scene          = NULL;
 float           zoom           = 1.0;
 float           dz             = 20.0;
 GLuint          ass_textures[] = {0, 0};
@@ -368,14 +369,14 @@ on_expose(GtkWidget* widget, GdkEventExpose* event, gpointer user_data)
 	if(!GTK_WIDGET_REALIZED(widget)) return TRUE;
 	if(!gl_initialised) return TRUE;
 
-	AGL_ACTOR_START_DRAW(wfc->root) {
+	AGL_ACTOR_START_DRAW(scene) {
 		glClearColor(0.0, 0.0, 0.0, 1.0);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 		draw(widget);
 
-		gdk_gl_drawable_swap_buffers(wfc->root->gl.gdk.drawable);
-	} AGL_ACTOR_END_DRAW(wfc->root)
+		gdk_gl_drawable_swap_buffers(scene->gl.gdk.drawable);
+	} AGL_ACTOR_END_DRAW(scene)
 	return TRUE;
 }
 
@@ -388,7 +389,8 @@ on_canvas_realise(GtkWidget* _canvas, gpointer user_data)
 	if(canvas_init_done) return;
 	if(!GTK_WIDGET_REALIZED (canvas)) return;
 
-	wfc = wf_canvas_new((AGlRootActor*)agl_actor__new_root(canvas));
+	scene = (AGlRootActor*)agl_actor__new_root(canvas);
+	wfc = wf_canvas_new(NULL);
 
 	if(!ass.shader.program) agl_create_program(&ass.shader);
 

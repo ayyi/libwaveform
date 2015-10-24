@@ -39,7 +39,6 @@
 
 #define USE_SHADERS
 #ifdef USE_SHADERS
-								#define __wf_canvas_priv__  // TODO
 								#define __wf_private__      // TODO
 #include "waveform/utils.h"
 #include "agl/shader.h"

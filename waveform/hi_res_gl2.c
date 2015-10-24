@@ -45,7 +45,6 @@
 */
 #ifndef __actor_c__
 #define __wf_private__
-#define __wf_canvas_priv__
 #include "config.h"
 #include <unistd.h>
 #include <stdlib.h>
@@ -59,10 +58,6 @@
 #include <sndfile.h>
 #include <gtk/gtk.h>
 #include <GL/gl.h>
-#include <GL/glx.h>
-#include <GL/glxext.h>
-#include <gtkglext-1.0/gdk/gdkgl.h>
-#include <gtkglext-1.0/gtk/gtkgl.h>
 #include "waveform/waveform.h"
 #include "waveform/canvas.h"
 
@@ -72,6 +67,17 @@ extern int wf_debug;
 void hi_gl2_cache_print ();
 
 extern NGRenderer hi_renderer_gl2;
+extern HiResNGShader hires_ng_shader;
+
+
+void
+ng_gl2_new(WaveformActor* a)
+{
+	if(!hi_renderer_gl2.shader){
+		hi_renderer_gl2.shader = &hires_ng_shader.shader;
+		if(!hi_renderer_gl2.shader->program) agl_create_program(&hires_ng_shader.shader);
+	}
+}
 
 
 static void

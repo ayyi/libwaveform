@@ -28,10 +28,6 @@
 #include <sys/time.h>
 #include <gtk/gtk.h>
 #include <GL/gl.h>
-#include <GL/glx.h>
-#include <GL/glxext.h>
-#include <gtkglext-1.0/gdk/gdkgl.h>
-#include <gtkglext-1.0/gtk/gtkgl.h>
 #include "waveform/waveform.h"
 #include "waveform/canvas.h"
 #include "waveform/actors/grid.h"
@@ -53,6 +49,8 @@ struct _grid
 };
 #endif
 
+static AGl* agl = NULL;
+
 static bool grid_actor_paint(AGlActor*);
 
 
@@ -61,6 +59,8 @@ grid_actor(WaveformActor* wf_actor)
 {
 	g_return_val_if_fail(wf_actor, NULL);
 
+	agl = agl_get_instance();
+
 	void grid_actor_size(AGlActor* actor)
 	{
 		actor->region = actor->parent->region;
@@ -68,6 +68,9 @@ grid_actor(WaveformActor* wf_actor)
 
 	void grid_actor_init(AGlActor* actor)
 	{
+		if(agl->use_shaders){
+			agl_create_program(&((GridActor*)actor)->wf_actor->canvas->shaders.ruler->shader);
+		}
 #ifdef AGL_ACTOR_RENDER_CACHE
 		actor->fbo = agl_fbo_new(actor->region.x2 - actor->region.x1, actor->region.y2 - actor->region.y1, 0, 0);
 #endif
@@ -94,7 +97,6 @@ grid_actor_paint(AGlActor* _actor)
 
 	//only the case of a canvas with a single Waveform is supported.
 
-	AGl* agl = agl_get_instance();
 	WaveformActor* actor = ((GridActor*)_actor)->wf_actor;
 	Waveform* w = actor->waveform;
 	WaveformCanvas* canvas = actor->canvas;

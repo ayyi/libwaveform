@@ -29,26 +29,28 @@
 #include <math.h>
 #include <gtk/gtk.h>
 #include <GL/gl.h>
-#include <GL/glx.h>
-#include <GL/glxext.h>
-#include <gtkglext-1.0/gdk/gdkgl.h>
-#include <gtkglext-1.0/gtk/gtkgl.h>
 #include "agl/utils.h"
 #include "waveform/waveform.h"
-#include "waveform/promise.h"
 #include "waveform/gl_utils.h"
-#include "waveform/texture_cache.h"
-#include "waveform/actors/grid.h"
 #include "waveform/view.h"
 
 #define DIRECT 1
+#define DEFAULT_HEIGHT 64
+#define DEFAULT_WIDTH 256
 #define GL_HEIGHT 256.0 // same as the height of the waveform texture
 
-static GdkGLConfig*   glconfig = NULL;
-static GdkGLContext*  gl_context = NULL;
+static GdkGLConfig*  glconfig = NULL;
+static GdkGLContext* gl_context = NULL;
 
 #define _g_free0(var) (var = (g_free (var), NULL))
 #define _g_object_unref0(var) ((var == NULL) ? NULL : (var = (g_object_unref (var), NULL)))
+
+struct _WaveformViewPrivate {
+	AGlActor*       root;
+	WaveformCanvas* canvas;
+	WaveformActor*  actor;
+	AMPromise*      ready;
+};
 
 enum {
     PROMISE_DISP_READY,
@@ -56,15 +58,6 @@ enum {
     PROMISE_MAX
 };
 #define promise(A) ((AMPromise*)g_list_nth_data(view->priv->ready->children, A))
-
-struct _WaveformViewPrivate {
-	AGlActor*       root;
-	WaveformCanvas* canvas;
-	WaveformActor*  actor;
-	AGlActor*       grid;
-	gboolean        show_grid;
-	AMPromise*      ready;
-};
 
 static gpointer waveform_view_parent_class = NULL;
 
@@ -135,7 +128,6 @@ WaveformView*
 waveform_view_new (Waveform* waveform)
 {
 	PF;
-	int width = 256, height = 64;
 
 	g_return_val_if_fail(glconfig || __init(), NULL);
 
@@ -148,9 +140,9 @@ waveform_view_new (Waveform* waveform)
 #ifdef HAVE_GTK_2_18
 	gtk_widget_set_can_focus(widget, TRUE);
 #endif
-	gtk_widget_set_size_request(widget, width, height);
+	gtk_widget_set_size_request(widget, DEFAULT_WIDTH, DEFAULT_HEIGHT);
 
-	gboolean waveform_view_load_new_on_idle(gpointer _view)
+	bool waveform_view_load_new_on_idle(gpointer _view)
 	{
 		WaveformView* view = _view;
 		g_return_val_if_fail(view, G_SOURCE_REMOVE);
@@ -217,8 +209,6 @@ _show_waveform(gpointer _view, gpointer _c)
 
 	if(view->waveform){ // it is valid for the widget to not have a waveform set.
 		v->actor = wf_canvas_add_new_actor(v->canvas, view->waveform);
-
-		if(v->show_grid) agl_actor__add_child(v->root, v->grid = grid_actor(v->actor));
 
 		agl_actor__add_child(v->root, (AGlActor*)v->actor);
 
@@ -368,14 +358,6 @@ waveform_view_set_show_rms (WaveformView* view, gboolean _show)
 		return G_SOURCE_REMOVE;
 	}
 	g_idle_add(_on_idle, view);
-}
-
-
-void
-waveform_view_set_show_grid (WaveformView* view, gboolean show)
-{
-	view->priv->show_grid = show;
-	gtk_widget_queue_draw((GtkWidget*)view);
 }
 
 

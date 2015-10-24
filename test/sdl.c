@@ -40,13 +40,13 @@
 #ifdef USE_SDL_GFX
 #include "sdl/SDL2_framerate.h"
 #endif
+#include "agl/ext.h"
 #include "waveform/waveform.h"
 #include "common.h"
 
 #include "transition/frameclockidle.h"
 
-#define WAV \
-	"test/data/mono_1.wav"
+#define WAV "test/data/mono_0:10.wav"
 
 #define FPS 60
 #define HBORDER (16.0)
@@ -61,6 +61,7 @@ struct
    bool            running;
    SDL_GLContext   gl_context;
    SDL_Window*     mainWindow;
+   AGlScene*       scene;
    WaveformCanvas* wfc;
    Waveform*       w1;
    WaveformActor*  a[4];
@@ -137,6 +138,8 @@ main (int argc, char **argv)
 
 	setup_projection();
 
+	agl_get_extensions(); // TODO what is the SDL way?
+
 #ifdef USE_SDL_GFX
 	FPSmanager fpsManager;
 	SDL_initFramerate(&fpsManager);
@@ -144,6 +147,7 @@ main (int argc, char **argv)
 #endif
 	{
 		window.wfc = wf_canvas_new_sdl(window.gl_context);
+		window.scene = window.wfc->root;
 
 		char* filename = find_wav(WAV);
 		window.w1 = waveform_load_new(filename);
@@ -154,7 +158,7 @@ main (int argc, char **argv)
 		window.region[1] = (WfSampleRegion){100000, n_frames / 2};
 
 		int i = 0; for(;i<2;i++){
-			window.a[i] = wf_canvas_add_new_actor(window.wfc, window.w1);
+			agl_actor__add_child((AGlActor*)window.scene, (AGlActor*)(window.a[i] = wf_canvas_add_new_actor(window.wfc, window.w1)));
 
 			wf_actor_set_rect(window.a[i], &(WfRectangle){
 				0.0,
@@ -202,7 +206,7 @@ main (int argc, char **argv)
 
 		glRectf(0.0, window.height/2.0, window.width, window.height);
 
-		int i; for(i=0;i<2;i++) agl_actor__paint((AGlActor*)window.a[i]);
+		agl_actor__paint((AGlActor*)window.scene);
 
 		SDL_GL_SwapWindow(window.mainWindow); // does not wait for vblank
 	}

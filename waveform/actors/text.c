@@ -23,10 +23,6 @@
 #include <gtk/gtk.h>
 #include <gdk/gdkkeysyms.h>
 #include <GL/gl.h>
-#include <GL/glx.h>
-#include <GL/glxext.h>
-#include <gtkglext-1.0/gdk/gdkgl.h>
-#include <gtkglext-1.0/gtk/gtkgl.h>
 #include <ass/ass.h>
 #include "agl/ext.h"
 #include "agl/utils.h"
@@ -196,7 +192,7 @@ text_actor(WaveformActor* _)
 	void text_actor_set_size(AGlActor* actor)
 	{
 		// the texture height will not be available first time
-		actor->region = (AGliRegion){0, actor->parent->region.y2 - MAX(32, ((TextActor*)actor)->texture.height), actor->parent->region.x2, actor->parent->region.y2};
+		actor->region = (AGliRegion){0, 0, actor->parent->region.x2 - actor->parent->region.x1, actor->parent->region.y2 - actor->parent->region.y1};
 	}
 
 	void text_actor_free(AGlActor* actor)

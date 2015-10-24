@@ -14,7 +14,11 @@ struct _app
 	gboolean       dbus;
 	int            timeout;
 	int            n_passed;
+#ifdef __common_c__
 } app;
+#else
+} app = {0,};
+#endif
 
 typedef void (KeyHandler)(WaveformView*);
 
