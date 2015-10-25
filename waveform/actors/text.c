@@ -118,6 +118,7 @@ _init()
 	if(!init_done){
 		agl = agl_get_instance();
 		ass_init();
+		agl_set_font_string("Roboto 10"); // initialise the pango context
 
 		init_done = true;
 	}
@@ -153,13 +154,12 @@ text_actor(WaveformActor* _)
 
 #undef ALIGN_TOP
 #ifdef ALIGN_TOP
-				float y1 = -((int)th - view->title_height - view->title_y_offset);
-				agl_textured_rect(v->ass_textures[0], waveform_view_plus_get_width(view) - v->title.width - 4.0f, y, v->title.width, th, &(AGlRect){0.0, 0.0, ((float)v->title.width) / ta->texture.width, 1.0});
+				float y1 = -((int)th - ta->_title.height - ta->_title.y_offset);
+				agl_textured_rect(ta->texture.ids[0], (actor->region.x2 - actor->region.x1) - ta->_title.width - 4.0f, y, ta->_title.width, th, &(AGlRect){0.0, 0.0, ((float)ta->_title.width) / ta->texture.width, 1.0});
 #else
-				float y = actor->region.y2 - actor->region.y1 - th;
 				agl_textured_rect(ta->texture.ids[0],
 					actor->region.x2 - ta->_title.width - 4.0f,
-					y + ((TextActor*)actor)->baseline - 4.0f,
+					actor->region.y2 - actor->region.y1 - th + ((TextActor*)actor)->baseline - 4.0f,
 					ta->_title.width,
 					th,
 					&(AGlQuad){0.0, 0.0, ((float)ta->_title.width) / ta->texture.width, 1.0}
