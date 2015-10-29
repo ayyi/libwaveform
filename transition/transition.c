@@ -414,6 +414,17 @@ wf_animation_preview(WfAnimation* animation, AnimationValueFn on_frame, gpointer
 			on_frame(animation, vals, user_data);
 		}
 	}
+
+	// reset values to the start value:
+	GList* l = animation->members;
+	for(;l;l=l->next){
+		WfAnimActor* anim_actor = l->data;
+		GList* k = anim_actor->transitions;
+		for(;k;k=k->next){
+			WfAnimatable* animatable = k->data;
+			animatable->val.b = animatable->start_val.b;
+		}
+	}
 #endif
 }
 
@@ -454,7 +465,9 @@ transition_linear_f(WfAnimation* animation, WfAnimatable* animatable, int time)
 	float time_fraction = MIN(1.0, ((float)t) / len);
 	float orig_val   = animatable->start_val.f;
 	float target_val = *animatable->model_val.f;
+#if 0
 	dbg(2, "%.2f orig=%.2f target=%.2f", time_fraction, orig_val, target_val);
+#endif
 	return  animatable->val.f = (1.0 - time_fraction) * orig_val + time_fraction * target_val;
 }
 
