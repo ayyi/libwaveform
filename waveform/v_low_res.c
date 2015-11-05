@@ -37,6 +37,12 @@ v_lo_new_gl2(WaveformActor* actor)
 		g_object_weak_ref((GObject*)waveform, ng_gl2_finalize_notify, renderer);
 		g_hash_table_insert(((NGRenderer*)renderer)->ng_data, waveform, *data);
 	}
+
+	AGlShader** shader = &((NGRenderer*)modes[MODE_V_LOW].renderer)->shader;
+	if(!*shader){
+		*shader = &hires_ng_shader.shader;
+		if(!(*shader)->program) agl_create_program(*shader);
+	}
 }
 
 

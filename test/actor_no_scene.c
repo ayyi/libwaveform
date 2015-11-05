@@ -37,14 +37,7 @@
 #include <stdint.h>
 #include <string.h>
 #include <getopt.h>
-#include <time.h>
-#include <unistd.h>
-#include <signal.h>
 #include <sys/time.h>
-#include <sys/types.h>
-#include <sys/ipc.h>
-#include <sys/shm.h>
-#include <signal.h>
 #include <gtk/gtk.h>
 #include <gdk/gdkkeysyms.h>
 #include "agl/utils.h"
@@ -256,13 +249,6 @@ on_canvas_realise(GtkWidget* _canvas, gpointer user_data)
 	}
 
 	on_allocate(canvas, &canvas->allocation, user_data);
-
-	//allow the WaveformCanvas to initiate redraws
-	void _on_wf_canvas_requests_redraw(WaveformCanvas* wfc, gpointer _)
-	{
-		gdk_window_invalidate_rect(canvas->window, NULL, false);
-	}
-	wfc->draw = _on_wf_canvas_requests_redraw;
 }
 
 
@@ -285,8 +271,8 @@ start_zoom(float target_zoom)
 {
 	//when zooming in, the Region is preserved so the box gets bigger. Drawing is clipped by the Viewport.
 
-	PF0;
 	zoom = MAX(0.1, target_zoom);
+	dbg(0, "zoom=%.2f", zoom);
 
 	int i; for(i=0;i<G_N_ELEMENTS(a);i++)
 		if(a[i]) wf_actor_set_rect(a[i], &(WfRectangle){
@@ -295,6 +281,8 @@ start_zoom(float target_zoom)
 			GL_WIDTH * target_zoom,
 			GL_HEIGHT / 4 * 0.95
 		});
+
+	gdk_window_invalidate_rect(canvas->window, NULL, false);
 }
 
 
@@ -316,7 +304,7 @@ void
 vzoom_up(WaveformView* _)
 {
 	vzoom *= 1.1;
-	zoom = MIN(vzoom, 100.0);
+	vzoom = MIN(vzoom, 100.0);
 	int i; for(i=0;i<G_N_ELEMENTS(a);i++)
 		if(a[i]) wf_actor_set_vzoom(a[i], vzoom);
 }
@@ -326,7 +314,7 @@ void
 vzoom_down(WaveformView* _)
 {
 	vzoom /= 1.1;
-	zoom = MAX(vzoom, 1.0);
+	vzoom = MAX(vzoom, 1.0);
 	int i; for(i=0;i<G_N_ELEMENTS(a);i++)
 		if(a[i]) wf_actor_set_vzoom(a[i], vzoom);
 }

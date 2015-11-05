@@ -24,10 +24,6 @@
 #include <math.h>
 #include <gtk/gtk.h>
 #include <GL/gl.h>
-#include <GL/glx.h>
-#include <GL/glxext.h>
-#include <gtkglext-1.0/gdk/gdkgl.h>
-#include <gtkglext-1.0/gtk/gtkgl.h>
 #include "agl/ext.h"
 #include "agl/utils.h"
 #include "waveform/waveform.h"
@@ -37,17 +33,21 @@
 
 #include "shaders/shaders.c"
 
+#if 0
 static void  _peak_shader_set_uniforms (float peaks_per_pixel, float top, float bottom, uint32_t _fg_colour, int n_channels);
 static void  _peak_nonscaling_set_uniforms ();
-static void  _hires_set_uniforms       ();
+#endif
 static void  _hires_ng_set_uniforms    ();
+#if 0
 static void  _vertical_set_uniforms    ();
 static void  _horizontal_set_uniforms  ();
+#endif
 static void  _ass_set_uniforms         ();
 static void  _ruler_set_uniforms       ();
 static void  _lines_set_uniforms       ();
 static void  _cursor_set_uniforms      ();
 
+#if 0
 static AGlUniformInfo uniforms[] = {
    {"tex1d",     1, GL_INT,   { 1, 0, 0, 0 }, -1}, // LHS +ve - 0 corresponds to glActiveTexture(WF_TEXTURE0);
    {"tex1d_neg", 1, GL_INT,   { 2, 0, 0, 0 }, -1}, // LHS -ve - 1 corresponds to glActiveTexture(WF_TEXTURE1);
@@ -67,7 +67,9 @@ static AGlUniformInfo uniforms1[] = {
 };
 PeakShader peak_nonscaling = {{NULL, NULL, 0, uniforms1, _peak_nonscaling_set_uniforms, &peak_nonscaling_text}};
 #endif
+#endif
 
+#if 0
 static AGlUniformInfo uniforms_hr[] = {
    {"tex1d",     1, GL_INT,   { 1, 0, 0, 0 }, -1},
    {"tex1d_neg", 1, GL_INT,   { 2, 0, 0, 0 }, -1},
@@ -76,6 +78,7 @@ static AGlUniformInfo uniforms_hr[] = {
    END_OF_UNIFORMS
 };
 HiResShader hires_shader = {{NULL, NULL, 0, uniforms_hr, _hires_set_uniforms, &hires_text}};
+#endif
 
 static AGlUniformInfo uniforms_hr_ng[] = {
    {"tex2d",     1, GL_INT,   { 0, 0, 0, 0 }, -1}, // 0 corresponds to glActiveTexture(GL_TEXTURE0);
@@ -83,6 +86,7 @@ static AGlUniformInfo uniforms_hr_ng[] = {
 };
 HiResNGShader hires_ng_shader = {{NULL, NULL, 0, uniforms_hr_ng, _hires_ng_set_uniforms, &hires_ng_text}};
 
+#if 0
 static AGlUniformInfo uniforms2[] = {
    {"tex2d",     1, GL_INT,   { 0, 0, 0, 0 }, -1}, // 0 corresponds to glActiveTexture(GL_TEXTURE0);
    END_OF_UNIFORMS
@@ -94,6 +98,7 @@ static AGlUniformInfo uniforms3[] = {
    END_OF_UNIFORMS
 };
 BloomShader vertical = {{NULL, NULL, 0, uniforms3, _vertical_set_uniforms, &vertical_text}};
+#endif
 
 AssShader ass = {{
    NULL, NULL, 0,
@@ -112,6 +117,7 @@ RulerShader ruler = {{NULL, NULL, 0, uniforms5, _ruler_set_uniforms, &ruler_text
 
 CursorShader cursor = {{NULL, NULL, 0, uniforms5, _cursor_set_uniforms, &cursor_text}};
 
+#if 0
 static void
 _peak_shader_set_uniforms(float peaks_per_pixel, float top, float bottom, uint32_t _fg_colour, int n_channels)
 {
@@ -137,6 +143,7 @@ _peak_shader_set_uniforms(float peaks_per_pixel, float top, float bottom, uint32
 
 	gl_warn("");
 }
+#endif
 
 static AGlUniformInfo uniforms7[] = {
    {"tex",     1, GL_INT,   { 0, 0, 0, 0 }, -1},
@@ -145,6 +152,7 @@ static AGlUniformInfo uniforms7[] = {
 LinesShader lines = {{NULL, NULL, 0, uniforms7, _lines_set_uniforms, &lines_text}};
 
 
+#if 0
 #ifdef USE_FBO
 static void
 _peak_nonscaling_set_uniforms()
@@ -171,6 +179,7 @@ _hires_set_uniforms()
 	glUniform1i(glGetUniformLocation(shader->program, "n_channels"),      u->n_channels);
 	glUniform1f(glGetUniformLocation(shader->program, "peaks_per_pixel"), u->peaks_per_pixel);
 }
+#endif
 
 
 static void
@@ -191,6 +200,7 @@ _hires_ng_set_uniforms()
 }
 
 
+#if 0
 static void
 _vertical_set_uniforms()
 {
@@ -214,6 +224,7 @@ _horizontal_set_uniforms()
 
 	glUniform1f(glGetUniformLocation(shader->program, "peaks_per_pixel"), ((BloomShader*)shader)->uniform.peaks_per_pixel);
 }
+#endif
 
 
 static void
@@ -271,6 +282,7 @@ _cursor_set_uniforms()
 }
 
 
+#if 0
 void
 wf_shaders_init()
 {
@@ -280,10 +292,9 @@ wf_shaders_init()
 #ifdef USE_FBO
 	agl_create_program(&peak_nonscaling.shader);
 #endif
-	agl_create_program(&hires_shader.shader);
 	agl_create_program(&horizontal.shader);
 	agl_create_program(&vertical.shader);
-	agl_create_program(&lines.shader);
 }
+#endif
 
 

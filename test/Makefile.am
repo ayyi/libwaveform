@@ -9,7 +9,7 @@ SDLPROGRAMS = sdl
 endif
 
 if ENABLE_OPENGL
-noinst_PROGRAMS = waveform_test view_test actor_test actor_plus actor_no_scene list group hires_test multi_scene $(ASSPROGRAMS) frame_rate resources write_wav write_short write_block large_files cache 32bit med_textures pixbuf glx $(SDLPROGRAMS)
+noinst_PROGRAMS = waveform_test view_test actor_test actor_plus actor_no_scene list group hires_test multi_scene $(ASSPROGRAMS) frame_rate resources write_wav write_short write_block large_files cache 32bit pixbuf glx $(SDLPROGRAMS)
 ###noinst_PROGRAMS = waveform_test view_test actor_test actor_plus $(ASSPROGRAMS)
 endif
 
@@ -103,9 +103,9 @@ cache_SOURCES = \
 	$(COMMON_SOURCES) \
 	32bit.c
 
-med_textures_SOURCES = \
-	$(COMMON_SOURCES) \
-	med_textures.c
+#med_textures_SOURCES = \
+#	$(COMMON_SOURCES) \
+#	med_textures.c
 
 pixbuf_SOURCES = \
 	$(COMMON_SOURCES) \

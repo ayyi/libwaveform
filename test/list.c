@@ -28,14 +28,8 @@
 #include <stdint.h>
 #include <string.h>
 #include <getopt.h>
-#include <time.h>
-#include <unistd.h>
-#include <signal.h>
 #include <sys/time.h>
 #include <sys/types.h>
-#include <sys/ipc.h>
-#include <sys/shm.h>
-#include <signal.h>
 #include <GL/gl.h>
 #include <gtk/gtk.h>
 #include <gdk/gdkkeysyms.h>
@@ -59,6 +53,7 @@ struct _app
 GdkGLConfig*    glconfig       = NULL;
 static bool     gl_initialised = false;
 GtkWidget*      canvas         = NULL;
+AGlScene*       scene          = NULL;
 WaveformCanvas* wfc            = NULL;
 Waveform*       w1             = NULL;
 Waveform*       w2             = NULL;
@@ -67,8 +62,6 @@ float           zoom           = 1.0;
 gpointer        tests[]        = {};
 
 static void setup_projection   (GtkWidget*);
-static void draw               (GtkWidget*);
-static bool on_expose          (GtkWidget*, GdkEventExpose*, gpointer);
 static void on_canvas_realise  (GtkWidget*, gpointer);
 static void on_allocate        (GtkWidget*, GtkAllocation*, gpointer);
 static void start_zoom         (float target_zoom);
@@ -98,11 +91,14 @@ main (int argc, char *argv[])
 	gtk_widget_set_size_request  (canvas, 320, 128);
 	gtk_widget_set_gl_capability (canvas, glconfig, NULL, 1, GDK_GL_RGBA_TYPE);
 	gtk_widget_add_events        (canvas, GDK_POINTER_MOTION_MASK | GDK_BUTTON_PRESS_MASK | GDK_BUTTON_RELEASE_MASK);
+
 	gtk_container_add((GtkContainer*)window, (GtkWidget*)canvas);
+
+	scene = (AGlRootActor*)agl_actor__new_root(canvas);
 
 	g_signal_connect((gpointer)canvas, "realize",       G_CALLBACK(on_canvas_realise), NULL);
 	g_signal_connect((gpointer)canvas, "size-allocate", G_CALLBACK(on_allocate), NULL);
-	g_signal_connect((gpointer)canvas, "expose_event",  G_CALLBACK(on_expose), NULL);
+	g_signal_connect((gpointer)canvas, "expose-event",  G_CALLBACK(agl_actor__on_expose), scene);
 
 	gtk_widget_show_all(window);
 
@@ -188,51 +184,6 @@ setup_projection(GtkWidget* widget)
 
 
 static void
-draw(GtkWidget* widget)
-{
-	glPushMatrix(); /* modelview matrix */
-		int i; for(i=0;i<G_N_ELEMENTS(a);i++) if(a[i]) ((AGlActor*)a[i])->paint((AGlActor*)a[i]);
-	glPopMatrix();
-
-#undef SHOW_BOUNDING_BOX
-#ifdef SHOW_BOUNDING_BOX
-	glPushMatrix(); /* modelview matrix */
-		glTranslatef(0.0, 0.0, 0.0);
-		glNormal3f(0, 0, 1);
-		glDisable(GL_TEXTURE_2D);
-		glLineWidth(1);
-
-		int w = GL_WIDTH;
-		int h = GL_HEIGHT/2;
-		glBegin(GL_QUADS);
-		glVertex3f(-0.2, -0.2, 1); glVertex3f(w, -0.2, 1);
-		glVertex3f(w, h, 1);       glVertex3f(-0.2, h, 1);
-		glEnd();
-		glEnable(GL_TEXTURE_2D);
-	glPopMatrix();
-#endif
-}
-
-
-static gboolean
-on_expose(GtkWidget* widget, GdkEventExpose* event, gpointer user_data)
-{
-	if(!GTK_WIDGET_REALIZED(widget)) return TRUE;
-	if(!gl_initialised) return TRUE;
-
-	AGL_ACTOR_START_DRAW(wfc->root) {
-		glClearColor(0.0, 0.0, 0.0, 1.0);
-		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-		draw(widget);
-
-		gdk_gl_drawable_swap_buffers(wfc->root->gl.gdk.drawable);
-	} AGL_ACTOR_END_DRAW(wfc->root)
-	return TRUE;
-}
-
-
-static void
 on_canvas_realise(GtkWidget* _canvas, gpointer user_data)
 {
 	PF;
@@ -265,22 +216,13 @@ on_canvas_realise(GtkWidget* _canvas, gpointer user_data)
 	};
 
 	int i; for(i=0;i<G_N_ELEMENTS(a);i++){
-		a[i] = wf_canvas_add_new_actor(wfc, w1);
+		agl_actor__add_child((AGlActor*)scene, (AGlActor*)(a[i] = wf_canvas_add_new_actor(wfc, w1)));
 
 		wf_actor_set_region(a[i], &region[i]);
 		wf_actor_set_colour(a[i], colours[i][0]);
-
-		//a[i]->enable_animations = false;
 	}
 
 	on_allocate(canvas, &canvas->allocation, user_data);
-
-	//allow the WaveformCanvas to initiate redraws
-	void _on_wf_canvas_requests_redraw(WaveformCanvas* wfc, gpointer _)
-	{
-		gdk_window_invalidate_rect(canvas->window, NULL, false);
-	}
-	wfc->draw = _on_wf_canvas_requests_redraw;
 }
 
 

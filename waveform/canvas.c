@@ -28,16 +28,11 @@
 #include <math.h>
 #include <gtk/gtk.h>
 #include <GL/gl.h>
-#include <GL/glx.h>
-#include <GL/glxext.h>
-#include <gtkglext-1.0/gdk/gdkgl.h>
-#include <gtkglext-1.0/gtk/gtkgl.h>
 #include <pango/pangofc-font.h>
 #include <pango/pangofc-fontmap.h>
 #include "agl/ext.h"
 #include "agl/pango_render.h"
 #include "waveform/waveform.h"
-#include "waveform/texture_cache.h"
 #include "waveform/gl_utils.h"
 #include "waveform/canvas.h"
 #include "waveform/alphabuf.h"
@@ -70,10 +65,10 @@ static AGl* agl = NULL;
 #define WAVEFORM_IS_DRAWING(wa) \
 	(wa->_draw_depth > 0)
 
-static void wf_canvas_init_gl       (WaveformCanvas*);
-static void wf_canvas_class_init    (WaveformCanvasClass*);
-static void wf_canvas_instance_init (WaveformCanvas*);
-static void wf_canvas_finalize      (GObject*);
+static void wf_canvas_init_gl        (WaveformCanvas*);
+static void wf_context_class_init    (WaveformContextClass*);
+static void wf_context_instance_init (WaveformCanvas*);
+static void wf_canvas_finalize       (GObject*);
 
 extern PeakShader peak_shader, peak_nonscaling;
 extern HiResShader hires_shader;
@@ -81,7 +76,6 @@ extern BloomShader horizontal;
 extern BloomShader vertical;
 extern AlphaMapShader tex2d, ass;
 extern RulerShader ruler;
-extern LinesShader lines;
 extern CursorShader cursor;
 
 #define TRACK_ACTORS // for debugging only.
@@ -91,38 +85,38 @@ extern CursorShader cursor;
 GList* actors = NULL;
 #endif
 
-static gpointer waveform_canvas_parent_class = NULL;
-#define WAVEFORM_CANVAS_GET_PRIVATE(o) (G_TYPE_INSTANCE_GET_PRIVATE((o), TYPE_WAVEFORM_CANVAS, WfCanvasPriv))
+static gpointer waveform_context_parent_class = NULL;
+#define WAVEFORM_CONTEXT_GET_PRIVATE(o) (G_TYPE_INSTANCE_GET_PRIVATE((o), TYPE_WAVEFORM_CONTEXT, WfContextPriv))
 
 
 GType
-waveform_canvas_get_type()
+waveform_context_get_type()
 {
-	static volatile gsize waveform_canvas_type_id__volatile = 0;
-	if (g_once_init_enter (&waveform_canvas_type_id__volatile)) {
-		static const GTypeInfo g_define_type_info = { sizeof (WaveformCanvasClass), (GBaseInitFunc) NULL, (GBaseFinalizeFunc) NULL, (GClassInitFunc) wf_canvas_class_init, (GClassFinalizeFunc) NULL, NULL, sizeof (WaveformCanvas), 0, (GInstanceInitFunc) wf_canvas_instance_init, NULL };
-		GType waveform_canvas_type_id;
-		waveform_canvas_type_id = g_type_register_static (G_TYPE_OBJECT, "WaveformCanvas", &g_define_type_info, 0);
-		g_once_init_leave (&waveform_canvas_type_id__volatile, waveform_canvas_type_id);
+	static volatile gsize waveform_context_type_id__volatile = 0;
+	if (g_once_init_enter (&waveform_context_type_id__volatile)) {
+		static const GTypeInfo g_define_type_info = { sizeof (WaveformContextClass), (GBaseInitFunc) NULL, (GBaseFinalizeFunc) NULL, (GClassInitFunc) wf_context_class_init, (GClassFinalizeFunc) NULL, NULL, sizeof (WaveformCanvas), 0, (GInstanceInitFunc) wf_context_instance_init, NULL };
+		GType waveform_context_type_id;
+		waveform_context_type_id = g_type_register_static (G_TYPE_OBJECT, "WaveformCanvas", &g_define_type_info, 0);
+		g_once_init_leave (&waveform_context_type_id__volatile, waveform_context_type_id);
 	}
-	return waveform_canvas_type_id__volatile;
+	return waveform_context_type_id__volatile;
 }
 
 
 static void
-wf_canvas_class_init(WaveformCanvasClass* klass)
+wf_context_class_init(WaveformContextClass* klass)
 {
-	waveform_canvas_parent_class = g_type_class_peek_parent (klass);
-	//g_type_class_add_private (klass, sizeof (WaveformCanvasPrivate));
+	waveform_context_parent_class = g_type_class_peek_parent (klass);
+	//g_type_class_add_private (klass, sizeof (WaveformContextPrivate));
 	G_OBJECT_CLASS (klass)->finalize = wf_canvas_finalize;
-	g_signal_new ("dimensions_changed", TYPE_WAVEFORM_CANVAS, G_SIGNAL_RUN_LAST, 0, NULL, NULL, g_cclosure_marshal_VOID__VOID, G_TYPE_NONE, 0);
+	g_signal_new ("dimensions_changed", TYPE_WAVEFORM_CONTEXT, G_SIGNAL_RUN_LAST, 0, NULL, NULL, g_cclosure_marshal_VOID__VOID, G_TYPE_NONE, 0);
 
 	agl = agl_get_instance();
 }
 
 
 static void
-wf_canvas_instance_init(WaveformCanvas* self)
+wf_context_instance_init(WaveformCanvas* self)
 {
 }
 
@@ -132,7 +126,7 @@ static void wf_canvas_on_paint_update(GdkFrameClock* clock, void* _canvas)
 {
 	WaveformCanvas* wfc = _canvas;
 
-	if(wfc->draw) wfc->draw(wfc, wfc->draw_data);
+	if(wfc->root->draw) wfc->root->draw(wfc->root, wfc->root->user_data);
 	wfc->priv->_last_redraw_time = wf_get_time();
 }
 #endif
@@ -141,7 +135,7 @@ static void wf_canvas_on_paint_update(GdkFrameClock* clock, void* _canvas)
 static void
 wf_canvas_init(WaveformCanvas* wfc, AGlRootActor* root)
 {
-	wfc->priv = g_new0(WfCanvasPriv, 1);
+	wfc->priv = g_new0(WfContextPriv, 1);
 
 	wfc->enable_animations = true;
 	wfc->blend = true;
@@ -152,9 +146,17 @@ wf_canvas_init(WaveformCanvas* wfc, AGlRootActor* root)
 	wfc->texture_unit[2] = agl_texture_unit_new(WF_TEXTURE2);
 	wfc->texture_unit[3] = agl_texture_unit_new(WF_TEXTURE3);
 
-	wfc->shaders.peak = &peak_shader;
+	wfc->samples_per_pixel = wfc->sample_rate / 32.0; // 32 pixels for 1 second
+	wfc->zoom = 1.0;
+
+	wfc->priv->zoom = (WfAnimatable){
+		.model_val.f = &wfc->zoom,
+		.start_val.f = wfc->zoom,
+		.val.f       = wfc->zoom,
+		.type        = WF_FLOAT
+	};
+
 	wfc->shaders.ruler = &ruler;
-	wfc->shaders.cursor = &cursor;
 
 	if(wfc->root){
 
@@ -168,7 +170,7 @@ wf_canvas_init(WaveformCanvas* wfc, AGlRootActor* root)
 
 			wf_canvas_init_gl(wfc);
 
-			if(wfc->draw) wf_canvas_queue_redraw(wfc);
+			if(wfc->root->draw) wf_canvas_queue_redraw(wfc);
 			wfc->use_1d_textures = agl->use_shaders;
 
 #ifdef USE_FRAME_CLOCK
@@ -194,7 +196,7 @@ wf_canvas_new(AGlRootActor* root)
 {
 	PF;
 
-	WaveformCanvas* wfc = waveform_canvas_construct(TYPE_WAVEFORM_CANVAS);
+	WaveformCanvas* wfc = waveform_canvas_construct(TYPE_WAVEFORM_CONTEXT);
 	wfc->root = root;
 	wf_canvas_init(wfc, root);
 	return wfc;
@@ -207,7 +209,7 @@ wf_canvas_new_sdl(SDL_GLContext* context)
 {
 	PF;
 
-	WaveformCanvas* wfc = waveform_canvas_construct(TYPE_WAVEFORM_CANVAS);
+	WaveformCanvas* wfc = waveform_canvas_construct(TYPE_WAVEFORM_CONTEXT);
 
 	wfc->show_rms = true;
 
@@ -224,11 +226,11 @@ wf_canvas_new_sdl(SDL_GLContext* context)
 static void
 wf_canvas_finalize(GObject* obj)
 {
-	WaveformCanvas* wfc = WAVEFORM_CANVAS (obj);
+	WaveformCanvas* wfc = WAVEFORM_CONTEXT (obj);
 
 	g_free(wfc->priv);
 
-	G_OBJECT_CLASS (waveform_canvas_parent_class)->finalize (obj);
+	G_OBJECT_CLASS (waveform_context_parent_class)->finalize (obj);
 }
 
 
@@ -237,7 +239,7 @@ wf_canvas_free (WaveformCanvas* wfc)
 {
 	g_return_if_fail(wfc);
 	PF;
-	WfCanvasPriv* c = wfc->priv;
+	WfContextPriv* c = wfc->priv;
 
 #ifdef USE_FRAME_CLOCK
 	frame_clock_disconnect(G_CALLBACK(wf_canvas_on_paint_update), wfc);
@@ -254,9 +256,8 @@ wf_canvas_free (WaveformCanvas* wfc)
 static void
 wf_canvas_init_gl(WaveformCanvas* wfc)
 {
-	WfCanvasPriv* priv = wfc->priv;
-
-	if(wfc->shaders.peak->shader.program){
+	PF;
+	if(agl->shaders.plain->shader.program){
 #ifdef DEBUG
 		gwarn("already done");
 #endif
@@ -282,18 +283,6 @@ wf_canvas_init_gl(WaveformCanvas* wfc)
 			wfc->use_1d_textures = false;
 		}
 
-		if(agl->use_shaders){
-			wf_shaders_init();
-
-#ifdef USE_FBO
-			priv->shaders.peak_nonscaling = &peak_nonscaling;
-#endif
-			priv->shaders.hires = &hires_shader;
-			priv->shaders.vertical = &vertical;
-			priv->shaders.horizontal = &horizontal;
-			priv->shaders.lines = &lines;
-		}
-
 	} WAVEFORM_END_DRAW(wfc);
 }
 
@@ -311,6 +300,7 @@ wf_canvas_set_viewport(WaveformCanvas* wfc, WfViewPort* _viewport)
 
 	g_return_if_fail(wfc);
 
+#if 0
 	if(_viewport){
 		if(!wfc->viewport) wfc->viewport = g_new(WfViewPort, 1);
 		*wfc->viewport = *_viewport;
@@ -319,8 +309,22 @@ wf_canvas_set_viewport(WaveformCanvas* wfc, WfViewPort* _viewport)
 		dbg(1, "viewport=NULL");
 		if(wfc->viewport) g_free0(wfc->viewport);
 	}
+#else
+	if(_viewport){
+		wfc->root->viewport = (AGlRect){
+			.x = _viewport->left,
+			.y = _viewport->top,
+			.h = _viewport->right - _viewport->left,
+			.w = _viewport->bottom - _viewport->top,
+		};
+	}
+#endif
 
+#if 0
 	if(wfc->draw) g_signal_emit_by_name(wfc, "dimensions-changed");
+#else
+	if(wfc->root->draw) g_signal_emit_by_name(wfc, "dimensions-changed");
+#endif
 }
 
 
@@ -383,11 +387,10 @@ wf_canvas_queue_redraw(WaveformCanvas* wfc)
 	gboolean wf_canvas_redraw(gpointer _canvas)
 	{
 		WaveformCanvas* wfc = _canvas;
-		if(wfc->draw) wfc->draw(wfc, wfc->draw_data);
+		if(wfc->root->draw) wfc->root->draw(wfc->root, wfc->root->user_data);
 		wfc->priv->_queued = false;
 		return G_SOURCE_REMOVE;
 	}
-
 	wfc->priv->_queued = g_timeout_add(CLAMP(WF_FRAME_INTERVAL - (wf_get_time() - wfc->_last_redraw_time), 1, WF_FRAME_INTERVAL), wf_canvas_redraw, wfc);
 #endif
 }
@@ -399,6 +402,7 @@ wf_canvas_gl_to_px(WaveformCanvas* wfc, float x)
 	//convert from gl coords to screen pixels
 
 	#warning _gl_to_px TODO where viewport not set.
+#if 0
 	if(!wfc->viewport) return x;
 
 	//TODO move to resize handler?
@@ -410,6 +414,9 @@ wf_canvas_gl_to_px(WaveformCanvas* wfc, float x)
 
 	float scale = drawable_width_px / viewport_width;
 	return x * scale;
+#else
+	return x;
+#endif
 }
 
 
@@ -507,6 +514,69 @@ wf_canvas_set_rotation(WaveformCanvas* wfc, float rotation)
 {
 	dbg(0, "TODO");
 }
+
+
+/*
+ *  Allows the whole scene to be scaled as a single transition
+ *  which is more efficient than scaling many individual waveforms.
+ *
+ *  Calling this function puts the canvas into 'scaled' mode.
+ */
+#ifdef USE_CANVAS_SCALING
+void
+wf_canvas_set_zoom(WaveformCanvas* wfc, float zoom)
+{
+	// TODO should probably call agl_actor__start_transition
+
+	wfc->priv->scaled = true;
+	dbg(0, "zoom=%f", zoom);
+
+#ifdef TRACK_ACTORS
+	if(!actors) return;
+
+	void set_zoom_on_animation_finished(WfAnimation* animation, gpointer _wfc)
+	{
+		WaveformCanvas* wfc = _wfc;
+		dbg(0, "wfc=%p", wfc);
+	}
+
+	void wf_canvas_set_zoom_on_frame(WfAnimation* animation, int time)
+	{
+		WaveformCanvas* wfc = animation->user_data;
+
+#if 0 // invalidate only the waveform actors
+		GList* l = animation->members;
+		for(;l;l=l->next){
+			WfAnimActor* member = l->data;
+			GList* k = member->transitions;
+			for(;k;k=k->next){
+				WfAnimatable* animatable = k->data;
+#ifdef TRACK_ACTORS
+				GList* a = actors;
+				for(;a;a=a->next){
+					WaveformActor* actor = a->data;
+					agl_actor__invalidate((AGlActor*)actor); // TODO can probably just invalidate the whole scene?
+				}
+#endif
+			}
+		}
+#else
+		agl_actor__invalidate((AGlActor*)wfc->root); // strictly speaking some non-scalable items should not be invalidated
+#endif
+	}
+
+	wfc->zoom = zoom; // TODO clamp
+
+	WfAnimation* animation = wf_animation_new(set_zoom_on_animation_finished, wfc);
+	animation->on_frame = wf_canvas_set_zoom_on_frame;
+
+	GList* animatables = g_list_prepend(NULL, &wfc->priv->zoom);
+	wf_transition_add_member(animation, animatables);
+
+	wf_animation_start(animation);
+#endif
+}
+#endif
 
 
 void

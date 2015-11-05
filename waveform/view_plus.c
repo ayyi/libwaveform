@@ -224,9 +224,8 @@ waveform_view_plus_new (Waveform* waveform)
 	{
 		AGlActor* a = _a;
 		WaveformViewPlus* view = (WaveformViewPlus*)((AGlRootActor*)a)->widget;
-		WaveformViewPlusPrivate* v = view->priv;
 
-		if(agl->use_shaders && !v->canvas->shaders.peak->shader.program) return G_SOURCE_CONTINUE;
+		if(agl->use_shaders && !agl->shaders.plain->shader.program) return G_SOURCE_CONTINUE;
 
 		waveform_view_plus_display_ready(view);
 
@@ -245,6 +244,14 @@ waveform_view_plus_new (Waveform* waveform)
 	v->actor = (WaveformActor*)waveform_actor(view);
 	((AGlActor*)v->actor)->z = 2;
 
+	void _waveform_view_plus_on_draw(AGlScene* scene, gpointer _view)
+	{
+		gtk_widget_queue_draw((GtkWidget*)_view);
+	}
+	AGlScene* scene = (AGlScene*)v->root;
+	scene->draw = _waveform_view_plus_on_draw;
+	scene->user_data = view;
+
 	return view;
 }
 
@@ -252,16 +259,8 @@ waveform_view_plus_new (Waveform* waveform)
 static void
 _waveform_view_plus_set_actor (WaveformViewPlus* view)
 {
-	WaveformActor* actor = view->priv->actor;
 
 	waveform_view_plus_gl_on_allocate(view);
-
-	void _waveform_view_plus_on_draw(WaveformCanvas* wfc, gpointer _view)
-	{
-		gtk_widget_queue_draw((GtkWidget*)_view);
-	}
-	actor->canvas->draw = _waveform_view_plus_on_draw;
-	actor->canvas->draw_data = view;
 }
 
 
@@ -392,13 +391,15 @@ waveform_view_plus_set_zoom (WaveformViewPlus* view, float zoom)
 	((AGlActor*)v->actor)->cache.valid = false;
 #endif
 
-	if(!view->priv->actor->canvas->draw) gtk_widget_queue_draw((GtkWidget*)view);
+	if(!((AGlActor*)v->actor)->root->draw) gtk_widget_queue_draw((GtkWidget*)view);
 }
 
 
 void
 waveform_view_plus_set_start (WaveformViewPlus* view, int64_t start_frame)
 {
+	WaveformViewPlusPrivate* v = view->priv;
+
 	uint32_t length = waveform_get_n_frames(view->waveform) / view->zoom;
 	view->start_frame = CLAMP(start_frame, 0, (int64_t)waveform_get_n_frames(view->waveform) - 10);
 	view->start_frame = MIN(view->start_frame, waveform_get_n_frames(view->waveform) - length);
@@ -407,7 +408,7 @@ waveform_view_plus_set_start (WaveformViewPlus* view, int64_t start_frame)
 		view->start_frame,
 		length
 	});
-	if(!view->priv->actor->canvas->draw) gtk_widget_queue_draw((GtkWidget*)view);
+	if(!((AGlActor*)v->actor)->root->draw) gtk_widget_queue_draw((GtkWidget*)view);
 }
 
 
@@ -429,7 +430,7 @@ waveform_view_plus_set_region (WaveformViewPlus* view, int64_t start_frame, int6
 
 	wf_actor_set_region(v->actor, &region);
 
-	if(!v->actor->canvas->draw) gtk_widget_queue_draw((GtkWidget*)view);
+	if(!((AGlActor*)v->actor)->root->draw) gtk_widget_queue_draw((GtkWidget*)view);
 }
 
 
@@ -772,7 +773,7 @@ waveform_view_plus_set_projection(GtkWidget* widget)
 	int vw = waveform_view_plus_get_width((WaveformViewPlus*)widget);
 	int vh = waveform_view_plus_get_height((WaveformViewPlus*)widget);
 	glViewport(vx, vy, vw, vh);
-	dbg (1, "viewport: %i %i %i %i", vx, vy, vw, vh);
+	dbg (2, "viewport: %i %i %i %i", vx, vy, vw, vh);
 	glMatrixMode(GL_PROJECTION);
 	glLoadIdentity();
 

@@ -101,7 +101,7 @@ hi_request_block(WaveformActor* a, int b)
 			modes[MODE_HI].renderer->load_block(modes[MODE_HI].renderer, a, b);
 
 			//TODO check this block is within current viewport
-			if(a->canvas->draw) wf_canvas_queue_redraw(a->canvas);
+			if(((AGlActor*)a)->root && ((AGlActor*)a)->root->draw) wf_canvas_queue_redraw(a->canvas);
 		}
 	}
 
@@ -201,7 +201,7 @@ hi_gl1_load_block(Renderer* renderer, WaveformActor* a, int block)
 		if(wf_debug > 1) _wf_actor_print_hires_textures(a);
 
 		//TODO check this block is within current viewport
-		if(a->canvas->draw) wf_canvas_queue_redraw(a->canvas);
+		if(((AGlActor*)a)->root->draw) wf_canvas_queue_redraw(a->canvas);
 	}
 }
 
@@ -641,7 +641,7 @@ _wf_actor_print_hires_textures(WaveformActor* a)
 }
 
 
-NGRenderer hi_renderer_gl2 = {{MODE_HI, ng_gl2_new, ng_gl2_load_block, ng_gl2_pre_render, ng_gl2_render_block, ng_gl2_free_waveform}};
+NGRenderer hi_renderer_gl2 = {{MODE_HI, hi_gl2_new, ng_gl2_load_block, ng_gl2_pre_render, ng_gl2_render_block, ng_gl2_free_waveform}};
 HiRenderer hi_renderer_gl1 = {{MODE_HI, hi_new_gl1, hi_gl1_load_block, hi_gl1_pre_render,
 #ifdef HIRES_NONSHADER_TEXTURES
 				hi_gl1_render_block,

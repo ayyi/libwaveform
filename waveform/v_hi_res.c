@@ -15,6 +15,8 @@
   Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 */
 
+extern LinesShader lines;
+
 #define VERTEX_ARRAYS
 
 #ifdef ANTIALIASED_LINES
@@ -45,8 +47,15 @@ v_hi_renderer_new(WaveformActor* actor)
 	g_return_if_fail(!w->render_data[MODE_V_HI]);
 
 	agl = agl_get_instance();
+
 	w->render_data[MODE_V_HI] = g_new0(WaveformModeRender, 1);
 	w->render_data[MODE_V_HI]->n_blocks = w->n_blocks;
+
+#if defined (MULTILINE_SHADER)
+	if(agl->use_shaders){
+		agl_create_program(&lines.shader);
+	}
+#endif
 }
 
 
@@ -398,7 +407,7 @@ draw_wave_buffer_v_hi(Renderer* renderer, WaveformActor* actor, int block, bool 
 static void
 v_hi_load_block(Renderer* renderer, WaveformActor* a, int b)
 {
-	if(a->canvas->draw) wf_canvas_queue_redraw(a->canvas);
+	if(((AGlActor*)a)->root->draw) wf_canvas_queue_redraw(a->canvas);
 }
 
 

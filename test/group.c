@@ -4,7 +4,7 @@
 
   ---------------------------------------------------------------
 
-  copyright (C) 2012-2013 Tim Orford <tim@orford.org>
+  copyright (C) 2012-2015 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -26,14 +26,9 @@
 #include <stdint.h>
 #include <string.h>
 #include <getopt.h>
-#include <time.h>
 #include <unistd.h>
 #include <signal.h>
 #include <sys/time.h>
-#include <sys/types.h>
-#include <sys/ipc.h>
-#include <sys/shm.h>
-#include <signal.h>
 #include <GL/gl.h>
 #include <gtk/gtk.h>
 #include <gdk/gdkkeysyms.h>
@@ -71,14 +66,14 @@ float           zoom           = 1.0;
 float           dz             = 20.0;
 gpointer        tests[]        = {};
 
-static void setup_projection   (GtkWidget*);
-static void on_canvas_realise  (GtkWidget*, gpointer);
-static void on_allocate        (GtkWidget*, GtkAllocation*, gpointer);
-static void start_zoom         (float target_zoom);
-static void forward            ();
-static void backward           ();
-static void toggle_animate     ();
-uint64_t    get_time           ();
+static AGlActor* rotator            (WaveformActor*);
+static void      on_canvas_realise  (GtkWidget*, gpointer);
+static void      on_allocate        (GtkWidget*, GtkAllocation*, gpointer);
+static void      start_zoom         (float target_zoom);
+static void      forward            ();
+static void      backward           ();
+static void      toggle_animate     ();
+static uint64_t  get_time           ();
 
 
 int
@@ -111,6 +106,8 @@ main (int argc, char *argv[])
 	char* filename = g_build_filename(g_get_current_dir(), WAV, NULL);
 	w1 = waveform_load_new(filename);
 	g_free(filename);
+
+	agl_actor__add_child((AGlActor*)scene, rotator(NULL));
 
 	g_signal_connect((gpointer)canvas, "realize",       G_CALLBACK(on_canvas_realise), NULL);
 	g_signal_connect((gpointer)canvas, "size-allocate", G_CALLBACK(on_allocate), NULL);
@@ -213,13 +210,6 @@ on_canvas_realise(GtkWidget* _canvas, gpointer user_data)
 	}
 
 	on_allocate(canvas, &canvas->allocation, user_data);
-
-	//allow the WaveformCanvas to initiate redraws
-	void _on_wf_canvas_requests_redraw(WaveformCanvas* wfc, gpointer _)
-	{
-		gdk_window_invalidate_rect(canvas->window, NULL, false);
-	}
-	wfc->draw = _on_wf_canvas_requests_redraw;
 }
 
 
@@ -228,7 +218,8 @@ on_allocate(GtkWidget* widget, GtkAllocation* allocation, gpointer user_data)
 {
 	if(!gl_initialised) return;
 
-	setup_projection(widget);
+	((AGlActor*)scene)->region.x2 = allocation->width;
+	((AGlActor*)scene)->region.y2 = allocation->height;
 
 	//optimise drawing by telling the canvas which area is visible
 	wf_canvas_set_viewport(wfc, &(WfViewPort){0, 0, GL_WIDTH, GL_HEIGHT});
@@ -237,31 +228,25 @@ on_allocate(GtkWidget* widget, GtkAllocation* allocation, gpointer user_data)
 }
 
 
-static void
-setup_projection(GtkWidget* widget)
+AGlActor*
+rotator(WaveformActor* wf_actor)
 {
-	int vx = 0;
-	int vy = 0;
-	int vw = widget->allocation.width;
-	int vh = widget->allocation.height;
-	glViewport(vx, vy, vw, vh);
-	dbg (0, "viewport: %i %i %i %i", vx, vy, vw, vh);
-	glMatrixMode(GL_PROJECTION);
-	glLoadIdentity();
+	void rotator_set_state(AGlActor* actor)
+	{
+		glMatrixMode(GL_MODELVIEW);
+		glLoadIdentity();
+		glRotatef(rotate[0], 1.0f, 0.0f, 0.0f);
+		glRotatef(rotate[1], 0.0f, 1.0f, 0.0f);
+		glScalef(1.0f, 1.0f, -1.0f);
+	}
 
-	double hborder = GL_WIDTH / 32;
+	AGlActor* actor = agl_actor__new();
+#ifdef AGL_DEBUG_ACTOR
+	actor->name = "Rotator";
+#endif
+	actor->set_state = rotator_set_state;
 
-	double left = -hborder;
-	double right = GL_WIDTH + hborder;
-	double bottom = GL_HEIGHT + VBORDER;
-	double top = -VBORDER;
-	glOrtho (left, right, bottom, top, 512.0, -512.0);
-
-	glMatrixMode(GL_MODELVIEW);
-	glLoadIdentity();
-	glRotatef(rotate[0], 1.0f, 0.0f, 0.0f);
-	glRotatef(rotate[1], 0.0f, 1.0f, 0.0f);
-	glScalef(1.0f, 1.0f, -1.0f);
+	return actor;
 }
 
 
@@ -366,7 +351,7 @@ toggle_animate()
 }
 
 
-uint64_t
+static uint64_t
 get_time()
 {
 	struct timeval start;

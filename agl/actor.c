@@ -31,11 +31,13 @@
 
 static AGl* agl = NULL;
 
-static bool   actor__is_onscreen (AGlActor*);
+static bool   agl_actor__is_onscreen  (AGlActor*);
 static AGliPt actor__find_offset (AGlActor*);
 static bool  _actor__on_event    (AGlActor*, GdkEvent*, AGliPt);
 static void   agl_actor__init    (AGlActor*);              // called once when gl context is available. and again if gl context changes, eg after re-realize.
+#ifdef USE_FRAME_CLOCK
 static bool   agl_actor__is_animating (AGlActor*);
+#endif
 
 
 AGlActor*
@@ -212,6 +214,7 @@ agl_actor__add_child(AGlActor* actor, AGlActor* child)
 		}
 		set_child_roots(child);
 
+		// TODO need some way to detect type?
 		#define READY_FOR_INIT(A) (A->root->widget ? GTK_WIDGET_REALIZED(A->root->widget) : true)
 		if(child->init && READY_FOR_INIT(child)) child->init(child);
 	}
@@ -257,6 +260,8 @@ agl_actor__replace_child(AGlActor* actor, AGlActor* child, AGlActor* new_child)
 static void
 agl_actor__init(AGlActor* a)
 {
+	// note that this may be called more than once, eg on settings change.
+
 	if(agl->use_shaders && a->program && !a->program->program) agl_create_program(a->program);
 
 	call(a->init, a);
@@ -267,7 +272,7 @@ agl_actor__init(AGlActor* a)
 
 
 static bool
-actor__is_onscreen(AGlActor* a)
+agl_actor__is_onscreen(AGlActor* a)
 {
 	if(a->root->widget){
 		int h = a->root->widget->allocation.height; // TODO use viewport->height
@@ -339,7 +344,7 @@ agl_actor__paint(AGlActor* a)
 {
 	if(!a->root) return;
 
-	if(!actor__is_onscreen(a)) return;
+	if(!agl_actor__is_onscreen(a)) return;
 
 	if(a->region.x1 || a->region.y1){
 		glMatrixMode(GL_MODELVIEW);
@@ -477,17 +482,7 @@ agl_actor__set_use_shaders (AGlRootActor* actor, gboolean val)
 		agl->use_shaders = val;
 
 		if(changed){
-			void _agl_actor__init(AGlActor* actor)
-			{
-				if(actor->init) actor->init(actor);
-
-				GList* l = actor->children;
-				for(;l;l=l->next){
-					_agl_actor__init(l->data);
-				}
-			}
-
-			_agl_actor__init((AGlActor*)actor);
+			agl_actor__init((AGlActor*)actor);
 		}
 	}
 }
@@ -635,19 +630,34 @@ agl_actor__on_event(AGlRootActor* root, GdkEvent* event)
 
 /*
  *  Utility function for use as a gtk "expose-event" handler.
- *  Application must pass the root actor as user_data
+ *  Application must pass the root actor as user_data when connecting the signal.
  */
 static bool __wf_drawing = FALSE; // FIXME AGL_ACTOR_START_DRAW should not rely on a variable defined in waveform/
 static int __draw_depth = 0;
 bool
 agl_actor__on_expose(GtkWidget* widget, GdkEventExpose* event, gpointer user_data)
 {
+	void set_projection(AGlActor* actor)
+	{
+		int vx = 0;
+		int vy = 0;
+		int vw = MAX(64, actor->region.x2);
+		int vh = MAX(64, actor->region.y2);
+		glViewport(vx, vy, vw, vh);
+		printf("viewport: %i %i %i %i\n", vx, vy, vw, vh);
+		glMatrixMode(GL_PROJECTION);
+		glLoadIdentity();
+
+		glOrtho (actor->root->viewport.x, actor->root->viewport.x + actor->root->viewport.w, actor->root->viewport.y + actor->root->viewport.h, actor->root->viewport.y, 256.0, -256.0);
+	}
+
 	AGlRootActor* root = user_data;
 	g_return_val_if_fail(root, false);
 
 	if(!GTK_WIDGET_REALIZED(widget)) return true;
 
 	AGL_ACTOR_START_DRAW(root) {
+		set_projection((AGlActor*)root);
 		glClearColor(0.0, 0.0, 0.0, 1.0);
 		glClear(GL_COLOR_BUFFER_BIT);
 
@@ -780,7 +790,7 @@ agl_actor__start_transition(AGlActor* actor, GList* animatables, AnimationFn don
 		.user_data = user_data
 	};
 
-	void on_frame(WfAnimation* animation, int time)
+	void agl_actor_on_frame(WfAnimation* animation, int time)
 	{
 		C* c = animation->user_data;
 
@@ -831,7 +841,7 @@ agl_actor__start_transition(AGlActor* actor, GList* animatables, AnimationFn don
 
 	if(animatables){
 		WfAnimation* animation = wf_animation_new(_on_animation_finished, c);
-		animation->on_frame = on_frame;
+		animation->on_frame = agl_actor_on_frame;
 		actor->transitions = g_list_append(actor->transitions, animation);
 #ifdef USE_FRAME_CLOCK
 		if(actor->root) actor->root->is_animating = true;
@@ -866,6 +876,7 @@ agl_actor__is_disabled(AGlActor* a)
 }
 
 
+#ifdef USE_FRAME_CLOCK
 static bool
 agl_actor__is_animating(AGlActor* a)
 {
@@ -877,6 +888,7 @@ agl_actor__is_animating(AGlActor* a)
 	}
 	return false;
 }
+#endif
 
 
 #ifdef DEBUG

@@ -34,14 +34,7 @@
 #include <stdint.h>
 #include <string.h>
 #include <getopt.h>
-#include <time.h>
-#include <unistd.h>
-#include <signal.h>
 #include <sys/time.h>
-#include <sys/types.h>
-#include <sys/ipc.h>
-#include <sys/shm.h>
-#include <signal.h>
 #include <gtk/gtk.h>
 #include <gdk/gdkkeysyms.h>
 #include "agl/utils.h"
@@ -56,7 +49,7 @@
 
 GdkGLConfig*    glconfig       = NULL;
 GtkWidget*      canvas         = NULL;
-AGlRootActor*   scene          = NULL;
+AGlScene*       scene          = NULL;
 WaveformCanvas* wfc            = NULL;
 Waveform*       w1             = NULL;
 Waveform*       w2             = NULL;
@@ -65,7 +58,6 @@ float           zoom           = 1.0;
 float           vzoom          = 1.0;
 gpointer        tests[]        = {};
 
-static void setup_projection   (GtkWidget*);
 static void on_canvas_realise  (GtkWidget*, gpointer);
 static void on_allocate        (GtkWidget*, GtkAllocation*, gpointer);
 static void start_zoom         (float target_zoom);
@@ -166,7 +158,8 @@ main (int argc, char *argv[])
 
 	add_key_handlers((GtkWindow*)window, NULL, (Key*)&keys);
 
-	gboolean window_on_delete(GtkWidget* widget, GdkEvent* event, gpointer user_data){
+	bool window_on_delete(GtkWidget* widget, GdkEvent* event, gpointer user_data)
+	{
 		gtk_main_quit();
 		return false;
 	}
@@ -179,41 +172,11 @@ main (int argc, char *argv[])
 
 
 static void
-setup_projection(GtkWidget* widget)
-{
-	int vx = 0;
-	int vy = 0;
-	int vw = widget->allocation.width;
-	int vh = widget->allocation.height;
-	glViewport(vx, vy, vw, vh);
-	dbg (0, "viewport: %i %i %i %i", vx, vy, vw, vh);
-	glMatrixMode(GL_PROJECTION);
-	glLoadIdentity();
-
-	double hborder = GL_WIDTH / 32;
-
-	double left = -hborder;
-	double right = GL_WIDTH + hborder;
-	double bottom = GL_HEIGHT + VBORDER;
-	double top = -VBORDER;
-	glOrtho (left, right, bottom, top, 10.0, -100.0);
-}
-
-
-static void
 on_canvas_realise(GtkWidget* _canvas, gpointer user_data)
 {
-	if(wfc->draw) return;
 	if(!GTK_WIDGET_REALIZED (canvas)) return;
 
 	on_allocate(canvas, &canvas->allocation, user_data);
-
-	//allow the WaveformCanvas to initiate redraws
-	void _on_wf_canvas_requests_redraw(WaveformCanvas* wfc, gpointer _)
-	{
-		gdk_window_invalidate_rect(canvas->window, NULL, false);
-	}
-	wfc->draw = _on_wf_canvas_requests_redraw;
 }
 
 
@@ -222,10 +185,21 @@ on_allocate(GtkWidget* widget, GtkAllocation* allocation, gpointer user_data)
 {
 	if(!wfc) return;
 
-	setup_projection(widget);
-
 	//optimise drawing by telling the canvas which area is visible
 	wf_canvas_set_viewport(wfc, &(WfViewPort){0, 0, GL_WIDTH, GL_HEIGHT});
+
+	((AGlActor*)scene)->region.x2 = allocation->width;
+	((AGlActor*)scene)->region.y2 = allocation->height;
+
+	wfc->samples_per_pixel = a[0]->region.len / allocation->width;
+
+	int i; for(i=0;i<G_N_ELEMENTS(a);i++)
+		if(a[i]) wf_actor_set_rect(a[i], &(WfRectangle){
+			0.0,
+			i * GL_HEIGHT / 4,
+			GL_WIDTH * zoom,
+			GL_HEIGHT / 4 * 0.95
+		});
 
 	start_zoom(zoom);
 }
@@ -239,13 +213,7 @@ start_zoom(float target_zoom)
 	PF0;
 	zoom = MAX(0.1, target_zoom);
 
-	int i; for(i=0;i<G_N_ELEMENTS(a);i++)
-		if(a[i]) wf_actor_set_rect(a[i], &(WfRectangle){
-			0.0,
-			i * GL_HEIGHT / 4,
-			GL_WIDTH * target_zoom,
-			GL_HEIGHT / 4 * 0.95
-		});
+	wf_canvas_set_zoom(wfc, zoom);
 }
 
 

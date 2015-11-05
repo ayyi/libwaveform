@@ -44,6 +44,7 @@ struct _AGlActor {
 #endif
 	AGlActor*        parent;
 	AGlRootActor*    root;
+
 	AGlActorFn       init;            // called once when gl context is available.
 	AGlActorFn       set_size;        // called when the parent widget is resized.
 	AGlActorSetState set_state;       // called once per expose
@@ -51,9 +52,10 @@ struct _AGlActor {
 	AGlActorPaint    paint;           // called multiple times per expose, once for each object.
 	AGlActorOnEvent  on_event;
 	AGlActorFn       free;
-	AGliRegion       region;
+
+	AGliRegion       region;          // position and size. {int x1, y1, x2, y2}
 	AGlShader*       program;
-	uint32_t         colour;
+	uint32_t         colour;          // rgba
 	int              z;               // controls the order objects with the same parent are drawn.
 	bool             disabled;        // when disabled, actor and children are greyed-out and are non-interactive.
 	GList*           children;        // type AGlActor
@@ -96,7 +98,11 @@ void      agl_actor__print_tree      (AGlActor*);
 struct _AGlRootActor {
    AGlActor          actor;
    GtkWidget*        widget;
-   AGlRect           viewport;
+   AGlRect           viewport;       // { float x, y, w, h; } TODO clarify how this differs from root->region. region is int but viewport is float.
+
+   void              (*draw)(AGlScene*, gpointer); // application callback - called when the application needs to initiate a redraw.
+
+   gpointer          user_data;
 
    union {
 		struct {
@@ -112,8 +118,6 @@ struct _AGlRootActor {
 		}            glx;
    }                 gl;
    ContextType       type;
-
-   gpointer          user_data;
 
 #ifdef USE_FRAME_CLOCK
    bool              is_animating;

@@ -370,10 +370,12 @@ ng_gl2_pre_render(Renderer* renderer, WaveformActor* actor)
 	WfActorPriv* _a = actor->priv;
 	RenderInfo* r  = &_a->render_info;
 
-	HiResNGWaveform* data = (HiResNGWaveform*)w->priv->render_data[renderer->mode];
-	if(!data) return; // this can happen when we fall through from v hi res.
+	if(r->mode >= MODE_V_HI) return; // TODO this will happen when falling through.
 
+	HiResNGWaveform* data = (HiResNGWaveform*)w->priv->render_data[renderer->mode];
 	HiResNGShader* shader = (HiResNGShader*)((NGRenderer*)renderer)->shader;
+	if(!data || !shader) return; // this can happen when we fall through from v hi res.
+
 	shader->uniform.fg_colour = (actor->fg_colour & 0xffffff00) + (unsigned)(0x100 * _a->animatable.opacity.val.f);
 	shader->uniform.top = r->rect.top;
 	shader->uniform.bottom = r->rect.top + r->rect.height;

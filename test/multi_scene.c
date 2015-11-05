@@ -34,14 +34,7 @@
 #include <stdint.h>
 #include <string.h>
 #include <getopt.h>
-#include <time.h>
-#include <unistd.h>
-#include <signal.h>
 #include <sys/time.h>
-#include <sys/types.h>
-#include <sys/ipc.h>
-#include <sys/shm.h>
-#include <signal.h>
 #include <gtk/gtk.h>
 #include <gdk/gdkkeysyms.h>
 #include "agl/utils.h"
@@ -208,17 +201,9 @@ setup_projection(GtkWidget* widget)
 static void
 on_canvas_realise(GtkWidget* _canvas, gpointer user_data)
 {
-	if(wfc->draw) return;
 	if(!GTK_WIDGET_REALIZED (canvas)) return;
 
 	on_allocate(canvas, &canvas->allocation, user_data);
-
-	//allow the WaveformCanvas to initiate redraws
-	void _on_wf_canvas_requests_redraw(WaveformCanvas* wfc, gpointer _)
-	{
-		gdk_window_invalidate_rect(canvas->window, NULL, false);
-	}
-	wfc->draw = _on_wf_canvas_requests_redraw;
 }
 
 

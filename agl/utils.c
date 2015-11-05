@@ -288,20 +288,12 @@ agl_gl_init()
 	}
 #endif
 
-	void
-	agl_shaders_init()
-	{
-		// initialise shader programs
-
+	if(agl->use_shaders){
 		agl_create_program(&alphamap.shader);
 		agl_create_program(&tex2d.shader);
 		agl_create_program(&plain.shader);
 
 		agl->shaders.text = &alphamap;
-	}
-
-	if(agl->use_shaders){
-		agl_shaders_init();
 	}
 }
 

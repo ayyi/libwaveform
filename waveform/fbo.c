@@ -23,15 +23,8 @@
 #include <sys/time.h>
 #include <gtk/gtk.h>
 #include <GL/gl.h>
-#include <GL/glx.h>
-#include <GL/glxext.h>
-#include <gtkglext-1.0/gdk/gdkgl.h>
-#include <gtkglext-1.0/gtk/gtkgl.h>
-#include "agl/ext.h"
 #include "waveform/waveform.h"
 #include "waveform/gl_utils.h"
-#include "waveform/texture_cache.h"
-#include "waveform/canvas.h"
 #include "waveform/fbo.h"
 
 extern BloomShader vertical;

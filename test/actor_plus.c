@@ -30,12 +30,7 @@
 #include <getopt.h>
 #include <time.h>
 #include <unistd.h>
-#include <signal.h>
 #include <sys/time.h>
-#include <sys/types.h>
-#include <sys/ipc.h>
-#include <sys/shm.h>
-#include <signal.h>
 #include <GL/gl.h>
 #include <gtk/gtk.h>
 #include <gdk/gdkkeysyms.h>
@@ -216,11 +211,11 @@ on_canvas_realise(GtkWidget* _canvas, gpointer user_data)
 	on_allocate(canvas, &canvas->allocation, user_data);
 
 	//allow the WaveformCanvas to initiate redraws
-	void _on_wf_canvas_requests_redraw(WaveformCanvas* wfc, gpointer _)
+	void _on_wf_canvas_requests_redraw(AGlScene* scene, gpointer _)
 	{
 		gdk_window_invalidate_rect(canvas->window, NULL, false);
 	}
-	wfc->draw = _on_wf_canvas_requests_redraw;
+	scene->draw = _on_wf_canvas_requests_redraw;
 }
 
 
@@ -232,7 +227,7 @@ on_allocate(GtkWidget* widget, GtkAllocation* allocation, gpointer user_data)
 	setup_projection(widget);
 
 	double width = canvas->allocation.width - 2 * ((int)HBORDER);
-	wfc->beats_per_pixel = 0.1 * (GL_WIDTH / width) / zoom;
+	wfc->samples_per_pixel = 44100 * 0.1 * (GL_WIDTH / width) / zoom;
 
 	((AGlActor*)scene)->region = (AGliRegion){0, 0, width, allocation->height};
 	agl_actor__set_size((AGlActor*)scene);

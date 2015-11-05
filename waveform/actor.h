@@ -33,7 +33,7 @@
 typedef struct _actor_priv WfActorPriv;
 typedef void    (*WaveformActorFn) (WaveformActor*, gpointer);
 
-struct _waveform_actor {
+struct _WaveformActor {
 	AGlActor        actor;
 	WaveformCanvas* canvas;   //TODO decide if this is a good idea or not. confusing but reduces fn args.
 	Waveform*       waveform;

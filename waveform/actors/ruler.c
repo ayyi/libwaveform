@@ -75,7 +75,7 @@ ruler_actor(WaveformActor* wf_actor)
 		RulerShader* shader = ruler->context->shaders.ruler;
 
 		shader->uniform.fg_colour = 0xffffff7f;
-		shader->uniform.beats_per_pixel = ruler->context->beats_per_pixel;
+		shader->uniform.beats_per_pixel = ruler->context->samples_per_pixel / ruler->context->sample_rate; // TODO
 
 		agl_use_program((AGlShader*)shader);
 	}

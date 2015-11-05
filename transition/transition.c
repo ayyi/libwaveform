@@ -438,7 +438,9 @@ transition_linear(WfAnimation* animation, WfAnimatable* animatable, int time)
 	float time_fraction = MIN(1.0, ((float)t) / len);
 	float orig_val   = animatable->start_val.i;
 	float target_val = *animatable->model_val.i;
+#if 0
 	dbg(2, "%.2f orig=%.2f target=%.2f", time_fraction, orig_val, target_val);
+#endif
 	return  animatable->val.i = (1.0 - time_fraction) * orig_val + time_fraction * target_val;
 }
 
@@ -462,7 +464,7 @@ transition_linear_f(WfAnimation* animation, WfAnimatable* animatable, int time)
 	uint64_t len = animation->end - animation->start;
 	uint64_t t = time - animation->start;
 
-	float time_fraction = MIN(1.0, ((float)t) / len);
+	float time_fraction = MIN(1.0f, ((float)t) / ((float)len));
 	float orig_val   = animatable->start_val.f;
 	float target_val = *animatable->model_val.f;
 #if 0

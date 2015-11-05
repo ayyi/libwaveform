@@ -57,7 +57,7 @@ typedef struct _animatable_property
 #endif
 } WfAnimatable;
 
-// following refactoring this is no longer neccesary
+// WfAnimActor is intended for multi-actor transitions, but is not currently being utilised.
 typedef struct _anim_actor
 {
 	GList*         transitions; // list of WfAnimatable*

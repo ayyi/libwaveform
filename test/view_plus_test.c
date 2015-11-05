@@ -51,14 +51,9 @@
 #include <stdint.h>
 #include <string.h>
 #include <getopt.h>
-#include <time.h>
 #include <unistd.h>
-#include <signal.h>
 #include <sys/time.h>
 #include <sys/types.h>
-#include <sys/ipc.h>
-#include <sys/shm.h>
-#include <signal.h>
 #include <gtk/gtk.h>
 #include <gdk/gdkkeysyms.h>
 #include "agl/utils.h"
@@ -143,6 +138,10 @@ main (int argc, char* argv[])
 	char* filename = find_wav(wavs[0]);
 	waveform_view_plus_load_file(waveform, filename, NULL, NULL);
 	g_free(filename);
+
+#if 0
+	waveform_view_plus_set_region(waveform, 0, 32383); // start in hi-res mode
+#endif
 
 	waveform_view_plus_add_layer(waveform, background_actor(NULL), 0);
 

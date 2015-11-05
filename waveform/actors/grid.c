@@ -34,7 +34,7 @@
 																				// TODO draw over whole viewport not just the wfactor.
 typedef struct {
     AGlActor        actor;
-    WaveformActor*  wf_actor;     // TODO needs refactoring. maybe move some properties to the canvas.
+    WaveformActor*  wf_actor;   // TODO needs refactoring. The waveformContext needs extra properties, eg start-frame and end-frame.
 } GridActor;
 
 #if 0
@@ -114,12 +114,7 @@ grid_actor_paint(AGlActor* _actor)
 	int i = 0;
 	uint64_t f = ((int)(actor->region.start / interval)) * interval;
 	if(agl->use_shaders){
-#if 0
-		glEnable(GL_BLEND);
-		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-#else
 		agl_enable(AGL_ENABLE_BLEND | !AGL_ENABLE_TEXTURE_2D);
-#endif
 
 															// TODO make fixed contrast with background
 		agl->shaders.plain->uniform.colour = 0x1133bb55;
@@ -150,15 +145,10 @@ grid_actor_paint(AGlActor* _actor)
 		agl_set_font_string("Roboto 10");
 	}else{
 		glDisable(GL_TEXTURE_1D);
-		glDisable(GL_TEXTURE_2D);
+		//glDisable(GL_TEXTURE_2D);
 		glLineWidth(1);
 		glColor4f(0.5, 0.5, 1.0, 0.25);
-#if 0
-		glEnable(GL_BLEND);
-		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-#else
 		agl_enable(AGL_ENABLE_BLEND | !AGL_ENABLE_TEXTURE_2D);
-#endif
 
 		for(; (f < region_end) && (i < 0xff); f += interval, i++){
 			float x = wf_actor_frame_to_x(actor, f);

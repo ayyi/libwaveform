@@ -34,8 +34,6 @@
 #include <string.h>
 #include <getopt.h>
 #include <time.h>
-#include <unistd.h>
-#include <signal.h>
 #include <sys/time.h>
 #include <math.h>
 #include <gtk/gtk.h>
@@ -46,7 +44,6 @@
 #include "waveform/audio.h"
 #include "waveform/gl_utils.h"
 #include "waveform/texture_cache.h"
-#include "waveform/promise.h"
 #include "waveform/worker.h"
 #include "test/common.h"
 
@@ -54,7 +51,6 @@ extern void texture_cache_print ();
 extern void hi_ng_cache_print   ();
 
 #define GL_WIDTH 512.0
-#define GL_HEIGHT 128.0
 #define VBORDER 8
 #define WAV1 "test/data/large1.wav"
 #define WAV2 "test/data/large2.wav"
@@ -62,15 +58,13 @@ extern void hi_ng_cache_print   ();
 GdkGLConfig*    glconfig       = NULL;
 static bool     gl_initialised = false;
 GtkWidget*      canvas         = NULL;
+AGlScene*       scene          = NULL;
 WaveformCanvas* wfc            = NULL;
 Waveform*       w[2]           = {NULL,};
 WaveformActor*  a[2]           = {NULL,};
 bool            files_created  = false;
 AMPromise*      ready          = NULL;
 
-static void setup_projection   (GtkWidget*);
-static void draw               (GtkWidget*);
-static bool on_expose          (GtkWidget*, GdkEventExpose*, gpointer);
 static void on_canvas_realise  (GtkWidget*, gpointer);
 static void on_allocate        (GtkWidget*, GtkAllocation*, gpointer);
 uint64_t    get_time           ();
@@ -107,13 +101,12 @@ main (int argc, char *argv[])
 #ifdef HAVE_GTK_2_18
 	gtk_widget_set_can_focus     (canvas, true);
 #endif
-	gtk_widget_set_size_request  (canvas, GL_WIDTH, GL_HEIGHT);
+	gtk_widget_set_size_request  (canvas, GL_WIDTH, 128);
 	gtk_widget_set_gl_capability (canvas, glconfig, NULL, 1, GDK_GL_RGBA_TYPE);
 	gtk_widget_add_events        (canvas, GDK_POINTER_MOTION_MASK | GDK_BUTTON_PRESS_MASK | GDK_BUTTON_RELEASE_MASK);
 	gtk_container_add            ((GtkContainer*)window, (GtkWidget*)canvas);
 	g_signal_connect((gpointer)canvas, "realize",       G_CALLBACK(on_canvas_realise), NULL);
 	g_signal_connect((gpointer)canvas, "size-allocate", G_CALLBACK(on_allocate), NULL);
-	g_signal_connect((gpointer)canvas, "expose_event",  G_CALLBACK(on_expose), NULL);
 
 	gtk_widget_show_all(window);
 
@@ -414,7 +407,14 @@ test_scroll()
 		int r = w[0]->n_frames - REGION_LEN - 1;
 		WfSampleRegion region = {r, REGION_LEN};
 		double zoom = a[0]->rect.len / a[0]->region.len;
-		BlockRange range = wf_actor_get_visible_block_range(&region, &a[0]->rect, zoom, a[0]->canvas->viewport, a[0]->waveform->priv->n_blocks);
+		// TODO viewport was refactored - check still works
+		WfViewPort viewport = {
+			.left = scene->viewport.x,
+			.top = scene->viewport.y,
+			.right = scene->viewport.x + scene->viewport.w,
+			.bottom = scene->viewport.y + scene->viewport.h,
+		};
+		BlockRange range = wf_actor_get_visible_block_range(&region, &a[0]->rect, zoom, &viewport, a[0]->waveform->priv->n_blocks);
 		assert((range.last == waveform_get_n_audio_blocks(w[0]) - 1), "bad block_num %i / %i", range.last, waveform_get_n_audio_blocks(w[0]));
 	}
 
@@ -710,74 +710,6 @@ gl_init()
 }
 
 
-static void
-setup_projection(GtkWidget* widget)
-{
-	int vx = 0;
-	int vy = 0;
-	int vw = widget->allocation.width;
-	int vh = widget->allocation.height;
-	glViewport(vx, vy, vw, vh);
-	dbg (0, "viewport: %i %i %i %i", vx, vy, vw, vh);
-	glMatrixMode(GL_PROJECTION);
-	glLoadIdentity();
-
-	double hborder = GL_WIDTH / 32;
-
-	double left = -hborder;
-	double right = GL_WIDTH + hborder;
-	double bottom = GL_HEIGHT + VBORDER;
-	double top = -VBORDER;
-	glOrtho (left, right, bottom, top, 10.0, -100.0);
-}
-
-
-static void
-draw(GtkWidget* widget)
-{
-	glEnable(GL_BLEND); glEnable(GL_DEPTH_TEST); glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-
-	glPushMatrix(); /* modelview matrix */
-		int i; for(i=0;i<G_N_ELEMENTS(a);i++) if(a[i]) ((AGlActor*)a[i])->paint((AGlActor*)a[i]);
-	glPopMatrix();
-
-#undef SHOW_BOUNDING_BOX
-#ifdef SHOW_BOUNDING_BOX
-	glPushMatrix(); /* modelview matrix */
-		glTranslatef(0.0, 0.0, 0.0);
-		glNormal3f(0, 0, 1);
-		glDisable(GL_TEXTURE_2D);
-		glLineWidth(1);
-
-		int w = GL_WIDTH;
-		int h = GL_HEIGHT/2;
-		glBegin(GL_QUADS);
-		glVertex3f(-0.2, -0.2, 1); glVertex3f(w, -0.2, 1);
-		glVertex3f(w, h, 1);       glVertex3f(-0.2, h, 1);
-		glEnd();
-		glEnable(GL_TEXTURE_2D);
-	glPopMatrix();
-#endif
-}
-
-
-static gboolean
-on_expose(GtkWidget* widget, GdkEventExpose* event, gpointer user_data)
-{
-	if(!GTK_WIDGET_REALIZED(widget)) return TRUE;
-	if(!gl_initialised) return TRUE;
-
-	AGL_ACTOR_START_DRAW(wfc->root) {
-		glClearColor(0.0, 0.0, 0.0, 1.0);
-		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-		draw(widget);
-
-		gdk_gl_drawable_swap_buffers(wfc->root->gl.gdk.drawable);
-	} AGL_ACTOR_END_DRAW(wfc->root)
-	return TRUE;
-}
-
 
 static void
 on_canvas_realise(GtkWidget* _canvas, gpointer user_data)
@@ -795,15 +727,17 @@ on_canvas_realise(GtkWidget* _canvas, gpointer user_data)
 
 		gl_init();
 
-		wfc = wf_canvas_new((AGlRootActor*)agl_actor__new_root(canvas));
+		wfc = wf_canvas_new(scene = (AGlScene*)agl_actor__new_root(canvas));
+
+		g_signal_connect((gpointer)canvas, "expose-event",  G_CALLBACK(agl_actor__on_expose), scene);
 
 		char* filename = g_build_filename(g_get_current_dir(), WAV1, NULL);
 		w[0] = waveform_load_new(filename);
 		g_free(filename);
 
 		WfSampleRegion region[] = {
-			{0,            REGION_LEN    },
-			{0,            w[0]->n_frames - 1    },
+			{0,    REGION_LEN        },
+			{0,    w[0]->n_frames - 1},
 		};
 
 		uint32_t colours[4][2] = {
@@ -812,20 +746,13 @@ on_canvas_realise(GtkWidget* _canvas, gpointer user_data)
 		};
 
 		int i; for(i=0;i<1;i++){ // initially only create 1 actor
-			a[i] = wf_canvas_add_new_actor(wfc, w[0]);
+			agl_actor__add_child((AGlActor*)scene, (AGlActor*)(a[i] = wf_canvas_add_new_actor(wfc, w[0])));
 
 			wf_actor_set_region(a[i], &region[i]);
 			wf_actor_set_colour(a[i], colours[i][0]);
 		}
 
 		on_allocate(canvas, &canvas->allocation, user_data);
-
-		//allow the WaveformCanvas to initiate redraws
-		void _on_wf_canvas_requests_redraw(WaveformCanvas* wfc, gpointer _)
-		{
-			gdk_window_invalidate_rect(canvas->window, NULL, false);
-		}
-		wfc->draw = _on_wf_canvas_requests_redraw;
 
 		am_promise_resolve(ready, NULL);
 
@@ -840,17 +767,18 @@ on_allocate(GtkWidget* widget, GtkAllocation* allocation, gpointer user_data)
 {
 	if(!gl_initialised) return;
 
-	setup_projection(widget);
+	((AGlActor*)scene)->region.x2 = allocation->width;
+	((AGlActor*)scene)->region.y2 = allocation->height;
 
 	//optimise drawing by telling the canvas which area is visible
-	wf_canvas_set_viewport(wfc, &(WfViewPort){0, 0, GL_WIDTH, GL_HEIGHT});
+	wf_canvas_set_viewport(wfc, &(WfViewPort){0, 0, GL_WIDTH, allocation->height});
 
 	int i; for(i=0;i<G_N_ELEMENTS(a);i++)
 		if(a[i]) wf_actor_set_rect(a[i], &(WfRectangle){
 			0.0,
-			i * GL_HEIGHT / G_N_ELEMENTS(a),
+			i * allocation->height / G_N_ELEMENTS(a),
 			GL_WIDTH,
-			GL_HEIGHT / G_N_ELEMENTS(a) * 0.95
+			allocation->height / G_N_ELEMENTS(a) * 0.95
 		});
 }
 

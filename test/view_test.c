@@ -38,12 +38,7 @@
 #include <getopt.h>
 #include <time.h>
 #include <unistd.h>
-#include <signal.h>
 #include <sys/time.h>
-#include <sys/types.h>
-#include <sys/ipc.h>
-#include <sys/shm.h>
-#include <signal.h>
 #include <gtk/gtk.h>
 #include <gdk/gdkkeysyms.h>
 #include "agl/utils.h"
@@ -104,21 +99,12 @@ main (int argc, char* argv[])
 	#endif
 
 	WaveformView* waveform = waveform_view_new(NULL);
-	waveform_view_set_show_rms(waveform, false);
+
 	#if 0
+	waveform_view_set_show_rms(waveform, false);
 	waveform_view_add_layer(waveform, grid_actor(waveform_view_get_actor(waveform)), 0);
 	#endif
-	#if 0
-	gboolean on_idle(gpointer data)
-	{
-		WaveformView* v = data;
-		WaveformCanvas* wfc = waveform_view_get_canvas(v);
-		g_return_val_if_fail(wfc, true);
-		wfc->blend = false;
-		return G_SOURCE_REMOVE;
-	}
-	g_idle_add(on_idle, waveform);
-	#endif
+
 	gtk_widget_set_size_request((GtkWidget*)waveform, 512, 256);
 	gtk_container_add((GtkContainer*)window, (GtkWidget*)waveform);
 

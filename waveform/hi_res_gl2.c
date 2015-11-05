@@ -49,9 +49,7 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <string.h>
-#include <fcntl.h>
 #include <sys/types.h>
-#include <sys/stat.h>
 #include <math.h>
 #include <stdint.h>
 #include <sys/time.h>
@@ -71,7 +69,7 @@ extern HiResNGShader hires_ng_shader;
 
 
 void
-ng_gl2_new(WaveformActor* a)
+hi_gl2_new(WaveformActor* a)
 {
 	if(!hi_renderer_gl2.shader){
 		hi_renderer_gl2.shader = &hires_ng_shader.shader;

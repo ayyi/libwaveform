@@ -77,6 +77,7 @@ low_new_gl2(WaveformActor* actor)
 }
 
 
+#if 0
 static void
 med_lo_clear_1d_textures(WfGlBlock* blocks, WaveformBlock* wb)
 {
@@ -84,6 +85,7 @@ med_lo_clear_1d_textures(WfGlBlock* blocks, WaveformBlock* wb)
 	int b = wb->block & ~WF_TEXTURE_CACHE_LORES_MASK;
 	int c; for(c=0;c<WF_RIGHT;c++) blocks->peak_texture[c].main[b] = blocks->peak_texture[c].neg[b] = 0;
 }
+#endif
 
 
 static void
@@ -131,6 +133,8 @@ med_allocate_block_gl1(Renderer* renderer, WaveformActor* a, int b)
 	int texture_id = blocks->peak_texture[c].main[b] = texture_cache_assign_new(a->canvas->use_1d_textures ? GL_TEXTURE_1D : GL_TEXTURE_2D, wb);
 
 	if(a->canvas->use_1d_textures){
+		g_assert("NEVER GET HERE");
+#if 0
 		guint* peak_texture[4] = {
 			&blocks->peak_texture[WF_LEFT ].main[b],
 			&blocks->peak_texture[WF_LEFT ].neg[b],
@@ -159,6 +163,7 @@ med_allocate_block_gl1(Renderer* renderer, WaveformActor* a, int b)
 				med_lo_clear_1d_textures(blocks, &wb);
 			}
 		}
+#endif
 #endif
 	}else{
 		wf_actor_load_texture2d(a, MODE_MED, texture_id, b);
@@ -212,6 +217,7 @@ _med_lo_set_gl_state_for_block(WaveformCanvas* wfc, Waveform* w, WfGlBlock* text
 	g_return_if_fail(b < textures->size);
 
 	if(wfc->use_1d_textures){
+		g_assert("NEVER GET HERE");
 		int c = 0;
 		agl_texture_unit_use_texture(wfc->texture_unit[0], textures->peak_texture[c].main[b]);
 		agl_texture_unit_use_texture(wfc->texture_unit[1], textures->peak_texture[c].neg[b]);

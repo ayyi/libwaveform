@@ -142,23 +142,27 @@ waveform_view_new (Waveform* waveform)
 #endif
 	gtk_widget_set_size_request(widget, DEFAULT_WIDTH, DEFAULT_HEIGHT);
 
+#if 0 // hopefully is no longer needed?
 	bool waveform_view_load_new_on_idle(gpointer _view)
 	{
 		WaveformView* view = _view;
 		g_return_val_if_fail(view, G_SOURCE_REMOVE);
+
 		if(!promise(PROMISE_DISP_READY)->is_resolved){
 			gtk_widget_queue_draw((GtkWidget*)view); //testing.
 		}
+
 		return G_SOURCE_REMOVE;
 	}
 	// delay initialisation to allow for additional options to be set.
 									// TODO what options? colour, region?
 	g_idle_add(waveform_view_load_new_on_idle, view);
+#endif
 
 	view->priv->ready = am_promise_new(view);
 	am_promise_when(view->priv->ready, am_promise_new(view), am_promise_new(view), NULL);
 
-	void root_ready(AGlActor* a)
+	void display_ready(AGlActor* a)
 	{
 		WaveformView* view = (WaveformView*)((AGlRootActor*)a)->widget;
 		WaveformViewPrivate* v = view->priv;
@@ -170,7 +174,9 @@ waveform_view_new (Waveform* waveform)
 	}
 
 	v->root = agl_actor__new_root(widget);
-	v->root->init = root_ready;
+	v->root->init = display_ready;
+
+	((AGlScene*)v->root)->user_data = view;
 
 	return view;
 }
@@ -180,16 +186,16 @@ static void
 _waveform_view_set_actor (WaveformView* view)
 {
 	WaveformActor* actor = view->priv->actor;
+	WaveformViewPrivate* v = view->priv;
 
 	int width = waveform_view_get_width(view);
 	wf_actor_set_rect(actor, &(WfRectangle){0, 0, width, GL_HEIGHT});
 
-	void _waveform_view_on_draw(WaveformCanvas* wfc, gpointer _view)
+	void _waveform_view_on_draw(AGlScene* scene, gpointer _view)
 	{
 		gtk_widget_queue_draw((GtkWidget*)_view);
 	}
-	actor->canvas->draw = _waveform_view_on_draw;
-	actor->canvas->draw_data = view;
+	((AGlScene*)v->root)->draw = _waveform_view_on_draw;
 }
 
 
@@ -204,8 +210,6 @@ _show_waveform(gpointer _view, gpointer _c)
 	g_return_if_fail(v->canvas);
 
 	if(v->actor) return; // nothing to do
-
-	if(!promise(PROMISE_DISP_READY)->is_resolved) gwarn("impossible condition!");
 
 	if(view->waveform){ // it is valid for the widget to not have a waveform set.
 		v->actor = wf_canvas_add_new_actor(v->canvas, view->waveform);
@@ -259,11 +263,11 @@ void
 waveform_view_set_waveform (WaveformView* view, Waveform* waveform)
 {
 	PF;
-	WaveformViewPrivate* _view = view->priv;
+	WaveformViewPrivate* v = view->priv;
 
-	if(_view->actor && _view->canvas){
-		wf_canvas_remove_actor(_view->canvas, _view->actor);
-		_view->actor = NULL;
+	if(v->actor && v->canvas){
+		wf_canvas_remove_actor(v->canvas, v->actor);
+		v->actor = NULL;
 	}
 	if(view->waveform){
 		g_object_unref(view->waveform);
@@ -279,15 +283,17 @@ waveform_view_set_waveform (WaveformView* view, Waveform* waveform)
 void
 waveform_view_set_zoom (WaveformView* view, float zoom)
 {
+	WaveformViewPrivate* v = view->priv;
+
 	#define MAX_ZOOM 51200.0 //TODO
 	g_return_if_fail(view);
 	dbg(1, "zoom=%.2f", zoom);
 	view->zoom = CLAMP(zoom, 1.0, MAX_ZOOM);
 
 	WfSampleRegion region = {view->start_frame, (waveform_get_n_frames(view->waveform) - view->start_frame) / view->zoom};
-	wf_actor_set_region(view->priv->actor, &region);
+	wf_actor_set_region(v->actor, &region);
 
-	if(!view->priv->actor->canvas->draw) gtk_widget_queue_draw((GtkWidget*)view);
+	if(!((AGlScene*)v->root)->draw) gtk_widget_queue_draw((GtkWidget*)view);
 }
 
 
@@ -295,21 +301,25 @@ waveform_view_set_zoom (WaveformView* view, float zoom)
 void
 waveform_view_set_start (WaveformView* view, int64_t start_frame)
 {
+	WaveformViewPrivate* v = view->priv;
+
 	uint32_t length = waveform_get_n_frames(view->waveform) / view->zoom;
 	view->start_frame = CLAMP(start_frame, 0, (int64_t)waveform_get_n_frames(view->waveform) - 10);
 	view->start_frame = MIN(view->start_frame, waveform_get_n_frames(view->waveform) - length);
 	dbg(1, "start=%Lu", view->start_frame);
-	wf_actor_set_region(view->priv->actor, &(WfSampleRegion){
+	wf_actor_set_region(v->actor, &(WfSampleRegion){
 		view->start_frame,
 		length
 	});
-	if(!view->priv->actor->canvas->draw) gtk_widget_queue_draw((GtkWidget*)view);
+	if(!((AGlScene*)v->root)->draw) gtk_widget_queue_draw((GtkWidget*)view);
 }
 
 
 void
 waveform_view_set_region (WaveformView* view, int64_t start_frame, int64_t end_frame)
 {
+	WaveformViewPrivate* v = view->priv;
+
 	uint32_t max_len = waveform_get_n_frames(view->waveform) - start_frame;
 	uint32_t length = MIN(max_len, end_frame - start_frame);
 
@@ -318,11 +328,11 @@ waveform_view_set_region (WaveformView* view, int64_t start_frame, int64_t end_f
 	dbg(1, "start=%Lu", view->start_frame);
 
 	if(view->priv->actor){
-		wf_actor_set_region(view->priv->actor, &(WfSampleRegion){
+		wf_actor_set_region(v->actor, &(WfSampleRegion){
 			view->start_frame,
 			length
 		});
-		if(!view->priv->actor->canvas->draw) gtk_widget_queue_draw((GtkWidget*)view);
+		if(!((AGlScene*)v->root)->draw) gtk_widget_queue_draw((GtkWidget*)view);
 	}
 }
 
@@ -379,6 +389,8 @@ waveform_view_realize (GtkWidget* base)
 	gtk_widget_set_style (base, gtk_style_attach(gtk_widget_get_style(base), base->window));
 	gtk_style_set_background (gtk_widget_get_style (base), base->window, GTK_STATE_NORMAL);
 	gdk_window_move_resize (base->window, base->allocation.x, base->allocation.y, base->allocation.width, base->allocation.height);
+
+	// note that we do not initialize other display aspects yet. Must wait until scene is ready.
 }
 
 
@@ -465,33 +477,6 @@ waveform_view_motion_notify_event (GtkWidget* widget, GdkEventMotion* event)
 	gboolean result = false;
 	return result;
 }
-
-
-#if 0
-static void
-waveform_view_init_display (WaveformView* view)
-{
-	GtkWidget* widget = (GtkWidget*)view;
-
-	if(!GTK_WIDGET_REALIZED(widget)) return;
-
-	void root_ready(AGlActor* a, gpointer user_data)
-	{
-		WaveformView* view = (WaveformView*)((AGlRootActor*)a)->widget;
-		WaveformViewPrivate* v = view->priv;
-		v->canvas = wf_canvas_new((AGlRootActor*)v->root);
-
-		waveform_view_set_projection(((AGlRootActor*)a)->widget);
-
-		am_promise_resolve(g_list_nth_data(v->ready->children, PROMISE_DISP_READY), NULL);
-	}
-
-	if(!v->root){
-		v->root = agl_actor__new_root(widget);
-		v->root->init = root_ready;
-	}
-}
-#endif
 
 
 static void

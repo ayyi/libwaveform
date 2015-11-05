@@ -14,8 +14,8 @@
   along with this program; if not, write to the Free Software
   Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 */
-#ifndef __waveform_canvas_h__
-#define __waveform_canvas_h__
+#ifndef __waveform_context_h__
+#define __waveform_context_h__
 #include "config.h"
 #include <glib.h>
 #include <glib-object.h>
@@ -26,16 +26,18 @@
 #include "waveform/shader.h"
 #include "waveform/utils.h"
 
-#define TYPE_WAVEFORM_CANVAS (waveform_canvas_get_type ())
-#define WAVEFORM_CANVAS(obj) (G_TYPE_CHECK_INSTANCE_CAST ((obj), TYPE_WAVEFORM_CANVAS, WaveformCanvas))
-#define WAVEFORM_CANVAS_CLASS(klass) (G_TYPE_CHECK_CLASS_CAST ((klass), TYPE_WAVEFORM_CANVAS, WaveformCanvasClass))
-#define IS_WAVEFORM_CANVAS(obj) (G_TYPE_CHECK_INSTANCE_TYPE ((obj), TYPE_WAVEFORM_CANVAS))
-#define IS_WAVEFORM_CANVAS_CLASS(klass) (G_TYPE_CHECK_CLASS_TYPE ((klass), TYPE_WAVEFORM_CANVAS))
-#define WAVEFORM_CANVAS_GET_CLASS(obj) (G_TYPE_INSTANCE_GET_CLASS ((obj), TYPE_WAVEFORM_CANVAS, WaveformCanvasClass))
+#define USE_CANVAS_SCALING 1
 
-typedef struct _wf_canvas_priv WfCanvasPriv;
+#define TYPE_WAVEFORM_CONTEXT (waveform_context_get_type ())
+#define WAVEFORM_CONTEXT(obj) (G_TYPE_CHECK_INSTANCE_CAST ((obj), TYPE_WAVEFORM_CONTEXT, WaveformContext))
+#define WAVEFORM_CONTEXT_CLASS(klass) (G_TYPE_CHECK_CLASS_CAST ((klass), TYPE_WAVEFORM_CONTEXT, WaveformContextClass))
+#define IS_WAVEFORM_CONTEXT(obj) (G_TYPE_CHECK_INSTANCE_TYPE ((obj), TYPE_WAVEFORM_CONTEXT))
+#define IS_WAVEFORM_CONTEXT_CLASS(klass) (G_TYPE_CHECK_CLASS_TYPE ((klass), TYPE_WAVEFORM_CONTEXT))
+#define WAVEFORM_CONTEXT_GET_CLASS(obj) (G_TYPE_INSTANCE_GET_CLASS ((obj), TYPE_WAVEFORM_CONTEXT, WaveformContextClass))
 
-struct _waveform_canvas {
+typedef struct _WfContextPriv WfContextPriv;
+
+struct _WaveformContext {
 	GObject        parent_instance;
 
 	gboolean       show_rms;
@@ -43,37 +45,27 @@ struct _waveform_canvas {
 	gboolean       enable_animations;
 	gboolean       blend;              // true by default - set to false to increase performance if using without background (doesnt make much difference). Flag currently not honoured in all cases.
 
-	void           (*draw)(WaveformCanvas*, gpointer); // application callback - called when the application needs to initiate a redraw.
-	gpointer       draw_data;                          // user data for draw callback.
+	AGlScene*      root;               // optional
 
-	AGlRootActor*  root;
-
-	WfViewPort*    viewport;
 	uint32_t       sample_rate;
-	float          beats_per_pixel;
+	float          samples_per_pixel;  // application can specify the base sppx. Is multiplied by zoom to get the actual sppx.
+	float          zoom;
 	float          rotation;
 	float          v_gain;
 
 	struct {
-		PeakShader*     peak;
 		RulerShader*    ruler;
-		CursorShader*   cursor;
 	}              shaders;
 
-	WfCanvasPriv*  priv;
+	WfContextPriv* priv;
 	int           _draw_depth;
 	AGlTextureUnit* texture_unit[4];
 };
 
 #ifdef __wf_canvas_priv__
-struct _wf_canvas_priv {
-	struct {
-		PeakShader*     peak_nonscaling;
-		HiResShader*    hires;
-		BloomShader*    vertical;
-		BloomShader*    horizontal;
-		LinesShader*    lines;
-	}              shaders;
+struct _WfContextPriv {
+	bool           scaled;   // scaled mode uses the WfContext time scale. Non-scaled mode uses only the actor rect and sample-region.
+	WfAnimatable   zoom;     // (float) samples_per_pixel
 #ifdef USE_FRAME_CLOCK
 	guint64       _last_redraw_time;
 #endif
@@ -82,26 +74,29 @@ struct _wf_canvas_priv {
 };
 #endif
 
-struct _WaveformCanvasClass {
+struct _WaveformContextClass {
 	GObjectClass parent_class;
 };
 
-struct _vp { double left, top, right, bottom; }; 
+struct _WfViewPort { double left, top, right, bottom; };
 
-WaveformCanvas* wf_canvas_new                       (AGlRootActor*);
+WaveformContext* wf_canvas_new                        (AGlRootActor*);
 #ifdef USE_SDL
-WaveformCanvas* wf_canvas_new_sdl                   (SDL_GLContext*);
+WaveformContext* wf_canvas_new_sdl                    (SDL_GLContext*);
 #endif
-void            wf_canvas_free                      (WaveformCanvas*);
-void            wf_canvas_set_viewport              (WaveformCanvas*, WfViewPort*);
-void            wf_canvas_set_share_list            (WaveformCanvas*);
-void            wf_canvas_set_rotation              (WaveformCanvas*, float);
-void            wf_canvas_set_gain                  (WaveformCanvas*, float);
-WaveformActor*  wf_canvas_add_new_actor             (WaveformCanvas*, Waveform*);
-void            wf_canvas_remove_actor              (WaveformCanvas*, WaveformActor*);
-void            wf_canvas_queue_redraw              (WaveformCanvas*);
-void            wf_canvas_load_texture_from_alphabuf(WaveformCanvas*, int texture_id, AlphaBuf*);
+void             wf_canvas_free                       (WaveformContext*);
+void             wf_canvas_set_viewport               (WaveformContext*, WfViewPort*);
+void             wf_canvas_set_share_list             (WaveformContext*);
+void             wf_canvas_set_rotation               (WaveformContext*, float);
+#ifdef USE_CANVAS_SCALING
+void             wf_canvas_set_zoom                   (WaveformContext*, float);
+#endif
+void             wf_canvas_set_gain                   (WaveformContext*, float);
+WaveformActor*   wf_canvas_add_new_actor              (WaveformContext*, Waveform*);
+void             wf_canvas_remove_actor               (WaveformContext*, WaveformActor*);
+void             wf_canvas_queue_redraw               (WaveformContext*);
+void             wf_canvas_load_texture_from_alphabuf (WaveformContext*, int texture_id, AlphaBuf*);
 
 #define wf_canvas_free0(A) (wf_canvas_free(A), A = NULL)
 
-#endif //__waveform_canvas_h__
+#endif //__waveform_context_h__

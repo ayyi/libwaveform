@@ -108,6 +108,4 @@ struct _wf_shaders {
 } wf_shaders;
 
 
-void wf_shaders_init();
-
 #endif //__wf_shader_h__

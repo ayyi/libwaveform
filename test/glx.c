@@ -482,7 +482,7 @@ main(int argc, char *argv[])
 		}
 		else if (strcmp(argv[i], "-help") == 0) {
 			printf("Usage:\n");
-			printf("  gears [options]\n");
+			printf("  glx [options]\n");
 			printf("Options:\n");
 			printf("  -help                   Print this information\n");
 			printf("  -display displayName    Specify X display\n");

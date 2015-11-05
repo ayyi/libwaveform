@@ -23,14 +23,7 @@
 #include <string.h>
 #include <math.h>
 #include <getopt.h>
-#include <time.h>
-#include <unistd.h>
-#include <signal.h>
 #include <sys/time.h>
-#include <sys/types.h>
-#include <sys/ipc.h>
-#include <sys/shm.h>
-#include <signal.h>
 #include <GL/gl.h>
 #include <GL/glext.h>
 #include <GL/glx.h>
@@ -170,11 +163,11 @@ main (int argc, char **argv)
 			wf_actor_set_region(window.a[i], &window.region[i]);
 		}
 
-		void _on_wf_canvas_requests_redraw(WaveformCanvas* wfc, gpointer _)
+		void _on_scene_requests_redraw(AGlScene* wfc, gpointer _)
 		{
 			window.dirty = true;
 		}
-		window.wfc->draw = _on_wf_canvas_requests_redraw;
+		window.scene->draw = _on_scene_requests_redraw;
 	}
 
 	void loop() {

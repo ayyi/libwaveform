@@ -2,6 +2,9 @@
   For debugging purposes, a fixed medium-res waveform display
   is shown together with all the individual textures in use.
 
+  **** This is no longer being used as it appears to require
+       a shader that was removed
+
   ---------------------------------------------------------------
 
   copyright (C) 2012-2015 Tim Orford <tim@orford.org>
