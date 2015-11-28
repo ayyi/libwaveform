@@ -554,8 +554,10 @@ peakbuf_allocate(Peakbuf* peakbuf, int c)
 void
 waveform_peakbuf_free(Peakbuf* p)
 {
-	int c; for(c=0;c<WF_STEREO;c++) if(p->buf[c]) g_free0(p->buf[c]);
-	g_free(p);
+	if(p){
+		int c; for(c=0;c<WF_STEREO;c++) if(p->buf[c]) g_free0(p->buf[c]);
+		g_free(p);
+	}
 }
 
 
