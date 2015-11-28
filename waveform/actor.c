@@ -58,8 +58,6 @@
 #include <sys/time.h>
 #include <gtk/gtk.h>
 #include <GL/gl.h>
-#include <GL/glx.h>
-#include <GL/glxext.h>
 #include "agl/ext.h"
 #include "transition/transition.h"
 #include "waveform/waveform.h"
@@ -1007,6 +1005,7 @@ block_to_fbo(WaveformActor* a, int b, WfGlBlock* blocks, int resolution)
 void
 wf_actor_get_viewport(WaveformActor* a, WfViewPort* viewport)
 {
+	WfActorPriv* _a = a->priv;
 #if 0
 	WaveformCanvas* canvas = a->canvas;
 
@@ -1015,9 +1014,9 @@ wf_actor_get_viewport(WaveformActor* a, WfViewPort* viewport)
 #else
 	{
 #endif
-		viewport->left   = a->priv->animatable.rect_left.val.f;
+		viewport->left   = _a->animatable.rect_left.val.f;
 		viewport->top    = a->rect.top;
-		viewport->right  = viewport->left + a->priv->animatable.rect_len.val.f;
+		viewport->right  = _a->animatable.rect_left.val.f + _a->animatable.rect_len.val.f;
 		viewport->bottom = a->rect.top + a->rect.height;
 	}
 }
@@ -1350,7 +1349,13 @@ wf_actor_set_rect(WaveformActor* a, WfRectangle* rect)
 	AGlActor* actor = (AGlActor*)a;
 	AGlScene* scene = actor->root;
 
+	if(rect->len == a->rect.len && rect->left == a->rect.left && rect->height == a->rect.height && rect->top == a->rect.top) dbg(0, "unchanged. renderer=%p", _a->render_info.renderer);
+#if 0
 	if(rect->len == a->rect.len && rect->left == a->rect.left && rect->height == a->rect.height && rect->top == a->rect.top) return;
+#else
+	// the renderer check is to ensure an initial draw. perhaps there is a better method.
+	if(_a->render_info.renderer && rect->len == a->rect.len && rect->left == a->rect.left && rect->height == a->rect.height && rect->top == a->rect.top) return;
+#endif
 
 	actor->region.x2 = rect->len; // TODO a->rect is obsoleted by actor->region?
 
@@ -1588,7 +1593,7 @@ set_renderer(WaveformActor* actor)
 static inline bool
 calc_render_info(WaveformActor* actor)
 {
-	WaveformCanvas* wfc = actor->canvas;
+	WaveformContext* wfc = actor->canvas;
 	Waveform* w = actor->waveform; 
 	WfActorPriv* _a = actor->priv;
 	WaveformPriv* _w = w->priv;
@@ -1613,14 +1618,14 @@ calc_render_info(WaveformActor* actor)
 	r->samples_per_texture = WF_SAMPLES_PER_TEXTURE * (r->mode == MODE_V_LOW ? WF_MED_TO_V_LOW : r->mode == MODE_LOW ? WF_PEAK_STD_TO_LO : 1);
 
 																						// why we need this?
-	r->region_start_block   = r->region.start / r->samples_per_texture;
+	r->region_start_block = r->region.start / r->samples_per_texture;
 
 	if(r->region.start + r->region.len > w->n_frames){
 		gwarn("bad region adjusted: %Lu / %Lu", r->region.start + r->region.len, w->n_frames);
 		r->region.len = w->n_frames - r->region.start;
 	}
 																						// FIXME this is calculated differently inside wf_actor_get_visible_block_range
-	r->region_end_block     = (r->region.start + r->region.len) / r->samples_per_texture - (!((r->region.start + r->region.len) % r->samples_per_texture) ? 1 : 0);
+	r->region_end_block = (r->region.start + r->region.len) / r->samples_per_texture - (!((r->region.start + r->region.len) % r->samples_per_texture) ? 1 : 0);
 	r->viewport_blocks = wf_actor_get_visible_block_range(&r->region, &r->rect, r->zoom, &r->viewport, r->n_blocks);
 
 	if(r->viewport_blocks.last == LAST_NOT_VISIBLE && r->viewport_blocks.first == FIRST_NOT_VISIBLE){
@@ -1767,12 +1772,19 @@ wf_actor_paint(AGlActor* _actor)
 		glLineWidth(1);
 		float x_ = x + 0.1; // added for intel 945.
 		glBegin(GL_LINES);
-			glVertex3f(x_,                top, 0);    glVertex3f(x_ + r->block_wid, top,             0);
+		{
+			// lines are cropped by the rect to avoid confusion with multiple waveforms
+			glVertex3f(MAX(x_, r->rect.left), top, 0); glVertex3f(MIN(x_ + r->block_wid, r->rect.left + r->rect.len), top, 0);
+			if(x_ + r->block_wid <= r->rect.left + r->rect.len){
 			glVertex3f(x_ + r->block_wid, top, 0);    glVertex3f(x_ + r->block_wid, bot,             0);
+			}
 			glVertex3f(x_,                bot, 0);    glVertex3f(x_ + r->block_wid, bot,             0);
 
+			if(x_ >= r->rect.left){
 			glVertex3f(x_,                top, 0);    glVertex3f(x_,                r->rect.top + 10,0);
+			}
 			glVertex3f(x_,                bot, 0);    glVertex3f(x_,                bot - 10,        0);
+		}
 		glEnd();
 
 		// add a small marker every 32 blocks

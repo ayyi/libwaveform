@@ -257,14 +257,6 @@ waveform_view_plus_new (Waveform* waveform)
 
 
 static void
-_waveform_view_plus_set_actor (WaveformViewPlus* view)
-{
-
-	waveform_view_plus_gl_on_allocate(view);
-}
-
-
-static void
 _waveform_view_plus__show_waveform(gpointer _view, gpointer _c)
 {
 	// this must NOT be called until the canvas is ready
@@ -305,7 +297,7 @@ _waveform_view_plus__show_waveform(gpointer _view, gpointer _c)
 
 				g_signal_connect (view->waveform, "peakdata-ready", (GCallback)_waveform_view_plus__show_waveform_done, view);
 			}
-			_waveform_view_plus_set_actor(view);
+			waveform_view_plus_gl_on_allocate(view);
 		}
 	}
 	gtk_widget_queue_draw((GtkWidget*)view);

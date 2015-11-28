@@ -30,12 +30,7 @@
 #include <sndfile.h>
 #include <gtk/gtk.h>
 #include <GL/gl.h>
-#include <GL/glx.h>
-#include <GL/glxext.h>
-#include <gtkglext-1.0/gdk/gdkgl.h>
-#include <gtkglext-1.0/gtk/gtkgl.h>
 #include "waveform/waveform.h"
-#include "waveform/canvas.h"
 
 extern int wf_debug;
 #endif // __actor_c__
@@ -508,12 +503,24 @@ wf_actor_get_quad_dimensions(WaveformActor* actor, int b, bool is_first, bool is
 			//end is offscreen. last block is not smaller.
 		}else{
 			//end is trimmed
-			double part_inset_px = wf_actor_samples2gl(r->zoom, r->region.start);
-			double region_len_px = wf_actor_samples2gl(r->zoom, r->region.len);
-			double distance_from_file_start_to_region_end = part_inset_px + MIN(r->rect.len, region_len_px);
+			WfSampleRegionf region_px = {
+				.start = wf_actor_samples2gl(r->zoom, r->region.start),
+				.len = wf_actor_samples2gl(r->zoom, r->region.len)
+			};
+#if 0
+			// this correctly calculates the block width but is perhaps too complex
+			double distance_from_file_start_to_region_end = region_px.start + MIN(r->rect.len, region_px.len);
 			block_wid = distance_from_file_start_to_region_end - b * r->block_wid;
-			dbg(2, " %i: inset=%.2f s->e=%.2f i*b=%.2f", b, part_inset_px, distance_from_file_start_to_region_end, b * r->block_wid);
+			dbg(2, " %i: inset=%.2f s->e=%.2f i*b=%.2f", b, region_px.start, distance_from_file_start_to_region_end, b * r->block_wid);
 			if(b * r->block_wid > distance_from_file_start_to_region_end){ gwarn("!!"); return false; }
+			block_wid = MIN(r->rect.len, block_wid);
+#else
+			WfdRange block_px = {
+				.start = MAX(0.0, region_px.start - b * r->block_wid),
+				.end = (region_px.start + region_px.len) - b * r->block_wid
+			};
+			block_wid = block_px.end - block_px.start;
+#endif
 		}
 
 #if 0 // check if this is needed
@@ -588,9 +595,8 @@ hi_gl1_render_block(Renderer* renderer, WaveformActor* actor, int b, gboolean is
 #else
 	TextureRange tex;
 #endif
-	double tex_x;
-	double block_wid;
-	if(!wf_actor_get_quad_dimensions(actor, b, is_first, is_last, x, &tex, &tex_x, &block_wid, TEX_BORDER_HI, HIRES_NONSHADER_TEXTURES_MULTIPLIER)) return false;
+	WfSampleRegionf block;
+	if(!wf_actor_get_quad_dimensions(actor, b, is_first, is_last, x, &tex, &block.start, &block.len, TEX_BORDER_HI, HIRES_NONSHADER_TEXTURES_MULTIPLIER)) return false;
 
 	glBegin(GL_QUADS);
 	//#if defined (USE_FBO) && defined (multipass)
@@ -599,9 +605,9 @@ hi_gl1_render_block(Renderer* renderer, WaveformActor* actor, int b, gboolean is
 	//#else
 		if(wfc->use_1d_textures){
 	//#endif
-			_draw_block_from_1d(tex_start, tex_pct, tex_x, r->rect.top, block_wid, r->rect.height, modes[MODE_HI].texture_size);
+			_draw_block_from_1d(tex_start, tex_pct, block.start, r->rect.top, block.len, r->rect.height, modes[MODE_HI].texture_size);
 		}else{
-			dbg(0, "x=%.2f wid=%.2f tex_pct=%.2f", tex_x, block_wid, tex_pct);
+			dbg(0, "x=%.2f wid=%.2f tex_pct=%.2f", block.start, block.len, tex_pct);
 
 			/*
 			 * render the texture multiple times so that all peaks are shown
@@ -611,10 +617,10 @@ hi_gl1_render_block(Renderer* renderer, WaveformActor* actor, int b, gboolean is
 			float texel_offset = 1.0 / ((float)texture_size);
 			int i; for(i=0;i<texels_per_px_i;i++){
 				dbg(0, "texels_per_px=%.2f %i texel_offset=%.3f tex_start=%.4f", texels_per_px, texels_per_px_i, (texels_per_px / 2.0) / ((float)texture_size), tex_start);
-				glTexCoord2d(tex_start + 0.0,     0.0); glVertex2d(tex_x + 0.0,       rect->top);
-				glTexCoord2d(tex_start + tex_pct, 0.0); glVertex2d(tex_x + block_wid, rect->top);
-				glTexCoord2d(tex_start + tex_pct, 1.0); glVertex2d(tex_x + block_wid, rect->top + rect->height);
-				glTexCoord2d(tex_start + 0.0,     1.0); glVertex2d(tex_x + 0.0,       rect->top + rect->height);
+				glTexCoord2d(tex_start + 0.0,     0.0); glVertex2d(block.start + 0.0,       rect->top);
+				glTexCoord2d(tex_start + tex_pct, 0.0); glVertex2d(block.start + block.len, rect->top);
+				glTexCoord2d(tex_start + tex_pct, 1.0); glVertex2d(block.start + block.len, rect->top + rect->height);
+				glTexCoord2d(tex_start + 0.0,     1.0); glVertex2d(block.start + 0.0,       rect->top + rect->height);
 
 				tex_start += texel_offset;
 			}

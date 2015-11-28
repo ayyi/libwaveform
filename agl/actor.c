@@ -12,7 +12,7 @@
 #define __agl_actor_c__
 #define __gl_canvas_priv__
 #include "config.h"
-#include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <GL/gl.h>
 #include <gtk/gtk.h>
@@ -29,6 +29,11 @@
 #define NOT_HANDLED FALSE
 #define CURSOR_NORMAL 0
 
+#ifdef DEBUG
+#define AGL_DEBUG if(agl->debug)
+#else
+#define AGL_DEBUG if(false)
+#endif
 static AGl* agl = NULL;
 
 static bool   agl_actor__is_onscreen  (AGlActor*);
@@ -406,7 +411,7 @@ agl_actor__paint(AGlActor* a)
 
 #undef SHOW_ACTOR_BORDERS
 #ifdef SHOW_ACTOR_BORDERS
-	static int depth; depth = 0;
+	static int depth; depth = -1;
 	static uint32_t colours[10] = {0xff000099, 0xff990099, 0x00ff0099, 0x0000ff99, 0xff000099, 0xffff0099, 0x00ffff99};
 
 	void paint_border(AGlActor* a)
@@ -418,13 +423,13 @@ agl_actor__paint(AGlActor* a)
 		agl_use_program((AGlShader*)agl->shaders.plain);
 
 		#define W 1
-		iRegion r = a->region;
+		AGliRegion r = a->region;
 		float width = r.x2 - r.x1;
-		float height = r.y2 - r.y1;
+		float height = MAX(0.0, r.y2 - r.y1);
 		agl_rect(0.0,       0.0,        width, W     );
 		agl_rect(0.0,       0.0,        W,     height);
 		agl_rect(0.0,       height - W, width, W     );
-		agl_rect(width - W, 0,          W,     height);
+		agl_rect(width - W, 0.0,        W,     height);
 
 		GList* l = a->children;
 		for(;l;l=l->next){
@@ -644,7 +649,7 @@ agl_actor__on_expose(GtkWidget* widget, GdkEventExpose* event, gpointer user_dat
 		int vw = MAX(64, actor->region.x2);
 		int vh = MAX(64, actor->region.y2);
 		glViewport(vx, vy, vw, vh);
-		printf("viewport: %i %i %i %i\n", vx, vy, vw, vh);
+		AGL_DEBUG printf("viewport: %i %i %i %i\n", vx, vy, vw, vh);
 		glMatrixMode(GL_PROJECTION);
 		glLoadIdentity();
 
@@ -903,13 +908,16 @@ agl_actor__print_tree (AGlActor* actor)
 	void _print(AGlActor* actor)
 	{
 		g_return_if_fail(actor);
-#ifdef AGL_DEBUG_ACTOR
 		int i; for(i=0;i<indent;i++) printf("  ");
+#ifdef AGL_DEBUG_ACTOR
 #ifdef AGL_ACTOR_RENDER_CACHE
 		if(actor->name) printf("%s (%i,%i)\n", actor->name, actor->cache.enabled, actor->cache.valid);
 #else
 		if(actor->name) printf("%s\n", actor->name);
 #endif
+		if(!actor->name) printf("(%i,%i)\n", actor->region.x1, actor->region.y1);
+#else
+		printf("%i\n", actor->region.x1);
 #endif
 		indent++;
 		GList* l = actor->children;

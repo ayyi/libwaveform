@@ -80,6 +80,12 @@ typedef struct
 
 typedef struct
 {
+	double start;
+	double len;
+} WfSampleRegionf;
+
+typedef struct
+{
 	float left;
 	float top;
 	float len;
@@ -159,7 +165,6 @@ typedef struct { WfCallback2 callback; gpointer user_data; } WfClosure;
 
 #ifdef __gl_h_
 #include "waveform/actor.h"
-#include "waveform/canvas.h"
 #endif
 
 #ifndef __waveform_peak_c__

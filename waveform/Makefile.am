@@ -19,13 +19,14 @@ lib_LTLIBRARIES = libwaveform.la
 if ENABLE_OPENGL
 OPENGL_SOURCES = \
 	view.c view.h \
-	canvas.c canvas.h \
+	context.c context.h \
 	actor.c actor.h \
 	gl_utils.c gl_utils.h \
 	shader.c shader.h \
 	alphabuf.c alphabuf.h \
 	texture_cache.c texture_cache.h \
 	fbo.c fbo.h \
+	actors/group.c actors/group.h \
 	actors/background.c actors/background.h \
 	actors/ruler.c actors/ruler.h \
 	actors/grid.c actors/grid.h \
@@ -69,7 +70,7 @@ pkginclude_HEADERS = \
 	view.h \
 	view_plus.h \
 	actor.h \
-	canvas.h \
+	context.h \
 	shader.h \
 	fbo.h \
 	texture_cache.h \

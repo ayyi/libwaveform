@@ -32,12 +32,12 @@
 #include <pango/pangofc-fontmap.h>
 #include "agl/ext.h"
 #include "agl/pango_render.h"
+#include "transition/frameclock.h"
 #include "waveform/waveform.h"
 #include "waveform/gl_utils.h"
-#include "waveform/canvas.h"
 #include "waveform/alphabuf.h"
 #include "waveform/shader.h"
-#include "transition/frameclock.h"
+#include "waveform/context.h"
 
 static AGl* agl = NULL;
 
@@ -320,11 +320,7 @@ wf_canvas_set_viewport(WaveformCanvas* wfc, WfViewPort* _viewport)
 	}
 #endif
 
-#if 0
-	if(wfc->draw) g_signal_emit_by_name(wfc, "dimensions-changed");
-#else
 	if(wfc->root->draw) g_signal_emit_by_name(wfc, "dimensions-changed");
-#endif
 }
 
 

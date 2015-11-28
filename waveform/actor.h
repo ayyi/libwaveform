@@ -20,10 +20,12 @@
 #include "transition/transition.h"
 #include "agl/actor.h"
 #include "waveform/waveform.h"
-#include "canvas.h"
+#include "waveform/context.h"
+#include "waveform/actors/group.h"
 #include "waveform/actors/background.h"
 #include "waveform/actors/ruler.h"
 #include "waveform/actors/grid.h"
+#include "waveform/actors/spp.h"
 
 #define HAVE_NON_SQUARE_TEXTURES // TODO change to runtime detection (indicated by AGL->have_npot_textures)
 

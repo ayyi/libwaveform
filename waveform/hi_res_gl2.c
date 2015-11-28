@@ -57,7 +57,6 @@
 #include <gtk/gtk.h>
 #include <GL/gl.h>
 #include "waveform/waveform.h"
-#include "waveform/canvas.h"
 
 extern int wf_debug;
 #endif // __actor_c__

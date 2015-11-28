@@ -34,20 +34,20 @@
 #include <GL/gl.h>
 #include <gtk/gtk.h>
 #include <gdk/gdkkeysyms.h>
-#include "waveform/waveform.h"
 #include "test/common.h"
 
 #define WAV "test/data/mono_0:10.wav"
 
 #define GL_WIDTH 300.0
 #define GL_HEIGHT 256.0
-#define HBORDER (GL_WIDTH / 32.0)
+#define HBORDER 16
 #define VBORDER 8
 
 AGl*            agl            = NULL;
 static bool     gl_initialised = false;
 GtkWidget*      canvas         = NULL;
 AGlRootActor*   scene          = NULL;
+AGlActor*       group          = NULL;
 WaveformCanvas* wfc            = NULL;
 Waveform*       w1             = NULL;
 WaveformActor*  a[]            = {NULL};
@@ -81,7 +81,6 @@ Key keys[] = {
 	{0},
 };
 
-static void setup_projection   (GtkWidget*);
 static void on_canvas_realise  (GtkWidget*, gpointer);
 static void on_allocate        (GtkWidget*, GtkAllocation*, gpointer);
 static void start_zoom         (float target_zoom);
@@ -150,36 +149,28 @@ gl_init()
 
 
 static void
-setup_projection(GtkWidget* widget)
-{
-	int vx = 0;
-	int vy = 0;
-	int vw = widget->allocation.width;
-	int vh = widget->allocation.height;
-	glViewport(vx, vy, vw, vh);
-	dbg (1, "viewport: %i %i %i %i", vx, vy, vw, vh);
-	glMatrixMode(GL_PROJECTION);
-	glLoadIdentity();
-
-	double left = -((int)HBORDER);
-	double right = vw + left;
-	double top = -VBORDER;
-	double bottom = vh + VBORDER;
-	glOrtho (left, right, bottom, top, 10.0, -100.0);
-}
-
-
-static gboolean canvas_init_done = false;
-static void
 on_canvas_realise(GtkWidget* _canvas, gpointer user_data)
 {
 	PF;
+	static gboolean canvas_init_done = false;
 	if(canvas_init_done) return;
 	if(!GTK_WIDGET_REALIZED (canvas)) return;
 
 	gl_init();
 
 	canvas_init_done = true;
+
+	agl_actor__add_child((AGlActor*)scene, group = group_actor(a[0]));
+	void group__set_size(AGlActor* actor)
+	{
+		actor->region = (AGliRegion){
+			.x1 = HBORDER,
+			.y1 = VBORDER,
+			.x2 = actor->parent->region.x2 - HBORDER,
+			.y2 = actor->parent->region.y2 - VBORDER,
+		};
+	}
+	group->set_size = group__set_size;
 
 	int n_frames = waveform_get_n_frames(w1);
 
@@ -198,14 +189,15 @@ on_canvas_realise(GtkWidget* _canvas, gpointer user_data)
 	};
 
 	int i; for(i=0;i<G_N_ELEMENTS(a);i++){
-		agl_actor__add_child((AGlActor*)scene, (AGlActor*)(a[i] = wf_canvas_add_new_actor(wfc, w1)));
+		agl_actor__add_child(group, (AGlActor*)(a[i] = wf_canvas_add_new_actor(wfc, w1)));
 
 		wf_actor_set_region(a[i], &region[i]);
 		wf_actor_set_colour(a[i], colours[i][0]);
 	}
 
-	agl_actor__add_child((AGlActor*)scene, background_actor(a[0]));
-	AGlActor* ruler = agl_actor__add_child((AGlActor*)scene, ruler_actor(a[0]));
+	agl_actor__add_child(group, background_actor(a[0]));
+
+	AGlActor* ruler = agl_actor__add_child(group, ruler_actor(a[0]));
 	ruler->region = (AGliRegion){0, 0, 0, 20};
 
 	on_allocate(canvas, &canvas->allocation, user_data);
@@ -224,16 +216,18 @@ on_allocate(GtkWidget* widget, GtkAllocation* allocation, gpointer user_data)
 {
 	if(!gl_initialised) return;
 
-	setup_projection(widget);
-
 	double width = canvas->allocation.width - 2 * ((int)HBORDER);
-	wfc->samples_per_pixel = 44100 * 0.1 * (GL_WIDTH / width) / zoom;
+	wfc->samples_per_pixel = wfc->sample_rate * 0.1 * (GL_WIDTH / width) / zoom;
 
-	((AGlActor*)scene)->region = (AGliRegion){0, 0, width, allocation->height};
+	((AGlActor*)scene)->region = (AGliRegion){0, 0, allocation->width, allocation->height};
 	agl_actor__set_size((AGlActor*)scene);
 
-	//optimise drawing by telling the canvas which area is visible
-	wf_canvas_set_viewport(wfc, &(WfViewPort){0, 0, allocation->width - ((int)HBORDER), GL_HEIGHT});
+	scene->viewport = (AGlRect){
+		.x = 0,
+		.y = 0,
+		.w = allocation->width,
+		.h = allocation->height,
+	};
 
 	start_zoom(zoom);
 }
@@ -253,8 +247,8 @@ start_zoom(float target_zoom)
 		if(a[i]) wf_actor_set_rect(a[i], &(WfRectangle){
 			0.0,
 			ruler_height + 5 + i * ((AGlActor*)scene)->region.y2 / 2,
-			(canvas->allocation.width - ((int)HBORDER) * 2) * target_zoom,
-			((AGlActor*)scene)->region.y2 / 2 * 0.95
+			agl_actor__width(group) * target_zoom,
+			agl_actor__height(group) / 2 * 0.95
 		});
 }
 

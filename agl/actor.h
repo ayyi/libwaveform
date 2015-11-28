@@ -139,6 +139,9 @@ AGlActorContext actor_context;
 extern AGlActorContext actor_context;
 #endif
 
+#define agl_actor__width(A) (A->region.x2 - A->region.x1)
+#define agl_actor__height(A) (A->region.y2 - A->region.y1)
+
 #ifdef USE_SDL
 #  define actor_is_sdl(RA) (RA && RA->type == CONTEXT_TYPE_SDL)
 #else

@@ -36,7 +36,6 @@
 #include <stdint.h>
 #include <string.h>
 #include <getopt.h>
-#include <time.h>
 #include <unistd.h>
 #include <sys/time.h>
 #include <gtk/gtk.h>

@@ -29,7 +29,6 @@
 #include <gtk/gtk.h>
 #include <GL/gl.h>
 #include "waveform/waveform.h"
-#include "waveform/canvas.h"
 #include "waveform/actors/grid.h"
 																				// TODO draw over whole viewport not just the wfactor.
 typedef struct {

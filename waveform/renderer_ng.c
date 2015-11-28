@@ -434,9 +434,8 @@ ng_gl2_render_block(Renderer* renderer, WaveformActor* actor, int b, gboolean is
 																								glActiveTexture(GL_TEXTURE0);
 
 	TextureRange tex;
-	double tex_x;
-	double block_wid;
-	if(!wf_actor_get_quad_dimensions(actor, b, is_first, is_last, x, &tex, &tex_x, &block_wid, border, 1)) return false;
+	WfSampleRegionf block;
+	if(!wf_actor_get_quad_dimensions(actor, b, is_first, is_last, x, &tex, &block.start, &block.len, border, 1)) return false;
 
 	float n_rows = section->buffer_size / modes[renderer->mode].texture_size;
 	float ty = (b % MAX_BLOCKS_PER_TEXTURE) * 4.0 * waveform->n_channels / n_rows; // this tells the shader which block to use.
@@ -444,7 +443,7 @@ ng_gl2_render_block(Renderer* renderer, WaveformActor* actor, int b, gboolean is
 
 	//dbg(0, "b=%i %u n_rows=%f x=%f-->%f y=%f (%f)", b % MAX_BLOCKS_PER_TEXTURE, section->texture, n_rows, tex.start, tex.end, ty, ((float)(b % MAX_BLOCKS_PER_TEXTURE) * 4.0 * waveform->n_channels));
 
-	agl_textured_rect(section->texture, tex_x, r->rect.top, block_wid, r->rect.height, &tex_rect);
+	agl_textured_rect(section->texture, block.start, r->rect.top, block.len, r->rect.height, &tex_rect);
 
 	return true;
 }

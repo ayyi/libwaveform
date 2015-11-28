@@ -29,7 +29,6 @@
 #include <gtk/gtk.h>
 #include <GL/gl.h>
 #include "waveform/waveform.h"
-#include "waveform/canvas.h"
 #include "waveform/actors/grid.h"
 typedef struct {
     AGlActor        actor;
@@ -50,9 +49,7 @@ ruler_actor(WaveformActor* wf_actor)
 
 	void ruler_actor_size(AGlActor* actor)
 	{
-		//actor->region = actor->parent->region;
-		actor->region.x1 = actor->parent->region.x1;
-		actor->region.x2 = actor->parent->region.x2;
+		actor->region.x2 = agl_actor__width(actor->parent);
 	}
 
 	void ruler_init(AGlActor* actor)
@@ -120,7 +117,7 @@ ruler_actor_paint(AGlActor* actor)
 
 	glPushMatrix();
 	glScalef(1.0, -1.0, 1.0);           // inverted vertically to make alignment of marks to bottom easier in the shader
-	glTranslatef(0.0, -(actor->region.y2 - actor->region.y1), 0.0); // making more negative moves downward
+	glTranslatef(0.0, -agl_actor__height(actor), 0.0); // making more negative moves downward
 	glRecti(actor->region.x1, actor->region.y1, actor->region.x2, actor->region.y2);
 	glPopMatrix();
 	return true;

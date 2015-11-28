@@ -23,14 +23,12 @@
 #include <gtk/gtk.h>
 #include <gdk/gdkkeysyms.h>
 #include <GL/gl.h>
-#include <ass/ass.h>
 #include "agl/ext.h"
 #include "agl/utils.h"
 #include "agl/actor.h"
 #include "waveform/waveform.h"
 #include "waveform/gl_utils.h"
 #include "waveform/shader.h"
-#include "waveform/actors/spp.h"
 
 static AGl* agl = NULL;
 

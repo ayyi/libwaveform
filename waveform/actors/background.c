@@ -104,9 +104,9 @@ background_actor(WaveformActor* view)
 	bool bg_actor_paint(AGlActor* actor)
 	{
 		agl_textured_rect(((AGlTextureActor*)actor)->texture[0],
-			actor->parent->region.x1,
-			actor->parent->region.y1,
-			actor->parent->region.x2,
+			0,
+			0,
+			agl_actor__width(actor->parent),
 			actor->parent->region.y2,
 			NULL
 		);
