@@ -42,7 +42,6 @@
 #include <gdk/gdkkeysyms.h>
 #include "agl/utils.h"
 #include "waveform/waveform.h"
-#include "waveform/gl_utils.h"
 #include "test/common.h"
 #include "test/ayyi_utils.h"
 

@@ -37,7 +37,6 @@
 static AGl* agl = NULL;
 
 static bool   agl_actor__is_onscreen  (AGlActor*);
-static AGliPt actor__find_offset (AGlActor*);
 static bool  _actor__on_event    (AGlActor*, GdkEvent*, AGliPt);
 static void   agl_actor__init    (AGlActor*);              // called once when gl context is available. and again if gl context changes, eg after re-realize.
 #ifdef USE_FRAME_CLOCK
@@ -282,7 +281,7 @@ agl_actor__is_onscreen(AGlActor* a)
 	if(a->root->widget){
 		int h = a->root->widget->allocation.height; // TODO use viewport->height
 		AGlRect* viewport = &a->root->viewport;
-		AGliPt offset = actor__find_offset(a);
+		AGliPt offset = agl_actor__find_offset(a);
 		//gwarn("   %s %i %.1f x %i %.1f, offset: x=%i y=%i viewport=%.1f %.1f", a->name, w, viewport->width, h, viewport->height, offset.x, offset.y, viewport->x, viewport->y);
 		//if(offset.y + a->region.y2  < viewport->y || offset.y > viewport->y + h) dbg(0, "         offscreen: %s", a->name);
 		return !(offset.y + a->region.y2  < viewport->y || offset.y > viewport->y + h);
@@ -566,7 +565,7 @@ agl_actor__on_event(AGlRootActor* root, GdkEvent* event)
 	}
 
 	if(actor_context.grabbed){
-		AGliPt offset = (actor_context.grabbed->parent == actor) ? (AGliPt){0, 0} : actor__find_offset(actor_context.grabbed->parent);
+		AGliPt offset = (actor_context.grabbed->parent == actor) ? (AGliPt){0, 0} : agl_actor__find_offset(actor_context.grabbed->parent);
 		bool handled = _actor__on_event(actor_context.grabbed, event, (AGliPt){xy.x - offset.x, xy.y - offset.y});
 
 		if(event->type == GDK_BUTTON_RELEASE){
@@ -615,7 +614,7 @@ agl_actor__on_event(AGlRootActor* root, GdkEvent* event)
 			}
 		}
 
-		AGliPt offset = (a->parent == actor) ? (AGliPt){0, 0} : actor__find_offset(a->parent);
+		AGliPt offset = (a->parent == actor) ? (AGliPt){0, 0} : agl_actor__find_offset(a->parent);
 		return _actor__on_event(a, event, (AGliPt){xy.x - offset.x, xy.y - offset.y});
 
 	}else{
@@ -637,8 +636,6 @@ agl_actor__on_event(AGlRootActor* root, GdkEvent* event)
  *  Utility function for use as a gtk "expose-event" handler.
  *  Application must pass the root actor as user_data when connecting the signal.
  */
-static bool __wf_drawing = FALSE; // FIXME AGL_ACTOR_START_DRAW should not rely on a variable defined in waveform/
-static int __draw_depth = 0;
 bool
 agl_actor__on_expose(GtkWidget* widget, GdkEventExpose* event, gpointer user_data)
 {
@@ -858,8 +855,8 @@ agl_actor__start_transition(AGlActor* actor, GList* animatables, AnimationFn don
 }
 
 
-static AGliPt
-actor__find_offset(AGlActor* a)
+AGliPt
+agl_actor__find_offset(AGlActor* a)
 {
 	AGliPt of = {0, 0};
 	do {

@@ -43,7 +43,6 @@
 #include <GL/glxext.h>
 #include "agl/utils.h"
 #include "waveform/waveform.h"
-#include "waveform/gl_utils.h"
 #include "view_plus.h"
 
 #define DIRECT 1
@@ -580,7 +579,7 @@ waveform_view_plus_button_press_event (GtkWidget* widget, GdkEventButton* event)
 
 	switch (event->type){
 		case GDK_BUTTON_PRESS:
-			dbg(0, "GDK_BUTTON_PRESS");
+			dbg(1, "GDK_BUTTON_PRESS");
 			gtk_widget_grab_focus(widget);
 			handled = true;
 			break;
@@ -592,12 +591,12 @@ waveform_view_plus_button_press_event (GtkWidget* widget, GdkEventButton* event)
 }
 
 
-static gboolean
+static bool
 waveform_view_plus_button_release_event (GtkWidget* widget, GdkEventButton* event)
 {
 	g_return_val_if_fail(event, false);
-	gboolean result = false;
-	return result;
+	bool handled = false;
+	return handled;
 }
 
 

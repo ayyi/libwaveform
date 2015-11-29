@@ -35,7 +35,6 @@
 #include "agl/utils.h"
 #include "waveform/waveform.h"
 #define __wf_private__
-#include "waveform/gl_utils.h"
 #include "test/ayyi_utils.h"
 
 extern AssShader ass;

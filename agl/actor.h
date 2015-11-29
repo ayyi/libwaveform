@@ -88,6 +88,7 @@ void      agl_actor__start_transition(AGlActor*, GList* animatables, AnimationFn
 bool      agl_actor__is_disabled     (AGlActor*);
 bool      agl_actor__on_event        (AGlRootActor*, GdkEvent*);
 AGlActor* agl_actor__find_by_z       (AGlActor*, int);
+AGliPt    agl_actor__find_offset     (AGlActor*);
 bool      agl_actor__null_painter    (AGlActor*);
 bool      agl_actor__on_expose       (GtkWidget*, GdkEventExpose*, gpointer);
 
@@ -148,6 +149,14 @@ extern AGlActorContext actor_context;
 #  define actor_is_sdl(RA) false
 #endif
 #define actor_not_is_gtk(RA) (RA && RA->type != CONTEXT_TYPE_GTK)
+
+#ifdef __agl_actor_c__
+bool __wf_drawing = FALSE;
+int __draw_depth = 0;
+#else
+extern bool __wf_drawing;
+extern int __draw_depth;
+#endif
 
 #define AGL_ACTOR_START_DRAW(A) \
 	if(__wf_drawing){ gwarn("AGL_ACTOR_START_DRAW: already drawing"); } \

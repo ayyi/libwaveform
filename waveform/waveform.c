@@ -278,6 +278,7 @@ waveform_get_sf_data(Waveform* w)
 	if(wf_ff_open(&f, w->filename)){
 		w->n_frames = f.info.frames;
 		w->n_channels = w->n_channels ? w->n_channels : f.info.channels; // file info is not correct in the case of split stereo files.
+		w->samplerate = f.info.sample_rate;
 		wf_ff_close(&f);
 #else
 	SF_INFO sfinfo = {0,};
@@ -285,6 +286,7 @@ waveform_get_sf_data(Waveform* w)
 	if((sndfile = sf_open(w->filename, SFM_READ, &sfinfo))){
 		w->n_frames = sfinfo.frames;
 		w->n_channels = w->n_channels ? w->n_channels : sfinfo.channels; // sfinfo is not correct in the case of split stereo files.
+		w->samplerate = sfinfo.samplerate;
 #endif
 	}else{
 		w->offline = true;

@@ -61,7 +61,6 @@
 #include "agl/ext.h"
 #include "transition/transition.h"
 #include "waveform/waveform.h"
-#include "waveform/gl_utils.h"
 #include "waveform/audio.h"
 #include "waveform/texture_cache.h"
 #include "waveform/alphabuf.h"
@@ -408,6 +407,8 @@ wf_actor_new(Waveform* w, WaveformCanvas* wfc)
 		{
 			WaveformActor* a = _actor;
 
+			a->canvas->sample_rate = a->waveform->samplerate;
+
 			if(a->rect.len > 0.0){
 				_wf_actor_load_missing_blocks(a);
 				agl_actor__invalidate((AGlActor*)a);
@@ -557,6 +558,7 @@ wf_actor_set_waveform(WaveformActor* a, Waveform* waveform, WaveformActorFn call
 		C* c = (C*)_c;
 
 		if(waveform_get_n_frames(w)){
+			c->actor->canvas->sample_rate = c->actor->waveform->samplerate;
 			wf_actor_queue_load_render_data(c->actor);
 		}
 
@@ -590,6 +592,7 @@ wf_actor_set_waveform_sync(WaveformActor* a, Waveform* waveform)
 	waveform_load_sync(a->waveform);
 
 	if(waveform_get_n_frames(a->waveform)){
+		a->canvas->sample_rate = a->waveform->samplerate;
 		wf_actor_queue_load_render_data(a);
 		wf_actor_set_region(a, &(WfSampleRegion){0, waveform_get_n_frames(a->waveform)});
 	}

@@ -21,7 +21,6 @@ OPENGL_SOURCES = \
 	view.c view.h \
 	context.c context.h \
 	actor.c actor.h \
-	gl_utils.c gl_utils.h \
 	shader.c shader.h \
 	alphabuf.c alphabuf.h \
 	texture_cache.c texture_cache.h \
@@ -77,7 +76,6 @@ pkginclude_HEADERS = \
 	alphabuf.h \
 	promise.h \
 	utils.h \
-	gl_utils.h \
 	wf_private.h
 
 CLEANFILES =

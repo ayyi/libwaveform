@@ -100,6 +100,7 @@ struct _Waveform
 	uint64_t           n_frames;          // audio file size
 	int                n_channels;
 	gboolean           is_split;          // true for split stereo files
+	int                samplerate;
 
 	gboolean           offline;
 	gboolean           renderable;

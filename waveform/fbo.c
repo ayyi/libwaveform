@@ -24,7 +24,6 @@
 #include <gtk/gtk.h>
 #include <GL/gl.h>
 #include "waveform/waveform.h"
-#include "waveform/gl_utils.h"
 #include "waveform/fbo.h"
 
 extern BloomShader vertical;

@@ -31,7 +31,6 @@
 #include <GL/gl.h>
 #include "agl/utils.h"
 #include "waveform/waveform.h"
-#include "waveform/gl_utils.h"
 #include "waveform/view.h"
 
 #define DIRECT 1

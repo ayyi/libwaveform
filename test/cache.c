@@ -42,7 +42,6 @@
 #include "agl/utils.h"
 #include "waveform/waveform.h"
 #include "waveform/audio.h"
-#include "waveform/gl_utils.h"
 #include "waveform/texture_cache.h"
 #include "waveform/worker.h"
 #include "test/common.h"

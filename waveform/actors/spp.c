@@ -13,8 +13,18 @@
   You should have received a copy of the GNU General Public License
   along with this program; if not, write to the Free Software
   Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+
+  ----------------------------------------------------------------
+
+  Song Position Pointer (cursor) actor
+  ------------------------------------
+
+  The time position can be set either by calling spp_actor_set_time()
+  or by middle-clicking on the waveform.
+
 */
 #define __wf_private__
+#define __wf_canvas_priv__ // for scaled
 #include "config.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -23,11 +33,8 @@
 #include <gtk/gtk.h>
 #include <gdk/gdkkeysyms.h>
 #include <GL/gl.h>
-#include "agl/ext.h"
-#include "agl/utils.h"
 #include "agl/actor.h"
 #include "waveform/waveform.h"
-#include "waveform/gl_utils.h"
 #include "waveform/shader.h"
 
 static AGl* agl = NULL;
@@ -43,6 +50,25 @@ spp_actor(WaveformActor* wf_actor)
 	void spp_actor__init(AGlActor* actor)
 	{
 		if(!((SppActor*)actor)->text_colour) ((SppActor*)actor)->text_colour = wf_get_gtk_base_color(actor->root->widget, GTK_STATE_NORMAL, 0xaa);
+
+		bool on_middle_click(GtkWidget* widget, GdkEventButton* event, gpointer _spp)
+		{
+			SppActor* spp = (SppActor*)_spp;
+			WaveformActor* wf_actor = spp->wf_actor;
+
+			if(event->button == 2){
+				AGliPt p = agl_actor__find_offset((AGlActor*)_spp);
+				int x = (int)event->x - p.x;
+				int64_t samples = x * (wf_actor->canvas->priv->scaled
+					? wf_actor->canvas->samples_per_pixel
+					: wf_actor->region.len / wf_actor->rect.len
+				);
+				spp_actor_set_time((SppActor*)_spp, (1000 * samples) / wf_actor->canvas->sample_rate);
+				return true;
+			}
+			return false;
+		}
+		g_signal_connect((gpointer)actor->root->widget, "button-release-event", G_CALLBACK(on_middle_click), actor);
 	}
 
 	void spp_actor__set_state(AGlActor* actor)

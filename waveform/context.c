@@ -34,7 +34,6 @@
 #include "agl/pango_render.h"
 #include "transition/frameclock.h"
 #include "waveform/waveform.h"
-#include "waveform/gl_utils.h"
 #include "waveform/alphabuf.h"
 #include "waveform/shader.h"
 #include "waveform/context.h"
