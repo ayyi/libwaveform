@@ -205,7 +205,7 @@ typedef struct _texture
 	int           time_stamp;
 } Texture;
 
-typedef struct _peak_sample
+typedef struct
 {
 	short positive;
 	short negative;

@@ -59,7 +59,7 @@ static void _waveform_get_property      (GObject*, guint property_id, GValue*, G
 
 typedef struct _buf_info
 {
-	short* buf;          //source buffer
+	short* buf[2];       //source buffer
 	guint  len;
 	guint  len_frames;
 	int    n_tiers;
@@ -395,7 +395,39 @@ waveform_peak_is_loaded(Waveform* w, int ch_num)
 
 
 static void
-sort_(short* dest, const short* src, int size)
+sort_(int ch, short dest[WF_MAX_CH][4], short src[WF_MAX_CH][4], int size)
+{
+	//sort j into ascending order
+
+	int i, j=0, min, new_min, top=size, p=0;
+	guint16 n[WF_MAX_CH][4] = {{0,}, {0,}};
+
+	for(i=0;i<size;i++) n[ch][i] = src[ch][i]; // copy the source array
+
+	for(i=0;i<size;i++){
+		min = n[ch][0];
+		p=0;
+		for(j=1;j<top;j++){
+			new_min = MIN(min, n[ch][j]);
+			if(new_min < min){
+				min = new_min;
+				p = j;
+			}
+		}
+		// p is the index to the value we have used, and need to remove.
+
+		dest[ch][i] = min;
+
+		int m; for(m=p;m<top;m++) n[ch][m] = n[ch][m+1]; // move remaining entries down.
+		top--;
+		n[ch][top] = 0;
+	}
+}
+
+
+// deprecated
+static void
+sort_mono(short* dest, const short* src, int size)
 {
 	//sort j into ascending order
 
@@ -427,43 +459,43 @@ sort_(short* dest, const short* src, int size)
 
 #define MAX_PART_HEIGHT 1024 //FIXME
 
-struct _line{
+typedef struct {
 	guchar a[MAX_PART_HEIGHT]; //alpha level for each pixel in the line.
-};
-static struct _line line[3];
+} Line;
+static Line line[3];
 
 
 static void
-line_write(struct _line* line, int index, guchar val)
+line_write(Line* line, int index, guchar val)
 {
-	//remove fn once debugging complete?
-	// __func__ is null!
+#ifdef DEBUG
 	if(index < 0 || index >= MAX_PART_HEIGHT){ gerr ("y=%i", index); return; }
+#endif
 	line->a[index] = val;
 }
 
 
 static void
-line_clear(struct _line* line)
+line_clear(Line* line)
 {
-	int i;
-	for(i=0;i<MAX_PART_HEIGHT;i++) line->a[i] = 0;
+	memset(line->a, 0, sizeof(guchar) * MAX_PART_HEIGHT);
 }
 
 
-static inline gboolean
-get_buf_info(const Waveform* w, int block_num, BufInfo* b, int ch)
+static inline bool
+get_buf_info(const Waveform* w, int block_num, BufInfo* b)
 {
 	//buf_info is just a convenience. It is filled twice during a tile draw.
 
-	gboolean hires_mode = (block_num > -1);
+	bool hires_mode = (block_num > -1);
 
 	if(hires_mode){
 		WfAudioData* audio = &w->priv->audio;
 		g_return_val_if_fail(audio->buf16, false);
 		Peakbuf* peakbuf = waveform_get_peakbuf_n((Waveform*)w, block_num);
 		*b = (BufInfo){
-			.buf = peakbuf->buf[ch],
+			.buf[0] = peakbuf->buf[0],
+			.buf[1] = peakbuf->buf[1],
 			.len = peakbuf->size,
 			.n_tiers = RESOLUTION_TO_TIERS(peakbuf->resolution)
 		};
@@ -473,7 +505,8 @@ get_buf_info(const Waveform* w, int block_num, BufInfo* b, int ch)
 		dbg(2, "MED len=%i %i (x256=%i)", b->len, b->len / WF_PEAK_VALUES_PER_SAMPLE, (b->len * 256) / WF_PEAK_VALUES_PER_SAMPLE);
 
 		*b = (BufInfo){
-			.buf        = w->priv->peak.buf[ch], // source buffer.
+			.buf[0]     = w->priv->peak.buf[0], // source buffer.
+			.buf[1]     = w->priv->peak.buf[1],
 			.len        = w->priv->peak.size,
 			.len_frames = 0
 		};
@@ -487,7 +520,7 @@ get_buf_info(const Waveform* w, int block_num, BufInfo* b, int ch)
 }
 
 
-static inline gboolean
+static inline bool
 get_rms_buf_info(const char* buf, guint len, struct _rms_buf_info* b, int ch)
 {
 	//buf_info is just a convenience. It is filled twice during a tile draw.
@@ -593,7 +626,7 @@ waveform_peak_to_alphabuf(Waveform* w, AlphaBuf* a, int scale, int* start, int* 
 	int ch; for(ch=0;ch<n_chans;ch++){
 
 		struct _buf_info b; 
-		g_return_if_fail(get_buf_info(w, -1, &b, ch));
+		g_return_if_fail(get_buf_info(w, -1, &b));
 
 		line_clear(&line[0]);
 		int line_index = 0;
@@ -605,9 +638,9 @@ waveform_peak_to_alphabuf(Waveform* w, AlphaBuf* a, int scale, int* start, int* 
 			//printf("%i ", src_start);
 			if(src_start < 0){ dbg(2, "skipping line..."); continue; }
 
-			struct _line* previous_line = &line[(line_index  ) % 3];
-			struct _line* current_line  = &line[(line_index+1) % 3];
-			struct _line* next_line     = &line[(line_index+2) % 3];
+			Line* previous_line = &line[(line_index  ) % 3];
+			Line* current_line  = &line[(line_index+1) % 3];
+			Line* next_line     = &line[(line_index+2) % 3];
 
 			//arrays holding subpixel levels.
 			short lmax[4] = {0,0,0,0};
@@ -620,8 +653,8 @@ waveform_peak_to_alphabuf(Waveform* w, AlphaBuf* a, int scale, int* start, int* 
 				min = 0; max = 0;
 				int n_sub_px = 0;
 				for(j=src_start;j<src_stop;j++){ //iterate over all the source samples for this pixel.
-					sample.positive = b.buf[2*j   ];
-					sample.negative = b.buf[2*j +1];
+					sample.positive = b.buf[ch][2*j   ];
+					sample.negative = b.buf[ch][2*j +1];
 					if(sample.positive > max) max = sample.positive;
 					if(sample.negative < min) min = sample.negative;
 //if((j > 240 && j<250) || j>490) dbg(0, "  s=%i %i %i", j, (int)max, (int)(-min));
@@ -639,8 +672,8 @@ waveform_peak_to_alphabuf(Waveform* w, AlphaBuf* a, int scale, int* start, int* 
 					//first line - we also grab the previous sample for antialiasing.
 					if(px){
 						j = src_start - 1;
-						sample.positive = b.buf[2*j   ];
-						sample.negative = b.buf[2*j +1];
+						sample.positive = b.buf[ch][2*j   ];
+						sample.negative = b.buf[ch][2*j +1];
 						max = sample.positive / vscale;
 						min =-sample.negative / vscale;
 						//printf(" j=%i max=%i min=%i\n", j, max, min);
@@ -656,7 +689,7 @@ waveform_peak_to_alphabuf(Waveform* w, AlphaBuf* a, int scale, int* start, int* 
 				min /= vscale;
 				max /= vscale;
 
-				sort_(k, lmax, MIN(n_sub_px, 4));
+				sort_mono(k, lmax, MIN(n_sub_px, 4));
 
 				//note that we write into next_line, not current_line. There is a visible delay of one line.
 				int alpha = 0xff;
@@ -676,7 +709,7 @@ waveform_peak_to_alphabuf(Waveform* w, AlphaBuf* a, int scale, int* start, int* 
 				}
 
 				//negative peak:
-				sort_(k, lmin, MIN(n_sub_px, 4));
+				sort_mono(k, lmin, MIN(n_sub_px, 4));
 				alpha = 0xff;
 				v = mid;
 				for(s=0;s<MIN(n_sub_px, 4);s++){
@@ -902,9 +935,9 @@ if(!n_chans){ gerr("n_chans"); n_chans = 1; }
 
 		line_clear(&line[0]);
 		int line_index = 0;
-		//struct _line* previous_line = &line[0];
-		//struct _line* current_line  = &line[1]; //the line being displayed. Not the line being written to.
-		//struct _line* next_line     = &line[2];
+		//Line* previous_line = &line[0];
+		//Line* current_line  = &line[1]; //the line being displayed. Not the line being written to.
+		//Line* next_line     = &line[2];
 
 		int i  = 0;
 		int px = 0;                    // pixel count starting at the lhs of the Part.
@@ -918,9 +951,9 @@ if(!n_chans){ gerr("n_chans"); n_chans = 1; }
 			//else { printf("_"); fflush(stdout); }
 			dbg(4, "srcidx: %i - %i", src_start, src_stop);
 
-			struct _line* previous_line = &line[(line_index  ) % 3];
-			struct _line* current_line  = &line[(line_index+1) % 3];
-			struct _line* next_line     = &line[(line_index+2) % 3];
+			Line* previous_line = &line[(line_index  ) % 3];
+			Line* current_line  = &line[(line_index+1) % 3];
+			Line* next_line     = &line[(line_index+2) % 3];
 
 			//arrays holding subpixel levels.
 			short lmax[4] = {0,0,0,0};
@@ -981,7 +1014,7 @@ if(!n_chans){ gerr("n_chans"); n_chans = 1; }
 				min = (ch_height * min) / (256*128*2);
 				max = (ch_height * max) / (256*128*2);
 
-				sort_(k, lmax, MIN(sub_px, 4));
+				sort_mono(k, lmax, MIN(sub_px, 4));
 
 				//note that we write into next_line, not current_line. There is a visible delay of one line.
 				int alpha = 0xff;
@@ -1015,7 +1048,7 @@ if(!n_chans){ gerr("n_chans"); n_chans = 1; }
 
 #if 0
 				//negative peak:
-				sort_(k, lmin, MIN(sub_px, 4));
+				sort_mono(k, lmin, MIN(sub_px, 4));
 				alpha = 0xff;
 				v=mid;
 				for(s=0;s<MIN(sub_px, 4);s++){
@@ -1340,13 +1373,15 @@ warn_no_src_data(Waveform* waveform, int buflen, int src_stop)
 
 #ifdef USE_GDK_PIXBUF
 void
-waveform_peak_to_pixbuf(Waveform* w, GdkPixbuf* pixbuf, WfSampleRegion* region, uint32_t colour, uint32_t bg_colour)
+waveform_peak_to_pixbuf(Waveform* w, GdkPixbuf* pixbuf, WfSampleRegion* region, uint32_t colour, uint32_t bg_colour, bool single)
 {
-	g_return_if_fail(w && pixbuf && region);
+	g_return_if_fail(w && pixbuf);
+
+	if(!region) region = &(WfSampleRegion){0, waveform_get_n_frames(w)};
 
 	gdk_pixbuf_fill(pixbuf, bg_colour);
 	double samples_per_px = region->len / gdk_pixbuf_get_width(pixbuf);
-	waveform_peak_to_pixbuf_full(w, pixbuf, region->start, NULL, NULL, samples_per_px, colour, bg_colour, 1.0);
+	waveform_peak_to_pixbuf_full(w, pixbuf, region->start, NULL, NULL, samples_per_px, colour, bg_colour, 1.0, single);
 }
 
 
@@ -1385,7 +1420,7 @@ waveform_peak_to_pixbuf_async(Waveform* w, GdkPixbuf* pixbuf, WfSampleRegion* re
 		PF;
 		double samples_per_px = c->region.len / gdk_pixbuf_get_width(c->pixbuf);
 		gdk_pixbuf_fill(c->pixbuf, c->bg_colour);
-		waveform_peak_to_pixbuf_full(c->waveform, c->pixbuf, c->region.start, NULL, NULL, samples_per_px, c->colour, c->bg_colour, 1.0);
+		waveform_peak_to_pixbuf_full(c->waveform, c->pixbuf, c->region.start, NULL, NULL, samples_per_px, c->colour, c->bg_colour, 1.0, false);
 
 		if(c->callback) c->callback(c->waveform, c->pixbuf, c->user_data);
 		g_free(c);
@@ -1425,8 +1460,13 @@ typedef struct {
     int start, stop;
 } iRange;
 
+typedef struct {
+	Line *previous, *current, *next;
+} Lines;
+
+
 void
-waveform_peak_to_pixbuf_full(Waveform* waveform, GdkPixbuf* pixbuf, uint32_t region_inset, int* start, int* end, double samples_per_px, uint32_t colour, uint32_t colour_bg, float gain)
+waveform_peak_to_pixbuf_full(Waveform* waveform, GdkPixbuf* pixbuf, uint32_t region_inset, int* start, int* end, double samples_per_px, uint32_t colour, uint32_t colour_bg, float gain, bool single)
 {
 	/*
 		renders part of a peakfile (loaded into the buffer given by waveform->buf) onto the given pixbuf.
@@ -1461,6 +1501,8 @@ waveform_peak_to_pixbuf_full(Waveform* waveform, GdkPixbuf* pixbuf, uint32_t reg
 	g_return_if_fail(pixbuf);
 	g_return_if_fail(waveform);
 
+	static Line line[WF_MAX_CH][3];
+
 	gboolean hires_mode = ((samples_per_px / WF_PEAK_RATIO) < 1.0);
 
 	int bg_red = (colour_bg & 0xff000000) >> 24;
@@ -1476,27 +1518,25 @@ waveform_peak_to_pixbuf_full(Waveform* waveform, GdkPixbuf* pixbuf, uint32_t reg
 #endif
 
 	if(samples_per_px < 0.001) gerr ("samples_per_pix=%f", samples_per_px);
-	WfPeakSample sample;
-	short min;                //negative peak value for each pixel.
-	short max;                //positive peak value for each pixel.
-#if 0
-	if(!pool_item->valid) return;
-	if(!pool_item->source_id){ gerr ("bad core source id: %Lu.", pool_item->source_id[0]); return; }
-#endif
+	WfPeakSample sample[WF_MAX_CH];
+	WfPeakSample peak[WF_MAX_CH];
 
 	dbg(3, "peak_gain=%.2f", gain);
 
 	int n_chans      = waveform_get_n_channels(waveform);
+	int n_chans_out  = single ? 1 : n_chans;
 	int width        = gdk_pixbuf_get_width(pixbuf);
 	int height       = gdk_pixbuf_get_height(pixbuf);
 	guchar* pixels   = gdk_pixbuf_get_pixels(pixbuf);
 	int rowstride    = gdk_pixbuf_get_rowstride(pixbuf);
 
+#if 0
 	cairo_surface_t* surface = cairo_image_surface_create_for_data(pixels, CAIRO_FORMAT_RGB24, width, height, rowstride);
 	cairo_t* cairo = cairo_create(surface);
+#endif
 
 	if (height > MAX_PART_HEIGHT) gerr ("part too tall. not enough memory allocated.");
-	int ch_height = height / n_chans;
+	int ch_height = height / n_chans_out;
 	int vscale = (256 * 128 * 2) / ch_height;
 
 	int px_start = start ? *start : 0;
@@ -1506,9 +1546,7 @@ waveform_peak_to_pixbuf_full(Waveform* waveform, GdkPixbuf* pixbuf, uint32_t reg
 	int hires_block = -1;
 	int border = 0;
 
-	int ch; for(ch=0;ch<n_chans;ch++){
-		//we use the same part of Line for each channel, it is then render it to the pixbuf with a channel offset.
-		dbg (3, "ch=%i", ch);
+		//we use the same part of Line for each channel, it is then rendered to the pixbuf with a channel offset.
 
 		if(hires_mode){
 			hires_block = region_inset / WF_PEAK_BLOCK_SIZE;
@@ -1516,13 +1554,14 @@ waveform_peak_to_pixbuf_full(Waveform* waveform, GdkPixbuf* pixbuf, uint32_t reg
 
 			WfAudioData* audio = &waveform->priv->audio;
 			if(!audio->buf16){
+				gwarn("calling async function from sync fn will not work");
 				waveform_load_audio(waveform, hires_block, N_TIERS_NEEDED, NULL, NULL);
 				return;
 			}
 		}
 
 		struct _buf_info b; 
-		g_return_if_fail(get_buf_info(waveform, hires_block, &b, ch));
+		g_return_if_fail(get_buf_info(waveform, hires_block, &b));
 
 		// xmag defines how many 'samples' we need to skip to get the next pixel.
 		// making xmag smaller increases the visual magnification.
@@ -1531,13 +1570,11 @@ waveform_peak_to_pixbuf_full(Waveform* waveform, GdkPixbuf* pixbuf, uint32_t reg
 
 		double xmag = samples_per_px / ((hires_mode ? (1 << b.n_tiers) : WF_PEAK_RATIO));
 
-		iRange src = {0, 0};         // frames or peakbuf idx. multiply by 2 to get the index into the source buffer for each sample pt.
+		iRange src = {0,};         // frames or peakbuf idx. multiply by 2 to get the index into the source buffer for each sample pt.
 
-		line_clear(&line[0]);
+		line_clear(&line[WF_LEFT][0]);
+		line_clear(&line[WF_RIGHT][0]);
 		int line_index = 0;
-		//struct _line* previous_line = &line[0];
-		//struct _line* current_line  = &line[1]; //the line being displayed. Not the line being written to.
-		//struct _line* next_line     = &line[2];
 
 		int block_offset = hires_mode ? hires_block * (b.len_frames - 2 * border) : 0;
 
@@ -1545,144 +1582,169 @@ waveform_peak_to_pixbuf_full(Waveform* waveform, GdkPixbuf* pixbuf, uint32_t reg
 
 		int px, i = 0; for(px=px_start; px<px_stop; px++, i++){
 
-			//note: units for src.start are peakbuf *frames*.
+		//note: units for src.start are peakbuf *frames*.
 
-			src.start = border + ((int)((px  ) * xmag)) + region_inset_ - block_offset;
-			src.stop  = border + ((int)((px+1) * xmag)) + region_inset_ - block_offset;
-			if(src.start == src.stop){ printf("^"); fflush(stdout); } // src data not hi enough resolution
-			if(hires_mode){
-				if(wf_debug && (px == px_start)){
-					double percent = 2 * 100 * (((int)(px * xmag)) + region_inset - (wf_peakbuf_get_max_size(b.n_tiers) * hires_block) / WF_PEAK_VALUES_PER_SAMPLE) / b.len;
-					dbg(2, "reading from buf=%i=%.2f%% stop=%i buflen=%i blocklen=%i", src.start, percent, src.stop, b.len, wf_peakbuf_get_max_size(b.n_tiers));
-				}
-				if(src.stop > b.len_frames - border/2){
-					dbg(1, "**** block change needed!");
-					hires_block++;
-					Peakbuf* peakbuf = waveform_get_peakbuf_n(waveform, hires_block);
-					g_return_if_fail(peakbuf);
-					if(!get_buf_info(waveform, hires_block, &b, ch)){ break; }
-					block_offset = hires_block * (b.len_frames - 2 * border);
-
-					// restart the iteration
-					px--;
-					i--;
-					continue;
-				}
+		src.start = border + ((int)((px  ) * xmag)) + region_inset_ - block_offset;
+		src.stop  = border + ((int)((px+1) * xmag)) + region_inset_ - block_offset;
+		if(src.start == src.stop){ printf("^"); fflush(stdout); } // src data not hi enough resolution
+		if(hires_mode){
+			if(wf_debug && (px == px_start)){
+				double percent = 2 * 100 * (((int)(px * xmag)) + region_inset - (wf_peakbuf_get_max_size(b.n_tiers) * hires_block) / WF_PEAK_VALUES_PER_SAMPLE) / b.len;
+				dbg(2, "reading from buf=%i=%.2f%% stop=%i buflen=%i blocklen=%i", src.start, percent, src.stop, b.len, wf_peakbuf_get_max_size(b.n_tiers));
 			}
+			if(src.stop > b.len_frames - border/2){
+				dbg(1, "**** block change needed!");
+				hires_block++;
+				Peakbuf* peakbuf = waveform_get_peakbuf_n(waveform, hires_block);
+				g_return_if_fail(peakbuf);
+				if(!get_buf_info(waveform, hires_block, &b)){ break; }
+				block_offset = hires_block * (b.len_frames - 2 * border);
 
-			struct _line* previous_line = &line[(line_index  ) % 3];
-			struct _line* current_line  = &line[(line_index+1) % 3];
-			struct _line* next_line     = &line[(line_index+2) % 3];
+				// restart the iteration
+				px--;
+				i--;
+				continue;
+			}
+		}
 
-			//arrays holding subpixel levels.
-			short lmax[4] = {0,0,0,0};
-			short lmin[4] = {0,0,0,0};
-			short k   [4] = {0,0,0,0}; //sorted copy of l.
+		Lines lines[WF_MAX_CH] = {
+			{
+				.previous = &line[WF_LEFT][(line_index  ) % 3],
+				.current  = &line[WF_LEFT][(line_index+1) % 3], // the line being displayed. Not the line being written to.
+				.next     = &line[WF_LEFT][(line_index+2) % 3]
+			},
+			{
+				.previous = &line[WF_RIGHT][(line_index  ) % 3],
+				.current  = &line[WF_RIGHT][(line_index+1) % 3],
+				.next     = &line[WF_RIGHT][(line_index+2) % 3]
+			}
+		};
 
-			int mid = ch_height / 2;
+		//arrays holding subpixel levels.
+		short lmax[WF_MAX_CH][4] = {{0,}, {0,}};
+		short lmin[WF_MAX_CH][4] = {{0,}, {0,}};
+		short k   [WF_MAX_CH][4] = {{0,}, {0,}}; // sorted copy of l.
 
-			int j, y;
-			if(src.stop < b.len_frames){
-				min = 0; max = 0;
-				int sub_px = 0;
+		int mid = ch_height / 2;
+
+		int j, y;
+		if(src.stop < b.len_frames){
+			int sub_px = 0;
+			int ch; for(ch=0;ch<n_chans;ch++){
+				sub_px = 0;
+				peak[ch] = (WfPeakSample){0,};
+
 				for(j=src.start;j<src.stop;j++){ //iterate over all the source samples for this pixel.
-					sample.positive = b.buf[2*j   ] * gain;
-					sample.negative = b.buf[2*j +1] * gain;
-					if(sample.positive > max) max = sample.positive;
-					if(sample.negative < min) min = sample.negative;
+					sample[ch] = (WfPeakSample){
+						.positive = b.buf[ch][2*j   ] * gain,
+						.negative = b.buf[ch][2*j +1] * gain
+					};
+					peak[ch].positive = MAX(peak[ch].positive, sample[ch].positive);
+					peak[ch].negative = MIN(peak[ch].negative, sample[ch].negative);
 
-					if(sub_px<4){
+					if(sub_px < 4){
 						//FIXME these supixels are not evenly distributed when > 4 available.
-						lmax[sub_px] = (ch_height * sample.positive) / (256*128*2);
-						lmin[sub_px] =-(ch_height * sample.negative) / (256*128*2); //lmin contains positive values.
+						lmax[ch][sub_px] = (ch_height * sample[ch].positive) / (256*128*2);
+						lmin[ch][sub_px] =-(ch_height * sample[ch].negative) / (256*128*2); //lmin contains positive values.
 					}
 					sub_px++;
 				}
-				if(!sub_px){ /*printf("*"); fflush(stdout);*/ continue; }
+			}
+			if(!sub_px){ /*printf("*"); fflush(stdout);*/ continue; }
 
-				if(!line_index){
-					//first line - we also grab the previous sample for antialiasing.
+			if(!line_index){
+				//first line - we also grab the previous sample for antialiasing.
+				for(ch=0;ch<n_chans;ch++){
 					if(px){
 						j = src.start - 1;
-						sample.positive = b.buf[2*j   ];
-						sample.negative = b.buf[2*j +1];
-						max = sample.positive / vscale;
-						min =-sample.negative / vscale;
-						//printf(" j=%i max=%i min=%i\n", j, max, min);
-						for(y=mid;y<mid+max;y++) line_write(previous_line, y, 0xff);
-						for(y=mid;y<mid+max;y++) line_write(current_line, y, 0xff);
-						for(y=mid;y>mid-max;y--) line_write(previous_line, y, 0xff);
-						for(y=mid;y>mid-max;y--) line_write(current_line, y, 0xff);
+						sample[ch] = (WfPeakSample){
+							.positive = b.buf[ch][2*j   ],
+							.negative = b.buf[ch][2*j +1]
+						};
+						peak[ch].positive = sample[ch].positive / vscale;
+						peak[ch].negative =-sample[ch].negative / vscale;
+																// TODO why peak.negative not used here?
+						for(y=mid;y<mid+peak[ch].positive;y++) line_write(lines[ch].previous, y, 0xff);
+						for(y=mid;y<mid+peak[ch].positive;y++) line_write(lines[ch].current, y, 0xff);
+						for(y=mid;y>mid-peak[ch].positive;y--) line_write(lines[ch].previous, y, 0xff);
+						for(y=mid;y>mid-peak[ch].positive;y--) line_write(lines[ch].current, y, 0xff);
 					}
-					else line_clear(current_line);
+					else line_clear(lines[ch].current);
 				}
+			}
 
-				//scale the values to the pixbuf height:
-				min = (ch_height * min) / (256*128*2);
-				max = (ch_height * max) / (256*128*2);
+			//scale the values to the pixbuf height:
+			for(ch=0;ch<n_chans;ch++){
+				peak[ch].negative = (ch_height * peak[ch].negative) / (256*128*2);
+				peak[ch].positive = (ch_height * peak[ch].positive) / (256*128*2);
 
-				sort_(k, lmax, MIN(sub_px, 4));
+				sort_(ch, k, lmax, MIN(sub_px, 4));
 
-				//note that we write into next_line, not current_line. There is a visible delay of one line.
+				//note that we write into line.next, not line.current. There is a visible delay of one line.
 				int alpha = 0xff;
-				int v=0;
-				int s,a;
+				int v = 0;
 
 				//positive peak:
-				for(s=0;s<MIN(sub_px, 4);s++){
-					//printf(" v=%i->%i ", v, k[s]);
-					for(y=v;y<k[s];y++){
-						line_write(next_line, mid +y, alpha);
+				int s; for(s=0;s<MIN(sub_px, 4);s++){
+					for(y=v;y<k[ch][s];y++){
+						line_write(lines[ch].next, mid +y, alpha);
 					}
-					v=k[s];
+					v = k[ch][s];
 					alpha = (alpha * 2) / 3;
 				}
-				line_write(next_line, mid+k[s-1], alpha/2); //blur!
-				for(y=k[s-1]+1;y<=mid;y++){ //this looks like y goes 1 too high, but the line isnt cleared otherwise.
-					next_line->a[mid + y] = 0;
+				line_write(lines[ch].next, mid + k[ch][s-1], alpha/2); //blur!
+				for(y=k[ch][s-1]+1;y<=mid;y++){ //this looks like y goes 1 too high, but the line isnt cleared otherwise.
+					lines[ch].next->a[mid + y] = 0;
 				}
 
 				//negative peak:
-				sort_(k, lmin, MIN(sub_px, 4));
+				sort_(ch, k, lmin, MIN(sub_px, 4));
 				alpha = 0xff;
-				v=mid;
+				v = mid;
 				for(s=0;s<MIN(sub_px, 4);s++){
-					//for(y=v;y>mid-k[s];y--) next_line->a[y] = alpha;
-					for(y=v;y>mid-k[s];y--) line_write(next_line, y, alpha);
-					v=mid-k[s];
+					for(y=v;y>mid-k[ch][s];y--) line_write(lines[ch].next, y, alpha);
+					v = mid - k[ch][s];
 					alpha = (alpha * 2) / 3;
 				}
-				line_write(next_line, mid-k[s-1], alpha/2); //antialias the end of the line.
-				for(y=mid-k[s-1]-1;y>=0;y--) line_write(next_line, y, 0);
+				line_write(lines[ch].next, mid-k[ch][s-1], alpha/2); //antialias the end of the line.
+				for(y=mid-k[ch][s-1]-1;y>=0;y--) line_write(lines[ch].next, y, 0);
 
-				//draw the lines:
-				int blur = 6; //bigger value gives less blurring.
+			} // end channel
+
+			//draw the lines:
+			#define blur 6 // bigger value gives less blurring.
+			int n = single ? n_chans : 1;
+			for(ch=0;ch<n_chans_out;ch++){
 				for(y=0;y<ch_height;y++){
-					int p = ch*ch_height*rowstride + (ch_height - y -1)*rowstride + 3*px;
+					int p = rowstride*(ch*ch_height + (ch_height - y -1)) + 3*px;
 					if(p > rowstride*height || p < 0){ gerr ("p! %i > %i px=%i y=%i row=%i rowstride=%i=%i", p, 3*width*ch_height, px, y, ch_height-y-1, rowstride,3*width); return; }
 
-					a = MIN((current_line->a[y] * 2)/3 + previous_line->a[y]/blur + next_line->a[y]/blur, 0xff);
-					if(!a) continue; //testing
-					pixels[p  ] = (int)( bg_red * (0xff - a) + fg_red * a) >> 8;
-					pixels[p+1] = (int)( bg_grn * (0xff - a) + fg_grn * a) >> 8;
-					pixels[p+2] = (int)( bg_blu * (0xff - a) + fg_blu * a) >> 8;
+					int a = 0;
+					int c; for(c=0;c<n;c++){
+						a += ((lines[c].current->a[y] * 2)/3 + lines[c].previous->a[y]/blur + lines[c].next->a[y]/blur) / n;
+					}
+					if(!a) continue;
+					a = MIN(a, 0xff);
+					pixels[p  ] = (int)(bg_red * (0xff - a) + fg_red * a) >> 8;
+					pixels[p+1] = (int)(bg_grn * (0xff - a) + fg_grn * a) >> 8;
+					pixels[p+2] = (int)(bg_blu * (0xff - a) + fg_blu * a) >> 8;
 				}
-
-			}else{
-				//no more source data available - as the pixmap is clear, we have nothing much to do.
-				//gdk_draw_line(GDK_DRAWABLE(pixmap), gc, px, 0, px, height);//x1, y1, x2, y2
-				WfDRect pts = {px, 0, px, ch_height};
-				pixbuf_draw_line(cairo, &pts, 1.0, colour);
-				warn_no_src_data(waveform, b.len, src.stop);
-				printf("*"); fflush(stdout);
 			}
-
-			line_index++;
-			//printf("line_index=%i %i %i %i\n", line_index, (line_index  ) % 3, (line_index+1) % 3, (line_index+2) % 3);
+		}else{
+			//no more source data available - as the pixmap is clear, we have nothing much to do.
+			//gdk_draw_line(GDK_DRAWABLE(pixmap), gc, px, 0, px, height);//x1, y1, x2, y2
+#if 0
+			WfDRect pts = {px, 0, px, ch_height};
+			pixbuf_draw_line(cairo, &pts, 1.0, colour);
+#endif
+			warn_no_src_data(waveform, b.len, src.stop);
+			printf("*"); fflush(stdout);
 		}
 
-		dbg (1, "done. xmag=%.2f drawn: %i of %i src=%i-->%i", xmag, line_index, width, ((int)(px_start * xmag)) + region_inset, src.stop);
-	} //end channel
+		line_index++;
+	}
+
+	dbg (1, "done. xmag=%.2f drawn: %i of %i src=%i-->%i", xmag, line_index, width, ((int)(px_start * xmag)) + region_inset, src.stop);
 
 #if 0
 	gettimeofday(&time_stop, NULL);
@@ -1694,7 +1756,7 @@ waveform_peak_to_pixbuf_full(Waveform* waveform, GdkPixbuf* pixbuf, uint32_t reg
 		secs -= 1;
 		usec = time_stop.tv_usec + 1000000 - time_start.tv_usec;
 	}
-	//printf("%s(): start=%03i: %lu:%06lu\n", __func__, px_start, secs, usec);
+	dbg(0, "pxstart=%03i: %lu.%06lu s", px_start, secs, usec);
 #endif
 
 #ifdef DBG_TILE_BOUNDARY
@@ -1709,8 +1771,10 @@ waveform_peak_to_pixbuf_full(Waveform* waveform, GdkPixbuf* pixbuf, uint32_t reg
 												pixels[3* px_stop + 2] = 0x00;
 	}
 #endif
+#if 0
 	cairo_surface_destroy(surface);
 	cairo_destroy(cairo);
+#endif
 }
 #endif
 
@@ -1855,9 +1919,9 @@ waveform_rms_to_pixbuf(Waveform* w, GdkPixbuf* pixbuf, uint32_t src_inset, int* 
 
 		line_clear(&line[0]);
 		int line_index = 0;
-		//struct _line* previous_line = &line[0];
-		//struct _line* current_line  = &line[1]; //the line being displayed. Not the line being written to.
-		//struct _line* next_line     = &line[2];
+		//Line* previous_line = &line[0];
+		//Line* current_line  = &line[1]; //the line being displayed. Not the line being written to.
+		//Line* next_line     = &line[2];
 
 		int block_offset = hires_mode ? wf_peakbuf_get_max_size(n_tiers) * hires_block / WF_PEAK_VALUES_PER_SAMPLE : 0;
 		int block_offset2= hires_mode ? wf_peakbuf_get_max_size(n_tiers) * (hires_block+1) / WF_PEAK_VALUES_PER_SAMPLE : 0;
@@ -1890,9 +1954,9 @@ waveform_rms_to_pixbuf(Waveform* w, GdkPixbuf* pixbuf, uint32_t src_inset, int* 
       }
       dbg(4, "srcidx: %i - %i", src_start, src_stop);
 
-      struct _line* previous_line = &line[(line_index  ) % 3];
-      struct _line* current_line  = &line[(line_index+1) % 3];
-      struct _line* next_line     = &line[(line_index+2) % 3];
+      Line* previous_line = &line[(line_index  ) % 3];
+      Line* current_line  = &line[(line_index+1) % 3];
+      Line* next_line     = &line[(line_index+2) % 3];
 
       //arrays holding subpixel levels.
       short lmax[4] = {0,0,0,0};
@@ -1960,7 +2024,7 @@ waveform_rms_to_pixbuf(Waveform* w, GdkPixbuf* pixbuf, uint32_t src_inset, int* 
         min = (ch_height * min) / (256*128*2);
         max = (ch_height * max) / (256*128*2);
 
-        sort_(k, lmax, MIN(sub_px, 4));
+        sort_mono(k, lmax, MIN(sub_px, 4));
 
         //note that we write into next_line, not current_line. There is a visible delay of one line.
         int alpha = 0xff;
@@ -1988,9 +2052,9 @@ waveform_rms_to_pixbuf(Waveform* w, GdkPixbuf* pixbuf, uint32_t src_inset, int* 
         }
 
         //negative peak:
-        sort_(k, lmin, MIN(sub_px, 4));
+        sort_mono(k, lmin, MIN(sub_px, 4));
         alpha = 0xff;
-        v=mid;
+        v = mid;
         for(s=0;s<MIN(sub_px, 4);s++){
           //for(y=v;y>mid-k[s];y--) next_line->a[y] = alpha;
           for(y=v;y>mid-k[s];y--) line_write(next_line, y, alpha);

@@ -1608,6 +1608,12 @@ calc_render_info(WaveformActor* actor)
 	static gboolean region_len_warning_done = false;
 	if(!region_len_warning_done && !r->region.len){ region_len_warning_done = true; gwarn("zero region length"); }
 
+	if(r->region.start + r->region.len > w->n_frames){
+		// happens during transitions
+		dbg(1, "bad region adjusted: %Lu / %Lu", r->region.start + r->region.len, w->n_frames);
+		r->region.len = w->n_frames - r->region.start;
+	}
+
 	r->rect = (WfRectangle){_a->animatable.rect_left.val.f, actor->rect.top, _a->animatable.rect_len.val.f, actor->rect.height};
 	g_return_val_if_fail(r->rect.len, false);
 
@@ -1623,10 +1629,6 @@ calc_render_info(WaveformActor* actor)
 																						// why we need this?
 	r->region_start_block = r->region.start / r->samples_per_texture;
 
-	if(r->region.start + r->region.len > w->n_frames){
-		gwarn("bad region adjusted: %Lu / %Lu", r->region.start + r->region.len, w->n_frames);
-		r->region.len = w->n_frames - r->region.start;
-	}
 																						// FIXME this is calculated differently inside wf_actor_get_visible_block_range
 	r->region_end_block = (r->region.start + r->region.len) / r->samples_per_texture - (!((r->region.start + r->region.len) % r->samples_per_texture) ? 1 : 0);
 	r->viewport_blocks = wf_actor_get_visible_block_range(&r->region, &r->rect, r->zoom, &r->viewport, r->n_blocks);

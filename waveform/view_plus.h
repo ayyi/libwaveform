@@ -49,7 +49,7 @@ struct _WaveformViewPlus {
 	GtkDrawingArea           parent_instance;
 
 	Waveform*                waveform;
-	float                    zoom;
+	float                    zoom;        // zoom is 1 when whole file is visible
 	uint64_t                 start_frame;
 
 	uint32_t                 fg_colour;

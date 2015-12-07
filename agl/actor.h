@@ -19,6 +19,7 @@
 #endif
 #include "transition/transition.h"
 #include "agl/typedefs.h"
+#include "agl/utils.h"
 #include "gtk/gtk.h"
 
 #undef AGL_DEBUG_ACTOR

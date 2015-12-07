@@ -35,7 +35,8 @@ typedef struct
 } AudioInfo;
 
 
-typedef struct
+typedef struct _FF FF;
+struct _FF
 {
    AVFormatContext* format_context;
    AVCodecContext*  codec_context;
@@ -47,6 +48,9 @@ typedef struct
 
    AudioInfo        info;
 
+   AVFrame          frame;
+   int              frame_iter;
+
    int16_t          m_tmpBuffer[WF_MAX_AUDIO_FRAME_SIZE];
    int16_t*         m_tmpBufferStart;
    unsigned long    m_tmpBufferLen;
@@ -54,12 +58,16 @@ typedef struct
    int64_t          decoder_clock;
    int64_t          output_clock;
    int64_t          seek_frame;
-} FF;
+
+   ssize_t (*read)  (FF*, WfBuf16*, size_t len);
+};
 
 
-bool    wf_ff_open     (FF*, const char* filename);
-void    wf_ff_close    (FF*);
-ssize_t wf_ff_read     (FF*, float* d, size_t len);
+bool    wf_ff_open       (FF*, const char* filename);
+void    wf_ff_close      (FF*);
+int64_t wf_ff_seek       (FF*, int64_t pos);
+ssize_t wf_ff_read       (FF*, float*, size_t len);
+ssize_t wf_ff_read_short (FF*, WfBuf16*, size_t len);
 
 #endif
 #endif

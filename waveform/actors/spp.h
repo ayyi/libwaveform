@@ -25,8 +25,8 @@ typedef struct {
     uint32_t       play_timeout;
 } SppActor;
 
-AGlActor* spp_actor          (WaveformActor*);
-void      spp_actor_set_time (SppActor*, uint32_t);
+AGlActor* wf_spp_actor          (WaveformActor*);
+void      wf_spp_actor_set_time (SppActor*, uint32_t);
 
 #define WF_SPP_TIME_NONE UINT32_MAX
 

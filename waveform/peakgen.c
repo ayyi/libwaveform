@@ -234,15 +234,58 @@ wf_ff_peakgen(const char* infilename, const char* peak_filename)
 	}
 
 	int total_frames_written = 0;
-	short total_max[sfinfo.channels]; memset(total_max, 0, sizeof(short) * sfinfo.channels);
-	short total_min[sfinfo.channels]; memset(total_min, 0, sizeof(short) * sfinfo.channels);
+	WfPeakSample total[sfinfo.channels]; memset(total, 0, sizeof(WfPeakSample) * sfinfo.channels);
 
-	int read_len = 256 * f.info.channels;
+	int n = 8;
+	int read_len = WF_PEAK_RATIO * n;
 	float* sf_data = g_malloc(sizeof(float) * read_len);
+
+	int16_t data[f.info.channels][read_len];
+	WfBuf16 buf = {
+		.buf = {
+			data[0], data[1]
+		},
+		.size = n * WF_PEAK_RATIO
+	};
+
 	float max[sfinfo.channels];
 	float min[sfinfo.channels];
 
 	int readcount;
+	switch(f.codec_context->sample_fmt){
+		case AV_SAMPLE_FMT_FLTP:
+			// the intention is for this path to be used for all formats once it is known to be working
+			do {
+				readcount = f.read(&f, &buf, read_len);
+				int remaining = readcount;
+
+				WfPeakSample peak[sfinfo.channels];
+
+				int j = 0; for(;j<n;j++){
+					WfPeakSample w[sfinfo.channels];
+
+					memset(peak, 0, sizeof(WfPeakSample) * sfinfo.channels);
+
+					int k; for (k = 0; k < MIN(remaining, WF_PEAK_RATIO); k+=sfinfo.channels){
+						int c; for(c=0;c<sfinfo.channels;c++){
+							peak[c].positive = MAX(peak[c].positive, buf.buf[c][WF_PEAK_RATIO * j + k]);
+							peak[c].negative = MIN(peak[c].negative, buf.buf[c][WF_PEAK_RATIO * j + k]);
+						}
+					};
+					remaining -= WF_PEAK_RATIO;
+					int c; for(c=0;c<sfinfo.channels;c++){
+						w[c] = peak[c];
+						total[c].positive = MAX(total[c].positive, w[c].positive);
+						total[c].negative = MIN(total[c].negative, w[c].negative);
+					}
+					total_frames_written += sf_write_short (outfile, (short*)w, WF_PEAK_VALUES_PER_SAMPLE * sfinfo.channels);
+				}
+			} while (readcount > 0);
+
+			break;
+
+		default:
+			read_len = WF_PEAK_RATIO * f.info.channels; // TODO check if channels should be here
 	do {
 		readcount = wf_ff_read(&f, sf_data, read_len);
 
@@ -258,17 +301,18 @@ wf_ff_peakgen(const char* infilename, const char* peak_filename)
 			}
 		};
 		int c; for(c=0;c<sfinfo.channels;c++){
-			w[c][0] = max[c] * (1 << 14);
-			w[c][1] = min[c] * (1 << 14);
-			total_max[c] = MAX(total_max[c], w[c][0]);
-			total_min[c] = MIN(total_min[c], w[c][1]);
+			w[c][0] = max[c] * (1 << 15);
+			w[c][1] = min[c] * (1 << 15);
+			total[c].positive = MAX(total[c].positive, w[c][0]);
+			total[c].negative = MIN(total[c].negative, w[c][1]);
 		}
 		total_frames_written += sf_write_short (outfile, (short*)w, WF_PEAK_VALUES_PER_SAMPLE * sfinfo.channels);
 
 	} while (readcount > 0);
+	}
 
 #if 0
-	if(sfinfo.channels > 1) dbg(0, "max=%i,%i min=%i,%i", total_max[0], total_max[1], total_min[0], total_min[1]);
+	if(sfinfo.channels > 1) dbg(0, "max=%i,%i min=%i,%i", total[0].positive, total[1].positive, total[0].negative, total[1].negative);
 	else dbg(0, "max=%i min=%i", total_max[0], total_min[0]);
 #endif
 

@@ -59,6 +59,7 @@ typedef void   (*WfAudioCallback)    (Waveform*, int b, gpointer);
 #define KEY_Down     GDK_KEY_Down
 #define KEY_KP_Up    GDK_KEY_KP_Up
 #define KEY_KP_Down  GDK_KEY_KP_Down
+#define KEY_Home     GDK_KEY_KP_Home
 #else
 #define KEY_Left     GDK_Left
 #define KEY_Right    GDK_Right
@@ -68,6 +69,7 @@ typedef void   (*WfAudioCallback)    (Waveform*, int b, gpointer);
 #define KEY_Down     GDK_Down
 #define KEY_KP_Up    GDK_KP_Up
 #define KEY_KP_Down  GDK_KP_Down
+#define KEY_Home     GDK_KP_Home
 #endif
 
 #endif //__waveform_typedefs_h__

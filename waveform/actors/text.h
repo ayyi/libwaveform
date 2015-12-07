@@ -16,6 +16,7 @@
 */
 #ifndef __text_actor_h__
 #define __text_actor_h__
+#include <GL/gl.h>
 
 typedef struct {
 	int         width;

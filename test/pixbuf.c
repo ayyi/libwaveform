@@ -45,8 +45,8 @@
 
 const char* wavs[] = {
 	"test/data/stereo_1.wav",
-	"test/data/mono_0:10.wav",
-	"test/data/mono_10:00.wav",
+//	"test/data/mono_0:10.wav",
+//	"test/data/mono_10:00.wav",
 //	"test/data/1_block.wav",
 //	"test/data/3_blocks.wav",
 //	"test/data/2_blocks.wav",
@@ -115,7 +115,7 @@ main (int argc, char *argv[])
 	{
 		GdkPixbuf* pixbuf = gdk_pixbuf_new(GDK_COLORSPACE_RGB, FALSE, 8, CLAMP(size->width, 8, 1920), CLAMP(size->height / 2, 8, 600));
 		if(waveform_load_sync(waveform)){
-			waveform_peak_to_pixbuf(waveform, pixbuf, &(WfSampleRegion){0, waveform_get_n_frames(waveform) - 1}, 0xeeeeeebb, 0x000066ff);
+			waveform_peak_to_pixbuf(waveform, pixbuf, &(WfSampleRegion){0, waveform_get_n_frames(waveform) - 1}, 0xeeeeeebb, 0x000066ff, false);
 			gtk_image_set_from_pixbuf((GtkImage*)images[0], pixbuf);
 		}
 		g_object_unref(pixbuf);

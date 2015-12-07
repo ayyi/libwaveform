@@ -41,6 +41,9 @@
 #include "waveform/waveform.h"
 #define __wf_worker_private__
 #include "waveform/worker.h"
+#ifdef USE_FFMPEG
+#include "waveform/audio_file.h"
+#endif
 #include "waveform/audio.h"
 
 																											int n_loads[4096];
@@ -90,6 +93,78 @@ waveform_audio_free(Waveform* waveform)
  *  Load a single audio block for the case where the audio is on a local filesystem.
  *  For thread-safety, the Waveform is not modified.
  */
+#ifdef USE_FFMPEG
+bool
+waveform_load_audio_block(Waveform* waveform, WfBuf16* buf16, int block_num)
+{
+	g_return_val_if_fail(waveform, false);
+	g_return_val_if_fail(buf16 && buf16->buf[WF_LEFT], false);
+
+	uint64_t start_pos = block_num * (WF_PEAK_BLOCK_SIZE - 2.0 * TEX_BORDER * 256.0);
+	uint64_t end_pos   = MIN(start_pos + WF_PEAK_BLOCK_SIZE, waveform->n_frames - 1);
+
+	int n_chans = waveform_get_n_channels(waveform);
+	g_return_val_if_fail(n_chans, false);
+
+	FF f = {0,};
+
+	if(!wf_ff_open(&f, waveform->filename)){
+		gwarn ("not able to open input file %s.", waveform->filename);
+		return false;
+	}
+
+	wf_ff_seek(&f, start_pos); // TODO check result
+
+	int64_t n_frames = end_pos - start_pos;
+#ifdef WF_DEBUG
+	buf16->start_frame = start_pos;
+#endif
+
+	bool ff_read_short(FF* f, WfBuf16* buf, int ch, sf_count_t n_frames)
+	{
+		int64_t readcount;
+		if((readcount = f->read(f, buf, n_frames)) < n_frames){
+			gwarn("unexpected EOF: %s", waveform->filename);
+			gwarn("                start_frame=%Li expected=%Lu got=%Li", start_pos, n_frames, readcount);
+			return false;
+		}
+
+		return true;
+	}
+
+	ff_read_short(&f, buf16, WF_LEFT, n_frames);
+
+	switch(n_chans){
+		case WF_MONO:
+			;bool is_float = f.codec_context->sample_fmt == AV_SAMPLE_FMT_FLT || f.codec_context->sample_fmt == AV_SAMPLE_FMT_FLTP;
+			if(is_float){
+				if(waveform->is_split){
+					dbg(2, "is_split! file=%s", waveform->filename);
+					char rhs[256];
+					if(wf_get_filename_for_other_channel(waveform->filename, rhs, 256)){
+						dbg(3, "  %s", rhs);
+
+						wf_ff_close(&f);
+						if(!wf_ff_open(&f, rhs)){
+							gwarn ("not able to open input file %s.", rhs);
+							return false;
+						}
+						wf_ff_seek(&f, start_pos);
+
+						ff_read_short(&f, buf16, WF_RIGHT, n_frames);
+					}
+				}
+			}
+			break;
+		case WF_STEREO:
+			break;
+	}
+
+	wf_ff_close(&f);
+
+	return true;
+}
+#else
 gboolean
 waveform_load_audio_block(Waveform* waveform, WfBuf16* buf16, int block_num)
 {
@@ -116,9 +191,10 @@ waveform_load_audio_block(Waveform* waveform, WfBuf16* buf16, int block_num)
 	int n_chans = waveform_get_n_channels(waveform);
 	g_return_val_if_fail(n_chans, false);
 
-	SF_INFO sfinfo;
+	SF_INFO sfinfo = {
+		.format = 0
+	};
 	SNDFILE* sffile;
-	sfinfo.format = 0;
 
 	if(!(sffile = sf_open(waveform->filename, SFM_READ, &sfinfo))){
 		gwarn ("not able to open input file %s.", waveform->filename);
@@ -220,13 +296,14 @@ waveform_load_audio_block(Waveform* waveform, WfBuf16* buf16, int block_num)
 	}
 	dbg(2, "read %Lu frames", n_frames);
 	if(sf_error(sffile)) gwarn("read error");
-	if(sf_close(sffile)) gwarn ("bad file close.");
+	if(sf_close(sffile)) gwarn("bad file close.");
 
 	//buffer size is the allocation size. To check if it is full, use w->samplecount
 	//buf->size = readcount; X
 
 	return true;
 }
+#endif
 
 
 #ifdef NOT_USED

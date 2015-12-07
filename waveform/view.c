@@ -296,21 +296,25 @@ waveform_view_set_zoom (WaveformView* view, float zoom)
 }
 
 
-#warning waveform_view_set_start: TODO why does length depend on zoom?
 void
 waveform_view_set_start (WaveformView* view, int64_t start_frame)
 {
 	WaveformViewPrivate* v = view->priv;
 
-	uint32_t length = waveform_get_n_frames(view->waveform) / view->zoom;
-	view->start_frame = CLAMP(start_frame, 0, (int64_t)waveform_get_n_frames(view->waveform) - 10);
-	view->start_frame = MIN(view->start_frame, waveform_get_n_frames(view->waveform) - length);
+	// the number of visible frames is reduced as the zoom increases.
+	int64_t n_frames_visible = waveform_get_n_frames(view->waveform) / view->zoom;
+
+	view->start_frame = CLAMP(
+		start_frame,
+		0,
+		(int64_t)(waveform_get_n_frames(view->waveform) - MAX(10, n_frames_visible))
+	);
 	dbg(1, "start=%Lu", view->start_frame);
-	wf_actor_set_region(v->actor, &(WfSampleRegion){
+	wf_actor_set_region(view->priv->actor, &(WfSampleRegion){
 		view->start_frame,
-		length
+		n_frames_visible
 	});
-	if(!((AGlScene*)v->root)->draw) gtk_widget_queue_draw((GtkWidget*)view);
+	if(!((AGlActor*)v->actor)->root->draw) gtk_widget_queue_draw((GtkWidget*)view);
 }
 
 

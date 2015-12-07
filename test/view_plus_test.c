@@ -23,7 +23,7 @@
   of the current time, set the time to a non-default value and redraw.
 
     AGlActor* spp = waveform_view_plus_get_layer(waveform, 5);
-    spp_actor_set_time((SppActor*)spp, time_in_milliseconds);
+    wf_spp_actor_set_time((SppActor*)spp, time_in_milliseconds);
 
   The WaveformView interface is designed to be easy to use.
   For a more powerful but more complicated interface, see WaveformActor
@@ -56,7 +56,6 @@
 #include <sys/types.h>
 #include <gtk/gtk.h>
 #include <gdk/gdkkeysyms.h>
-#include "agl/utils.h"
 #include "agl/actor.h"
 #include "waveform/view_plus.h"
 #include "test/ayyi_utils.h"
@@ -152,8 +151,8 @@ main (int argc, char* argv[])
 	((TextActor*)text_layer)->text = g_strdup("Waveform text waveform text");
 	text_actor_set_colour((TextActor*)text_layer, 0x33aaffff, 0xffff00ff);
 
-	layers.spp = waveform_view_plus_add_layer(waveform, spp_actor(waveform_view_plus_get_actor(waveform)), 0);
-	spp_actor_set_time((SppActor*)layers.spp, (_time += 50, _time));
+	layers.spp = waveform_view_plus_add_layer(waveform, wf_spp_actor(waveform_view_plus_get_actor(waveform)), 0);
+	wf_spp_actor_set_time((SppActor*)layers.spp, (_time += 50, _time));
 
 	gtk_widget_set_size_request((GtkWidget*)waveform, 480, 160);
 
@@ -216,14 +215,14 @@ zoom_out(WaveformView* waveform)
 void
 scroll_left(WaveformView* waveform)
 {
-	int n_visible_frames = ((float)waveform->waveform->n_frames) / waveform->zoom;
+	int64_t n_visible_frames = ((float)waveform->waveform->n_frames) / waveform->zoom;
 	waveform_view_plus_set_start((WaveformViewPlus*)waveform, waveform->start_frame - n_visible_frames / 10);
 }
 
 
 void scroll_right(WaveformView* waveform)
 {
-	int n_visible_frames = ((float)waveform->waveform->n_frames) / waveform->zoom;
+	int64_t n_visible_frames = ((float)waveform->waveform->n_frames) / waveform->zoom;
 	waveform_view_plus_set_start((WaveformViewPlus*)waveform, waveform->start_frame + n_visible_frames / 10);
 }
 
@@ -316,7 +315,7 @@ stop(WaveformView* view)
 		g_source_remove (play_timer);
 		play_timer = 0;
 	}else{
-		spp_actor_set_time((SppActor*)layers.spp, (_time = 0));
+		wf_spp_actor_set_time((SppActor*)layers.spp, (_time = 0));
 	}
 }
 
@@ -326,7 +325,7 @@ play(WaveformView* view)
 {
 	bool tick(gpointer view)
 	{
-		spp_actor_set_time((SppActor*)layers.spp, (_time += 50, _time));
+		wf_spp_actor_set_time((SppActor*)layers.spp, (_time += 50, _time));
 		return true;
 	}
 

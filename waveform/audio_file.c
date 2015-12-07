@@ -26,18 +26,20 @@
 #include <glib.h>
 #include <glib/gprintf.h>
 #include <glib/gstdio.h>
+#include "waveform/waveform.h"
 #include "waveform/utils.h"
 #include "waveform/audio_file.h"
 
-static bool wf_ff_info (FF*);
+static bool    wf_ff_info                   (FF*);
+static ssize_t wf_ff_read_float_p           (FF*, WfBuf16*, size_t len);
+static ssize_t wf_ff_read_short_interleaved (FF*, WfBuf16*, size_t len);
 
 
 static void
 wf_ff_init()
 {
 	static bool ffinit = 0;
-	if(!ffinit){
-		ffinit = 1;
+	if(!ffinit++){
 		av_register_all();
 		avcodec_register_all();
 		av_log_set_level(wf_debug > 1 ? AV_LOG_VERBOSE : AV_LOG_QUIET);
@@ -46,12 +48,12 @@ wf_ff_init()
 
 
 bool
-wf_ff_open(FF* f, const char* infilename)
+wf_ff_open(FF* f, const char* filename)
 {
 	wf_ff_init();
 
-	if(avformat_open_input(&f->format_context, infilename, NULL, NULL)){
-		dbg(1, "ff open failed: %s", infilename);
+	if(avformat_open_input(&f->format_context, filename, NULL, NULL)){
+		dbg(1, "ff open failed: %s", filename);
 		return false;
 	}
 
@@ -94,7 +96,28 @@ wf_ff_open(FF* f, const char* infilename)
 		goto out;
 	}
 
-	dbg(1, "ffmpeg - sr:%i c:%i d:%"PRIi64" f:%"PRIi64, f->info.sample_rate, f->info.channels, f->info.length, f->info.frames);
+	switch(f->codec_context->sample_fmt){
+		case AV_SAMPLE_FMT_S16:
+			dbg(1, "S16");
+			f->read = wf_ff_read_short_interleaved;
+			break;
+		case AV_SAMPLE_FMT_S16P:
+			dbg(1, "S16P");
+			f->read = wf_ff_read_short;
+			break;
+		case AV_SAMPLE_FMT_FLTP:
+			dbg(1, "FLTP");
+			f->read = wf_ff_read_float_p;
+			break;
+		default:
+			gwarn("format may not be supported: sample_fmt=%i %s", f->codec_context->sample_fmt, av_get_sample_fmt_name(f->codec_context->sample_fmt));
+			f->read = wf_ff_read_short;
+			break;
+	}
+
+	dbg(1, "ffmpeg - sr:%i ch:%i dur:%"PRIi64" fr:%"PRIi64, f->info.sample_rate, f->info.channels, f->info.length, f->info.frames);
+
+	av_init_packet(&f->packet);
 
 	return true;
 
@@ -139,9 +162,208 @@ int16_to_float(int16_t* in, float* out, int num_channels, int num_samples, int o
 	int i, ii;
 	for (i=0;i<num_samples;i++) {
 		for (ii=0;ii<num_channels;ii++) {
-			out[(i + out_offset) * num_channels + ii]= (float) in[i * num_channels + ii] / 32768.0;
+			out[(i + out_offset) * num_channels + ii] = (float) in[i * num_channels + ii] / 32768.0;
 		}
 	}
+}
+
+
+int64_t
+wf_ff_seek(FF* f, int64_t pos)
+{
+	if(!f) return -1;
+	if(pos == f->output_clock) return pos;
+
+	// flush internal buffer
+	f->m_tmpBufferLen = 0;
+	f->seek_frame = pos;
+	f->output_clock = pos;
+	f->pkt_len = 0;
+	f->pkt_ptr = NULL;
+	f->decoder_clock = 0;
+
+	// Seek at least 1 packet before target in case the seek position is in the middle of a frame.
+	pos = MAX(0, pos - 8192);
+
+	const int64_t timestamp = pos / av_q2d(f->format_context->streams[f->audio_stream]->time_base) / f->info.sample_rate;
+	dbg(2, "seek frame:%"PRIi64" - idx:%"PRIi64, pos, timestamp);
+
+	if(av_seek_frame(f->format_context, f->audio_stream, timestamp, AVSEEK_FLAG_ANY | AVSEEK_FLAG_BACKWARD) < 0) return -1;
+	avcodec_flush_buffers(f->codec_context);
+
+	return pos;
+}
+
+
+static ssize_t
+wf_ff_read_short_interleaved(FF* f, WfBuf16* buf, size_t len)
+{
+	AVFrame frame;
+	int64_t n_samples = 0;
+
+	int data_size = av_get_bytes_per_sample(f->codec_context->sample_fmt);
+	g_return_if_fail(data_size == 2);
+
+	while(!av_read_frame(f->format_context, &f->packet)){
+		if(f->packet.stream_index == f->audio_stream){
+			memset(&frame, 0, sizeof(AVFrame));
+			av_frame_unref(&frame);
+
+			int got_frame = 0;
+			if(avcodec_decode_audio4(f->codec_context, &frame, &got_frame, &f->packet) < 0){
+				dbg(0, "Error decoding audio");
+			}
+			if(got_frame){
+				int size = av_samples_get_buffer_size (NULL, f->codec_context->channels, frame.nb_samples, f->codec_context->sample_fmt, 1);
+				if (size < 0)  {
+					dbg(0, "av_samples_get_buffer_size invalid value");
+				}
+
+				int64_t fr = frame.best_effort_timestamp * f->info.sample_rate / f->format_context->streams[f->audio_stream]->time_base.den;
+				int ch;
+				int i; for(i=0; i<frame.nb_samples; i++){
+					if(n_samples >= len) break;
+					if(fr >= f->seek_frame){
+						for(ch=0; ch<MIN(2, f->codec_context->channels); ch++){
+							memcpy(buf->buf[ch] + n_samples, frame.data[0] + f->codec_context->channels * data_size * i + data_size * ch, data_size);
+						}
+						n_samples++;
+					}
+				}
+				f->output_clock = fr + n_samples;
+
+				if(n_samples >= len) goto stop;
+			}
+		}
+		av_free_packet(&f->packet);
+		continue;
+
+		stop:
+			av_free_packet(&f->packet);
+			break;
+	}
+
+	return n_samples;
+}
+
+
+static ssize_t
+wf_ff_read_float_p(FF* f, WfBuf16* buf, size_t len)
+{
+	int64_t n_fr_done = 0;
+
+	int data_size = av_get_bytes_per_sample(f->codec_context->sample_fmt);
+	g_return_if_fail(data_size == 4);
+
+	bool have_frame = false;
+	if(f->frame.nb_samples && f->frame_iter < f->frame.nb_samples){
+		have_frame = true;
+	}
+	while(have_frame || !av_read_frame(f->format_context, &f->packet)){
+		have_frame = false;
+		if(f->packet.stream_index == f->audio_stream){
+			int got_frame = false;
+			if(f->frame_iter && f->frame_iter < f->frame.nb_samples){
+				got_frame = true;
+			}else{
+				memset(&f->frame, 0, sizeof(AVFrame));
+				av_frame_unref(&f->frame);
+				f->frame_iter = 0;
+
+				if(avcodec_decode_audio4(f->codec_context, &f->frame, &got_frame, &f->packet) < 0){
+					gwarn("error decoding audio");
+				}
+			}
+			if(got_frame){
+				int size = av_samples_get_buffer_size (NULL, f->codec_context->channels, f->frame.nb_samples, f->codec_context->sample_fmt, 1);
+				if (size < 0)  {
+					dbg(0, "av_samples_get_buffer_size invalid value");
+				}
+
+				int64_t fr = f->frame.best_effort_timestamp * f->info.sample_rate / f->format_context->streams[f->audio_stream]->time_base.den + f->frame_iter;
+				int ch;
+#ifdef DEBUG
+				for(ch=0; ch<MIN(2, f->codec_context->channels); ch++){
+					g_return_if_fail(f->frame.data[ch]);
+				}
+#endif
+				int i; for(i=f->frame_iter; i<f->frame.nb_samples; i++){
+					if(n_fr_done >= len) break;
+					if(fr >= f->seek_frame){
+						for(ch=0; ch<MIN(2, f->codec_context->channels); ch++){
+							float* src = (float*)(f->frame.data[ch] + data_size * i);
+							buf->buf[ch][n_fr_done] = (*src) * (1 << 15);
+						}
+						n_fr_done++;
+						f->frame_iter++;
+					}
+				}
+				f->output_clock = fr + n_fr_done;
+
+				if(n_fr_done >= len) goto stop;
+			}
+		}
+		av_free_packet(&f->packet);
+		continue;
+
+		stop:
+			av_free_packet(&f->packet);
+			break;
+	}
+
+	return n_fr_done;
+}
+
+
+ssize_t
+wf_ff_read_short(FF* f, WfBuf16* buf, size_t len)
+{
+	AVFrame frame;
+	int64_t n_fr_done = 0;
+
+	int data_size = av_get_bytes_per_sample(f->codec_context->sample_fmt);
+	g_return_if_fail(data_size == 2);
+
+	while(!av_read_frame(f->format_context, &f->packet)){
+		if(f->packet.stream_index == f->audio_stream){
+			memset(&frame, 0, sizeof(AVFrame));
+			av_frame_unref(&frame);
+
+			int got_frame = 0;
+			if(avcodec_decode_audio4(f->codec_context, &frame, &got_frame, &f->packet) < 0){
+				dbg(0, "Error decoding audio");
+			}
+			if(got_frame){
+				int size = av_samples_get_buffer_size (NULL, f->codec_context->channels, frame.nb_samples, f->codec_context->sample_fmt, 1);
+				if (size < 0)  {
+					dbg(0, "av_samples_get_buffer_size invalid value");
+				}
+
+				int64_t fr = frame.best_effort_timestamp * f->info.sample_rate / f->format_context->streams[f->audio_stream]->time_base.den;
+				int ch;
+				int i; for(i=0; i<frame.nb_samples; i++){
+					if(n_fr_done + i >= len) break;
+					if(fr >= f->seek_frame){
+						for(ch=0; ch<MIN(2, f->codec_context->channels); ch++){
+							memcpy(buf->buf[ch] + n_fr_done, frame.data[ch] + data_size * i, data_size);
+						}
+						n_fr_done++;
+					}
+				}
+				f->output_clock = fr + n_fr_done;
+
+				if(n_fr_done >= len) goto stop;
+			}
+		}
+		av_free_packet(&f->packet);
+		continue;
+
+		stop:
+			av_free_packet(&f->packet);
+			break;
+	}
+
+	return n_fr_done;
 }
 
 
@@ -155,11 +377,11 @@ wf_ff_read(FF* f, float* d, size_t len)
 	int ret = 0;
 	while (ret >= 0 && written < frames) {
 //		dbg(3, "loop: %i/%i (bl:%lu)", written, frames, f->m_tmpBufferLen );
-		if (!f->seek_frame && f->m_tmpBufferLen > 0 ) {
-			int s = MIN(f->m_tmpBufferLen / f->info.channels, frames - written );
-			int16_to_float(f->m_tmpBufferStart, d, f->info.channels, s , written);
+		if (!f->seek_frame && f->m_tmpBufferLen > 0) {
+			int s = MIN(f->m_tmpBufferLen / f->info.channels, frames - written);
+			int16_to_float(f->m_tmpBufferStart, d, f->info.channels, s, written);
 			written += s;
-			f->output_clock+=s;
+			f->output_clock += s;
 			s = s * f->info.channels;
 			f->m_tmpBufferStart += s;
 			f->m_tmpBufferLen -= s;
@@ -230,7 +452,7 @@ wf_ff_read(FF* f, float* d, size_t len)
 					/* wanted sample not in current buffer - keep going */
 					dbg(2, " !!! seeked sample was not in decoded buffer. frames-to-go: %li", diff);
 					f->m_tmpBufferLen = 0;
-				} else if (diff!=0 && data_size > 0) {
+				} else if (diff != 0 && data_size > 0) {
 					/* wanted sample is in current buffer but not at the beginnning */
 					dbg(2, " !!! sync buffer to seek. (diff:%i)", diff);
 					f->m_tmpBufferStart+= diff * f->codec_context->channels;
@@ -248,8 +470,8 @@ wf_ff_read(FF* f, float* d, size_t len)
 					dbg(0, "Error: no audio data in packet");
 				}
 			}
-			//dbg(0, "PTS: decoder:%"PRIi64". - want: %"PRIi64, priv->decoder_clock, priv->output_clock);
-			//dbg(0, "CLK: frame:  %"PRIi64"  T:%.3fs",priv->decoder_clock, (float) priv->decoder_clock/priv->samplerate);
+			//dbg(0, "PTS: decoder:%"PRIi64". - want: %"PRIi64, priv->decoder_clock, f->output_clock);
+			//dbg(0, "CLK: frame:  %"PRIi64"  T:%.3fs", priv->decoder_clock, (float)f->decoder_clock / f->samplerate);
 		}
 	}
 	if (written != frames) {

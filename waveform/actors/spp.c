@@ -41,7 +41,7 @@ static AGl* agl = NULL;
 
 
 AGlActor*
-spp_actor(WaveformActor* wf_actor)
+wf_spp_actor(WaveformActor* wf_actor)
 {
 	g_return_val_if_fail(wf_actor, NULL);
 
@@ -63,7 +63,7 @@ spp_actor(WaveformActor* wf_actor)
 					? wf_actor->canvas->samples_per_pixel
 					: wf_actor->region.len / wf_actor->rect.len
 				);
-				spp_actor_set_time((SppActor*)_spp, (1000 * samples) / wf_actor->canvas->sample_rate);
+				wf_spp_actor_set_time((SppActor*)_spp, (1000 * samples) / wf_actor->canvas->sample_rate);
 				return true;
 			}
 			return false;
@@ -157,7 +157,7 @@ spp_actor(WaveformActor* wf_actor)
  *  Set the current playback position in milliseconds
  */
 void
-spp_actor_set_time(SppActor* spp, uint32_t time)
+wf_spp_actor_set_time(SppActor* spp, uint32_t time)
 {
 	g_return_if_fail(spp);
 

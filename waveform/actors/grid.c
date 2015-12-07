@@ -101,13 +101,14 @@ grid_actor_paint(AGlActor* _actor)
 	WaveformCanvas* canvas = actor->canvas;
 
 	g_return_if_fail(canvas);
+	if(!canvas->sample_rate) return false; // eg if file not loaded
 
 	WfViewPort viewport; wf_actor_get_viewport(actor, &viewport);
 
 	float h = viewport.bottom;
 	float zoom = (viewport.right - viewport.left) / actor->region.len; // pixels per sample
 
-	int interval = canvas->sample_rate * (zoom > 0.0002 ? 1 : zoom > 0.0001 ? 5 : 10);
+	int interval = canvas->sample_rate * (zoom > 0.0002 ? 1 : zoom > 0.0001 ? 5 : zoom > 0.00001 ? 48 : 480);
 	const int64_t region_end = actor->region.start + actor->region.len;
 
 	int i = 0;
