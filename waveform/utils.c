@@ -107,20 +107,13 @@ wf_int2db(short x)
 }
 
 
-static uint32_t
-color_gdk_to_rgba(GdkColor* color)
-{
-	return ((color->red / 0x100) << 24) + ((color->green / 0x100) << 16) + ((color->blue / 0x100) << 8) + 0xff;
-}
-
-
 //perhaps make all gtk stuff private to the widgets
 uint32_t
 wf_get_gtk_fg_color(GtkWidget* widget, GtkStateType state)
 {
 	GtkStyle* style = gtk_widget_get_style(widget);
 	//GdkColor fg = style->fg[state];
-	return color_gdk_to_rgba(&style->fg[state]);
+	return wf_color_gdk_to_rgba(&style->fg[state]);
 }
 
 
@@ -131,7 +124,7 @@ wf_get_gtk_text_color(GtkWidget* widget, GtkStateType state)
 	GdkColor c = style->text[state];
 	g_object_unref(style);
 
-	return color_gdk_to_rgba(&c);
+	return wf_color_gdk_to_rgba(&c);
 }
 
 
@@ -225,6 +218,7 @@ wf_get_time()
 
 
 #if 0
+#include "agl/utils.h"
 void
 fbo_2_png(AGlFBO* fbo)
 {

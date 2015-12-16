@@ -394,8 +394,10 @@ wf_actor_new(Waveform* w, WaveformCanvas* wfc)
 	{
 		WaveformActor* a = (WaveformActor*)actor;
 
-		int m; for(m=0;m<N_MODES;m++){
-			call(modes[m].renderer->free, modes[m].renderer, a->waveform);
+		if(a->waveform){
+			int m; for(m=0;m<N_MODES;m++){
+				call(modes[m].renderer->free, modes[m].renderer, a->waveform);
+			}
 		}
 		a->priv->render_info.valid = false;
 
@@ -416,7 +418,7 @@ wf_actor_new(Waveform* w, WaveformCanvas* wfc)
 			if(((AGlActor*)a)->root->draw) wf_canvas_queue_redraw(a->canvas);
 		}
 
-		if(!a->waveform->priv->peak.size) waveform_load(a->waveform, wf_actor_init_load_done, actor);
+		if(a->waveform && !a->waveform->priv->peak.size) waveform_load(a->waveform, wf_actor_init_load_done, actor);
 	}
 	actor->init = wf_actor_on_init;
 
@@ -608,7 +610,7 @@ wf_actor_set_region(WaveformActor* a, WfSampleRegion* region)
 	WfActorPriv* _a = a->priv;
 	AGlScene* scene = ((AGlActor*)a)->root;
 	dbg(1, "region_start=%Lu region_end=%Lu wave_end=%Lu", region->start, (uint64_t)(region->start + region->len), waveform_get_n_frames(a->waveform));
-	if(!region->len){ gwarn("invalid region: len not set"); return; }
+	if(!region->len && a->waveform->n_channels){ gwarn("invalid region: len not set"); return; }
 	if(region->start + region->len > waveform_get_n_frames(a->waveform)){ gwarn("invalid region: too long: %Lu len=%Lu n_frames=%Lu", region->start, region->len, waveform_get_n_frames(a->waveform)); return; }
 
 	gboolean start = (region->start != a->region.start);
@@ -1352,7 +1354,7 @@ wf_actor_set_rect(WaveformActor* a, WfRectangle* rect)
 	AGlActor* actor = (AGlActor*)a;
 	AGlScene* scene = actor->root;
 
-	if(rect->len == a->rect.len && rect->left == a->rect.left && rect->height == a->rect.height && rect->top == a->rect.top) dbg(0, "unchanged. renderer=%p", _a->render_info.renderer);
+	if(rect->len == a->rect.len && rect->left == a->rect.left && rect->height == a->rect.height && rect->top == a->rect.top) dbg(1, "unchanged. renderer=%p", _a->render_info.renderer);
 #if 0
 	if(rect->len == a->rect.len && rect->left == a->rect.left && rect->height == a->rect.height && rect->top == a->rect.top) return;
 #else
@@ -1677,7 +1679,7 @@ wf_actor_paint(AGlActor* _actor)
 	WfActorPriv* _a = actor->priv;
 	Waveform* w = actor->waveform; 
 	RenderInfo* r  = &_a->render_info;
-	if(!w->priv->num_peaks) return false;
+	if(!w || !w->priv->num_peaks) return false;
 
 	if(!_actor->root || !_actor->root->draw) r->valid = false;
 

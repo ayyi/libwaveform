@@ -159,16 +159,20 @@ waveform_finalize (GObject* obj)
 		g_ptr_array_free (_w->hires_peaks, false);
 	}
 
+#ifdef USE_OPENGL
 	extern int texture_cache_count_by_waveform(Waveform*);
 	if(texture_cache_count_by_waveform(w)){
 		gerr("textures not cleared");
 	}
+#endif
 
 	int m; for(m=MODE_V_LOW;m<=MODE_HI;m++){
 		if(_w->render_data[m]) gwarn("actor data not cleared");
 	}
 
+#ifdef USE_OPENGL
 	waveform_free_render_data(w);
+#endif
 	waveform_audio_free(w);
 	g_free(w->priv);
 	g_free(w->filename);
