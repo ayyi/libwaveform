@@ -17,9 +17,6 @@
 #include <string.h>
 #include <X11/Xlib.h>
 #include <X11/keysym.h>
-#ifndef __VMS
-/*# include <stdint.h>*/
-#endif
 # define GLX_GLXEXT_PROTOTYPES
 #include <GL/gl.h>
 #include <GL/glx.h>
@@ -44,6 +41,8 @@ typedef Bool (*PFNGLXGETMSCRATEOMLPROC) (Display*, GLXDrawable, int32_t* numerat
 #define GLX_MESA_swap_frame_usage 1
 typedef int (*PFNGLXGETFRAMEUSAGEMESAPROC) (Display*, GLXDrawable, float* usage);
 #endif
+
+static GLboolean print_info = GL_FALSE;
 
 static int current_time();
 
@@ -82,7 +81,7 @@ draw(void)
 
 /* new window size or exposure */
 static void
-reshape(int width, int height)
+on_window_resize(int width, int height)
 {
 	#define HBORDER 50
 	#define VBORDER 50
@@ -112,58 +111,12 @@ init(void)
 }
 
 
-/**
- * Remove window border/decorations.
- */
-static void
-no_border(Display* dpy, Window w)
-{
-   static const unsigned MWM_HINTS_DECORATIONS = (1 << 1);
-   static const int PROP_MOTIF_WM_HINTS_ELEMENTS = 5;
-
-   typedef struct
-   {
-      unsigned long       flags;
-      unsigned long       functions;
-      unsigned long       decorations;
-      long                inputMode;
-      unsigned long       status;
-   } PropMotifWmHints;
-
-   PropMotifWmHints motif_hints;
-   Atom prop, proptype;
-   unsigned long flags = 0;
-
-   /* setup the property */
-   motif_hints.flags = MWM_HINTS_DECORATIONS;
-   motif_hints.decorations = flags;
-
-   /* get the atom for the property */
-   prop = XInternAtom( dpy, "_MOTIF_WM_HINTS", True );
-   if (!prop) {
-      /* something went wrong! */
-      return;
-   }
-
-   /* not sure this is correct, seems to work, XA_WM_HINTS didn't work */
-   proptype = prop;
-
-   XChangeProperty( dpy, w,                         /* display, window */
-                    prop, proptype,                 /* property, type */
-                    32,                             /* format: 32-bit datums */
-                    PropModeReplace,                /* mode */
-                    (unsigned char *) &motif_hints, /* data */
-                    PROP_MOTIF_WM_HINTS_ELEMENTS    /* nelements */
-                  );
-}
-
-
 /*
  * Create an RGB, double-buffered window.
  * Return the window and context handles.
  */
 static void
-make_window(Display *dpy, const char *name, int x, int y, int width, int height, GLboolean fullscreen, Window *winRet, GLXContext *ctxRet)
+make_window(Display *dpy, const char *name, int width, int height, Window *winRet, GLXContext *ctxRet)
 {
 	int attrib[] = {
 		GLX_RGBA,
@@ -178,16 +131,10 @@ make_window(Display *dpy, const char *name, int x, int y, int width, int height,
 	unsigned long mask;
 	XVisualInfo *visinfo;
 
-	int scrnum = DefaultScreen( dpy );
-	Window root = RootWindow( dpy, scrnum );
+	int scrnum = DefaultScreen(dpy);
+	Window root = RootWindow(dpy, scrnum);
 
-	if (fullscreen) {
-		x = y = 0;
-		width = DisplayWidth( dpy, scrnum );
-		height = DisplayHeight( dpy, scrnum );
-	}
-
-	visinfo = glXChooseVisual( dpy, scrnum, attrib );
+	visinfo = glXChooseVisual(dpy, scrnum, attrib);
 	if (!visinfo) {
 		printf("Error: couldn't get an RGB, Double-buffered visual\n");
 		exit(1);
@@ -205,8 +152,8 @@ make_window(Display *dpy, const char *name, int x, int y, int width, int height,
 	/* set hints and properties */
 	{
 		XSizeHints sizehints;
-		sizehints.x = x;
-		sizehints.y = y;
+		sizehints.x = 0;
+		sizehints.y = 0;
 		sizehints.width  = width;
 		sizehints.height = height;
 		sizehints.flags = USSize | USPosition;
@@ -214,8 +161,7 @@ make_window(Display *dpy, const char *name, int x, int y, int width, int height,
 		XSetStandardProperties(dpy, win, name, name, None, (char **)NULL, 0, &sizehints);
 	}
 
-	if (fullscreen)
-		no_border(dpy, win);
+	XMoveWindow(dpy, win, (XDisplayWidth(dpy, scrnum) - width) / 2, (XDisplayHeight(dpy, scrnum) - height) / 2); // centre the window
 
 	GLXContext ctx;
 	ctx = glXCreateContext( dpy, visinfo, NULL, True );
@@ -245,7 +191,7 @@ event_loop(Display *dpy, Window win)
 					/* we'll redraw below */
 					break;
 				case ConfigureNotify:
-					reshape(event.xconfigure.width, event.xconfigure.height);
+					on_window_resize(event.xconfigure.width, event.xconfigure.height);
 					break;
 				case KeyPress: {
 					char buffer[10];
@@ -270,22 +216,19 @@ event_loop(Display *dpy, Window win)
 			}
 		}
 
-		/* next frame */
-		//angle += 2.0;
-
 		draw();
 
 		glXSwapBuffers(dpy, win);
 
-		if ( get_frame_usage != NULL ) {
+		if (get_frame_usage) {
 			GLfloat temp;
 
-			(*get_frame_usage)( dpy, win, & temp );
+			(*get_frame_usage)(dpy, win, & temp);
 			frame_usage += temp;
 		}
 
 		/* calc framerate */
-		{
+		if(print_info){
 			static int t0 = -1;
 			static int frames = 0;
 			int t = current_time();
@@ -297,7 +240,7 @@ event_loop(Display *dpy, Window win)
 			if (t - t0 >= 5.0) {
 				GLfloat seconds = t - t0;
 				GLfloat fps = frames / seconds;
-				if ( get_frame_usage != NULL ) {
+				if (get_frame_usage) {
 					printf("%d frames in %3.1f seconds = %6.3f FPS (%3.1f%% usage)\n", frames, seconds, fps, (frame_usage * 100.0) / (float) frames );
 				}
 				else {
@@ -447,23 +390,16 @@ main(int argc, char *argv[])
 {
 	Window win;
 	GLXContext ctx;
-	char *dpyName = NULL;
 	int swap_interval = 1;
 	GLboolean do_swap_interval = GL_FALSE;
 	GLboolean force_get_rate = GL_FALSE;
-	GLboolean fullscreen = GL_FALSE;
-	GLboolean printInfo = GL_FALSE;
 	PFNGLXSWAPINTERVALMESAPROC set_swap_interval = NULL;
 	PFNGLXGETSWAPINTERVALMESAPROC get_swap_interval = NULL;
 	int width = 300, height = 300;
 
 	int i; for (i = 1; i < argc; i++) {
-		if (strcmp(argv[i], "-display") == 0 && i + 1 < argc) {
-			dpyName = argv[i+1];
-			i++;
-		}
-		else if (strcmp(argv[i], "-info") == 0) {
-			printInfo = GL_TRUE;
+		if (strcmp(argv[i], "-info") == 0) {
+			print_info = GL_TRUE;
 		}
 		else if (strcmp(argv[i], "-swap") == 0 && i + 1 < argc) {
 			swap_interval = atoi( argv[i+1] );
@@ -477,30 +413,25 @@ main(int argc, char *argv[])
 			 */
 			force_get_rate = GL_TRUE;
 		}
-		else if (strcmp(argv[i], "-fullscreen") == 0) {
-			fullscreen = GL_TRUE;
-		}
 		else if (strcmp(argv[i], "-help") == 0) {
 			printf("Usage:\n");
 			printf("  glx [options]\n");
 			printf("Options:\n");
 			printf("  -help                   Print this information\n");
-			printf("  -display displayName    Specify X display\n");
 			printf("  -info                   Display GL information\n");
 			printf("  -swap N                 Swap no more than once per N vertical refreshes\n");
 			printf("  -forcegetrate           Try to use glXGetMscRateOML function\n");
-			printf("  -fullscreen             Full-screen window\n");
 			return 0;
 		}
 	}
 
-	Display* dpy = XOpenDisplay(dpyName);
+	Display* dpy = XOpenDisplay(NULL);
 	if (!dpy) {
-		printf("Error: couldn't open display %s\n", XDisplayName(dpyName));
+		printf("Error: couldn't open display %s\n", XDisplayName(NULL));
 		return -1;
 	}
 
-	make_window(dpy, "waveformglxtest", 0, 0, width, height, fullscreen, &win, &ctx);
+	make_window(dpy, "waveformglxtest", width, height, &win, &ctx);
 	XMapWindow(dpy, win);
 	glXMakeCurrent(dpy, win, ctx);
 
@@ -525,7 +456,7 @@ main(int argc, char *argv[])
 		get_frame_usage = (PFNGLXGETFRAMEUSAGEMESAPROC)  glXGetProcAddressARB((const GLubyte*) "glXGetFrameUsageMESA");
 	}
 
-	if(printInfo){
+	if(print_info){
 		printf("GL_RENDERER   = %s\n", (char *) glGetString(GL_RENDERER));
 		printf("GL_VERSION    = %s\n", (char *) glGetString(GL_VERSION));
 		printf("GL_VENDOR     = %s\n", (char *) glGetString(GL_VENDOR));
@@ -549,7 +480,7 @@ main(int argc, char *argv[])
 				(*set_swap_interval)(swap_interval);
 			}
 
-			if (printInfo && (get_swap_interval != NULL)){
+			if (print_info && (get_swap_interval != NULL)){
 				printf("Current swap interval = %d\n", (*get_swap_interval)());
 			}
 		}
@@ -594,8 +525,7 @@ main(int argc, char *argv[])
 
 	// -----------------------------------------------------------
 
-	// Set initial projection/viewing transformation.
-	reshape(width, height);
+	on_window_resize(width, height);
 
 	event_loop(dpy, win);
 
