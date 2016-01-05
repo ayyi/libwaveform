@@ -1,9 +1,5 @@
 SUBDIRS = loaders actors
 
-if ENABLE_LIBASS
-ASS_SOURCES = view_plus.c view_plus.h
-endif
-
 AM_CFLAGS = \
 	-DG_LOG_DOMAIN=\"Waveform\" \
 	-D_FILE_OFFSET_BITS=64 \
@@ -19,6 +15,7 @@ lib_LTLIBRARIES = libwaveform.la
 if ENABLE_OPENGL
 OPENGL_SOURCES = \
 	view.c view.h \
+	view_plus.c view_plus.h \
 	context.c context.h \
 	actor.c actor.h \
 	shader.c shader.h \
@@ -30,8 +27,8 @@ OPENGL_SOURCES = \
 	actors/ruler.c actors/ruler.h \
 	actors/grid.c actors/grid.h \
 	actors/spp.c actors/spp.h \
-	actors/text.c actors/text.h \
-	$(ASS_SOURCES)
+	actors/spinner.c actors/spinner.h \
+	actors/text.c actors/text.h
 endif
 
 if ENABLE_FFMPEG

@@ -12,6 +12,7 @@
 
 #ifndef __agl_actor_h__
 #define __agl_actor_h__
+#include <X11/Xlib.h>
 #include <gtkglext-1.0/gdk/gdkgl.h>
 #include <gtkglext-1.0/gtk/gtkgl.h>
 #ifdef USE_SDL
@@ -88,6 +89,7 @@ void      agl_actor__enable_cache    (AGlActor*, bool);
 void      agl_actor__start_transition(AGlActor*, GList* animatables, AnimationFn done, gpointer);
 bool      agl_actor__is_disabled     (AGlActor*);
 bool      agl_actor__on_event        (AGlRootActor*, GdkEvent*);
+bool      agl_actor__xevent          (AGlRootActor*, XEvent*);
 AGlActor* agl_actor__find_by_z       (AGlActor*, int);
 AGliPt    agl_actor__find_offset     (AGlActor*);
 bool      agl_actor__null_painter    (AGlActor*);
@@ -101,6 +103,9 @@ struct _AGlRootActor {
    AGlActor          actor;
    GtkWidget*        widget;
    AGlRect           viewport;       // { float x, y, w, h; } TODO clarify how this differs from root->region. region is int but viewport is float.
+   AGlActor*         selected;
+
+   bool              enable_animations;
 
    void              (*draw)(AGlScene*, gpointer); // application callback - called when the application needs to initiate a redraw.
 
@@ -143,6 +148,9 @@ extern AGlActorContext actor_context;
 
 #define agl_actor__width(A) (A->region.x2 - A->region.x1)
 #define agl_actor__height(A) (A->region.y2 - A->region.y1)
+
+#define AGL_HANDLED TRUE
+#define AGL_NOT_HANDLED FALSE
 
 #ifdef USE_SDL
 #  define actor_is_sdl(RA) (RA && RA->type == CONTEXT_TYPE_SDL)

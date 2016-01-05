@@ -1,5 +1,5 @@
 /*
-  copyright (C) 2012 Tim Orford <tim@orford.org>
+  copyright (C) 2012-2016 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -47,7 +47,7 @@ wf_get_instance()
 																												memset(n_loads, 0, 4096);
 		wf->load_peak = wf_load_riff_peak; //set the default loader
 
-#ifdef WF_USE_TEXTURE_CACHE
+#if defined (WF_USE_TEXTURE_CACHE) && defined (USE_OPENGL)
 		texture_cache_init();
 #endif
 	}

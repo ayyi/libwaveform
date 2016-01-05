@@ -35,13 +35,6 @@ typedef struct _PangoGlRenderer     PangoGlRenderer;
 
 typedef struct {
   PangoRendererClass parent_class;
-/*
-#ifdef __waveform_typedefs_h__
-  WaveformCanvas* wfc;
-#else
-  void* wfc;
-#endif
-*/
   PangoContext* context;
 } PangoGlRendererClass;
 

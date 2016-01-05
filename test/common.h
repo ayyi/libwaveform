@@ -114,6 +114,8 @@ void add_key_handlers   (GtkWindow*, WaveformView*, Key[]);
 #define FAIL_IF_ERROR \
 	if(error && *error) FAIL_TEST((*error)->message);
 
+#define g_source_remove0(S) {if(S) g_source_remove(S); S = 0;}
+
 typedef void (TestFn)();
 
 #ifdef __common_c__

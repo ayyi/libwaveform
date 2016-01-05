@@ -282,9 +282,11 @@ forward()
 	{
 		gboolean fade_out_really_done(WaveformActor* actor)
 		{
-			wfc->enable_animations = false;
+			AGlScene* scene = ((AGlActor*)actor)->root;
+
+			scene->enable_animations = false;
 			wf_actor_set_z(actor, 0);
-			wfc->enable_animations = true;
+			scene->enable_animations = true;
 			wf_actor_fade_in(actor, NULL, 1.0f, NULL, NULL);
 			set_position(a_front, 0); //move to back
 
@@ -307,9 +309,11 @@ backward()
 	{
 		gboolean fade_out_really_done(WaveformActor* actor)
 		{
-			wfc->enable_animations = false;
+			AGlScene* scene = ((AGlActor*)actor)->root;
+
+			scene->enable_animations = false;
 			wf_actor_set_z(actor, dz * (G_N_ELEMENTS(a) - 1));
-			wfc->enable_animations = true;
+			scene->enable_animations = true;
 			wf_actor_fade_in(actor, NULL, 1.0f, NULL, NULL);
 			set_position(a_front, G_N_ELEMENTS(a) - 1); //move to front
 

@@ -6,4 +6,5 @@ pkginclude_HEADERS = \
 	ruler.h \
 	grid.h \
 	text.h \
+	spinner.h \
 	spp.h

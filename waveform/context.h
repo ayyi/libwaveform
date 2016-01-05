@@ -27,6 +27,7 @@
 #include "waveform/utils.h"
 
 #define USE_CANVAS_SCALING 1
+#define WF_CONTEXT_MAX_ZOOM 51200.0
 
 #define TYPE_WAVEFORM_CONTEXT (waveform_context_get_type ())
 #define WAVEFORM_CONTEXT(obj) (G_TYPE_CHECK_INSTANCE_CAST ((obj), TYPE_WAVEFORM_CONTEXT, WaveformContext))
@@ -42,14 +43,15 @@ struct _WaveformContext {
 
 	gboolean       show_rms;
 	gboolean       use_1d_textures;
-	gboolean       enable_animations;
 	gboolean       blend;              // true by default - set to false to increase performance if using without background (doesnt make much difference). Flag currently not honoured in all cases.
 
 	AGlScene*      root;               // optional
 
 	uint32_t       sample_rate;
 	float          samples_per_pixel;  // application can specify the base sppx. Is multiplied by zoom to get the actual sppx.
+	bool           scaled;             // scaled mode uses the WfContext time scale. Non-scaled mode uses only the actor rect and sample-region.
 	float          zoom;
+	int64_t        start_time;         // start time measured in frames.
 	float          rotation;
 	float          v_gain;
 
@@ -64,7 +66,6 @@ struct _WaveformContext {
 
 #ifdef __wf_canvas_priv__
 struct _WfContextPriv {
-	bool           scaled;   // scaled mode uses the WfContext time scale. Non-scaled mode uses only the actor rect and sample-region.
 	WfAnimatable   zoom;     // (float) samples_per_pixel
 #ifdef USE_FRAME_CLOCK
 	guint64       _last_redraw_time;
@@ -89,13 +90,15 @@ void             wf_canvas_set_viewport               (WaveformContext*, WfViewP
 void             wf_canvas_set_share_list             (WaveformContext*);
 void             wf_canvas_set_rotation               (WaveformContext*, float);
 #ifdef USE_CANVAS_SCALING
-void             wf_canvas_set_zoom                   (WaveformContext*, float);
+float            wf_context_get_zoom                  (WaveformContext*);
+void             wf_context_set_zoom                  (WaveformContext*, float);
 #endif
 void             wf_canvas_set_gain                   (WaveformContext*, float);
 WaveformActor*   wf_canvas_add_new_actor              (WaveformContext*, Waveform*);
 void             wf_canvas_remove_actor               (WaveformContext*, WaveformActor*);
 void             wf_canvas_queue_redraw               (WaveformContext*);
 void             wf_canvas_load_texture_from_alphabuf (WaveformContext*, int texture_id, AlphaBuf*);
+float            wf_context_frame_to_x                (WaveformContext*, uint64_t);
 
 #define wf_canvas_free0(A) (wf_canvas_free(A), A = NULL)
 

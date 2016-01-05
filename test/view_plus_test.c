@@ -30,7 +30,7 @@
 
   --------------------------------------------------------------
 
-  Copyright (C) 2012-2015 Tim Orford <tim@orford.org>
+  Copyright (C) 2012-2016 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -71,10 +71,6 @@ const char* wavs[] = {
 };
 
 KeyHandler
-	zoom_in,
-	zoom_out,
-	scroll_left,
-	scroll_right,
 	next_wav,
 	toggle_shaders,
 	toggle_grid,
@@ -87,10 +83,6 @@ extern bool key_down;
 extern KeyHold key_hold;
 
 Key keys[] = {
-	{KEY_Left,      scroll_left},
-	{KEY_Right,     scroll_right},
-	{61,            zoom_in},
-	{45,            zoom_out},
 	{GDK_KP_Enter,  NULL},
 	{(char)'<',     NULL},
 	{(char)'>',     NULL},
@@ -111,6 +103,7 @@ GtkWidget* table = NULL;
 struct Layers {
     AGlActor* grid;
     AGlActor* spp;
+    AGlActor* spinner;
 } layers;
 
 
@@ -154,7 +147,9 @@ main (int argc, char* argv[])
 	layers.spp = waveform_view_plus_add_layer(waveform, wf_spp_actor(waveform_view_plus_get_actor(waveform)), 0);
 	wf_spp_actor_set_time((SppActor*)layers.spp, (_time += 50, _time));
 
-	gtk_widget_set_size_request((GtkWidget*)waveform, 480, 160);
+	layers.spinner = waveform_view_plus_add_layer(waveform, wf_spinner(waveform_view_plus_get_actor(waveform)), 0);
+
+	gtk_widget_set_size_request((GtkWidget*)waveform, 640, 160);
 
 	GtkWidget* scrolledwindow = gtk_scrolled_window_new (NULL, NULL);
 	gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scrolledwindow), GTK_POLICY_NEVER, GTK_POLICY_NEVER);
@@ -198,35 +193,6 @@ quit(WaveformView* waveform)
 }
 
 
-void
-zoom_in(WaveformView* waveform)
-{
-	waveform_view_plus_set_zoom((WaveformViewPlus*)waveform, waveform->zoom * 1.5);
-}
-
-
-void
-zoom_out(WaveformView* waveform)
-{
-	waveform_view_plus_set_zoom((WaveformViewPlus*)waveform, waveform->zoom / 1.5);
-}
-
-
-void
-scroll_left(WaveformView* waveform)
-{
-	int64_t n_visible_frames = ((float)waveform->waveform->n_frames) / waveform->zoom;
-	waveform_view_plus_set_start((WaveformViewPlus*)waveform, waveform->start_frame - n_visible_frames / 10);
-}
-
-
-void scroll_right(WaveformView* waveform)
-{
-	int64_t n_visible_frames = ((float)waveform->waveform->n_frames) / waveform->zoom;
-	waveform_view_plus_set_start((WaveformViewPlus*)waveform, waveform->start_frame + n_visible_frames / 10);
-}
-
-
 void next_wav(WaveformView* waveform)
 {
 	WaveformViewPlus* view = (WaveformViewPlus*)waveform;
@@ -242,11 +208,20 @@ void next_wav(WaveformView* waveform)
 	C* c = g_new0(C, 1);
 	*c = (C){
 		.view = view,
+#ifndef USE_CANVAS_SCALING
 		.zoom = view->zoom
+#endif
 	};
 
+	wf_spinner_start((WfSpinner*)layers.spinner);
+
+	void on_loaded_(Waveform* w, gpointer _c)
+	{
+		wf_spinner_stop((WfSpinner*)layers.spinner);
+	}
+
 	char* filename = find_wav(wavs[i]);
-	waveform_view_plus_load_file(view, filename, NULL, NULL);
+	waveform_view_plus_load_file(view, filename, on_loaded_, c);
 	g_free(filename);
 
 	// TODO fix widget so that zoom can be set imediately
@@ -254,7 +229,9 @@ void next_wav(WaveformView* waveform)
 	bool on_loaded(gpointer _c)
 	{
 		C* c = _c;
+#ifndef USE_CANVAS_SCALING
 		waveform_view_plus_set_zoom(c->view, c->zoom);
+#endif
 		g_free(c);
 		return G_SOURCE_REMOVE;
 	}

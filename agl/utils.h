@@ -81,6 +81,7 @@ void      agl_print_stack_depths  ();
 void      agl_set_font            (char* family, int size, PangoWeight);
 void      agl_set_font_string     (char* font_string);
 void      agl_print               (int x, int y, double z, uint32_t colour, const char* fmt, ...);
+void      agl_print_layout        (int x, int y, double z, uint32_t colour, PangoLayout*);
 
 int       agl_power_of_two        (guint);
 void      agl_rgba_to_float       (uint32_t rgba, float* r, float* g, float* b);

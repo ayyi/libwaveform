@@ -1,5 +1,5 @@
 /*
-  copyright (C) 2012-2015 Tim Orford <tim@orford.org>
+  copyright (C) 2012-2016 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -26,6 +26,7 @@
 #include "waveform/actors/ruler.h"
 #include "waveform/actors/grid.h"
 #include "waveform/actors/spp.h"
+#include "waveform/actors/spinner.h"
 
 #define HAVE_NON_SQUARE_TEXTURES // TODO change to runtime detection (indicated by AGL->have_npot_textures)
 
@@ -37,7 +38,7 @@ typedef void    (*WaveformActorFn) (WaveformActor*, gpointer);
 
 struct _WaveformActor {
 	AGlActor        actor;
-	WaveformCanvas* canvas;   //TODO decide if this is a good idea or not. confusing but reduces fn args.
+	WaveformCanvas* canvas;
 	Waveform*       waveform;
 	WfSampleRegion  region;
 	WfRectangle     rect;

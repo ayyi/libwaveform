@@ -212,7 +212,7 @@ start_zoom(float target_zoom)
 	PF0;
 	zoom = MAX(0.1, target_zoom);
 
-	wf_canvas_set_zoom(wfc, zoom);
+	wf_context_set_zoom(wfc, zoom);
 }
 
 

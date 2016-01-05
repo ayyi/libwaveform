@@ -24,7 +24,6 @@
 
 */
 #define __wf_private__
-#define __wf_canvas_priv__ // for scaled
 #include "config.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -59,7 +58,7 @@ wf_spp_actor(WaveformActor* wf_actor)
 			if(event->button == 2){
 				AGliPt p = agl_actor__find_offset((AGlActor*)_spp);
 				int x = (int)event->x - p.x;
-				int64_t samples = x * (wf_actor->canvas->priv->scaled
+				int64_t samples = x * (wf_actor->canvas->scaled
 					? wf_actor->canvas->samples_per_pixel
 					: wf_actor->region.len / wf_actor->rect.len
 				);

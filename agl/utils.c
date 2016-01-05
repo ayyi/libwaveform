@@ -595,14 +595,11 @@ agl_set_font_string(char* font_string)
 	if(font_desc) pango_font_description_free(font_desc);
 	font_desc = pango_font_description_from_string(font_string);
 
-	dbg(2, "requested: %s", font_string);
+	dbg(2, "%s", font_string);
 	// for some reason there seems to be an issue with pixmap fonts
 	if(!font_is_scalable(get_context(), pango_font_description_get_family(font_desc))){
-		strcpy(font_string, "Sans 7");
-		pango_font_description_free(font_desc); //TODO no, just set the family instead
-		font_desc = pango_font_description_from_string(font_string);
+		pango_font_description_set_family(font_desc, "Sans");
 	}
-	dbg(2, "using: %s", font_string);
 }
 
 
@@ -635,7 +632,7 @@ agl_print(int x, int y, double z, uint32_t colour, const char *fmt, ...)
 #if 0
 	if(!font_desc){
 		char font_string[64];
-		get_font_string(font_string, -3); //TODO why do we have to set this so small to get a reasonable font size?
+		get_font_string(font_string, -3);
 		font_desc = pango_font_description_from_string(font_string);
 
 		if(!font_is_scalable(PGRC->context, pango_font_description_get_family(font_desc))){
@@ -669,6 +666,17 @@ agl_print(int x, int y, double z, uint32_t colour, const char *fmt, ...)
 }
 
 
+void
+agl_print_layout(int x, int y, double z, uint32_t colour, PangoLayout* layout)
+{
+	pango_layout_set_font_description(layout, font_desc);
+
+	pango_gl_render_layout (layout, x, y, z, (Colour32*)&colour, 0);
+
+	glPixelStorei (GL_UNPACK_ROW_LENGTH, 0); //reset back to the default value
+}
+
+
 static gboolean
 font_is_scalable(PangoContext* context, const char* font_name)
 {
@@ -680,7 +688,7 @@ font_is_scalable(PangoContext* context, const char* font_name)
 	gboolean scalable = TRUE;
 
 	gchar* family_name = g_ascii_strdown(font_name, -1);
-	dbg(2, "looking for: %s", family_name);
+	dbg(3, "looking for: %s", family_name);
 
 	PangoFontMap* fontmap = pango_context_get_font_map(context);
 	PangoFontFamily** families = NULL;
@@ -711,7 +719,7 @@ font_is_scalable(PangoContext* context, const char* font_name)
 		}
 	}
 	g_free(family_name);
-	dbg(2, "scalable=%i", scalable);
+	dbg(3, "scalable=%i", scalable);
 	return scalable;
 }
 

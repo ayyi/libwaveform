@@ -1,5 +1,5 @@
 /*
-  copyright (C) 2012-2015 Tim Orford <tim@orford.org>
+  copyright (C) 2012-2016 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -81,7 +81,7 @@ extern CursorShader cursor;
 #undef TRACK_ACTORS
 
 #ifdef TRACK_ACTORS
-GList* actors = NULL;
+static GList* actors = NULL;
 #endif
 
 static gpointer waveform_context_parent_class = NULL;
@@ -109,6 +109,7 @@ wf_context_class_init(WaveformContextClass* klass)
 	//g_type_class_add_private (klass, sizeof (WaveformContextPrivate));
 	G_OBJECT_CLASS (klass)->finalize = wf_canvas_finalize;
 	g_signal_new ("dimensions_changed", TYPE_WAVEFORM_CONTEXT, G_SIGNAL_RUN_LAST, 0, NULL, NULL, g_cclosure_marshal_VOID__VOID, G_TYPE_NONE, 0);
+	g_signal_new ("zoom_changed", TYPE_WAVEFORM_CONTEXT, G_SIGNAL_RUN_LAST, 0, NULL, NULL, g_cclosure_marshal_VOID__VOID, G_TYPE_NONE, 0);
 
 	agl = agl_get_instance();
 }
@@ -136,7 +137,6 @@ wf_canvas_init(WaveformCanvas* wfc, AGlRootActor* root)
 {
 	wfc->priv = g_new0(WfContextPriv, 1);
 
-	wfc->enable_animations = true;
 	wfc->blend = true;
 	wfc->sample_rate = 44100;
 	wfc->v_gain = 1.0;
@@ -511,28 +511,40 @@ wf_canvas_set_rotation(WaveformCanvas* wfc, float rotation)
 }
 
 
+#ifdef USE_CANVAS_SCALING
+float
+wf_context_get_zoom(WaveformCanvas* wfc)
+{
+	return wfc->scaled ? wfc->priv->zoom.val.f : 0.0;
+}
+
+
 /*
  *  Allows the whole scene to be scaled as a single transition
  *  which is more efficient than scaling many individual waveforms.
  *
  *  Calling this function puts the canvas into 'scaled' mode.
  */
-#ifdef USE_CANVAS_SCALING
 void
-wf_canvas_set_zoom(WaveformCanvas* wfc, float zoom)
+wf_context_set_zoom(WaveformCanvas* wfc, float zoom)
 {
 	// TODO should probably call agl_actor__start_transition
 
-	wfc->priv->scaled = true;
-	dbg(0, "zoom=%f", zoom);
+	wfc->scaled = true;
+	dbg(1, "zoom=%f spp=%.2f", zoom, wfc->samples_per_pixel);
 
-#ifdef TRACK_ACTORS
-	if(!actors) return;
+	wfc->zoom = zoom; // TODO clamp
+
+	if(!wfc->root->enable_animations){
+		wfc->priv->zoom.val.f = zoom;
+		agl_actor__invalidate((AGlActor*)wfc->root);
+		return;
+	}
 
 	void set_zoom_on_animation_finished(WfAnimation* animation, gpointer _wfc)
 	{
 		WaveformCanvas* wfc = _wfc;
-		dbg(0, "wfc=%p", wfc);
+		dbg(1, "wfc=%p", wfc);
 	}
 
 	void wf_canvas_set_zoom_on_frame(WfAnimation* animation, int time)
@@ -560,7 +572,7 @@ wf_canvas_set_zoom(WaveformCanvas* wfc, float zoom)
 #endif
 	}
 
-	wfc->zoom = zoom; // TODO clamp
+	g_signal_emit_by_name(wfc, "zoom-changed");
 
 	WfAnimation* animation = wf_animation_new(set_zoom_on_animation_finished, wfc);
 	animation->on_frame = wf_canvas_set_zoom_on_frame;
@@ -569,7 +581,6 @@ wf_canvas_set_zoom(WaveformCanvas* wfc, float zoom)
 	wf_transition_add_member(animation, animatables);
 
 	wf_animation_start(animation);
-#endif
 }
 #endif
 
@@ -579,6 +590,14 @@ wf_canvas_set_gain(WaveformCanvas* wfc, float gain)
 {
 	wfc->v_gain = gain;
 	wf_canvas_queue_redraw(wfc);
+}
+
+
+float
+wf_context_frame_to_x (WaveformContext* context, uint64_t frame)
+{
+	float pixels_per_sample = context->zoom / context->samples_per_pixel;
+	return (frame - context->start_time) * pixels_per_sample;
 }
 
 

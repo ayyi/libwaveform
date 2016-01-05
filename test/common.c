@@ -1,6 +1,6 @@
 /*
   This file is part of the Ayyi Project. http://ayyi.org
-  copyright (C) 2004-2014 Tim Orford <tim@orford.org>
+  copyright (C) 2004-2016 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -34,6 +34,7 @@
 #include <gtk/gtk.h>
 #include <glib-object.h>
 #include <sndfile.h>
+#include "agl/actor.h"
 #include "waveform/utils.h"
 #include "waveform/wf_private.h"
 #include "test/ayyi_utils.h"
@@ -153,10 +154,10 @@ add_key_handlers(GtkWindow* window, WaveformView* waveform, Key keys[])
 			// key repeat
 			return true;
 		}
-		key_down = true;
 
 		KeyHandler* handler = g_hash_table_lookup(key_handlers, &event->keyval);
 		if(handler){
+			key_down = true;
 			if(key_hold.timer) gwarn("timer already started");
 			key_hold.timer = g_timeout_add(100, key_hold_on_timeout, user_data);
 			key_hold.handler = handler;
@@ -165,17 +166,16 @@ add_key_handlers(GtkWindow* window, WaveformView* waveform, Key keys[])
 		}
 		else dbg(1, "%i", event->keyval);
 
-		return true;
+		return key_down;
 	}
 
 	gboolean key_release(GtkWidget* widget, GdkEventKey* event, gpointer user_data)
 	{
 		PF;
-		if(!key_down){ /* gwarn("key_down not set"); */ return true; } //sometimes happens at startup
+		if(!key_down) return AGL_NOT_HANDLED; // sometimes happens at startup
 
 		key_down = false;
-		if(key_hold.timer) g_source_remove(key_hold.timer);
-		key_hold.timer = 0;
+		g_source_remove0(key_hold.timer);
 
 		return true;
 	}

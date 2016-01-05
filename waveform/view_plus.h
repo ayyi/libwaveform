@@ -1,5 +1,5 @@
 /*
-  copyright (C) 2012-2015 Tim Orford <tim@orford.org>
+  copyright (C) 2012-2016 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -49,8 +49,10 @@ struct _WaveformViewPlus {
 	GtkDrawingArea           parent_instance;
 
 	Waveform*                waveform;
+#ifndef USE_CANVAS_SCALING
 	float                    zoom;        // zoom is 1 when whole file is visible
-	uint64_t                 start_frame;
+#endif
+	int64_t                  start_frame;
 
 	uint32_t                 fg_colour;
 	uint32_t                 bg_colour;
@@ -69,6 +71,7 @@ void              waveform_view_plus_set_gl        (GdkGLContext*);
 WaveformViewPlus* waveform_view_plus_new           (Waveform*);
 void              waveform_view_plus_load_file     (WaveformViewPlus*, const char*, WfCallback2, gpointer); // be careful, it force loads, even if already loaded.
 void              waveform_view_plus_set_waveform  (WaveformViewPlus*, Waveform*);
+float             waveform_view_plus_get_zoom      (WaveformViewPlus*);
 void              waveform_view_plus_set_zoom      (WaveformViewPlus*, float);
 void              waveform_view_plus_set_start     (WaveformViewPlus*, int64_t);
 void              waveform_view_plus_set_region    (WaveformViewPlus*, int64_t, int64_t);
@@ -78,7 +81,7 @@ AGlActor*         waveform_view_plus_add_layer     (WaveformViewPlus*, AGlActor*
 AGlActor*         waveform_view_plus_get_layer     (WaveformViewPlus*, int);
 void              waveform_view_plus_remove_layer  (WaveformViewPlus*, AGlActor*);
 
-WaveformCanvas*   waveform_view_plus_get_canvas    (WaveformViewPlus*);
+WaveformContext*  waveform_view_plus_get_context   (WaveformViewPlus*);
 WaveformActor*    waveform_view_plus_get_actor     (WaveformViewPlus*);
 
 

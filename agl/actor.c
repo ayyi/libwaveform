@@ -1,7 +1,7 @@
 /**
 * +----------------------------------------------------------------------+
 * | This file is part of the Ayyi project. http://ayyi.org               |
-* | copyright (C) 2013-2015 Tim Orford <tim@orford.org>                  |
+* | copyright (C) 2013-2016 Tim Orford <tim@orford.org>                  |
 * +----------------------------------------------------------------------+
 * | This program is free software; you can redistribute it and/or modify |
 * | it under the terms of the GNU General Public License version 3       |
@@ -25,8 +25,6 @@
 #include "agl/fbo.h"
 #endif
 
-#define HANDLED TRUE
-#define NOT_HANDLED FALSE
 #define CURSOR_NORMAL 0
 
 #ifdef DEBUG
@@ -150,12 +148,17 @@ agl_actor__new_root_(ContextType type)
 	agl = agl_get_instance();
 
 	AGlRootActor* a = g_new0(AGlRootActor, 1);
-	a->type = type;
+	*a = (AGlRootActor){
+		.actor = {
 #ifdef AGL_DEBUG_ACTOR
-	((AGlActor*)a)->name = "ROOT";
+			.name = "ROOT",
 #endif
-	((AGlActor*)a)->root = a;
-	((AGlActor*)a)->paint = agl_actor__null_painter;
+			.root = a,
+			.paint = agl_actor__null_painter
+		},
+		.type = type,
+		.enable_animations = true,
+	};
 
 	return (AGlActor*)a;
 }
@@ -327,7 +330,8 @@ render_from_fbo(AGlActor* a)
 	float w = fbo->width;
 	float h = fbo->height;
 
-	agl_textured_rect_(fbo->texture, 0.0, 0.0, w, h, &(AGlQuad){0.0, h / agl_power_of_two(h), w / agl_power_of_two(w), 0.0}); // TODO y is reversed - why needed?
+	// The FBO is upside down so y has to be reversed. TODO render the FBO so that it is not upside down
+	agl_textured_rect_(fbo->texture, 0.0, 0.0, w, h, &(AGlQuad){0.0, h / agl_power_of_two(h), w / agl_power_of_two(w), 0.0});
 
 #undef FBO_MARKER // show red dot in top left corner of fbos for debugging
 #ifdef FBO_MARKER
@@ -348,13 +352,16 @@ agl_actor__paint(AGlActor* a)
 {
 	if(!a->root) return;
 
-	if(!agl_actor__is_onscreen(a)) return;
+	if(!agl_actor__is_onscreen(a) || (!agl_actor__width(a) && a->paint != agl_actor__null_painter)) return;
 
 	if(a->region.x1 || a->region.y1){
 		glMatrixMode(GL_MODELVIEW);
 		glPushMatrix();
 		glTranslatef(a->region.x1, a->region.y1, 0.0);
 	}
+#ifdef DEBUG
+	if(wf_debug > 2 && a == (AGlActor*)a->root) agl_actor__print_tree (a);
+#endif
 
 	// TODO remove special case - create agl_root_actor__paint() ?
 	if(a == (AGlActor*)a->root) glTranslatef(0, -((AGlRootActor*)a)->viewport.y, 0);
@@ -362,7 +369,7 @@ agl_actor__paint(AGlActor* a)
 #ifdef AGL_ACTOR_RENDER_CACHE
 	// TODO check case where actor is translated and is partially offscreen.
 	// TODO actor may be huge. do we need to crop to viewport ?
-	if(a->fbo && a->cache.enabled && !(a->region.x2 - a->region.x1 > AGL_MAX_FBO_WIDTH)){
+	if(a->fbo && a->cache.enabled && !(agl_actor__width(a) > AGL_MAX_FBO_WIDTH)){
 		if(!a->cache.valid){
 			agl_draw_to_fbo(a->fbo) {
 				glClearColor(0.0, 0.0, 0.0, 0.0); // background colour must be same as foreground for correct antialiasing
@@ -456,10 +463,9 @@ agl_actor__set_size(AGlActor* actor)
 
 #ifdef AGL_ACTOR_RENDER_CACHE
 	if(actor->fbo){
-		int w = actor->region.x2 - actor->region.x1;
 		int h = actor->region.y2 - actor->region.y1;
 
-		agl_fbo_set_size (actor->fbo, w, h);
+		agl_fbo_set_size (actor->fbo, agl_actor__width(actor), h);
 		actor->cache.valid = false;
 	}
 #endif
@@ -498,9 +504,9 @@ _actor__on_event(AGlActor* a, GdkEvent* event, AGliPt xy)
 	// xy is the event coordinates relative to the top left of the actor's parent.
 	// ie the coordinate system is the same one as the actor's region.
 
-	if(!a) return NOT_HANDLED;
+	if(!a) return AGL_NOT_HANDLED;
 
-	bool handled = NOT_HANDLED;
+	bool handled = AGL_NOT_HANDLED;
 
 	AGlActor* find_handler_actor(AGlActor* a, AGliPt* xy)
 	{
@@ -519,7 +525,7 @@ _actor__on_event(AGlActor* a, GdkEvent* event, AGliPt xy)
 	AGlActor* h = find_handler_actor(a, &xy);
 	if(h){
 		if(h->on_event(h, event, xy, scroll_offset)){
-			return HANDLED;
+			return AGL_HANDLED;
 		}
 
 		while(h->parent){
@@ -534,11 +540,23 @@ _actor__on_event(AGlActor* a, GdkEvent* event, AGliPt xy)
 }
 
 
+/*
+ * agl_actor__on_event can be used by clients that handle their own events to forward them on to the AGlScene.
+ */
 bool
-agl_actor__on_event(AGlRootActor* root, GdkEvent* event)
+agl_actor__on_event(AGlScene* root, GdkEvent* event)
 {
 	AGlActor* actor = (AGlActor*)root;
 	GtkWidget* widget = actor->root->widget;
+
+	if(event->type == GDK_KEY_PRESS){
+		printf("%s: keypress: key=%i\n", __func__, ((GdkEventKey*)event)->keyval);
+		AGlActor* selected = root->selected;
+		if(selected && selected->on_event){
+			return selected->on_event(selected, event, (AGliPt){}, (AGliPt){});
+		}
+		return AGL_NOT_HANDLED;
+	}
 
 	AGliPt xy = {event->button.x + actor->root->viewport.x, event->button.y + actor->root->viewport.y};
 
@@ -557,7 +575,7 @@ agl_actor__on_event(AGlRootActor* root, GdkEvent* event)
 			if(!child->disabled && region_match(&child->region, xy.x, xy.y)){
 				AGlActor* sub = child_region_hit(child, (AGliPt){xy.x - child->region.x1, xy.y - child->region.y1});
 				if(sub) return sub;
-				//printf("  match. y=%i y0=%i y1=%i x=%i-->%i type=%i\n", xy.y, child->region.y1, child->region.y2, child->region.x1, child->region.x2, child->type);
+				//printf("  match. y=%i y0=%i y1=%i x=%i-->%i type=%s\n", xy.y, child->region.y1, child->region.y2, child->region.x1, child->region.x2, child->name);
 				return child;
 			}
 		}
@@ -595,6 +613,11 @@ agl_actor__on_event(AGlRootActor* root, GdkEvent* event)
 
 			break;
 		case GDK_BUTTON_RELEASE:
+			if(root->selected != a){
+				if(root->selected) agl_actor__invalidate(root->selected);
+				root->selected = a; // TODO almost certainly not always correct
+				agl_actor__invalidate(a);
+			}
 			return _actor__on_event(a, event, xy);
 		default:
 			break;
@@ -628,7 +651,42 @@ agl_actor__on_event(AGlRootActor* root, GdkEvent* event)
 		}
 	}
 
-	return NOT_HANDLED;
+	return AGL_NOT_HANDLED;
+}
+
+
+bool
+agl_actor__xevent(AGlRootActor* scene, XEvent* xevent)
+{
+	switch (xevent->type) {
+		case ButtonRelease:
+			break;
+		case ButtonPress:
+			{
+				GdkEvent event = {
+					.type = GDK_BUTTON_RELEASE, // why gets overwritten?
+					.button = {
+						.x = (double)xevent->xbutton.x,
+						.y = (double)xevent->xbutton.y,
+					},
+				};
+				event.type = GDK_BUTTON_RELEASE;
+
+				agl_actor__on_event(scene, &event);
+			}
+			break;
+		case KeyPress:
+			{
+				GdkEventKey event = {
+					.type = GDK_KEY_PRESS,
+				};
+				int code = XLookupKeysym(&xevent->xkey, 0);
+				event.keyval = code;
+				agl_actor__on_event(scene, (GdkEvent*)&event);
+			}
+			break;
+	}
+	return AGL_NOT_HANDLED;
 }
 
 
@@ -735,7 +793,10 @@ agl_actor__invalidate(AGlActor* actor)
 		}
 	}
 	_agl_actor__invalidate(actor);
-	if(actor->root && actor->root->type == CONTEXT_TYPE_GTK) gtk_widget_queue_draw(actor->root->widget);
+	if(actor->root){
+		if(actor->root->type == CONTEXT_TYPE_GTK) gtk_widget_queue_draw(actor->root->widget);
+		else call(actor->root->draw, actor->root, actor->root->user_data);
+	}
 }
 
 
@@ -906,13 +967,16 @@ agl_actor__print_tree (AGlActor* actor)
 	{
 		g_return_if_fail(actor);
 		int i; for(i=0;i<indent;i++) printf("  ");
+
 #ifdef AGL_DEBUG_ACTOR
+		char* offscreen = agl_actor__is_onscreen(actor) ? "" : " OFFSCREEN";
+		char* zero_size = agl_actor__width(actor) ? "" : " ZEROSIZE";
 #ifdef AGL_ACTOR_RENDER_CACHE
-		if(actor->name) printf("%s (%i,%i)\n", actor->name, actor->cache.enabled, actor->cache.valid);
+		if(actor->name) printf("%s:%s%s cache(%i,%i) region(%i,%i,%i,%i)\n", actor->name, offscreen, zero_size, actor->cache.enabled, actor->cache.valid, actor->region.x1, actor->region.y1, actor->region.x2, actor->region.y2);
 #else
 		if(actor->name) printf("%s\n", actor->name);
 #endif
-		if(!actor->name) printf("(%i,%i)\n", actor->region.x1, actor->region.y1);
+		if(!actor->name) printf("%s%s (%i,%i)\n", offscreen, zero_size, actor->region.x1, actor->region.y1);
 #else
 		printf("%i\n", actor->region.x1);
 #endif

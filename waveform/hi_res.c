@@ -1,5 +1,5 @@
 /*
-  copyright (C) 2012-2015 Tim Orford <tim@orford.org>
+  copyright (C) 2012-2016 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -534,7 +534,7 @@ wf_actor_get_quad_dimensions(WaveformActor* actor, int b, bool is_first, bool is
 		tex_pct = (block_wid / r->block_wid) * multiplier * usable_pct;
 	}
 
-	dbg (2, "%i: is_last=%i x=%.2f wid=%.2f/%.2f tex_pct=%.3f tex_start=%.3f", b, is_last, x, block_wid, r->block_wid, tex_pct, tex_start);
+	dbg (2, "%i: %s x=%6.2f wid=%.2f/%.2f tex_pct=%.3f tex_start=%.3f", b, is_last ? "LAST" : "    ", x, block_wid, r->block_wid, tex_pct, tex_start);
 if(tex_pct > usable_pct || tex_pct < 0.0){
 dbg (0, "%i: is_first=%i is_last=%i x=%.2f wid=%.2f/%.2f tex_pct=%.3f tex_start=%.3f", b, is_first, is_last, x, block_wid, r->block_wid, tex_pct, tex_start);
 }

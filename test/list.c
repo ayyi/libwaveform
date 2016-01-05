@@ -45,7 +45,7 @@ struct _app
 
 #define WAV "test/data/mono_0:10.wav"
 
-#define GL_WIDTH 256.0
+#define GL_WIDTH 320.0
 #define GL_HEIGHT 256.0
 #define VBORDER 8
 
@@ -179,6 +179,9 @@ setup_projection(GtkWidget* widget)
 	double bottom = GL_HEIGHT + VBORDER;
 	double top = -VBORDER;
 	glOrtho (left, right, bottom, top, 10.0, -100.0);
+
+	((AGlActor*)scene)->region.x2 = vw;
+	((AGlActor*)scene)->region.y2 = vh;
 }
 
 
