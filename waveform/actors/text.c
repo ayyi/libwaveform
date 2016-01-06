@@ -1,18 +1,14 @@
-/*
-  copyright (C) 2012-2015 Tim Orford <tim@orford.org>
-
-  This program is free software; you can redistribute it and/or modify
-  it under the terms of the GNU General Public License version 3
-  as published by the Free Software Foundation.
-
-  This program is distributed in the hope that it will be useful,
-  but WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-  GNU General Public License for more details.
-
-  You should have received a copy of the GNU General Public License
-  along with this program; if not, write to the Free Software
-  Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+/**
+* +----------------------------------------------------------------------+
+* | This file is part of libwaveform                                     |
+* | https://github.com/ayyi/libwaveform                                  |
+* | copyright (C) 2012-2016 Tim Orford <tim@orford.org>                  |
+* +----------------------------------------------------------------------+
+* | This program is free software; you can redistribute it and/or modify |
+* | it under the terms of the GNU General Public License version 3       |
+* | as published by the Free Software Foundation.                        |
+* +----------------------------------------------------------------------+
+*
 */
 #define __wf_private__
 #include "config.h"
@@ -50,6 +46,7 @@ static int instance_count = 0;
 
 static void text_actor_render_text (TextActor*);
 
+#ifdef USE_LIBASS
 char* script = 
 	"[Script Info]\n"
 	"ScriptType: v4.00+\n"
@@ -80,6 +77,7 @@ typedef struct
 
 static ASS_Library*  ass_library = NULL;
 static ASS_Renderer* ass_renderer = NULL;
+#endif
 
 
 static void
@@ -97,6 +95,7 @@ _init()
 			printf("\n");
 		}
 
+#ifdef USE_LIBASS
 		ass_library = ass_library_init();
 		if (!ass_library) {
 			printf("ass_library_init failed!\n");
@@ -112,6 +111,7 @@ _init()
 		}
 
 		ass_set_fonts(ass_renderer, NULL, "Sans", 1, NULL, 1);
+#endif
 	}
 
 	if(!init_done){
@@ -137,8 +137,9 @@ text_actor(WaveformActor* _)
 
 		if(!agl->use_shaders) agl_enable(0); // TODO find out why this is needed when AGlActor caching is enabled.
 
-		agl_print(2, actor->region.y2 - actor->region.y1 - 16, 0, ta->text_colour, ta->text);
+		agl_print(2, agl_actor__height(actor) - 16, 0, ta->text_colour, ta->text);
 
+#ifdef USE_LIBASS
 		if(ta->title){
 			if(!ta->title_is_rendered) text_actor_render_text(ta);
 
@@ -166,6 +167,7 @@ text_actor(WaveformActor* _)
 #endif
 			}
 		}
+#endif
 
 		return true;
 	}
@@ -201,12 +203,14 @@ text_actor(WaveformActor* _)
 		if(ta->title) _g_free0(ta->title);
 		if(ta->text) _g_free0(ta->text);
 
+#ifdef USE_LIBASS
 		if(!--instance_count){
 			ass_renderer_done(ass_renderer);
 			ass_library_done(ass_library);
 			ass_renderer = NULL;
 			ass_library = NULL;
 		}
+#endif
 	}
 
 	TextActor* ta = g_new0(TextActor, 1);
@@ -261,6 +265,7 @@ text_actor_set_text (TextActor* ta, char* title, char* text)
 
 #define N_CHANNELS 2 // luminance + alpha
 
+#ifdef USE_LIBASS
 static void
 blend_single(image_t* frame, ASS_Image* img)
 {
@@ -414,5 +419,6 @@ text_actor_render_text(TextActor* ta)
 	g_free(out.buf);
 	g_free(title);
 }
+#endif
 
 
