@@ -1,5 +1,5 @@
 /*
-  copyright (C) 2012-2015 Tim Orford <tim@orford.org>
+  copyright (C) 2012-2016 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -77,11 +77,11 @@
 
 WfTransitionGlobal wf_transition = {300};
 
-#define WF_DEBUG_ANIMATOR
+#undef WF_DEBUG_ANIMATOR
 
-static uint32_t transition_linear      (WfAnimation*, WfAnimatable*, int time);
-static int64_t  transition_linear_64   (WfAnimation*, WfAnimatable*, int time);
-static float    transition_linear_f    (WfAnimation*, WfAnimatable*, int time);
+static void transition_linear    (WfAnimation*, WfAnimatable*, int time);
+static void transition_linear_64 (WfAnimation*, WfAnimatable*, int time);
+static void transition_linear_f  (WfAnimation*, WfAnimatable*, int time);
 
 #ifdef WF_DEBUG_ANIMATOR
 GList* animations = NULL;
@@ -90,7 +90,7 @@ guint idx = 0;
 
 GList* transitions = NULL; // list of currently running transitions (type WfAnimation*).
 
-static WfEasingFn linear[3] = {{.i = transition_linear}, {.b = transition_linear_64}, {.f = transition_linear_f}};
+static WfEasing linear = {transition_linear, transition_linear_64, transition_linear_f};
 
 
 WfAnimation*
@@ -100,7 +100,7 @@ wf_animation_new(AnimationFn on_finished, gpointer user_data)
 	animation->length = wf_transition.length;
 	animation->on_finish = on_finished;
 	animation->user_data = user_data;
-	animation->frame_fn = linear;
+	animation->frame_fn = &linear;
 #ifdef WF_DEBUG_ANIMATOR
 	animation->id = idx++;
 	animations = g_list_append(animations, animation);
@@ -348,7 +348,7 @@ wf_animation_start(WfAnimation* animation)
 #endif
 			for(;k;k=k->next){
 				WfAnimatable* animatable = k->data;
-				animation->frame_fn[animatable->type].b(animation, animatable, time);
+				(*animation->frame_fn)[animatable->type](animation, animatable, time);
 			}
 		}
 		animation->on_frame(animation, time); // user frame callback
@@ -382,12 +382,13 @@ wf_animation_start(WfAnimation* animation)
 	frame_clock_begin_updating();
 #endif
 	if(wf_transition_frame(animation)){
-																					gwarn("never get here!");
+#if 0 // never get here
 #ifndef USE_FRAME_CLOCK
 		GSource* source = g_timeout_source_new(WF_FRAME_INTERVAL);
 		g_source_set_callback(source, wf_transition_frame, animation, NULL);
 		g_source_set_priority(source, G_PRIORITY_HIGH);
 		animation->timer = g_source_attach(source, NULL);
+#endif
 #endif
 	}
 }
@@ -429,7 +430,7 @@ wf_animation_preview(WfAnimation* animation, AnimationValueFn on_frame, gpointer
 }
 
 
-static uint32_t
+static void
 transition_linear(WfAnimation* animation, WfAnimatable* animatable, int time)
 {
 	uint64_t len = animation->end - animation->start;
@@ -441,11 +442,11 @@ transition_linear(WfAnimation* animation, WfAnimatable* animatable, int time)
 #if 0
 	dbg(2, "%.2f orig=%.2f target=%.2f", time_fraction, orig_val, target_val);
 #endif
-	return  animatable->val.i = (1.0 - time_fraction) * orig_val + time_fraction * target_val;
+	animatable->val.i = (1.0 - time_fraction) * orig_val + time_fraction * target_val;
 }
 
 
-static int64_t
+static void
 transition_linear_64(WfAnimation* animation, WfAnimatable* animatable, int time)
 {
 	uint64_t len = animation->end - animation->start;
@@ -454,11 +455,11 @@ transition_linear_64(WfAnimation* animation, WfAnimatable* animatable, int time)
 	float time_fraction = MIN(1.0, ((float)t) / len);
 	float orig_val   = animatable->start_val.b;
 	float target_val = *animatable->model_val.b;
-	return  animatable->val.b = (1.0 - time_fraction) * orig_val + time_fraction * target_val;
+	animatable->val.b = (1.0 - time_fraction) * orig_val + time_fraction * target_val;
 }
 
 
-static float
+static void
 transition_linear_f(WfAnimation* animation, WfAnimatable* animatable, int time)
 {
 	uint64_t len = animation->end - animation->start;
@@ -470,7 +471,7 @@ transition_linear_f(WfAnimation* animation, WfAnimatable* animatable, int time)
 #if 0
 	dbg(2, "%.2f orig=%.2f target=%.2f", time_fraction, orig_val, target_val);
 #endif
-	return  animatable->val.f = (1.0 - time_fraction) * orig_val + time_fraction * target_val;
+	animatable->val.f = (1.0 - time_fraction) * orig_val + time_fraction * target_val;
 }
 
 

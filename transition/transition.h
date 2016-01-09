@@ -1,5 +1,5 @@
 /*
-  copyright (C) 2012-2015 Tim Orford <tim@orford.org>
+  copyright (C) 2012-2016 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -31,7 +31,7 @@ extern WfTransitionGlobal wf_transition;
 #endif
 
 typedef struct _WfAnimation WfAnimation;
-typedef enum {WF_INT, WF_INT64, WF_FLOAT} WfPropType;
+typedef enum {WF_INT=0, WF_INT64, WF_FLOAT, WF_TYPE_MAX} WfPropType;
 
 typedef union {
    uint32_t  i;
@@ -66,22 +66,19 @@ typedef struct _anim_actor
 #endif
 } WfAnimActor;
 
-typedef void  (*AnimationFn) (WfAnimation*, gpointer);
+typedef void  (*AnimationFn)      (WfAnimation*, gpointer);
 typedef void  (*AnimationFrameFn) (WfAnimation*, int time);
 typedef void  (*AnimationValueFn) (WfAnimation*, UVal[], gpointer);
+typedef void  (*WfEasingFn)       (WfAnimation*, WfAnimatable*, int time);
 
-typedef union {
-   uint32_t  (*i)(WfAnimation*, WfAnimatable*, int time);
-   int64_t   (*b)(WfAnimation*, WfAnimatable*, int time);
-   float     (*f)(WfAnimation*, WfAnimatable*, int time);
-} WfEasingFn;
+typedef WfEasingFn WfEasing[WF_TYPE_MAX];
 
 struct _WfAnimation
 {
    uint32_t    length;
    uint64_t    start;
    uint64_t    end;
-   WfEasingFn* frame_fn;                                            // easing fn's
+   WfEasing*   frame_fn;                                            // easing fn's
    GList*      members;                                             // list of WfAnimActor*  -- subject to change
 //#ifndef USE_FRAME_CLOCK
    guint       timer;
