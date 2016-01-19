@@ -1,5 +1,5 @@
 /*
-  copyright (C) 2012-2015 Tim Orford <tim@orford.org>
+  copyright (C) 2012-2016 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -147,6 +147,7 @@ gboolean   waveform_peak_is_loaded       (Waveform*, int ch_num);
 RmsBuf*    waveform_load_rms_file        (Waveform*, int ch);
 
 void       waveform_load_audio           (Waveform*, int block_num, int n_tiers_needed, WfAudioCallback, gpointer);
+void       waveform_load_audio_sync      (Waveform*, int block_num, int n_tiers_needed);
 short      waveform_find_max_audio_level (Waveform*);
 
 typedef void (WfPixbufCallback)(Waveform*, GdkPixbuf*, gpointer);

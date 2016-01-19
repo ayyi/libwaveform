@@ -1,5 +1,5 @@
 /*
-  copyright (C) 2012-2015 Tim Orford <tim@orford.org>
+  copyright (C) 2012-2016 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -1490,6 +1490,7 @@ waveform_peak_to_pixbuf_full(Waveform* waveform, GdkPixbuf* pixbuf, uint32_t reg
 		                        If samples_per_px is set it is not neccesary to specify the end.
 		@param samples_per_px - sets the magnification.
 		@param colour_bg      - 0xrrggbbaa. used for antialiasing.
+		@param single         - all channels are mixed to a single waveform
 
 		TODO
 			v-high mode - currently fails if resolution is less than 1:16
@@ -1556,11 +1557,8 @@ waveform_peak_to_pixbuf_full(Waveform* waveform, GdkPixbuf* pixbuf, uint32_t reg
 			hires_block = region_inset / WF_PEAK_BLOCK_SIZE;
 			border = TEX_BORDER_HI;
 
-			WfAudioData* audio = &waveform->priv->audio;
-			if(!audio->buf16){
-				gwarn("calling async function from sync fn will not work");
-				waveform_load_audio(waveform, hires_block, N_TIERS_NEEDED, NULL, NULL);
-				return;
+			if(!waveform->priv->audio.buf16){
+				waveform_load_audio_sync(waveform, hires_block, N_TIERS_NEEDED);
 			}
 		}
 

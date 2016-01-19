@@ -1,5 +1,5 @@
 /*
-  copyright (C) 2012-2015 Tim Orford <tim@orford.org>
+  copyright (C) 2012-2016 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -241,7 +241,6 @@ void           waveform_rms_to_alphabuf    (Waveform*, AlphaBuf*, int* start, in
 void           waveform_free_render_data   (Waveform*);
 
 void           waveform_audio_free         (Waveform*);
-gboolean       waveform_load_audio_block   (Waveform*, WfBuf16*, int block_num);
 
 WfTextureHi*   waveform_texture_hi_new     ();
 void           waveform_texture_hi_free    (WfTextureHi*);
