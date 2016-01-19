@@ -1,6 +1,6 @@
 
 /*
-  copyright (C) 2012-2015 Tim Orford <tim@orford.org>
+  copyright (C) 2012-2016 Tim Orford <tim@orford.org>
   copyright (C) 2011 Robin Gareus <robin@gareus.org>
 
   This program is free software; you can redistribute it and/or modify
@@ -33,6 +33,7 @@
 static bool    wf_ff_info                   (FF*);
 static ssize_t wf_ff_read_float_p           (FF*, WfBuf16*, size_t len);
 static ssize_t wf_ff_read_short_interleaved (FF*, WfBuf16*, size_t len);
+static ssize_t wf_ff_read_float_interleaved (FF*, WfBuf16*, size_t len);
 
 
 static void
@@ -105,12 +106,16 @@ wf_ff_open(FF* f, const char* filename)
 			dbg(1, "S16P");
 			f->read = wf_ff_read_short;
 			break;
+		case AV_SAMPLE_FMT_FLT:
+			dbg(1, "FLT");
+			f->read = wf_ff_read_float_interleaved;
+			break;
 		case AV_SAMPLE_FMT_FLTP:
 			dbg(1, "FLTP");
 			f->read = wf_ff_read_float_p;
 			break;
 		default:
-			gwarn("format may not be supported: sample_fmt=%i %s", f->codec_context->sample_fmt, av_get_sample_fmt_name(f->codec_context->sample_fmt));
+			gwarn("format may not be supported: %i %s", f->codec_context->sample_fmt, av_get_sample_fmt_name(f->codec_context->sample_fmt));
 			f->read = wf_ff_read_short;
 			break;
 	}
@@ -199,7 +204,7 @@ static ssize_t
 wf_ff_read_short_interleaved(FF* f, WfBuf16* buf, size_t len)
 {
 	AVFrame frame;
-	int64_t n_samples = 0;
+	int64_t n_fr_done = 0;
 
 	int data_size = av_get_bytes_per_sample(f->codec_context->sample_fmt);
 	g_return_if_fail(data_size == 2);
@@ -222,17 +227,17 @@ wf_ff_read_short_interleaved(FF* f, WfBuf16* buf, size_t len)
 				int64_t fr = frame.best_effort_timestamp * f->info.sample_rate / f->format_context->streams[f->audio_stream]->time_base.den;
 				int ch;
 				int i; for(i=0; i<frame.nb_samples; i++){
-					if(n_samples >= len) break;
+					if(n_fr_done >= len) break;
 					if(fr >= f->seek_frame){
 						for(ch=0; ch<MIN(2, f->codec_context->channels); ch++){
-							memcpy(buf->buf[ch] + n_samples, frame.data[0] + f->codec_context->channels * data_size * i + data_size * ch, data_size);
+							memcpy(buf->buf[ch] + n_fr_done, frame.data[0] + f->codec_context->channels * data_size * i + data_size * ch, data_size);
 						}
-						n_samples++;
+						n_fr_done++;
 					}
 				}
-				f->output_clock = fr + n_samples;
+				f->output_clock = fr + n_fr_done;
 
-				if(n_samples >= len) goto stop;
+				if(n_fr_done >= len) goto stop;
 			}
 		}
 		av_free_packet(&f->packet);
@@ -243,7 +248,61 @@ wf_ff_read_short_interleaved(FF* f, WfBuf16* buf, size_t len)
 			break;
 	}
 
-	return n_samples;
+	return n_fr_done;
+}
+
+
+static ssize_t
+wf_ff_read_float_interleaved(FF* f, WfBuf16* buf, size_t len)
+{
+	AVFrame frame;
+	int64_t n_fr_done = 0;
+
+	int data_size = av_get_bytes_per_sample(f->codec_context->sample_fmt);
+	g_return_if_fail(data_size == 4);
+
+	while(!av_read_frame(f->format_context, &f->packet)){
+		if(f->packet.stream_index == f->audio_stream){
+			memset(&frame, 0, sizeof(AVFrame));
+			av_frame_unref(&frame);
+
+			int got_frame = 0;
+			if(avcodec_decode_audio4(f->codec_context, &frame, &got_frame, &f->packet) < 0){
+				dbg(0, "Error decoding audio");
+			}
+			if(got_frame){
+				int size = av_samples_get_buffer_size (NULL, f->codec_context->channels, frame.nb_samples, f->codec_context->sample_fmt, 1);
+				if (size < 0)  {
+					dbg(0, "av_samples_get_buffer_size invalid value");
+				}
+
+				int64_t fr = frame.best_effort_timestamp * f->info.sample_rate / f->format_context->streams[f->audio_stream]->time_base.den;
+				int ch;
+				int i; for(i=0; i<frame.nb_samples; i++){
+					if(n_fr_done >= len) break;
+					if(fr >= f->seek_frame){
+						for(ch=0; ch<MIN(2, f->codec_context->channels); ch++){
+							float* src = (float*)(frame.data[0] + f->codec_context->channels * data_size * i + data_size * ch);
+							buf->buf[ch][n_fr_done] = (*src) * (1 << 15);
+						}
+						n_fr_done++;
+						f->frame_iter++;
+					}
+				}
+				f->output_clock = fr + n_fr_done;
+
+				if(n_fr_done >= len) goto stop;
+			}
+		}
+		av_free_packet(&f->packet);
+		continue;
+
+		stop:
+			av_free_packet(&f->packet);
+			break;
+	}
+
+	return n_fr_done;
 }
 
 

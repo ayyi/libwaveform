@@ -2,11 +2,11 @@
 
   libwaveform test of 32bit float wav files.
 
-  **** This is a work in progress. Currently it generates a peak file to be checked manually.
+  Currently the test is not very good at detecting errors
 
   --------------------------------------------------------------
 
-  Copyright (C) 2013 Tim Orford <tim@orford.org>
+  Copyright (C) 2013-2016 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -160,6 +160,21 @@ test_load()
 		dbg(0, "...");
 	}
 
+	bool check_pixbuf(GdkPixbuf* pixbuf)
+	{
+		guchar* pixels = gdk_pixbuf_get_pixels (pixbuf);
+		int rowstride = gdk_pixbuf_get_rowstride (pixbuf);
+		int n_channels = gdk_pixbuf_get_n_channels (pixbuf);
+		int value = 0;
+		int y = 0; for(y=0;y<gdk_pixbuf_get_height(pixbuf);y++){
+			int x; for(x=0;x<gdk_pixbuf_get_width(pixbuf);x++){
+				guchar* p = pixels + y * rowstride + x * n_channels;
+				value += p[0];
+			}
+		}
+		return (bool)value;
+	}
+
 	void next_wav(C* c)
 	{
 		if(c->wi >= G_N_ELEMENTS(wavs)){
@@ -175,19 +190,10 @@ test_load()
 		reset_timeout(40000);
 
 		Waveform* w = waveform_new(wavs[c->wi++]);
-		g_object_weak_ref((GObject*)w, finalize_notify, NULL);
-		waveform_load_sync(w);
-
-		#warning invalid access to render_data
-		if(agl_get_instance()->use_shaders) gerr("FIXME invalid access to render_data for current rendering method");
-
 		WaveformPriv* _w = w->priv;
-#if 0 // these are now invalid following internal changes
-		WfGlBlock* blocks = (WfGlBlock*)_w->render_data[MODE_MED];
-		assert(blocks, "texture container not allocated");
-		assert(!blocks->peak_texture[WF_LEFT].main[0], "textures allocated"); // no textures are expected to be allocated.
-		assert(!blocks->peak_texture[WF_RIGHT].main[0], "textures allocated");
-#endif
+		g_object_weak_ref((GObject*)w, finalize_notify, NULL);
+		assert(waveform_load_sync(w), "failed to load wav");
+
 		assert(&_w->peak, "peak not loaded");
 		assert(_w->peak.size, "peak size not set");
 		assert(_w->peak.buf[WF_LEFT], "peak not loaded");
@@ -195,6 +201,41 @@ test_load()
 
 		// TODO calculate these values when the waveform is created.
 		assert(w->priv->peak.buf[WF_LEFT][0] == 14252 && w->priv->peak.buf[WF_LEFT][1] == -13807, "peak file contains wrong values");
+
+		// check MED res
+		// the pixbuf generation does not report errors so is difficult to test
+		{
+			GdkPixbuf* pixbuf = gdk_pixbuf_new(GDK_COLORSPACE_RGB, FALSE, 8, 20, 32);
+			guchar* pixels = gdk_pixbuf_get_pixels (pixbuf);
+			memset(pixels, 0, gdk_pixbuf_get_rowstride(pixbuf) * gdk_pixbuf_get_height(pixbuf));
+			waveform_peak_to_pixbuf(w, pixbuf, NULL, 0xffffffff, 0x000000ff, false);
+			assert(check_pixbuf(pixbuf), "MED waveform is blank");
+#if 0
+			gdk_pixbuf_save(pixbuf, "tmp1medres.png", "png", NULL, NULL);
+#endif
+			g_object_unref(pixbuf);
+
+		}
+
+		// check HI res
+		{
+			GdkPixbuf* pixbuf = gdk_pixbuf_new(GDK_COLORSPACE_RGB, FALSE, 8, 40, 64);
+			guchar* pixels = gdk_pixbuf_get_pixels (pixbuf);
+			memset(pixels, 0, gdk_pixbuf_get_rowstride(pixbuf) * gdk_pixbuf_get_height(pixbuf));
+			waveform_peak_to_pixbuf(w, pixbuf, NULL, 0xffffffff, 0x000000ff, false);
+			assert(check_pixbuf(pixbuf), "HI waveform is blank");
+#if 0
+			gdk_pixbuf_save(pixbuf, "tmp1hires.png", "png", NULL, NULL);
+#endif
+			g_object_unref(pixbuf);
+		}
+
+		/* render_data is not set until drawn onscreen
+		WaveformModeRender* r = _w->render_data[MODE_MED];
+		assert(r, "texture container not allocated");
+		assert(r->n_blocks, "no blocks in renderer");
+		dbg(0, "n_blocks=%i", r->n_blocks);
+		*/
 
 		g_object_unref(w);
 		c->next(c);
@@ -209,6 +250,8 @@ test_audiodata()
 {
 	//instantiate a Waveform and check that all the hires-ready signals are emitted.
 	//(copied from another test. not strictly needed here)
+
+	// TODO check the actual data
 
 	START_TEST;
 
