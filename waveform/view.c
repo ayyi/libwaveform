@@ -1,5 +1,5 @@
 /*
-  copyright (C) 2012-2015 Tim Orford <tim@orford.org>
+  copyright (C) 2012-2016 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -343,7 +343,7 @@ waveform_view_set_region (WaveformView* view, int64_t start_frame, int64_t end_f
 void
 waveform_view_set_colour(WaveformView* view, uint32_t fg, uint32_t bg)
 {
-	// TODO actor no longer supports background colour. It would have to be supported in the widget.
+	((AGlScene*)view->priv->root)->bg_colour = bg;
 
 	void resolved(gpointer _view, gpointer fg)
 	{
@@ -428,7 +428,7 @@ waveform_view_on_expose (GtkWidget* widget, GdkEventExpose* event)
 		// needed for the case of shared contexts, where one of the other contexts modifies the projection.
 		waveform_view_set_projection(widget);
 
-		glClearColor(0.0, 0.0, 0.0, 1.0);
+		agl_bg_colour_rbga(((AGlScene*)v->root)->bg_colour);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 #if 0 // white border

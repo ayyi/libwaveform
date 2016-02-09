@@ -92,3 +92,7 @@
 -added asynchronous generation and loading of peakfiles.
 20150704
 -fixes for hi-res rendering to pixbuf.
+20160204
+-fixed broken background colour support.
+-bugfixes for mouse event handling.
+-added support for horizontally scrollable fbo caches.

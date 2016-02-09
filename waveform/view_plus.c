@@ -388,7 +388,7 @@ waveform_view_plus_set_zoom (WaveformViewPlus* view, float zoom)
 	if((zoom = CLAMP(zoom, 1.0, WF_CONTEXT_MAX_ZOOM)) == v->canvas->zoom) return;
 
 	wf_context_set_zoom(v->canvas, zoom);
-	int64_t region_len = v->canvas->samples_per_pixel * agl_actor__width(((AGlActor*)v->actor)) / v->canvas->zoom; // actually this is always the visible region length
+	int64_t region_len = v->canvas->samples_per_pixel * agl_actor__width(((AGlActor*)v->actor)) / v->canvas->zoom;
 	int64_t max_start = waveform_get_n_frames(view->waveform) - region_len;
 	wf_actor_set_region(v->actor, &(WfSampleRegion){
 		MIN(view->start_frame, max_start),

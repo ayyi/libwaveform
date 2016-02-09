@@ -5,7 +5,7 @@
 
   ---------------------------------------------------------------
 
-  copyright (C) 2012-2015 Tim Orford <tim@orford.org>
+  copyright (C) 2012-2016 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -51,7 +51,6 @@ AGlActor*       group          = NULL;
 WaveformCanvas* wfc            = NULL;
 Waveform*       w1             = NULL;
 WaveformActor*  a[]            = {NULL};
-float           zoom           = 1.0;
 GLuint          bg_textures[2] = {0,};
 gpointer        tests[]        = {};
 
@@ -114,6 +113,7 @@ main (int argc, char *argv[])
 	scene = (AGlRootActor*)agl_actor__new_root(canvas);
 
 	wfc = wf_canvas_new((AGlRootActor*)scene);
+	wf_context_set_zoom(wfc, 1.0);
 
 	char* filename = find_wav(WAV);
 	w1 = waveform_load_new(filename);
@@ -127,9 +127,8 @@ main (int argc, char *argv[])
 
 	add_key_handlers((GtkWindow*)window, NULL, (Key*)&keys);
 
-	gboolean window_on_delete(GtkWidget* widget, GdkEvent* event, gpointer user_data){
-		gtk_main_quit();
-		return false;
+	bool window_on_delete(GtkWidget* widget, GdkEvent* event, gpointer user_data){
+		return gtk_main_quit(), G_SOURCE_REMOVE;
 	}
 	g_signal_connect(window, "delete-event", G_CALLBACK(window_on_delete), NULL);
 
@@ -202,22 +201,21 @@ on_canvas_realise(GtkWidget* _canvas, gpointer user_data)
 
 	on_allocate(canvas, &canvas->allocation, user_data);
 
-	//allow the WaveformCanvas to initiate redraws
-	void _on_wf_canvas_requests_redraw(AGlScene* scene, gpointer _)
+	void _scene_needs_redraw(AGlScene* scene, gpointer _)
 	{
 		gdk_window_invalidate_rect(canvas->window, NULL, false);
 	}
-	scene->draw = _on_wf_canvas_requests_redraw;
+	scene->draw = _scene_needs_redraw;
 }
 
 
 static void
 on_allocate(GtkWidget* widget, GtkAllocation* allocation, gpointer user_data)
 {
-	if(!gl_initialised) return;
+	if(!GTK_WIDGET_REALIZED (canvas)) return;
 
 	double width = canvas->allocation.width - 2 * ((int)HBORDER);
-	wfc->samples_per_pixel = wfc->sample_rate * 0.1 * (GL_WIDTH / width) / zoom;
+	wfc->samples_per_pixel = waveform_get_n_frames(w1) / width;
 
 	((AGlActor*)scene)->region = (AGliRegion){0, 0, allocation->width, allocation->height};
 	agl_actor__set_size((AGlActor*)scene);
@@ -229,32 +227,29 @@ on_allocate(GtkWidget* widget, GtkAllocation* allocation, gpointer user_data)
 		.h = allocation->height,
 	};
 
-	start_zoom(zoom);
+	#define ruler_height 20.0
+
+	int i; for(i=0;i<G_N_ELEMENTS(a);i++)
+		if(a[i]) wf_actor_set_rect(a[i], &(WfRectangle){
+			0.0,
+			ruler_height + 5 + i * ((AGlActor*)scene)->region.y2 / 2,
+			width,
+			agl_actor__height(group) / 2 * 0.95
+		});
+
+	start_zoom(wf_context_get_zoom(wfc));
 }
 
 
 static void
 start_zoom(float target_zoom)
 {
-	//when zooming in, the Region is preserved so the box gets bigger. Drawing is clipped by the Viewport.
-
-	PF0;
-	zoom = MAX(0.1, target_zoom);
-
-	float ruler_height = 20.0;
-
-	int i; for(i=0;i<G_N_ELEMENTS(a);i++)
-		if(a[i]) wf_actor_set_rect(a[i], &(WfRectangle){
-			0.0,
-			ruler_height + 5 + i * ((AGlActor*)scene)->region.y2 / 2,
-			agl_actor__width(group) * target_zoom,
-			agl_actor__height(group) / 2 * 0.95
-		});
+	wf_context_set_zoom(wfc, target_zoom);
 }
 
 
 void
-toggle_animate(WaveformView* _)                   // FIXME arg type doesnt match
+toggle_animate(gpointer _)
 {
 	PF0;
 	gboolean on_idle(gpointer _)
@@ -282,7 +277,7 @@ toggle_animate(WaveformView* _)                   // FIXME arg type doesnt match
 
 
 void
-toggle_shaders(WaveformView* _)
+toggle_shaders(gpointer _)
 {
 	PF0;
 	agl_actor__set_use_shaders(scene, !agl->use_shaders);
@@ -290,21 +285,21 @@ toggle_shaders(WaveformView* _)
 
 
 void
-zoom_in(WaveformView* waveform)
+zoom_in(gpointer waveform)
 {
-	start_zoom(zoom * 1.5);
+	start_zoom(wf_context_get_zoom(wfc) * 1.5);
 }
 
 
 void
-zoom_out(WaveformView* waveform)
+zoom_out(gpointer waveform)
 {
-	start_zoom(zoom / 1.5);
+	start_zoom(wf_context_get_zoom(wfc) / 1.5);
 }
 
 
 void
-scroll_left(WaveformView* waveform)
+scroll_left(gpointer waveform)
 {
 	//int n_visible_frames = ((float)waveform->waveform->n_frames) / waveform->zoom;
 	//waveform_view_set_start(waveform, waveform->start_frame - n_visible_frames / 10);
@@ -312,7 +307,7 @@ scroll_left(WaveformView* waveform)
 
 
 void
-scroll_right(WaveformView* waveform)
+scroll_right(gpointer waveform)
 {
 	//int n_visible_frames = ((float)waveform->waveform->n_frames) / waveform->zoom;
 	//waveform_view_set_start(waveform, waveform->start_frame + n_visible_frames / 10);
@@ -320,7 +315,7 @@ scroll_right(WaveformView* waveform)
 
 
 void
-quit(WaveformView* waveform)
+quit(gpointer waveform)
 {
 	exit(EXIT_SUCCESS);
 }

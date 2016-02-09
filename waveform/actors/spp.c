@@ -1,27 +1,18 @@
-/*
-  copyright (C) 2012-2015 Tim Orford <tim@orford.org>
-
-  This program is free software; you can redistribute it and/or modify
-  it under the terms of the GNU General Public License version 3
-  as published by the Free Software Foundation.
-
-  This program is distributed in the hope that it will be useful,
-  but WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-  GNU General Public License for more details.
-
-  You should have received a copy of the GNU General Public License
-  along with this program; if not, write to the Free Software
-  Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
-
-  ----------------------------------------------------------------
-
-  Song Position Pointer (cursor) actor
-  ------------------------------------
-
-  The time position can be set either by calling spp_actor_set_time()
-  or by middle-clicking on the waveform.
-
+/**
+* +----------------------------------------------------------------------+
+* | This file is part of libwaveform                                     |
+* | https://github.com/ayyi/libwaveform                                  |
+* | copyright (C) 2012-2016 Tim Orford <tim@orford.org>                  |
+* +----------------------------------------------------------------------+
+* | This program is free software; you can redistribute it and/or modify |
+* | it under the terms of the GNU General Public License version 3       |
+* | as published by the Free Software Foundation.                        |
+* +----------------------------------------------------------------------+
+* | SONG POSITION POINTER (CURSOR) ACTOR                                 |
+* | The time position can be set either by calling spp_actor_set_time()  |
+* | or by middle-clicking on the waveform.                               |
+* +----------------------------------------------------------------------+
+*
 */
 #define __wf_private__
 #include "config.h"
@@ -113,6 +104,13 @@ wf_spp_actor(WaveformActor* wf_actor)
 			);
 			glTranslatef(-x, 0, 0);
 
+#undef SHOW_TEXT_BACKGROUND
+#ifdef SHOW_TEXT_BACKGROUND
+			// TODO integrate the background into the print fn so we know the size.
+			agl->shaders.plain->uniform.colour = 0x000000ff;
+			agl_use_program((AGlShader*)agl->shaders.plain);
+			agl_rect(0, 0, 110, 22);
+#endif
 			agl_set_font_string("Roboto 16");
 			char s[16] = {0,};
 			snprintf(s, 15, "%02i:%02i:%03i", (spp->time / 1000) / 60, (spp->time / 1000) % 60, spp->time % 1000);
@@ -135,20 +133,22 @@ wf_spp_actor(WaveformActor* wf_actor)
 	}
 
 	SppActor* spp = g_new0(SppActor, 1);
-	AGlActor* actor = (AGlActor*)spp;
+	*spp = (SppActor){
+		.actor = {
 #ifdef AGL_DEBUG_ACTOR
-	actor->name = "SPP";
+			.name = "SPP",
 #endif
-	actor->program = (AGlShader*)&cursor;
-	actor->init = spp_actor__init;
-	actor->set_state = spp_actor__set_state;
-	actor->set_size = spp_actor__set_size;
-	actor->paint = spp_actor__paint;
+			.program = (AGlShader*)&cursor,
+			.init = spp_actor__init,
+			.set_state = spp_actor__set_state,
+			.set_size = spp_actor__set_size,
+			.paint = spp_actor__paint,
+		},
+		.wf_actor = wf_actor,
+		.time = WF_SPP_TIME_NONE
+	};
 
-	spp->wf_actor = wf_actor;
-	spp->time = WF_SPP_TIME_NONE;
-
-	return actor;
+	return (AGlActor*)spp;
 }
 
 

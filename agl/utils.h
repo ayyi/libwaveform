@@ -1,6 +1,6 @@
 /**
 * +----------------------------------------------------------------------+
-* | copyright (C) 2013-2015 Tim Orford <tim@orford.org>                  |
+* | copyright (C) 2013-2016 Tim Orford <tim@orford.org>                  |
 * +----------------------------------------------------------------------+
 * | This program is free software; you can redistribute it and/or modify |
 * | it under the terms of the GNU General Public License version 3       |
@@ -17,7 +17,7 @@
 #include "agl/typedefs.h"
 
 typedef struct _agl               AGl;
-typedef struct _uniform_info      AGlUniformInfo;
+typedef struct _AGlUniformInfo    AGlUniformInfo;
 
 typedef struct _agl_shader_text
 {
@@ -35,7 +35,7 @@ struct _AGlShader
 	AGlShaderText*  text;
 };
 
-struct _uniform_info
+struct _AGlUniformInfo
 {
    const char* name;
    GLuint      size;
@@ -67,6 +67,7 @@ AGlTextureUnit* agl_texture_unit_new         (GLenum unit);
 void            agl_texture_unit_use_texture (AGlTextureUnit*, int texture);
 
 void      agl_colour_rbga         (uint32_t);
+void      agl_bg_colour_rbga      (uint32_t);
 
 void      agl_rect                (float x, float y, float w, float h);
 void      agl_rect_               (AGlRect);

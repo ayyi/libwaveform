@@ -153,6 +153,7 @@ struct _actor_priv
 		int            region_start_block;
 		int            region_end_block;
 		BlockRange     viewport_blocks;
+		bool           cropped;
 	}               render_info;
 };
 
@@ -668,6 +669,8 @@ wf_actor_set_colour(WaveformActor* a, uint32_t fg_colour)
 
 	_a->opacity = ((float)(fg_colour & 0xff)) / 0x100;
 	_a->animatable.opacity.val.f = _a->opacity;
+
+	agl_actor__invalidate((AGlActor*)a);
 }
 
 
@@ -1380,7 +1383,7 @@ wf_actor_set_rect(WaveformActor* a, WfRectangle* rect)
 	AGlActor* actor = (AGlActor*)a;
 	AGlScene* scene = actor->root;
 
-	if(rect->len == a->rect.len && rect->left == a->rect.left && rect->height == a->rect.height && rect->top == a->rect.top) dbg(1, "unchanged. renderer=%p", _a->render_info.renderer);
+	if(rect->len == a->rect.len && rect->left == a->rect.left && rect->height == a->rect.height && rect->top == a->rect.top) dbg(1, "unchanged");
 #if 0
 	if(rect->len == a->rect.len && rect->left == a->rect.left && rect->height == a->rect.height && rect->top == a->rect.top) return;
 #else
@@ -1390,19 +1393,24 @@ wf_actor_set_rect(WaveformActor* a, WfRectangle* rect)
 
 	actor->region.x2 = rect->len; // TODO a->rect is obsoleted by actor->region?
 
+	// TODO this test fails if we are called twice in quick succession because the valid flag is cleared in the first call
+	bool had_full_render = _a->render_info.valid && !_a->render_info.cropped;
+
 	_a->render_info.valid = false;
 
 	WfAnimatable* a1 = &_a->animatable.rect_left;
 	WfAnimatable* a2 = &_a->animatable.rect_len;
 
-	gboolean is_new = a->rect.len == 0.0;
-	gboolean animate = scene /*&& scene->draw*/ && scene->enable_animations && !is_new;
+	bool is_new = a->rect.len == 0.0;
+	bool animate = scene && scene->enable_animations && !is_new;
+	bool len_changed = a->rect.len != rect->len;
+	bool have_full_render = had_full_render && !len_changed;
 
 	a->rect = *rect;
 
 	dbg(2, "rect: %.2f --> %.2f", rect->left, rect->left + rect->len);
 
-	if(a->region.len && a->waveform->priv->num_peaks) wf_actor_queue_load_render_data(a);
+	if(a->region.len && !have_full_render && a->waveform->priv->num_peaks) wf_actor_queue_load_render_data(a);
 
 	if(animate){
 		GList* animatables = NULL; //ownership is transferred to the WfAnimation.
@@ -1673,6 +1681,11 @@ calc_render_info(WaveformActor* actor)
 	dbg(2, "block range: region=%i-->%i viewport=%i-->%i", r->region_start_block, r->region_end_block, r->viewport_blocks.first, r->viewport_blocks.last);
 	dbg(2, "rect=%.2f %.2f viewport=%.2f %.2f", r->rect.left, r->rect.len, r->viewport.left, r->viewport.right);
 #endif
+
+	if(r->viewport_blocks.last != r->region_end_block || r->viewport_blocks.first != r->region_start_block){
+		// if not cropped by viewport we can avoid having to recheck for missing blocks during translations.
+		r->cropped = true;
+	}
 
 	r->first_offset = r->region.start % r->samples_per_texture;
 	r->first_offset_px = wf_actor_samples2gl(r->zoom, r->first_offset);

@@ -1,14 +1,16 @@
 Overview
 --------
 
-Libwaveform attempts to provide versatile easy-to-use display
-of audio waveforms for Gtk+-2 applications.
+Libwaveform attempts to provide versatile easy-to-use interactive display
+of audio waveforms for Gtk+-2 applications. Suitable for anything from simple
+display, up to a full digital audio workstation.
 
 Efficiency:
 
 * audio and peak data is handled in blocks to get reasonable performance with large files.
 * opengl hardware features are used where available.
 * multi-level caching.
+* the view can be changed (size, position, magnification) at little cost.
 * in many cases drawing can be done repeatedly with virtually no cpu load.
 
 Multi-level caching is provided:
@@ -33,7 +35,7 @@ Requirements:
 
 - Gtk2
 - GtkGLExt
-- Libsndfile
+- Libsndfile/FFmpeg
 - OpenGl (recommended)
 
 
@@ -46,11 +48,13 @@ on api, documentation, visuals etc.
 
 An API review needs to be undertaken before a release is made.
 
+As well as GTK, support for other platforms is being added. Currently there is
+some support for SDL and GLX. Please note that there is no support for QT, though
+it would be simple to support if someone was interested.
+
 Testing:
 Has been fully tested with Gallium 0.4 on Radeon RV530, RV620 and Cedar, and Intel 945 and HD3000.
-Radeon HD 5000 has issues at very hi res which look like driver bugs though this is not confirmed.
-Nvidia 8400 has been found to mostly work (Nouveau), though some issues are being investigated.
-Wider testing is needed.
+Other hardware is less well tested and wider testing is needed.
 
 If you are able to help testing, please start with running test/view_test.
 To compile the test programs you need to run configure with '--enable-test'.

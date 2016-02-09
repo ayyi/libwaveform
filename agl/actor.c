@@ -157,6 +157,7 @@ agl_actor__new_root_(ContextType type)
 			.paint = agl_actor__null_painter
 		},
 		.type = type,
+		.bg_colour = 0x000000ff,
 		.enable_animations = true,
 	};
 
@@ -223,7 +224,7 @@ agl_actor__add_child(AGlActor* actor, AGlActor* child)
 
 		// TODO need some way to detect type?
 		#define READY_FOR_INIT(A) (A->root->widget ? GTK_WIDGET_REALIZED(A->root->widget) : true)
-		if(child->init && READY_FOR_INIT(child)) child->init(child);
+		if(READY_FOR_INIT(child)) agl_actor__init(child);
 	}
 
 	return child;
@@ -327,11 +328,12 @@ render_from_fbo(AGlActor* a)
 	}
 	glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
 
-	float w = fbo->width;
+	float w = agl_actor__width(a);
 	float h = fbo->height;
 
+	float start = ((float)-a->cache.offset) / agl_power_of_two(w);
 	// The FBO is upside down so y has to be reversed. TODO render the FBO so that it is not upside down
-	agl_textured_rect_(fbo->texture, 0.0, 0.0, w, h, &(AGlQuad){0.0, h / agl_power_of_two(h), w / agl_power_of_two(w), 0.0});
+	agl_textured_rect_(fbo->texture, 0.0, 0.0, w, h, &(AGlQuad){start, h / agl_power_of_two(h), start + w / agl_power_of_two(w), 0.0});
 
 #undef FBO_MARKER // show red dot in top left corner of fbos for debugging
 #ifdef FBO_MARKER
@@ -463,10 +465,11 @@ agl_actor__set_size(AGlActor* actor)
 
 #ifdef AGL_ACTOR_RENDER_CACHE
 	if(actor->fbo){
-		int h = actor->region.y2 - actor->region.y1;
-
-		agl_fbo_set_size (actor->fbo, agl_actor__width(actor), h);
-		actor->cache.valid = false;
+		AGliPt size = actor->cache.size_request.x ? actor->cache.size_request : (AGliPt){agl_actor__width(actor), agl_actor__height(actor)};
+		if(size.x != actor->fbo->width || size.y != actor->fbo->height){
+			agl_fbo_set_size (actor->fbo, size.x, size.y);
+			actor->cache.valid = false;
+		}
 	}
 #endif
 
@@ -520,11 +523,9 @@ _actor__on_event(AGlActor* a, GdkEvent* event, AGliPt xy)
 		return NULL;
 	}
 
-	AGliPt scroll_offset = {0, 0}; //{actor->root->viewport->x, actor->root->viewport->y}; // FIXME this should not be needed. is it still used?
-
 	AGlActor* h = find_handler_actor(a, &xy);
 	if(h){
-		if(h->on_event(h, event, xy, scroll_offset)){
+		if(h->on_event(h, event, xy)){
 			return AGL_HANDLED;
 		}
 
@@ -532,7 +533,7 @@ _actor__on_event(AGlActor* a, GdkEvent* event, AGliPt xy)
 			xy.x += h->region.x1;
 			xy.y += h->region.y1;
 			h = h->parent;
-			if(h->on_event && (handled = h->on_event(h, event, xy, scroll_offset))) break;
+			if(h->on_event && (handled = h->on_event(h, event, xy))) break;
 		}
 	}
 
@@ -553,17 +554,28 @@ agl_actor__on_event(AGlScene* root, GdkEvent* event)
 		printf("%s: keypress: key=%i\n", __func__, ((GdkEventKey*)event)->keyval);
 		AGlActor* selected = root->selected;
 		if(selected && selected->on_event){
-			return selected->on_event(selected, event, (AGliPt){}, (AGliPt){});
+			return selected->on_event(selected, event, (AGliPt){});
 		}
 		return AGL_NOT_HANDLED;
 	}
 
 	AGliPt xy = {event->button.x + actor->root->viewport.x, event->button.y + actor->root->viewport.y};
 
+	if(event->type == GDK_LEAVE_NOTIFY){
+		if(root->hovered){
+			GdkEvent leave = {
+				.type = GDK_LEAVE_NOTIFY,
+			};
+			_actor__on_event(root->hovered, &leave, xy);
+			root->hovered = NULL;
+		}
+		return AGL_HANDLED;
+	}
+
 	bool region_match(AGliRegion* r, int x, int y)
 	{
 		bool match = x > r->x1 && x < r->x2 && y > r->y1 && y < r->y2;
-		//if(match) dbg(0, "x=%i x2=%i match=%i", x, r->x2, match);
+		//printf("     x=%i x2=%i  y=%i %i-->%i match=%i\n", x, r->x2, y, r->y1, r->y2, match);
 		return match;
 	}
 
@@ -594,7 +606,7 @@ agl_actor__on_event(AGlScene* root, GdkEvent* event)
 		return handled;
 	}
 
-	static AGlActor* hovered = NULL;
+	AGlActor* hovered = root->hovered;
 
 	AGlActor* a = child_region_hit(actor, xy);
 
@@ -602,8 +614,6 @@ agl_actor__on_event(AGlScene* root, GdkEvent* event)
 		case GDK_MOTION_NOTIFY:
 			if(hovered){
 				if(!a || (a && a != hovered)){
-					//if(hovered) hovered->hover = false;
-					//hovered = NULL;
 					GdkEvent leave = {
 						.type = GDK_LEAVE_NOTIFY,
 					};
@@ -616,9 +626,10 @@ agl_actor__on_event(AGlScene* root, GdkEvent* event)
 			if(root->selected != a){
 				if(root->selected) agl_actor__invalidate(root->selected);
 				root->selected = a; // TODO almost certainly not always correct
-				agl_actor__invalidate(a);
+				if(a) agl_actor__invalidate(a);
 			}
-			return _actor__on_event(a, event, xy);
+			AGliPt offset = (!a || a->parent == actor) ? (AGliPt){0, 0} : agl_actor__find_offset(a->parent);
+			return _actor__on_event(a, event, (AGliPt){xy.x - offset.x, xy.y - offset.y});
 		default:
 			break;
 	}
@@ -626,9 +637,7 @@ agl_actor__on_event(AGlScene* root, GdkEvent* event)
 	if(a && a != actor){
 		if(event->type == GDK_MOTION_NOTIFY){
 			if(a != hovered && !actor_context.grabbed){
-				if(hovered) hovered->hover = false;
-				hovered = a;
-				a->hover = true;
+				root->hovered = a;
 
 				GdkEvent enter = {
 					.type = GDK_ENTER_NOTIFY,
@@ -643,8 +652,7 @@ agl_actor__on_event(AGlScene* root, GdkEvent* event)
 	}else{
 		if(event->type == GDK_MOTION_NOTIFY){
 			if(hovered){
-				hovered->hover = false;
-				hovered = NULL;
+				root->hovered = NULL;
 				gdk_window_set_cursor(widget->window, NULL);
 				gtk_widget_queue_draw(widget); // TODO not always needed
 			}
@@ -718,7 +726,7 @@ agl_actor__on_expose(GtkWidget* widget, GdkEventExpose* event, gpointer user_dat
 
 	AGL_ACTOR_START_DRAW(root) {
 		set_projection((AGlActor*)root);
-		glClearColor(0.0, 0.0, 0.0, 1.0);
+		agl_bg_colour_rbga(root->bg_colour);
 		glClear(GL_COLOR_BUFFER_BIT);
 
 		agl_actor__paint((AGlActor*)root);
@@ -771,6 +779,8 @@ agl_actor__grab(AGlActor* actor)
 void
 agl_actor__invalidate(AGlActor* actor)
 {
+	g_return_if_fail(actor);
+
 	void _agl_actor__invalidate(AGlActor* actor)
 	{
 #ifdef AGL_ACTOR_RENDER_CACHE

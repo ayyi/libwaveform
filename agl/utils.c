@@ -388,7 +388,7 @@ agl_compile_shader_file(GLenum shaderType, const char* filename)
 
 
 void
-agl_uniforms_init(GLuint program, struct _uniform_info uniforms[])
+agl_uniforms_init(GLuint program, AGlUniformInfo uniforms[])
 {
 	GLuint i;
 	dbg(1, "program=%u", program);
@@ -461,6 +461,18 @@ agl_colour_rbga(uint32_t colour)
 	float a = (colour & 0x000000ff);
 
 	glColor4f(r / 256.0, g / 256.0, b / 256.0, a / 256.0);
+}
+
+
+void
+agl_bg_colour_rbga(uint32_t colour)
+{
+	float r = (colour & 0xff000000) >> 24;
+	float g = (colour & 0x00ff0000) >> 16;
+	float b = (colour & 0x0000ff00) >>  8;
+	float a = (colour & 0x000000ff);
+
+	glClearColor(r / 256.0, g / 256.0, b / 256.0, a / 256.0);
 }
 
 

@@ -227,6 +227,7 @@ make_texture_data_hi(Waveform* w, int ch, IntBufHi* buf, int blocknum)
 }
 
 
+#ifdef VERTEX_ARRAYS
 static void
 _draw_line(int x1, int y1, int x2, int y2, float r, float g, float b, float a)
 {
@@ -250,6 +251,7 @@ _draw_line(int x1, int y1, int x2, int y2, float r, float g, float b, float a)
 	glEnd();
 #endif
 }
+#endif
 
 
 #if 0

@@ -2,14 +2,14 @@
 if BUILD_TESTS
 
 if ENABLE_LIBASS
-ASSPROGRAMS = ass view_plus_test
+ASSPROGRAMS = ass
 endif
 if ENABLE_SDL
 SDLPROGRAMS = sdl
 endif
 
 if ENABLE_OPENGL
-noinst_PROGRAMS = waveform_test view_test actor_test actor_plus actor_no_scene list group hires_test multi_scene $(ASSPROGRAMS) frame_rate resources write_wav write_short write_block large_files cache 32bit pixbuf glx $(SDLPROGRAMS)
+noinst_PROGRAMS = waveform_test view_test view_plus_test actor_test actor_plus actor_no_scene list group hires_test multi_scene $(ASSPROGRAMS) frame_rate resources write_wav write_short write_block large_files cache 32bit pixbuf glx $(SDLPROGRAMS)
 ###noinst_PROGRAMS = waveform_test view_test actor_test actor_plus $(ASSPROGRAMS)
 endif
 

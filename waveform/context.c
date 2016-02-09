@@ -147,6 +147,7 @@ wf_canvas_init(WaveformCanvas* wfc, AGlRootActor* root)
 
 	wfc->samples_per_pixel = wfc->sample_rate / 32.0; // 32 pixels for 1 second
 	wfc->zoom = 1.0;
+	wfc->bpm = 120.0;
 
 	wfc->priv->zoom = (WfAnimatable){
 		.model_val.f = &wfc->zoom,
@@ -289,13 +290,10 @@ wf_canvas_init_gl(WaveformCanvas* wfc)
 void
 wf_canvas_set_viewport(WaveformCanvas* wfc, WfViewPort* _viewport)
 {
-	//@param viewport - optional. Used to optimise drawing where some of the rect lies outside the viewport.
+	//@param viewport - optional.
 	//                  Does not apply clipping.
 	//                  units are not pixels, they are gl units.
-	//                  setting viewport->left allows scrolling.
-	//
-	//                  TODO clarify: can only be omitted if canvas displays only one region?
-	//                                ... no, not true. dont forget, the display is not set here, we only store the viewport property.
+	//                  setting viewport->left, viewport->top allows (application implemented) scrolling.
 
 	g_return_if_fail(wfc);
 
@@ -386,7 +384,7 @@ wf_canvas_queue_redraw(WaveformCanvas* wfc)
 		wfc->priv->_queued = false;
 		return G_SOURCE_REMOVE;
 	}
-	wfc->priv->_queued = g_timeout_add(CLAMP(WF_FRAME_INTERVAL - (wf_get_time() - wfc->_last_redraw_time), 1, WF_FRAME_INTERVAL), wf_canvas_redraw, wfc);
+	wfc->priv->_queued = g_timeout_add(CLAMP(WF_FRAME_INTERVAL - (wf_get_time() - wfc->priv->_last_redraw_time), 1, WF_FRAME_INTERVAL), wf_canvas_redraw, wfc);
 #endif
 }
 
@@ -533,7 +531,9 @@ wf_context_set_zoom(WaveformCanvas* wfc, float zoom)
 	wfc->scaled = true;
 	dbg(1, "zoom=%f spp=%.2f", zoom, wfc->samples_per_pixel);
 
-	wfc->zoom = zoom; // TODO clamp
+	#define MAX_ZOOM 10000.0 // TODO
+	#define MIN_ZOOM 0.1     // TODO
+	wfc->zoom = CLAMP(zoom, MIN_ZOOM, MAX_ZOOM);
 
 	if(!wfc->root->enable_animations){
 		wfc->priv->zoom.val.f = zoom;

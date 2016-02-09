@@ -8,15 +8,10 @@
 * | it under the terms of the GNU General Public License version 3       |
 * | as published by the Free Software Foundation.                        |
 * +----------------------------------------------------------------------+
+* | SPINNER VIEW                                                         |
+* | Display a rotating spinner icon while waiting for a waveform to load |
+* +----------------------------------------------------------------------+
 *
-*/
-/*
-
-  Spinner view
-  ------------
-
-  Display a rotating spinner icon while waiting for a waveform to load
-
 */
 #define __wf_private__
 #include "config.h"
@@ -109,8 +104,8 @@ wf_spinner(WaveformActor* wf_actor)
 		return true;
 	}
 
-	WfSpinner* spp = g_new0(WfSpinner, 1);
-	*spp = (WfSpinner){
+	WfSpinner* spinner = g_new0(WfSpinner, 1);
+	*spinner = (WfSpinner){
 		.actor = {
 #ifdef AGL_DEBUG_ACTOR
 			.name = "Spinner",
@@ -127,9 +122,8 @@ wf_spinner(WaveformActor* wf_actor)
 			}
 		}
 	};
-	AGlActor* actor = (AGlActor*)spp;
 
-	return actor;
+	return (AGlActor*)spinner;
 }
 
 

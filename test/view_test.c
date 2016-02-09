@@ -128,39 +128,47 @@ main (int argc, char* argv[])
 
 
 void
-quit(WaveformView* waveform)
+quit(gpointer waveform)
 {
 	exit(EXIT_SUCCESS);
 }
 
 
 void
-zoom_in(WaveformView* waveform)
+zoom_in(gpointer _view)
 {
-	waveform_view_set_zoom(waveform, waveform->zoom * 1.5);
+	WaveformView* view = (WaveformView*)_view;
+
+	waveform_view_set_zoom(view, view->zoom * 1.5);
 }
 
 
 void
-zoom_out(WaveformView* waveform)
+zoom_out(gpointer _view)
 {
-	waveform_view_set_zoom(waveform, waveform->zoom / 1.5);
+	WaveformView* view = (WaveformView*)_view;
+
+	waveform_view_set_zoom(view, view->zoom / 1.5);
 }
 
 
 void
-scroll_left(WaveformView* waveform)
+scroll_left(gpointer _view)
 {
-	int n_visible_frames = ((float)waveform->waveform->n_frames) / waveform->zoom;
-	waveform_view_set_start(waveform, waveform->start_frame - n_visible_frames / 10);
+	WaveformView* view = (WaveformView*)_view;
+
+	int n_visible_frames = ((float)view->waveform->n_frames) / view->zoom;
+	waveform_view_set_start(view, view->start_frame - n_visible_frames / 10);
 }
 
 
 void
-scroll_right(WaveformView* waveform)
+scroll_right(gpointer _view)
 {
-	int n_visible_frames = ((float)waveform->waveform->n_frames) / waveform->zoom;
-	waveform_view_set_start(waveform, waveform->start_frame + n_visible_frames / 10);
+	WaveformView* view = (WaveformView*)_view;
+
+	int n_visible_frames = ((float)view->waveform->n_frames) / view->zoom;
+	waveform_view_set_start(view, view->start_frame + n_visible_frames / 10);
 }
 
 

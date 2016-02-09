@@ -1,5 +1,5 @@
 /*
-  copyright (C) 2012-2015 Tim Orford <tim@orford.org>
+  copyright (C) 2012-2016 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -68,27 +68,33 @@ ruler_actor(WaveformActor* wf_actor)
 	{
 		if(!agl->use_shaders) return;
 
+		#define samples_per_beat(C) (C->sample_rate / (C->bpm / 60.0))
+
 		RulerActor* ruler = (RulerActor*)actor;
 		RulerShader* shader = ruler->context->shaders.ruler;
+		WaveformContext* context = ruler->context;
 
 		shader->uniform.fg_colour = 0xffffff7f;
-		shader->uniform.beats_per_pixel = ruler->context->samples_per_pixel / ruler->context->sample_rate; // TODO
+		shader->uniform.beats_per_pixel = context->samples_per_pixel / (samples_per_beat(context) * context->zoom);
 
 		agl_use_program((AGlShader*)shader);
 	}
 
 	RulerActor* ruler = g_new0(RulerActor, 1);
-	ruler->context = wf_actor->canvas;
-
-	AGlActor* actor = (AGlActor*)ruler;
+	*ruler = (RulerActor){
+		.actor = {
 #ifdef AGL_DEBUG_ACTOR
-	actor->name = "ruler";
+			.name = "ruler",
 #endif
-	actor->init = ruler_init;
-	actor->set_state = ruler_set_state;
-	actor->paint = ruler_actor_paint;
-	actor->set_size = ruler_actor_size;
-	return actor;
+			.init = ruler_init,
+			.set_state = ruler_set_state,
+			.paint = ruler_actor_paint,
+			.set_size = ruler_actor_size
+		},
+		.context = wf_actor->canvas
+	};
+
+	return (AGlActor*)ruler;
 }
 
 

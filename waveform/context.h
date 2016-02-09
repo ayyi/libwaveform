@@ -48,6 +48,7 @@ struct _WaveformContext {
 	AGlScene*      root;               // optional
 
 	uint32_t       sample_rate;
+	float          bpm;
 	float          samples_per_pixel;  // application can specify the base sppx. Is multiplied by zoom to get the actual sppx.
 	bool           scaled;             // scaled mode uses the WfContext time scale. Non-scaled mode uses only the actor rect and sample-region.
 	float          zoom;

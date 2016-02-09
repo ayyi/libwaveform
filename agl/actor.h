@@ -1,7 +1,7 @@
 /**
 * +----------------------------------------------------------------------+
 * | This file is part of the Ayyi project. http://www.ayyi.org           |
-* | copyright (C) 2013-2015 Tim Orford <tim@orford.org>                  |
+* | copyright (C) 2013-2016 Tim Orford <tim@orford.org>                  |
 * +----------------------------------------------------------------------+
 * | This program is free software; you can redistribute it and/or modify |
 * | it under the terms of the GNU General Public License version 3       |
@@ -29,7 +29,7 @@
 typedef AGlActor* (AGlActorNew)       (GtkWidget*);
 typedef void      (*AGlActorSetState) (AGlActor*);
 typedef bool      (*AGlActorPaint)    (AGlActor*);
-typedef bool      (*AGlActorOnEvent)  (AGlActor*, GdkEvent*, AGliPt xy, AGliPt scroll_offset);
+typedef bool      (*AGlActorOnEvent)  (AGlActor*, GdkEvent*, AGliPt xy);
 typedef void      (*AGlActorFn)       (AGlActor*);
 
 typedef struct _AGlActorContext AGlActorContext;
@@ -67,9 +67,10 @@ struct _AGlActor {
 	struct {
 	    bool         enabled;         // if false, caching must be disabled. if true, caching is used only if fbo is present.
 	    bool         valid;
+	    int          offset;
+	    AGliPt       size_request;    // actors can use this to specify an oversized cache to allow for translations.
 	}                cache;
 #endif
-	bool             hover;
 };
 
 
@@ -103,9 +104,12 @@ struct _AGlRootActor {
    AGlActor          actor;
    GtkWidget*        widget;
    AGlRect           viewport;       // { float x, y, w, h; } TODO clarify how this differs from root->region. region is int but viewport is float.
-   AGlActor*         selected;
 
+   uint32_t          bg_colour;      // rgba
    bool              enable_animations;
+
+   AGlActor*         selected;
+   AGlActor*         hovered;
 
    void              (*draw)(AGlScene*, gpointer); // application callback - called when the application needs to initiate a redraw.
 
@@ -146,8 +150,9 @@ AGlActorContext actor_context;
 extern AGlActorContext actor_context;
 #endif
 
-#define agl_actor__width(A) (A->region.x2 - A->region.x1)
-#define agl_actor__height(A) (A->region.y2 - A->region.y1)
+#define agl_actor__width(A)      (A->region.x2 - A->region.x1)
+#define agl_actor__height(A)     (A->region.y2 - A->region.y1)
+#define agl_actor__is_hovered(A) (A->root->hovered == A)
 
 #define AGL_HANDLED TRUE
 #define AGL_NOT_HANDLED FALSE

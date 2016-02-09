@@ -187,13 +187,13 @@ main (int argc, char* argv[])
 
 
 void
-quit(WaveformView* waveform)
+quit(gpointer waveform)
 {
 	exit(EXIT_SUCCESS);
 }
 
 
-void next_wav(WaveformView* waveform)
+void next_wav(gpointer waveform)
 {
 	WaveformViewPlus* view = (WaveformViewPlus*)waveform;
 
@@ -240,7 +240,7 @@ void next_wav(WaveformView* waveform)
 
 
 void
-toggle_shaders(WaveformView* view)
+toggle_shaders(gpointer view)
 {
 	printf(">> %s ...\n", __func__);
 
@@ -254,7 +254,7 @@ toggle_shaders(WaveformView* view)
 
 
 void
-toggle_grid(WaveformView* view)
+toggle_grid(gpointer view)
 {
 	static bool visible = true;
 	visible = !visible;
@@ -267,7 +267,7 @@ toggle_grid(WaveformView* view)
 
 
 void
-unrealise(WaveformView* view)
+unrealise(gpointer view)
 {
 	bool on_idle(gpointer _view)
 	{
@@ -286,7 +286,7 @@ unrealise(WaveformView* view)
 static guint play_timer = 0;
 
 void
-stop(WaveformView* view)
+stop(gpointer view)
 {
 	if(play_timer){
 		g_source_remove (play_timer);
@@ -298,7 +298,7 @@ stop(WaveformView* view)
 
 
 void
-play(WaveformView* view)
+play(gpointer view)
 {
 	bool tick(gpointer view)
 	{
