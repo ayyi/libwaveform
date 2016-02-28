@@ -194,7 +194,7 @@ on_canvas_realise(GtkWidget* _canvas, gpointer user_data)
 
 	gl_init();
 
-	wfc = wf_canvas_new((AGlRootActor*)agl_actor__new_root(canvas));
+	wfc = wf_context_new((AGlRootActor*)agl_actor__new_root(canvas));
 	//wfc->enable_animations = false;
 
 	char* filename = g_build_filename(g_get_current_dir(), WAV, NULL);
@@ -236,7 +236,7 @@ on_allocate(GtkWidget* widget, GtkAllocation* allocation, gpointer user_data)
 	setup_projection(widget);
 
 	//optimise drawing by telling the canvas which area is visible
-	wf_canvas_set_viewport(wfc, &(WfViewPort){0, 0, GL_WIDTH, GL_HEIGHT});
+	wf_context_set_viewport(wfc, &(WfViewPort){0, 0, GL_WIDTH, GL_HEIGHT});
 
 	start_zoom(zoom);
 }

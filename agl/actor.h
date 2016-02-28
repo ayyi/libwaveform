@@ -49,13 +49,14 @@ struct _AGlActor {
 
 	AGlActorFn       init;            // called once when gl context is available.
 	AGlActorFn       set_size;        // called when the parent widget is resized.
-	AGlActorSetState set_state;       // called once per expose
+	AGlActorSetState set_state;       // called once per expose to set opengl state
 	AGlActorFn       invalidate;      // clear fbo caches (and most likely other cached render information too)
 	AGlActorPaint    paint;           // called multiple times per expose, once for each object.
 	AGlActorOnEvent  on_event;
 	AGlActorFn       free;
 
 	AGliRegion       region;          // position and size. {int x1, y1, x2, y2}
+	AGliRegion       viewport;        // the sub-area of the actor region that is visible {int x1, y1, x2, y2}.
 	AGlShader*       program;
 	uint32_t         colour;          // rgba
 	int              z;               // controls the order objects with the same parent are drawn.
@@ -103,8 +104,6 @@ void      agl_actor__print_tree      (AGlActor*);
 struct _AGlRootActor {
    AGlActor          actor;
    GtkWidget*        widget;
-   AGlRect           viewport;       // { float x, y, w, h; } TODO clarify how this differs from root->region. region is int but viewport is float.
-
    uint32_t          bg_colour;      // rgba
    bool              enable_animations;
 

@@ -100,7 +100,7 @@ main (int argc, char *argv[])
 
 	scene = (AGlScene*)agl_actor__new_root(canvas);
 
-	wfc = wf_canvas_new(scene);
+	wfc = wf_context_new(scene);
 
 	char* filename = g_build_filename(g_get_current_dir(), WAV, NULL);
 	w1 = waveform_load_new(filename);
@@ -215,13 +215,10 @@ on_canvas_realise(GtkWidget* _canvas, gpointer user_data)
 static void
 on_allocate(GtkWidget* widget, GtkAllocation* allocation, gpointer user_data)
 {
-	if(!gl_initialised) return;
-
 	((AGlActor*)scene)->region.x2 = allocation->width;
 	((AGlActor*)scene)->region.y2 = allocation->height;
 
-	//optimise drawing by telling the canvas which area is visible
-	wf_canvas_set_viewport(wfc, &(WfViewPort){0, 0, GL_WIDTH, GL_HEIGHT});
+	if(!gl_initialised) return;
 
 	start_zoom(zoom);
 }

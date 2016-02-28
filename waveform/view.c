@@ -46,7 +46,7 @@ static GdkGLContext* gl_context = NULL;
 
 struct _WaveformViewPrivate {
 	AGlActor*       root;
-	WaveformCanvas* canvas;
+	WaveformCanvas* context;
 	WaveformActor*  actor;
 	AMPromise*      ready;
 };
@@ -73,7 +73,6 @@ static void     waveform_view_unrealize            (GtkWidget*);
 static void     waveform_view_allocate             (GtkWidget*, GdkRectangle*);
 static void     waveform_view_finalize             (GObject*);
 static void     waveform_view_set_projection       (GtkWidget*);
-static void     waveform_view_gl_on_allocate       (WaveformView*);
 static int      waveform_view_get_width            (WaveformView*);
 
 
@@ -141,23 +140,6 @@ waveform_view_new (Waveform* waveform)
 #endif
 	gtk_widget_set_size_request(widget, DEFAULT_WIDTH, DEFAULT_HEIGHT);
 
-#if 0 // hopefully is no longer needed?
-	bool waveform_view_load_new_on_idle(gpointer _view)
-	{
-		WaveformView* view = _view;
-		g_return_val_if_fail(view, G_SOURCE_REMOVE);
-
-		if(!promise(PROMISE_DISP_READY)->is_resolved){
-			gtk_widget_queue_draw((GtkWidget*)view); //testing.
-		}
-
-		return G_SOURCE_REMOVE;
-	}
-	// delay initialisation to allow for additional options to be set.
-									// TODO what options? colour, region?
-	g_idle_add(waveform_view_load_new_on_idle, view);
-#endif
-
 	view->priv->ready = am_promise_new(view);
 	am_promise_when(view->priv->ready, am_promise_new(view), am_promise_new(view), NULL);
 
@@ -165,7 +147,7 @@ waveform_view_new (Waveform* waveform)
 	{
 		WaveformView* view = (WaveformView*)((AGlRootActor*)a)->widget;
 		WaveformViewPrivate* v = view->priv;
-		v->canvas = wf_canvas_new((AGlRootActor*)v->root);
+		v->context = wf_context_new((AGlRootActor*)v->root);
 
 		waveform_view_set_projection(((AGlRootActor*)a)->widget);
 
@@ -206,12 +188,12 @@ _show_waveform(gpointer _view, gpointer _c)
 	WaveformView* view = _view;
 	g_return_if_fail(view);
 	WaveformViewPrivate* v = view->priv;
-	g_return_if_fail(v->canvas);
+	g_return_if_fail(v->context);
 
 	if(v->actor) return; // nothing to do
 
 	if(view->waveform){ // it is valid for the widget to not have a waveform set.
-		v->actor = wf_canvas_add_new_actor(v->canvas, view->waveform);
+		v->actor = wf_canvas_add_new_actor(v->context, view->waveform);
 
 		agl_actor__add_child(v->root, (AGlActor*)v->actor);
 
@@ -239,7 +221,7 @@ waveform_view_load_file (WaveformView* view, const char* filename)
 	WaveformViewPrivate* v = view->priv;
 
 	if(v->actor){
-		wf_canvas_remove_actor(v->canvas, v->actor);
+		wf_canvas_remove_actor(v->context, v->actor);
 		v->actor = NULL;
 	}
 	else dbg(2, " ... no actor");
@@ -264,8 +246,8 @@ waveform_view_set_waveform (WaveformView* view, Waveform* waveform)
 	PF;
 	WaveformViewPrivate* v = view->priv;
 
-	if(v->actor && v->canvas){
-		wf_canvas_remove_actor(v->canvas, v->actor);
+	if(v->actor && v->context){
+		wf_canvas_remove_actor(v->context, v->actor);
 		v->actor = NULL;
 	}
 	if(view->waveform){
@@ -364,8 +346,8 @@ waveform_view_set_show_rms (WaveformView* view, gboolean _show)
 	{
 		WaveformView* view = _view;
 
-													if(!view->priv->canvas) return G_SOURCE_CONTINUE;
-		view->priv->canvas->show_rms = show;
+													if(!view->priv->context) return G_SOURCE_CONTINUE;
+		view->priv->context->show_rms = show;
 		gtk_widget_queue_draw((GtkWidget*)view);
 
 		return G_SOURCE_REMOVE;
@@ -489,13 +471,26 @@ waveform_view_allocate (GtkWidget* widget, GdkRectangle* allocation)
 	g_return_if_fail (allocation);
 
 	WaveformView* view = (WaveformView*)widget;
+	WaveformViewPrivate* v = view->priv;
+
 	widget->allocation = (GtkAllocation)(*allocation);
+
+	v->root->region = (AGliRegion){
+		.x1 = 0,
+		.y1 = 0,
+		.x2 = allocation->width,
+		.y2 = allocation->height,
+	};
+
 	if ((GTK_WIDGET_FLAGS (widget) & GTK_REALIZED) == 0) return;
 	gdk_window_move_resize(widget->window, widget->allocation.x, widget->allocation.y, widget->allocation.width, widget->allocation.height);
 
 	if(!promise(PROMISE_DISP_READY)->is_resolved) return;
 
-	waveform_view_gl_on_allocate(view);
+	if(v->actor){
+		int width = waveform_view_get_width(view);
+		wf_actor_set_rect(v->actor, &(WfRectangle){0, 0, width, GL_HEIGHT});
+	}
 
 	waveform_view_set_projection(widget);
 }
@@ -523,7 +518,7 @@ waveform_view_instance_init (WaveformView* self)
 	self->zoom = 1.0;
 	self->start_frame = 0;
 	self->priv = WAVEFORM_VIEW_GET_PRIVATE (self);
-	self->priv->canvas = NULL;
+	self->priv->context = NULL;
 	self->priv->actor = NULL;
 }
 
@@ -534,7 +529,15 @@ waveform_view_finalize (GObject* obj)
 	// note that actor freeing is now done in unrealise. finalise is too late because the gl_drawable changes during an unrealise/realise cycle.
 
 	WaveformView* view = WAVEFORM_VIEW(obj);
-	g_return_if_fail(!view->priv->actor);
+	WaveformViewPrivate* v = view->priv;
+
+	if(v->actor){
+		wf_actor_clear(v->actor);
+		wf_canvas_remove_actor(v->context, v->actor);
+		v->actor = NULL;
+
+	}
+	if(v->context) wf_context_free0(v->context);
 
 	G_OBJECT_CLASS (waveform_view_parent_class)->finalize(obj);
 }
@@ -579,27 +582,14 @@ waveform_view_set_projection(GtkWidget* widget)
 }
 
 
-static void
-waveform_view_gl_on_allocate(WaveformView* view)
-{
-	if(!view->priv->actor) return;
-
-	int width = waveform_view_get_width(view);
-	WfRectangle rect = {0, 0, width, GL_HEIGHT};
-	wf_actor_set_rect(view->priv->actor, &rect);
-
-	wf_canvas_set_viewport(view->priv->canvas, NULL);
-}
-
-
 /*
- *  Returns the underlying canvas that the WaveformView is using.
+ *  Returns the context that the WaveformView is using.
  */
 WaveformCanvas*
 waveform_view_get_canvas(WaveformView* view)
 {
 	g_return_val_if_fail(view, NULL);
-	return view->priv->canvas;
+	return view->priv->context;
 }
 
 

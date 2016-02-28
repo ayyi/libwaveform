@@ -20,7 +20,7 @@ struct _app
 } app = {0,};
 #endif
 
-typedef void (KeyHandler)(WaveformView*);
+typedef void (KeyHandler)(gpointer);
 
 typedef struct
 {

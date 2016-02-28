@@ -73,6 +73,7 @@ void      agl_rect                (float x, float y, float w, float h);
 void      agl_rect_               (AGlRect);
 void      agl_textured_rect       (guint texture, float x, float y, float w, float h, AGlQuad* tex_rect);
 void      agl_texture_box         (guint texture, uint32_t colour, double x, double y, double w, double h); // to be reviewed
+void      agl_box                 (int line_width, float x, float y, float w, float h);
 
 void      agl_enable_stencil      (float x, float y, float w, float h);
 void      agl_disable_stencil     ();

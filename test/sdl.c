@@ -133,7 +133,7 @@ main (int argc, char **argv)
 	SDL_setFramerate(&fpsManager, FPS);
 #endif
 	{
-		window.wfc = wf_canvas_new_sdl(window.gl_context);
+		window.wfc = wf_context_new_sdl(window.gl_context);
 		window.scene = window.wfc->root;
 
 		char* filename = find_wav(WAV);

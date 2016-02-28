@@ -552,6 +552,20 @@ agl_texture_box(guint texture, uint32_t colour, double x, double y, double width
 }
 
 
+/*
+ *   Box outline
+ *   The dimensions specify the outer size.
+ */
+void
+agl_box(int s, float x, float y, float w, float h)
+{
+	agl_rect(x,         y,         w, s        ); // top
+	agl_rect(x,         y + s,     s, h - 2 * s); // left
+	agl_rect(x,         y + h - s, w, s        ); // bottom
+	agl_rect(x + w - s, y + s,     s, h - 2 * s); // right
+}
+
+
 static PangoFontDescription* font_desc = NULL;
 static gboolean renderer_inited = FALSE;
 

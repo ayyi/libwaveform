@@ -1,5 +1,5 @@
 /*
-  copyright (C) 2012-2015 Tim Orford <tim@orford.org>
+  copyright (C) 2012-2016 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -82,25 +82,24 @@ struct _WaveformContextClass {
 
 struct _WfViewPort { double left, top, right, bottom; };
 
-WaveformContext* wf_canvas_new                        (AGlRootActor*);
+WaveformContext* wf_context_new                       (AGlRootActor*);
 #ifdef USE_SDL
-WaveformContext* wf_canvas_new_sdl                    (SDL_GLContext*);
+WaveformContext* wf_context_new_sdl                   (SDL_GLContext*);
 #endif
-void             wf_canvas_free                       (WaveformContext*);
-void             wf_canvas_set_viewport               (WaveformContext*, WfViewPort*);
-void             wf_canvas_set_share_list             (WaveformContext*);
-void             wf_canvas_set_rotation               (WaveformContext*, float);
+void             wf_context_free                      (WaveformContext*);
+void             wf_context_set_viewport              (WaveformContext*, WfViewPort*);
+void             wf_context_set_rotation              (WaveformContext*, float);
 #ifdef USE_CANVAS_SCALING
 float            wf_context_get_zoom                  (WaveformContext*);
 void             wf_context_set_zoom                  (WaveformContext*, float);
 #endif
-void             wf_canvas_set_gain                   (WaveformContext*, float);
+void             wf_context_set_gain                  (WaveformContext*, float);
 WaveformActor*   wf_canvas_add_new_actor              (WaveformContext*, Waveform*);
 void             wf_canvas_remove_actor               (WaveformContext*, WaveformActor*);
 void             wf_canvas_queue_redraw               (WaveformContext*);
 void             wf_canvas_load_texture_from_alphabuf (WaveformContext*, int texture_id, AlphaBuf*);
 float            wf_context_frame_to_x                (WaveformContext*, uint64_t);
 
-#define wf_canvas_free0(A) (wf_canvas_free(A), A = NULL)
+#define wf_context_free0(A) (wf_context_free(A), A = NULL)
 
 #endif //__waveform_context_h__

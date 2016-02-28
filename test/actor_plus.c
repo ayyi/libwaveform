@@ -112,7 +112,7 @@ main (int argc, char *argv[])
 
 	scene = (AGlRootActor*)agl_actor__new_root(canvas);
 
-	wfc = wf_canvas_new((AGlRootActor*)scene);
+	wfc = wf_context_new((AGlRootActor*)scene);
 	wf_context_set_zoom(wfc, 1.0);
 
 	char* filename = find_wav(WAV);
@@ -219,13 +219,6 @@ on_allocate(GtkWidget* widget, GtkAllocation* allocation, gpointer user_data)
 
 	((AGlActor*)scene)->region = (AGliRegion){0, 0, allocation->width, allocation->height};
 	agl_actor__set_size((AGlActor*)scene);
-
-	scene->viewport = (AGlRect){
-		.x = 0,
-		.y = 0,
-		.w = allocation->width,
-		.h = allocation->height,
-	};
 
 	#define ruler_height 20.0
 

@@ -3,7 +3,7 @@
 
   ---------------------------------------------------------------
 
-  copyright (C) 2012-2015 Tim Orford <tim@orford.org>
+  copyright (C) 2012-2016 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -383,7 +383,7 @@ on_canvas_realise(GtkWidget* _canvas, gpointer user_data)
 	if(!GTK_WIDGET_REALIZED (canvas)) return;
 
 	scene = (AGlRootActor*)agl_actor__new_root(canvas);
-	wfc = wf_canvas_new(NULL);
+	wfc = wf_context_new(scene);
 
 	if(!ass.shader.program) agl_create_program(&ass.shader);
 
@@ -425,7 +425,7 @@ on_allocate(GtkWidget* widget, GtkAllocation* allocation, gpointer user_data)
 	setup_projection(widget);
 
 	//optimise drawing by telling the canvas which area is visible
-	wf_canvas_set_viewport(wfc, &(WfViewPort){0, 0, GL_WIDTH, GL_HEIGHT});
+	wf_context_set_viewport(wfc, &(WfViewPort){0, 0, GL_WIDTH, GL_HEIGHT});
 
 	start_zoom(zoom);
 }

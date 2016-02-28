@@ -123,7 +123,7 @@ main (int argc, char *argv[])
 	w1 = waveform_load_new(filename);
 	g_free(filename);
 
-	wfc = wf_canvas_new(scene);
+	wfc = wf_context_new(scene);
 
 	int n_frames = waveform_get_n_frames(w1);
 
@@ -182,11 +182,6 @@ on_canvas_realise(GtkWidget* _canvas, gpointer user_data)
 static void
 on_allocate(GtkWidget* widget, GtkAllocation* allocation, gpointer user_data)
 {
-	if(!wfc) return;
-
-	//optimise drawing by telling the canvas which area is visible
-	wf_canvas_set_viewport(wfc, &(WfViewPort){0, 0, GL_WIDTH, GL_HEIGHT});
-
 	((AGlActor*)scene)->region.x2 = allocation->width;
 	((AGlActor*)scene)->region.y2 = allocation->height;
 
@@ -195,9 +190,9 @@ on_allocate(GtkWidget* widget, GtkAllocation* allocation, gpointer user_data)
 	int i; for(i=0;i<G_N_ELEMENTS(a);i++)
 		if(a[i]) wf_actor_set_rect(a[i], &(WfRectangle){
 			0.0,
-			i * GL_HEIGHT / 4,
+			i * allocation->height / 4,
 			GL_WIDTH * zoom,
-			GL_HEIGHT / 4 * 0.95
+			allocation->height / 4 * 0.95
 		});
 
 	start_zoom(zoom);
@@ -217,21 +212,21 @@ start_zoom(float target_zoom)
 
 
 void
-zoom_in(WaveformView* waveform)
+zoom_in(gpointer _)
 {
 	start_zoom(zoom * 1.5);
 }
 
 
 void
-zoom_out(WaveformView* waveform)
+zoom_out(gpointer _)
 {
 	start_zoom(zoom / 1.5);
 }
 
 
 void
-vzoom_up(WaveformView* _)
+vzoom_up(gpointer _)
 {
 	vzoom *= 1.1;
 	zoom = MIN(vzoom, 100.0);
@@ -241,7 +236,7 @@ vzoom_up(WaveformView* _)
 
 
 void
-vzoom_down(WaveformView* _)
+vzoom_down(gpointer _)
 {
 	vzoom /= 1.1;
 	zoom = MAX(vzoom, 1.0);
@@ -251,7 +246,7 @@ vzoom_down(WaveformView* _)
 
 
 void
-scroll_left(WaveformView* waveform)
+scroll_left(gpointer _)
 {
 	//int n_visible_frames = ((float)waveform->waveform->n_frames) / waveform->zoom;
 	//waveform_view_set_start(waveform, waveform->start_frame - n_visible_frames / 10);
@@ -259,7 +254,7 @@ scroll_left(WaveformView* waveform)
 
 
 void
-scroll_right(WaveformView* waveform)
+scroll_right(gpointer _)
 {
 	//int n_visible_frames = ((float)waveform->waveform->n_frames) / waveform->zoom;
 	//waveform_view_set_start(waveform, waveform->start_frame + n_visible_frames / 10);
@@ -267,7 +262,7 @@ scroll_right(WaveformView* waveform)
 
 
 void
-toggle_animate(WaveformView* _)
+toggle_animate(gpointer _)
 {
 	PF0;
 	gboolean on_idle(gpointer _)
@@ -296,7 +291,7 @@ toggle_animate(WaveformView* _)
 
 
 void
-quit(WaveformView* waveform)
+quit(gpointer _)
 {
 	exit(EXIT_SUCCESS);
 }

@@ -11,7 +11,7 @@
 
   ---------------------------------------------------------------
 
-  copyright (C) 2013-2015 Tim Orford <tim@orford.org>
+  copyright (C) 2013-2016 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -389,6 +389,7 @@ get_random_region(WaveformActor* a, Mode mode, uint32_t max_scroll)
 	return (WfSampleRegion){start, len};
 }
 
+
 void
 test_scroll()
 {
@@ -406,12 +407,11 @@ test_scroll()
 		int r = w[0]->n_frames - REGION_LEN - 1;
 		WfSampleRegion region = {r, REGION_LEN};
 		double zoom = a[0]->rect.len / a[0]->region.len;
-		// TODO viewport was refactored - check still works
 		WfViewPort viewport = {
-			.left = scene->viewport.x,
-			.top = scene->viewport.y,
-			.right = scene->viewport.x + scene->viewport.w,
-			.bottom = scene->viewport.y + scene->viewport.h,
+			.left   = a[0]->rect.left,
+			.top    = a[0]->rect.top,
+			.right  = a[0]->rect.left + a[0]->rect.len,
+			.bottom = a[0]->rect.top + a[0]->rect.height
 		};
 		BlockRange range = wf_actor_get_visible_block_range(&region, &a[0]->rect, zoom, &viewport, a[0]->waveform->priv->n_blocks);
 		assert((range.last == waveform_get_n_audio_blocks(w[0]) - 1), "bad block_num %i / %i", range.last, waveform_get_n_audio_blocks(w[0]));
@@ -726,7 +726,7 @@ on_canvas_realise(GtkWidget* _canvas, gpointer user_data)
 
 		gl_init();
 
-		wfc = wf_canvas_new(scene = (AGlScene*)agl_actor__new_root(canvas));
+		wfc = wf_context_new(scene = (AGlScene*)agl_actor__new_root(canvas));
 
 		g_signal_connect((gpointer)canvas, "expose-event",  G_CALLBACK(agl_actor__on_expose), scene);
 
@@ -770,7 +770,7 @@ on_allocate(GtkWidget* widget, GtkAllocation* allocation, gpointer user_data)
 	((AGlActor*)scene)->region.y2 = allocation->height;
 
 	//optimise drawing by telling the canvas which area is visible
-	wf_canvas_set_viewport(wfc, &(WfViewPort){0, 0, GL_WIDTH, allocation->height});
+	wf_context_set_viewport(wfc, &(WfViewPort){0, 0, GL_WIDTH, allocation->height});
 
 	int i; for(i=0;i<G_N_ELEMENTS(a);i++)
 		if(a[i]) wf_actor_set_rect(a[i], &(WfRectangle){

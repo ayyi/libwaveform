@@ -1109,10 +1109,12 @@ _wf_actor_get_viewport_max(WaveformActor* a, WfViewPort* viewport)
 		float left_max = MAX(a->rect.left, a->priv->animatable.rect_left.val.f);
 		float left_min = MIN(a->rect.left, a->priv->animatable.rect_left.val.f);
 
-		viewport->left   = left_min;
-		viewport->top    = a->rect.top;
-		viewport->right  = left_max + a->rect.len;
-		viewport->bottom = a->rect.top + a->rect.height;
+		*viewport = (WfViewPort){
+			.left   = left_min,
+			.top    = a->rect.top,
+			.right  = left_max + a->rect.len,
+			.bottom = a->rect.top + a->rect.height
+		};
 	}
 }
 
@@ -1391,7 +1393,8 @@ wf_actor_set_rect(WaveformActor* a, WfRectangle* rect)
 	if(_a->render_info.renderer && rect->len == a->rect.len && rect->left == a->rect.left && rect->height == a->rect.height && rect->top == a->rect.top) return;
 #endif
 
-	actor->region.x2 = rect->len; // TODO a->rect is obsoleted by actor->region?
+	actor->region.x2 = rect->len;
+	actor->region.y2 = /*rect->top + */rect->height;
 
 	// TODO this test fails if we are called twice in quick succession because the valid flag is cleared in the first call
 	bool had_full_render = _a->render_info.valid && !_a->render_info.cropped;
@@ -1559,8 +1562,7 @@ wf_actor_set_vzoom(WaveformActor* a, float vzoom)
 	g_return_if_fail(!(vzoom < 1.0 || vzoom > MAX_VZOOM));
 	a->vzoom = vzoom;
 
-	//TODO perhaps better to just the canvas gain instead? why would one need individual actor gain?
-	wf_canvas_set_gain(a->canvas, vzoom);
+	wf_context_set_gain(a->canvas, vzoom);
 
 	if(((AGlActor*)a)->root->draw) wf_canvas_queue_redraw(a->canvas);
 }

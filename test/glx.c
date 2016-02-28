@@ -209,7 +209,7 @@ main(int argc, char *argv[])
 	Waveform* w = waveform_load_new(filename);
 	g_free(filename);
 
-	WaveformCanvas* wfc = wf_canvas_new(scene);
+	WaveformCanvas* wfc = wf_context_new(scene);
 
 	agl_actor__add_child((AGlActor*)scene, (AGlActor*)(layers.wa = wf_canvas_add_new_actor(wfc, w)));
 
@@ -248,7 +248,7 @@ draw(void)
 	glPushMatrix();
 	glTranslatef(15.0, 30.0, 0.0);
 	agl_actor__paint((AGlActor*)scene);
-	((AGlActor*)wa)->paint((AGlActor*)wa);
+	((AGlActor*)layers.wa)->paint((AGlActor*)layers.wa);
 	glPopMatrix();
 }
 

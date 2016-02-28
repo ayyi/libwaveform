@@ -192,7 +192,7 @@ waveform_canvas_construct(GType object_type)
 
 
 WaveformCanvas*
-wf_canvas_new(AGlRootActor* root)
+wf_context_new(AGlRootActor* root)
 {
 	PF;
 
@@ -205,7 +205,7 @@ wf_canvas_new(AGlRootActor* root)
 
 #ifdef USE_SDL
 WaveformCanvas*
-wf_canvas_new_sdl(SDL_GLContext* context)
+wf_context_new_sdl(SDL_GLContext* context)
 {
 	PF;
 
@@ -235,7 +235,7 @@ wf_canvas_finalize(GObject* obj)
 
 
 void
-wf_canvas_free (WaveformCanvas* wfc)
+wf_context_free (WaveformCanvas* wfc)
 {
 	g_return_if_fail(wfc);
 	PF;
@@ -259,7 +259,7 @@ wf_canvas_init_gl(WaveformCanvas* wfc)
 	PF;
 	if(agl->shaders.plain->shader.program){
 #ifdef DEBUG
-		gwarn("already done");
+		if(wf_debug) gwarn("already done");
 #endif
 		return;
 	}
@@ -288,7 +288,7 @@ wf_canvas_init_gl(WaveformCanvas* wfc)
 
 
 void
-wf_canvas_set_viewport(WaveformCanvas* wfc, WfViewPort* _viewport)
+wf_context_set_viewport(WaveformCanvas* wfc, WfViewPort* _viewport)
 {
 	//@param viewport - optional.
 	//                  Does not apply clipping.
@@ -297,25 +297,14 @@ wf_canvas_set_viewport(WaveformCanvas* wfc, WfViewPort* _viewport)
 
 	g_return_if_fail(wfc);
 
-#if 0
 	if(_viewport){
-		if(!wfc->viewport) wfc->viewport = g_new(WfViewPort, 1);
-		*wfc->viewport = *_viewport;
-		dbg(1, "x: %.2f --> %.2f", wfc->viewport->left, wfc->viewport->right);
-	}else{
-		dbg(1, "viewport=NULL");
-		if(wfc->viewport) g_free0(wfc->viewport);
-	}
-#else
-	if(_viewport){
-		wfc->root->viewport = (AGlRect){
-			.x = _viewport->left,
-			.y = _viewport->top,
-			.h = _viewport->right - _viewport->left,
-			.w = _viewport->bottom - _viewport->top,
+		((AGlActor*)wfc->root)->viewport = (AGliRegion){
+			.x1 = _viewport->left,
+			.y1 = _viewport->top,
+			.x2 = _viewport->right,
+			.y2 = _viewport->bottom,
 		};
 	}
-#endif
 
 	if(wfc->root->draw) g_signal_emit_by_name(wfc, "dimensions-changed");
 }
@@ -496,14 +485,7 @@ wf_canvas_load_texture_from_alphabuf(WaveformCanvas* wfc, int texture_name, Alph
 
 
 void
-wf_canvas_set_share_list(WaveformCanvas* wfc)
-{
-	dbg(0, "TODO");
-}
-
-
-void
-wf_canvas_set_rotation(WaveformCanvas* wfc, float rotation)
+wf_context_set_rotation(WaveformCanvas* wfc, float rotation)
 {
 	dbg(0, "TODO");
 }
@@ -586,7 +568,7 @@ wf_context_set_zoom(WaveformCanvas* wfc, float zoom)
 
 
 void
-wf_canvas_set_gain(WaveformCanvas* wfc, float gain)
+wf_context_set_gain(WaveformCanvas* wfc, float gain)
 {
 	wfc->v_gain = gain;
 	wf_canvas_queue_redraw(wfc);

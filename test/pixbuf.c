@@ -175,14 +175,14 @@ image_async(GtkAllocation* size)
 }
 
 void
-quit(WaveformView* waveform)
+quit(gpointer _)
 {
 	exit(EXIT_SUCCESS);
 }
 
 
 void
-zoom_in(WaveformView* waveform)
+zoom_in(gpointer _)
 {
 	zoom *= 1.3;
 	GtkAllocation size = {.width = 480, .height = 160};
@@ -192,7 +192,7 @@ zoom_in(WaveformView* waveform)
 
 
 void
-zoom_out(WaveformView* waveform)
+zoom_out(gpointer _)
 {
 	zoom /= 1.3;
 	GtkAllocation size = {.width = 480, .height = 160};
@@ -202,7 +202,7 @@ zoom_out(WaveformView* waveform)
 
 
 void
-scroll_left(WaveformView* _)
+scroll_left(gpointer _)
 {
 	x = MAX(0, x - 2000);
 	GtkAllocation size = {.width = 480, .height = 160};
@@ -210,7 +210,7 @@ scroll_left(WaveformView* _)
 }
 
 
-void scroll_right(WaveformView* _)
+void scroll_right(gpointer _)
 {
 	x = MIN(waveform_get_n_frames(waveform) - regions[1].len, x + 2000);
 	GtkAllocation size = {.width = 480, .height = 160};
@@ -218,7 +218,7 @@ void scroll_right(WaveformView* _)
 }
 
 
-void next_wav(WaveformView* waveform)
+void next_wav(gpointer _)
 {
 }
 

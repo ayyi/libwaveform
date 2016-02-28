@@ -13,7 +13,7 @@
 
   ---------------------------------------------------------------
 
-  copyright (C) 2012-2015 Tim Orford <tim@orford.org>
+  copyright (C) 2012-2016 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -218,7 +218,7 @@ on_canvas_realise(GtkWidget* _canvas, gpointer user_data)
 
 	agl_get_instance()->pref_use_shaders = USE_SHADERS;
 
-	wfc = wf_canvas_new((AGlRootActor*)agl_actor__new_root(canvas));
+	wfc = wf_context_new((AGlRootActor*)agl_actor__new_root(canvas));
 
 	char* filename = g_build_filename(g_get_current_dir(), "test/data/mono_0:10.wav", NULL);
 	w1 = waveform_load_new(filename);
@@ -259,7 +259,7 @@ on_allocate(GtkWidget* widget, GtkAllocation* allocation, gpointer user_data)
 	setup_projection(widget);
 
 	//optimise drawing by telling the canvas which area is visible
-	wf_canvas_set_viewport(wfc, &(WfViewPort){0, 0, GL_WIDTH, GL_HEIGHT});
+	wf_context_set_viewport(wfc, &(WfViewPort){0, 0, GL_WIDTH, GL_HEIGHT});
 
 	start_zoom(zoom);
 }
@@ -286,21 +286,21 @@ start_zoom(float target_zoom)
 
 
 void
-zoom_in(WaveformView* waveform)
+zoom_in(gpointer _)
 {
 	start_zoom(zoom * 1.5);
 }
 
 
 void
-zoom_out(WaveformView* waveform)
+zoom_out(gpointer _)
 {
 	start_zoom(zoom / 1.5);
 }
 
 
 void
-vzoom_up(WaveformView* _)
+vzoom_up(gpointer _)
 {
 	vzoom *= 1.1;
 	vzoom = MIN(vzoom, 100.0);
@@ -310,7 +310,7 @@ vzoom_up(WaveformView* _)
 
 
 void
-vzoom_down(WaveformView* _)
+vzoom_down(gpointer _)
 {
 	vzoom /= 1.1;
 	vzoom = MAX(vzoom, 1.0);
@@ -320,7 +320,7 @@ vzoom_down(WaveformView* _)
 
 
 void
-scroll_left(WaveformView* waveform)
+scroll_left(gpointer _)
 {
 	//int n_visible_frames = ((float)waveform->waveform->n_frames) / waveform->zoom;
 	//waveform_view_set_start(waveform, waveform->start_frame - n_visible_frames / 10);
@@ -328,7 +328,7 @@ scroll_left(WaveformView* waveform)
 
 
 void
-scroll_right(WaveformView* waveform)
+scroll_right(gpointer _)
 {
 	//int n_visible_frames = ((float)waveform->waveform->n_frames) / waveform->zoom;
 	//waveform_view_set_start(waveform, waveform->start_frame + n_visible_frames / 10);
@@ -336,7 +336,7 @@ scroll_right(WaveformView* waveform)
 
 
 void
-toggle_animate(WaveformView* _)
+toggle_animate(gpointer _)
 {
 	PF0;
 	gboolean on_idle(gpointer _)
@@ -365,7 +365,7 @@ toggle_animate(WaveformView* _)
 
 
 void
-quit(WaveformView* waveform)
+quit(gpointer _)
 {
 	exit(EXIT_SUCCESS);
 }

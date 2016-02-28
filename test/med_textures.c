@@ -301,7 +301,7 @@ on_canvas_realise(GtkWidget* _canvas, gpointer user_data)
 
 	gl_init();
 
-	wfc = wf_canvas_new((AGlRootActor*)agl_actor__new_root(canvas));
+	wfc = wf_context_new((AGlRootActor*)agl_actor__new_root(canvas));
 
 	char* filename = g_build_filename(g_get_current_dir(), "test/data/mono_1.wav", NULL);
 	w1 = waveform_load_new(filename);

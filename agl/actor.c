@@ -35,8 +35,8 @@
 static AGl* agl = NULL;
 
 static bool   agl_actor__is_onscreen  (AGlActor*);
-static bool  _actor__on_event    (AGlActor*, GdkEvent*, AGliPt);
-static void   agl_actor__init    (AGlActor*);              // called once when gl context is available. and again if gl context changes, eg after re-realize.
+static bool  _agl_actor__on_event     (AGlActor*, GdkEvent*, AGliPt);
+static void   agl_actor__init         (AGlActor*);        // called once when gl context is available. and again if gl context changes, eg after re-realize.
 #ifdef USE_FRAME_CLOCK
 static bool   agl_actor__is_animating (AGlActor*);
 #endif
@@ -63,8 +63,8 @@ agl_actor__new_root(GtkWidget* widget)
 
 		static bool first_time = true;
 
-		a->viewport.w = a->widget->allocation.width;
-		a->viewport.h = a->widget->allocation.height;
+		((AGlActor*)a)->viewport.x2 = a->widget->allocation.width;
+		((AGlActor*)a)->viewport.y2 = a->widget->allocation.height;
 
 		a->gl.gdk.drawable = drawable;
 		a->gl.gdk.context = gtk_widget_get_gl_context(a->widget);
@@ -237,6 +237,9 @@ agl_actor__remove_child(AGlActor* actor, AGlActor* child)
 	g_return_if_fail(actor && child);
 	g_return_if_fail(g_list_find(actor->children, child));
 
+	if(actor->root->selected == child) actor->root->selected = NULL;
+	if(actor->root->hovered == child) actor->root->hovered = NULL;
+
 	actor->children = g_list_remove(actor->children, child);
 
 	agl_actor__free(child);
@@ -284,11 +287,11 @@ agl_actor__is_onscreen(AGlActor* a)
 {
 	if(a->root->widget){
 		int h = a->root->widget->allocation.height; // TODO use viewport->height
-		AGlRect* viewport = &a->root->viewport;
+		AGliRegion* viewport = &a->viewport;
 		AGliPt offset = agl_actor__find_offset(a);
 		//gwarn("   %s %i %.1f x %i %.1f, offset: x=%i y=%i viewport=%.1f %.1f", a->name, w, viewport->width, h, viewport->height, offset.x, offset.y, viewport->x, viewport->y);
 		//if(offset.y + a->region.y2  < viewport->y || offset.y > viewport->y + h) dbg(0, "         offscreen: %s", a->name);
-		return !(offset.y + a->region.y2  < viewport->y || offset.y > viewport->y + h);
+		return !(offset.y + a->region.y2  < viewport->y2 || offset.y > viewport->y2 + h);
 	}
 	return true;
 }
@@ -332,6 +335,7 @@ render_from_fbo(AGlActor* a)
 	float h = fbo->height;
 
 	float start = ((float)-a->cache.offset) / agl_power_of_two(w);
+
 	// The FBO is upside down so y has to be reversed. TODO render the FBO so that it is not upside down
 	agl_textured_rect_(fbo->texture, 0.0, 0.0, w, h, &(AGlQuad){start, h / agl_power_of_two(h), start + w / agl_power_of_two(w), 0.0});
 
@@ -356,17 +360,18 @@ agl_actor__paint(AGlActor* a)
 
 	if(!agl_actor__is_onscreen(a) || (!agl_actor__width(a) && a->paint != agl_actor__null_painter)) return;
 
-	if(a->region.x1 || a->region.y1){
+	AGliPt offset = {
+		.x = a->region.x1 - a->viewport.x1,
+		.y = a->region.y1 - a->viewport.y1,
+	};
+	if(offset.x || offset.y){
 		glMatrixMode(GL_MODELVIEW);
 		glPushMatrix();
-		glTranslatef(a->region.x1, a->region.y1, 0.0);
+		glTranslatef(offset.x, offset.y, 0.0);
 	}
 #ifdef DEBUG
 	if(wf_debug > 2 && a == (AGlActor*)a->root) agl_actor__print_tree (a);
 #endif
-
-	// TODO remove special case - create agl_root_actor__paint() ?
-	if(a == (AGlActor*)a->root) glTranslatef(0, -((AGlRootActor*)a)->viewport.y, 0);
 
 #ifdef AGL_ACTOR_RENDER_CACHE
 	// TODO check case where actor is translated and is partially offscreen.
@@ -420,7 +425,7 @@ agl_actor__paint(AGlActor* a)
 #undef SHOW_ACTOR_BORDERS
 #ifdef SHOW_ACTOR_BORDERS
 	static int depth; depth = -1;
-	static uint32_t colours[10] = {0xff000099, 0xff990099, 0x00ff0099, 0x0000ff99, 0xff000099, 0xffff0099, 0x00ffff99};
+	static uint32_t colours[10] = {0xff000088, 0xff990088, 0x00ff0088, 0x0000ff88, 0xff000088, 0xffff0088, 0x00ffff88};
 
 	void paint_border(AGlActor* a)
 	{
@@ -502,7 +507,7 @@ agl_actor__set_use_shaders (AGlRootActor* actor, gboolean val)
 
 
 static bool
-_actor__on_event(AGlActor* a, GdkEvent* event, AGliPt xy)
+_agl_actor__on_event(AGlActor* a, GdkEvent* event, AGliPt xy)
 {
 	// xy is the event coordinates relative to the top left of the actor's parent.
 	// ie the coordinate system is the same one as the actor's region.
@@ -551,7 +556,7 @@ agl_actor__on_event(AGlScene* root, GdkEvent* event)
 	GtkWidget* widget = actor->root->widget;
 
 	if(event->type == GDK_KEY_PRESS){
-		printf("%s: keypress: key=%i\n", __func__, ((GdkEventKey*)event)->keyval);
+		AGL_DEBUG printf("%s: keypress: key=%i\n", __func__, ((GdkEventKey*)event)->keyval);
 		AGlActor* selected = root->selected;
 		if(selected && selected->on_event){
 			return selected->on_event(selected, event, (AGliPt){});
@@ -559,14 +564,14 @@ agl_actor__on_event(AGlScene* root, GdkEvent* event)
 		return AGL_NOT_HANDLED;
 	}
 
-	AGliPt xy = {event->button.x + actor->root->viewport.x, event->button.y + actor->root->viewport.y};
+	AGliPt xy = {event->button.x + actor->viewport.x1, event->button.y + actor->viewport.y1};
 
 	if(event->type == GDK_LEAVE_NOTIFY){
 		if(root->hovered){
 			GdkEvent leave = {
 				.type = GDK_LEAVE_NOTIFY,
 			};
-			_actor__on_event(root->hovered, &leave, xy);
+			_agl_actor__on_event(root->hovered, &leave, xy);
 			root->hovered = NULL;
 		}
 		return AGL_HANDLED;
@@ -596,7 +601,7 @@ agl_actor__on_event(AGlScene* root, GdkEvent* event)
 
 	if(actor_context.grabbed){
 		AGliPt offset = (actor_context.grabbed->parent == actor) ? (AGliPt){0, 0} : agl_actor__find_offset(actor_context.grabbed->parent);
-		bool handled = _actor__on_event(actor_context.grabbed, event, (AGliPt){xy.x - offset.x, xy.y - offset.y});
+		bool handled = _agl_actor__on_event(actor_context.grabbed, event, (AGliPt){xy.x - offset.x, xy.y - offset.y});
 
 		if(event->type == GDK_BUTTON_RELEASE){
 			actor_context.grabbed = NULL;
@@ -609,6 +614,7 @@ agl_actor__on_event(AGlScene* root, GdkEvent* event)
 	AGlActor* hovered = root->hovered;
 
 	AGlActor* a = child_region_hit(actor, xy);
+	if(!a && actor->on_event) a = actor;  // TODO move into region_hit?
 
 	switch(event->type){
 		case GDK_MOTION_NOTIFY:
@@ -617,19 +623,21 @@ agl_actor__on_event(AGlScene* root, GdkEvent* event)
 					GdkEvent leave = {
 						.type = GDK_LEAVE_NOTIFY,
 					};
-					_actor__on_event(hovered, &leave, xy);
+					_agl_actor__on_event(hovered, &leave, xy);
 				}
 			}
 
 			break;
+		case GDK_BUTTON_PRESS:
+			gtk_window_set_focus((GtkWindow*)gtk_widget_get_toplevel(root->widget), root->widget);
 		case GDK_BUTTON_RELEASE:
 			if(root->selected != a){
 				if(root->selected) agl_actor__invalidate(root->selected);
 				root->selected = a; // TODO almost certainly not always correct
 				if(a) agl_actor__invalidate(a);
 			}
-			AGliPt offset = (!a || a->parent == actor) ? (AGliPt){0, 0} : agl_actor__find_offset(a->parent);
-			return _actor__on_event(a, event, (AGliPt){xy.x - offset.x, xy.y - offset.y});
+			AGliPt offset = (!a || a->parent == actor || a == actor) ? (AGliPt){0, 0} : agl_actor__find_offset(a->parent);
+			return _agl_actor__on_event(a, event, (AGliPt){xy.x - offset.x, xy.y - offset.y});
 		default:
 			break;
 	}
@@ -642,12 +650,12 @@ agl_actor__on_event(AGlScene* root, GdkEvent* event)
 				GdkEvent enter = {
 					.type = GDK_ENTER_NOTIFY,
 				};
-				return _actor__on_event(a, &enter, xy);
+				return _agl_actor__on_event(a, &enter, xy);
 			}
 		}
 
 		AGliPt offset = (a->parent == actor) ? (AGliPt){0, 0} : agl_actor__find_offset(a->parent);
-		return _actor__on_event(a, event, (AGliPt){xy.x - offset.x, xy.y - offset.y});
+		return _agl_actor__on_event(a, event, (AGliPt){xy.x - offset.x, xy.y - offset.y});
 
 	}else{
 		if(event->type == GDK_MOTION_NOTIFY){
@@ -716,7 +724,7 @@ agl_actor__on_expose(GtkWidget* widget, GdkEventExpose* event, gpointer user_dat
 		glMatrixMode(GL_PROJECTION);
 		glLoadIdentity();
 
-		glOrtho (actor->root->viewport.x, actor->root->viewport.x + actor->root->viewport.w, actor->root->viewport.y + actor->root->viewport.h, actor->root->viewport.y, 256.0, -256.0);
+		glOrtho (actor->viewport.x1, actor->viewport.x2, actor->viewport.y2, actor->viewport.y1, 256.0, -256.0);
 	}
 
 	AGlRootActor* root = user_data;

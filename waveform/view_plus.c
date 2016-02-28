@@ -240,7 +240,7 @@ waveform_view_plus_new (Waveform* waveform)
 
 	v->root = agl_actor__new_root(widget);
 	v->root->init = root_ready;
-	v->canvas = wf_canvas_new((AGlRootActor*)v->root);
+	v->canvas = wf_context_new((AGlRootActor*)v->root);
 
 	v->actor = (WaveformActor*)waveform_actor(view);
 	((AGlActor*)v->actor)->z = 2;
@@ -774,7 +774,7 @@ waveform_view_plus_finalize (GObject* obj)
 		v->actor = NULL;
 
 	}
-	if(v->canvas) wf_canvas_free0(v->canvas);
+	if(v->canvas) wf_context_free0(v->canvas);
 	if(view->waveform) waveform_unref0(view->waveform);
 
 	G_OBJECT_CLASS (waveform_view_plus_parent_class)->finalize(obj);
@@ -1025,8 +1025,6 @@ waveform_view_plus_gl_on_allocate(WaveformViewPlus* view)
 		v->root->region = (AGliRegion){0, 0, w, h};
 		agl_actor__set_size(v->root);
 	}
-
-	wf_canvas_set_viewport(v->canvas, NULL);
 }
 
 
