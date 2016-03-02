@@ -31,7 +31,7 @@
 #include <GL/gl.h>
 #include <gtk/gtk.h>
 #include <gdk/gdkkeysyms.h>
-#include <ass.h>
+#include <ass/ass.h>
 #include "agl/utils.h"
 #include "waveform/waveform.h"
 #define __wf_private__

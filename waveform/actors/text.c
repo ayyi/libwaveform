@@ -19,7 +19,9 @@
 #include <gtk/gtk.h>
 #include <gdk/gdkkeysyms.h>
 #include <GL/gl.h>
+#ifdef USE_LIBASS
 #include <ass/ass.h>
+#endif
 #include "agl/ext.h"
 #include "agl/utils.h"
 #include "agl/actor.h"
@@ -38,15 +40,14 @@
 
 #define FONT_SIZE 18 //TODO
 
-extern AssShader ass;
-
 static AGl* agl = NULL;
 static int instance_count = 0;
 
-
+#ifdef USE_LIBASS
 static void text_actor_render_text (TextActor*);
 
-#ifdef USE_LIBASS
+extern AssShader ass;
+
 char* script = 
 	"[Script Info]\n"
 	"ScriptType: v4.00+\n"
@@ -179,11 +180,13 @@ text_actor(WaveformActor* _)
 		if(!ta->title_colour1) ta->title_colour1 = wf_get_gtk_text_color(a->root->widget, GTK_STATE_NORMAL);
 		if(!ta->text_colour) ta->text_colour = wf_get_gtk_base_color(a->root->widget, GTK_STATE_NORMAL, 0xaa);
 
+#ifdef USE_LIBASS
 		if(agl_get_instance()->use_shaders){
 			agl_create_program((AGlShader*)&ass);
 			ass.uniform.colour1 = ((TextActor*)a)->title_colour1;
 			ass.uniform.colour2 = ((TextActor*)a)->title_colour2;
 		}
+#endif
 #ifdef AGL_ACTOR_RENDER_CACHE
 		a->fbo = agl_fbo_new(a->region.x2 - a->region.x1, a->region.y2 - a->region.y1, 0, 0);
 		a->cache.enabled = true;
@@ -234,8 +237,10 @@ text_actor(WaveformActor* _)
 void
 text_actor_set_colour (TextActor* ta, uint32_t title1, uint32_t title2)
 {
+#ifdef USE_LIBASS
 	ass.uniform.colour1 = ta->title_colour1 = title1;
 	ass.uniform.colour2 = ta->title_colour2 = title2;
+#endif
 
 	gtk_widget_queue_draw(((AGlActor*)ta)->root->widget);
 }
