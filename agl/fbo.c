@@ -1,5 +1,5 @@
 /*
-  copyright (C) 2012-2015 Tim Orford <tim@orford.org>
+  copyright (C) 2012-2016 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -168,6 +168,7 @@ attach_depth_and_stencil_buffers(AGlFBO* fbo, GLboolean tryDepthStencil, GLboole
 
 	glBindFramebuffer(GL_FRAMEBUFFER_EXT, fbo->id);
 
+#if 0 // not currently using the depth buffer
 	if(tryDepthStencil){
 		GLuint rb;
 
@@ -215,6 +216,7 @@ attach_depth_and_stencil_buffers(AGlFBO* fbo, GLboolean tryDepthStencil, GLboole
 
 		*depthRbOut = rb;
 	}
+#endif
 
 	// just stencil renderbuffer
 	{
@@ -261,45 +263,60 @@ make_fb(AGlFBO* fbo)
 	GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER_EXT);
 	if (status != GL_FRAMEBUFFER_COMPLETE_EXT) gwarn("framebuffer incomplete: 0x%04x", status);
 
-	// Setup depth and stencil buffers - TODO depth buffer not used. remove it?
-	if(fbo->flags & AGL_FBO_HAS_STENCIL){
+	// Setup depth and stencil buffers
+	if((fbo->flags & AGL_FBO_HAS_STENCIL) && fbo->width && fbo->height){
 		gboolean b = attach_depth_and_stencil_buffers(fbo, UsePackedDepthStencil, UsePackedDepthStencilBoth, &DepthRB, &StencilRB);
+#if 0
 		if (!b) {
 			// try !UsePackedDepthStencil
 			b = attach_depth_and_stencil_buffers(fbo, !UsePackedDepthStencil, UsePackedDepthStencilBoth, &DepthRB, &StencilRB);
 		}
+#endif
 		if (!b) {
 			printf("Unable to create/attach depth and stencil renderbuffers to FBO\n");
 		}
 	}
 
-   if(FALSE){
-      GLint bits, w, h, name;
+#ifdef DEBUG
+	if(FALSE){
+		GLint bits, name;
 
-      glBindRenderbuffer(GL_RENDERBUFFER_EXT, DepthRB);
-      glGetRenderbufferParameteriv(GL_RENDERBUFFER_EXT, GL_RENDERBUFFER_WIDTH_EXT, &w);
-      glGetRenderbufferParameteriv(GL_RENDERBUFFER_EXT, GL_RENDERBUFFER_HEIGHT_EXT, &h);
-      printf("Color/Texture size: %d x %d\n", fbo->width, fbo->height);
-      printf("Depth buffer size: %d x %d\n", w, h);
+		printf("Color/Texture size: %d x %d\n", fbo->width, fbo->height);
+#if 0
+		GLint bits, w, h;
+		glBindRenderbuffer(GL_RENDERBUFFER_EXT, DepthRB);
+		glGetRenderbufferParameteriv(GL_RENDERBUFFER_EXT, GL_RENDERBUFFER_WIDTH_EXT, &w);
+		glGetRenderbufferParameteriv(GL_RENDERBUFFER_EXT, GL_RENDERBUFFER_HEIGHT_EXT, &h);
+		printf("Depth buffer size: %d x %d\n", w, h);
 
-      glGetRenderbufferParameteriv(GL_RENDERBUFFER_EXT, GL_RENDERBUFFER_DEPTH_SIZE_EXT, &bits);
-      printf("Depth renderbuffer size = %d bits\n", bits);
+		glGetRenderbufferParameteriv(GL_RENDERBUFFER_EXT, GL_RENDERBUFFER_DEPTH_SIZE_EXT, &bits);
+		printf("Depth renderbuffer size = %d bits\n", bits);
+#endif
 
-      glBindRenderbuffer(GL_RENDERBUFFER_EXT, StencilRB);
-      glGetRenderbufferParameteriv(GL_RENDERBUFFER_EXT, GL_RENDERBUFFER_STENCIL_SIZE_EXT, &bits);
-      printf("Stencil renderbuffer size = %d bits\n", bits);
+		if(fbo->width && fbo->flags & AGL_FBO_HAS_STENCIL){
+			glBindRenderbuffer(GL_RENDERBUFFER_EXT, StencilRB);
+			glGetRenderbufferParameteriv(GL_RENDERBUFFER_EXT, GL_RENDERBUFFER_STENCIL_SIZE_EXT, &bits);
+			printf("Stencil renderbuffer size = %d bits\n", bits);
+		}
 
-      glGetFramebufferAttachmentParameteriv(GL_FRAMEBUFFER_EXT, GL_COLOR_ATTACHMENT0, GL_FRAMEBUFFER_ATTACHMENT_OBJECT_NAME_EXT, &name);
-      printf("Render to texture name: %d\n", fbo->texture);
-      printf("Color attachment[0] name: %d\n", name);
-      g_return_val_if_fail(fbo->texture == name, 0);
+		glGetFramebufferAttachmentParameteriv(GL_FRAMEBUFFER_EXT, GL_COLOR_ATTACHMENT0, GL_FRAMEBUFFER_ATTACHMENT_OBJECT_NAME_EXT, &name);
+		printf("Render to texture name: %d\n", fbo->texture);
+		printf("Color attachment[0] name: %d\n", name);
+		g_return_val_if_fail(fbo->texture == name, 0);
 
-      glGetFramebufferAttachmentParameteriv(GL_FRAMEBUFFER_EXT, GL_STENCIL_ATTACHMENT, GL_FRAMEBUFFER_ATTACHMENT_OBJECT_NAME_EXT, &name);
-      printf("Stencil attachment name: %d\n", name);
+		if(fbo->width && fbo->flags & AGL_FBO_HAS_STENCIL){
+			glGetFramebufferAttachmentParameteriv(GL_FRAMEBUFFER_EXT, GL_STENCIL_ATTACHMENT, GL_FRAMEBUFFER_ATTACHMENT_OBJECT_NAME_EXT, &name);
+			printf("Stencil attachment name: %d\n", name);
+		}
 
-      glGetFramebufferAttachmentParameteriv(GL_FRAMEBUFFER_EXT, GL_DEPTH_ATTACHMENT, GL_FRAMEBUFFER_ATTACHMENT_OBJECT_NAME_EXT, &name);
-      printf("Depth attachment name: %d\n", name);
+#if 0
+		glGetFramebufferAttachmentParameteriv(GL_FRAMEBUFFER_EXT, GL_DEPTH_ATTACHMENT, GL_FRAMEBUFFER_ATTACHMENT_OBJECT_NAME_EXT, &name);
+		printf("Depth attachment name: %d\n", name);
+#endif
+
+		gl_warn("info");
 	}
+#endif
 
 	glBindFramebuffer(GL_FRAMEBUFFER_EXT, 0); // rebind the normal framebuffer
 

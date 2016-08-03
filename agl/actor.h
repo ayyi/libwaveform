@@ -56,7 +56,7 @@ struct _AGlActor {
 	AGlActorFn       free;
 
 	AGliRegion       region;          // position and size. {int x1, y1, x2, y2}
-	AGliRegion       viewport;        // the sub-area of the actor region that is visible {int x1, y1, x2, y2}.
+	AGliRegion       viewport;        // the sub-area of the actor region that is visible {int x1, y1, x2, y2}. optional except for root actor where it is mandatory.
 	AGlShader*       program;
 	uint32_t         colour;          // rgba
 	int              z;               // controls the order objects with the same parent are drawn.

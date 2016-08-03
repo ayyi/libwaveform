@@ -218,9 +218,11 @@ typedef struct { double start, end; } WfdRange;
 #ifdef __wf_utils_c__
 char wf_bold     [16] = "\x1b[1;39m";
 char wf_white    [16] = "\x1b[0;39m";
+char wf_grey     [16] = "\x1b[38;5;240m";
 #else
 extern char wf_bold  [16];
 extern char wf_white [16];
+extern char wf_grey  [16];
 #endif
 
 WF*            wf_get_instance             ();

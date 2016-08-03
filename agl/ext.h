@@ -1,12 +1,15 @@
 /**
  * Utility for getting OpenGL extension function pointers
  */
+#include <GL/glx.h>
 
 void agl_get_extensions();
 
 #ifndef APIENTRYP
 	#define APIENTRYP APIENTRY *
 #endif
+
+PFNGLBLENDFUNCSEPARATEPROC glBlendFuncSeparate;
 
 /* OpenGL 2.0 */
 PFNGLATTACHSHADERPROC glAttachShader;
@@ -108,10 +111,12 @@ static PFNGLISVERTEXARRAYAPPLEPROC glIsVertexArrayAPPLE_func = NULL;
 static PFNGLACTIVESTENCILFACEEXTPROC glActiveStencilFaceEXT_func = NULL;
 
 /* GL_ARB_buffer_object */
-static PFNGLGENBUFFERSARBPROC glGenBuffersARB_func = NULL;
-static PFNGLDELETEBUFFERSARBPROC glDeleteBuffersARB_func = NULL;
-static PFNGLBINDBUFFERARBPROC glBindBufferARB_func = NULL;
-static PFNGLBUFFERDATAARBPROC glBufferDataARB_func = NULL;
+#endif
+PFNGLGENBUFFERSARBPROC glGenBuffersARB;
+PFNGLDELETEBUFFERSARBPROC glDeleteBuffersARB;
+PFNGLBINDBUFFERARBPROC glBindBufferARB;
+PFNGLBUFFERDATAARBPROC glBufferDataARB;
+#if 0
 static PFNGLBUFFERSUBDATAARBPROC glBufferSubDataARB_func = NULL;
 static PFNGLMAPBUFFERARBPROC glMapBufferARB_func = NULL;
 static PFNGLUNMAPBUFFERARBPROC glUnmapBufferARB_func = NULL;

@@ -71,6 +71,7 @@ void      agl_bg_colour_rbga      (uint32_t);
 
 void      agl_rect                (float x, float y, float w, float h);
 void      agl_rect_               (AGlRect);
+void      agl_irect               (int x, int y, int w, int h);
 void      agl_textured_rect       (guint texture, float x, float y, float w, float h, AGlQuad* tex_rect);
 void      agl_texture_box         (guint texture, uint32_t colour, double x, double y, double w, double h); // to be reviewed
 void      agl_box                 (int line_width, float x, float y, float w, float h);
@@ -111,5 +112,7 @@ extern GLenum _wf_ge;
 		if(gl_error){ \
 		agl_print_error(__func__, _wf_ge, A, ##__VA_ARGS__); \
 	}}
+
+#define AGL_NEW(T, ...) ({T* obj = g_new0(T, 1); *obj = (T){__VA_ARGS__}; obj;})
 
 #endif //__agl_utils_h__

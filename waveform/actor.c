@@ -2186,7 +2186,7 @@ wf_actor_test_is_not_blank(WaveformActor* a)
 {
 	RenderInfo* r = &a->priv->render_info;
 	Renderer* renderer = r->renderer;
-	g_return_if_fail(renderer);
+	g_return_val_if_fail(renderer, false);
 
 	if(renderer->is_not_blank){
 		if(renderer->is_not_blank(renderer, a)){

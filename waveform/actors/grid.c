@@ -95,7 +95,7 @@ grid_actor_paint(AGlActor* actor)
 	GridActor* grid = (GridActor*)actor;
 	WaveformContext* context = grid->context;
 
-	g_return_if_fail(context);
+	g_return_val_if_fail(context, false);
 	if(!context->sample_rate) return false; // eg if file not loaded
 
 	float zoom = 0; // pixels per sample

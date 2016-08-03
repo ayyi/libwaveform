@@ -11,6 +11,8 @@
 void
 agl_get_extensions()
 {
+   glBlendFuncSeparate = (PFNGLBLENDFUNCSEPARATEPROC) getProcAddress("glBlendFuncSeparate");
+
    /* OpenGL 2.0 */
    glAttachShader = (PFNGLATTACHSHADERPROC) getProcAddress("glAttachShader");
 #if 0
@@ -112,10 +114,12 @@ agl_get_extensions()
    glActiveStencilFaceEXT_func = (PFNGLACTIVESTENCILFACEEXTPROC) getProcAddress("glActiveStencilFaceEXT");
 
    /* GL_ARB_vertex_buffer_object */
-   glGenBuffersARB_func = (PFNGLGENBUFFERSARBPROC) getProcAddress("glGenBuffersARB");
-   glDeleteBuffersARB_func = (PFNGLDELETEBUFFERSARBPROC) getProcAddress("glDeleteBuffersARB");
-   glBindBufferARB_func = (PFNGLBINDBUFFERARBPROC) getProcAddress("glBindBufferARB");
-   glBufferDataARB_func = (PFNGLBUFFERDATAARBPROC) getProcAddress("glBufferDataARB");
+#endif
+   glGenBuffersARB = (PFNGLGENBUFFERSARBPROC) getProcAddress("glGenBuffersARB");
+   glDeleteBuffersARB = (PFNGLDELETEBUFFERSARBPROC) getProcAddress("glDeleteBuffersARB");
+   glBindBufferARB = (PFNGLBINDBUFFERARBPROC) getProcAddress("glBindBufferARB");
+   glBufferDataARB = (PFNGLBUFFERDATAARBPROC) getProcAddress("glBufferDataARB");
+#if 0
    glBufferSubDataARB_func = (PFNGLBUFFERSUBDATAARBPROC) getProcAddress("glBufferSubDataARB");
    glMapBufferARB_func = (PFNGLMAPBUFFERARBPROC) getProcAddress("glMapBufferARB");
    glUnmapBufferARB_func = (PFNGLUNMAPBUFFERARBPROC) getProcAddress("glUnmapBufferARB");

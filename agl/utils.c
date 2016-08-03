@@ -479,32 +479,21 @@ agl_bg_colour_rbga(uint32_t colour)
 void
 agl_rect(float x, float y, float w, float h)
 {
-#if 0
-	glBegin(GL_QUADS);
-	glVertex2f(x,     y);
-	glVertex2f(x + w, y);
-	glVertex2f(x + w, y + h);
-	glVertex2f(x,     y + h);
-	glEnd();
-#else
 	glRectf(x, y, x + w, y + h);
-#endif
 }
 
 
 void
 agl_rect_(AGlRect r)
 {
-#if 0
-	glBegin(GL_QUADS);
-	glVertex2f(r.x,       r.y);
-	glVertex2f(r.x + r.w, r.y);
-	glVertex2f(r.x + r.w, r.y + r.h);
-	glVertex2f(r.x,       r.y + r.h);
-	glEnd();
-#else
 	glRectf(r.x, r.y, r.x + r.w, r.y + r.h);
-#endif
+}
+
+
+void
+agl_irect(int x, int y, int w, int h)
+{
+	glRecti(x, y, x + w, y + h);
 }
 
 

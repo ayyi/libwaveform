@@ -40,6 +40,9 @@ static void   agl_actor__init         (AGlActor*);        // called once when gl
 #ifdef USE_FRAME_CLOCK
 static bool   agl_actor__is_animating (AGlActor*);
 #endif
+#ifdef AGL_DEBUG_ACTOR
+static bool   agl_actor__is_cached    (AGlActor*);
+#endif
 
 
 AGlActor*
@@ -285,13 +288,35 @@ agl_actor__init(AGlActor* a)
 static bool
 agl_actor__is_onscreen(AGlActor* a)
 {
-	if(a->root->widget){
-		int h = a->root->widget->allocation.height; // TODO use viewport->height
+	int h = ((AGlActor*)a->root)->viewport.y2 - ((AGlActor*)a->root)->viewport.y1;
+	int w = ((AGlActor*)a->root)->viewport.x2 - ((AGlActor*)a->root)->viewport.x1;
+	if(h && w){
 		AGliRegion* viewport = &a->viewport;
 		AGliPt offset = agl_actor__find_offset(a);
-		//gwarn("   %s %i %.1f x %i %.1f, offset: x=%i y=%i viewport=%.1f %.1f", a->name, w, viewport->width, h, viewport->height, offset.x, offset.y, viewport->x, viewport->y);
-		//if(offset.y + a->region.y2  < viewport->y || offset.y > viewport->y + h) dbg(0, "         offscreen: %s", a->name);
-		return !(offset.y + a->region.y2  < viewport->y2 || offset.y > viewport->y2 + h);
+		if(!viewport->y2){
+			// viewport size is NOT set
+			return !(
+				offset.x + agl_actor__width(a)  < 0 || // actor right is before window left
+				offset.x                        > w || // actor left is before window right
+				offset.y + agl_actor__height(a) < 0 || // actor botton is before window top
+				offset.y                        > h    // actor top is after window bottom
+			);
+		}else{
+			// viewport is set
+			// note: if viewport.y1 is positive, contents are scrolled upwards
+			int a_width = a->viewport.x2 - a->viewport.x1;
+			int a_height = a->viewport.y2 - a->viewport.y1;
+			if(
+				offset.x            < w && // actor left is before window right
+				offset.x + a_width  > 0 && // actor right is after after window left
+				offset.y            < h && // actor top is before window bottom
+				offset.y + a_height > 0    // actor bottom is after window top
+			){
+				return true;
+			}else{
+				return false;
+			}
+		}
 	}
 	return true;
 }
@@ -380,7 +405,7 @@ agl_actor__paint(AGlActor* a)
 		if(!a->cache.valid){
 			agl_draw_to_fbo(a->fbo) {
 				glClearColor(0.0, 0.0, 0.0, 0.0); // background colour must be same as foreground for correct antialiasing
-				glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+				glClear(GL_COLOR_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 
 				call(a->set_state, a);
 				if(agl->use_shaders && a->program) agl_use_program(a->program);
@@ -568,10 +593,11 @@ agl_actor__on_event(AGlScene* root, GdkEvent* event)
 
 	if(event->type == GDK_LEAVE_NOTIFY){
 		if(root->hovered){
-			GdkEvent leave = {
+			GdkEventCrossing leave = {
 				.type = GDK_LEAVE_NOTIFY,
+				.detail = GDK_NOTIFY_ANCESTOR
 			};
-			_agl_actor__on_event(root->hovered, &leave, xy);
+			_agl_actor__on_event(root->hovered, (GdkEvent*)&leave, xy);
 			root->hovered = NULL;
 		}
 		return AGL_HANDLED;
@@ -590,9 +616,9 @@ agl_actor__on_event(AGlScene* root, GdkEvent* event)
 		for(;l;l=l->prev){
 			AGlActor* child = l->data;
 			if(!child->disabled && region_match(&child->region, xy.x, xy.y)){
-				AGlActor* sub = child_region_hit(child, (AGliPt){xy.x - child->region.x1, xy.y - child->region.y1});
+				AGlActor* sub = child_region_hit(child, (AGliPt){xy.x - child->region.x1 + child->viewport.x1, xy.y - child->region.y1 + child->viewport.y1});
 				if(sub) return sub;
-				//printf("  match. y=%i y0=%i y1=%i x=%i-->%i type=%s\n", xy.y, child->region.y1, child->region.y2, child->region.x1, child->region.x2, child->name);
+				//printf("  match. y=%i y=%i-->%i x=%i-->%i type=%s\n", xy.y, child->region.y1, child->region.y2, child->region.x1, child->region.x2, child->name);
 				return child;
 			}
 		}
@@ -620,10 +646,15 @@ agl_actor__on_event(AGlScene* root, GdkEvent* event)
 		case GDK_MOTION_NOTIFY:
 			if(hovered){
 				if(!a || (a && a != hovered)){
-					GdkEvent leave = {
+					// INFERIOR = "left towards an inferior" / in
+					// ANCESTOR = "left towards an ancestor" / out
+					int direction = hovered->parent == a ? GDK_NOTIFY_ANCESTOR : GDK_NOTIFY_INFERIOR;
+					GdkEventCrossing leave = {
 						.type = GDK_LEAVE_NOTIFY,
+						.detail = direction
 					};
-					_agl_actor__on_event(hovered, &leave, xy);
+					// actors should always return NOT_HANDLED for leave events.
+					_agl_actor__on_event(hovered, (GdkEvent*)&leave, xy);
 				}
 			}
 
@@ -939,8 +970,8 @@ agl_actor__find_offset(AGlActor* a)
 {
 	AGliPt of = {0, 0};
 	do {
-		of.x += a->region.x1;
-		of.y += a->region.y1;
+		of.x += a->region.x1 - a->viewport.x1;
+		of.y += a->region.y1 - a->viewport.y1;
 	} while((a = a->parent));
 	return of;
 }
@@ -972,10 +1003,29 @@ agl_actor__is_animating(AGlActor* a)
 #endif
 
 
+#ifdef AGL_DEBUG_ACTOR
+static bool
+agl_actor__is_cached(AGlActor* a)
+{
+	do {
+		if(a->cache.enabled && a->cache.valid) return true;
+	} while((a = a->parent));
+
+	return false;
+}
+#endif
+
+
 #ifdef DEBUG
 void
 agl_actor__print_tree (AGlActor* actor)
 {
+#ifdef AGL_DEBUG_ACTOR
+	char white [16] = "\x1b[0;39m";
+	char lgrey [16] = "\x1b[38;5;244m";
+	char dgrey [16] = "\x1b[38;5;238m";
+#endif
+
 	g_return_if_fail(actor);
 
 	printf("scene graph:\n");
@@ -984,13 +1034,23 @@ agl_actor__print_tree (AGlActor* actor)
 	void _print(AGlActor* actor)
 	{
 		g_return_if_fail(actor);
+#ifdef AGL_DEBUG_ACTOR
+		bool is_onscreen = agl_actor__is_onscreen(actor);
+#endif
 		int i; for(i=0;i<indent;i++) printf("  ");
 
 #ifdef AGL_DEBUG_ACTOR
-		char* offscreen = agl_actor__is_onscreen(actor) ? "" : " OFFSCREEN";
+		char* offscreen = is_onscreen ? "" : " OFFSCREEN";
 		char* zero_size = agl_actor__width(actor) ? "" : " ZEROSIZE";
+		char* disabled = agl_actor__is_disabled(actor) ?  " DISABLED" :  "";
 #ifdef AGL_ACTOR_RENDER_CACHE
-		if(actor->name) printf("%s:%s%s cache(%i,%i) region(%i,%i,%i,%i)\n", actor->name, offscreen, zero_size, actor->cache.enabled, actor->cache.valid, actor->region.x1, actor->region.y1, actor->region.x2, actor->region.y2);
+		char* colour = !agl_actor__width(actor) || !is_onscreen
+			? dgrey
+			: agl_actor__is_cached(actor)
+				? lgrey
+				: "";
+		AGliPt offset = agl_actor__find_offset(actor);
+		if(actor->name) printf("%s%s:%s%s%s cache(%i,%i) region(%i,%i,%i,%i) viewport(%i,%i,%i,%i) offset(%i,%i)%s\n", colour, actor->name, offscreen, zero_size, disabled, actor->cache.enabled, actor->cache.valid, actor->region.x1, actor->region.y1, actor->region.x2, actor->region.y2, actor->viewport.x1, actor->viewport.y1, actor->viewport.x2, actor->viewport.y2, offset.x, offset.y, white);
 #else
 		if(actor->name) printf("%s\n", actor->name);
 #endif
