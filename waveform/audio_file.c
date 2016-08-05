@@ -104,7 +104,7 @@ wf_ff_open(FF* f, const char* filename)
 			break;
 		case AV_SAMPLE_FMT_S16P:
 			dbg(1, "S16P");
-			f->read = wf_ff_read_short;
+			f->read = wf_ff_read_short_p;
 			break;
 		case AV_SAMPLE_FMT_FLT:
 			dbg(1, "FLT");
@@ -116,7 +116,7 @@ wf_ff_open(FF* f, const char* filename)
 			break;
 		default:
 			gwarn("format may not be supported: %i %s", f->codec_context->sample_fmt, av_get_sample_fmt_name(f->codec_context->sample_fmt));
-			f->read = wf_ff_read_short;
+			f->read = wf_ff_read_short_p;
 			break;
 	}
 
@@ -161,6 +161,7 @@ wf_ff_info(FF* f)
 }
 
 
+#if 0
 static void
 int16_to_float(int16_t* in, float* out, int num_channels, int num_samples, int out_offset)
 {
@@ -171,6 +172,7 @@ int16_to_float(int16_t* in, float* out, int num_channels, int num_samples, int o
 		}
 	}
 }
+#endif
 
 
 int64_t
@@ -207,7 +209,7 @@ wf_ff_read_short_interleaved(FF* f, WfBuf16* buf, size_t len)
 	int64_t n_fr_done = 0;
 
 	int data_size = av_get_bytes_per_sample(f->codec_context->sample_fmt);
-	g_return_if_fail(data_size == 2);
+	g_return_val_if_fail(data_size == 2, 0);
 
 	while(!av_read_frame(f->format_context, &f->packet)){
 		if(f->packet.stream_index == f->audio_stream){
@@ -259,7 +261,7 @@ wf_ff_read_float_interleaved(FF* f, WfBuf16* buf, size_t len)
 	int64_t n_fr_done = 0;
 
 	int data_size = av_get_bytes_per_sample(f->codec_context->sample_fmt);
-	g_return_if_fail(data_size == 4);
+	g_return_val_if_fail(data_size == 4, 0);
 
 	while(!av_read_frame(f->format_context, &f->packet)){
 		if(f->packet.stream_index == f->audio_stream){
@@ -312,7 +314,7 @@ wf_ff_read_float_p(FF* f, WfBuf16* buf, size_t len)
 	int64_t n_fr_done = 0;
 
 	int data_size = av_get_bytes_per_sample(f->codec_context->sample_fmt);
-	g_return_if_fail(data_size == 4);
+	g_return_val_if_fail(data_size == 4, 0);
 
 	bool have_frame = false;
 	if(f->frame.nb_samples && f->frame_iter < f->frame.nb_samples){
@@ -343,7 +345,7 @@ wf_ff_read_float_p(FF* f, WfBuf16* buf, size_t len)
 				int ch;
 #ifdef DEBUG
 				for(ch=0; ch<MIN(2, f->codec_context->channels); ch++){
-					g_return_if_fail(f->frame.data[ch]);
+					g_return_val_if_fail(f->frame.data[ch], 0);
 				}
 #endif
 				int i; for(i=f->frame_iter; i<f->frame.nb_samples; i++){
@@ -375,38 +377,50 @@ wf_ff_read_float_p(FF* f, WfBuf16* buf, size_t len)
 
 
 ssize_t
-wf_ff_read_short(FF* f, WfBuf16* buf, size_t len)
+wf_ff_read_short_p(FF* f, WfBuf16* buf, size_t len)
 {
-	AVFrame frame;
 	int64_t n_fr_done = 0;
 
 	int data_size = av_get_bytes_per_sample(f->codec_context->sample_fmt);
-	g_return_if_fail(data_size == 2);
+	g_return_val_if_fail(data_size == 2, 0);
 
-	while(!av_read_frame(f->format_context, &f->packet)){
+	bool have_frame = false;
+	if(f->frame.nb_samples && f->frame_iter < f->frame.nb_samples){
+		have_frame = true;
+	}
+
+	while(have_frame || !av_read_frame(f->format_context, &f->packet)){
+		have_frame = false;
 		if(f->packet.stream_index == f->audio_stream){
-			memset(&frame, 0, sizeof(AVFrame));
-			av_frame_unref(&frame);
 
-			int got_frame = 0;
-			if(avcodec_decode_audio4(f->codec_context, &frame, &got_frame, &f->packet) < 0){
-				dbg(0, "Error decoding audio");
+			int got_frame = false;
+			if(f->frame_iter && f->frame_iter < f->frame.nb_samples){
+				got_frame = true;
+			}else{
+				memset(&f->frame, 0, sizeof(AVFrame));
+				av_frame_unref(&f->frame);
+				f->frame_iter = 0;
+
+				if(avcodec_decode_audio4(f->codec_context, &f->frame, &got_frame, &f->packet) < 0){
+					dbg(0, "Error decoding audio");
+				}
 			}
 			if(got_frame){
-				int size = av_samples_get_buffer_size (NULL, f->codec_context->channels, frame.nb_samples, f->codec_context->sample_fmt, 1);
+				int size = av_samples_get_buffer_size (NULL, f->codec_context->channels, f->frame.nb_samples, f->codec_context->sample_fmt, 1);
 				if (size < 0)  {
 					dbg(0, "av_samples_get_buffer_size invalid value");
 				}
 
-				int64_t fr = frame.best_effort_timestamp * f->info.sample_rate / f->format_context->streams[f->audio_stream]->time_base.den;
+				int64_t fr = f->frame.best_effort_timestamp * f->info.sample_rate / f->format_context->streams[f->audio_stream]->time_base.den + f->frame_iter;
 				int ch;
-				int i; for(i=0; i<frame.nb_samples; i++){
-					if(n_fr_done + i >= len) break;
+				int i; for(i=f->frame_iter; i<f->frame.nb_samples; i++){
+					if(n_fr_done >= len) break;
 					if(fr >= f->seek_frame){
 						for(ch=0; ch<MIN(2, f->codec_context->channels); ch++){
-							memcpy(buf->buf[ch] + n_fr_done, frame.data[ch] + data_size * i, data_size);
+							memcpy(buf->buf[ch] + n_fr_done, f->frame.data[ch] + data_size * i, data_size);
 						}
 						n_fr_done++;
+						f->frame_iter++;
 					}
 				}
 				f->output_clock = fr + n_fr_done;
@@ -423,120 +437,6 @@ wf_ff_read_short(FF* f, WfBuf16* buf, size_t len)
 	}
 
 	return n_fr_done;
-}
-
-
-ssize_t
-wf_ff_read(FF* f, float* d, size_t len)
-{
-	if (!f) return -1;
-	size_t frames = len / f->info.channels;
-
-	int written = 0;
-	int ret = 0;
-	while (ret >= 0 && written < frames) {
-//		dbg(3, "loop: %i/%i (bl:%lu)", written, frames, f->m_tmpBufferLen );
-		if (!f->seek_frame && f->m_tmpBufferLen > 0) {
-			int s = MIN(f->m_tmpBufferLen / f->info.channels, frames - written);
-			int16_to_float(f->m_tmpBufferStart, d, f->info.channels, s, written);
-			written += s;
-			f->output_clock += s;
-			s = s * f->info.channels;
-			f->m_tmpBufferStart += s;
-			f->m_tmpBufferLen -= s;
-			ret = 0;
-		} else {
-			f->m_tmpBufferStart = f->m_tmpBuffer;
-			f->m_tmpBufferLen = 0;
-
-			if (!f->pkt_ptr || f->pkt_len < 1) {
-				if (f->packet.data) av_free_packet(&f->packet);
-				ret = av_read_frame(f->format_context, &f->packet);
-				if (ret < 0) { dbg(2, "reached end of file."); break; }
-				f->pkt_len = f->packet.size;
-				f->pkt_ptr = f->packet.data;
-			}
-
-			if (f->packet.stream_index != f->audio_stream) {
-				f->pkt_ptr = NULL;
-				continue;
-			}
-
-			/* decode all chunks in packet */
-			int data_size = WF_MAX_AUDIO_FRAME_SIZE;
-#if 0 // TODO  ffcompat.h -- this works but is not optimal (channels may not be planar/interleaved)
-			AVFrame avf; // TODO statically allocate
-			memset(&avf, 0, sizeof(AVFrame)); // not sure if that is needed
-			int got_frame = 0;
-			ret = avcodec_decode_audio4(priv->codecContext, &avf, &got_frame, &priv->packet);
-			data_size = avf.linesize[0];
-			memcpy(priv->m_tmpBuffer, avf.data[0], avf.linesize[0] * sizeof(uint8_t));
-#else // this was deprecated in LIBAVCODEC_VERSION_MAJOR 53
-			ret = avcodec_decode_audio3(f->codec_context, f->m_tmpBuffer, &data_size, &f->packet);
-#endif
-
-			if (ret < 0 || ret > f->pkt_len) {
-#if 0
-				dbg(0, "audio decode error");
-				return -1;
-#endif
-				f->pkt_len = 0;
-				ret = 0;
-				continue;
-			}
-
-			f->pkt_len -= ret;
-			f->pkt_ptr += ret;
-
-			/* sample exact alignment  */
-			if (f->packet.pts != AV_NOPTS_VALUE) {
-				f->decoder_clock = f->info.sample_rate * av_q2d(f->format_context->streams[f->audio_stream]->time_base) * f->packet.pts;
-			} else {
-				dbg(0, "!!! NO PTS timestamp in file");
-				f->decoder_clock += (data_size >> 1) / f->info.channels;
-			}
-
-			if (data_size > 0) {
-				f->m_tmpBufferLen += (data_size >> 1); // 2 bytes per sample
-			}
-
-			/* align buffer after seek. */
-			if (f->seek_frame > 0) { 
-				const int diff = f->output_clock - f->decoder_clock;
-				if (diff < 0) {
-					/* seek ended up past the wanted sample */
-					dbg(0, " !!! Audio seek failed.");
-					return -1;
-				} else if (f->m_tmpBufferLen < (diff * f->info.channels)) {
-					/* wanted sample not in current buffer - keep going */
-					dbg(2, " !!! seeked sample was not in decoded buffer. frames-to-go: %li", diff);
-					f->m_tmpBufferLen = 0;
-				} else if (diff != 0 && data_size > 0) {
-					/* wanted sample is in current buffer but not at the beginnning */
-					dbg(2, " !!! sync buffer to seek. (diff:%i)", diff);
-					f->m_tmpBufferStart+= diff * f->codec_context->channels;
-					f->m_tmpBufferLen  -= diff * f->codec_context->channels;
-#if 1
-					memmove(f->m_tmpBuffer, f->m_tmpBufferStart, f->m_tmpBufferLen);
-					f->m_tmpBufferStart = f->m_tmpBuffer;
-#endif
-					f->seek_frame = 0;
-					f->decoder_clock += diff;
-				} else if (data_size > 0) {
-					dbg(2, "Audio exact sync-seek (%"PRIi64" == %"PRIi64")", f->decoder_clock, f->seek_frame);
-					f->seek_frame = 0;
-				} else {
-					dbg(0, "Error: no audio data in packet");
-				}
-			}
-			//dbg(0, "PTS: decoder:%"PRIi64". - want: %"PRIi64, priv->decoder_clock, f->output_clock);
-			//dbg(0, "CLK: frame:  %"PRIi64"  T:%.3fs", priv->decoder_clock, (float)f->decoder_clock / f->samplerate);
-		}
-	}
-	if (written != frames) {
-		dbg(2, "short-read");
-	}
-	return written * f->info.channels;
 }
 
 

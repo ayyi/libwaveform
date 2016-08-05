@@ -39,13 +39,15 @@
 #include "waveform/peakgen.h"
 #include "waveform/alphabuf.h"
 #include "waveform/worker.h"
+#include "waveform/audio_file.h"
 #include "test/ayyi_utils.h"
 #include "test/common.h"
 
-TestFn test_peakgen, test_audiodata, test_audio_cache, test_alphabuf, test_worker;
+TestFn test_peakgen, test_audio_file, test_audiodata, test_audio_cache, test_alphabuf, test_worker;
 
 gpointer tests[] = {
 	test_peakgen,
+	test_audio_file,
 	test_audiodata,
 	test_audio_cache,
 	test_alphabuf,
@@ -81,6 +83,55 @@ test_peakgen()
 	Waveform* w = waveform_new(WAV);
 	char* p = waveform_ensure_peakfile__sync(w);
 	assert(p, "cache dir peakgen failed");
+
+	FINISH_TEST;
+}
+
+
+/*
+ *  Test reading of audio files.
+ */
+void
+test_audio_file()
+{
+	START_TEST;
+
+	char* filenames[] = {"data/mono_0:10.wav", "data/stereo_1.wav", "data/mono_1.mp3", "data/stereo_1.mp3"};
+
+	int i; for(i=0;i<G_N_ELEMENTS(filenames);i++){
+		FF f = {0,};
+		char* filename = find_wav(filenames[i]);
+		if(!wf_ff_open(&f, filename)) FAIL_TEST("file open");
+
+		int n = 8;
+		int read_len = WF_PEAK_RATIO * n;
+
+		int16_t data[f.info.channels][read_len];
+		WfBuf16 buf = {
+			.buf = {
+				data[0], data[1]
+			},
+			.size = n * WF_PEAK_RATIO
+		};
+
+		size_t readcount = 0;
+		size_t total = 0;
+		do {
+			readcount = f.read(&f, &buf, read_len);
+			total += readcount;
+		} while (readcount > 0);
+		dbg(1, "diff=%zu", abs((int)total - (int)f.info.frames));
+		if(g_str_has_suffix(filenames[i], ".mp3")){
+			// for some files, f.info.frames is only an estimate
+			assert(abs((int)total - (int)f.info.frames) < 512, "incorrect number of frames read %Lu", f.info.frames);
+		}else{
+			assert(total == f.info.frames, "incorrect number of frames read %Lu", f.info.frames);
+		}
+		assert(!(total % 512) || !(total % 100), "bad framecount"); // test file sizes are always a round number
+
+		wf_ff_close(&f);
+		g_free(filename);
+	}
 
 	FINISH_TEST;
 }

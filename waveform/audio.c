@@ -412,7 +412,7 @@ waveform_load_audio(Waveform* waveform, int block_num, int n_tiers_needed, WfAud
 	// TODO should use same api as g_file_read_async ? uses GAsyncReadyCallback
 
 	PF2;
-	g_return_val_if_fail(block_num < waveform_get_n_audio_blocks(waveform), NULL);
+	g_return_if_fail(block_num < waveform_get_n_audio_blocks(waveform));
 	WfAudioData* audio = &waveform->priv->audio;
 	wf = wf_get_instance();
 
@@ -482,7 +482,7 @@ void
 waveform_load_audio_sync(Waveform* waveform, int block_num, int n_tiers_needed)
 {
 	PF2;
-	g_return_val_if_fail(block_num < waveform_get_n_audio_blocks(waveform), NULL);
+	g_return_if_fail(block_num < waveform_get_n_audio_blocks(waveform));
 	WfAudioData* audio = &waveform->priv->audio;
 	wf = wf_get_instance();
 

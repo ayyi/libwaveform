@@ -280,7 +280,7 @@ waveform_get_sf_data(Waveform* w)
 	FF f = {0,};
 
 	if(wf_ff_open(&f, w->filename)){
-		w->n_frames = f.info.frames;
+		w->n_frames = f.info.frames; // for some filetypes this will be an estimate
 		w->n_channels = w->n_channels ? w->n_channels : f.info.channels; // file info is not correct in the case of split stereo files.
 		w->samplerate = f.info.sample_rate;
 		wf_ff_close(&f);

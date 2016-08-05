@@ -67,7 +67,7 @@ bool    wf_ff_open       (FF*, const char* filename);
 void    wf_ff_close      (FF*);
 int64_t wf_ff_seek       (FF*, int64_t pos);
 ssize_t wf_ff_read       (FF*, float*, size_t len);
-ssize_t wf_ff_read_short (FF*, WfBuf16*, size_t len);
+ssize_t wf_ff_read_short_p (FF*, WfBuf16*, size_t len);
 
 #endif
 #endif
