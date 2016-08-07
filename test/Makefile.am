@@ -188,14 +188,21 @@ test_data: Makefile write_block.cc
 	@make write_short
 	@make write_block
 	@if [[ ! -d data ]]; then mkdir data; fi
-	@if [ ! -e "data/mono_0:10.wav" ] || [ "./write_wav" -nt "data/mono_0:10.wav" ]; then \
+	@if [ ! -e "data/mono_0:10.wav" ] || [ "./write_wav" -nt "data/mono_0:10.wav" ] || [ "Makefile" -nt "data/mono_0:10.wav" ]; then \
 		./write_wav data/mono_0:10.wav; \
+		ffmpeg -y -i data/mono_0:10.wav -q 2 data/mono_0:10.mp3; \
+		ffmpeg -y -i data/mono_0:10.wav -vbr 3 data/mono_0:10.m4a; \
+		ffmpeg -y -i data/mono_0:10.wav data/mono_0:10.opus; \
 	fi;
-	@if [ ! -e "data/stereo_0:10.wav" ] || [ "./write_wav" -nt "data/stereo_0:10.wav" ]; then \
-		./write_wav --channels=2 data/stereo_1.wav; \
+	@if [ ! -e "data/stereo_0:10.wav" ] || [ "./write_wav" -nt "data/stereo_0:10.wav" ] || [ "Makefile" -nt "data/stereo_0:10.wav" ]; then \
+		./write_wav --channels=2 data/stereo_0:10.wav; \
+		ffmpeg -y -i data/stereo_0:10.wav -q 2 data/stereo_0:10.mp3; \
+		ffmpeg -y -i data/stereo_0:10.wav -vbr 3 data/stereo_0:10.m4a; \
+		ffmpeg -y -i data/stereo_0:10.wav data/stereo_0:10.opus; \
 	fi;
 	@if [ ! -e "data/mono_10:00.wav" ] || [ "./write_wav" -nt "data/mono_10:00.wav" ]; then \
 		./write_wav --length=600  data/mono_10:00.wav; \
+		ffmpeg -y -i data/mono_10:00.wav -q 2 data/mono_10:00.mp3; \
 	fi;
 	@if [ ! -e "data/short.wav" ] || [ "./write_short" -nt "data/short.wav" ]; then \
 		./write_short data/short.wav; \

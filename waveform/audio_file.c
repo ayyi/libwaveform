@@ -34,6 +34,9 @@ static bool    wf_ff_info                   (FF*);
 static ssize_t wf_ff_read_float_p           (FF*, WfBuf16*, size_t len);
 static ssize_t wf_ff_read_short_interleaved (FF*, WfBuf16*, size_t len);
 static ssize_t wf_ff_read_float_interleaved (FF*, WfBuf16*, size_t len);
+static ssize_t wf_ff_read_u8_interleaved    (FF*, WfBuf16*, size_t len);
+
+#define U8_TO_SHORT(V) ((V - 128) * 128)
 
 
 static void
@@ -113,6 +116,10 @@ wf_ff_open(FF* f, const char* filename)
 		case AV_SAMPLE_FMT_FLTP:
 			dbg(1, "FLTP");
 			f->read = wf_ff_read_float_p;
+			break;
+		case AV_SAMPLE_FMT_U8:
+			dbg(1, "U8");
+			f->read = wf_ff_read_u8_interleaved;
 			break;
 		default:
 			gwarn("format may not be supported: %i %s", f->codec_context->sample_fmt, av_get_sample_fmt_name(f->codec_context->sample_fmt));
@@ -255,6 +262,69 @@ wf_ff_read_short_interleaved(FF* f, WfBuf16* buf, size_t len)
 
 
 static ssize_t
+wf_ff_read_u8_interleaved(FF* f, WfBuf16* buf, size_t len)
+{
+	int64_t n_fr_done = 0;
+
+	int data_size = av_get_bytes_per_sample(f->codec_context->sample_fmt);
+	g_return_val_if_fail(data_size == 1, 0);
+
+	bool have_frame = false;
+	if(f->frame.nb_samples && f->frame_iter < f->frame.nb_samples){
+		have_frame = true;
+	}
+
+	while(have_frame || !av_read_frame(f->format_context, &f->packet)){
+		have_frame = false;
+		if(f->packet.stream_index == f->audio_stream){
+			int got_frame = 0;
+			if(f->frame_iter && f->frame_iter < f->frame.nb_samples){
+				got_frame = true;
+			}else{
+				memset(&f->frame, 0, sizeof(AVFrame));
+				av_frame_unref(&f->frame);
+				f->frame_iter = 0;
+
+				if(avcodec_decode_audio4(f->codec_context, &f->frame, &got_frame, &f->packet) < 0){
+					gwarn("error decoding audio");
+				}
+			}
+
+			if(got_frame){
+				int size = av_samples_get_buffer_size (NULL, f->codec_context->channels, f->frame.nb_samples, f->codec_context->sample_fmt, 1);
+				if (size < 0)  {
+					dbg(0, "av_samples_get_buffer_size invalid value");
+				}
+
+				int64_t fr = f->frame.best_effort_timestamp * f->info.sample_rate / f->format_context->streams[f->audio_stream]->time_base.den;
+				int ch;
+				int i; for(i=f->frame_iter; i<f->frame.nb_samples && (n_fr_done < len); i++){
+					if(fr >= f->seek_frame){
+						for(ch=0; ch<MIN(2, f->codec_context->channels); ch++){
+							buf->buf[ch][n_fr_done] = U8_TO_SHORT(*(f->frame.data[0] + f->codec_context->channels * i + ch));
+						}
+						n_fr_done++;
+						f->frame_iter++;
+					}
+				}
+				f->output_clock = fr + n_fr_done;
+
+				if(n_fr_done >= len) goto stop;
+			}
+		}
+		av_free_packet(&f->packet);
+		continue;
+
+		stop:
+			av_free_packet(&f->packet);
+			break;
+	}
+
+	return n_fr_done;
+}
+
+
+static ssize_t
 wf_ff_read_float_interleaved(FF* f, WfBuf16* buf, size_t len)
 {
 	AVFrame frame;
@@ -353,7 +423,8 @@ wf_ff_read_float_p(FF* f, WfBuf16* buf, size_t len)
 					if(fr >= f->seek_frame){
 						for(ch=0; ch<MIN(2, f->codec_context->channels); ch++){
 							float* src = (float*)(f->frame.data[ch] + data_size * i);
-							buf->buf[ch][n_fr_done] = (*src) * (1 << 15);
+							// aac values can exceed 1.0 so clamping is needed
+							buf->buf[ch][n_fr_done] = CLAMP((*src), -1.0f, 1.0f) * 32767.0f;
 						}
 						n_fr_done++;
 						f->frame_iter++;
@@ -413,11 +484,10 @@ wf_ff_read_short_p(FF* f, WfBuf16* buf, size_t len)
 
 				int64_t fr = f->frame.best_effort_timestamp * f->info.sample_rate / f->format_context->streams[f->audio_stream]->time_base.den + f->frame_iter;
 				int ch;
-				int i; for(i=f->frame_iter; i<f->frame.nb_samples; i++){
-					if(n_fr_done >= len) break;
+				int i; for(i=f->frame_iter; (i<f->frame.nb_samples) && (n_fr_done < len); i++){
 					if(fr >= f->seek_frame){
 						for(ch=0; ch<MIN(2, f->codec_context->channels); ch++){
-							memcpy(buf->buf[ch] + n_fr_done, f->frame.data[ch] + data_size * i, data_size);
+							buf->buf[ch][n_fr_done] = *(((int16_t*)f->frame.data[ch]) + i);
 						}
 						n_fr_done++;
 						f->frame_iter++;

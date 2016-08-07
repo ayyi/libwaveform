@@ -96,21 +96,25 @@ test_audio_file()
 {
 	START_TEST;
 
-	char* filenames[] = {"data/mono_0:10.wav", "data/stereo_1.wav", "data/mono_1.mp3", "data/stereo_1.mp3"};
+	char* filenames[] = {"data/mono_0:10.wav", "data/stereo_0:10.wav", "data/mono_0:10.mp3", "data/stereo_0:10.mp3", "data/mono_0:10.m4a", "data/stereo_0:10.m4a", "data/mono_0:10.opus", "data/stereo_0:10.opus"};
 
 	int i; for(i=0;i<G_N_ELEMENTS(filenames);i++){
 		FF f = {0,};
 		char* filename = find_wav(filenames[i]);
-		if(!wf_ff_open(&f, filename)) FAIL_TEST("file open");
+		if(!wf_ff_open(&f, filename)) FAIL_TEST("file open: %s", filenames[i]);
+
+		if(!g_str_has_suffix(filenames[i], ".opus")){
+			assert(f.info.sample_rate == 44100, "samplerate: %i (expected 44100)", f.info.sample_rate);
+		}else{
+			assert(f.info.sample_rate == 48000, "samplerate: %i (expected 48000)", f.info.sample_rate);
+		}
 
 		int n = 8;
 		int read_len = WF_PEAK_RATIO * n;
 
 		int16_t data[f.info.channels][read_len];
 		WfBuf16 buf = {
-			.buf = {
-				data[0], data[1]
-			},
+			.buf = {data[0], data[1]},
 			.size = n * WF_PEAK_RATIO
 		};
 
@@ -121,13 +125,13 @@ test_audio_file()
 			total += readcount;
 		} while (readcount > 0);
 		dbg(1, "diff=%zu", abs((int)total - (int)f.info.frames));
-		if(g_str_has_suffix(filenames[i], ".mp3")){
-			// for some files, f.info.frames is only an estimate
-			assert(abs((int)total - (int)f.info.frames) < 512, "incorrect number of frames read %Lu", f.info.frames);
+		if(g_str_has_suffix(filenames[i], ".wav") || g_str_has_suffix(filenames[i], ".flac")){
+			assert(total == f.info.frames, "%s: incorrect number of frames read: %Lu", filenames[i], f.info.frames);
+			assert(!(total % 512) || !(total % 100), "%s: bad framecount: %zu", filenames[i], total); // test file sizes are always a round number
 		}else{
-			assert(total == f.info.frames, "incorrect number of frames read %Lu", f.info.frames);
+			// for some file types, f.info.frames is only an estimate
+			assert(abs((int)total - (int)f.info.frames) < 2048, "%s: incorrect number of frames read: %Lu", filenames[i], f.info.frames);
 		}
-		assert(!(total % 512) || !(total % 100), "bad framecount"); // test file sizes are always a round number
 
 		wf_ff_close(&f);
 		g_free(filename);

@@ -264,16 +264,20 @@ wf_ff_peakgen(const char* infilename, const char* peak_filename)
 
 			int k; for (k = 0; k < MIN(remaining, WF_PEAK_RATIO); k+=sfinfo.channels){
 				int c; for(c=0;c<sfinfo.channels;c++){
-					peak[c].positive = MAX(peak[c].positive, buf.buf[c][WF_PEAK_RATIO * j + k]);
-					peak[c].positive = MAX(0, peak[c].positive - 1);
-					peak[c].negative = MIN(peak[c].negative, buf.buf[c][WF_PEAK_RATIO * j + k]);
+					int16_t val = buf.buf[c][WF_PEAK_RATIO * j + k];
+					peak[c] = (WfPeakSample){
+						MAX(peak[c].positive, val),
+						MIN(peak[c].negative, MAX(val, -32767)), // TODO value of SHRT_MAX messes up the rendering - why?
+					};
 				}
 			};
 			remaining -= WF_PEAK_RATIO;
 			int c; for(c=0;c<sfinfo.channels;c++){
 				w[c] = peak[c];
-				total[c].positive = MAX(total[c].positive, w[c].positive);
-				total[c].negative = MIN(total[c].negative, w[c].negative);
+				total[c] = (WfPeakSample){
+					MAX(total[c].positive, w[c].positive),
+					MIN(total[c].negative, w[c].negative),
+				};
 			}
 			total_frames_written += sf_writef_short (outfile, (short*)w, WF_PEAK_VALUES_PER_SAMPLE);
 		}
