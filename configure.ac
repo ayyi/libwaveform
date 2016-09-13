@@ -236,6 +236,7 @@ agl/Makefile
 agl/shaders/Makefile
 transition/Makefile
 sdl/Makefile
+decoder/Makefile
 waveform/Makefile
 waveform/actors/Makefile
 waveform/loaders/Makefile

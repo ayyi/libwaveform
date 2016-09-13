@@ -67,6 +67,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
+#include <inttypes.h>
 #include <string.h>
 #include <math.h>
 #include <sys/time.h>
@@ -271,7 +272,7 @@ wf_animation_val_to_str(WfAnimatable* animatable)
 			str = g_strdup_printf("%.2f (%.2f --> %.2f)", animatable->val.f, animatable->start_val.f, *animatable->model_val.f);
 			break;
 		case WF_INT64:
-			str = g_strdup_printf("%Li (%Li --> %Li)", animatable->val.b, animatable->start_val.b, *animatable->model_val.b);
+			str = g_strdup_printf("%"PRIi64" (%"PRIi64" --> %"PRIi64")", animatable->val.b, animatable->start_val.b, *animatable->model_val.b);
 			break;
 		default:
 			str = g_strdup_printf("%i (%i --> %i)", animatable->val.i, animatable->start_val.i, *animatable->model_val.i);

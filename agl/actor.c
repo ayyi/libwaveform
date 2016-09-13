@@ -40,8 +40,10 @@ static void   agl_actor__init         (AGlActor*);        // called once when gl
 #ifdef USE_FRAME_CLOCK
 static bool   agl_actor__is_animating (AGlActor*);
 #endif
+#ifdef DEBUG
 #ifdef AGL_DEBUG_ACTOR
 static bool   agl_actor__is_cached    (AGlActor*);
+#endif
 #endif
 
 
@@ -1003,6 +1005,7 @@ agl_actor__is_animating(AGlActor* a)
 #endif
 
 
+#ifdef DEBUG
 #ifdef AGL_DEBUG_ACTOR
 static bool
 agl_actor__is_cached(AGlActor* a)
@@ -1013,6 +1016,7 @@ agl_actor__is_cached(AGlActor* a)
 
 	return false;
 }
+#endif
 #endif
 
 
@@ -1034,12 +1038,10 @@ agl_actor__print_tree (AGlActor* actor)
 	void _print(AGlActor* actor)
 	{
 		g_return_if_fail(actor);
-#ifdef AGL_DEBUG_ACTOR
-		bool is_onscreen = agl_actor__is_onscreen(actor);
-#endif
 		int i; for(i=0;i<indent;i++) printf("  ");
 
 #ifdef AGL_DEBUG_ACTOR
+		bool is_onscreen = agl_actor__is_onscreen(actor);
 		char* offscreen = is_onscreen ? "" : " OFFSCREEN";
 		char* zero_size = agl_actor__width(actor) ? "" : " ZEROSIZE";
 		char* disabled = agl_actor__is_disabled(actor) ?  " DISABLED" :  "";

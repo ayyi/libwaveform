@@ -737,7 +737,9 @@ pango_gl_renderer_class_init (PangoGlRendererClass *klass)
   renderer_class->begin          = gl_pango_draw_begin;
   renderer_class->end            = gl_pango_draw_end;
 
-  if(sizeof(Colour32) != 4) gwarn("expected Colour32 size of 4: size=%i", sizeof(Colour32));
+#ifdef DEBUG
+  if(sizeof(Colour32) != 4) gwarn("expected Colour32 size of 4: size=%zu", sizeof(Colour32));
+#endif
 
   PGRC = klass;
 }

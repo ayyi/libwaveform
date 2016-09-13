@@ -778,7 +778,8 @@ agl_use_texture(GLuint texture)
 }
 
 
-void agl_enable_stencil(float x, float y, float w, float h)
+void
+agl_enable_stencil(float x, float y, float w, float h)
 {
 	glClear(GL_DEPTH_BUFFER_BIT);
 	glEnable(GL_STENCIL_TEST);
@@ -810,7 +811,8 @@ void agl_enable_stencil(float x, float y, float w, float h)
 }
 
 
-void agl_disable_stencil()
+void
+agl_disable_stencil()
 {
 	glDisable(GL_STENCIL_TEST);
 }

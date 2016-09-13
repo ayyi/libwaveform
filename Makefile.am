@@ -4,7 +4,7 @@ endif
 if ENABLE_SDL
 SDL_SUBDIRS = sdl
 endif
-SUBDIRS = $(OPENGL_SUBDIRS) $(SDL_SUBDIRS) waveform transition test
+SUBDIRS = $(OPENGL_SUBDIRS) $(SDL_SUBDIRS) waveform transition decoder test
 
 AM_CFLAGS = \
 	-DG_LOG_DOMAIN=\"Waveform\" \

@@ -35,11 +35,11 @@
 #include <sys/shm.h>
 #include <signal.h>
 #include <glib.h>
+#include "decoder/ad.h"
 #include "waveform/waveform.h"
 #include "waveform/peakgen.h"
 #include "waveform/alphabuf.h"
 #include "waveform/worker.h"
-#include "waveform/audio_file.h"
 #include "test/ayyi_utils.h"
 #include "test/common.h"
 
@@ -60,7 +60,7 @@ gpointer tests[] = {
 int
 main (int argc, char *argv[])
 {
-	if(sizeof(off_t) != 8){ gerr("sizeof(off_t)=%i\n", sizeof(off_t)); exit(1); }
+	if(sizeof(off_t) != 8){ gerr("sizeof(off_t)=%zu\n", sizeof(off_t)); exit(1); }
 
 	test_init(tests, G_N_ELEMENTS(tests));
 
@@ -99,9 +99,9 @@ test_audio_file()
 	char* filenames[] = {"data/mono_0:10.wav", "data/stereo_0:10.wav", "data/mono_0:10.mp3", "data/stereo_0:10.mp3", "data/mono_0:10.m4a", "data/stereo_0:10.m4a", "data/mono_0:10.opus", "data/stereo_0:10.opus"};
 
 	int i; for(i=0;i<G_N_ELEMENTS(filenames);i++){
-		FF f = {0,};
+		WfDecoder f = {{0,}};
 		char* filename = find_wav(filenames[i]);
-		if(!wf_ff_open(&f, filename)) FAIL_TEST("file open: %s", filenames[i]);
+		if(!ad_open(&f, filename)) FAIL_TEST("file open: %s", filenames[i]);
 
 		if(!g_str_has_suffix(filenames[i], ".opus")){
 			assert(f.info.sample_rate == 44100, "samplerate: %i (expected 44100)", f.info.sample_rate);
@@ -121,7 +121,7 @@ test_audio_file()
 		size_t readcount = 0;
 		size_t total = 0;
 		do {
-			readcount = f.read(&f, &buf, read_len);
+			readcount = ad_read_short(&f, &buf);
 			total += readcount;
 		} while (readcount > 0);
 		dbg(1, "diff=%zu", abs((int)total - (int)f.info.frames));
@@ -133,7 +133,7 @@ test_audio_file()
 			assert(abs((int)total - (int)f.info.frames) < 2048, "%s: incorrect number of frames read: %Lu", filenames[i], f.info.frames);
 		}
 
-		wf_ff_close(&f);
+		ad_close(&f);
 		g_free(filename);
 	}
 

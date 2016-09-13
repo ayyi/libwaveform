@@ -38,12 +38,10 @@
 #include <sys/time.h>
 #include <sndfile.h>
 #include <gtk/gtk.h>
+#include "decoder/ad.h"
 #include "waveform/waveform.h"
 #define __wf_worker_private__
 #include "waveform/worker.h"
-#ifdef USE_FFMPEG
-#include "waveform/audio_file.h"
-#endif
 #include "waveform/audio.h"
 
 																											int n_loads[4096];
@@ -94,7 +92,6 @@ waveform_audio_free(Waveform* waveform)
  *  For thread-safety, the Waveform is not modified.
  *  Usually called by a worker. Not intended to be used directly.
  */
-#ifdef USE_FFMPEG
 static bool
 waveform_load_audio_block(Waveform* waveform, WfBuf16* buf16, int block_num)
 {
@@ -108,120 +105,45 @@ waveform_load_audio_block(Waveform* waveform, WfBuf16* buf16, int block_num)
 	g_return_val_if_fail(n_chans, false);
 
 	// TODO hold this open for subsequent blocks so we dont have to seek
-	FF f = {0,};
+	WfDecoder f = {{0,}};
 
-	if(!wf_ff_open(&f, waveform->filename)){
+	if(!ad_open(&f, waveform->filename)){
 		gwarn ("not able to open input file %s.", waveform->filename);
 		return false;
 	}
 
-	wf_ff_seek(&f, start_pos); // TODO check result
+	if(ad_seek(&f, start_pos) < 0){
+		ad_close(&f);
+		return false;
+	}
 
 	int64_t n_frames = end_pos - start_pos;
 #ifdef WF_DEBUG
 	buf16->start_frame = start_pos;
 #endif
 
+#if 0
 	bool ff_read_short(FF* f, WfBuf16* buf, int ch, sf_count_t n_frames)
 	{
 		int64_t readcount;
 		if((readcount = f->read(f, buf, n_frames)) < n_frames){
 			gwarn("unexpected EOF: %s", waveform->filename);
-			gwarn("                start_frame=%Li expected=%Lu got=%Li", start_pos, n_frames, readcount);
+			gwarn("                start_frame=%"PRIi64" expected=%"PRIi64" got=%"PRIi64, start_pos, n_frames, readcount);
 			return false;
 		}
 
 		return true;
 	}
-
-	ff_read_short(&f, buf16, WF_LEFT, n_frames);
-
-	switch(n_chans){
-		case WF_MONO:
-			;bool is_float = f.codec_context->sample_fmt == AV_SAMPLE_FMT_FLT || f.codec_context->sample_fmt == AV_SAMPLE_FMT_FLTP;
-			if(is_float){
-				if(waveform->is_split){
-					dbg(2, "is_split! file=%s", waveform->filename);
-					char rhs[256];
-					if(wf_get_filename_for_other_channel(waveform->filename, rhs, 256)){
-						dbg(3, "  %s", rhs);
-
-						wf_ff_close(&f);
-						if(!wf_ff_open(&f, rhs)){
-							gwarn ("not able to open input file %s.", rhs);
-							return false;
-						}
-						wf_ff_seek(&f, start_pos);
-
-						ff_read_short(&f, buf16, WF_RIGHT, n_frames);
-					}
-				}
-			}
-			break;
-		case WF_STEREO:
-			break;
-	}
-
-	wf_ff_close(&f);
-
-	return true;
-}
-#else
-gboolean
-waveform_load_audio_block(Waveform* waveform, WfBuf16* buf16, int block_num)
-{
-	//TODO handle split stereo files
-
-	g_return_val_if_fail(waveform, false);
-
-	// which parts of the audio file are present?
-	//  tier 1:  0,             128
-	//  tier 2:  0,     64,     128,     196
-	//  tier 3:  0, 32, 64, 96, 128, ... 196
-	//  tier 4:  0, 16, ...
-	//  tier 5:  0,  8, ...
-	//  tier 6:  0,  4, ...
-	//  tier 7:  0,  2, ...
-	//  tier 8:  0,  1, ...
-
-	//guint n_peaks = ((n_frames * 1 ) / WF_PEAK_RATIO) << audio->n_tiers_present;
-	//int spacing = WF_PEAK_RATIO >> (audio->n_tiers_present - 1);
-
-	uint64_t start_pos = block_num * (WF_PEAK_BLOCK_SIZE - 2.0 * TEX_BORDER * 256.0);
-	uint64_t end_pos   = start_pos + WF_PEAK_BLOCK_SIZE;
-
-	int n_chans = waveform_get_n_channels(waveform);
-	g_return_val_if_fail(n_chans, false);
-
-	SF_INFO sfinfo = {
-		.format = 0
-	};
-	SNDFILE* sffile;
-
-	if(!(sffile = sf_open(waveform->filename, SFM_READ, &sfinfo))){
-		gwarn ("not able to open input file %s.", waveform->filename);
-		puts(sf_strerror(NULL));
-		return false;
-	}
-
-	if(start_pos > sfinfo.frames){ gerr("startpos too high. %Li > %Li block=%i", start_pos, sfinfo.frames, block_num); return false; }
-	if(end_pos > sfinfo.frames){ dbg(1, "*** last block: end_pos=%Lu max=%Lu", end_pos, sfinfo.frames); end_pos = sfinfo.frames; }
-	sf_seek(sffile, start_pos, SEEK_SET);
-	dbg(1, "block=%s%i%s (%i/%i) start=%Li end=%Li", wf_bold, block_num, wf_white, block_num+1, waveform_get_n_audio_blocks(waveform), start_pos, end_pos);
-
-	sf_count_t n_frames = MIN(buf16->size, end_pos - start_pos); //1st of these isnt needed?
-	g_return_val_if_fail(buf16 && buf16->buf[WF_LEFT], false);
-#ifdef WF_DEBUG
-	buf16->start_frame = start_pos;
 #endif
 
-	gboolean sf_read_float_to_short(SNDFILE* sffile, WfBuf16* buf, int ch, sf_count_t n_frames)
+#if 0
+	bool ff_read_float_to_short(FF* f, WfBuf16* buf, int ch, sf_count_t n_frames)
 	{
 		float readbuf[buf->size];
-		sf_count_t readcount;
-		if((readcount = sf_readf_float(sffile, readbuf, n_frames)) < n_frames){
+		int64_t readcount;
+		if((readcount = wf_ff_read(f, readbuf, n_frames)) < n_frames){
 			gwarn("unexpected EOF: %s", waveform->filename);
-			gwarn("                start_frame=%Li n_frames=%Lu/%Lu read=%Li", start_pos, n_frames, sfinfo.frames, readcount);
+			gwarn("                start_frame=%Li n_frames=%Lu read=%Li", start_pos, n_frames, readcount);
 			return false;
 		}
 
@@ -233,79 +155,63 @@ waveform_load_audio_block(Waveform* waveform, WfBuf16* buf16, int block_num)
 		return true;
 	}
 
-	sf_count_t readcount;
-	switch(sfinfo.channels){
-		case WF_MONO:
-			;gboolean is_float = ((sfinfo.format & SF_FORMAT_SUBMASK) == SF_FORMAT_FLOAT);
-			if(is_float){
-				//FIXME temporary? sndfile is supposed to automatically convert between formats??!
+	bool ff_read_float_to_short2(FF* f, short* buf, int64_t n_frames)
+	{
+		float readbuf[n_frames];
+		int64_t readcount;
+		if((readcount = wf_ff_read(f, readbuf, n_frames)) < n_frames){
+			gwarn("unexpected EOF: %s", waveform->filename);
+			gwarn("                start_frame=%Li n_frames=%Lu (%Lu) read=%Li", start_pos, n_frames, start_pos + n_frames, readcount);
+			return false;
+		}
 
-				sf_read_float_to_short(sffile, buf16, WF_LEFT, n_frames);
+		//convert to short
+		int j; for(j=0;j<readcount;j++){
+			buf[j] = readbuf[j] * (1 << 15);
+		}
 
-				if(waveform->is_split){
+		return true;
+	}
+#endif
+
+	ad_read_short(&f, buf16);
+
+#warning FIXME split files
+	if(waveform->is_split){
+		switch(n_chans){
+			case WF_MONO:
+				;bool is_float = f.info.bit_depth == 4;//f.codec_context->sample_fmt == AV_SAMPLE_FMT_FLT || f.codec_context->sample_fmt == AV_SAMPLE_FMT_FLTP;
+				if(is_float){
 					dbg(2, "is_split! file=%s", waveform->filename);
 					char rhs[256];
 					if(wf_get_filename_for_other_channel(waveform->filename, rhs, 256)){
 						dbg(3, "  %s", rhs);
 
-						if(sf_close(sffile)) gwarn ("bad file close.");
-						if(!(sffile = sf_open(rhs, SFM_READ, &sfinfo))){
+						ad_close(&f);
+						if(!ad_open(&f, rhs)){
 							gwarn ("not able to open input file %s.", rhs);
-							puts(sf_strerror(NULL));
 							return false;
 						}
-						sf_seek(sffile, start_pos, SEEK_SET);
+						ad_seek(&f, start_pos);
 
-						sf_read_float_to_short(sffile, buf16, WF_RIGHT, n_frames);
+#if 0
+						ff_read_short(f.d, buf16, WF_RIGHT, n_frames);
+#else
+						// we want to write to WF_RIGHT here but are overwriting WF_LEFT
+						ad_read_short(&f, buf16);
+#endif
 					}
 				}
-			}else{
-				if((readcount = sf_readf_short(sffile, buf16->buf[WF_LEFT], n_frames)) < n_frames){
-					gwarn("unexpected EOF: %s", waveform->filename);
-					gwarn("                start_frame=%Li n_frames=%Lu/%Lu read=%Li", start_pos, n_frames, sfinfo.frames, readcount);
-				}
-			}
-			/*
-			int i; for(i=0;i<10;i++){
-				printf("  %i\n", buf->buf[WF_LEFT][i]);
-			}
-			*/
-			break;
-		case WF_STEREO:
-			{
-#if 0
-			float read_buf[n_frames * WF_STEREO];
-
-			if((readcount = sf_readf_float(sffile, read_buf, n_frames)) < n_frames){
-#else
-			short read_buf[n_frames * WF_STEREO];
-			if((readcount = sf_readf_short(sffile, read_buf, n_frames)) < n_frames){
-#endif
-				gwarn("unexpected EOF: %s", waveform->filename);
-				gwarn("                STEREO start_frame=%Lu n_frames=%Lu/%Lu read=%Lu", start_pos, n_frames, sfinfo.frames, readcount);
-			}
-
-			#if 0 //only useful for testing.
-			memset(w->cache->buf->buf[0], 0, WF_CACHE_BUF_SIZE);
-			memset(w->cache->buf->buf[1], 0, WF_CACHE_BUF_SIZE);
-			#endif
-
-			wf_deinterleave16(read_buf, buf16->buf, n_frames);
-			}
-			break;
-		default:
-			break;
+				break;
+			case WF_STEREO:
+				break;
+		}
 	}
-	dbg(2, "read %Lu frames", n_frames);
-	if(sf_error(sffile)) gwarn("read error");
-	if(sf_close(sffile)) gwarn("bad file close.");
 
-	//buffer size is the allocation size. To check if it is full, use w->samplecount
-	//buf->size = readcount; X
+	ad_close(&f);
 
 	return true;
 }
-#endif
 
 
 #ifdef NOT_USED

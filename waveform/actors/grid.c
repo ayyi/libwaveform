@@ -143,7 +143,7 @@ grid_actor_paint(AGlActor* actor)
 				else{
 #endif
 					uint64_t mins = f / (60 * context->sample_rate);
-					snprintf(s, 15, "%Lu:%.1f", mins, ((float)f) / context->sample_rate - 60 * mins);
+					snprintf(s, 15, "%"PRIi64":%.1f", mins, ((float)f) / context->sample_rate - 60 * mins);
 #if 0
 				}
 #endif

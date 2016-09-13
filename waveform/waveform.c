@@ -31,12 +31,12 @@
 #ifdef USE_OPENGL
 #include "agl/utils.h"
 #endif
+#include "decoder/ad.h"
 #include "waveform/waveform.h"
 #include "waveform/loaders/ardour.h"
 #include "waveform/loaders/riff.h"
 #include "waveform/texture_cache.h"
 #include "waveform/audio.h"
-#include "waveform/audio_file.h"
 #include "waveform/alphabuf.h"
 #include "waveform/fbo.h"
 #include "waveform/worker.h"
@@ -276,22 +276,14 @@ waveform_get_sf_data(Waveform* w)
 
 	if(w->offline) return;
 
-#ifdef USE_FFMPEG
-	FF f = {0,};
+	WfDecoder d = {{0,}};
+	if(ad_open(&d, w->filename)){
+		w->n_frames = d.info.frames; // for some filetypes this will be an estimate
+		w->n_channels = w->n_channels ? w->n_channels : d.info.channels; // file info is not correct in the case of split stereo files.
+		w->samplerate = d.info.sample_rate;
 
-	if(wf_ff_open(&f, w->filename)){
-		w->n_frames = f.info.frames; // for some filetypes this will be an estimate
-		w->n_channels = w->n_channels ? w->n_channels : f.info.channels; // file info is not correct in the case of split stereo files.
-		w->samplerate = f.info.sample_rate;
-		wf_ff_close(&f);
-#else
-	SF_INFO sfinfo = {0,};
-	SNDFILE* sndfile;
-	if((sndfile = sf_open(w->filename, SFM_READ, &sfinfo))){
-		w->n_frames = sfinfo.frames;
-		w->n_channels = w->n_channels ? w->n_channels : sfinfo.channels; // sfinfo is not correct in the case of split stereo files.
-		w->samplerate = sfinfo.samplerate;
-#endif
+		ad_close(&d);
+		ad_free_nfo(&d.info);
 	}else{
 		w->offline = true;
 
@@ -309,14 +301,11 @@ waveform_get_sf_data(Waveform* w)
 			}
 		}
 	}
-#ifndef USE_FFMPEG
-	sf_close(sndfile);
-#endif
 
 	if(_w->num_peaks && !_w->checks_done){
 		if(w->n_frames > _w->num_peaks * WF_PEAK_RATIO){
 			char* peakfile = waveform_ensure_peakfile__sync(w);
-			gwarn("peakfile is too short. maybe corrupted. len=%i expected=%Lu '%s'", _w->num_peaks, w->n_frames / WF_PEAK_RATIO, peakfile);
+			gwarn("peakfile is too short. maybe corrupted. len=%i expected=%"PRIi64" '%s'", _w->num_peaks, w->n_frames / WF_PEAK_RATIO, peakfile);
 			w->renderable = false;
 			g_free(peakfile);
 		}
@@ -386,6 +375,16 @@ waveform_load_peak(Waveform* w, const char* peak_file, int ch_num)
 	_w->num_peaks = _w->peak.size / WF_PEAK_VALUES_PER_SAMPLE;
 	_w->n_blocks = _w->num_peaks / WF_TEXTURE_VISIBLE_SIZE + ((_w->num_peaks % WF_TEXTURE_VISIBLE_SIZE) ? 1 : 0);
 	dbg(1, "ch=%i num_peaks=%i", ch_num, _w->num_peaks);
+
+#ifdef DEBUG
+	if(!g_str_has_suffix(w->filename, ".mp3")){
+		if(wf_debug > -1 && w->n_frames){
+			uint64_t a = _w->num_peaks;
+			uint64_t b = w->n_frames / WF_PEAK_RATIO;
+			gwarn("got %"PRIi64" peaks, expected %"PRIi64, a, b);
+		}
+	}
+#endif
 
 	return !!w->priv->peak.buf[ch_num];
 }
@@ -1224,7 +1223,7 @@ fullpath = g_strdup(src); //TODO
 	rb->buf = g_new(char, fsize);
 
 	//read the whole peak file into memory:
-	if(read(fp, rb->buf, fsize) != fsize) gerr ("read error. couldnt read %Lu bytes from %s", fsize, rms_file);
+	if(read(fp, rb->buf, fsize) != fsize) gerr ("read error. couldnt read %"PRIi64" bytes from %s", fsize, rms_file);
   
 	close(fp);
 	//dbg (2, "done. %s: %isamples (%li beats / %.3f secs).", filename, pool_item->priv->peak.size, samples2beats(pool_item->priv->peak.size), samples2secs(pool_item->priv->peak.size*WF_PEAK_RATIO));

@@ -285,7 +285,7 @@ draw_wave_buffer_v_hi(Renderer* renderer, WaveformActor* actor, int block, bool 
 			continue;
 		}
 #endif
-		if (s0 + s >= (int)buf->size ) { gwarn("end of block reached: b_region.start=%i b_region.end=%Lu %i", s0, b_region.start + ((uint64_t)b_region.len), buf->size); break; }
+		if (s0 + s >= (int)buf->size ) { gwarn("end of block reached: b_region.start=%i b_region.end=%"PRIi64" %i", s0, b_region.start + ((uint64_t)b_region.len), buf->size); break; }
 		/*
 		if (s  + 3 >= b_region.len) {
 			gwarn("end of b_region reached: b_region.len=%i x=%i s0=%i s=%i", b_region.len, x, s0, s);

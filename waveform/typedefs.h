@@ -50,6 +50,12 @@ typedef void   (*WfCallback3)        (Waveform*, GError*, gpointer);
 typedef void   (*WfPeakfileCallback) (Waveform*, char* peakfile_name, gpointer);
 typedef void   (*WfAudioCallback)    (Waveform*, int b, gpointer);
 
+enum
+{
+	WF_MONO = 1,
+	WF_STEREO,
+};
+
 #ifdef HAVE_GTK_2_22
 #define KEY_Left     GDK_KEY_Left
 #define KEY_Right    GDK_KEY_Right

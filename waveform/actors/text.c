@@ -88,13 +88,15 @@ _init()
 
 	void ass_init()
 	{
+#ifdef DEBUG
 		void msg_callback(int level, const char* fmt, va_list va, void* data)
 		{
-			if (!wf_debug || level > 6) return;
+			if (wf_debug < 2 || level > 6) return;
 			printf("libass: ");
 			vprintf(fmt, va);
 			printf("\n");
 		}
+#endif
 
 #ifdef USE_LIBASS
 		ass_library = ass_library_init();
@@ -103,7 +105,9 @@ _init()
 			exit(EXIT_FAILURE);
 		}
 
+#ifdef DEBUG
 		ass_set_message_cb(ass_library, msg_callback, NULL);
+#endif
 
 		ass_renderer = ass_renderer_init(ass_library);
 		if (!ass_renderer) {
@@ -247,7 +251,7 @@ text_actor_set_colour (TextActor* ta, uint32_t title1, uint32_t title2)
 
 
 /*
- *  The text is owned by the actor and will be freed later.
+ *  The strings are owned by the actor and will be freed later.
  */
 void
 text_actor_set_text (TextActor* ta, char* title, char* text)

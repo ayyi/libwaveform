@@ -1,5 +1,5 @@
 /*
-  copyright (C) 2012-2015 Tim Orford <tim@orford.org>
+  copyright (C) 2012-2016 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -17,9 +17,8 @@
 #define __wf_private__
 #define ENABLE_CHECKS
 #include "config.h"
-#include <unistd.h>
 #include <stdlib.h>
-#include <fcntl.h>
+#include <inttypes.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <math.h>
@@ -80,7 +79,7 @@ wf_load_riff_peak(Waveform* wv, const char* peak_file)
 	//read the whole peak file into memory:
 	int readcount_frames;
 	if((readcount_frames = sf_readf_short(sndfile, read_buf, sfinfo.frames)) < sfinfo.frames){
-		gwarn("unexpected EOF: %s - read %i of %Li items", peak_file, readcount_frames, n_frames);
+		gwarn("unexpected EOF: %s - read %i of %"PRIi64" items", peak_file, readcount_frames, n_frames);
 		//gerr ("read error. couldnt read %i bytes from %s", bytes, peak_file);
 	}
 

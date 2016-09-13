@@ -66,12 +66,6 @@ typedef struct _WaveformClass WaveformClass;
 
 typedef int (*PeakLoader)(Waveform*, const char*);
 
-enum
-{
-	WF_MONO = 1,
-	WF_STEREO,
-};
-
 typedef struct
 {
 	int64_t start;              // sample frames

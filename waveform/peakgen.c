@@ -40,9 +40,10 @@
 #include <glib/gprintf.h>
 #include <glib/gstdio.h>
 #include <sndfile.h>
+#include "decoder/ad.h"
+#include "agl/utils.h"
 #include "waveform/waveform.h"
 #include "waveform/audio.h"
-#include "waveform/audio_file.h"
 #include "waveform/worker.h"
 #include "waveform/loaders/ardour.h"
 #include "waveform/peakgen.h"
@@ -56,7 +57,9 @@ static int           peak_mem_size = 0;
 static bool          need_file_cache_check = true;
 
 static inline void   process_data        (short* data, int count, int channels, short max[], short min[]);
+#ifdef UNUSED
 static unsigned long sample2time         (SF_INFO, long samplenum);
+#endif
 static bool          wf_file_is_newer    (const char*, const char*);
 static bool          wf_create_cache_dir ();
 static char*         get_cache_dir       ();
@@ -151,13 +154,12 @@ waveform_ensure_peakfile (Waveform* w, WfPeakfileCallback callback, gpointer use
 		char* filename;
 		gpointer user_data;
 	} C;
-	C* c = g_new0(C, 1);
-	*c = (C){
+	C* c = AGL_NEW(C,
 		.waveform = g_object_ref(w),
 		.callback = callback,
 		.filename = peak_filename,
 		.user_data = user_data
-	};
+	);
 
 	void waveform_ensure_peakfile_done(Waveform* w, gpointer user_data)
 	{
@@ -208,13 +210,12 @@ waveform_ensure_peakfile__sync (Waveform* w)
 }
 
 
-#ifdef USE_FFMPEG
 bool
 wf_ff_peakgen(const char* infilename, const char* peak_filename)
 {
-	FF f = {0,};
+	WfDecoder f = {{0,}};
 
-	if(!wf_ff_open(&f, infilename)) return false;
+	if(!ad_open(&f, infilename)) return false;
 
 	SNDFILE* outfile;
 	SF_INFO sfinfo = {
@@ -251,7 +252,7 @@ wf_ff_peakgen(const char* infilename, const char* peak_filename)
 	int readcount;
 	int total_readcount = 0;
 	do {
-		readcount = f.read(&f, &buf, read_len);
+		readcount = ad_read_short(&f, &buf);
 		total_readcount += readcount;
 		int remaining = readcount;
 
@@ -300,7 +301,7 @@ wf_ff_peakgen(const char* infilename, const char* peak_filename)
 	}
 #endif
 
-	wf_ff_close(&f);
+	ad_close(&f);
 	sf_close (outfile);
 	g_free(sf_data);
 
@@ -310,7 +311,6 @@ wf_ff_peakgen(const char* infilename, const char* peak_filename)
 
 	return true;
 }
-#endif
 
 
 #define FAIL_ \
@@ -393,127 +393,20 @@ wf_peakgen__sync(const char* infilename, const char* peak_filename)
 	g_return_val_if_fail(infilename, false);
 	PF;
 
-	SNDFILE *infile, *outfile;
-
-	SF_INFO sfinfo;
-	if(!(infile = sf_open(infilename, SFM_READ, &sfinfo))){
-		if(!g_file_test(infilename, G_FILE_TEST_EXISTS)){
-			if(wf_debug) printf("peakgen: no such input file: '%s'\n", infilename);
-			return false;
-		}else{
-#ifdef USE_FFMPEG
-			if(wf_ff_peakgen(infilename, peak_filename)){
-				return true;
+	if(!wf_ff_peakgen(infilename, peak_filename)){
+		if(wf_debug){
+			printf("peakgen: not able to open input file %s: %s\n", infilename, sf_strerror(NULL));
+			if(!g_file_test(infilename, G_FILE_TEST_EXISTS)){
+				printf("peakgen: no such input file: '%s'\n", infilename);
 			}
-#endif
-			if(wf_debug) printf("peakgen: not able to open input file %s: %s\n", infilename, sf_strerror(NULL));
-			return false;
 		}
-	}
-	dbg(1, "n_frames=%Lu %i", sfinfo.frames, ((int)sfinfo.frames/256));
-
-	gchar* basename = g_path_get_basename(peak_filename);
-	gchar* tmp_path = g_build_filename("/tmp", basename, NULL);
-	g_free(basename);
-
-	if (sfinfo.channels > MAX_CHANNELS){
-		printf ("Not able to process more than %d channels\n", MAX_CHANNELS);
 		return false;
-	};
-	if(wf_debug) printf("samplerate=%i channels=%i frames=%i\n", sfinfo.samplerate, sfinfo.channels, (int)sfinfo.frames);
-	if(sfinfo.channels > 16){ printf("format not supported. unexpected number of channels: %i\n", sfinfo.channels); FAIL_; }
-
-	float* buf_f = NULL;
-	if((sfinfo.format & SF_FORMAT_SUBMASK) == SF_FORMAT_FLOAT){
-		dbg(1, "32 bit float");
-		buf_f = g_malloc0(sizeof(float) * BUFFER_LEN * sfinfo.channels);
 	}
-	gboolean is_float = ((sfinfo.format & SF_FORMAT_SUBMASK) == SF_FORMAT_FLOAT);
-
-	short* data = g_malloc0((is_float ? sizeof(float) : sizeof(short)) * BUFFER_LEN * sfinfo.channels);
-
-	//copy the sfinfo for the output file:
-	SF_INFO sfinfo_w = sfinfo;
-	sfinfo_w.format = SF_FORMAT_WAV | SF_FORMAT_PCM_16;
-
-	int bytes_per_frame = sfinfo.channels * sizeof(short);
-
-	if(!(outfile = sf_open(tmp_path, SFM_WRITE, &sfinfo_w))){
-		printf ("Not able to open output file %s: %s.\n", tmp_path, sf_strerror(NULL));
-		FAIL_;
-	}
-
-	#define EIGHT_HOURS (60 * 60 * 8)
-	#define MAX_READ_ITER (44100 * EIGHT_HOURS / BUFFER_LEN)
-
-	short total_max[sfinfo.channels];
-	int readcount, i = 0;
-	long long samples_read = 0;
-	gint32 total_bytes_written = 0;
-	gint32 total_frames_written = 0;
-	short* read_buf = is_float ? (short*)buf_f : data;
-	typedef sf_count_t (*read_fn)(SNDFILE*, short*, sf_count_t);
-	read_fn r = is_float ? (read_fn)sf_readf_float : sf_readf_short;
-	while((readcount = r(infile, read_buf, BUFFER_LEN))){
-		if(wf_debug && (readcount < BUFFER_LEN)){
-			dbg(1, "EOF i=%i readcount=%i total_frames_written=%i", i, readcount, total_frames_written);
-		}
-		if(is_float){
-			int i; for(i=0;i<readcount;i++){
-				float* b = (float*)read_buf;
-				data[i] = b[i] * (1 << 14);
-			}
-		}
-
-		short max[sfinfo.channels];
-		short min[sfinfo.channels];
-		memset(max, 0, sizeof(short) * sfinfo.channels);
-		memset(min, 0, sizeof(short) * sfinfo.channels);
-		process_data(data, readcount, sfinfo.channels, max, min);
-		samples_read += readcount;
-		short w[sfinfo.channels][2];
-		int c; for(c=0;c<sfinfo.channels;c++){
-			w[c][0] = max[c];
-			w[c][1] = min[c];
-			total_max[c] = MAX(total_max[c], max[c]);
-		}
-		total_frames_written += sf_write_short (outfile, (short*)w, WF_PEAK_VALUES_PER_SAMPLE * sfinfo.channels);
-		total_bytes_written += sizeof(short);
-#if 0
-		if(sfinfo.channels == 2){
-			short* z = w;
-			if(i<10) printf("  %i %i %i %i\n", z[0], z[1], z[2], z[3]);
-		}else{
-			if(i<10) printf("  %i %i\n", max[0], min[0]);
-		}
-#endif
-		if(++i > MAX_READ_ITER){ printf("warning: stopped before EOF.\n"); break; }
-	}
-
-	if(wf_debug){
-		long secs = sample2time(sfinfo, samples_read) / 1000;
-		long ms   = sample2time(sfinfo, samples_read) - 1000 * secs;
-		long mins = secs / 60;
-		secs = secs - mins * 60;
-		dbg(0, "size: %'Li bytes %li:%02li:%03li. maxlevel=%i(%fdB)", samples_read * sizeof(short), mins, secs, ms, total_max[0], wf_int2db(total_max[0]));
-	}
-
-	dbg(1, "total_items_written=%i items_per_channel=%i peaks_per_channel=%i", total_frames_written, total_frames_written/sfinfo.channels, total_frames_written/(sfinfo.channels * WF_PEAK_VALUES_PER_SAMPLE));
-	dbg(2, "total bytes written: %i (of%Li)", total_bytes_written, (long long)sfinfo.frames * bytes_per_frame);
-
-	sf_close (outfile);
-	sf_close (infile);
-	g_free(data);
-	if(buf_f) g_free(buf_f);
 
 	if(need_file_cache_check){
 		maintain_file_cache();
 		need_file_cache_check = false;
 	}
-
-	int renamed = !rename(tmp_path, peak_filename);
-	g_free(tmp_path);
-	if(!renamed) return false;
 
 	return true;
 }
@@ -545,6 +438,7 @@ process_data (short* data, int data_size_frames, int n_channels, short max[], sh
 /*
  * Returns time in milliseconds, given the sample number.
  */
+#ifdef UNUSED
 static unsigned long
 sample2time(SF_INFO sfinfo, long samplenum)
 {
@@ -552,6 +446,7 @@ sample2time(SF_INFO sfinfo, long samplenum)
 	
 	return (10 * samplenum) / ((sfinfo.samplerate/100) * sfinfo.channels);
 }
+#endif
 
 
 static gboolean

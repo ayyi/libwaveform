@@ -31,11 +31,6 @@ OPENGL_SOURCES = \
 	actors/text.c actors/text.h
 endif
 
-if ENABLE_FFMPEG
-AUDIOFILE_SOURCES = \
-	audio_file.c audio_file.h
-endif
-
 libwaveform_la_SOURCES = \
 	typedefs.h waveform.h wf_private.h \
 	global.c global.h \
@@ -44,7 +39,6 @@ libwaveform_la_SOURCES = \
 	loaders/riff.c loaders/riff.h \
 	$(OPENGL_SOURCES) \
 	peakgen.c peakgen.h \
-	$(AUDIOFILE_SOURCES) \
 	audio.c audio.h \
 	worker.c worker.h \
 	promise.c promise.h \

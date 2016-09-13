@@ -47,11 +47,9 @@
 */
 #define __wf_private__
 #include "config.h"
-#include <stdlib.h>
-#include <stdint.h>
+#include <stdio.h>
 #include <string.h>
 #include <getopt.h>
-#include <unistd.h>
 #include <sys/time.h>
 #include <sys/types.h>
 #include <gtk/gtk.h>
@@ -61,17 +59,24 @@
 #include "test/ayyi_utils.h"
 #include "common.h"
 
+extern char* basename(const char*);
+
 const char* wavs[] = {
-	"test/data/stereo_1.wav",
-	"test/data/mono_0:10.wav",
-	"test/data/mono_10:00.wav",
-//	"test/data/1_block.wav",
-//	"test/data/3_blocks.wav",
-//	"test/data/2_blocks.wav",
+	"data/mono_0:10.flac",
+	"data/stereo_0:10.flac",
+	"data/stereo_0:10.wav",
+	"data/mono_0:10.mp3",
+	"data/mono_10:00.wav",
+	"data/mono_0:10.opus",
+	"data/mono_0:10.m4a",
+	"data/stereo_0:10.opus",
+	"data/mono_0:10.wav",
+	"data/u8.wav",
 };
 
 KeyHandler
 	next_wav,
+	prev_wav,
 	toggle_shaders,
 	toggle_grid,
 	unrealise,
@@ -87,6 +92,7 @@ Key keys[] = {
 	{(char)'<',     NULL},
 	{(char)'>',     NULL},
 	{(char)'n',     next_wav},
+	{(char)'p',     prev_wav},
 	{(char)'s',     toggle_shaders},
 	{(char)'g',     toggle_grid},
 	{(char)'u',     unrealise},
@@ -193,25 +199,20 @@ quit(gpointer waveform)
 }
 
 
-void next_wav(gpointer waveform)
+void show_wav(gpointer waveform, const char* filename)
 {
 	WaveformViewPlus* view = (WaveformViewPlus*)waveform;
-
-	static int i = 0; i = (i + 1) % 3;
-
-	printf("next...\n");
 
 	typedef struct {
 		WaveformViewPlus* view;
 		float             zoom;
 	} C;
-	C* c = g_new0(C, 1);
-	*c = (C){
+	C* c = AGL_NEW(C,
 		.view = view,
 #ifndef USE_CANVAS_SCALING
 		.zoom = view->zoom
 #endif
-	};
+	);
 
 	wf_spinner_start((WfSpinner*)layers.spinner);
 
@@ -220,11 +221,9 @@ void next_wav(gpointer waveform)
 		wf_spinner_stop((WfSpinner*)layers.spinner);
 	}
 
-	char* filename = find_wav(wavs[i]);
-	waveform_view_plus_load_file(view, filename, on_loaded_, c);
-	g_free(filename);
-
 	// TODO fix widget so that zoom can be set imediately
+
+	waveform_view_plus_load_file(view, filename, on_loaded_, c);
 
 	bool on_loaded(gpointer _c)
 	{
@@ -236,6 +235,55 @@ void next_wav(gpointer waveform)
 		return G_SOURCE_REMOVE;
 	}
 	g_idle_add(on_loaded, c);
+
+	AGlActor* text_layer = waveform_view_plus_get_layer(view, 3);
+	if(text_layer){
+		/*
+		char* text = NULL;
+		if(sample->channels){
+			char* ch_str = format_channels(sample->channels);
+			char* level  = gain2dbstring(sample->peaklevel);
+			char length[64]; format_smpte(length, sample->length);
+			char fs_str[32]; samplerate_format(fs_str, sample->sample_rate); strcpy(fs_str + strlen(fs_str), " kHz");
+
+			text = g_strdup_printf("%s  %s  %s  %s", length, ch_str, fs_str, level);
+
+			g_free(ch_str);
+			g_free(level);
+		}
+		*/
+
+		text_actor_set_text(((TextActor*)text_layer), g_strdup(basename(filename)), NULL);
+	}
+}
+
+
+static int i = 0;
+
+void
+next_wav(gpointer waveform)
+{
+	printf("next...\n");
+
+	i = (i + 1) % G_N_ELEMENTS(wavs);
+
+	char* filename = find_wav(wavs[i]);
+	show_wav(waveform, filename);
+
+	g_free(filename);
+}
+
+
+void
+prev_wav(gpointer waveform)
+{
+	printf("prev...\n");
+
+	i = (i - 1) % G_N_ELEMENTS(wavs);
+	char* filename = find_wav(wavs[i]);
+	show_wav(waveform, filename);
+
+	g_free(filename);
 }
 
 
