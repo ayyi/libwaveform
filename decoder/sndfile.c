@@ -27,6 +27,16 @@ typedef struct {
     SNDFILE* sffile;
 } SndfileDecoder;
 
+struct _WfBuf16 // also defined in waveform.h
+{
+    short*     buf[WF_STEREO];
+    guint      size;
+    uint32_t   stamp;
+#ifdef WF_DEBUG
+    uint64_t   start_frame;
+#endif
+};
+
 
 int
 parse_bit_depth(int format)
@@ -97,7 +107,7 @@ ad_close_sndfile(WfDecoder* decoder)
 int64_t
 ad_seek_sndfile(WfDecoder* d, int64_t pos)
 {
-	SndfileDecoder *priv = (SndfileDecoder*)d->d;
+	SndfileDecoder* priv = (SndfileDecoder*)d->d;
 	if (!priv) return -1;
 	return sf_seek(priv->sffile, pos, SEEK_SET);
 }
@@ -109,6 +119,21 @@ ad_read_sndfile(WfDecoder* d, float* data, size_t len)
 	SndfileDecoder* priv = (SndfileDecoder*)d->d;
 	if (!priv) return -1;
 	return sf_read_float (priv->sffile, data, len);
+}
+
+
+ssize_t
+ad_read_sndfile_short(WfDecoder* d, WfBuf16* buf)
+{
+	SndfileDecoder* priv = (SndfileDecoder*)d->d;
+	short* data = g_malloc0(d->info.channels * buf->size * sizeof(short));
+	ssize_t r = sf_read_short(priv->sffile, data, d->info.channels * buf->size);
+	int i, f; for(i=0,f=0;i<r;i+=d->info.channels,f++){
+		int c; for(c=0;c<d->info.channels;c++){
+			buf->buf[c][f] = data[i];
+		}
+	}
+	return r;
 }
 
 
@@ -150,7 +175,8 @@ const static AdPlugin ad_sndfile = {
 	&ad_close_sndfile,
 	&ad_info_sndfile,
 	&ad_seek_sndfile,
-	&ad_read_sndfile
+	&ad_read_sndfile,
+	&ad_read_sndfile_short
 #else
 	&ad_eval_null,
 	&ad_open_null,

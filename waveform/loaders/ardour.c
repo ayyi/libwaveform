@@ -1,5 +1,5 @@
 /*
-  copyright (C) 2012-2014 Tim Orford <tim@orford.org>
+  copyright (C) 2012-2016 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -27,7 +27,6 @@
 #include <stdint.h>
 #include <sys/time.h>
 #include <glib.h>
-#include <sndfile.h>
 #include "waveform/waveform.h"
 
 static int peak_byte_depth = 4; //ardour peak files use floats.
@@ -91,7 +90,7 @@ get_n_words(Waveform* wv, const char* peakfile)
 {
 	//ardour peak files are oversized. To get the useable size, we need to refer to the original file.
 
-	sf_count_t n_frames = waveform_get_n_frames(wv);
+	int64_t n_frames = waveform_get_n_frames(wv);
 
 	dbg(3, "n_frames=%Li n_peaks=%zu", n_frames, (size_t)(ceil(((float)n_frames) / WF_PEAK_RATIO)));
 

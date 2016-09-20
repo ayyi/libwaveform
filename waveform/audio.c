@@ -553,24 +553,6 @@ audio_cache_print()
 	}
 	dbg(1, "size=%i mem=%ikB=%ikB %s", total_size, total_mem * sizeof(short) / 1024, wf->audio.mem_size * sizeof(short) / 1024, str);
 }
-
-
-static float
-int2db(short x) // only used for debug output
-{
-	//converts a signed 16bit int to a dB value.
-
-	float y;
-
-	if(x != 0){
-		y = -20.0 * log10(32768.0/abs(x));
-		//printf("int2db: %f\n", 32768.0/abs(x));
-	} else {
-		y = -100.0;
-	}
-
-	return y;    
-}
 #endif
 
 
