@@ -116,6 +116,10 @@ ad_seek_sndfile(WfDecoder* d, int64_t pos)
 ssize_t
 ad_read_sndfile(WfDecoder* d, float* data, size_t len)
 {
+#ifdef DEBUG
+	g_return_val_if_fail(d->info.bit_depth == 32, -1);
+#endif
+
 	SndfileDecoder* priv = (SndfileDecoder*)d->d;
 	if (!priv) return -1;
 	return sf_read_float (priv->sffile, data, len);
@@ -125,15 +129,52 @@ ad_read_sndfile(WfDecoder* d, float* data, size_t len)
 ssize_t
 ad_read_sndfile_short(WfDecoder* d, WfBuf16* buf)
 {
-	SndfileDecoder* priv = (SndfileDecoder*)d->d;
-	short* data = g_malloc0(d->info.channels * buf->size * sizeof(short));
-	ssize_t r = sf_read_short(priv->sffile, data, d->info.channels * buf->size);
-	int i, f; for(i=0,f=0;i<r;i+=d->info.channels,f++){
-		int c; for(c=0;c<d->info.channels;c++){
-			buf->buf[c][f] = data[i];
+	SndfileDecoder* sf = (SndfileDecoder*)d->d;
+
+	switch(d->info.bit_depth){
+		case 8:
+		case 16: {
+			if(d->info.channels == 1){
+				ssize_t r = sf_readf_short(sf->sffile, buf->buf[0], buf->size);
+				return r;
+			}else{
+				short* data = g_malloc0(d->info.channels * buf->size * sizeof(short));
+				ssize_t r = sf_read_short(sf->sffile, data, d->info.channels * buf->size);
+				int i, f; for(i=0,f=0;i<r;i+=d->info.channels,f++){
+					int c; for(c=0;c<d->info.channels;c++){
+						buf->buf[c][f] = data[i];
+					}
+				}
+				g_free(data);
+				return r;
+			}
 		}
+		case 24: {
+			int* data = g_malloc0(d->info.channels * buf->size * sizeof(int));
+			ssize_t r = sf_read_int(sf->sffile, data, d->info.channels * buf->size);
+			int i, f; for(i=0,f=0;i<r;i+=d->info.channels,f++){
+				int c; for(c=0;c<d->info.channels;c++){
+					buf->buf[c][f] = data[i] >> 16;
+				}
+			}
+			g_free(data);
+			return r;
+		}
+		case 32: {
+			float* data = g_malloc0(d->info.channels * buf->size * sizeof(float));
+			ssize_t r = sf_read_float(sf->sffile, data, d->info.channels * buf->size);
+			int i, f; for(i=0,f=0;i<r;i+=d->info.channels,f++){
+				int c; for(c=0;c<d->info.channels;c++){
+					buf->buf[c][f] = AD_FLOAT_TO_SHORT(data[i]);
+				}
+			}
+			g_free(data);
+			return r;
+		}
+		default:
+			dbg(0, "!!! unhandled bit depth: %i", d->info.bit_depth);
 	}
-	return r;
+	return -1;
 }
 
 

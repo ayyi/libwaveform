@@ -92,6 +92,7 @@ static gboolean ad_metadata_array_set_tag_postion           (GPtrArray* tags, co
 
 #define U8_TO_SHORT(V) ((V - 128) * 128)
 #define INT32_TO_SHORT(V) (V >> 16)
+#define SHORT_TO_FLOAT(A) (((float)A) / 32768.0)
 
 
 int
@@ -292,9 +293,6 @@ int16_to_float(float* out, int16_t* in, int n_channels, int n_frames, int out_of
 		}
 	}
 }
-
-#define SHORT_TO_FLOAT(A) (((float)A) / 32768.0)
-#define FLOAT_TO_SHORT(A) (A * (1<<15));
 
 #if 0
 static void

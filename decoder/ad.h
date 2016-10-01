@@ -75,4 +75,6 @@ const AdPlugin* get_sndfile ();
 const AdPlugin* get_ffmpeg  ();
 #endif
 
+#define AD_FLOAT_TO_SHORT(A) (A * (1<<15));
+
 #endif
