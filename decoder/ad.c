@@ -89,7 +89,7 @@ int
 ad_close(WfDecoder* d)
 {
 	if (!d) return -1;
-	return d->b->close(d->d);
+	return d->b->close(d);
 }
 
 

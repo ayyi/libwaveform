@@ -77,12 +77,12 @@ ad_info_sndfile(WfDecoder* d)
 
 
 static gboolean
-ad_open_sndfile(WfDecoder* decoder, const char* fn)
+ad_open_sndfile(WfDecoder* decoder, const char* filename)
 {
 	SndfileDecoder* priv = decoder->d = g_new0(SndfileDecoder, 1);
 	priv->sfinfo.format = 0;
-	if(!(priv->sffile = sf_open(fn, SFM_READ, &priv->sfinfo))){
-		dbg(1, "unable to open file '%s': %i: %s", fn, sf_error(NULL), sf_strerror(NULL));
+	if(!(priv->sffile = sf_open(filename, SFM_READ, &priv->sfinfo))){
+		dbg(1, "unable to open file '%s': %i: %s", filename, sf_error(NULL), sf_strerror(NULL));
 		g_free(priv);
 		return FALSE;
 	}
@@ -172,7 +172,9 @@ ad_read_sndfile_short(WfDecoder* d, WfBuf16* buf)
 			return r;
 		}
 		default:
+#ifdef DEBUG
 			dbg(0, "!!! unhandled bit depth: %i", d->info.bit_depth);
+#endif
 	}
 	return -1;
 }

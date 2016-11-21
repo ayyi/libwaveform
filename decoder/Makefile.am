@@ -16,6 +16,7 @@ endif
 libwaveformdecoder_la_SOURCES = \
 	ad.c ad.h \
 	sndfile.c \
+	debug.h \
 	$(FF_SRC)
 
 pkgincludedir=$(includedir)/decoder
