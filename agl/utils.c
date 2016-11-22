@@ -1,5 +1,5 @@
 /*
-  copyright (C) 2013-2015 Tim Orford <tim@orford.org>
+  copyright (C) 2013-2016 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -643,6 +643,7 @@ agl_print(int x, int y, double z, uint32_t colour, const char *fmt, ...)
 
 	PangoLayout* layout = pango_layout_new (PGRC->context);
 	pango_layout_set_text (layout, text, -1);
+	g_free(text);
 
 #if 0
 	if(!font_desc){
@@ -687,6 +688,48 @@ agl_print_layout(int x, int y, double z, uint32_t colour, PangoLayout* layout)
 	pango_layout_set_font_description(layout, font_desc);
 
 	pango_gl_render_layout (layout, x, y, z, (Colour32*)&colour, 0);
+
+	glPixelStorei (GL_UNPACK_ROW_LENGTH, 0); //reset back to the default value
+}
+
+
+/**
+ *  x, and y specify the top left corner of the background box.
+ */
+void
+agl_print_with_background(int x, int y, double z, uint32_t colour, uint32_t bg_colour, const char *fmt, ...)
+{
+	#define PADDING 2
+
+	if(!fmt) return;
+
+	va_list args;
+	va_start(args, fmt);
+	gchar* text = g_strdup_vprintf(fmt, args);
+	va_end(args); // text now contains the string.
+
+	PangoGlRendererClass* PGRC = g_type_class_peek(PANGO_TYPE_GL_RENDERER);
+
+	PangoLayout* layout = pango_layout_new (PGRC->context);
+	pango_layout_set_text (layout, text, -1);
+
+	pango_layout_set_font_description(layout, font_desc);
+
+	PangoRectangle ink_rect, logical_rect;
+	pango_layout_get_pixel_extents(layout, &ink_rect, &logical_rect);
+#if 0
+	int text_width = ink_rect.width;
+	int text_height = ink_rect.height;
+	printf("   %i x %i  %i x %i\n", ink_rect.x, ink_rect.y, text_width, text_height);
+#endif
+
+	agl->shaders.plain->uniform.colour = bg_colour;
+	agl_use_program((AGlShader*)agl->shaders.plain);
+	agl_rect(x, y, ink_rect.width + 2 * PADDING, ink_rect.height + 2 * PADDING);
+
+	pango_gl_render_layout (layout, x + PADDING, y + PADDING - ink_rect.y, z, (Colour32*)&colour, 0);
+	g_object_unref(layout);
+	g_free(text);
 
 	glPixelStorei (GL_UNPACK_ROW_LENGTH, 0); //reset back to the default value
 }

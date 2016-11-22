@@ -292,7 +292,7 @@ wf_ff_peakgen(const char* infilename, const char* peak_filename)
 
 #ifdef DEBUG
 	if(g_str_has_suffix(infilename, ".mp3")){
-		dbg(0, "mp3!");
+		dbg(1, "mp3");
 		f.info.frames = total_readcount; // update the estimate with the real frame count.
 	}
 #else

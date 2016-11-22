@@ -104,17 +104,11 @@ wf_spp_actor(WaveformActor* wf_actor)
 			);
 			glTranslatef(-x, 0, 0);
 
-#undef SHOW_TEXT_BACKGROUND
-#ifdef SHOW_TEXT_BACKGROUND
-			// TODO integrate the background into the print fn so we know the size.
-			agl->shaders.plain->uniform.colour = 0x000000ff;
-			agl_use_program((AGlShader*)agl->shaders.plain);
-			agl_rect(0, 0, 110, 22);
-#endif
 			agl_set_font_string("Roboto 16");
 			char s[16] = {0,};
 			snprintf(s, 15, "%02i:%02i:%03i", (spp->time / 1000) / 60, (spp->time / 1000) % 60, spp->time % 1000);
-			agl_print(2, 2, 0, spp->text_colour, s);
+			// FIXME background is not opaque unless bg is ffffff
+			agl_print_with_background(0, 0, 0, spp->text_colour, 0x000000ff, s);
 			agl_set_font_string("Roboto 10");
 		}
 		return true;
@@ -132,8 +126,7 @@ wf_spp_actor(WaveformActor* wf_actor)
 		};
 	}
 
-	SppActor* spp = g_new0(SppActor, 1);
-	*spp = (SppActor){
+	SppActor* spp = AGL_NEW(SppActor,
 		.actor = {
 #ifdef AGL_DEBUG_ACTOR
 			.name = "SPP",
@@ -146,7 +139,7 @@ wf_spp_actor(WaveformActor* wf_actor)
 		},
 		.wf_actor = wf_actor,
 		.time = WF_SPP_TIME_NONE
-	};
+	);
 
 	return (AGlActor*)spp;
 }
