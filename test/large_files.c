@@ -61,7 +61,7 @@ gpointer tests[] = {
 int
 main (int argc, char *argv[])
 {
-	if(sizeof(off_t) != 8){ gerr("sizeof(off_t)=%i\n", sizeof(off_t)); exit(1); }
+	if(sizeof(off_t) != 8){ gerr("sizeof(off_t)=%zu\n", sizeof(off_t)); exit(1); }
 
 	wf_debug = 1;
 

@@ -41,7 +41,9 @@
 #include <glib/gstdio.h>
 #include <sndfile.h>
 #include "decoder/ad.h"
+#ifdef USE_OPENGL
 #include "agl/utils.h"
+#endif
 #include "waveform/waveform.h"
 #include "waveform/audio.h"
 #include "waveform/worker.h"
@@ -154,7 +156,7 @@ waveform_ensure_peakfile (Waveform* w, WfPeakfileCallback callback, gpointer use
 		char* filename;
 		gpointer user_data;
 	} C;
-	C* c = AGL_NEW(C,
+	C* c = WF_NEW(C,
 		.waveform = g_object_ref(w),
 		.callback = callback,
 		.filename = peak_filename,

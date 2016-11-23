@@ -16,6 +16,7 @@
 */
 #ifndef __wf_animator_h__
 #define __wf_animator_h__
+#include "stdint.h"
 
 #ifndef USE_FRAME_CLOCK
 #define WF_FRAME_INTERVAL ((uint64_t)40)

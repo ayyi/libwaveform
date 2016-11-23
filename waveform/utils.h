@@ -54,13 +54,16 @@ extern int wf_debug;
 #define g_free0(var) ((var == NULL) ? NULL : (var = (g_free(var), NULL)))
 #endif
 #define call(FN, A, ...) if(FN) (FN)(A, ##__VA_ARGS__)
+#define WF_NEW(T, ...) ({T* obj = g_new0(T, 1); *obj = (T){__VA_ARGS__}; obj;})
 #include "waveform/typedefs.h"
 
 void       wf_debug_printf            (const char* func, int level, const char* format, ...);
 void       wf_deinterleave            (float* src, float** dest, uint64_t n_frames);
 void       wf_deinterleave16          (short* src, short** dest, uint64_t n_frames);
+#endif //__ayyi_utils_h__
 float      wf_int2db                  (short);
 
+#ifndef __ayyi_utils_h__
 #ifdef __wf_private__
 #ifdef __GTK_H__
 uint32_t   wf_get_gtk_fg_color        (GtkWidget*, GtkStateType);

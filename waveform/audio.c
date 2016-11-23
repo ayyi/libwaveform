@@ -99,7 +99,6 @@ waveform_load_audio_block(Waveform* waveform, WfBuf16* buf16, int block_num)
 	g_return_val_if_fail(buf16 && buf16->buf[WF_LEFT], false);
 
 	uint64_t start_pos = block_num * (WF_PEAK_BLOCK_SIZE - 2.0 * TEX_BORDER * 256.0);
-	uint64_t end_pos   = MIN(start_pos + WF_PEAK_BLOCK_SIZE, waveform->n_frames - 1);
 
 	int n_chans = waveform_get_n_channels(waveform);
 	g_return_val_if_fail(n_chans, false);
@@ -117,12 +116,15 @@ waveform_load_audio_block(Waveform* waveform, WfBuf16* buf16, int block_num)
 		return false;
 	}
 
-	int64_t n_frames = end_pos - start_pos;
 #ifdef WF_DEBUG
 	buf16->start_frame = start_pos;
 #endif
 
 #if 0
+	uint64_t end_pos = MIN(start_pos + WF_PEAK_BLOCK_SIZE, waveform->n_frames - 1);
+
+	int64_t n_frames = end_pos - start_pos;
+
 	bool ff_read_short(FF* f, WfBuf16* buf, int ch, sf_count_t n_frames)
 	{
 		int64_t readcount;

@@ -30,6 +30,8 @@
 #include <glib.h>
 #ifdef USE_OPENGL
 #include "agl/utils.h"
+#else
+#include "inttypes.h"
 #endif
 #include "decoder/ad.h"
 #include "waveform/waveform.h"

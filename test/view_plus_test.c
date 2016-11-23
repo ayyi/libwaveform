@@ -48,6 +48,7 @@
 #define __wf_private__
 #include "config.h"
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <getopt.h>
 #include <sys/time.h>
@@ -116,7 +117,7 @@ struct Layers {
 int
 main (int argc, char* argv[])
 {
-	if(sizeof(off_t) != 8){ gerr("sizeof(off_t)=%i\n", sizeof(off_t)); return EXIT_FAILURE; }
+	if(sizeof(off_t) != 8){ gerr("sizeof(off_t)=%zu\n", sizeof(off_t)); return EXIT_FAILURE; }
 
 	set_log_handlers();
 

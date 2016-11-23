@@ -1,4 +1,15 @@
-/*
+/**
+* +----------------------------------------------------------------------+
+* | This file is part of the Ayyi project. http://ayyi.org               |
+* | copyright (C) 2013-2016 Tim Orford <tim@orford.org>                  |
+* +----------------------------------------------------------------------+
+* | This program is free software; you can redistribute it and/or modify |
+* | it under the terms of the GNU General Public License version 3       |
+* | as published by the Free Software Foundation.                        |
+* +----------------------------------------------------------------------+
+*
+*/
+/**
  *  common code for automated tests - move stuff for non-automated tests to common2.h
  */
 #include "waveform/waveform.h"
@@ -58,7 +69,7 @@ void add_key_handlers   (GtkWindow*, WaveformView*, Key[]);
 	__test_idx = current_test; \
 	if(!step){ \
 		g_strlcpy(current_test_name, __func__, 64); \
-		printf("%srunning %i of %i: %s%s ...\n", wf_bold, current_test + 1, G_N_ELEMENTS(tests), __func__, wf_white); \
+		printf("%srunning %i of %zu: %s%s ...\n", wf_bold, current_test + 1, G_N_ELEMENTS(tests), __func__, wf_white); \
 	} \
 	if(test_finished) return;
 
