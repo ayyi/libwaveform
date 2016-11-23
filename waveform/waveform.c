@@ -77,6 +77,19 @@ struct _rms_buf_info
 
 
 Waveform*
+waveform_construct (GType object_type)
+{
+	wf_get_instance();
+
+	Waveform* w = (Waveform*) g_object_new (object_type, NULL);
+	w->priv = g_new0(WaveformPriv, 1);
+	w->priv->hires_peaks = g_ptr_array_new();
+	w->priv->max_db = -1;
+	return w;
+}
+
+
+Waveform*
 waveform_load_new(const char* filename)
 {
 	g_return_val_if_fail(filename, NULL);
@@ -88,25 +101,21 @@ waveform_load_new(const char* filename)
 
 
 Waveform*
-waveform_construct (GType object_type)
+waveform_new (const char* filename)
 {
-	Waveform* self = (Waveform*) g_object_new (object_type, NULL);
-	return self;
+	Waveform* w = waveform_construct(TYPE_WAVEFORM);
+	w->filename = g_strdup(filename);
+	w->renderable = true;
+	return w;
 }
 
 
-Waveform*
-waveform_new (const char* filename)
+void
+waveform_set_file (Waveform* w, const char* filename)
 {
-	wf_get_instance();
-
-	Waveform* w = waveform_construct(TYPE_WAVEFORM);
-	w->priv = g_new0(WaveformPriv, 1);
+	if(w->filename) g_free(w->filename);
 	w->filename = g_strdup(filename);
 	w->renderable = true;
-	w->priv->hires_peaks = g_ptr_array_new();
-	w->priv->max_db = -1;
-	return w;
 }
 
 
@@ -212,6 +221,9 @@ _waveform_get_property (GObject* object, guint property_id, GValue* value, GPara
 }
 
 
+/*
+ *  Load the peakdata for a waveform, and create a cached peakfile if not already existing.
+ */
 void
 waveform_load(Waveform* w, WfCallback3 callback, gpointer user_data)
 {

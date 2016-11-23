@@ -135,6 +135,7 @@ Waveform*  waveform_construct            (GType);
 #define    waveform_unref0(w)            (g_object_unref(w), w = NULL)
 void       waveform_load                 (Waveform*, WfCallback3, gpointer);
 gboolean   waveform_load_sync            (Waveform*);
+void       waveform_set_file             (Waveform*, const char*);
 
 gboolean   waveform_load_peak            (Waveform*, const char*, int ch_num);
 gboolean   waveform_peak_is_loaded       (Waveform*, int ch_num);
