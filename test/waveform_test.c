@@ -4,7 +4,7 @@
 
   --------------------------------------------------------------
 
-  Copyright (C) 2012-2015 Tim Orford <tim@orford.org>
+  Copyright (C) 2012-2016 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -28,12 +28,9 @@
 #include <getopt.h>
 #include <time.h>
 #include <unistd.h>
+#include <inttypes.h>
 #include <signal.h>
 #include <sys/time.h>
-#include <sys/types.h>
-#include <sys/ipc.h>
-#include <sys/shm.h>
-#include <signal.h>
 #include <glib.h>
 #include "decoder/ad.h"
 #include "waveform/waveform.h"
@@ -126,11 +123,11 @@ test_audio_file()
 		} while (readcount > 0);
 		dbg(1, "diff=%zu", abs((int)total - (int)f.info.frames));
 		if(g_str_has_suffix(filenames[i], ".wav") || g_str_has_suffix(filenames[i], ".flac")){
-			assert(total == f.info.frames, "%s: incorrect number of frames read: %Lu", filenames[i], f.info.frames);
+			assert(total == f.info.frames, "%s: incorrect number of frames read: %"PRIi64, filenames[i], f.info.frames);
 			assert(!(total % 512) || !(total % 100), "%s: bad framecount: %zu", filenames[i], total); // test file sizes are always a round number
 		}else{
 			// for some file types, f.info.frames is only an estimate
-			assert(abs((int)total - (int)f.info.frames) < 2048, "%s: incorrect number of frames read: %Lu", filenames[i], f.info.frames);
+			assert(abs((int)total - (int)f.info.frames) < 2048, "%s: incorrect number of frames read: %"PRIi64, filenames[i], f.info.frames);
 		}
 
 		ad_close(&f);

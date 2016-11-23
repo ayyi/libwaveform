@@ -92,8 +92,8 @@ v_lo_buf_to_tex(Renderer* renderer, WaveformActor* actor, int b)
 		int t = 0;
 		if(b == 0){
 			for(t=0;t<TEX_BORDER;t++){
-				ng_gl2_set(section, dest + lod_max[mm_level] + t, 0);
-				ng_gl2_set(section, dest + lod_min[mm_level] + t, 0);
+				ng_gl2_set_(section, dest + lod_max[mm_level] + t, 0);
+				ng_gl2_set_(section, dest + lod_min[mm_level] + t, 0);
 			}
 			src = 0;
 		}
@@ -107,14 +107,14 @@ v_lo_buf_to_tex(Renderer* renderer, WaveformActor* actor, int b)
 				min = MIN(min, -peak->buf[c][src + i + 1]);
 			}
 
-			ng_gl2_set(section, dest                     + t, short_to_char(max));
-			ng_gl2_set(section, dest + lod_min[mm_level] + t, short_to_char(-min));
+			ng_gl2_set_(section, dest                     + t, short_to_char(max));
+			ng_gl2_set_(section, dest + lod_min[mm_level] + t, short_to_char(-min));
 		}
 
 		if(is_last_block){
 			for(t=stop;t<WF_PEAK_TEXTURE_SIZE;t++){
-				ng_gl2_set(section, dest + lod_max[mm_level] + t, 0);
-				ng_gl2_set(section, dest + lod_min[mm_level] + t, 0);
+				ng_gl2_set_(section, dest + lod_max[mm_level] + t, 0);
+				ng_gl2_set_(section, dest + lod_min[mm_level] + t, 0);
 			}
 		}
 	}

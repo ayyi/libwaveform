@@ -77,6 +77,7 @@ ng_gl2_set(Section* section, int pos, char val)
 }
 #else
 #define ng_gl2_set(section, pos, val) (section->buffer[pos] = val, true)
+#define ng_gl2_set_(section, pos, val) (section->buffer[pos] = val)
 #endif
 
 
@@ -124,14 +125,14 @@ ng_gl2_load_block(Renderer* renderer, WaveformActor* actor, int b)
 			int mm_level = m;
 			int mm = 1 << (mm_level - 1);
 			int i,p; for(i=0, p=0; p<modes[renderer->mode].texture_size/mm; i++, p+=2){
-				ng_gl2_set(section,
+				ng_gl2_set_(section,
 					dest + lod_max[mm_level] + i,
 					MAX(
 						section->buffer[dest + lod_max[mm_level - 1] + i * 2    ],
 						section->buffer[dest + lod_max[mm_level - 1] + i * 2 + 1]
 					)
 				);
-				ng_gl2_set(section, dest + lod_min[mm_level] + i, MAX(
+				ng_gl2_set_(section, dest + lod_min[mm_level] + i, MAX(
 					section->buffer[dest + lod_min[mm_level - 1] + i * 2    ],
 					section->buffer[dest + lod_min[mm_level - 1] + i * 2 + 1]
 				));
@@ -166,8 +167,8 @@ ng_gl2_load_block(Renderer* renderer, WaveformActor* actor, int b)
 			int t = 0;
 			if(b == 0){
 				for(t=0;t<TEX_BORDER;t++){
-					ng_gl2_set(section, dest + lod_max[mm_level] + t, 0);
-					ng_gl2_set(section, dest + lod_min[mm_level] + t, 0);
+					ng_gl2_set_(section, dest + lod_max[mm_level] + t, 0);
+					ng_gl2_set_(section, dest + lod_min[mm_level] + t, 0);
 				}
 				src = 0;
 			}
@@ -179,8 +180,8 @@ ng_gl2_load_block(Renderer* renderer, WaveformActor* actor, int b)
 					p.negative = MIN(p.negative, peak->buf[c][src + j + 1]);
 				}
 
-				ng_gl2_set(section, dest + lod_max[mm_level] + t, short_to_char( p.positive));
-				ng_gl2_set(section, dest + lod_min[mm_level] + t, short_to_char(-p.negative));
+				ng_gl2_set_(section, dest + lod_max[mm_level] + t, short_to_char( p.positive));
+				ng_gl2_set_(section, dest + lod_min[mm_level] + t, short_to_char(-p.negative));
 			}
 
 			other_lods(renderer, section, dest);
@@ -211,15 +212,15 @@ ng_gl2_load_block(Renderer* renderer, WaveformActor* actor, int b)
 			int t = 0;
 			if(b == 0){
 				for(t=0;t<TEX_BORDER;t++){
-					ng_gl2_set(section, dest + lod_max[mm_level] + t, 0);
-					ng_gl2_set(section, dest + lod_min[mm_level] + t, 0);
+					ng_gl2_set_(section, dest + lod_max[mm_level] + t, 0);
+					ng_gl2_set_(section, dest + lod_min[mm_level] + t, 0);
 				}
 				src = 0;
 			}
 
 			for(; t<stop; t++, src+=2){
-				ng_gl2_set(section, dest + lod_max[mm_level] + t, short_to_char( peak->buf[c][src    ]));
-				ng_gl2_set(section, dest + lod_min[mm_level] + t, short_to_char(-peak->buf[c][src + 1]));
+				ng_gl2_set_(section, dest + lod_max[mm_level] + t, short_to_char( peak->buf[c][src    ]));
+				ng_gl2_set_(section, dest + lod_min[mm_level] + t, short_to_char(-peak->buf[c][src + 1]));
 			}
 
 			other_lods(renderer, section, dest);
