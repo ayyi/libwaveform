@@ -18,6 +18,8 @@ AM_CFLAGS = \
 SHADERS = \
 	shaders/peak.vert \
 	shaders/peak.frag \
+	shaders/hires_ng.vert \
+	shaders/hires_ng.frag \
 	shaders/vertical.vert \
 	shaders/vertical.frag \
 	shaders/horizontal.vert \
@@ -31,7 +33,9 @@ SHADERS = \
 	shaders/lines.vert \
 	shaders/lines.frag \
 	shaders/ass.vert \
-	shaders/ass.frag
+	shaders/ass.frag \
+	shaders/cursor.vert \
+	shaders/cursor.frag
 
 EXTRA_DIST = \
 	$(SHADERS) \
