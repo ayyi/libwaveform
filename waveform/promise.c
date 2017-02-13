@@ -1,5 +1,5 @@
 /*
-  copyright (C) 2012-2015 Tim Orford <tim@orford.org>
+  copyright (C) 2012-2017 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -22,7 +22,7 @@
 #include "waveform/promise.h"
 
 typedef struct {
-    AMPromiseCallback callback;
+    WfPromiseCallback callback;
     gpointer          user_data;
 } Item;
 
@@ -60,16 +60,12 @@ _am_promise_finish(AMPromise* p)
 		// each callback is only ever called once
 		g_list_free_full(p->callbacks, g_free);
 		p->callbacks = NULL;
-
-#if 0 // the promise should not be free'd by default
-		am_promise_unref(p);
-#endif
 	}
 }
 
 
 void
-_add_callback(AMPromise* p, AMPromiseCallback callback, gpointer user_data)
+_add_callback(AMPromise* p, WfPromiseCallback callback, gpointer user_data)
 {
 	Item* item = g_new0(Item, 1);
 	*item = (Item){
@@ -81,7 +77,7 @@ _add_callback(AMPromise* p, AMPromiseCallback callback, gpointer user_data)
 
 
 void
-am_promise_add_callback(AMPromise* p, AMPromiseCallback callback, gpointer user_data)
+am_promise_add_callback(AMPromise* p, WfPromiseCallback callback, gpointer user_data)
 {
 	_add_callback(p, callback, user_data);
 	if(p->is_resolved) _am_promise_finish(p);
@@ -96,10 +92,15 @@ am_promise_resolve(AMPromise* p, PromiseVal* value)
 }
 
 
+/*
+ *  When the promise fails, the main callbacks are called.
+ *  The client needs to check the error property to see if the promise has failed.
+ */
 void
-am_promise_fail(AMPromise* p)
+am_promise_fail(AMPromise* p, GError* error)
 {
-	p->is_failed = true;
+	p->error = error;
+	am_promise_resolve(p, NULL);
 }
 
 

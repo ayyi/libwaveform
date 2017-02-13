@@ -10,7 +10,7 @@
 
   ---------------------------------------------------------------
 
-  copyright (C) 2012-2015 Tim Orford <tim@orford.org>
+  copyright (C) 2012-2017 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -50,7 +50,7 @@ GdkGLConfig*    glconfig       = NULL;
 GtkWidget*      canvas         = NULL;
 AGlRootActor*   scene1         = NULL;
 AGlRootActor*   scene2         = NULL;
-WaveformCanvas* wfc            = NULL;
+WaveformContext* wfc            = NULL;
 Waveform*       w1             = NULL;
 Waveform*       w2             = NULL;
 WaveformActor*  a[]            = {NULL, NULL, NULL, NULL};

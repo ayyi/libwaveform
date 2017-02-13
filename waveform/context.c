@@ -1,5 +1,5 @@
 /*
-  copyright (C) 2012-2016 Tim Orford <tim@orford.org>
+  copyright (C) 2012-2017 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -16,7 +16,7 @@
 
   ---------------------------------------------------------------
 
-  WaveformCanvas acts as a shared context for drawing multiple related Waveform Actors.
+  WaveformContext acts as a shared context for drawing multiple related Waveform Actors.
 
 */
 #define __wf_private__
@@ -64,10 +64,11 @@ static AGl* agl = NULL;
 #define WAVEFORM_IS_DRAWING(wa) \
 	(wa->_draw_depth > 0)
 
-static void wf_canvas_init_gl        (WaveformCanvas*);
-static void wf_context_class_init    (WaveformContextClass*);
-static void wf_context_instance_init (WaveformCanvas*);
-static void wf_canvas_finalize       (GObject*);
+static void wf_context_init_gl         (WaveformContext*);
+static void wf_context_class_init      (WaveformContextClass*);
+static void wf_context_instance_init   (WaveformContext*);
+static void wf_context_finalize        (GObject*);
+static void wf_context_on_paint_update (GdkFrameClock*, void*);
 
 extern PeakShader peak_shader, peak_nonscaling;
 extern HiResShader hires_shader;
@@ -93,9 +94,9 @@ waveform_context_get_type()
 {
 	static volatile gsize waveform_context_type_id__volatile = 0;
 	if (g_once_init_enter (&waveform_context_type_id__volatile)) {
-		static const GTypeInfo g_define_type_info = { sizeof (WaveformContextClass), (GBaseInitFunc) NULL, (GBaseFinalizeFunc) NULL, (GClassInitFunc) wf_context_class_init, (GClassFinalizeFunc) NULL, NULL, sizeof (WaveformCanvas), 0, (GInstanceInitFunc) wf_context_instance_init, NULL };
+		static const GTypeInfo g_define_type_info = { sizeof (WaveformContextClass), (GBaseInitFunc) NULL, (GBaseFinalizeFunc) NULL, (GClassInitFunc) wf_context_class_init, (GClassFinalizeFunc) NULL, NULL, sizeof (WaveformContext), 0, (GInstanceInitFunc) wf_context_instance_init, NULL };
 		GType waveform_context_type_id;
-		waveform_context_type_id = g_type_register_static (G_TYPE_OBJECT, "WaveformCanvas", &g_define_type_info, 0);
+		waveform_context_type_id = g_type_register_static (G_TYPE_OBJECT, "WaveformContext", &g_define_type_info, 0);
 		g_once_init_leave (&waveform_context_type_id__volatile, waveform_context_type_id);
 	}
 	return waveform_context_type_id__volatile;
@@ -107,33 +108,25 @@ wf_context_class_init(WaveformContextClass* klass)
 {
 	waveform_context_parent_class = g_type_class_peek_parent (klass);
 	//g_type_class_add_private (klass, sizeof (WaveformContextPrivate));
-	G_OBJECT_CLASS (klass)->finalize = wf_canvas_finalize;
+	G_OBJECT_CLASS (klass)->finalize = wf_context_finalize;
 	g_signal_new ("dimensions_changed", TYPE_WAVEFORM_CONTEXT, G_SIGNAL_RUN_LAST, 0, NULL, NULL, g_cclosure_marshal_VOID__VOID, G_TYPE_NONE, 0);
 	g_signal_new ("zoom_changed", TYPE_WAVEFORM_CONTEXT, G_SIGNAL_RUN_LAST, 0, NULL, NULL, g_cclosure_marshal_VOID__VOID, G_TYPE_NONE, 0);
 
 	agl = agl_get_instance();
+
+	// testing...
+	g_signal_new ("ready", TYPE_WAVEFORM_CONTEXT, G_SIGNAL_RUN_LAST, 0, NULL, NULL, g_cclosure_marshal_VOID__VOID, G_TYPE_NONE, 0);
 }
 
 
 static void
-wf_context_instance_init(WaveformCanvas* self)
+wf_context_instance_init(WaveformContext* self)
 {
 }
-
-
-#ifdef USE_FRAME_CLOCK
-static void wf_canvas_on_paint_update(GdkFrameClock* clock, void* _canvas)
-{
-	WaveformCanvas* wfc = _canvas;
-
-	if(wfc->root->draw) wfc->root->draw(wfc->root, wfc->root->user_data);
-	wfc->priv->_last_redraw_time = wf_get_time();
-}
-#endif
 
 
 static void
-wf_canvas_init(WaveformCanvas* wfc, AGlRootActor* root)
+wf_canvas_init(WaveformContext* wfc, AGlRootActor* root)
 {
 	wfc->priv = g_new0(WfContextPriv, 1);
 
@@ -162,19 +155,19 @@ wf_canvas_init(WaveformCanvas* wfc, AGlRootActor* root)
 
 		bool wf_canvas_try_drawable(gpointer _wfc)
 		{
-			WaveformCanvas* wfc = _wfc;
+			WaveformContext* wfc = _wfc;
 
 			if((wfc->root->type == CONTEXT_TYPE_GTK) && !wfc->root->gl.gdk.drawable){
 				return G_SOURCE_CONTINUE;
 			}
 
-			wf_canvas_init_gl(wfc);
+			wf_context_init_gl(wfc);
 
 			if(wfc->root->draw) wf_canvas_queue_redraw(wfc);
 			wfc->use_1d_textures = agl->use_shaders;
 
 #ifdef USE_FRAME_CLOCK
-			frame_clock_connect(G_CALLBACK(wf_canvas_on_paint_update), wfc);
+			frame_clock_connect(G_CALLBACK(wf_context_on_paint_update), wfc);
 #endif
 			return G_SOURCE_REMOVE;
 		}
@@ -183,20 +176,20 @@ wf_canvas_init(WaveformCanvas* wfc, AGlRootActor* root)
 }
 
 
-WaveformCanvas*
+WaveformContext*
 waveform_canvas_construct(GType object_type)
 {
-	WaveformCanvas* wfc = (WaveformCanvas*)g_object_new(object_type, NULL);
+	WaveformContext* wfc = (WaveformContext*)g_object_new(object_type, NULL);
 	return wfc;
 }
 
 
-WaveformCanvas*
+WaveformContext*
 wf_context_new(AGlRootActor* root)
 {
 	PF;
 
-	WaveformCanvas* wfc = waveform_canvas_construct(TYPE_WAVEFORM_CONTEXT);
+	WaveformContext* wfc = waveform_canvas_construct(TYPE_WAVEFORM_CONTEXT);
 	wfc->root = root;
 	wf_canvas_init(wfc, root);
 	return wfc;
@@ -204,12 +197,12 @@ wf_context_new(AGlRootActor* root)
 
 
 #ifdef USE_SDL
-WaveformCanvas*
+WaveformContext*
 wf_context_new_sdl(SDL_GLContext* context)
 {
 	PF;
 
-	WaveformCanvas* wfc = waveform_canvas_construct(TYPE_WAVEFORM_CONTEXT);
+	WaveformContext* wfc = waveform_canvas_construct(TYPE_WAVEFORM_CONTEXT);
 
 	wfc->show_rms = true;
 
@@ -224,9 +217,9 @@ wf_context_new_sdl(SDL_GLContext* context)
 
 
 static void
-wf_canvas_finalize(GObject* obj)
+wf_context_finalize(GObject* obj)
 {
-	WaveformCanvas* wfc = WAVEFORM_CONTEXT (obj);
+	WaveformContext* wfc = WAVEFORM_CONTEXT (obj);
 
 	g_free(wfc->priv);
 
@@ -235,34 +228,33 @@ wf_canvas_finalize(GObject* obj)
 
 
 void
-wf_context_free (WaveformCanvas* wfc)
+wf_context_free (WaveformContext* wfc)
 {
 	g_return_if_fail(wfc);
 	PF;
 	WfContextPriv* c = wfc->priv;
 
 #ifdef USE_FRAME_CLOCK
-	frame_clock_disconnect(G_CALLBACK(wf_canvas_on_paint_update), wfc);
+	frame_clock_disconnect(G_CALLBACK(wf_context_on_paint_update), wfc);
 #endif
 
 	if(c->pending_init){ g_source_remove(c->pending_init); c->pending_init = 0; }
 	if(c->_queued){ g_source_remove(c->_queued); c->_queued = false; }
-	wf_canvas_finalize((GObject*)wfc);
+	wf_context_finalize((GObject*)wfc);
 
 	pango_gl_render_clear_caches();
 }
 
 
 static void
-wf_canvas_init_gl(WaveformCanvas* wfc)
+wf_context_init_gl(WaveformContext* wfc)
 {
 	PF;
+#if 0
 	if(agl->shaders.plain->shader.program){
-#ifdef DEBUG
-		if(wf_debug) gwarn("already done");
-#endif
 		return;
 	}
+#endif
 
 	if(!agl->pref_use_shaders){
 		wfc->use_1d_textures = false;
@@ -276,7 +268,9 @@ wf_canvas_init_gl(WaveformCanvas* wfc)
 
 	WAVEFORM_START_DRAW(wfc) {
 
-		agl_gl_init();
+		if(!wfc->root){
+			agl_gl_init();
+		}
 
 		if(!agl->use_shaders){
 			agl_use_program(NULL);
@@ -287,8 +281,20 @@ wf_canvas_init_gl(WaveformCanvas* wfc)
 }
 
 
+#ifdef USE_FRAME_CLOCK
+static void
+wf_context_on_paint_update(GdkFrameClock* clock, void* _canvas)
+{
+	WaveformContext* wfc = _canvas;
+
+	if(wfc->root->draw) wfc->root->draw(wfc->root, wfc->root->user_data);
+	wfc->priv->_last_redraw_time = wf_get_time();
+}
+#endif
+
+
 void
-wf_context_set_viewport(WaveformCanvas* wfc, WfViewPort* _viewport)
+wf_context_set_viewport(WaveformContext* wfc, WfViewPort* _viewport)
 {
 	//@param viewport - optional.
 	//                  Does not apply clipping.
@@ -314,7 +320,7 @@ wf_context_set_viewport(WaveformCanvas* wfc, WfViewPort* _viewport)
  *  The actor is owned by the canvas and will be freed on calling wf_canvas_remove_actor()
  */
 WaveformActor*
-wf_canvas_add_new_actor(WaveformCanvas* wfc, Waveform* w)
+wf_canvas_add_new_actor(WaveformContext* wfc, Waveform* w)
 {
 	g_return_val_if_fail(wfc, NULL);
 
@@ -329,7 +335,7 @@ wf_canvas_add_new_actor(WaveformCanvas* wfc, Waveform* w)
 
 
 void
-wf_canvas_remove_actor(WaveformCanvas* wfc, WaveformActor* actor)
+wf_canvas_remove_actor(WaveformContext* wfc, WaveformActor* actor)
 {
 	g_return_if_fail(actor);
 	PF;
@@ -348,7 +354,7 @@ wf_canvas_remove_actor(WaveformCanvas* wfc, WaveformActor* actor)
 
 
 void
-wf_canvas_queue_redraw(WaveformCanvas* wfc)
+wf_canvas_queue_redraw(WaveformContext* wfc)
 {
 #ifdef USE_FRAME_CLOCK
 	if(wfc->root->is_animating){
@@ -368,7 +374,7 @@ wf_canvas_queue_redraw(WaveformCanvas* wfc)
 
 	gboolean wf_canvas_redraw(gpointer _canvas)
 	{
-		WaveformCanvas* wfc = _canvas;
+		WaveformContext* wfc = _canvas;
 		if(wfc->root->draw) wfc->root->draw(wfc->root, wfc->root->user_data);
 		wfc->priv->_queued = false;
 		return G_SOURCE_REMOVE;
@@ -379,11 +385,11 @@ wf_canvas_queue_redraw(WaveformCanvas* wfc)
 
 
 float
-wf_canvas_gl_to_px(WaveformCanvas* wfc, float x)
+wf_canvas_gl_to_px(WaveformContext* wfc, float x)
 {
 	//convert from gl coords to screen pixels
 
-	#warning _gl_to_px TODO where viewport not set.
+	// TODO  _gl_to_px TODO where viewport not set.
 #if 0
 	if(!wfc->viewport) return x;
 
@@ -403,7 +409,7 @@ wf_canvas_gl_to_px(WaveformCanvas* wfc, float x)
 
 
 void
-wf_canvas_load_texture_from_alphabuf(WaveformCanvas* wfc, int texture_name, AlphaBuf* alphabuf)
+wf_canvas_load_texture_from_alphabuf(WaveformContext* wfc, int texture_name, AlphaBuf* alphabuf)
 {
 	//load the Alphabuf into the gl texture identified by texture_name.
 	//-the user can usually free the Alphabuf afterwards as it is unlikely to be needed again.
@@ -485,7 +491,7 @@ wf_canvas_load_texture_from_alphabuf(WaveformCanvas* wfc, int texture_name, Alph
 
 
 void
-wf_context_set_rotation(WaveformCanvas* wfc, float rotation)
+wf_context_set_rotation(WaveformContext* wfc, float rotation)
 {
 	dbg(0, "TODO");
 }
@@ -493,7 +499,7 @@ wf_context_set_rotation(WaveformCanvas* wfc, float rotation)
 
 #ifdef USE_CANVAS_SCALING
 float
-wf_context_get_zoom(WaveformCanvas* wfc)
+wf_context_get_zoom(WaveformContext* wfc)
 {
 	return wfc->scaled ? wfc->priv->zoom.val.f : 0.0;
 }
@@ -506,12 +512,14 @@ wf_context_get_zoom(WaveformCanvas* wfc)
  *  Calling this function puts the canvas into 'scaled' mode.
  */
 void
-wf_context_set_zoom(WaveformCanvas* wfc, float zoom)
+wf_context_set_zoom(WaveformContext* wfc, float zoom)
 {
 	// TODO should probably call agl_actor__start_transition
 
 	wfc->scaled = true;
 	dbg(1, "zoom=%f spp=%.2f", zoom, wfc->samples_per_pixel);
+
+	float old_zoom = wfc->zoom;
 
 	#define MAX_ZOOM 10000.0 // TODO
 	#define MIN_ZOOM 0.1     // TODO
@@ -523,15 +531,20 @@ wf_context_set_zoom(WaveformCanvas* wfc, float zoom)
 		return;
 	}
 
+	// TODO move this into the animator xx
+	if(wfc->zoom == old_zoom){
+		return;
+	}
+
 	void set_zoom_on_animation_finished(WfAnimation* animation, gpointer _wfc)
 	{
-		WaveformCanvas* wfc = _wfc;
+		WaveformContext* wfc = _wfc;
 		dbg(1, "wfc=%p", wfc);
 	}
 
 	void wf_canvas_set_zoom_on_frame(WfAnimation* animation, int time)
 	{
-		WaveformCanvas* wfc = animation->user_data;
+		WaveformContext* wfc = animation->user_data;
 
 #if 0 // invalidate only the waveform actors
 		GList* l = animation->members;
@@ -568,7 +581,7 @@ wf_context_set_zoom(WaveformCanvas* wfc, float zoom)
 
 
 void
-wf_context_set_gain(WaveformCanvas* wfc, float gain)
+wf_context_set_gain(WaveformContext* wfc, float gain)
 {
 	wfc->v_gain = gain;
 	wf_canvas_queue_redraw(wfc);

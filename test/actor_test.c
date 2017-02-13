@@ -10,7 +10,7 @@
 
   ---------------------------------------------------------------
 
-  copyright (C) 2012-2015 Tim Orford <tim@orford.org>
+  copyright (C) 2012-2017 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -43,13 +43,12 @@
 #include "test/ayyi_utils.h"
 
 #define GL_WIDTH 256.0
-#define GL_HEIGHT 256.0
 #define VBORDER 8
 
 GdkGLConfig*    glconfig       = NULL;
 GtkWidget*      canvas         = NULL;
 AGlScene*       scene          = NULL;
-WaveformCanvas* wfc            = NULL;
+WaveformContext* wfc[4]        = {NULL,};
 Waveform*       w1             = NULL;
 Waveform*       w2             = NULL;
 WaveformActor*  a[]            = {NULL, NULL, NULL, NULL};
@@ -123,8 +122,6 @@ main (int argc, char *argv[])
 	w1 = waveform_load_new(filename);
 	g_free(filename);
 
-	wfc = wf_context_new(scene);
-
 	int n_frames = waveform_get_n_frames(w1);
 
 	WfSampleRegion region[] = {
@@ -142,7 +139,9 @@ main (int argc, char *argv[])
 	};
 
 	int i; for(i=0;i<G_N_ELEMENTS(a);i++){
-		a[i] = wf_canvas_add_new_actor(wfc, w1);
+		wfc[i] = wf_context_new(scene); // each waveform has its own context so as to have a different zoom
+
+		a[i] = wf_canvas_add_new_actor(wfc[i], w1);
 		agl_actor__add_child((AGlActor*)scene, (AGlActor*)a[i]);
 
 		wf_actor_set_region(a[i], &region[i]);
@@ -185,15 +184,15 @@ on_allocate(GtkWidget* widget, GtkAllocation* allocation, gpointer user_data)
 	((AGlActor*)scene)->region.x2 = allocation->width;
 	((AGlActor*)scene)->region.y2 = allocation->height;
 
-	wfc->samples_per_pixel = a[0]->region.len / allocation->width;
-
-	int i; for(i=0;i<G_N_ELEMENTS(a);i++)
+	int i; for(i=0;i<G_N_ELEMENTS(a);i++){
+		wfc[i]->samples_per_pixel = a[i]->region.len / allocation->width;
 		if(a[i]) wf_actor_set_rect(a[i], &(WfRectangle){
 			0.0,
 			i * allocation->height / 4,
 			GL_WIDTH * zoom,
 			allocation->height / 4 * 0.95
 		});
+	}
 
 	start_zoom(zoom);
 }
@@ -207,7 +206,8 @@ start_zoom(float target_zoom)
 	PF0;
 	zoom = MAX(0.1, target_zoom);
 
-	wf_context_set_zoom(wfc, zoom);
+	int i; for(i=0;i<G_N_ELEMENTS(a);i++)
+		wf_context_set_zoom(wfc[i], zoom);
 }
 
 

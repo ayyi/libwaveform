@@ -1,5 +1,5 @@
 /*
-  copyright (C) 2014-2015 Tim Orford <tim@orford.org>
+  copyright (C) 2014-2017 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -440,7 +440,7 @@ ng_gl2_render_block(Renderer* renderer, WaveformActor* actor, int b, gboolean is
 
 	float n_rows = section->buffer_size / modes[renderer->mode].texture_size;
 	float ty = (b % MAX_BLOCKS_PER_TEXTURE) * 4.0 * waveform->n_channels / n_rows; // this tells the shader which block to use.
-	AGlQuad tex_rect = {tex.start, ty, tex.end, ty};
+	AGlQuad tex_rect = {tex.start, ty, tex.end, ty + 0.001}; // the 0.001 prevents the wrong block being shown on some systems
 
 	//dbg(0, "b=%i %u n_rows=%f x=%f-->%f y=%f (%f)", b % MAX_BLOCKS_PER_TEXTURE, section->texture, n_rows, tex.start, tex.end, ty, ((float)(b % MAX_BLOCKS_PER_TEXTURE) * 4.0 * waveform->n_channels));
 

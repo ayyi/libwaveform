@@ -7,7 +7,7 @@
 
   ---------------------------------------------------------------
 
-  copyright (C) 2012-2015 Tim Orford <tim@orford.org>
+  copyright (C) 2012-2017 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -61,7 +61,7 @@ AGl*            agl            = NULL;
 GdkGLConfig*    glconfig       = NULL;
 static bool     gl_initialised = false;
 GtkWidget*      canvas         = NULL;
-WaveformCanvas* wfc            = NULL;
+WaveformContext* wfc            = NULL;
 Waveform*       w1             = NULL;
 //Waveform*       w2             = NULL;
 WaveformActor*  a[]            = {NULL};//, NULL, NULL, NULL};
@@ -332,8 +332,8 @@ on_canvas_realise(GtkWidget* _canvas, gpointer user_data)
 
 	on_allocate(canvas, &canvas->allocation, user_data);
 
-	//allow the WaveformCanvas to initiate redraws
-	void _on_wf_canvas_requests_redraw(WaveformCanvas* wfc, gpointer _)
+	//allow the WaveformContext to initiate redraws
+	void _on_wf_canvas_requests_redraw(WaveformContext* wfc, gpointer _)
 	{
 		gdk_window_invalidate_rect(canvas->window, NULL, false);
 	}

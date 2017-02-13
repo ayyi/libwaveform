@@ -1,5 +1,5 @@
 /*
-  copyright (C) 2012-2015 Tim Orford <tim@orford.org>
+  copyright (C) 2012-2017 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -67,7 +67,7 @@ void            waveform_view_set_region    (WaveformView*, int64_t, int64_t);
 void            waveform_view_set_colour    (WaveformView*, uint32_t fg, uint32_t bg);
 void            waveform_view_set_show_rms  (WaveformView*, gboolean);
 
-WaveformCanvas* waveform_view_get_canvas    (WaveformView*);
+WaveformContext* waveform_view_get_canvas    (WaveformView*);
 
 
 G_END_DECLS

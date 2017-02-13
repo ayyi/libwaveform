@@ -5,7 +5,7 @@
 
   ---------------------------------------------------------------
 
-  copyright (C) 2012-2016 Tim Orford <tim@orford.org>
+  copyright (C) 2012-2017 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -48,7 +48,7 @@ static bool     gl_initialised = false;
 GtkWidget*      canvas         = NULL;
 AGlRootActor*   scene          = NULL;
 AGlActor*       group          = NULL;
-WaveformCanvas* wfc            = NULL;
+WaveformContext* wfc            = NULL;
 Waveform*       w1             = NULL;
 WaveformActor*  a[]            = {NULL};
 GLuint          bg_textures[2] = {0,};
@@ -111,6 +111,7 @@ main (int argc, char *argv[])
 	agl = agl_get_instance();
 
 	scene = (AGlRootActor*)agl_actor__new_root(canvas);
+	//scene->enable_animations = false;
 
 	wfc = wf_context_new((AGlRootActor*)scene);
 	wf_context_set_zoom(wfc, 1.0);

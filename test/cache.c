@@ -11,7 +11,7 @@
 
   ---------------------------------------------------------------
 
-  copyright (C) 2013-2016 Tim Orford <tim@orford.org>
+  copyright (C) 2013-2017 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -58,7 +58,7 @@ GdkGLConfig*    glconfig       = NULL;
 static bool     gl_initialised = false;
 GtkWidget*      canvas         = NULL;
 AGlScene*       scene          = NULL;
-WaveformCanvas* wfc            = NULL;
+WaveformContext* wfc            = NULL;
 Waveform*       w[2]           = {NULL,};
 WaveformActor*  a[2]           = {NULL,};
 bool            files_created  = false;
@@ -271,6 +271,14 @@ test_hires()
 				#define FIRST_NOT_VISIBLE 10000
 				#define LAST_NOT_VISIBLE (-1)
 
+				#define WF_ACTOR_GET_RECT(A, RECT) \
+					*RECT = (WfRectangle){ \
+						.left = ((AGlActor*)A)->region.x1, \
+						.top = ((AGlActor*)A)->region.y1, \
+						.len = agl_actor__width(((AGlActor*)A)), \
+						.height = agl_actor__height(((AGlActor*)A)), \
+					}
+
 				static double
 				wf_actor_samples2gl(double zoom, uint32_t n_samples)
 				{
@@ -404,16 +412,19 @@ test_scroll()
 	{
 		// test the number of blocks is being calculated correctly.
 
+		AGlActor* actor = (AGlActor*)a[0];
+
 		int r = w[0]->n_frames - REGION_LEN - 1;
 		WfSampleRegion region = {r, REGION_LEN};
-		double zoom = a[0]->rect.len / a[0]->region.len;
+		double zoom = agl_actor__width(actor) / a[0]->region.len;
 		WfViewPort viewport = {
-			.left   = a[0]->rect.left,
-			.top    = a[0]->rect.top,
-			.right  = a[0]->rect.left + a[0]->rect.len,
-			.bottom = a[0]->rect.top + a[0]->rect.height
+			.left   = actor->region.x1,
+			.top    = actor->region.y1,
+			.right  = actor->region.x2,
+			.bottom = actor->region.y2
 		};
-		BlockRange range = wf_actor_get_visible_block_range(&region, &a[0]->rect, zoom, &viewport, a[0]->waveform->priv->n_blocks);
+		WfRectangle rect; WF_ACTOR_GET_RECT(a[0], &rect);
+		BlockRange range = wf_actor_get_visible_block_range(&region, &rect, zoom, &viewport, a[0]->waveform->priv->n_blocks);
 		assert((range.last == waveform_get_n_audio_blocks(w[0]) - 1), "bad block_num %i / %i", range.last, waveform_get_n_audio_blocks(w[0]));
 	}
 

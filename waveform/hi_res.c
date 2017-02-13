@@ -1,5 +1,5 @@
 /*
-  copyright (C) 2012-2016 Tim Orford <tim@orford.org>
+  copyright (C) 2012-2017 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -397,7 +397,7 @@ draw_wave_buffer_hi_gl1(Renderer* renderer, WaveformActor* actor, int b, bool is
 
 	Waveform* w = actor->waveform; 
 	WfActorPriv* _a = actor->priv;
-	WaveformCanvas* wfc = actor->canvas;
+	WaveformContext* wfc = actor->canvas;
 	RenderInfo* r  = &_a->render_info;
 	HiRenderer* hr = (HiRenderer*)renderer;
 	WfRectangle* rect = &r->rect;
@@ -559,7 +559,7 @@ hi_gl1_render_block(Renderer* renderer, WaveformActor* actor, int b, gboolean is
 	//if we dont subdivide the blocks, size will be 256 x 16 = 4096. TODO intel 945 has max size of 2048
 	//-it works but is the large texture size causing performance issues?
 
-	WaveformCanvas* wfc = actor->canvas;
+	WaveformContext* wfc = actor->canvas;
 	RenderInfo* r  = &actor->priv->render_info;
 	WfRectangle* rect = &r->rect;
 

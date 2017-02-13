@@ -1,5 +1,5 @@
 /*
-  copyright (C) 2012-2016 Tim Orford <tim@orford.org>
+  copyright (C) 2012-2017 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -89,7 +89,8 @@ typedef struct                            // base type for Modes to inherit from
 } WaveformModeRender;
 
 typedef enum {
-	WAVEFORM_LOADING = 1 << 0,
+	WAVEFORM_LOADING     = 1 << 0,
+	WAVEFORM_CHECKS_DONE = 1 << 1,        // if audio file is accessed, the peakfile is validated.
 } WaveformState;
 
 struct _WfAudioData {
@@ -107,6 +108,8 @@ struct _WaveformPriv
 
 	WfAudioData     audio;          // tiered hi-res audio data.
 
+	AMPromise*      peaks;
+
 	int             num_peaks;      // peak_buflen / PEAK_VALUES_PER_SAMPLE
 	int             n_blocks;
 	short           max_db;         // TODO should be in db?
@@ -114,7 +117,6 @@ struct _WaveformPriv
 	                                // render_data is owned, managed, and shared by all the WfActor's using this waveform.
 	WaveformModeRender* render_data[N_MODES];
 
-	gboolean        checks_done;    // if audio file is accessed, the peakfile is validated.
 	WaveformState   state;
 };
 
@@ -247,8 +249,8 @@ void           waveform_audio_free         (Waveform*);
 WfTextureHi*   waveform_texture_hi_new     ();
 void           waveform_texture_hi_free    (WfTextureHi*);
 
-WaveformActor* wf_actor_new                (Waveform*, WaveformCanvas*);
+WaveformActor* wf_actor_new                (Waveform*, WaveformContext*);
 
-float          wf_canvas_gl_to_px          (WaveformCanvas*, float x);
+float          wf_canvas_gl_to_px          (WaveformContext*, float x);
 
 #endif //__wf_private_h__

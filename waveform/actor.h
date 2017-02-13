@@ -1,5 +1,5 @@
 /*
-  copyright (C) 2012-2016 Tim Orford <tim@orford.org>
+  copyright (C) 2012-2017 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -38,10 +38,9 @@ typedef void    (*WaveformActorFn) (WaveformActor*, gpointer);
 
 struct _WaveformActor {
 	AGlActor        actor;
-	WaveformCanvas* canvas;
+	WaveformContext* canvas;
 	Waveform*       waveform;
 	WfSampleRegion  region;
-	WfRectangle     rect;
 	uint32_t        fg_colour;
 	float           vzoom;     // vertical zoom. default 1.0
 	float           z;         // render position on z-axis.
@@ -64,6 +63,6 @@ void            wf_actor_get_viewport               (WaveformActor*, WfViewPort*
 float           wf_actor_frame_to_x                 (WaveformActor*, uint64_t);
 void            wf_actor_clear                      (WaveformActor*);
 
-#define         WF_ACTOR_PX_PER_FRAME(A) (A->rect.len / A->region.len)
+#define         WF_ACTOR_PX_PER_FRAME(A) (agl_actor__width((AGlActor*)A) / A->region.len)
 
 #endif //__waveform_actor_h__

@@ -21,10 +21,6 @@ extern "C" {
 #ifndef __waveform_h__
 #define __waveform_h__
 
-/*
-#include "waveform/alphabuf.h"
-*/
-
 #include <stdint.h>
 #include <glib.h>
 #include <glib-object.h>
@@ -33,13 +29,6 @@ extern "C" {
 #include "waveform/typedefs.h"
 #ifdef USE_GDK_PIXBUF
 #include <gtk/gtk.h>
-//#else
-//#ifndef GdkPixbuf
-//#define GdkPixbuf void
-//#endif
-//#if !defined(GdkColor)
-//#define GdkColor void
-//#endif
 #endif
 #include "waveform/utils.h"
 #include "waveform/promise.h"

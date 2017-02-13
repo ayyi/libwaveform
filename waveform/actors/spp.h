@@ -1,5 +1,5 @@
 /*
-  copyright (C) 2012-2015 Tim Orford <tim@orford.org>
+  copyright (C) 2012-2017 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -19,7 +19,7 @@
 
 typedef struct {
     AGlActor       actor;
-	WaveformActor* wf_actor;     // TODO needs refactoring. maybe move some properties to the canvas.
+	WaveformActor* wf_actor;     // The WfActor is needed to find positions when the WfContext is in non-scaled mode
 	uint32_t       text_colour;
     uint32_t       time;         // milliseconds (maximum of 1193 hours)
     uint32_t       play_timeout;

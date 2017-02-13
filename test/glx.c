@@ -2,7 +2,7 @@
 * +----------------------------------------------------------------------+
 * | This file is part of libwaveform                                     |
 * | https://github.com/ayyi/libwaveform                                  |
-* | copyright (C) 2012-2016 Tim Orford <tim@orford.org>                  |
+* | copyright (C) 2012-2017 Tim Orford <tim@orford.org>                  |
 * +----------------------------------------------------------------------+
 * | This program is free software; you can redistribute it and/or modify |
 * | it under the terms of the GNU General Public License version 3       |
@@ -209,7 +209,7 @@ main(int argc, char *argv[])
 	Waveform* w = waveform_load_new(filename);
 	g_free(filename);
 
-	WaveformCanvas* wfc = wf_context_new(scene);
+	WaveformContext* wfc = wf_context_new(scene);
 
 	agl_actor__add_child((AGlActor*)scene, (AGlActor*)(layers.wa = wf_canvas_add_new_actor(wfc, w)));
 

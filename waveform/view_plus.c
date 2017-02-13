@@ -1,5 +1,5 @@
 /*
-  copyright (C) 2012-2016 Tim Orford <tim@orford.org>
+  copyright (C) 2012-2017 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -92,7 +92,7 @@ static Key keys[] = {
 //-----------------------------------------
 
 struct _WaveformViewPlusPrivate {
-	WaveformCanvas* canvas;
+	WaveformContext* canvas;
 	WaveformActor*  actor;
 	AGlActor*       root;
 
@@ -388,6 +388,7 @@ waveform_view_plus_set_zoom (WaveformViewPlus* view, float zoom)
 	if((zoom = CLAMP(zoom, 1.0, WF_CONTEXT_MAX_ZOOM)) == v->canvas->zoom) return;
 
 	wf_context_set_zoom(v->canvas, zoom);
+
 	int64_t region_len = v->canvas->samples_per_pixel * agl_actor__width(((AGlActor*)v->actor)) / v->canvas->zoom;
 	int64_t max_start = waveform_get_n_frames(view->waveform) - region_len;
 	wf_actor_set_region(v->actor, &(WfSampleRegion){
@@ -1035,13 +1036,12 @@ waveform_actor(WaveformViewPlus* view)
 	{
 		#define V_BORDER 4
 
-		actor->region = (AGliRegion){
-			.x1 = 0,
-			.y1 = V_BORDER,
-			.x2 = actor->parent->region.x2,
-			.y2 = actor->parent->region.y2 - V_BORDER,
-		};
-		wf_actor_set_rect((WaveformActor*)actor, &(WfRectangle){0, 0, actor->region.x2, actor->region.y2 - actor->region.y1});
+		wf_actor_set_rect((WaveformActor*)actor, &(WfRectangle){
+			0,
+			V_BORDER,
+			.len = agl_actor__width(actor->parent),
+			.height = agl_actor__height(actor->parent) - 2 * V_BORDER
+		});
 
 		WaveformActor* wf_actor = (WaveformActor*)actor;
 		uint64_t n_frames = waveform_get_n_frames(wf_actor->waveform);

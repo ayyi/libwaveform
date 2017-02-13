@@ -1,5 +1,5 @@
 /*
-  copyright (C) 2012-2016 Tim Orford <tim@orford.org>
+  copyright (C) 2012-2017 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -46,7 +46,7 @@ static GdkGLContext* gl_context = NULL;
 
 struct _WaveformViewPrivate {
 	AGlActor*       root;
-	WaveformCanvas* context;
+	WaveformContext* context;
 	WaveformActor*  actor;
 	AMPromise*      ready;
 };
@@ -531,6 +531,7 @@ waveform_view_finalize (GObject* obj)
 	WaveformView* view = WAVEFORM_VIEW(obj);
 	WaveformViewPrivate* v = view->priv;
 
+	// these should really be done in dispose
 	if(v->actor){
 		wf_actor_clear(v->actor);
 		wf_canvas_remove_actor(v->context, v->actor);
@@ -585,7 +586,7 @@ waveform_view_set_projection(GtkWidget* widget)
 /*
  *  Returns the context that the WaveformView is using.
  */
-WaveformCanvas*
+WaveformContext*
 waveform_view_get_canvas(WaveformView* view)
 {
 	g_return_val_if_fail(view, NULL);

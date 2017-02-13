@@ -66,6 +66,8 @@ const char* wavs[] = {
 	"data/mono_0:10.flac",
 	"data/stereo_0:10.flac",
 	"data/stereo_0:10.wav",
+	"data/1_block.wav",
+	"data/2_blocks.wav",
 	"data/mono_0:10.mp3",
 	"data/mono_10:00.wav",
 	"data/mono_0:10.opus",
@@ -113,6 +115,10 @@ struct Layers {
     AGlActor* spinner;
 } layers;
 
+void  show_wav        (WaveformViewPlus*, const char* filename);
+char* format_channels (int n_channels);
+void  format_time     (char* str, int64_t t_ms);
+
 
 int
 main (int argc, char* argv[])
@@ -134,14 +140,6 @@ main (int argc, char* argv[])
 	waveform_view_plus_set_show_rms(waveform, false);
 	waveform_view_plus_set_colour(waveform, 0xccccddaa, 0x000000ff);
 
-	char* filename = find_wav(wavs[0]);
-	waveform_view_plus_load_file(waveform, filename, NULL, NULL);
-	g_free(filename);
-
-#if 0
-	waveform_view_plus_set_region(waveform, 0, 32383); // start in hi-res mode
-#endif
-
 	waveform_view_plus_add_layer(waveform, background_actor(NULL), 0);
 
 	layers.grid = waveform_view_plus_add_layer(waveform, grid_actor(waveform_view_plus_get_actor(waveform)), 0);
@@ -155,6 +153,14 @@ main (int argc, char* argv[])
 	wf_spp_actor_set_time((SppActor*)layers.spp, (_time += 50, _time));
 
 	layers.spinner = waveform_view_plus_add_layer(waveform, wf_spinner(waveform_view_plus_get_actor(waveform)), 0);
+
+	char* filename = find_wav(wavs[0]);
+	show_wav(waveform, filename);
+	g_free(filename);
+
+#if 0
+	waveform_view_plus_set_region(waveform, 0, 32383); // start in hi-res mode
+#endif
 
 	gtk_widget_set_size_request((GtkWidget*)waveform, 640, 160);
 
@@ -200,10 +206,9 @@ quit(gpointer waveform)
 }
 
 
-void show_wav(gpointer waveform, const char* filename)
+void
+show_wav(WaveformViewPlus* view, const char* filename)
 {
-	WaveformViewPlus* view = (WaveformViewPlus*)waveform;
-
 	typedef struct {
 		WaveformViewPlus* view;
 		float             zoom;
@@ -237,24 +242,21 @@ void show_wav(gpointer waveform, const char* filename)
 	}
 	g_idle_add(on_loaded, c);
 
+	char* text = NULL;
 	AGlActor* text_layer = waveform_view_plus_get_layer(view, 3);
 	if(text_layer){
-		/*
-		char* text = NULL;
-		if(sample->channels){
-			char* ch_str = format_channels(sample->channels);
-			char* level  = gain2dbstring(sample->peaklevel);
-			char length[64]; format_smpte(length, sample->length);
-			char fs_str[32]; samplerate_format(fs_str, sample->sample_rate); strcpy(fs_str + strlen(fs_str), " kHz");
+		Waveform* w = view->waveform;
+		if(w->n_channels){
+			char* ch_str = format_channels(w->n_channels);
+			char length[32]; format_time(length, (w->n_frames * 1000)/w->samplerate);
+			char fs_str[32] = {'\0'}; //samplerate_format(fs_str, sample->sample_rate); strcpy(fs_str + strlen(fs_str), " kHz");
 
-			text = g_strdup_printf("%s  %s  %s  %s", length, ch_str, fs_str, level);
+			text = g_strdup_printf("%s  %s  %s", length, ch_str, fs_str);
 
 			g_free(ch_str);
-			g_free(level);
 		}
-		*/
 
-		text_actor_set_text(((TextActor*)text_layer), g_strdup(basename(filename)), NULL);
+		text_actor_set_text(((TextActor*)text_layer), g_strdup(basename(filename)), text);
 	}
 }
 
@@ -262,14 +264,14 @@ void show_wav(gpointer waveform, const char* filename)
 static int i = 0;
 
 void
-next_wav(gpointer waveform)
+next_wav(gpointer view)
 {
 	printf("next...\n");
 
 	i = (i + 1) % G_N_ELEMENTS(wavs);
 
 	char* filename = find_wav(wavs[i]);
-	show_wav(waveform, filename);
+	show_wav(view, filename);
 
 	g_free(filename);
 }
@@ -358,4 +360,21 @@ play(gpointer view)
 	if(!play_timer) play_timer = g_timeout_add(50, tick, view);
 }
 
+
+char*
+format_channels(int n_channels)
+{
+	return g_strdup("mono");
+}
+
+
+void
+format_time(char* str, int64_t t_ms)
+{
+	int64_t secs = t_ms / 1000;
+	int64_t mins = secs / 60;
+	secs = secs % 60;
+	int64_t ms = t_ms % 1000;
+	snprintf(str, 31, "%"PRIi64":%02"PRIi64":%02"PRIi64, mins, secs, ms);
+}
 

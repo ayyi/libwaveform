@@ -1,5 +1,5 @@
 /*
-  copyright (C) 2012-2016 Tim Orford <tim@orford.org>
+  copyright (C) 2012-2017 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -40,6 +40,8 @@ wf_load_riff_peak(Waveform* wv, const char* peak_file)
 	g_return_val_if_fail(wv, 0);
 	PF2;
 
+	WaveformPriv* _w = wv->priv;
+
 	SNDFILE* sndfile;
 	SF_INFO sfinfo;
 	sfinfo.format = 0;
@@ -70,15 +72,22 @@ wf_load_riff_peak(Waveform* wv, const char* peak_file)
 	dbg(2, "n_channels=%i n_frames=%Li n_bytes=%Li n_blocks=%i", sfinfo.channels, n_frames, sfinfo.frames * peak_byte_depth * sfinfo.channels, (int)(ceil((float)n_frames / WF_PEAK_TEXTURE_SIZE)));
 	dbg(2, "secs=%.3f %.3f", ((float)(n_frames)) / 44100, ((float)(n_frames * WF_PEAK_RATIO)) / 44100);
 
-	uint32_t bytes = sfinfo.frames * peak_byte_depth * WF_PEAK_VALUES_PER_SAMPLE;
+	sf_count_t max_frames = wv->n_frames ? (wv->n_frames / WF_PEAK_RATIO) : LONG_MAX;
+#ifdef DEBUG
+	if(sfinfo.frames / WF_PEAK_VALUES_PER_SAMPLE > max_frames) gwarn("peakfile is too long: %"PRIi64", expected %"PRIi64, sfinfo.frames / WF_PEAK_VALUES_PER_SAMPLE, max_frames);
+#endif
+	sf_count_t r_frames = MIN(sfinfo.frames, max_frames) * WF_PEAK_VALUES_PER_SAMPLE;
+
+	uint32_t bytes = r_frames * peak_byte_depth * sfinfo.channels;// * WF_PEAK_VALUES_PER_SAMPLE;
 
 	short* read_buf = (sfinfo.channels == 1)
 		? waveform_peak_malloc(wv, bytes) // no deinterleaving required, can read directly into the peak buffer.
 		: g_malloc(bytes);
 
+
 	//read the whole peak file into memory:
 	int readcount_frames;
-	if((readcount_frames = sf_readf_short(sndfile, read_buf, sfinfo.frames)) < sfinfo.frames){
+	if((readcount_frames = sf_readf_short(sndfile, read_buf, r_frames)) < r_frames){
 		gwarn("unexpected EOF: %s - read %i of %"PRIi64" items", peak_file, readcount_frames, n_frames);
 		//gerr ("read error. couldnt read %i bytes from %s", bytes, peak_file);
 	}
@@ -89,35 +98,30 @@ wf_load_riff_peak(Waveform* wv, const char* peak_file)
 
 	int ch_num = 0; //TODO
 	if(sfinfo.channels == 1){
-		wv->priv->peak.buf[ch_num] = read_buf;
+		_w->peak.buf[ch_num] = read_buf;
 	}else if(sfinfo.channels == 2){
 		short* buf[WF_MAX_CH] = {
 			waveform_peak_malloc(wv, bytes / sfinfo.channels),
 			waveform_peak_malloc(wv, bytes / sfinfo.channels)
 		};
-		int i; for(i=0;i<readcount_frames/(2);i++){
+		int i; for(i=0;i<readcount_frames/2;i++){
 			int c; for(c=0;c<sfinfo.channels;c++){
 				int src = 2 * (i * sfinfo.channels + c);
 				buf[c][2 * i    ] = read_buf[src    ]; // +
 				buf[c][2 * i + 1] = read_buf[src + 1]; // -
 			}
-			//if(i < 10) dbg(0, " %i", buf[0][i]);
 		}
-		wv->priv->peak.buf[ch_num    ] = buf[WF_LEFT ];
-		wv->priv->peak.buf[ch_num + 1] = buf[WF_RIGHT];
-		/*
-		for(i=0;i<10;i+=2){
-			printf("^ %i %i %i %i\n", wv->priv->peak.buf[WF_LEFT][i], wv->priv->peak.buf[WF_RIGHT][i], wv->priv->peak.buf[WF_LEFT][i+1], wv->priv->peak.buf[WF_RIGHT][i+1]);
-		}
-		*/
+		_w->peak.buf[ch_num    ] = buf[WF_LEFT ];
+		_w->peak.buf[ch_num + 1] = buf[WF_RIGHT];
+
 		g_free(read_buf);
 	}
-	wv->priv->peak.size = n_frames * WF_PEAK_VALUES_PER_SAMPLE;
-	dbg(2, "peak.size=%i", wv->priv->peak.size);
+	wv->priv->peak.size = r_frames;//n_frames * WF_PEAK_VALUES_PER_SAMPLE;
+	dbg(2, "peak.size=%i", _w->peak.size);
 #ifdef ENABLE_CHECKS
 	int k; for(k=0;k<10;k++){
-		if(wv->priv->peak.buf[0][2*k + 0] < 0.0){ gwarn("positive peak not positive"); break; }
-		if(wv->priv->peak.buf[0][2*k + 1] > 0.0){ gwarn("negative peak not negative"); break; }
+		if(_w->peak.buf[0][2*k + 0] < 0.0){ gwarn("positive peak not positive"); break; }
+		if(_w->peak.buf[0][2*k + 1] > 0.0){ gwarn("negative peak not negative"); break; }
 	}
 #endif
   out_close:

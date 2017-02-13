@@ -1,7 +1,7 @@
 /**
 * +----------------------------------------------------------------------+
 * | This file is part of the Ayyi project. http://www.ayyi.org           |
-* | copyright (C) 2013-2016 Tim Orford <tim@orford.org>                  |
+* | copyright (C) 2013-2017 Tim Orford <tim@orford.org>                  |
 * +----------------------------------------------------------------------+
 * | This program is free software; you can redistribute it and/or modify |
 * | it under the terms of the GNU General Public License version 3       |
@@ -149,8 +149,8 @@ AGlActorContext actor_context;
 extern AGlActorContext actor_context;
 #endif
 
-#define agl_actor__width(A)      (A->region.x2 - A->region.x1)
-#define agl_actor__height(A)     (A->region.y2 - A->region.y1)
+#define agl_actor__width(A)      ((A)->region.x2 - (A)->region.x1)
+#define agl_actor__height(A)     ((A)->region.y2 - (A)->region.y1)
 #define agl_actor__is_hovered(A) (A->root->hovered == A)
 
 #define AGL_HANDLED TRUE

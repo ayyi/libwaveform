@@ -1,5 +1,5 @@
 /*
-  copyright (C) 2012-2015 Tim Orford <tim@orford.org>
+  copyright (C) 2012-2017 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -74,7 +74,7 @@ static void
 _v_hi_set_gl_state(WaveformActor* actor)
 {
 	AGl* agl = agl_get_instance();
-	const WaveformCanvas* wfc = actor->canvas;
+	const WaveformContext* wfc = actor->canvas;
 
 							//TODO might these prevent further blocks at different res? difficult to notice as they are usually the same.
 							glEnable(GL_BLEND);
@@ -114,7 +114,7 @@ draw_wave_buffer_v_hi(Renderer* renderer, WaveformActor* actor, int block, bool 
 	// variable names: variables prefixed with x_ relate to screen coordinates (pixels), variables prefixed with s_ related to sample frames.
 
 	const Waveform* w = actor->waveform;
-	const WaveformCanvas* wfc = actor->canvas;
+	const WaveformContext* wfc = actor->canvas;
 	const WfActorPriv* _a = actor->priv;
 	const RenderInfo* ri  = &_a->render_info;
 	VHiRenderer* vhr = (VHiRenderer*)renderer;

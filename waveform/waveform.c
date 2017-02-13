@@ -1,5 +1,5 @@
 /*
-  copyright (C) 2012-2016 Tim Orford <tim@orford.org>
+  copyright (C) 2012-2017 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -43,6 +43,7 @@
 #include "waveform/fbo.h"
 #include "waveform/worker.h"
 #include "waveform/peakgen.h"
+#include "waveform/utils.h"
 
 static gpointer waveform_parent_class = NULL;
 #define WAVEFORM_GET_PRIVATE(o) (G_TYPE_INSTANCE_GET_PRIVATE ((o), TYPE_WAVEFORM, WaveformPriv))
@@ -52,6 +53,7 @@ enum  {
 };
 
 #define N_TIERS_NEEDED 3 // this will specify a hires peakbuf of minimum 16:1 resolution
+#define CHECKS_DONE(W) (w->priv->state & WAVEFORM_CHECKS_DONE)
 
 extern WF* wf;
 guint peak_idle = 0;
@@ -227,43 +229,55 @@ _waveform_get_property (GObject* object, guint property_id, GValue* value, GPara
 void
 waveform_load(Waveform* w, WfCallback3 callback, gpointer user_data)
 {
-	if(w->priv->state & WAVEFORM_LOADING){
-		// TODO ideally we need to call the callback here when the data is loaded.
-		//      -try allowing it to add to queue but dont execute the job.
-		dbg(0, "already loading");
-		return;
+	WaveformPriv* _w = w->priv;
+
+	if(!_w->peaks){
+		_w->peaks = am_promise_new(w);
 	}
 
 	typedef struct {
 		WfCallback3 callback;
 		gpointer user_data;
 	} C;
-	C* c = g_new0(C, 1);
-	*c = (C){
-		.callback = callback,
-		.user_data = user_data
-	};
 
-	void waveform_load_done (Waveform* w, char* peakfile, gpointer _c)
+	C* c = WF_NEW(C,
+		.callback = callback,
+		.user_data = user_data,
+	);
+
+	void done(gpointer waveform, gpointer _c)
 	{
 		C* c = _c;
+		//GError* error = NULL; // TODO
+		if(c->callback) c->callback((Waveform*)waveform, ((Waveform*)waveform)->priv->peaks->error, c->user_data);
+		g_free(c);
+	}
 
-		w->priv->state &= ~WAVEFORM_LOADING; // TODO move
+	am_promise_add_callback(_w->peaks, done, c);
 
-		GError* error = NULL;
+	if(_w->peak.buf[0] || _w->state & WAVEFORM_LOADING){
+		dbg(0, "subsequent load request");
+		return;
+	}
+
+	void waveform_load_done (Waveform* w, char* peakfile, gpointer _)
+	{
+		WaveformPriv* _w = w->priv;
+
+		_w->state &= ~WAVEFORM_LOADING;
+
 		if(peakfile){
 			if(!waveform_load_peak(w, peakfile, 0)){
-				error = g_error_new(g_quark_from_static_string(wf->domain), 1, "failed to load peak");
+				_w->peaks->error = g_error_new(g_quark_from_static_string(wf->domain), 1, "failed to load peak");
 			}
 			g_free(peakfile);
 			g_signal_emit_by_name(w, "peakdata-ready");
 		}
-		c->callback(w, error, c->user_data);
-		g_free(c);
+		am_promise_resolve(_w->peaks, NULL);
 	}
 
-	w->priv->state |= WAVEFORM_LOADING; // TODO change the name, is not loading is generating
-	waveform_ensure_peakfile(w, waveform_load_done, c);
+	_w->state |= WAVEFORM_LOADING;
+	waveform_ensure_peakfile(w, waveform_load_done, NULL);
 }
 
 
@@ -316,14 +330,14 @@ waveform_get_sf_data(Waveform* w)
 		}
 	}
 
-	if(_w->num_peaks && !_w->checks_done){
+	if(_w->num_peaks && !CHECKS_DONE(w)){
 		if(w->n_frames > _w->num_peaks * WF_PEAK_RATIO){
 			char* peakfile = waveform_ensure_peakfile__sync(w);
 			gwarn("peakfile is too short. maybe corrupted. len=%i expected=%"PRIi64" '%s'", _w->num_peaks, w->n_frames / WF_PEAK_RATIO, peakfile);
 			w->renderable = false;
 			g_free(peakfile);
 		}
-		w->priv->checks_done = true;
+		w->priv->state |= WAVEFORM_CHECKS_DONE;
 	}
 }
 
@@ -377,7 +391,7 @@ waveform_load_peak(Waveform* w, const char* peak_file, int ch_num)
 	WaveformPriv* _w = w->priv;
 
 	//check is not previously loaded
-	if(w->priv->peak.buf[ch_num]){
+	if(_w->peak.buf[ch_num]){
 		dbg(2, "using existing peak data...");
 		return true;
 	}
@@ -395,7 +409,7 @@ waveform_load_peak(Waveform* w, const char* peak_file, int ch_num)
 		if(wf_debug > -1 && w->n_frames){
 			uint64_t a = _w->num_peaks;
 			uint64_t b = w->n_frames / WF_PEAK_RATIO;
-			gwarn("got %"PRIi64" peaks, expected %"PRIi64, a, b);
+			if(a != b) gwarn("got %"PRIi64" peaks, expected %"PRIi64, a, b);
 		}
 	}
 #endif
@@ -1542,6 +1556,8 @@ waveform_peak_to_pixbuf_full(Waveform* waveform, GdkPixbuf* pixbuf, uint32_t reg
 	dbg(3, "peak_gain=%.2f", gain);
 
 	int n_chans      = waveform_get_n_channels(waveform);
+	g_return_if_fail(n_chans);
+
 	int n_chans_out  = single ? 1 : n_chans;
 	int width        = gdk_pixbuf_get_width(pixbuf);
 	int height       = gdk_pixbuf_get_height(pixbuf);

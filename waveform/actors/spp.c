@@ -2,7 +2,7 @@
 * +----------------------------------------------------------------------+
 * | This file is part of libwaveform                                     |
 * | https://github.com/ayyi/libwaveform                                  |
-* | copyright (C) 2012-2016 Tim Orford <tim@orford.org>                  |
+* | copyright (C) 2012-2017 Tim Orford <tim@orford.org>                  |
 * +----------------------------------------------------------------------+
 * | This program is free software; you can redistribute it and/or modify |
 * | it under the terms of the GNU General Public License version 3       |
@@ -51,7 +51,7 @@ wf_spp_actor(WaveformActor* wf_actor)
 				int x = (int)event->x - p.x;
 				int64_t samples = x * (wf_actor->canvas->scaled
 					? wf_actor->canvas->samples_per_pixel
-					: wf_actor->region.len / wf_actor->rect.len
+					: wf_actor->region.len / agl_actor__width((AGlActor*)wf_actor)
 				);
 				wf_spp_actor_set_time((SppActor*)_spp, (1000 * samples) / wf_actor->canvas->sample_rate);
 				return true;

@@ -300,8 +300,6 @@ interleave(float* out, size_t len, Buf16* buf, int n_channels)
 {
 	int i,c; for(i=0; i<len/n_channels;i++){
 		for(c=0;c<n_channels;c++){
-															g_return_if_fail(i * n_channels + c < len);
-															g_return_if_fail(i < buf->size);
 			out[i * n_channels + c] = SHORT_TO_FLOAT(buf->buf[c][i]);
 		}
 	}
@@ -1115,7 +1113,9 @@ const static AdPlugin ad_ffmpeg = {
 	&ff_read_short
 };
 
-																extern int wf_debug;
+
+extern int wf_debug; // TODO
+
 /* dlopen handler */
 const AdPlugin*
 get_ffmpeg()

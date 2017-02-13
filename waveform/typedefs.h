@@ -1,5 +1,5 @@
 /*
-  copyright (C) 2012-2015 Tim Orford <tim@orford.org>
+  copyright (C) 2012-2017 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -25,7 +25,6 @@ typedef struct _alpha_buf           AlphaBuf;
 typedef struct _WfPeakBuf           WfPeakBuf;
 typedef struct _buf                 RmsBuf;
 typedef struct _WfBuf16             WfBuf16;
-typedef struct _WaveformContext     WaveformCanvas; // TODO remove
 typedef struct _WaveformContext     WaveformContext;
 typedef struct _WaveformContextClass WaveformContextClass;
 typedef struct _WaveformActor       WaveformActor;
