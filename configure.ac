@@ -56,6 +56,9 @@ AC_SUBST(GLIB_CFLAGS)
 GTHREAD_LIBS=`pkg-config --libs gthread-2.0`
 AC_SUBST(GTHREAD_LIBS)
 
+X11_LDFLAGS=`pkg-config --libs x11`
+AC_SUBST(X11_LDFLAGS)
+
 dnl -----------------------------------------------------
 
 GTK_CFLAGS=`pkg-config gtk+-2.0 --cflags`
