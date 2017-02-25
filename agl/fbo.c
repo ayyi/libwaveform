@@ -1,5 +1,5 @@
 /*
-  copyright (C) 2012-2016 Tim Orford <tim@orford.org>
+  copyright (C) 2012-2017 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -142,8 +142,13 @@ agl_fbo_set_size(AGlFBO* fbo, int width, int height)
 		glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
 
 		if(fbo->flags & AGL_FBO_HAS_STENCIL){
+#if 0
 			glDeleteFramebuffers(1, &fbo->id);
 			make_fb(fbo);
+#else // just clearing the stencil buffer seems to work well when resizing
+			glBindFramebuffer(GL_FRAMEBUFFER_EXT, fbo->id);
+			glClear(GL_STENCIL_BUFFER_BIT);
+#endif
 		}
 	}
 }

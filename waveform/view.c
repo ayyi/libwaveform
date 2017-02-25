@@ -145,11 +145,11 @@ waveform_view_new (Waveform* waveform)
 
 	void display_ready(AGlActor* a)
 	{
-		WaveformView* view = (WaveformView*)((AGlRootActor*)a)->widget;
+		WaveformView* view = (WaveformView*)((AGlRootActor*)a)->gl.gdk.widget;
 		WaveformViewPrivate* v = view->priv;
 		v->context = wf_context_new((AGlRootActor*)v->root);
 
-		waveform_view_set_projection(((AGlRootActor*)a)->widget);
+		waveform_view_set_projection(((AGlRootActor*)a)->gl.gdk.widget);
 
 		am_promise_resolve(g_list_nth_data(v->ready->children, PROMISE_DISP_READY), NULL);
 	}

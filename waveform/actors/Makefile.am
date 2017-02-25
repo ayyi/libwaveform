@@ -1,10 +1,11 @@
 
 pkgincludedir=$(includedir)/waveform/actors
 pkginclude_HEADERS = \
-	group.h \
 	background.h \
-	ruler.h \
+	debug.h \
 	grid.h \
-	text.h \
+	group.h \
+	ruler.h \
 	spinner.h \
-	spp.h
+	spp.h \
+	text.h

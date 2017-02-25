@@ -34,6 +34,8 @@
 #endif
 static AGl* agl = NULL;
 
+#define SCENE_IS_GTK(A) (A->root->type == CONTEXT_TYPE_GTK)
+
 static bool   agl_actor__is_onscreen  (AGlActor*);
 static bool  _agl_actor__on_event     (AGlActor*, GdkEvent*, AGliPt);
 static void   agl_actor__init         (AGlActor*);        // called once when gl context is available. and again if gl context changes, eg after re-realize.
@@ -68,11 +70,11 @@ agl_actor__new_root(GtkWidget* widget)
 
 		static bool first_time = true;
 
-		((AGlActor*)a)->viewport.x2 = a->widget->allocation.width;
-		((AGlActor*)a)->viewport.y2 = a->widget->allocation.height;
+		((AGlActor*)a)->viewport.x2 = a->gl.gdk.widget->allocation.width;
+		((AGlActor*)a)->viewport.y2 = a->gl.gdk.widget->allocation.height;
 
 		a->gl.gdk.drawable = drawable;
-		a->gl.gdk.context = gtk_widget_get_gl_context(a->widget);
+		a->gl.gdk.context = gtk_widget_get_gl_context(a->gl.gdk.widget);
 
 		if(first_time){
 			agl_get_extensions();
@@ -108,7 +110,7 @@ agl_actor__new_root(GtkWidget* widget)
 	{
 		AGlRootActor* a = _actor;
 		if(!a->gl.gdk.drawable){
-			GdkGLDrawable* drawable = gtk_widget_get_gl_drawable(a->widget);
+			GdkGLDrawable* drawable = gtk_widget_get_gl_drawable(a->gl.gdk.widget);
 			if(drawable){
 				agl_actor__have_drawable(a, drawable);
 			}
@@ -135,7 +137,7 @@ agl_actor__new_root(GtkWidget* widget)
 	}
 
 	AGlRootActor* a = (AGlRootActor*)agl_actor__new_root_(CONTEXT_TYPE_GTK);
-	a->widget = widget;
+	a->gl.gdk.widget = widget;
 
 	if(GTK_WIDGET_REALIZED(widget)){
 		agl_actor__on_realise(widget, a);
@@ -227,8 +229,7 @@ agl_actor__add_child(AGlActor* actor, AGlActor* child)
 		}
 		set_child_roots(child);
 
-		// TODO need some way to detect type?
-		#define READY_FOR_INIT(A) (A->root->widget ? GTK_WIDGET_REALIZED(A->root->widget) : true)
+		#define READY_FOR_INIT(A) (SCENE_IS_GTK(A) ? GTK_WIDGET_REALIZED(A->root->gl.gdk.widget) : true)
 		if(READY_FOR_INIT(child)) agl_actor__init(child);
 	}
 
@@ -385,7 +386,7 @@ agl_actor__paint(AGlActor* a)
 {
 	if(!a->root) return;
 
-	if(!agl_actor__is_onscreen(a) || (!agl_actor__width(a) && a->paint != agl_actor__null_painter)) return;
+	if(!agl_actor__is_onscreen(a) || ((agl_actor__width(a) < 1 || agl_actor__height(a) < 1) && a->paint != agl_actor__null_painter)) return;
 
 	AGliPt offset = {
 		.x = a->region.x1 - a->viewport.x1,
@@ -454,22 +455,33 @@ agl_actor__paint(AGlActor* a)
 	static int depth; depth = -1;
 	static uint32_t colours[10] = {0xff000088, 0xff990088, 0x00ff0088, 0x0000ff88, 0xff000088, 0xffff0088, 0x00ffff88};
 
+	int n_no_x_offset_parents(AGlActor* a)
+	{
+		int n = 0;
+		AGlActor* _a = a;
+		while(_a && !_a->region.x1) n++, _a = _a->parent;
+		return n;
+	}
+
+	int n_no_y_offset_parents(AGlActor* a)
+	{
+		int n = 0;
+		AGlActor* _a = a;
+		while(_a && !_a->region.y1) n++, _a = _a->parent;
+		return n;
+	}
+
 	void paint_border(AGlActor* a)
 	{
 		depth++;
 		glPushMatrix();
-		glTranslatef(a->region.x1, a->region.y1, 0.0);
+		glTranslatef(a->region.x1 - a->viewport.x1, a->region.y1 - a->viewport.y1, 0.0);
 		agl->shaders.plain->uniform.colour = colours[depth];
 		agl_use_program((AGlShader*)agl->shaders.plain);
 
-		#define W 1
-		AGliRegion r = a->region;
-		float width = r.x2 - r.x1;
-		float height = MAX(0.0, r.y2 - r.y1);
-		agl_rect(0.0,       0.0,        width, W     );
-		agl_rect(0.0,       0.0,        W,     height);
-		agl_rect(0.0,       height - W, width, W     );
-		agl_rect(width - W, 0.0,        W,     height);
+		float x = 1.0 * n_no_x_offset_parents(a);
+		float y = 1.0 * n_no_y_offset_parents(a);
+		agl_box(1, x, 0.0, agl_actor__width(a) - x, MAX(0, agl_actor__height(a)) -y);
 
 		GList* l = a->children;
 		for(;l;l=l->next){
@@ -499,7 +511,14 @@ agl_actor__set_size(AGlActor* actor)
 	if(actor->fbo){
 		AGliPt size = actor->cache.size_request.x ? actor->cache.size_request : (AGliPt){agl_actor__width(actor), agl_actor__height(actor)};
 		if(size.x != actor->fbo->width || size.y != actor->fbo->height){
+#if 0
+			// Although resizing of fbos should work, it is not reliable
+			// and people often advice against it.
 			agl_fbo_set_size (actor->fbo, size.x, size.y);
+#else
+			agl_fbo_free(actor->fbo);
+			actor->fbo = agl_fbo_new(size.x, size.y, 0, 0);
+#endif
 			actor->cache.valid = false;
 		}
 	}
@@ -580,7 +599,7 @@ bool
 agl_actor__on_event(AGlScene* root, GdkEvent* event)
 {
 	AGlActor* actor = (AGlActor*)root;
-	GtkWidget* widget = actor->root->widget;
+	GtkWidget* widget = actor->root->gl.gdk.widget;
 
 	if(event->type == GDK_KEY_PRESS){
 		AGL_DEBUG printf("%s: keypress: key=%i\n", __func__, ((GdkEventKey*)event)->keyval);
@@ -633,7 +652,9 @@ agl_actor__on_event(AGlScene* root, GdkEvent* event)
 
 		if(event->type == GDK_BUTTON_RELEASE){
 			actor_context.grabbed = NULL;
-			gdk_window_set_cursor(widget->window, NULL);
+			if(SCENE_IS_GTK(actor)){
+				gdk_window_set_cursor(widget->window, NULL);
+			}
 		}
 
 		return handled;
@@ -662,7 +683,7 @@ agl_actor__on_event(AGlScene* root, GdkEvent* event)
 
 			break;
 		case GDK_BUTTON_PRESS:
-			gtk_window_set_focus((GtkWindow*)gtk_widget_get_toplevel(root->widget), root->widget);
+			if(SCENE_IS_GTK(actor)) gtk_window_set_focus((GtkWindow*)gtk_widget_get_toplevel(root->gl.gdk.widget), root->gl.gdk.widget);
 		case GDK_BUTTON_RELEASE:
 			if(root->selected != a){
 				if(root->selected) agl_actor__invalidate(root->selected);
@@ -694,8 +715,10 @@ agl_actor__on_event(AGlScene* root, GdkEvent* event)
 		if(event->type == GDK_MOTION_NOTIFY){
 			if(hovered){
 				root->hovered = NULL;
-				gdk_window_set_cursor(widget->window, NULL);
-				gtk_widget_queue_draw(widget); // TODO not always needed
+				if(widget){
+					gdk_window_set_cursor(widget->window, NULL);
+					gtk_widget_queue_draw(widget); // TODO not always needed
+				}
 			}
 		}
 	}
@@ -708,9 +731,21 @@ bool
 agl_actor__xevent(AGlRootActor* scene, XEvent* xevent)
 {
 	switch (xevent->type) {
-		case ButtonRelease:
-			break;
 		case ButtonPress:
+			{
+				GdkEvent event = {
+					.type = GDK_BUTTON_PRESS, // why gets overwritten?
+					.button = {
+						.x = (double)xevent->xbutton.x,
+						.y = (double)xevent->xbutton.y,
+					},
+				};
+				event.type = GDK_BUTTON_PRESS;
+
+				agl_actor__on_event(scene, &event);
+			}
+			break;
+		case ButtonRelease:
 			{
 				GdkEvent event = {
 					.type = GDK_BUTTON_RELEASE, // why gets overwritten?
@@ -722,6 +757,18 @@ agl_actor__xevent(AGlRootActor* scene, XEvent* xevent)
 				event.type = GDK_BUTTON_RELEASE;
 
 				agl_actor__on_event(scene, &event);
+			}
+			break;
+		case MotionNotify:
+			{
+				GdkEventMotion event = {
+					.type = GDK_MOTION_NOTIFY,
+					.x = (double)xevent->xbutton.x,
+					.y = (double)xevent->xbutton.y,
+				};
+				event.type = GDK_MOTION_NOTIFY;
+
+				agl_actor__on_event(scene, (GdkEvent*)&event);
 			}
 			break;
 		case KeyPress:
@@ -845,7 +892,7 @@ agl_actor__invalidate(AGlActor* actor)
 	}
 	_agl_actor__invalidate(actor);
 	if(actor->root){
-		if(actor->root->type == CONTEXT_TYPE_GTK) gtk_widget_queue_draw(actor->root->widget);
+		if(actor->root->type == CONTEXT_TYPE_GTK) gtk_widget_queue_draw(actor->root->gl.gdk.widget);
 		else call(actor->root->draw, actor->root, actor->root->user_data);
 	}
 }
@@ -1044,6 +1091,7 @@ agl_actor__print_tree (AGlActor* actor)
 		bool is_onscreen = agl_actor__is_onscreen(actor);
 		char* offscreen = is_onscreen ? "" : " OFFSCREEN";
 		char* zero_size = agl_actor__width(actor) ? "" : " ZEROSIZE";
+		char* negative_size = (agl_actor__width(actor) < 1 || agl_actor__height(actor) < 1) ? " NEGATIVESIZE" : "";
 		char* disabled = agl_actor__is_disabled(actor) ?  " DISABLED" :  "";
 #ifdef AGL_ACTOR_RENDER_CACHE
 		char* colour = !agl_actor__width(actor) || !is_onscreen
@@ -1052,7 +1100,7 @@ agl_actor__print_tree (AGlActor* actor)
 				? lgrey
 				: "";
 		AGliPt offset = agl_actor__find_offset(actor);
-		if(actor->name) printf("%s%s:%s%s%s cache(%i,%i) region(%i,%i,%i,%i) viewport(%i,%i,%i,%i) offset(%i,%i)%s\n", colour, actor->name, offscreen, zero_size, disabled, actor->cache.enabled, actor->cache.valid, actor->region.x1, actor->region.y1, actor->region.x2, actor->region.y2, actor->viewport.x1, actor->viewport.y1, actor->viewport.x2, actor->viewport.y2, offset.x, offset.y, white);
+		if(actor->name) printf("%s%s:%s%s%s%s cache(%i,%i) region(%i,%i,%i,%i) viewport(%i,%i,%i,%i) offset(%i,%i)%s\n", colour, actor->name, offscreen, zero_size, negative_size, disabled, actor->cache.enabled, actor->cache.valid, actor->region.x1, actor->region.y1, actor->region.x2, actor->region.y2, actor->viewport.x1, actor->viewport.y1, actor->viewport.x2, actor->viewport.y2, offset.x, offset.y, white);
 #else
 		if(actor->name) printf("%s\n", actor->name);
 #endif

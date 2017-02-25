@@ -28,7 +28,8 @@ OPENGL_SOURCES = \
 	actors/grid.c actors/grid.h \
 	actors/spp.c actors/spp.h \
 	actors/spinner.c actors/spinner.h \
-	actors/text.c actors/text.h
+	actors/text.c actors/text.h \
+	actors/debug.c actors/debug.h
 endif
 
 libwaveform_la_SOURCES = \

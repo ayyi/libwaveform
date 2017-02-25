@@ -2,7 +2,7 @@
 * +----------------------------------------------------------------------+
 * | This file is part of libwaveform                                     |
 * | https://github.com/ayyi/libwaveform                                  |
-* | copyright (C) 2012-2016 Tim Orford <tim@orford.org>                  |
+* | copyright (C) 2012-2017 Tim Orford <tim@orford.org>                  |
 * +----------------------------------------------------------------------+
 * | This program is free software; you can redistribute it and/or modify |
 * | it under the terms of the GNU General Public License version 3       |
@@ -181,8 +181,8 @@ text_actor(WaveformActor* _)
 	{
 		TextActor* ta = (TextActor*)a;
 
-		if(!ta->title_colour1) ta->title_colour1 = wf_get_gtk_text_color(a->root->widget, GTK_STATE_NORMAL);
-		if(!ta->text_colour) ta->text_colour = wf_get_gtk_base_color(a->root->widget, GTK_STATE_NORMAL, 0xaa);
+		if(!ta->title_colour1) ta->title_colour1 = wf_get_gtk_text_color(a->root->gl.gdk.widget, GTK_STATE_NORMAL);
+		if(!ta->text_colour) ta->text_colour = wf_get_gtk_base_color(a->root->gl.gdk.widget, GTK_STATE_NORMAL, 0xaa);
 
 #ifdef USE_LIBASS
 		if(agl_get_instance()->use_shaders){
@@ -246,7 +246,7 @@ text_actor_set_colour (TextActor* ta, uint32_t title1, uint32_t title2)
 	ass.uniform.colour2 = ta->title_colour2 = title2;
 #endif
 
-	gtk_widget_queue_draw(((AGlActor*)ta)->root->widget);
+	gtk_widget_queue_draw(((AGlActor*)ta)->root->gl.gdk.widget);
 }
 
 
@@ -263,7 +263,7 @@ text_actor_set_text (TextActor* ta, char* title, char* text)
 	ta->text = text;
 	ta->title_is_rendered = false;
 
-	gtk_widget_queue_draw(((AGlActor*)ta)->root->widget);
+	gtk_widget_queue_draw(((AGlActor*)ta)->root->gl.gdk.widget);
 }
 
 

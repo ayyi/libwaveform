@@ -39,7 +39,7 @@ wf_spp_actor(WaveformActor* wf_actor)
 
 	void spp_actor__init(AGlActor* actor)
 	{
-		if(!((SppActor*)actor)->text_colour) ((SppActor*)actor)->text_colour = wf_get_gtk_base_color(actor->root->widget, GTK_STATE_NORMAL, 0xaa);
+		if(!((SppActor*)actor)->text_colour) ((SppActor*)actor)->text_colour = wf_get_gtk_base_color(actor->root->gl.gdk.widget, GTK_STATE_NORMAL, 0xaa);
 
 		bool on_middle_click(GtkWidget* widget, GdkEventButton* event, gpointer _spp)
 		{
@@ -58,7 +58,7 @@ wf_spp_actor(WaveformActor* wf_actor)
 			}
 			return false;
 		}
-		g_signal_connect((gpointer)actor->root->widget, "button-release-event", G_CALLBACK(on_middle_click), actor);
+		g_signal_connect((gpointer)actor->root->gl.gdk.widget, "button-release-event", G_CALLBACK(on_middle_click), actor);
 	}
 
 	void spp_actor__set_state(AGlActor* actor)
@@ -158,7 +158,7 @@ wf_spp_actor_set_time(SppActor* spp, uint32_t time)
 		SppActor* spp = _spp;
 
 		spp->play_timeout = 0;
-		gtk_widget_queue_draw(((AGlActor*)spp)->root->widget);
+		gtk_widget_queue_draw(((AGlActor*)spp)->root->gl.gdk.widget);
 
 		return G_SOURCE_REMOVE;
 	}
@@ -168,6 +168,6 @@ wf_spp_actor_set_time(SppActor* spp, uint32_t time)
 	if(spp->play_timeout) g_source_remove(spp->play_timeout);
 	spp->play_timeout = g_timeout_add(100, check_playback, spp);
 
-	gtk_widget_queue_draw(((AGlActor*)spp)->root->widget);
+	gtk_widget_queue_draw(((AGlActor*)spp)->root->gl.gdk.widget);
 }
 

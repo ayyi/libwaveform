@@ -103,7 +103,6 @@ void      agl_actor__print_tree      (AGlActor*);
 
 struct _AGlRootActor {
    AGlActor          actor;
-   GtkWidget*        widget;
    uint32_t          bg_colour;      // rgba
    bool              enable_animations;
 
@@ -116,6 +115,7 @@ struct _AGlRootActor {
 
    union {
 		struct {
+			GtkWidget*     widget;
 			GdkGLContext*  context;
 			GdkGLDrawable* drawable;
 		}          gdk;

@@ -224,7 +224,7 @@ waveform_view_plus_new (Waveform* waveform)
 	gboolean try_canvas(gpointer _a)
 	{
 		AGlActor* a = _a;
-		WaveformViewPlus* view = (WaveformViewPlus*)((AGlRootActor*)a)->widget;
+		WaveformViewPlus* view = (WaveformViewPlus*)((AGlRootActor*)a)->gl.gdk.widget;
 
 		if(agl->use_shaders && !agl->shaders.plain->shader.program) return G_SOURCE_CONTINUE;
 
