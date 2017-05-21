@@ -51,6 +51,7 @@ wf_debug_actor(WaveformActor* _)
 
 	bool debug_actor__paint(AGlActor* actor)
 	{
+#ifdef AGL_ACTOR_RENDER_CACHE
 		DebugActor* view = (DebugActor*)actor;
 
 		AGlActor* target = view->target;
@@ -58,6 +59,7 @@ wf_debug_actor(WaveformActor* _)
 			agl_textured_rect(view->target->fbo->texture, 0, 0, actor->region.x2, actor->region.y2, NULL);
 			if(!target->cache.valid) dbg(0, "** cache invalid");
 		}
+#endif
 
 		return true;
 	}

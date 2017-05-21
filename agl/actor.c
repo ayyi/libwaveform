@@ -1,7 +1,7 @@
 /**
 * +----------------------------------------------------------------------+
 * | This file is part of the Ayyi project. http://ayyi.org               |
-* | copyright (C) 2013-2016 Tim Orford <tim@orford.org>                  |
+* | copyright (C) 2013-2017 Tim Orford <tim@orford.org>                  |
 * +----------------------------------------------------------------------+
 * | This program is free software; you can redistribute it and/or modify |
 * | it under the terms of the GNU General Public License version 3       |
@@ -44,7 +44,9 @@ static bool   agl_actor__is_animating (AGlActor*);
 #endif
 #ifdef DEBUG
 #ifdef AGL_DEBUG_ACTOR
+#ifdef AGL_ACTOR_RENDER_CACHE
 static bool   agl_actor__is_cached    (AGlActor*);
+#endif
 #endif
 #endif
 
@@ -77,9 +79,9 @@ agl_actor__new_root(GtkWidget* widget)
 		a->gl.gdk.context = gtk_widget_get_gl_context(a->gl.gdk.widget);
 
 		if(first_time){
-			agl_get_extensions();
-
 			gdk_gl_drawable_gl_begin (a->gl.gdk.drawable, a->gl.gdk.context);
+
+			agl_get_extensions();
 
 				int version = 0;
 				const char* _version = (const char*)glGetString(GL_VERSION);
@@ -453,7 +455,8 @@ agl_actor__paint(AGlActor* a)
 #undef SHOW_ACTOR_BORDERS
 #ifdef SHOW_ACTOR_BORDERS
 	static int depth; depth = -1;
-	static uint32_t colours[10] = {0xff000088, 0xff990088, 0x00ff0088, 0x0000ff88, 0xff000088, 0xffff0088, 0x00ffff88};
+	#define MAX_COLOURS 10
+	static uint32_t colours[MAX_COLOURS] = {0xff000088, 0xff990088, 0x00ff0088, 0x0000ff88, 0xff000088, 0xffff0088, 0x00ffff88};
 
 	int n_no_x_offset_parents(AGlActor* a)
 	{
@@ -476,7 +479,7 @@ agl_actor__paint(AGlActor* a)
 		depth++;
 		glPushMatrix();
 		glTranslatef(a->region.x1 - a->viewport.x1, a->region.y1 - a->viewport.y1, 0.0);
-		agl->shaders.plain->uniform.colour = colours[depth];
+		agl->shaders.plain->uniform.colour = colours[MIN(depth, MAX_COLOURS - 1)];
 		agl_use_program((AGlShader*)agl->shaders.plain);
 
 		float x = 1.0 * n_no_x_offset_parents(a);
@@ -738,6 +741,7 @@ agl_actor__xevent(AGlRootActor* scene, XEvent* xevent)
 					.button = {
 						.x = (double)xevent->xbutton.x,
 						.y = (double)xevent->xbutton.y,
+						.button = xevent->xbutton.button,
 					},
 				};
 				event.type = GDK_BUTTON_PRESS;
@@ -752,6 +756,7 @@ agl_actor__xevent(AGlRootActor* scene, XEvent* xevent)
 					.button = {
 						.x = (double)xevent->xbutton.x,
 						.y = (double)xevent->xbutton.y,
+						.button = xevent->xbutton.button,
 					},
 				};
 				event.type = GDK_BUTTON_RELEASE;
@@ -1054,6 +1059,7 @@ agl_actor__is_animating(AGlActor* a)
 
 #ifdef DEBUG
 #ifdef AGL_DEBUG_ACTOR
+#ifdef AGL_ACTOR_RENDER_CACHE
 static bool
 agl_actor__is_cached(AGlActor* a)
 {
@@ -1063,6 +1069,7 @@ agl_actor__is_cached(AGlActor* a)
 
 	return false;
 }
+#endif
 #endif
 #endif
 
