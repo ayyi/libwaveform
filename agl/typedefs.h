@@ -13,6 +13,7 @@ typedef struct _AGlTextureActor   AGlTextureActor;
 
 typedef struct {int x, y;}             AGliPt;
 typedef struct {float x, y;}           AGlfPt;
+typedef struct {int w, h;}             AGliSize;
 typedef struct {int x1, y1, x2, y2;}   AGliRegion;
 typedef struct {float x, y, w, h;}     AGlRect;
 typedef struct {float x0, y0, x1, y1;} AGlQuad;

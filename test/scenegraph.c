@@ -26,6 +26,7 @@
 #include "waveform/waveform.h"
 #include "agl/actor.h"
 #include "waveform/actors/background.h"
+#include "waveform/actors/plain.h"
 #include "test/common.h"
 
 #ifndef GLX_MESA_swap_control
@@ -70,8 +71,8 @@ static unsigned num_extensions;
 
 static AGlRootActor* scene = NULL;
 struct {
-	AGlActor*      bg;
-	WaveformActor* wa;
+	AGlActor* bg;
+	AGlActor *l1, *l2;
 } layers = {0,};
 
 static GHashTable* key_handlers = NULL;
@@ -89,6 +90,10 @@ Key keys[] = {
 	{XK_KP_Add,      zoom_in},
 	{XK_minus,       zoom_out},
 	{XK_KP_Subtract, zoom_out},
+	/*
+	XK_Left
+	XK_Right
+	*/
 };
 
 
@@ -138,7 +143,7 @@ main(int argc, char *argv[])
 		return -1;
 	}
 
-	make_window(dpy, "waveformglxtest", width, height, &win, &ctx);
+	make_window(dpy, "waveformscenegraphtest", width, height, &win, &ctx);
 	XMapWindow(dpy, win);
 	glXMakeCurrent(dpy, win, ctx);
 
@@ -205,22 +210,13 @@ main(int argc, char *argv[])
 
 	agl_actor__add_child((AGlActor*)scene, layers.bg = background_actor(NULL));
 
-	char* filename = g_build_filename(g_get_current_dir(), "test/data/mono_0:10.wav", NULL);
-	Waveform* w = waveform_load_new(filename);
-	g_free(filename);
+	agl_actor__add_child((AGlActor*)scene, layers.l1 = plain_actor(NULL));
+	layers.l1->colour = 0x99ff9999;
+	layers.l1->region = (AGliRegion){10, 10, 60, 60};
 
-	WaveformContext* wfc = wf_context_new(scene);
-
-	agl_actor__add_child((AGlActor*)scene, (AGlActor*)(layers.wa = wf_canvas_add_new_actor(wfc, w)));
-
-	wf_actor_set_region(layers.wa, &(WfSampleRegion){0, 44100});
-
-	wf_actor_set_rect(layers.wa, &(WfRectangle){
-		0.0,
-		0.0,
-		width,
-		height
-	});
+	agl_actor__add_child((AGlActor*)scene, layers.l2 = plain_actor(NULL));
+	layers.l2->colour = 0x9999ff99;
+	layers.l2->region = (AGliRegion){40, 40, 90, 90};
 
 	// -----------------------------------------------------------
 
@@ -244,20 +240,15 @@ draw(void)
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 	agl_actor__paint((AGlActor*)scene);
-
-	glPushMatrix();
-	glTranslatef(15.0, 30.0, 0.0);
-	agl_actor__paint((AGlActor*)scene);
-	((AGlActor*)layers.wa)->paint((AGlActor*)layers.wa);
-	glPopMatrix();
 }
 
 
 static void
 on_window_resize(int width, int height)
 {
-	#define HBORDER 0
-	#define VBORDER 0
+	// FIXME adding border messes up 1:1 ratio
+	#define HBORDER 0 //50
+	#define VBORDER 0 //50
 	int vx = 0;
 	int vy = 0;
 	glViewport(vx, vy, width, height);
@@ -275,10 +266,6 @@ on_window_resize(int width, int height)
 		.x2 = width,
 		.y2 = height,
 	};
-
-	layers.wa->canvas->samples_per_pixel = 0.1 * ((float)waveform_get_n_frames(layers.wa->waveform)) / width;
-	WaveformContext* wfc = layers.wa->canvas;
-	wf_context_set_zoom(wfc, wf_context_get_zoom(wfc) ? wf_context_get_zoom(wfc) : 1.0);
 }
 
 
@@ -461,18 +448,18 @@ make_extension_table(const char* string)
 	unsigned  base;
 	unsigned  idx;
 	unsigned  i;
-      
+
 	/* Count the number of spaces in the string.  That gives a base-line
 	 * figure for the number of extension in the string.
 	 */
-   
+
 	num_strings = 1;
 	for (i = 0 ; string[i] != NUL; i++) {
 		if ( string[i] == ' ' ) {
 			num_strings++;
 		}
 	}
-   
+
 	string_tab = (char**)malloc(sizeof(char*) * num_strings);
 	if (string_tab == NULL) {
 		return;
@@ -484,9 +471,9 @@ make_extension_table(const char* string)
 	while ( string[ base ] != NUL ) {
 	// Determine the length of the next extension string.
 
-		for ( i = 0 
-	    ; (string[ base + i ] != NUL) && (string[ base + i ] != ' ')
-	    ; i++ ) {
+		for ( i = 0
+		; (string[ base + i ] != NUL) && (string[ base + i ] != ' ')
+		; i++ ) {
 			/* empty */ ;
 		}
 
@@ -526,11 +513,11 @@ make_extension_table(const char* string)
 	num_extensions = idx;
 }
 
-    
+
 /**
  * Determine of an extension is supported.  The extension string table
  * must have already be initialized by calling \c make_extension_table.
- * 
+ *
  * \praram ext  Extension to be tested.
  * \return GL_TRUE of the extension is supported, GL_FALSE otherwise.
  * \sa make_extension_table
@@ -538,7 +525,7 @@ make_extension_table(const char* string)
 static bool
 is_extension_supported(const char* ext)
 {
-	unsigned   i;
+	unsigned i;
 
 	for (i = 0 ; i < num_extensions ; i++) {
 		if (strcmp( ext, extension_table[i] ) == 0) {
@@ -613,18 +600,12 @@ nav_down(gpointer user_data)
 static void
 zoom_in(gpointer user_data)
 {
-	PF0;
-	WaveformContext* wfc = layers.wa->canvas;
-	wf_context_set_zoom(wfc, wf_context_get_zoom(wfc) * 1.5);
 }
 
 
 static void
 zoom_out(gpointer user_data)
 {
-	PF0;
-	WaveformContext* wfc = layers.wa->canvas;
-	wf_context_set_zoom(wfc, wf_context_get_zoom(wfc) / 1.5);
 }
 
 

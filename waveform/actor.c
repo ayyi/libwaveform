@@ -280,7 +280,6 @@ static void
 wf_actor_class_init()
 {
 	agl = agl_get_instance();
-	agl_get_extensions();
 
 	modes[MODE_HI].make_texture_data = make_texture_data_hi;
 

@@ -24,6 +24,7 @@ OPENGL_SOURCES = \
 	fbo.c fbo.h \
 	actors/group.c actors/group.h \
 	actors/background.c actors/background.h \
+	actors/plain.c actors/plain.h \
 	actors/ruler.c actors/ruler.h \
 	actors/grid.c actors/grid.h \
 	actors/spp.c actors/spp.h \

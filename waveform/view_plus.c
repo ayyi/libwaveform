@@ -1023,7 +1023,7 @@ waveform_view_plus_gl_on_allocate(WaveformViewPlus* view)
 	int h = waveform_view_plus_get_height(view);
 
 	if(w != v->root->region.x2 || h != v->root->region.y2){
-		v->root->region = v->root->viewport = (AGliRegion){0, 0, w, h};
+		v->root->region = v->root->scrollable = (AGliRegion){0, 0, w, h};
 		agl_actor__set_size(v->root);
 	}
 }

@@ -1,4 +1,7 @@
 
+#include <pango/pango-font.h>
+#include <pango/pangofc-fontmap.h>
+
 #define PANGO_ENABLE_BACKEND
 
 /* we always want to disable cast checks */

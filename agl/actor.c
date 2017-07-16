@@ -72,34 +72,28 @@ agl_actor__new_root(GtkWidget* widget)
 
 		static bool first_time = true;
 
-		((AGlActor*)a)->viewport.x2 = a->gl.gdk.widget->allocation.width;
-		((AGlActor*)a)->viewport.y2 = a->gl.gdk.widget->allocation.height;
+		((AGlActor*)a)->scrollable.x2 = a->gl.gdk.widget->allocation.width;
+		((AGlActor*)a)->scrollable.y2 = a->gl.gdk.widget->allocation.height;
 
 		a->gl.gdk.drawable = drawable;
 		a->gl.gdk.context = gtk_widget_get_gl_context(a->gl.gdk.widget);
 
+		gdk_gl_drawable_gl_begin (a->gl.gdk.drawable, a->gl.gdk.context);
+
 		if(first_time){
-			gdk_gl_drawable_gl_begin (a->gl.gdk.drawable, a->gl.gdk.context);
-
-			agl_get_extensions();
-
-				int version = 0;
-				const char* _version = (const char*)glGetString(GL_VERSION);
-				if(_version){
-					gchar** split = g_strsplit(_version, ".", 2);
-					if(split){
-						version = atoi(split[0]);
-						printf("gl version: %i\n", version);
-						g_strfreev(split);
-					}
-				}
-
 			agl_gl_init();
 
-			gdk_gl_drawable_gl_end(a->gl.gdk.drawable);
+			int version = 0;
+			const char* _version = (const char*)glGetString(GL_VERSION);
+			if(_version){
+				gchar** split = g_strsplit(_version, ".", 2);
+				if(split){
+					version = atoi(split[0]);
+					printf("gl version: %i\n", version);
+					g_strfreev(split);
+				}
+			}
 		}
-
-		gdk_gl_drawable_gl_begin (a->gl.gdk.drawable, a->gl.gdk.context);
 
 		agl_actor__init((AGlActor*)a);
 
@@ -293,13 +287,13 @@ agl_actor__init(AGlActor* a)
 static bool
 agl_actor__is_onscreen(AGlActor* a)
 {
-	int h = ((AGlActor*)a->root)->viewport.y2 - ((AGlActor*)a->root)->viewport.y1;
-	int w = ((AGlActor*)a->root)->viewport.x2 - ((AGlActor*)a->root)->viewport.x1;
+	int h = ((AGlActor*)a->root)->scrollable.y2 - ((AGlActor*)a->root)->scrollable.y1;
+	int w = ((AGlActor*)a->root)->scrollable.x2 - ((AGlActor*)a->root)->scrollable.x1;
 	if(h && w){
-		AGliRegion* viewport = &a->viewport;
+		AGliRegion* scrollable = &a->scrollable;
 		AGliPt offset = agl_actor__find_offset(a);
-		if(!viewport->y2){
-			// viewport size is NOT set
+		if(!scrollable->y2){
+			// scrollable size is NOT set
 			return !(
 				offset.x + agl_actor__width(a)  < 0 || // actor right is before window left
 				offset.x                        > w || // actor left is before window right
@@ -307,15 +301,17 @@ agl_actor__is_onscreen(AGlActor* a)
 				offset.y                        > h    // actor top is after window bottom
 			);
 		}else{
-			// viewport is set
-			// note: if viewport.y1 is positive, contents are scrolled upwards
-			int a_width = a->viewport.x2 - a->viewport.x1;
-			int a_height = a->viewport.y2 - a->viewport.y1;
+			// scrollable is set
+			// note: if scrollable.y1 is negative, contents are scrolled upwards
+			AGliSize size = {
+				a->scrollable.x2 - a->scrollable.x1,
+				a->scrollable.y2 - a->scrollable.y1
+			};
 			if(
 				offset.x            < w && // actor left is before window right
-				offset.x + a_width  > 0 && // actor right is after after window left
+				offset.x + size.w   > 0 && // actor right is after after window left
 				offset.y            < h && // actor top is before window bottom
-				offset.y + a_height > 0    // actor bottom is after window top
+				offset.y + size.h   > 0    // actor bottom is after window top
 			){
 				return true;
 			}else{
@@ -391,21 +387,19 @@ agl_actor__paint(AGlActor* a)
 	if(!agl_actor__is_onscreen(a) || ((agl_actor__width(a) < 1 || agl_actor__height(a) < 1) && a->paint != agl_actor__null_painter)) return;
 
 	AGliPt offset = {
-		.x = a->region.x1 - a->viewport.x1,
-		.y = a->region.y1 - a->viewport.y1,
+		.x = a->region.x1 + a->scrollable.x1,
+		.y = a->region.y1 + a->scrollable.y1,
 	};
 	if(offset.x || offset.y){
 		glMatrixMode(GL_MODELVIEW);
 		glPushMatrix();
 		glTranslatef(offset.x, offset.y, 0.0);
 	}
-#ifdef DEBUG
-	if(wf_debug > 2 && a == (AGlActor*)a->root) agl_actor__print_tree (a);
-#endif
+	AGL_DEBUG if(wf_debug > 2 && a == (AGlActor*)a->root) agl_actor__print_tree (a);
 
 #ifdef AGL_ACTOR_RENDER_CACHE
 	// TODO check case where actor is translated and is partially offscreen.
-	// TODO actor may be huge. do we need to crop to viewport ?
+	// TODO actor may be huge. do we need to crop to scrollable ?
 	if(a->fbo && a->cache.enabled && !(agl_actor__width(a) > AGL_MAX_FBO_WIDTH)){
 		if(!a->cache.valid){
 			agl_draw_to_fbo(a->fbo) {
@@ -478,7 +472,7 @@ agl_actor__paint(AGlActor* a)
 	{
 		depth++;
 		glPushMatrix();
-		glTranslatef(a->region.x1 - a->viewport.x1, a->region.y1 - a->viewport.y1, 0.0);
+		glTranslatef(a->region.x1 - a->scrollable.x1, a->region.y1 - a->scrollable.y1, 0.0);
 		agl->shaders.plain->uniform.colour = colours[MIN(depth, MAX_COLOURS - 1)];
 		agl_use_program((AGlShader*)agl->shaders.plain);
 
@@ -519,8 +513,13 @@ agl_actor__set_size(AGlActor* actor)
 			// and people often advice against it.
 			agl_fbo_set_size (actor->fbo, size.x, size.y);
 #else
-			agl_fbo_free(actor->fbo);
-			actor->fbo = agl_fbo_new(size.x, size.y, 0, 0);
+			if(agl_power_of_two(size.x) != agl_power_of_two(actor->fbo->width) || agl_power_of_two(size.y) != agl_power_of_two(actor->fbo->height)){
+				AGlFBOFlags flags = actor->fbo->flags;
+				agl_fbo_free(actor->fbo);
+				actor->fbo = agl_fbo_new(size.x, size.y, 0, flags);
+			}else{
+				agl_fbo_set_size (actor->fbo, size.x, size.y);
+			}
 #endif
 			actor->cache.valid = false;
 		}
@@ -572,6 +571,8 @@ _agl_actor__on_event(AGlActor* a, GdkEvent* event, AGliPt xy)
 		int i = 0;
 		while(a && i++ < 256){
 			if(a->on_event) return a;
+			xy->x += a->region.x1;
+			xy->y += a->region.y1;
 			a = a->parent;
 		}
 		return NULL;
@@ -613,7 +614,7 @@ agl_actor__on_event(AGlScene* root, GdkEvent* event)
 		return AGL_NOT_HANDLED;
 	}
 
-	AGliPt xy = {event->button.x + actor->viewport.x1, event->button.y + actor->viewport.y1};
+	AGliPt xy = {event->button.x + actor->scrollable.x1, event->button.y + actor->scrollable.y1};
 
 	if(event->type == GDK_LEAVE_NOTIFY){
 		if(root->hovered){
@@ -640,7 +641,7 @@ agl_actor__on_event(AGlScene* root, GdkEvent* event)
 		for(;l;l=l->prev){
 			AGlActor* child = l->data;
 			if(!child->disabled && region_match(&child->region, xy.x, xy.y)){
-				AGlActor* sub = child_region_hit(child, (AGliPt){xy.x - child->region.x1 + child->viewport.x1, xy.y - child->region.y1 + child->viewport.y1});
+				AGlActor* sub = child_region_hit(child, (AGliPt){xy.x - child->region.x1 + child->scrollable.x1, xy.y - child->region.y1 + child->scrollable.y1});
 				if(sub) return sub;
 				//printf("  match. y=%i y=%i-->%i x=%i-->%i type=%s\n", xy.y, child->region.y1, child->region.y2, child->region.x1, child->region.x2, child->name);
 				return child;
@@ -693,7 +694,7 @@ agl_actor__on_event(AGlScene* root, GdkEvent* event)
 				root->selected = a; // TODO almost certainly not always correct
 				if(a) agl_actor__invalidate(a);
 			}
-			AGliPt offset = (!a || a->parent == actor || a == actor) ? (AGliPt){0, 0} : agl_actor__find_offset(a->parent);
+			AGliPt offset = agl_actor__find_offset(a);
 			return _agl_actor__on_event(a, event, (AGliPt){xy.x - offset.x, xy.y - offset.y});
 		default:
 			break;
@@ -711,7 +712,7 @@ agl_actor__on_event(AGlScene* root, GdkEvent* event)
 			}
 		}
 
-		AGliPt offset = (a->parent == actor) ? (AGliPt){0, 0} : agl_actor__find_offset(a->parent);
+		AGliPt offset = agl_actor__find_offset(a);
 		return _agl_actor__on_event(a, event, (AGliPt){xy.x - offset.x, xy.y - offset.y});
 
 	}else{
@@ -809,7 +810,7 @@ agl_actor__on_expose(GtkWidget* widget, GdkEventExpose* event, gpointer user_dat
 		glMatrixMode(GL_PROJECTION);
 		glLoadIdentity();
 
-		glOrtho (actor->viewport.x1, actor->viewport.x2, actor->viewport.y2, actor->viewport.y1, 256.0, -256.0);
+		glOrtho (actor->scrollable.x1, actor->scrollable.x2, actor->scrollable.y2, actor->scrollable.y1, 256.0, -256.0);
 	}
 
 	AGlRootActor* root = user_data;
@@ -949,12 +950,11 @@ agl_actor__start_transition(AGlActor* actor, GList* animatables, AnimationFn don
 		AnimationFn    done;
 		gpointer       user_data;
 	} C;
-	C* c = g_new0(C, 1);
-	*c = (C){
+	C* c = AGL_NEW(C,
 		.actor = actor,
 		.done = done,
 		.user_data = user_data
-	};
+	);
 
 	void agl_actor_on_frame(WfAnimation* animation, int time)
 	{
@@ -1019,13 +1019,16 @@ agl_actor__start_transition(AGlActor* actor, GList* animatables, AnimationFn don
 }
 
 
+/*
+ *  Return the distance from the actor top left to the root top left
+ */
 AGliPt
 agl_actor__find_offset(AGlActor* a)
 {
 	AGliPt of = {0, 0};
 	do {
-		of.x += a->region.x1 - a->viewport.x1;
-		of.y += a->region.y1 - a->viewport.y1;
+		of.x += a->region.x1;
+		of.y += a->region.y1;
 	} while((a = a->parent));
 	return of;
 }
@@ -1107,7 +1110,7 @@ agl_actor__print_tree (AGlActor* actor)
 				? lgrey
 				: "";
 		AGliPt offset = agl_actor__find_offset(actor);
-		if(actor->name) printf("%s%s:%s%s%s%s cache(%i,%i) region(%i,%i,%i,%i) viewport(%i,%i,%i,%i) offset(%i,%i)%s\n", colour, actor->name, offscreen, zero_size, negative_size, disabled, actor->cache.enabled, actor->cache.valid, actor->region.x1, actor->region.y1, actor->region.x2, actor->region.y2, actor->viewport.x1, actor->viewport.y1, actor->viewport.x2, actor->viewport.y2, offset.x, offset.y, white);
+		if(actor->name) printf("%s%s:%s%s%s%s cache(%i,%i) region(%i,%i,%i,%i) viewport(%i,%i,%i,%i) offset(%i,%i)%s\n", colour, actor->name, offscreen, zero_size, negative_size, disabled, actor->cache.enabled, actor->cache.valid, actor->region.x1, actor->region.y1, actor->region.x2, actor->region.y2, actor->scrollable.x1, actor->scrollable.y1, actor->scrollable.x2, actor->scrollable.y2, offset.x, offset.y, white);
 #else
 		if(actor->name) printf("%s\n", actor->name);
 #endif

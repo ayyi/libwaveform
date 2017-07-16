@@ -304,7 +304,7 @@ wf_context_set_viewport(WaveformContext* wfc, WfViewPort* _viewport)
 	g_return_if_fail(wfc);
 
 	if(_viewport){
-		((AGlActor*)wfc->root)->viewport = (AGliRegion){
+		((AGlActor*)wfc->root)->scrollable = (AGliRegion){
 			.x1 = _viewport->left,
 			.y1 = _viewport->top,
 			.x2 = _viewport->right,

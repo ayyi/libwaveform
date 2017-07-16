@@ -75,15 +75,17 @@ agl_fbo_new(int width, int height, GLuint texture, AGlFBOFlags flags)
 	// - if texture is zero, a new texture will be created.
 	// - width and height can be zero for newly created objects that dont yet have a size.
 
-	AGlFBO* fbo = g_new0(AGlFBO, 1);
-	fbo->flags = flags;
-	fbo->width = width;
-	fbo->height = height;
+	AGlFBO* fbo = AGL_NEW(AGlFBO,
+		.flags = flags,
+		.width = width,
+		.height = height,
+		.texture = texture ? texture
 #ifdef NON_SQUARE
-	fbo->texture = texture ? texture : make_texture(agl_power_of_two(width), agl_power_of_two(height));
+			: make_texture(agl_power_of_two(width), agl_power_of_two(height)),
 #else
-	fbo->texture = texture ? texture : make_texture(agl_power_of_two(MAX(width, height)));
+			: make_texture(agl_power_of_two(MAX(width, height))),
 #endif
+	);
 	make_fb(fbo);
 #ifdef NON_SQUARE
 	dbg(1, "fb=%i texture=%i size=%ix%i", fbo->id, fbo->texture, agl_power_of_two(width), agl_power_of_two(height));
@@ -154,7 +156,6 @@ agl_fbo_set_size(AGlFBO* fbo, int width, int height)
 }
 
 
-static GLuint DepthRB = 0, StencilRB = 0;
 static gboolean UsePackedDepthStencil = FALSE;
 static gboolean UsePackedDepthStencilBoth = FALSE;
 
@@ -229,7 +230,8 @@ attach_depth_and_stencil_buffers(AGlFBO* fbo, GLboolean tryDepthStencil, GLboole
 
 		glGenRenderbuffers(1, &rb);
 		glBindRenderbuffer(GL_RENDERBUFFER_EXT, rb);
-		glRenderbufferStorage(GL_RENDERBUFFER_EXT, GL_STENCIL_INDEX, fbo->width, fbo->height);
+		// make buffer size same as fbo texture size so that it can sometimes be resized without having to reallocate
+		glRenderbufferStorage(GL_RENDERBUFFER_EXT, GL_STENCIL_INDEX, agl_power_of_two(fbo->width), agl_power_of_two(fbo->height));
 		if (glGetError()) return FALSE;
 
 		// attach to stencil attachment point
@@ -269,8 +271,9 @@ make_fb(AGlFBO* fbo)
 	if (status != GL_FRAMEBUFFER_COMPLETE_EXT) gwarn("framebuffer incomplete: 0x%04x", status);
 
 	// Setup depth and stencil buffers
+	GLuint DepthRB = 0, stencil_rb = 0;
 	if((fbo->flags & AGL_FBO_HAS_STENCIL) && fbo->width && fbo->height){
-		gboolean b = attach_depth_and_stencil_buffers(fbo, UsePackedDepthStencil, UsePackedDepthStencilBoth, &DepthRB, &StencilRB);
+		gboolean b = attach_depth_and_stencil_buffers(fbo, UsePackedDepthStencil, UsePackedDepthStencilBoth, &DepthRB, &stencil_rb);
 #if 0
 		if (!b) {
 			// try !UsePackedDepthStencil
@@ -299,7 +302,7 @@ make_fb(AGlFBO* fbo)
 #endif
 
 		if(fbo->width && fbo->flags & AGL_FBO_HAS_STENCIL){
-			glBindRenderbuffer(GL_RENDERBUFFER_EXT, StencilRB);
+			glBindRenderbuffer(GL_RENDERBUFFER_EXT, stencil_rb);
 			glGetRenderbufferParameteriv(GL_RENDERBUFFER_EXT, GL_RENDERBUFFER_STENCIL_SIZE_EXT, &bits);
 			printf("Stencil renderbuffer size = %d bits\n", bits);
 		}

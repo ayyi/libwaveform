@@ -248,6 +248,9 @@ agl_gl_init()
 	static gboolean done = FALSE;
 	if(done++) return;
 
+	agl_get_instance();
+	agl_get_extensions();
+
 	if(agl->pref_use_shaders && !agl_shaders_supported()){
 		printf("gl shaders not supported. expect reduced functionality.\n");
 		//agl_use_program(NULL);

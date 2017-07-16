@@ -9,7 +9,7 @@ SDLPROGRAMS = sdl
 endif
 
 if ENABLE_OPENGL
-noinst_PROGRAMS = waveform_test view_test view_plus_test actor_test actor_plus actor_no_scene list group hires_test multi_scene $(ASSPROGRAMS) frame_rate resources write_wav write_short write_block large_files cache 32bit pixbuf glx $(SDLPROGRAMS)
+noinst_PROGRAMS = waveform_test view_test view_plus_test actor_test actor_plus actor_no_scene list group hires_test multi_scene $(ASSPROGRAMS) frame_rate resources write_wav write_short write_block large_files cache 32bit pixbuf glx scenegraph viewport $(SDLPROGRAMS)
 ###noinst_PROGRAMS = waveform_test view_test actor_test actor_plus $(ASSPROGRAMS)
 endif
 
@@ -121,6 +121,14 @@ endif
 glx_sources = \
 	$(COMMON_SOURCES) \
 	glx.c
+
+scenegraph_sources = \
+	$(COMMON_SOURCES) \
+	scenegraph.c
+
+viewport_SOURCES = \
+	$(COMMON_SOURCES) \
+	viewport.c
 
 write_wav_SOURCES = \
 	generator.cc generator.h \
