@@ -442,7 +442,7 @@ agl_actor__paint(AGlActor* a)
 	}
 #endif
 
-	if(a->region.x1 || a->region.y1){
+	if(offset.x || offset.y){
 		glPopMatrix();
 	}
 
@@ -472,7 +472,7 @@ agl_actor__paint(AGlActor* a)
 	{
 		depth++;
 		glPushMatrix();
-		glTranslatef(a->region.x1 - a->scrollable.x1, a->region.y1 - a->scrollable.y1, 0.0);
+		glTranslatef(a->region.x1, a->region.y1, 0.0);
 		agl->shaders.plain->uniform.colour = colours[MIN(depth, MAX_COLOURS - 1)];
 		agl_use_program((AGlShader*)agl->shaders.plain);
 
@@ -490,7 +490,6 @@ agl_actor__paint(AGlActor* a)
 	}
 
 	if(!a->parent){
-		AGl* agl = agl_get_instance();
 		agl->shaders.plain->uniform.colour = 0xff0000ff;
 		agl_use_program((AGlShader*)agl->shaders.plain);
 		paint_border(a);
