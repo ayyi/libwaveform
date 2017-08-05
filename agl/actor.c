@@ -32,7 +32,9 @@
 #else
 #define AGL_DEBUG if(false)
 #endif
+
 static AGl* agl = NULL;
+static AGlActorClass root_actor_class = {0, "ROOT"};
 
 #define SCENE_IS_GTK(A) (A->root->type == CONTEXT_TYPE_GTK)
 
@@ -153,6 +155,7 @@ agl_actor__new_root_(ContextType type)
 	AGlRootActor* a = g_new0(AGlRootActor, 1);
 	*a = (AGlRootActor){
 		.actor = {
+			.class = &root_actor_class,
 #ifdef AGL_DEBUG_ACTOR
 			.name = "ROOT",
 #endif
@@ -841,6 +844,20 @@ agl_actor__on_expose(GtkWidget* widget, GdkEventExpose* event, gpointer user_dat
 
 	return true;
 }
+
+
+#ifdef AGL_DEBUG_ACTOR
+AGlActor*
+agl_actor__find_by_name(AGlActor* actor, const char* name)
+{
+	GList* l = actor->children;
+	for(;l;l=l->next){
+		AGlActor* a = l->data;
+		if(!strcmp(a->name, name) || (a = agl_actor__find_by_name(a, name))) return a;
+	}
+	return NULL;
+}
+#endif
 
 
 AGlActor*

@@ -33,6 +33,7 @@ typedef bool      (*AGlActorOnEvent)  (AGlActor*, GdkEvent*, AGliPt xy);
 typedef void      (*AGlActorFn)       (AGlActor*);
 
 typedef struct _AGlActorContext AGlActorContext;
+typedef int AGlActorType;
 
 typedef enum {
 	CONTEXT_TYPE_GTK = 0,
@@ -40,10 +41,15 @@ typedef enum {
 	CONTEXT_TYPE_GLX,
 } ContextType;
 
+typedef struct {
+	AGlActorType type;
+	char*        name;
+	AGlActorNew* new;
+} AGlActorClass;
+
 struct _AGlActor {
-#ifdef AGL_DEBUG_ACTOR
+	AGlActorClass*   class;
 	char*            name;
-#endif
 	AGlActor*        parent;
 	AGlRootActor*    root;
 
@@ -92,6 +98,7 @@ void      agl_actor__start_transition(AGlActor*, GList* animatables, AnimationFn
 bool      agl_actor__is_disabled     (AGlActor*);
 bool      agl_actor__on_event        (AGlRootActor*, GdkEvent*);
 bool      agl_actor__xevent          (AGlRootActor*, XEvent*);
+AGlActor* agl_actor__find_by_name    (AGlActor*, const char*);
 AGlActor* agl_actor__find_by_z       (AGlActor*, int);
 AGliPt    agl_actor__find_offset     (AGlActor*);
 bool      agl_actor__null_painter    (AGlActor*);

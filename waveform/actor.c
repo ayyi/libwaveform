@@ -110,6 +110,9 @@ typedef struct {
 typedef struct _RenderInfo RenderInfo;
 typedef struct _Renderer Renderer;
 
+static AGlActorClass actor_class = {0, "Waveform", (AGlActorNew*)wf_actor_new};
+
+
 struct _actor_priv
 {
 	WfRectangle     rect;        // TODO should be removed in favour of AGlActor.region - this is in progress, but raises the question, why is AGlActor.region integer?
@@ -276,6 +279,13 @@ static int    wf_actor_get_first_visible_block(WfSampleRegion*, double zoom, WfR
 static void  _wf_actor_get_viewport_max       (WaveformActor*, WfViewPort*);
 
 
+AGlActorClass*
+wf_actor_get_class ()
+{
+	return &actor_class;
+}
+
+
 static void
 wf_actor_class_init()
 {
@@ -373,6 +383,7 @@ wf_actor_new(Waveform* w, WaveformContext* wfc)
 	_a->peakdata_ready = am_promise_new(a);
 
 	AGlActor* actor = (AGlActor*)a;
+	actor->class = &actor_class;
 #ifdef AGL_DEBUG_ACTOR
 	actor->name = "Waveform";
 #endif
@@ -434,6 +445,17 @@ wf_actor_new(Waveform* w, WaveformContext* wfc)
 		if(a->waveform && !a->waveform->priv->peak.size) waveform_load(a->waveform, wf_actor_init_load_done, actor);
 	}
 	actor->init = wf_actor_on_init;
+
+	void wf_actor_set_size(AGlActor* actor)
+	{
+		wf_actor_set_rect((WaveformActor*)actor, &(WfRectangle){
+			0.0,
+			0.0,
+			agl_actor__width(actor),
+			agl_actor__height(actor)
+		});
+	}
+	actor->set_size = wf_actor_set_size;
 
 	g_object_weak_ref((GObject*)a->canvas, wf_actor_canvas_finalize_notify, a);
 	return a;
