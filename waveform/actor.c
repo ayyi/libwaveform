@@ -384,9 +384,7 @@ wf_actor_new(Waveform* w, WaveformContext* wfc)
 
 	AGlActor* actor = (AGlActor*)a;
 	actor->class = &actor_class;
-#ifdef AGL_DEBUG_ACTOR
 	actor->name = "Waveform";
-#endif
 	actor->paint = wf_actor_paint;
 
 	void _wf_actor_invalidate(AGlActor* actor)

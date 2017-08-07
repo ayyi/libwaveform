@@ -156,9 +156,7 @@ agl_actor__new_root_(ContextType type)
 	*a = (AGlRootActor){
 		.actor = {
 			.class = &root_actor_class,
-#ifdef AGL_DEBUG_ACTOR
 			.name = "ROOT",
-#endif
 			.root = a,
 			.paint = agl_actor__null_painter
 		},
@@ -846,7 +844,6 @@ agl_actor__on_expose(GtkWidget* widget, GdkEventExpose* event, gpointer user_dat
 }
 
 
-#ifdef AGL_DEBUG_ACTOR
 AGlActor*
 agl_actor__find_by_name(AGlActor* actor, const char* name)
 {
@@ -857,7 +854,6 @@ agl_actor__find_by_name(AGlActor* actor, const char* name)
 	}
 	return NULL;
 }
-#endif
 
 
 AGlActor*
@@ -1077,7 +1073,6 @@ agl_actor__is_animating(AGlActor* a)
 
 
 #ifdef DEBUG
-#ifdef AGL_DEBUG_ACTOR
 #ifdef AGL_ACTOR_RENDER_CACHE
 static bool
 agl_actor__is_cached(AGlActor* a)
@@ -1090,18 +1085,15 @@ agl_actor__is_cached(AGlActor* a)
 }
 #endif
 #endif
-#endif
 
 
 #ifdef DEBUG
 void
 agl_actor__print_tree (AGlActor* actor)
 {
-#ifdef AGL_DEBUG_ACTOR
 	char white [16] = "\x1b[0;39m";
 	char lgrey [16] = "\x1b[38;5;244m";
 	char dgrey [16] = "\x1b[38;5;238m";
-#endif
 
 	g_return_if_fail(actor);
 
@@ -1113,7 +1105,6 @@ agl_actor__print_tree (AGlActor* actor)
 		g_return_if_fail(actor);
 		int i; for(i=0;i<indent;i++) printf("  ");
 
-#ifdef AGL_DEBUG_ACTOR
 		bool is_onscreen = agl_actor__is_onscreen(actor);
 		char* offscreen = is_onscreen ? "" : " OFFSCREEN";
 		char* zero_size = agl_actor__width(actor) ? "" : " ZEROSIZE";
@@ -1131,9 +1122,6 @@ agl_actor__print_tree (AGlActor* actor)
 		if(actor->name) printf("%s\n", actor->name);
 #endif
 		if(!actor->name) printf("%s%s (%i,%i)\n", offscreen, zero_size, actor->region.x1, actor->region.y1);
-#else
-		printf("%i\n", actor->region.x1);
-#endif
 		indent++;
 		GList* l = actor->children;
 		for(;l;l=l->next){
