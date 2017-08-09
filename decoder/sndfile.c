@@ -1,7 +1,7 @@
 /**
 * +----------------------------------------------------------------------+
 * | This file is part of the Ayyi project. http://ayyi.org               |
-* | copyright (C) 2016 Tim Orford <tim@orford.org>                       |
+* | copyright (C) 2017 Tim Orford <tim@orford.org>                       |
 * | copyright (C) 2011 Robin Gareus <robin@gareus.org>                   |
 * +----------------------------------------------------------------------+
 * | This program is free software; you can redistribute it and/or modify |
@@ -21,6 +21,8 @@
 #include <gtk/gtk.h>
 #include "decoder/debug.h"
 #include "decoder/ad.h"
+
+extern void int16_to_float(float* out, int16_t* in, int n_channels, int n_frames, int out_offset);
 
 typedef struct {
     SF_INFO  sfinfo;
@@ -114,15 +116,28 @@ ad_seek_sndfile(WfDecoder* d, int64_t pos)
 
 
 ssize_t
-ad_read_sndfile(WfDecoder* d, float* data, size_t len)
+ad_read_sndfile(WfDecoder* d, float* out, size_t len)
 {
-#ifdef DEBUG
-	g_return_val_if_fail(d->info.bit_depth == 32, -1);
-#endif
-
 	SndfileDecoder* priv = (SndfileDecoder*)d->d;
 	if (!priv) return -1;
-	return sf_read_float (priv->sffile, data, len);
+
+	switch(d->info.bit_depth){
+		case 32:
+			return sf_read_float (priv->sffile, out, len);
+		case 16: {
+				short* d16 = g_malloc0(len * sizeof(short));
+				ssize_t r = sf_read_short (priv->sffile, d16, len);
+				int16_to_float(out, d16, d->info.channels, len / d->info.channels, 0);
+				g_free(d16);
+				return r;
+			}
+		default:
+#ifdef DEBUG
+			gwarn("unhandled bit depth: %i", d->info.bit_depth);
+#endif
+	}
+
+	return -1;
 }
 
 

@@ -1,7 +1,7 @@
 /**
 * +----------------------------------------------------------------------+
 * | This file is part of the Ayyi project. http://ayyi.org               |
-* | copyright (C) 2016 Tim Orford <tim@orford.org>                       |
+* | copyright (C) 2017 Tim Orford <tim@orford.org>                       |
 * | copyright (C) 2011 Robin Gareus <robin@gareus.org>                   |
 * +----------------------------------------------------------------------+
 * | This program is free software; you can redistribute it and/or modify |
@@ -21,6 +21,8 @@
 #include <libavformat/avformat.h>
 #include "decoder/debug.h"
 #include "decoder/ad.h"
+
+extern void int16_to_float(float* out, int16_t* in, int n_channels, int n_frames, int out_offset);
 
 #ifndef AVCODEC_MAX_AUDIO_FRAME_SIZE
 #define AVCODEC_MAX_AUDIO_FRAME_SIZE 192000 // 1 second of 48khz 32bit audio
@@ -280,20 +282,6 @@ ad_close_ffmpeg(WfDecoder* d)
 }
 
 
-/*
- *  Input and output is both interleaved
- */
-void
-int16_to_float(float* out, int16_t* in, int n_channels, int n_frames, int out_offset)
-{
-	int f, c;
-	for (f=0;f<n_frames;f++) {
-		for (c=0;c<n_channels;c++) {
-			out[(f+out_offset)*n_channels+c] = (float) in[f*n_channels+c] / 32768.0;
-		}
-	}
-}
-
 #if 0
 static void
 interleave(float* out, size_t len, Buf16* buf, int n_channels)
@@ -345,7 +333,7 @@ ff_read_default_interleaved(WfDecoder* d, float* out, size_t len)
 	int written = 0;
 	int ret = 0;
 	while (ret >= 0 && written < frames) {
-		dbg(3, "loop: %i/%i (bl:%lu)", written, frames, f->tmp_buf.len);
+		dbg(3, "loop: %i/%zu (bl:%lu)", written, frames, f->tmp_buf.len);
 		if (f->seek_frame == 0 && f->tmp_buf.len > 0) {
 			int s = MIN(f->tmp_buf.len / d->info.channels, frames - written);
 			int16_to_float(out, f->tmp_buf.start, d->info.channels, s, written);

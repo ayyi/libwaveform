@@ -198,3 +198,18 @@ ad_print_nfo(int dbglvl, WfAudioInfo* nfo)
 #endif
 }
 
+
+/*
+ *  Input and output is both interleaved
+ */
+void
+int16_to_float(float* out, int16_t* in, int n_channels, int n_frames, int out_offset)
+{
+	int f, c;
+	for (f=0;f<n_frames;f++) {
+		for (c=0;c<n_channels;c++) {
+			out[(f+out_offset)*n_channels+c] = (float) in[f*n_channels+c] / 32768.0;
+		}
+	}
+}
+
