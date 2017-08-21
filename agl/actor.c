@@ -359,12 +359,20 @@ render_from_fbo(AGlActor* a)
 	glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
 
 	float w = agl_actor__width(a);
-	float h = fbo->height;
+	float h = MIN(fbo->height, agl_actor__height(a));
+	float h2 = fbo->height - h;
+	AGlfPt tsize = {agl_power_of_two(w), agl_power_of_two(fbo->height)};
 
-	float start = ((float)-a->cache.offset) / agl_power_of_two(w);
+	float start = ((float)-a->cache.offset.x);
+	float top = -a->cache.offset.y;
 
 	// The FBO is upside down so y has to be reversed. TODO render the FBO so that it is not upside down
-	agl_textured_rect_(fbo->texture, 0.0, 0.0, w, h, &(AGlQuad){start, h / agl_power_of_two(h), start + w / agl_power_of_two(w), 0.0});
+	agl_textured_rect_(fbo->texture, 0.0, top * 2, w, h, &(AGlQuad){
+		start / tsize.x,
+		(-top + h + h2) / tsize.y,
+		(start + w) / tsize.x,
+		(-top + h2) / tsize.y
+	});
 
 #undef FBO_MARKER // show red dot in top left corner of fbos for debugging
 #ifdef FBO_MARKER
@@ -412,7 +420,6 @@ agl_actor__paint(AGlActor* a)
 
 				a->paint(a);
 
-				// TODO check assumptions are correct, eg check children not also cached to fbo.
 				GList* l = a->children;
 				for(;l;l=l->next){
 					agl_actor__paint((AGlActor*)l->data);
@@ -894,11 +901,13 @@ agl_actor__invalidate(AGlActor* actor)
 #endif
 		call(actor->invalidate, actor);
 
+		#if 0
 		GList* l = actor->children;
 		for(;l;l=l->next){
 			AGlActor* a = l->data;
 			_agl_actor__invalidate(a);
 		}
+		#endif
 
 		while(actor){
 #ifdef AGL_ACTOR_RENDER_CACHE

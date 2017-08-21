@@ -74,7 +74,7 @@ struct _AGlActor {
 	struct {
 	    bool         enabled;         // if false, caching must be disabled. if true, caching is used only if fbo is present.
 	    bool         valid;
-	    int          offset;
+	    AGliPt       offset;
 	    AGliPt       size_request;    // actors can use this to specify an oversized cache to allow for translations.
 	}                cache;
 #endif
