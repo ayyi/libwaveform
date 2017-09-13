@@ -1,5 +1,5 @@
 /*
-  copyright (C) 2012-2016 Tim Orford <tim@orford.org>
+  copyright (C) 2012-2017 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -76,13 +76,13 @@
 #include "transition/transition.h"
 #include "transition/frameclock.h"
 
-WfTransitionGlobal wf_transition = {300};
+WfTransitionGlobal wf_transition = {250};
 
 #undef WF_DEBUG_ANIMATOR
 
-static void transition_linear    (WfAnimation*, WfAnimatable*, int time);
-static void transition_linear_64 (WfAnimation*, WfAnimatable*, int time);
-static void transition_linear_f  (WfAnimation*, WfAnimatable*, int time);
+static void transition_linear    (WfAnimation*, WfAnimatable*, uint64_t time);
+static void transition_linear_64 (WfAnimation*, WfAnimatable*, uint64_t time);
+static void transition_linear_f  (WfAnimation*, WfAnimatable*, uint64_t time);
 
 #ifdef WF_DEBUG_ANIMATOR
 GList* animations = NULL;
@@ -289,7 +289,7 @@ wf_animation_start(WfAnimation* animation)
 
 	static GSourceFunc on_timeout;
 
-	void print_animation()
+	void print_animation(WfAnimation* animation)
 	{
 		GList* l = animation->members;
 		dbg(0, "animation=%p n_members=%i", animation, g_list_length(l));
@@ -305,7 +305,7 @@ wf_animation_start(WfAnimation* animation)
 			}
 		}
 	}
-	if(wf_debug > 1) print_animation();
+	if(wf_debug > 1) print_animation(animation);
 
 	int count_animatables()
 	{
@@ -356,7 +356,7 @@ wf_animation_start(WfAnimation* animation)
 
 		if(time > animation->end){
 			wf_animation_remove(animation);
-			return TIMER_STOP;
+			return G_SOURCE_REMOVE;
 		}
 
 #ifndef USE_FRAME_CLOCK
@@ -371,7 +371,7 @@ wf_animation_start(WfAnimation* animation)
 		animation->timer = g_source_attach(source, NULL);
 #endif
 
-		return TIMER_STOP;
+		return G_SOURCE_REMOVE;
 	}
 	on_timeout = wf_transition_frame;
 #ifdef USE_FRAME_CLOCK
@@ -382,16 +382,8 @@ wf_animation_start(WfAnimation* animation)
 	frame_clock_connect(G_CALLBACK(on_update), animation);
 	frame_clock_begin_updating();
 #endif
-	if(wf_transition_frame(animation)){
-#if 0 // never get here
-#ifndef USE_FRAME_CLOCK
-		GSource* source = g_timeout_source_new(WF_FRAME_INTERVAL);
-		g_source_set_callback(source, wf_transition_frame, animation, NULL);
-		g_source_set_priority(source, G_PRIORITY_HIGH);
-		animation->timer = g_source_attach(source, NULL);
-#endif
-#endif
-	}
+
+	wf_transition_frame(animation);
 }
 
 
@@ -432,7 +424,7 @@ wf_animation_preview(WfAnimation* animation, AnimationValueFn on_frame, gpointer
 
 
 static void
-transition_linear(WfAnimation* animation, WfAnimatable* animatable, int time)
+transition_linear(WfAnimation* animation, WfAnimatable* animatable, uint64_t time)
 {
 	uint64_t len = animation->end - animation->start;
 	uint64_t t = time - animation->start;
@@ -448,7 +440,7 @@ transition_linear(WfAnimation* animation, WfAnimatable* animatable, int time)
 
 
 static void
-transition_linear_64(WfAnimation* animation, WfAnimatable* animatable, int time)
+transition_linear_64(WfAnimation* animation, WfAnimatable* animatable, uint64_t time)
 {
 	uint64_t len = animation->end - animation->start;
 	uint64_t t = time - animation->start;
@@ -461,7 +453,7 @@ transition_linear_64(WfAnimation* animation, WfAnimatable* animatable, int time)
 
 
 static void
-transition_linear_f(WfAnimation* animation, WfAnimatable* animatable, int time)
+transition_linear_f(WfAnimation* animation, WfAnimatable* animatable, uint64_t time)
 {
 	uint64_t len = animation->end - animation->start;
 	uint64_t t = time - animation->start;

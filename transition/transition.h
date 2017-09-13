@@ -1,5 +1,5 @@
 /*
-  copyright (C) 2012-2016 Tim Orford <tim@orford.org>
+  copyright (C) 2012-2017 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -51,7 +51,6 @@ typedef struct _animatable_property
 	UVal  val;
 	UVal  start_val;
 	UValp model_val; // target (end) value
-	//union {uint32_t* i; float* f;} min;
 	WfPropType type;
 #ifdef WF_DEBUG
 	char       name[16];
@@ -70,7 +69,7 @@ typedef struct _anim_actor
 typedef void  (*AnimationFn)      (WfAnimation*, gpointer);
 typedef void  (*AnimationFrameFn) (WfAnimation*, int time);
 typedef void  (*AnimationValueFn) (WfAnimation*, UVal[], gpointer);
-typedef void  (*WfEasingFn)       (WfAnimation*, WfAnimatable*, int time);
+typedef void  (*WfEasingFn)       (WfAnimation*, WfAnimatable*, uint64_t time);
 
 typedef WfEasingFn WfEasing[WF_TYPE_MAX];
 
