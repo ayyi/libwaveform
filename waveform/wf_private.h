@@ -230,7 +230,7 @@ extern char wf_grey  [16];
 WF*            wf_get_instance             ();
 uint32_t       wf_peakbuf_get_max_size     (int n_tiers);
 
-short*         waveform_peak_malloc        (Waveform*, uint32_t bytes);
+short*         waveform_peakbuf_malloc     (Waveform*, int ch, uint32_t bytes);
 Peakbuf*       waveform_get_peakbuf_n      (Waveform*, int);
 void           waveform_peakbuf_assign     (Waveform*, int block_num, Peakbuf*);
 void           waveform_peakbuf_regen      (Waveform*, WfBuf16*, Peakbuf*, int block_num, int min_output_resolution);

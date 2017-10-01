@@ -566,12 +566,18 @@ get_rms_buf_info(const char* buf, guint len, struct _rms_buf_info* b, int ch)
 
 
 short*
-waveform_peak_malloc(Waveform* w, uint32_t bytes)
+waveform_peakbuf_malloc(Waveform* waveform, int ch, uint32_t size)
 {
-	short* buf = g_malloc(bytes);
-	wf->peak_mem_size += bytes;
-	g_hash_table_insert(wf->peak_cache, w, w); //is removed in __finalize()
+	WfPeakBuf* buf = &waveform->priv->peak;
+	uint32_t bytes = size * sizeof(short);
 
+	buf->buf[ch] = g_malloc(bytes);
+	buf->size = size;
+
+	wf->peak_mem_size += bytes;
+	g_hash_table_insert(wf->peak_cache, waveform, waveform); // is removed in __finalize()
+
+#ifdef DEBUG
 	// check cache size
 	if(wf_debug > 1){
 		int total_size = 0;
@@ -585,8 +591,9 @@ waveform_peak_malloc(Waveform* w, uint32_t bytes)
 		}
 		dbg(2, "peak cache: size=%ik", total_size/1024);
 	}
+#endif
 
-	return buf;
+	return buf->buf[ch];
 }
 
 

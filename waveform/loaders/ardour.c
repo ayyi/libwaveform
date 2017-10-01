@@ -1,18 +1,14 @@
-/*
-  copyright (C) 2012-2016 Tim Orford <tim@orford.org>
-
-  This program is free software; you can redistribute it and/or modify
-  it under the terms of the GNU General Public License version 3
-  as published by the Free Software Foundation.
-
-  This program is distributed in the hope that it will be useful,
-  but WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-  GNU General Public License for more details.
-
-  You should have received a copy of the GNU General Public License
-  along with this program; if not, write to the Free Software
-  Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+/**
+* +----------------------------------------------------------------------+
+* | This file is part of libwaveform                                     |
+* | https://github.com/ayyi/libwaveform                                  |
+* | copyright (C) 2012-2017 Tim Orford <tim@orford.org>                  |
+* +----------------------------------------------------------------------+
+* | This program is free software; you can redistribute it and/or modify |
+* | it under the terms of the GNU General Public License version 3       |
+* | as published by the Free Software Foundation.                        |
+* +----------------------------------------------------------------------+
+*
 */
 #define _XOPEN_SOURCE 500
 #define ENABLE_CHECKS
@@ -50,28 +46,23 @@ wf_load_ardour_peak(Waveform* wv, const char* peak_file)
 
 	uint32_t bytes = n_frames * peak_byte_depth * WF_PEAK_VALUES_PER_SAMPLE;
 
-	//read the whole peak file into memory:
+	// read the whole peak file into memory
 	float* read_buf = g_malloc(bytes);
 	if(read(fp, read_buf, bytes) != bytes) gerr ("read error. couldnt read %i bytes from %s", bytes, peak_file);
 	close(fp);
 
-	//convert from float to short
-	short* buf = waveform_peak_malloc(wv, n_frames * sizeof(short) * WF_PEAK_VALUES_PER_SAMPLE);
+	// convert from float to short
+	short* buf = waveform_peakbuf_malloc(wv, WF_LEFT, n_frames * WF_PEAK_VALUES_PER_SAMPLE);
 	int i; for(i=0;i<n_frames;i++){
-		//ardour peak files have negative peak first. ABS is used because values occasionally have incorrect sign.
+		// ardour peak files have negative peak first. ABS is used because values occasionally have incorrect sign.
 		buf[2 * i    ] =   ABS(read_buf[2 * i + 1]  * (1 << 15));
 		buf[2 * i + 1] = -(ABS(read_buf[2 * i    ]) * (1 << 15));
 	}
 
 	g_free(read_buf);
 
-#if 0
-	dbg(1, "peaks:");
-	for (i=0;i<20;i++) printf("  %i %i\n", buf[2 * i], buf[2 * i + 1]);
-#endif
 	int ch_num = wv->priv->peak.buf[WF_LEFT] ? 1 : 0; //this makes too many assumptions. better to pass explicitly as argument.
 	wv->priv->peak.buf[ch_num] = buf;
-	wv->priv->peak.size = n_frames * WF_PEAK_VALUES_PER_SAMPLE;
 
 #ifdef ENABLE_CHECKS
 	int k; for(k=0;k<n_frames;k++){
@@ -88,7 +79,7 @@ wf_load_ardour_peak(Waveform* wv, const char* peak_file)
 static size_t
 get_n_words(Waveform* wv, const char* peakfile)
 {
-	//ardour peak files are oversized. To get the useable size, we need to refer to the original file.
+	// ardour peak files are oversized. To get the useable size, we need to refer to the original file.
 
 	int64_t n_frames = waveform_get_n_frames(wv);
 

@@ -68,22 +68,19 @@ wf_load_riff_peak(Waveform* wv, const char* peak_file)
   		goto out_close;
 	}
 
-	sf_count_t n_frames = sfinfo.frames / WF_PEAK_VALUES_PER_SAMPLE;
+	const sf_count_t n_frames = sfinfo.frames / WF_PEAK_VALUES_PER_SAMPLE;
 	dbg(2, "n_channels=%i n_frames=%Li n_bytes=%Li n_blocks=%i", sfinfo.channels, n_frames, sfinfo.frames * peak_byte_depth * sfinfo.channels, (int)(ceil((float)n_frames / WF_PEAK_TEXTURE_SIZE)));
 	dbg(2, "secs=%.3f %.3f", ((float)(n_frames)) / 44100, ((float)(n_frames * WF_PEAK_RATIO)) / 44100);
 
-	sf_count_t max_frames = wv->n_frames ? (wv->n_frames / WF_PEAK_RATIO) : LONG_MAX;
+	const sf_count_t max_frames = wv->n_frames ? (wv->n_frames / WF_PEAK_RATIO) : LONG_MAX;
 #ifdef DEBUG
 	if(sfinfo.frames / WF_PEAK_VALUES_PER_SAMPLE > max_frames) gwarn("peakfile is too long: %"PRIi64", expected %"PRIi64, sfinfo.frames / WF_PEAK_VALUES_PER_SAMPLE, max_frames);
 #endif
-	sf_count_t r_frames = MIN(sfinfo.frames, max_frames) * WF_PEAK_VALUES_PER_SAMPLE;
-
-	uint32_t bytes = r_frames * peak_byte_depth * sfinfo.channels;// * WF_PEAK_VALUES_PER_SAMPLE;
+	sf_count_t r_frames = MIN(sfinfo.frames, max_frames);
 
 	short* read_buf = (sfinfo.channels == 1)
-		? waveform_peak_malloc(wv, bytes) // no deinterleaving required, can read directly into the peak buffer.
-		: g_malloc(bytes);
-
+		? waveform_peakbuf_malloc(wv, WF_LEFT, r_frames) // no deinterleaving required, can read directly into the peak buffer.
+		: g_malloc(r_frames * peak_byte_depth * sfinfo.channels);
 
 	//read the whole peak file into memory:
 	int readcount_frames;
@@ -92,17 +89,13 @@ wf_load_riff_peak(Waveform* wv, const char* peak_file)
 		//gerr ("read error. couldnt read %i bytes from %s", bytes, peak_file);
 	}
 
-#if 0
-	int i; for (i=0;i<20;i++) printf("  %i %i\n", buf[2 * i], buf[2 * i + 1]);
-#endif
-
-	int ch_num = 0; //TODO
+	int ch_num = WF_LEFT; // TODO might not be WF_LEFT for split files
 	if(sfinfo.channels == 1){
 		_w->peak.buf[ch_num] = read_buf;
 	}else if(sfinfo.channels == 2){
 		short* buf[WF_MAX_CH] = {
-			waveform_peak_malloc(wv, bytes / sfinfo.channels),
-			waveform_peak_malloc(wv, bytes / sfinfo.channels)
+			waveform_peakbuf_malloc(wv, 0, r_frames),
+			waveform_peakbuf_malloc(wv, 1, r_frames)
 		};
 		int i; for(i=0;i<readcount_frames/2;i++){
 			int c; for(c=0;c<sfinfo.channels;c++){
@@ -116,8 +109,6 @@ wf_load_riff_peak(Waveform* wv, const char* peak_file)
 
 		g_free(read_buf);
 	}
-	wv->priv->peak.size = r_frames;//n_frames * WF_PEAK_VALUES_PER_SAMPLE;
-	dbg(2, "peak.size=%i", _w->peak.size);
 #ifdef ENABLE_CHECKS
 	int k; for(k=0;k<10;k++){
 		if(_w->peak.buf[0][2*k + 0] < 0.0){ gwarn("positive peak not positive"); break; }
