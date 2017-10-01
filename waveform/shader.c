@@ -1,5 +1,5 @@
 /*
-  copyright (C) 2012-2015 Tim Orford <tim@orford.org>
+  copyright (C) 2012-2017 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -249,6 +249,7 @@ _ruler_set_uniforms()
 
 	glUniform1iv(glGetUniformLocation(shader->program, "markers"), 10, ((RulerShader*)shader)->uniform.markers);
 	glUniform1f(glGetUniformLocation(shader->program, "beats_per_pixel"), ((RulerShader*)shader)->uniform.beats_per_pixel);
+	glUniform1f(glGetUniformLocation(shader->program, "samples_per_pixel"), ((RulerShader*)shader)->uniform.samples_per_pixel);
 	glUniform1f(glGetUniformLocation(shader->program, "viewport_left"), ((RulerShader*)shader)->uniform.viewport_left);
 }
 

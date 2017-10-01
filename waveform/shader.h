@@ -68,6 +68,7 @@ struct _RulerShader {
 	struct {
 		uint32_t fg_colour;
 		float    beats_per_pixel;
+		float    samples_per_pixel;
 		float    viewport_left;
 		int      markers[10];
 	}            uniform;

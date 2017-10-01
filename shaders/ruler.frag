@@ -1,5 +1,5 @@
 /*
-  copyright (C) 2012-2014 Tim Orford <tim@orford.org>
+  copyright (C) 2012-2017 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -15,6 +15,7 @@
   Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 */
 
+uniform float samples_per_pixel;
 uniform float beats_per_pixel;
 uniform float viewport_left;
 uniform vec4 fg_colour;
@@ -26,6 +27,18 @@ varying vec2 ecPosition;
 void main(void)
 {
 	//for coordinate calculations to work the quad must be positioned using glTranslatef(), with x1=0, y1=0.
+
+	vec4 marker_colours[10];
+	marker_colours[0] = vec4(0.5, 0.8, 0.5, 1.0);
+	marker_colours[1] = vec4(0.5, 0.6, 0.8, 1.0);
+	marker_colours[2] = vec4(0.5, 0.6, 0.8, 1.0);
+	marker_colours[3] = vec4(0.5, 0.6, 0.8, 1.0);
+	marker_colours[4] = vec4(0.5, 0.6, 0.8, 1.0);
+	marker_colours[5] = vec4(0.5, 0.6, 0.8, 1.0);
+	marker_colours[6] = vec4(0.5, 0.6, 0.8, 1.0);
+	marker_colours[7] = vec4(0.5, 0.6, 0.8, 1.0);
+	marker_colours[8] = vec4(0.5, 0.6, 0.8, 1.0);
+	marker_colours[9] = vec4(0.8, 0.6, 0.5, 1.0);
 
 	vec4 c = vec4(1.0) * fg_colour;
 	float alpha = c[3];
@@ -44,12 +57,11 @@ void main(void)
 	//if(fract((gl_FragCoord.x -0.5 ) / pixels_per_beat) > 0.05) c[3] = 0.0;
 
 	if(MCposition.y > 20.0){
-		int i; for(i=0;i<2;i++){
-			int locator_beat = markers[i] / (11025 * 3840); //TODO should use samples instead of AyyiSongPos
-			float locator_x = float(locator_beat) / beats_per_pixel - viewport_left;
+		int i; for(i=0;i<10;i++){
+			float locator_x = float(markers[i]) / samples_per_pixel - viewport_left;
 
 			if(MCposition.x > locator_x - 0.05 && MCposition.x < locator_x + 8.0){
-				gl_FragColor = vec4(0.5, 0.6, 0.8, 1.0);
+				gl_FragColor = marker_colours[i];
 				return;
 			}
 		}

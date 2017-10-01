@@ -30,6 +30,7 @@
 #include <GL/gl.h>
 #include "waveform/waveform.h"
 #include "waveform/actors/grid.h"
+
 typedef struct {
     AGlActor         actor;
     WaveformContext* context;
@@ -76,12 +77,12 @@ ruler_actor(WaveformActor* wf_actor)
 
 		shader->uniform.fg_colour = 0xffffff7f;
 		shader->uniform.beats_per_pixel = context->samples_per_pixel / (samples_per_beat(context) * context->zoom);
+		shader->uniform.samples_per_pixel = context->samples_per_pixel;
 
 		agl_use_program((AGlShader*)shader);
 	}
 
-	RulerActor* ruler = g_new0(RulerActor, 1);
-	*ruler = (RulerActor){
+	return (AGlActor*)AGL_NEW(RulerActor,
 		.actor = {
 #ifdef AGL_DEBUG_ACTOR
 			.name = "ruler",
@@ -92,9 +93,7 @@ ruler_actor(WaveformActor* wf_actor)
 			.set_size = ruler_actor_size
 		},
 		.context = wf_actor->canvas
-	};
-
-	return (AGlActor*)ruler;
+	);
 }
 
 
