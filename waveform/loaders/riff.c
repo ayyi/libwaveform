@@ -76,7 +76,7 @@ wf_load_riff_peak(Waveform* wv, const char* peak_file)
 #ifdef DEBUG
 	if(sfinfo.frames / WF_PEAK_VALUES_PER_SAMPLE > max_frames) gwarn("peakfile is too long: %"PRIi64", expected %"PRIi64, sfinfo.frames / WF_PEAK_VALUES_PER_SAMPLE, max_frames);
 #endif
-	sf_count_t r_frames = MIN(sfinfo.frames, max_frames);
+	sf_count_t r_frames = MIN(sfinfo.frames, max_frames * WF_PEAK_VALUES_PER_SAMPLE);
 
 	short* read_buf = (sfinfo.channels == 1)
 		? waveform_peakbuf_malloc(wv, WF_LEFT, r_frames) // no deinterleaving required, can read directly into the peak buffer.
