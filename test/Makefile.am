@@ -204,6 +204,7 @@ test_data: Makefile write_block.cc
 		ffmpeg -y -i data/mono_0:10.wav -vbr 3 data/mono_0:10.m4a; \
 		ffmpeg -y -i data/mono_0:10.wav data/mono_0:10.opus; \
 		ffmpeg -y -i data/mono_0:10.wav data/mono_0:10.flac; \
+		ffmpeg -y -i data/mono_0:10.wav -acodec pcm_s24le data/mono_24b_0:10.wav; \
 	fi;
 	@if [ ! -e "data/stereo_0:10.wav" ] || [ "./write_wav" -nt "data/stereo_0:10.wav" ] || [ "Makefile" -nt "data/stereo_0:10.wav" ]; then \
 		./write_wav --channels=2 data/stereo_0:10.wav; \
@@ -211,6 +212,7 @@ test_data: Makefile write_block.cc
 		ffmpeg -y -i data/stereo_0:10.wav -vbr 3 data/stereo_0:10.m4a; \
 		ffmpeg -y -i data/stereo_0:10.wav data/stereo_0:10.opus; \
 		ffmpeg -y -i data/stereo_0:10.wav data/stereo_0:10.flac; \
+		ffmpeg -y -i data/stereo_0:10.wav -acodec pcm_s24le data/stereo_24b_0:10.wav; \
 	fi;
 	@if [ ! -e "data/mono_10:00.wav" ] || [ "./write_wav" -nt "data/mono_10:00.wav" ]; then \
 		./write_wav --length=600  data/mono_10:00.wav; \

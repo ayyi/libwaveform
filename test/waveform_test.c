@@ -93,7 +93,7 @@ test_audio_file()
 {
 	START_TEST;
 
-	char* filenames[] = {"data/mono_0:10.wav", "data/stereo_0:10.wav", "data/mono_0:10.mp3", "data/stereo_0:10.mp3", "data/mono_0:10.m4a", "data/stereo_0:10.m4a", "data/mono_0:10.opus", "data/stereo_0:10.opus"};
+	char* filenames[] = {"mono_0:10.wav", "stereo_0:10.wav", "mono_0:10.mp3", "stereo_0:10.mp3", "mono_0:10.m4a", "stereo_0:10.m4a", "mono_0:10.opus", "stereo_0:10.opus", "mono_24b_0:10.wav", "stereo_24b_0:10.wav"};
 
 	int i; for(i=0;i<G_N_ELEMENTS(filenames);i++){
 		WfDecoder f = {{0,}};
@@ -123,7 +123,7 @@ test_audio_file()
 		} while (readcount > 0);
 		dbg(1, "diff=%zu", abs((int)total - (int)f.info.frames));
 		if(g_str_has_suffix(filenames[i], ".wav") || g_str_has_suffix(filenames[i], ".flac")){
-			assert(total == f.info.frames, "%s: incorrect number of frames read: %"PRIi64, filenames[i], f.info.frames);
+			assert(total == f.info.frames, "%s: incorrect number of frames read: %"PRIi64" (expected %"PRIi64")", filenames[i], total, f.info.frames);
 			assert(!(total % 512) || !(total % 100), "%s: bad framecount: %zu", filenames[i], total); // test file sizes are always a round number
 		}else{
 			// for some file types, f.info.frames is only an estimate

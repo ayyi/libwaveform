@@ -17,7 +17,6 @@
 #include <unistd.h>
 #include <math.h>
 #include <sndfile.h>
-
 #include <gtk/gtk.h>
 #include "decoder/debug.h"
 #include "decoder/ad.h"
@@ -150,8 +149,7 @@ ad_read_sndfile_short(WfDecoder* d, WfBuf16* buf)
 		case 8:
 		case 16: {
 			if(d->info.channels == 1){
-				ssize_t r = sf_readf_short(sf->sffile, buf->buf[0], buf->size);
-				return r;
+				return sf_readf_short(sf->sffile, buf->buf[0], buf->size);
 			}else{
 				short* data = g_malloc0(d->info.channels * buf->size * sizeof(short));
 				ssize_t r = sf_read_short(sf->sffile, data, d->info.channels * buf->size);
@@ -161,7 +159,7 @@ ad_read_sndfile_short(WfDecoder* d, WfBuf16* buf)
 					}
 				}
 				g_free(data);
-				return r;
+				return f;
 			}
 		}
 		case 24: {
@@ -173,7 +171,7 @@ ad_read_sndfile_short(WfDecoder* d, WfBuf16* buf)
 				}
 			}
 			g_free(data);
-			return r;
+			return f;
 		}
 		case 32: {
 			float* data = g_malloc0(d->info.channels * buf->size * sizeof(float));
