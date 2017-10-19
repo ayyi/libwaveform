@@ -42,24 +42,20 @@
 #include "test/common.h"
 #include "test/ayyi_utils.h"
 
+#define WAV "test/data/mono_0:10.wav"
+
 #define GL_WIDTH 256.0
 #define VBORDER 8
 
-GdkGLConfig*    glconfig       = NULL;
 GtkWidget*      canvas         = NULL;
 AGlScene*       scene          = NULL;
 WaveformContext* wfc[4]        = {NULL,};
 Waveform*       w1             = NULL;
 Waveform*       w2             = NULL;
-WaveformActor*  a[]            = {NULL, NULL, NULL, NULL};
+WaveformActor*  a[4]           = {NULL,};
 float           zoom           = 1.0;
 float           vzoom          = 1.0;
 gpointer        tests[]        = {};
-
-static void on_canvas_realise  (GtkWidget*, gpointer);
-static void on_allocate        (GtkWidget*, GtkAllocation*, gpointer);
-static void start_zoom         (float target_zoom);
-uint64_t    get_time           ();
 
 KeyHandler
 	zoom_in,
@@ -89,6 +85,11 @@ Key keys[] = {
 	{0},
 };
 
+static void on_canvas_realise  (GtkWidget*, gpointer);
+static void on_allocate        (GtkWidget*, GtkAllocation*, gpointer);
+static void start_zoom         (float target_zoom);
+uint64_t    get_time           ();
+
 
 int
 main (int argc, char *argv[])
@@ -98,6 +99,7 @@ main (int argc, char *argv[])
 	wf_debug = 1;
 
 	gtk_init(&argc, &argv);
+	GdkGLConfig* glconfig;
 	if(!(glconfig = gdk_gl_config_new_by_mode(GDK_GL_MODE_RGBA | GDK_GL_MODE_DEPTH | GDK_GL_MODE_DOUBLE))){
 		gerr ("Cannot initialise gtkglext."); return EXIT_FAILURE;
 	}
@@ -118,7 +120,7 @@ main (int argc, char *argv[])
 
 	scene = (AGlRootActor*)agl_actor__new_root(canvas);
 
-	char* filename = g_build_filename(g_get_current_dir(), "test/data/mono_0:10.wav", NULL);
+	char* filename = find_wav(WAV);
 	w1 = waveform_load_new(filename);
 	g_free(filename);
 

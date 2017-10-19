@@ -9,7 +9,7 @@
 * | as published by the Free Software Foundation.                        |
 * +----------------------------------------------------------------------+
 * | test/viewport.c                                                      |
-* | Demonstrate different use cases for AGlActor viewport property       |
+* | Demonstrate different use cases for AGlActor 'scrollable' property   |
 * +----------------------------------------------------------------------+
 *
 */
@@ -89,12 +89,18 @@ main (int argc, char *argv[])
 	int y = 25;
 	a->region = (AGliRegion){10, y, 10 + w, y + h};
 	y += h + 20;
+
+	// the leftmost part of the scrollable area is visible
 	b->region = (AGliRegion){10, y, 10 + w, y + h};
 	b->scrollable = (AGliRegion){0, 0, w * 2, h};
 	y += h + 20;
+
+	// scroll one page to the right
+	// - the visible region is unchanged, but the scrollable area has moved to the left
 	c->region = (AGliRegion){10, y, 10 + w, y + h};
 	c->scrollable = (AGliRegion){-w, 0, w, h};
 	y += h + 20;
+
 	d->region = (AGliRegion){10, y, 10 + w, y + h};
 	d->scrollable = (AGliRegion){2 * w, 0, w, h}; // viewport does not overlap the region, so should be invisible
 

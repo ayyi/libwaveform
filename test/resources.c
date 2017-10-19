@@ -117,7 +117,7 @@ main (int argc, char *argv[])
 	gboolean swap_wav(gpointer data)
 	{
 		load_wave(WAV2);
-		return TIMER_STOP;
+		return G_SOURCE_REMOVE;
 	}
 	g_timeout_add(3000, swap_wav, NULL);
 

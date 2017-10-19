@@ -96,7 +96,7 @@ void add_key_handlers   (GtkWindow*, WaveformView*, Key[]);
 	test_finished = true; \
 	passed = true; \
 	test_finished_(); \
-	return TIMER_STOP;
+	return G_SOURCE_REMOVE;
 
 #define FAIL_TEST(msg, ...) \
 	{test_finished = true; \
@@ -110,7 +110,7 @@ void add_key_handlers   (GtkWindow*, WaveformView*, Key[]);
 	passed = false; \
 	printf("%s%s%s\n", red, msg, wf_white); \
 	test_finished_(); \
-	return TIMER_STOP;}
+	return G_SOURCE_REMOVE;}
 
 #define assert(A, B, ...) \
 	{bool __ok_ = (bool)A; \

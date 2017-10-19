@@ -31,7 +31,7 @@
 #include <time.h>
 #include <unistd.h>
 #include <sys/time.h>
-#include <GL/gl.h>
+#include "agl/utils.h"
 #include <gtk/gtk.h>
 #include <gdk/gdkkeysyms.h>
 #include "test/common.h"
@@ -51,7 +51,6 @@ AGlActor*       group          = NULL;
 WaveformContext* wfc            = NULL;
 Waveform*       w1             = NULL;
 WaveformActor*  a[]            = {NULL};
-GLuint          bg_textures[2] = {0,};
 gpointer        tests[]        = {};
 
 KeyHandler
@@ -161,6 +160,7 @@ on_canvas_realise(GtkWidget* _canvas, gpointer user_data)
 	canvas_init_done = true;
 
 	agl_actor__add_child((AGlActor*)scene, group = group_actor(a[0]));
+
 	void group__set_size(AGlActor* actor)
 	{
 		actor->region = (AGliRegion){
@@ -279,21 +279,21 @@ toggle_shaders(gpointer _)
 
 
 void
-zoom_in(gpointer waveform)
+zoom_in(gpointer _)
 {
 	start_zoom(wf_context_get_zoom(wfc) * 1.5);
 }
 
 
 void
-zoom_out(gpointer waveform)
+zoom_out(gpointer _)
 {
 	start_zoom(wf_context_get_zoom(wfc) / 1.5);
 }
 
 
 void
-scroll_left(gpointer waveform)
+scroll_left(gpointer _)
 {
 	//int n_visible_frames = ((float)waveform->waveform->n_frames) / waveform->zoom;
 	//waveform_view_set_start(waveform, waveform->start_frame - n_visible_frames / 10);
@@ -301,7 +301,7 @@ scroll_left(gpointer waveform)
 
 
 void
-scroll_right(gpointer waveform)
+scroll_right(gpointer _)
 {
 	//int n_visible_frames = ((float)waveform->waveform->n_frames) / waveform->zoom;
 	//waveform_view_set_start(waveform, waveform->start_frame + n_visible_frames / 10);
@@ -309,7 +309,7 @@ scroll_right(gpointer waveform)
 
 
 void
-quit(gpointer waveform)
+quit(gpointer _)
 {
 	exit(EXIT_SUCCESS);
 }

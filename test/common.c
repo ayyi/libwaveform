@@ -1,6 +1,6 @@
 /*
   This file is part of the Ayyi Project. http://ayyi.org
-  copyright (C) 2004-2016 Tim Orford <tim@orford.org>
+  copyright (C) 2004-2017 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -52,15 +52,6 @@ extern gpointer tests[];
 
 static int __n_tests = 0;
 
-//TODO is dupe
-#define FAIL_TEST_TIMER(msg) \
-	{test_finished = true; \
-	passed = false; \
-	printf("%s%s%s\n", red, msg, wf_white); \
-	test_finished_(); \
-	return TIMER_STOP;}
-//------------------
-
 
 void
 test_init(gpointer tests[], int n_tests)
@@ -84,13 +75,13 @@ next_test()
 	run_test(gpointer test)
 	{
 		((Test)test)();
-		return TIMER_STOP;
+		return G_SOURCE_REMOVE;
 	}
 
 	bool _exit()
 	{
 		exit(n_failed ? EXIT_FAILURE : EXIT_SUCCESS);
-		return TIMER_STOP;
+		return G_SOURCE_REMOVE;
 	}
 
 	printf("\n");
@@ -105,7 +96,7 @@ next_test()
 		bool on_test_timeout(gpointer _user_data)
 		{
 			FAIL_TEST_TIMER("TEST TIMEOUT\n");
-			return TIMER_STOP;
+			return G_SOURCE_REMOVE;
 		}
 		app.timeout = g_timeout_add(20000, on_test_timeout, NULL);
 	}
@@ -193,7 +184,7 @@ reset_timeout(int ms)
 	bool on_test_timeout(gpointer _user_data)
 	{
 		FAIL_TEST_TIMER("TEST TIMEOUT\n");
-		return TIMER_STOP;
+		return G_SOURCE_REMOVE;
 	}
 	app.timeout = g_timeout_add(ms, on_test_timeout, NULL);
 }
@@ -289,6 +280,12 @@ find_wav(const char* wav)
 	g_free(filename);
 
 	filename = g_build_filename(g_get_current_dir(), "test", wav, NULL);
+	if(g_file_test(filename, G_FILE_TEST_EXISTS)){
+		return filename;
+	}
+	g_free(filename);
+
+	filename = g_build_filename(g_get_current_dir(), "test/data", wav, NULL);
 	if(g_file_test(filename, G_FILE_TEST_EXISTS)){
 		return filename;
 	}

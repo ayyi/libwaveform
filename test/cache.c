@@ -573,7 +573,7 @@ test_hi_double()
 				FINISH_TEST_TIMER_STOP;
 			}
 
-			return TIMER_STOP;
+			return G_SOURCE_REMOVE;
 		}
 
 		g_timeout_add(timeouts[stage], _check_scroll, NULL);
