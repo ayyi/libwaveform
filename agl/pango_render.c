@@ -437,6 +437,7 @@ draw_glyph (PangoRenderer *renderer_, PangoFont *font,
       else
         {
           g = g_slice_new (glyph_info);
+          g->generation = 0; // for valgrind
 
           _pango_gl_font_set_glyph_cache_destroy (font, (GDestroyNotify)free_glyph_info);
           _pango_gl_font_set_cache_glyph_data (font, glyph, g);

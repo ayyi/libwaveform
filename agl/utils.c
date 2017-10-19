@@ -757,7 +757,6 @@ font_is_scalable(PangoContext* context, const char* font_name)
 	pango_font_map_list_families(fontmap, &families, &n_families);
 	int i; for(i=0;i<n_families;i++){
 		PangoFontFamily* family = families[i];
-		//dbg(0, "  family=%s", pango_font_family_get_name(family));
 		if(!strcmp(family_name, pango_font_family_get_name(family))){
 			PangoFontFace** faces;
 			int n_faces;
@@ -779,6 +778,7 @@ font_is_scalable(PangoContext* context, const char* font_name)
 			if(faces) g_free(faces);
 		}
 	}
+	g_free(families);
 	g_free(family_name);
 	dbg(3, "scalable=%i", scalable);
 	return scalable;

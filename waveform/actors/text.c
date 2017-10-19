@@ -379,9 +379,11 @@ text_actor_render_text(TextActor* ta)
 		title_render("iey", &out, &t);
 		((TextActor*)actor)->baseline = t.height;
 		fh = agl_power_of_two(t.height);
+		g_free(out.buf);
 
 		title_render("ie", &out, &t);
 		((TextActor*)actor)->baseline -= t.height -1; // 1 because of spill below baseline
+		g_free(out.buf);
 	}
 
 	image_t out;
