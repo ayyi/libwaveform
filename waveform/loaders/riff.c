@@ -29,6 +29,7 @@
 #include "waveform/waveform.h"
 
 #define peak_byte_depth 2 // value are stored in the peak file as int16.
+#define WF_MAX_FRAMES 116121600000LL // 192kHz 7 days
 
 
 /*
@@ -43,8 +44,8 @@ wf_load_riff_peak(Waveform* wv, const char* peak_file)
 	WaveformPriv* _w = wv->priv;
 
 	SNDFILE* sndfile;
-	SF_INFO sfinfo;
-	sfinfo.format = 0;
+	SF_INFO sfinfo = { .format = 0 };
+
 	if(!(sndfile = sf_open(peak_file, SFM_READ, &sfinfo))){
 		if(!g_file_test(peak_file, G_FILE_TEST_EXISTS)){
 #ifdef DEBUG
@@ -72,7 +73,7 @@ wf_load_riff_peak(Waveform* wv, const char* peak_file)
 	dbg(2, "n_channels=%i n_frames=%Li n_bytes=%Li n_blocks=%i", sfinfo.channels, n_frames, sfinfo.frames * peak_byte_depth * sfinfo.channels, (int)(ceil((float)n_frames / WF_PEAK_TEXTURE_SIZE)));
 	dbg(2, "secs=%.3f %.3f", ((float)(n_frames)) / 44100, ((float)(n_frames * WF_PEAK_RATIO)) / 44100);
 
-	const sf_count_t max_frames = wv->n_frames ? (wv->n_frames / WF_PEAK_RATIO) : LONG_MAX;
+	const sf_count_t max_frames = wv->n_frames ? (wv->n_frames / WF_PEAK_RATIO) : WF_MAX_FRAMES;
 #ifdef DEBUG
 	if(sfinfo.frames / WF_PEAK_VALUES_PER_SAMPLE > max_frames) gwarn("peakfile is too long: %"PRIi64", expected %"PRIi64, sfinfo.frames / WF_PEAK_VALUES_PER_SAMPLE, max_frames);
 #endif
