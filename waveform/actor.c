@@ -112,7 +112,6 @@ typedef struct _Renderer Renderer;
 
 static AGlActorClass actor_class = {0, "Waveform", (AGlActorNew*)wf_actor_new};
 
-
 struct _actor_priv
 {
 	WfRectangle     rect;        // TODO should be removed in favour of AGlActor.region - this is in progress, but raises the question, why is AGlActor.region integer?
@@ -801,10 +800,9 @@ wf_actor_set_full(WaveformActor* a, WfSampleRegion* region, WfRectangle* rect, i
 		.user_data = user_data
 	});
 
-
 	void _on_animation_finished(WfAnimation* animation, gpointer user_data)
 	{
-		PF0;
+		PF;
 		g_return_if_fail(user_data);
 		g_return_if_fail(animation);
 		C* c = user_data;
@@ -824,7 +822,8 @@ wf_actor_set_full(WaveformActor* a, WfSampleRegion* region, WfRectangle* rect, i
 static double
 wf_actor_samples2gl(double zoom, uint32_t n_samples)
 {
-	//zoom is pixels per sample
+	// zoom is pixels per sample
+
 	return n_samples * zoom;
 }
 
@@ -1578,11 +1577,6 @@ wf_actor_fade_in(WaveformActor* a, void* /* WfAnimatable* */ _animatable, float 
 		? g_list_prepend(NULL, animatable)
 		: NULL;
 
-	C* c = g_new0(C, 1);
-	c->actor = a;
-	c->callback = callback;
-	c->user_data = user_data;
-
 	void _on_fadein_finished(WfAnimation* animation, gpointer user_data)
 	{
 		PF;
@@ -1592,21 +1586,26 @@ wf_actor_fade_in(WaveformActor* a, void* /* WfAnimatable* */ _animatable, float 
 		if(c->callback) c->callback(c->actor, c->user_data);
 		g_free(c);
 	}
-	wf_actor_start_transition(a, animatables, _on_fadein_finished, c);
+
+	wf_actor_start_transition(a, animatables, _on_fadein_finished, AGL_NEW(C,
+		.actor = a,
+		.callback = callback,
+		.user_data = user_data,
+	));
 }
 
 
 void
 wf_actor_set_vzoom(WaveformActor* a, float vzoom)
 {
-	dbg(0, "vzoom=%.2f", vzoom);
+	dbg(1, "vzoom=%.2f", vzoom);
+
 	#define MAX_VZOOM 100.0
-	g_return_if_fail(!(vzoom < 1.0 || vzoom > MAX_VZOOM));
-	a->vzoom = vzoom;
+	a->vzoom = CLAMP(vzoom, 1.0, MAX_VZOOM);
 
-	wf_context_set_gain(a->canvas, vzoom);
+	wf_context_set_gain(a->canvas, a->vzoom);
 
-	if(((AGlActor*)a)->root->draw) wf_canvas_queue_redraw(a->canvas);
+	agl_actor__invalidate((AGlActor*)a);
 }
 
 

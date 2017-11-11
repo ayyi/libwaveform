@@ -79,7 +79,15 @@ HiResShader hires_shader = {{NULL, NULL, 0, uniforms_hr, _hires_set_uniforms, &h
 #endif
 
 static AGlUniformInfo uniforms_hr_ng[] = {
-   {"tex2d",     1, GL_INT,   { 0, 0, 0, 0 }, -1}, // 0 corresponds to glActiveTexture(GL_TEXTURE0);
+   {"tex2d",     1, GL_INT,   { 0,   }, -1}, // 0 corresponds to glActiveTexture(GL_TEXTURE0);
+   {"top",       1, GL_FLOAT, { 0.0, }, -1},
+   {"bottom",    1, GL_FLOAT, { 0.0, }, -1},
+   {"n_channels",1, GL_INT,   { 1,   }, -1},
+   {"tex_width", 1, GL_FLOAT, { 0.0, }, -1},
+   {"tex_height",1, GL_FLOAT, { 0.0, }, -1},
+   {"mm_level",  1, GL_INT,   { 0,   }, -1},
+   {"v_gain",    1, GL_FLOAT, { 1.0, }, -1},
+   {"fg_colour", 4, GL_FLOAT, { 0.0, }, -1},
    END_OF_UNIFORMS
 };
 HiResNGShader hires_ng_shader = {{NULL, NULL, 0, uniforms_hr_ng, _hires_ng_set_uniforms, &hires_ng_text}};
@@ -184,17 +192,44 @@ static void
 _hires_ng_set_uniforms()
 {
 	AGlShader* shader = &hires_ng_shader.shader;
+	AGlUniformInfo* uniforms = shader->uniforms;
 
-	float fg_colour[4] = {0.0, 0.0, 0.0, ((float)(hires_ng_shader.uniform.fg_colour & 0xff)) / 0x100};
-	agl_rgba_to_float(hires_ng_shader.uniform.fg_colour, &fg_colour[0], &fg_colour[1], &fg_colour[2]);
-	glUniform4fv(glGetUniformLocation(shader->program, "fg_colour"), 1, fg_colour);
+	// uniforms only updated if changed. reduces the number of gl calls but any difference is not readily apparent.
+	static float top = 0.0;
+	static float bottom = 0.0;
+	static uint32_t _fg_colour;
+	static int n_channels;
+	static int mm_level;
+	static float tex_width;
+	static float tex_height;
 
-	glUniform1f(glGetUniformLocation(shader->program, "top"),             hires_ng_shader.uniform.top);
-	glUniform1f(glGetUniformLocation(shader->program, "bottom"),          hires_ng_shader.uniform.bottom);
-	glUniform1i(glGetUniformLocation(shader->program, "n_channels"),      hires_ng_shader.uniform.n_channels);
-	glUniform1f(glGetUniformLocation(shader->program, "tex_width"),       hires_ng_shader.uniform.tex_width);
-	glUniform1f(glGetUniformLocation(shader->program, "tex_height"),      hires_ng_shader.uniform.tex_height);
-	glUniform1i(glGetUniformLocation(shader->program, "mm_level"),        hires_ng_shader.uniform.mm_level);
+	if(hires_ng_shader.uniform.fg_colour != _fg_colour){
+		float fg_colour[4] = {0.0, 0.0, 0.0, ((float)(hires_ng_shader.uniform.fg_colour & 0xff)) / 0x100};
+		agl_rgba_to_float(hires_ng_shader.uniform.fg_colour, &fg_colour[0], &fg_colour[1], &fg_colour[2]);
+		glUniform4fv(uniforms[8].location, 1, fg_colour);
+		_fg_colour = hires_ng_shader.uniform.fg_colour;
+	}
+
+	if(hires_ng_shader.uniform.top != top){
+		glUniform1f(uniforms[1].location,                top = hires_ng_shader.uniform.top);
+	}
+	if(hires_ng_shader.uniform.bottom != bottom){
+		glUniform1f(uniforms[2].location,                bottom = hires_ng_shader.uniform.bottom);
+	}
+	if(hires_ng_shader.uniform.n_channels != n_channels){
+		glUniform1i(uniforms[3].location,                n_channels = hires_ng_shader.uniform.n_channels);
+	}
+	if(hires_ng_shader.uniform.tex_width != tex_width){
+		glUniform1f(uniforms[4].location,                tex_width = hires_ng_shader.uniform.tex_width);
+	}
+	if(hires_ng_shader.uniform.tex_height != tex_height){
+		glUniform1f(uniforms[5].location,                tex_height = hires_ng_shader.uniform.tex_height);
+	}
+	if(hires_ng_shader.uniform.mm_level != mm_level){
+		glUniform1i(uniforms[6].location,                mm_level = hires_ng_shader.uniform.mm_level);
+	}
+
+	glUniform1f(uniforms[7].location, hires_ng_shader.uniform.v_gain);
 }
 
 

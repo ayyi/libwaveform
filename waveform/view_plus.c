@@ -76,6 +76,8 @@ typedef struct
 static KeyHandler
 	zoom_in,
 	zoom_out,
+	zoom_up,
+	zoom_down,
 	scroll_left,
 	scroll_right,
 	home;
@@ -85,6 +87,8 @@ static Key keys[] = {
 	{KEY_Right, scroll_right},
 	{61,        zoom_in},
 	{45,        zoom_out},
+	{'0',       zoom_up},
+	{'9',       zoom_down},
 	{KEY_Home,  home},
 	{0},
 };
@@ -687,6 +691,7 @@ waveform_view_plus_leave_notify_event(GtkWidget* widget, GdkEventCrossing* event
 static void
 waveform_view_plus_display_ready(WaveformViewPlus* view)
 {
+
 	dbg(1, "READY");
 	am_promise_resolve(promise(PROMISE_DISP_READY), NULL);
 }
@@ -985,6 +990,22 @@ static void
 zoom_out(WaveformViewPlus* view)
 {
 	waveform_view_plus_set_zoom(view, view->priv->canvas->zoom / 1.5);
+}
+
+
+static void
+zoom_up(WaveformViewPlus* view)
+{
+	WaveformActor* actor = view->priv->actor;
+	wf_actor_set_vzoom(actor, actor->canvas->v_gain * 1.3);
+}
+
+
+static void
+zoom_down(WaveformViewPlus* view)
+{
+	WaveformActor* actor = view->priv->actor;
+	wf_actor_set_vzoom(actor, actor->canvas->v_gain / 1.3);
 }
 
 

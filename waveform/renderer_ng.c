@@ -369,7 +369,7 @@ ng_gl2_pre_render(Renderer* renderer, WaveformActor* actor)
 {
 	Waveform* w = actor->waveform;
 	WfActorPriv* _a = actor->priv;
-	RenderInfo* r  = &_a->render_info;
+	RenderInfo* r = &_a->render_info;
 
 	if(r->mode >= MODE_V_HI) return; // TODO this will happen when falling through.
 
@@ -383,6 +383,7 @@ ng_gl2_pre_render(Renderer* renderer, WaveformActor* actor)
 	shader->uniform.n_channels = waveform_get_n_channels(w);
 	shader->uniform.tex_width = modes[renderer->mode].texture_size;
 	shader->uniform.tex_height = data->section[r->viewport_blocks.first / MAX_BLOCKS_PER_TEXTURE].buffer_size / modes[renderer->mode].texture_size;
+	shader->uniform.v_gain = actor->canvas->v_gain;
 
 	shader->uniform.mm_level = (renderer->mode == MODE_MED || renderer->mode == MODE_LOW)
 		? (

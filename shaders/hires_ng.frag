@@ -1,5 +1,5 @@
 /*
-  copyright (C) 2014-2015 Tim Orford <tim@orford.org>
+  copyright (C) 2014-2017 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -20,6 +20,7 @@ uniform float top;
 uniform float bottom;
 uniform vec4 fg_colour;
 uniform int n_channels;
+uniform float v_gain;
 uniform float tex_height;
 uniform float tex_width;
 uniform int mm_level;
@@ -37,23 +38,25 @@ void main(void)
 	float dx = 1.0 / tex_width;
 	float y = bottom - MCposition.y; // invert y
 
-	float mid = (bottom -top) / 2.0;
+	float mid = (bottom - top) / 2.0;
 	float mid3 = mid;
 	vec2 t = vec2(mm2tx[mm_level], mm2ty[mm_level]);
 
 	int c = 0;
 	float yc = y;
-	if(n_channels > 1){
+	if(n_channels < 2){
+		yc = (y - mid) / v_gain + mid;
+	}else{
 		if(y < mid - 1.0){
 			// LHS
 			mid3 = mid / 2.0;
 			mid -= mid / 2.0;
-			yc = y;
+			yc = (y - mid3) / v_gain + mid3;
 		}else if(y > mid + 1.0){
 			// RHS
 			c = 1;
 			mid3 = mid / 2.0;
-			yc = y - mid;
+			yc = (y - mid - mid3) / v_gain + mid3;
 			mid += mid / 2.0;
 			t.y += 4.0;
 		}else{
