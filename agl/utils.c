@@ -44,7 +44,7 @@ extern void wf_debug_printf (const char* func, int level, const char* format, ..
 #ifdef DEBUG
 #define AGL_DEBUG agl->debug
 #else
-#define AGL_DEBUG false
+#define AGL_DEBUG FALSE
 #endif
 
 static gulong __enable_flags = 0;

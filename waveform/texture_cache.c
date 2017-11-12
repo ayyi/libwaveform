@@ -1,5 +1,5 @@
 /*
-  copyright (C) 2012-2015 Tim Orford <tim@orford.org>
+  copyright (C) 2012-2017 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -180,7 +180,7 @@ texture_cache_assign(TextureCache* c, int t, WaveformBlock wb)
 		{
 			texture_cache_print();
 			timeout = 0;
-			return TIMER_STOP;
+			return G_SOURCE_REMOVE;
 		}
 		timeout = g_timeout_add(1000, _texture_cache_print, NULL);
 	}

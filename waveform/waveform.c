@@ -173,10 +173,12 @@ waveform_finalize (GObject* obj)
 	}
 
 #ifdef USE_OPENGL
+#ifdef DEBUG
 	extern int texture_cache_count_by_waveform(Waveform*);
 	if(texture_cache_count_by_waveform(w)){
 		gerr("textures not cleared");
 	}
+#endif
 #endif
 
 	int m; for(m=MODE_V_LOW;m<=MODE_HI;m++){
@@ -396,7 +398,7 @@ waveform_load_peak(Waveform* w, const char* peak_file, int ch_num)
 		return true;
 	}
 
-	/*int n_channels = */wf->load_peak(w, peak_file);
+	wf->load_peak(w, peak_file);
 
 	if(ch_num) w->n_channels = MAX(w->n_channels, ch_num + 1); // for split stereo files
 

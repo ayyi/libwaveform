@@ -130,8 +130,8 @@ ad_read_sndfile(WfDecoder* d, float* out, size_t len)
 				g_free(d16);
 				return r;
 			}
-		default:
 #ifdef DEBUG
+		default:
 			gwarn("unhandled bit depth: %i", d->info.bit_depth);
 #endif
 	}
@@ -184,8 +184,8 @@ ad_read_sndfile_short(WfDecoder* d, WfBuf16* buf)
 			g_free(data);
 			return r;
 		}
-		default:
 #ifdef DEBUG
+		default:
 			dbg(0, "!!! unhandled bit depth: %i", d->info.bit_depth);
 #endif
 	}

@@ -16,6 +16,7 @@
 */
 #ifndef __spp_actor_h__
 #define __spp_actor_h__
+#include "agl/actor.h"
 
 typedef struct {
     AGlActor       actor;
