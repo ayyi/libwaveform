@@ -701,8 +701,12 @@ agl_actor__on_event(AGlScene* root, GdkEvent* event)
 				root->selected = a; // TODO almost certainly not always correct
 				if(a) agl_actor__invalidate(a);
 			}
-			AGliPt offset = agl_actor__find_offset(a);
-			return _agl_actor__on_event(a, event, (AGliPt){xy.x - offset.x, xy.y - offset.y});
+			if(a){
+				AGliPt offset = agl_actor__find_offset(a);
+				return _agl_actor__on_event(a, event, (AGliPt){xy.x - offset.x, xy.y - offset.y});
+			}else{
+				return AGL_HANDLED;
+			}
 		default:
 			break;
 	}
