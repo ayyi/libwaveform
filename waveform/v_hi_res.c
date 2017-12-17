@@ -16,12 +16,9 @@
 */
 
 extern LinesShader lines;
+extern AGlMaterialClass aaline_class;
 
 #define VERTEX_ARRAYS
-
-#ifdef ANTIALIASED_LINES
-GLuint _wf_create_line_texture();
-#endif
 
 typedef struct {
 	struct {
@@ -56,6 +53,8 @@ v_hi_renderer_new(WaveformActor* actor)
 		agl_create_program(&lines.shader);
 	}
 #endif
+
+	if(!agl->aaline) agl->aaline = agl_aa_line_new();
 }
 
 
@@ -76,23 +75,26 @@ _v_hi_set_gl_state(WaveformActor* actor)
 	AGl* agl = agl_get_instance();
 	const WaveformContext* wfc = actor->canvas;
 
-							//TODO might these prevent further blocks at different res? difficult to notice as they are usually the same.
+#if defined (MULTILINE_SHADER)
 							glEnable(GL_BLEND);
 							glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-#if defined (MULTILINE_SHADER)
 							if(wfc->use_1d_textures){
 								glDisable(GL_TEXTURE_1D);
 								_c->shaders.lines->uniform.colour = actor->fg_colour;
 								_c->shaders.lines->uniform.n_channels = w->n_channels;
 							}
 #elif defined(ANTIALIASED_LINES)
-							if(wfc->use_1d_textures){
-								glDisable(GL_TEXTURE_1D);
-								agl->shaders.text->uniform.fg_colour = actor->fg_colour;
-								agl_use_program((AGlShader*)agl->shaders.text); // alpha shader
-							}
-							glEnable(GL_TEXTURE_2D);
+	if(wfc->use_1d_textures){
+		agl->shaders.text->uniform.fg_colour = actor->fg_colour;
+		agl_use_material(agl->aaline);
+		agl_enable(AGL_ENABLE_BLEND | AGL_ENABLE_TEXTURE_2D);
+		glBindTexture(GL_TEXTURE_2D, aaline_class.texture);
+	}else{
+		agl_enable(AGL_ENABLE_BLEND | AGL_ENABLE_TEXTURE_2D);
+	}
 #else
+							glEnable(GL_BLEND);
+							glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 							if(wfc->use_1d_textures){
 								glDisable(GL_TEXTURE_1D);
 								agl->shaders.plain->uniform.colour = actor->fg_colour;
@@ -147,12 +149,6 @@ draw_wave_buffer_v_hi(Renderer* renderer, WaveformActor* actor, int block, bool 
 
 	Range sr = {{0,0},{0,0}, 0}; //TODO check we are consistent in that these values are all *within the current block*
 	Range xr = {{0,0},{0,0}, 0};
-
-#ifdef ANTIALIASED_LINES
-	_wf_create_line_texture(); // will be moved. TODO dont re-fill the texture if display is unchanged.
-	glEnable(GL_TEXTURE_2D);
-	glBindTexture(GL_TEXTURE_2D, line_textures[0]);
-#endif
 
 	const double zoom = rect->len / (double)ri->region.len;
 
@@ -416,58 +412,6 @@ v_hi_free_waveform(Renderer* renderer, Waveform* w)
 {
 	if(w->priv->render_data[MODE_V_HI]) g_free0(w->priv->render_data[MODE_V_HI]);
 }
-
-
-#ifdef ANTIALIASED_LINES
-GLuint
-_wf_create_line_texture()
-{
-	if(line_textures[0]) return line_textures[0];
-
-	glEnable(GL_TEXTURE_2D);
-
-#if 1
-	int width = 4;
-	int height = 5;
-	char* pbuf = g_new0(char, width * height);
-	int y;
-	//char vals[] = {0xff, 0xa0, 0x40};
-	char vals[] = {0xff, 0x40, 0x10};
-	int x; for(x=0;x<width;x++){
-		y=0; *(pbuf + y * width + x) = vals[2];
-		y=1; *(pbuf + y * width + x) = vals[1];
-		y=2; *(pbuf + y * width + x) = vals[0];
-		y=3; *(pbuf + y * width + x) = vals[1];
-		y=4; *(pbuf + y * width + x) = vals[2];
-	}
-#else
-	int width = 4;
-	int height = 4;
-	char* pbuf = g_new0(char, width * height);
-	int y; for(y=0;y<height/2;y++){
-		int x; for(x=0;x<width;x++){
-			*(pbuf + y * width + x) = 0xff * (2*y)/height + 128;
-			*(pbuf + (height -1 - y) * width + x) = 0xff * (2*y)/height + 128;
-		}
-	}
-#endif
-
-	glGenTextures(2, line_textures);
-	if(glGetError() != GL_NO_ERROR){ gerr ("couldnt create line_textures."); return 0; }
-	dbg(2, "line_textureis[0]=%i", line_textures[0]);
-
-	int pixel_format = GL_ALPHA;
-	glBindTexture  (GL_TEXTURE_2D, line_textures[0]);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_ALPHA, width, height, 0, pixel_format, GL_UNSIGNED_BYTE, pbuf);
-	gl_warn("error binding line texture!");
-
-	g_free(pbuf);
-
-	return line_textures[0];
-}
-#endif
 
 
 VHiRenderer v_hi_renderer = {{MODE_V_HI, v_hi_renderer_new, v_hi_load_block, v_hi_pre_render, draw_wave_buffer_v_hi, v_hi_free_waveform}};

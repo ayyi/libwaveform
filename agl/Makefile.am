@@ -18,6 +18,7 @@ libagl_la_SOURCES = \
 	fbo.c fbo.h \
 	actor.c actor.h \
 	utils.c utils.h \
+	material.c material.h \
 	typedefs.h shader.h
 
 pkgincludedir=$(includedir)/agl

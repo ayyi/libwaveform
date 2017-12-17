@@ -38,9 +38,6 @@ extern int wf_debug;
 // needed for v_hi res. TODO check whether visual effect is good for gl1 hi_res.
 #define ANTIALIASED_LINES
 
-#ifdef ANTIALIASED_LINES
-static GLuint line_textures[3] = {0, 0, 0}; // TODO use 1 and 2 as line caps
-#endif
 #ifdef MULTILINE_SHADER
 static GLuint lines_texture[8] = {0};
 #endif

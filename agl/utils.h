@@ -1,6 +1,7 @@
 /**
 * +----------------------------------------------------------------------+
-* | copyright (C) 2013-2016 Tim Orford <tim@orford.org>                  |
+* | This file is part of the Ayyi project. http://www.ayyi.org           |
+* | copyright (C) 2013-2017 Tim Orford <tim@orford.org>                  |
 * +----------------------------------------------------------------------+
 * | This program is free software; you can redistribute it and/or modify |
 * | it under the terms of the GNU General Public License version 3       |
@@ -15,6 +16,7 @@
 #include <gtkglext-1.0/gtk/gtkgl.h>
 #include <pango/pango.h>
 #include "agl/typedefs.h"
+#include "agl/material.h"
 
 typedef struct _agl               AGl;
 typedef struct _AGlUniformInfo    AGlUniformInfo;
@@ -102,6 +104,7 @@ struct _agl
 		PlainShader*    plain;
 		AlphaMapShader* text;
 	}               shaders;
+	AGlMaterial*    aaline;
 	int             debug;
 };
 

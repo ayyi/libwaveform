@@ -1,5 +1,5 @@
 /*
-  copyright (C) 2013-2016 Tim Orford <tim@orford.org>
+  copyright (C) 2013-2017 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -13,11 +13,6 @@
   You should have received a copy of the GNU General Public License
   along with this program; if not, write to the Free Software
   Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
-
-  ---------------------------------------------------------------
-
-  copyright (C) 2008 Brian Paul
-
 */
 #define __agl_utils_c__
 #include "config.h"
@@ -377,7 +372,6 @@ agl_compile_shader_file(GLenum shaderType, const char* filename)
 
    char* buffer = (char*) malloc(max);
    int n = fread(buffer, 1, max, f);
-   /*printf("read %d bytes from shader file %s\n", n, filename);*/
    if (n > 0) {
       buffer[n] = 0;
       shader = agl_compile_shader_text(shaderType, buffer);
@@ -399,7 +393,7 @@ agl_uniforms_init(GLuint program, AGlUniformInfo uniforms[])
 
 	for (i = 0; uniforms[i].name; i++) {
 		uniforms[i].location = glGetUniformLocation(program, uniforms[i].name);
-		//note location zero is ok.
+		// note zero is a valid location number.
 		if(uniforms[i].location < 0) gwarn("%s: location=%i", uniforms[i].name, uniforms[i].location);
 
 		switch (uniforms[i].size) {
