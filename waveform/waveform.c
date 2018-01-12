@@ -1,5 +1,5 @@
 /*
-  copyright (C) 2012-2017 Tim Orford <tim@orford.org>
+  copyright (C) 2012-2018 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -392,7 +392,7 @@ waveform_load_peak(Waveform* w, const char* peak_file, int ch_num)
 	g_return_val_if_fail(ch_num <= WF_MAX_CH, false);
 	WaveformPriv* _w = w->priv;
 
-	//check is not previously loaded
+	// check is not previously loaded
 	if(_w->peak.buf[ch_num]){
 		dbg(2, "using existing peak data...");
 		return true;
@@ -410,7 +410,7 @@ waveform_load_peak(Waveform* w, const char* peak_file, int ch_num)
 	if(!g_str_has_suffix(w->filename, ".mp3")){
 		if(wf_debug > -1 && w->n_frames){
 			uint64_t a = _w->num_peaks;
-			uint64_t b = w->n_frames / WF_PEAK_RATIO;
+			uint64_t b = w->n_frames / WF_PEAK_RATIO + (w->n_frames % WF_PEAK_RATIO ? 1 : 0);
 			if(a != b) gwarn("got %"PRIi64" peaks, expected %"PRIi64, a, b);
 		}
 	}
@@ -1693,7 +1693,7 @@ waveform_peak_to_pixbuf_full(Waveform* waveform, GdkPixbuf* pixbuf, uint32_t reg
 			if(!sub_px){ /*printf("*"); fflush(stdout);*/ continue; }
 
 			if(!line_index){
-				//first line - we also grab the previous sample for antialiasing.
+				// first line - we also grab the previous sample for antialiasing.
 				for(ch=0;ch<n_chans;ch++){
 					if(px){
 						j = src.start - 1;

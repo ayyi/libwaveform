@@ -1,5 +1,5 @@
 /*
-  copyright (C) 2012-2016 Tim Orford <tim@orford.org>
+  copyright (C) 2012-2018 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -130,7 +130,8 @@ peakfile_is_current(const char* audio_file, const char* peak_file)
 
 
 /*
- *  Caller must g_free the returned filename.
+ *  Asynchronously ensure that a peakfile exists for the given Waveform.
+ *  If a callback fn is supplied, the caller must g_free the returned filename.
  */
 void
 waveform_ensure_peakfile (Waveform* w, WfPeakfileCallback callback, gpointer user_data)
@@ -179,6 +180,9 @@ waveform_ensure_peakfile (Waveform* w, WfPeakfileCallback callback, gpointer use
 }
 
 
+/*
+ *  Caller must g_free the returned filename.
+ */
 char*
 waveform_ensure_peakfile__sync (Waveform* w)
 {
@@ -239,33 +243,32 @@ wf_ff_peakgen(const char* infilename, const char* peak_filename)
 	int total_frames_written = 0;
 	WfPeakSample total[sfinfo.channels]; memset(total, 0, sizeof(WfPeakSample) * sfinfo.channels);
 
-	int n = 8;
-	int read_len = WF_PEAK_RATIO * n;
-	float* sf_data = g_malloc(sizeof(float) * read_len);
+	#define n_blocks 8
+	int read_len = WF_PEAK_RATIO * n_blocks;
 
 	int16_t data[f.info.channels][read_len];
 	WfBuf16 buf = {
 		.buf = {
 			data[0], data[1]
 		},
-		.size = n * WF_PEAK_RATIO
+		.size = n_blocks * WF_PEAK_RATIO
 	};
 
 	int readcount;
 	int total_readcount = 0;
-	do {
-		readcount = ad_read_short(&f, &buf);
+	while((readcount = ad_read_short(&f, &buf))){
 		total_readcount += readcount;
 		int remaining = readcount;
 
 		WfPeakSample peak[sfinfo.channels];
 
+		int n = MIN(n_blocks, readcount / WF_PEAK_RATIO + (readcount % WF_PEAK_RATIO ? 1 : 0));
 		int j = 0; for(;j<n;j++){
 			WfPeakSample w[sfinfo.channels];
 
 			memset(peak, 0, sizeof(WfPeakSample) * sfinfo.channels);
 
-			int k; for (k = 0; k < MIN(remaining, WF_PEAK_RATIO); k+=sfinfo.channels){
+			int k; for (k = 0; k < MIN(remaining, WF_PEAK_RATIO); k += sfinfo.channels){
 				int c; for(c=0;c<sfinfo.channels;c++){
 					int16_t val = buf.buf[c][WF_PEAK_RATIO * j + k];
 					peak[c] = (WfPeakSample){
@@ -284,8 +287,7 @@ wf_ff_peakgen(const char* infilename, const char* peak_filename)
 			}
 			total_frames_written += sf_writef_short (outfile, (short*)w, WF_PEAK_VALUES_PER_SAMPLE);
 		}
-	} while (readcount > 0);
-
+	}
 
 #if 0
 	if(f.info.channels > 1) dbg(0, "max=%i,%i min=%i,%i", total[0].positive, total[1].positive, total[0].negative, total[1].negative);
@@ -299,13 +301,12 @@ wf_ff_peakgen(const char* infilename, const char* peak_filename)
 	}
 #else
 	if(total_frames_written / WF_PEAK_VALUES_PER_SAMPLE != f.info.frames / WF_PEAK_RATIO){
-		gwarn("unexpected number of frames: %i != %Lu", total_frames_written  / WF_PEAK_VALUES_PER_SAMPLE, f.info.frames / WF_PEAK_RATIO);
+		gwarn("unexpected number of frames: %i != %"PRIu64, total_frames_written / WF_PEAK_VALUES_PER_SAMPLE, f.info.frames / WF_PEAK_RATIO);
 	}
 #endif
 
 	ad_close(&f);
 	sf_close (outfile);
-	g_free(sf_data);
 
 	int renamed = !rename(tmp_path, peak_filename);
 	g_free(tmp_path);
@@ -347,6 +348,7 @@ waveform_peakgen(Waveform* w, const char* peak_filename, WfCallback2 callback, g
 	void peakgen_execute_job(Waveform* w, gpointer _job)
 	{
 		// runs in worker thread
+
 		PeakJob* job = _job;
 
 		if(!wf_peakgen__sync(job->infilename, job->peak_filename)){
@@ -616,7 +618,9 @@ waveform_peakbuf_regen(Waveform* waveform, WfBuf16* audiobuf, Peakbuf* peakbuf, 
 		}
 		*/
 	}
+#if 0 // valgrind warning
 	dbg(2, "maxlevel=%i,%i (%.3fdB)", totplus, totmin, wf_int2db(MAX(totplus, -totmin)));
+#endif
 
 	peakbuf_set_n_tiers(peakbuf, output_tiers, output_resolution);
 }
