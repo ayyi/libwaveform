@@ -92,8 +92,8 @@ extern KeyHold key_hold;
 
 Key keys[] = {
 	{GDK_KP_Enter,  NULL},
-	{(char)'<',     NULL},
-	{(char)'>',     NULL},
+	{'<',           NULL},
+	{'>',           NULL},
 	{(char)'n',     next_wav},
 	{(char)'p',     prev_wav},
 	{(char)'s',     toggle_shaders},

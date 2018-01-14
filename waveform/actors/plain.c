@@ -51,9 +51,7 @@ plain_actor(WaveformActor* view)
 	}
 
 	AGlActor* actor = WF_NEW(AGlActor,
-#ifdef AGL_DEBUG_ACTOR
 		.name = "plain",
-#endif
 		.region = {
 			.x2 = 1, .y2 = 1 // must have size else will not be rendered
 		},
@@ -61,7 +59,6 @@ plain_actor(WaveformActor* view)
 		.paint = plain_paint,
 		.program = (AGlShader*)agl->shaders.plain,
 	);
-	//actor->init = create_background;
 
 	return actor;
 }

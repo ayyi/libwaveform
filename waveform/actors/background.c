@@ -2,7 +2,7 @@
 * +----------------------------------------------------------------------+
 * | This file is part of libwaveform                                     |
 * | https://github.com/ayyi/libwaveform                                  |
-* | copyright (C) 2012-2016 Tim Orford <tim@orford.org>                  |
+* | copyright (C) 2012-2017 Tim Orford <tim@orford.org>                  |
 * +----------------------------------------------------------------------+
 * | This program is free software; you can redistribute it and/or modify |
 * | it under the terms of the GNU General Public License version 3       |
@@ -22,6 +22,8 @@
 #include "waveform/actors/background.h"
 
 static AGl* agl = NULL;
+
+static AGlActorClass actor_class = {0, "Group", (AGlActorNew*)background_actor};
 
 
 AGlActor*
@@ -114,22 +116,19 @@ background_actor(WaveformActor* view)
 		return true;
 	}
 
-	AGlTextureActor* ta = g_new0(AGlTextureActor, 1);
-	*ta = (AGlTextureActor){
+	AGlTextureActor* ta = AGL_NEW(AGlTextureActor,
 		.actor = {
-#ifdef AGL_DEBUG_ACTOR
-			.name = "background",
-#endif
+			.name = actor_class.name,
 			.region = {
 				.x2 = 1, .y2 = 1 // must have size else will not be rendered
-			}
+			},
+			.init = create_background,
+			.set_state = bg_actor_set_state,
+			.paint = bg_actor_paint,
+			.program = (AGlShader*)agl->shaders.alphamap
 		}
-	};
+	);
 	AGlActor* actor = (AGlActor*)ta;
-	actor->init = create_background;
-	actor->set_state = bg_actor_set_state;
-	actor->paint = bg_actor_paint;
-	actor->program = (AGlShader*)agl->shaders.alphamap;
 
 	return actor;
 }

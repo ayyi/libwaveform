@@ -1,5 +1,5 @@
 /*
-  copyright (C) 2012-2015 Tim Orford <tim@orford.org>
+  copyright (C) 2012-2017 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -25,15 +25,15 @@
 #include <GL/gl.h>
 #include "agl/actor.h"
 #include "waveform/waveform.h"
+#include "group.h"
 
+static AGlActorClass actor_class = {0, "Group", (AGlActorNew*)group_actor};
 
 AGlActor*
 group_actor(WaveformActor* wf_actor)
 {
 	AGlActor* actor = agl_actor__new();
-#ifdef AGL_DEBUG_ACTOR
-	actor->name = "Group";
-#endif
+	actor->name = actor_class.name;
 
 	return actor;
 }

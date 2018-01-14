@@ -1,7 +1,7 @@
 /**
 * +----------------------------------------------------------------------+
 * | This file is part of the Ayyi project. http://ayyi.org               |
-* | copyright (C) 2016 Tim Orford <tim@orford.org>                       |
+* | copyright (C) 2011-2018 Tim Orford <tim@orford.org>                  |
 * | copyright (C) 2011 Robin Gareus <robin@gareus.org>                   |
 * +----------------------------------------------------------------------+
 * | This program is free software; you can redistribute it and/or modify |
@@ -22,9 +22,9 @@
 
 #if 0
 int      ad_eval_null  (const char* f)               { return -1; }
-gboolean ad_open_null  (WfDecoder* d, const char* f)   { return  0; }
-int      ad_close_null (WfDecoder* d)                  { return -1; }
-int      ad_info_null  (WfDecoder* d)                  { return -1; }
+gboolean ad_open_null  (WfDecoder* d, const char* f) { return  0; }
+int      ad_close_null (WfDecoder* d)                { return -1; }
+int      ad_info_null  (WfDecoder* d)                { return -1; }
 int64_t  ad_seek_null  (void* sf, int64_t p)         { return -1; }
 ssize_t  ad_read_null  (void* sf, float*d, size_t s) { return -1; }
 #endif
@@ -38,19 +38,19 @@ struct _WfDecoder
 
 
 static AdPlugin const*
-choose_backend(const char* fn)
+choose_backend(const char* filename)
 {
 	AdPlugin const* b = NULL;
 	int max = 0;
 	int score;
 
-	if((score = get_sndfile()->eval(fn)) > max){
+	if((score = get_sndfile()->eval(filename)) > max){
 		max = score;
 		b = get_sndfile();
 	}
 
 #ifdef USE_FFMPEG
-	if((score = get_ffmpeg()->eval(fn)) > max){
+	if((score = get_ffmpeg()->eval(filename)) > max){
 		max = score;
 		b = get_ffmpeg();
 	}
