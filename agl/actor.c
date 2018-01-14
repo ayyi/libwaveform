@@ -1,7 +1,7 @@
 /**
 * +----------------------------------------------------------------------+
 * | This file is part of the Ayyi project. http://ayyi.org               |
-* | copyright (C) 2013-2017 Tim Orford <tim@orford.org>                  |
+* | copyright (C) 2013-2018 Tim Orford <tim@orford.org>                  |
 * +----------------------------------------------------------------------+
 * | This program is free software; you can redistribute it and/or modify |
 * | it under the terms of the GNU General Public License version 3       |
@@ -51,6 +51,7 @@ static bool   agl_actor__is_cached    (AGlActor*);
 #endif
 #endif
 #endif
+static AGliPt _agl_actor__find_offset (AGlActor*);
 
 
 AGlActor*
@@ -612,13 +613,21 @@ agl_actor__on_event(AGlScene* root, GdkEvent* event)
 	AGlActor* actor = (AGlActor*)root;
 	GtkWidget* widget = actor->root->gl.gdk.widget;
 
-	if(event->type == GDK_KEY_PRESS){
-		AGL_DEBUG printf("%s: keypress: key=%i\n", __func__, ((GdkEventKey*)event)->keyval);
-		AGlActor* selected = root->selected;
-		if(selected && selected->on_event){
-			return selected->on_event(selected, event, (AGliPt){});
-		}
-		return AGL_NOT_HANDLED;
+	switch(event->type){
+		case GDK_KEY_PRESS:
+			AGL_DEBUG printf("%s: keypress: key=%i\n", __func__, ((GdkEventKey*)event)->keyval);
+			AGlActor* selected = root->selected;
+			if(selected && selected->on_event){
+				return selected->on_event(selected, event, (AGliPt){});
+			}
+			return AGL_NOT_HANDLED;
+		// TODO perhaps clients should unregister for these events instead?
+		case GDK_EXPOSE:
+		case GDK_VISIBILITY_NOTIFY:
+		case GDK_FOCUS_CHANGE:
+			return AGL_NOT_HANDLED;
+		default:
+			;
 	}
 
 	AGliPt xy = {event->button.x + actor->scrollable.x1, event->button.y + actor->scrollable.y1};
@@ -644,11 +653,14 @@ agl_actor__on_event(AGlScene* root, GdkEvent* event)
 
 	AGlActor* child_region_hit(AGlActor* actor, AGliPt xy)
 	{
+		// Find the child of the actor at the given coordinate.
+		// The coordinate is relative to the actor, ie all position offsets have been applied.
+
 		GList* l = g_list_last(actor->children); // iterate backwards so that the 'top' actor get the events first.
 		for(;l;l=l->prev){
 			AGlActor* child = l->data;
 			if(!child->disabled && region_match(&child->region, xy.x, xy.y)){
-				AGlActor* sub = child_region_hit(child, (AGliPt){xy.x - child->region.x1 + child->scrollable.x1, xy.y - child->region.y1 + child->scrollable.y1});
+				AGlActor* sub = child_region_hit(child, (AGliPt){xy.x - child->region.x1 - child->scrollable.x1, xy.y - child->region.y1 - child->scrollable.y1});
 				if(sub) return sub;
 				//printf("  match. y=%i y=%i-->%i x=%i-->%i type=%s\n", xy.y, child->region.y1, child->region.y2, child->region.x1, child->region.x2, child->name);
 				return child;
@@ -658,7 +670,9 @@ agl_actor__on_event(AGlScene* root, GdkEvent* event)
 	}
 
 	if(actor_context.grabbed){
-		AGliPt offset = (actor_context.grabbed->parent == actor) ? (AGliPt){0, 0} : agl_actor__find_offset(actor_context.grabbed->parent);
+		AGliPt offset = (false && actor_context.grabbed->parent == actor) // test if grabbed is direct descendent of root
+			? (AGliPt){0, 0} // why? if this needs to be restored, pls document why (was removed for part-resize-right).
+			: _agl_actor__find_offset(actor_context.grabbed);
 		bool handled = _agl_actor__on_event(actor_context.grabbed, event, (AGliPt){xy.x - offset.x, xy.y - offset.y});
 
 		if(event->type == GDK_BUTTON_RELEASE){
@@ -702,7 +716,7 @@ agl_actor__on_event(AGlScene* root, GdkEvent* event)
 				if(a) agl_actor__invalidate(a);
 			}
 			if(a){
-				AGliPt offset = agl_actor__find_offset(a);
+				AGliPt offset = _agl_actor__find_offset(a);
 				return _agl_actor__on_event(a, event, (AGliPt){xy.x - offset.x, xy.y - offset.y});
 			}else{
 				return AGL_HANDLED;
@@ -723,7 +737,7 @@ agl_actor__on_event(AGlScene* root, GdkEvent* event)
 			}
 		}
 
-		AGliPt offset = agl_actor__find_offset(a);
+		AGliPt offset = _agl_actor__find_offset(a);
 		return _agl_actor__on_event(a, event, (AGliPt){xy.x - offset.x, xy.y - offset.y});
 
 	}else{
@@ -1045,6 +1059,21 @@ agl_actor__start_transition(AGlActor* actor, GList* animatables, AnimationFn don
 
 
 /*
+ *  Will be removed - use agl_actor__find_offset instead
+ */
+static AGliPt
+_agl_actor__find_offset(AGlActor* a)
+{
+	AGliPt of = {0, 0};
+	do {
+		of.x += a->region.x1;
+		of.y += a->region.y1;
+	} while((a = a->parent));
+	return of;
+}
+
+
+/*
  *  Return the distance from the actor top left to the root top left
  */
 AGliPt
@@ -1052,8 +1081,8 @@ agl_actor__find_offset(AGlActor* a)
 {
 	AGliPt of = {0, 0};
 	do {
-		of.x += a->region.x1;
-		of.y += a->region.y1;
+		of.x += a->region.x1 + a->scrollable.x1;
+		of.y += a->region.y1 + a->scrollable.y1;
 	} while((a = a->parent));
 	return of;
 }
@@ -1129,7 +1158,7 @@ agl_actor__print_tree (AGlActor* actor)
 			: agl_actor__is_cached(actor)
 				? lgrey
 				: "";
-		AGliPt offset = agl_actor__find_offset(actor);
+		AGliPt offset = _agl_actor__find_offset(actor);
 		if(actor->name) printf("%s%s:%s%s%s%s cache(%i,%i) region(%i,%i,%i,%i) viewport(%i,%i,%i,%i) offset(%i,%i)%s\n", colour, actor->name, offscreen, zero_size, negative_size, disabled, actor->cache.enabled, actor->cache.valid, actor->region.x1, actor->region.y1, actor->region.x2, actor->region.y2, actor->scrollable.x1, actor->scrollable.y1, actor->scrollable.x2, actor->scrollable.y2, offset.x, offset.y, white);
 #else
 		if(actor->name) printf("%s\n", actor->name);
