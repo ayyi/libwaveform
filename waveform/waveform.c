@@ -665,7 +665,7 @@ waveform_peak_to_alphabuf(Waveform* w, AlphaBuf* a, int scale, int* start, int* 
 
 	int ch; for(ch=0;ch<n_chans;ch++){
 
-		struct _buf_info b; 
+		BufInfo b = {0,};
 		g_return_if_fail(get_buf_info(w, -1, &b));
 
 		line_clear(&line[0]);
@@ -1600,7 +1600,7 @@ waveform_peak_to_pixbuf_full(Waveform* waveform, GdkPixbuf* pixbuf, uint32_t reg
 			}
 		}
 
-		struct _buf_info b; 
+		BufInfo b = {0,};
 		g_return_if_fail(get_buf_info(waveform, hires_block, &b));
 
 		// xmag defines how many 'samples' we need to skip to get the next pixel.
