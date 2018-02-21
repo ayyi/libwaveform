@@ -119,7 +119,7 @@ int main(int argc, char* argv[])
 		fprintf(stderr, "Could not allocate wav buffer\n");
 		return 1;
 	}
-	memset(buffer, size * sizeof(double), 0);
+	memset(buffer, 0, size * sizeof(double));
 
 	//----------------- generate ------------------
 

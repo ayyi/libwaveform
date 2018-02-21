@@ -178,7 +178,7 @@ waveform_load_audio_block(Waveform* waveform, WfBuf16* buf16, int block_num)
 
 	ad_read_short(&f, buf16);
 
-#warning FIXME split files
+//#warning FIXME split files
 	if(waveform->is_split){
 		switch(n_chans){
 			case WF_MONO:

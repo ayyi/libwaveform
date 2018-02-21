@@ -161,6 +161,17 @@ texture_cache_assign_new (int tex_type, WaveformBlock wfb)
 }
 
 
+#ifdef DEBUG
+	static guint timeout = 0;
+
+		static gboolean _texture_cache_print(gpointer data)
+		{
+			texture_cache_print();
+			timeout = 0;
+			return G_SOURCE_REMOVE;
+		}
+#endif
+
 static void
 texture_cache_assign(TextureCache* c, int t, WaveformBlock wb)
 {
@@ -173,15 +184,8 @@ texture_cache_assign(TextureCache* c, int t, WaveformBlock wb)
 	dbg(2, "t=%i b=%i time=%i", t, wb.block, time_stamp);
 
 #ifdef DEBUG
-	static guint timeout = 0;
 	if(wf_debug > 1){
 		if(timeout) g_source_remove(timeout);
-		gboolean _texture_cache_print(gpointer data)
-		{
-			texture_cache_print();
-			timeout = 0;
-			return G_SOURCE_REMOVE;
-		}
 		timeout = g_timeout_add(1000, _texture_cache_print, NULL);
 	}
 #endif
@@ -201,12 +205,9 @@ texture_cache_freshen(int tex_type, WaveformBlock wb)
 }
 
 
-static void
-texture_cache_queue_clean()
-{
 	static guint idle_id = 0;
 
-	gboolean texture_cache_clean(gpointer user_data)
+	static gboolean texture_cache_clean(gpointer user_data)
 	{
 		gboolean last_block_is_empty(TextureCache* c)
 		{
@@ -237,6 +238,9 @@ texture_cache_queue_clean()
 		return G_SOURCE_REMOVE;
 	}
 
+static void
+texture_cache_queue_clean()
+{
 	if(!idle_id) idle_id = g_idle_add(texture_cache_clean, NULL);
 }
 

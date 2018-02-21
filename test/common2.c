@@ -32,10 +32,7 @@
 #include "test/common2.h"
 
 					// TODO can be called from test_init
-void
-set_log_handlers()
-{
-	void log_handler(const gchar* log_domain, GLogLevelFlags log_level, const gchar* message, gpointer user_data)
+	static void log_handler(const gchar* log_domain, GLogLevelFlags log_level, const gchar* message, gpointer user_data)
 	{
 	  switch(log_level){
 		case G_LOG_LEVEL_CRITICAL:
@@ -50,6 +47,9 @@ set_log_handlers()
 	  }
 	}
 
+void
+set_log_handlers()
+{
 	g_log_set_handler (NULL, G_LOG_LEVEL_WARNING | G_LOG_LEVEL_CRITICAL | G_LOG_FLAG_FATAL | G_LOG_FLAG_RECURSION, log_handler, NULL);
 
 	char* domain[] = {NULL, "Waveform", "GLib-GObject", "GLib", "Gdk", "Gtk", "AGl"};

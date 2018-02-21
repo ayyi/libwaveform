@@ -30,18 +30,7 @@
 static AGl* agl = NULL;
 
 
-AGlActor*
-wf_spp_actor(WaveformActor* wf_actor)
-{
-	g_return_val_if_fail(wf_actor, NULL);
-
-	agl = agl_get_instance();
-
-	void spp_actor__init(AGlActor* actor)
-	{
-		if(!((SppActor*)actor)->text_colour) ((SppActor*)actor)->text_colour = wf_get_gtk_base_color(actor->root->gl.gdk.widget, GTK_STATE_NORMAL, 0xaa);
-
-		bool on_middle_click(GtkWidget* widget, GdkEventButton* event, gpointer _spp)
+		static bool on_middle_click(GtkWidget* widget, GdkEventButton* event, gpointer _spp)
 		{
 			SppActor* spp = (SppActor*)_spp;
 			WaveformActor* wf_actor = spp->wf_actor;
@@ -58,10 +47,14 @@ wf_spp_actor(WaveformActor* wf_actor)
 			}
 			return false;
 		}
+	static void spp_actor__init(AGlActor* actor)
+	{
+		if(!((SppActor*)actor)->text_colour) ((SppActor*)actor)->text_colour = wf_get_gtk_base_color(actor->root->gl.gdk.widget, GTK_STATE_NORMAL, 0xaa);
+
 		g_signal_connect((gpointer)actor->root->gl.gdk.widget, "button-release-event", G_CALLBACK(on_middle_click), actor);
 	}
 
-	void spp_actor__set_state(AGlActor* actor)
+	static void spp_actor__set_state(AGlActor* actor)
 	{
 		SppActor* spp = (SppActor*)actor;
 		WaveformActor* a = spp->wf_actor;
@@ -80,7 +73,7 @@ wf_spp_actor(WaveformActor* wf_actor)
 		}
 	}
 
-	bool spp_actor__paint(AGlActor* actor)
+	static bool spp_actor__paint(AGlActor* actor)
 	{
 		SppActor* spp = (SppActor*)actor;
 		WaveformActor* a = spp->wf_actor;
@@ -114,7 +107,7 @@ wf_spp_actor(WaveformActor* wf_actor)
 		return true;
 	}
 
-	void spp_actor__set_size(AGlActor* actor)
+	static void spp_actor__set_size(AGlActor* actor)
 	{
 		#define V_BORDER 0
 
@@ -125,6 +118,13 @@ wf_spp_actor(WaveformActor* wf_actor)
 			.y2 = actor->parent->region.y2 - V_BORDER,
 		};
 	}
+
+AGlActor*
+wf_spp_actor(WaveformActor* wf_actor)
+{
+	g_return_val_if_fail(wf_actor, NULL);
+
+	agl = agl_get_instance();
 
 	SppActor* spp = AGL_NEW(SppActor,
 		.actor = {
@@ -145,15 +145,7 @@ wf_spp_actor(WaveformActor* wf_actor)
 }
 
 
-/*
- *  Set the current playback position in milliseconds
- */
-void
-wf_spp_actor_set_time(SppActor* spp, uint32_t time)
-{
-	g_return_if_fail(spp);
-
-	bool check_playback(gpointer _spp)
+	static bool check_playback(gpointer _spp)
 	{
 		SppActor* spp = _spp;
 
@@ -162,6 +154,14 @@ wf_spp_actor_set_time(SppActor* spp, uint32_t time)
 
 		return G_SOURCE_REMOVE;
 	}
+
+/*
+ *  Set the current playback position in milliseconds
+ */
+void
+wf_spp_actor_set_time(SppActor* spp, uint32_t time)
+{
+	g_return_if_fail(spp);
 
 	spp->time = time;
 

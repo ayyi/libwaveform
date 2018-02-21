@@ -65,76 +65,83 @@ agl_actor__new()
 }
 
 
+static void
+agl_actor__have_drawable(AGlRootActor* a, GdkGLDrawable* drawable)
+{
+	g_return_if_fail(!a->gl.gdk.drawable);
+	g_return_if_fail(!a->gl.gdk.context);
+
+	static bool first_time = true;
+
+	((AGlActor*)a)->scrollable.x2 = a->gl.gdk.widget->allocation.width;
+	((AGlActor*)a)->scrollable.y2 = a->gl.gdk.widget->allocation.height;
+
+	a->gl.gdk.drawable = drawable;
+	a->gl.gdk.context = gtk_widget_get_gl_context(a->gl.gdk.widget);
+
+	gdk_gl_drawable_gl_begin (a->gl.gdk.drawable, a->gl.gdk.context);
+
+	if(first_time){
+		agl_gl_init();
+
+		int version = 0;
+		const char* _version = (const char*)glGetString(GL_VERSION);
+		if(_version){
+			gchar** split = g_strsplit(_version, ".", 2);
+			if(split){
+				version = atoi(split[0]);
+				printf("gl version: %i\n", version);
+				g_strfreev(split);
+			}
+		}
+	}
+
+	agl_actor__init((AGlActor*)a);
+
+	gdk_gl_drawable_gl_end(a->gl.gdk.drawable);
+
+	first_time = false;
+}
+
+
+static bool
+agl_actor__try_drawable(gpointer _actor)
+{
+	AGlRootActor* a = _actor;
+	if(!a->gl.gdk.drawable){
+		GdkGLDrawable* drawable = gtk_widget_get_gl_drawable(a->gl.gdk.widget);
+		if(drawable){
+			agl_actor__have_drawable(a, drawable);
+		}
+	}
+	return G_SOURCE_REMOVE;
+}
+
+static void
+agl_actor__on_unrealise(GtkWidget* widget, gpointer _actor)
+{
+	AGlRootActor* a = _actor;
+
+	a->gl.gdk.drawable = NULL;
+	a->gl.gdk.context  = NULL;
+}
+
+
+static void
+agl_actor__on_realise(GtkWidget* widget, gpointer _actor)
+{
+	AGlRootActor* a = _actor;
+
+	agl_actor__try_drawable(a);
+	if(!a->gl.gdk.drawable){
+		g_idle_add(agl_actor__try_drawable, a);
+	}
+}
+
+
 AGlActor*
 agl_actor__new_root(GtkWidget* widget)
 {
-	void agl_actor__have_drawable(AGlRootActor* a, GdkGLDrawable* drawable)
-	{
-		g_return_if_fail(!a->gl.gdk.drawable);
-		g_return_if_fail(!a->gl.gdk.context);
-
-		static bool first_time = true;
-
-		((AGlActor*)a)->scrollable.x2 = a->gl.gdk.widget->allocation.width;
-		((AGlActor*)a)->scrollable.y2 = a->gl.gdk.widget->allocation.height;
-
-		a->gl.gdk.drawable = drawable;
-		a->gl.gdk.context = gtk_widget_get_gl_context(a->gl.gdk.widget);
-
-		gdk_gl_drawable_gl_begin (a->gl.gdk.drawable, a->gl.gdk.context);
-
-		if(first_time){
-			agl_gl_init();
-
-			int version = 0;
-			const char* _version = (const char*)glGetString(GL_VERSION);
-			if(_version){
-				gchar** split = g_strsplit(_version, ".", 2);
-				if(split){
-					version = atoi(split[0]);
-					printf("gl version: %i\n", version);
-					g_strfreev(split);
-				}
-			}
-		}
-
-		agl_actor__init((AGlActor*)a);
-
-		gdk_gl_drawable_gl_end(a->gl.gdk.drawable);
-
-		first_time = false;
-	}
-
-	bool agl_actor__try_drawable(gpointer _actor)
-	{
-		AGlRootActor* a = _actor;
-		if(!a->gl.gdk.drawable){
-			GdkGLDrawable* drawable = gtk_widget_get_gl_drawable(a->gl.gdk.widget);
-			if(drawable){
-				agl_actor__have_drawable(a, drawable);
-			}
-		}
-		return G_SOURCE_REMOVE;
-	}
-
-	void agl_actor__on_unrealise(GtkWidget* widget, gpointer _actor)
-	{
-		AGlRootActor* a = _actor;
-
-		a->gl.gdk.drawable = NULL;
-		a->gl.gdk.context  = NULL;
-	}
-
-	void agl_actor__on_realise(GtkWidget* widget, gpointer _actor)
-	{
-		AGlRootActor* a = _actor;
-
-		agl_actor__try_drawable(a);
-		if(!a->gl.gdk.drawable){
-			g_idle_add(agl_actor__try_drawable, a);
-		}
-	}
-
 	AGlRootActor* a = (AGlRootActor*)agl_actor__new_root_(CONTEXT_TYPE_GTK);
 	a->gl.gdk.widget = widget;
 
@@ -405,7 +412,9 @@ agl_actor__paint(AGlActor* a)
 		glPushMatrix();
 		glTranslatef(offset.x, offset.y, 0.0);
 	}
+#ifdef DEBUG
 	AGL_DEBUG if(wf_debug > 2 && a == (AGlActor*)a->root) agl_actor__print_tree (a);
+#endif
 
 #ifdef AGL_ACTOR_RENDER_CACHE
 	// TODO check case where actor is translated and is partially offscreen.
@@ -960,41 +969,11 @@ agl_actor__enable_cache(AGlActor* actor, bool enable)
 }
 
 
-/*
- *   Set initial values of animatables and start the transition.
- *
- *   The 'val' of each animatable is assumed to be already set. 'start_val' will be set here.
- *
- *   If the actor has any other transitions using the same animatable, these animatables
- *   are removed from that transition.
- *
- *   @param animatables - ownership of this list is transferred to the WfAnimation.
- */
-void
-agl_actor__start_transition(AGlActor* actor, GList* animatables, AnimationFn done, gpointer user_data)
-{
-	// TODO handle the case here where animating is disabled.
-
-	g_return_if_fail(actor);
-
-	// set initial value
-	GList* l = animatables;
-	for(;l;l=l->next){
-		WfAnimatable* animatable = l->data;
-		animatable->start_val.b = animatable->val.b;
-	}
-
 	typedef struct {
 		AGlActor*      actor;
 		AnimationFn    done;
 		gpointer       user_data;
 	} C;
-	C* c = AGL_NEW(C,
-		.actor = actor,
-		.done = done,
-		.user_data = user_data
-	);
-
 	void agl_actor_on_frame(WfAnimation* animation, int time)
 	{
 		C* c = animation->user_data;
@@ -1034,6 +1013,36 @@ agl_actor__start_transition(AGlActor* actor, GList* animatables, AnimationFn don
 		actor_on_transition_finished(animation, c->actor);
 		g_free(c);
 	}
+
+/*
+ *   Set initial values of animatables and start the transition.
+ *
+ *   The 'val' of each animatable is assumed to be already set. 'start_val' will be set here.
+ *
+ *   If the actor has any other transitions using the same animatable, these animatables
+ *   are removed from that transition.
+ *
+ *   @param animatables - ownership of this list is transferred to the WfAnimation.
+ */
+void
+agl_actor__start_transition(AGlActor* actor, GList* animatables, AnimationFn done, gpointer user_data)
+{
+	// TODO handle the case here where animating is disabled.
+
+	g_return_if_fail(actor);
+
+	// set initial value
+	GList* l = animatables;
+	for(;l;l=l->next){
+		WfAnimatable* animatable = l->data;
+		animatable->start_val.b = animatable->val.b;
+	}
+
+	C* c = AGL_NEW(C,
+		.actor = actor,
+		.done = done,
+		.user_data = user_data
+	);
 
 	l = actor->transitions;
 	for(;l;l=l->next){

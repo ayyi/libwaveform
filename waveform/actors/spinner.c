@@ -35,12 +35,7 @@ AGlFBO* fbo = NULL;
 static float rotation = 0;
 
 
-AGlActor*
-wf_spinner(WaveformActor* wf_actor)
-{
-	agl = agl_get_instance();
-
-	void spinner__init(AGlActor* actor)
+	static void spinner__init(AGlActor* actor)
 	{
 		if(!fbo){
 			fbo = agl_fbo_new(2 * RADIUS, 2 * RADIUS, 0, 0);
@@ -61,14 +56,14 @@ wf_spinner(WaveformActor* wf_actor)
 		}
 	}
 
-	void spinner__set_state(AGlActor* actor)
+	static void spinner__set_state(AGlActor* actor)
 	{
 		if(agl->use_shaders){
 			((AlphaMapShader*)actor->program)->uniform.fg_colour = 0xffffff99;
 		}
 	}
 
-	bool spinner__paint(AGlActor* actor)
+	static bool spinner__paint(AGlActor* actor)
 	{
 		WfSpinner* spinner = (WfSpinner*)actor;
 
@@ -104,6 +99,11 @@ wf_spinner(WaveformActor* wf_actor)
 		return true;
 	}
 
+AGlActor*
+wf_spinner(WaveformActor* wf_actor)
+{
+	agl = agl_get_instance();
+
 	WfSpinner* spinner = g_new0(WfSpinner, 1);
 	*spinner = (WfSpinner){
 		.actor = {
@@ -127,6 +127,10 @@ wf_spinner(WaveformActor* wf_actor)
 }
 
 
+	static void on_update(GdkFrameClock* clock, void* spinner)
+	{
+		agl_actor__invalidate((AGlActor*)spinner);
+	}
 void
 wf_spinner_start(WfSpinner* spinner)
 {
@@ -136,10 +140,6 @@ wf_spinner_start(WfSpinner* spinner)
 
 	spinner->spinning = true;
 
-	void on_update(GdkFrameClock* clock, void* spinner)
-	{
-		agl_actor__invalidate((AGlActor*)spinner);
-	}
 	frame_clock_connect(G_CALLBACK(on_update), spinner);
 	frame_clock_begin_updating();
 }

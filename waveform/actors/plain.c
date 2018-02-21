@@ -24,12 +24,7 @@
 static AGl* agl = NULL;
 
 
-AGlActor*
-plain_actor(WaveformActor* view)
-{
-	agl = agl_get_instance();
-
-	void plain_set_state(AGlActor* actor)
+	static void plain_set_state(AGlActor* actor)
 	{
 		if(agl->use_shaders){
 			((PlainShader*)actor->program)->uniform.colour = actor->colour;
@@ -38,7 +33,7 @@ plain_actor(WaveformActor* view)
 		}
 	}
 
-	bool plain_paint(AGlActor* actor)
+	static bool plain_paint(AGlActor* actor)
 	{
 		agl_rect(
 			0,
@@ -49,6 +44,11 @@ plain_actor(WaveformActor* view)
 
 		return true;
 	}
+
+AGlActor*
+plain_actor(WaveformActor* view)
+{
+	agl = agl_get_instance();
 
 	AGlActor* actor = WF_NEW(AGlActor,
 		.name = "plain",

@@ -26,12 +26,7 @@ static AGl* agl = NULL;
 static AGlActorClass actor_class = {0, "Group", (AGlActorNew*)background_actor};
 
 
-AGlActor*
-background_actor(WaveformActor* view)
-{
-	agl = agl_get_instance();
-
-	void agl_load_alphamap(char* buf, guint texture, int width, int height)
+	static void agl_load_alphamap(char* buf, guint texture, int width, int height)
 	{
 		int pixel_format = GL_ALPHA;
 		glBindTexture  (GL_TEXTURE_2D, texture);
@@ -43,7 +38,7 @@ background_actor(WaveformActor* view)
 #endif
 	}
 
-	void create_background(AGlActor* a)
+	static void create_background(AGlActor* a)
 	{
 		//create an alpha-map gradient texture
 
@@ -90,7 +85,7 @@ background_actor(WaveformActor* view)
 		g_free(pbuf);
 	}
 
-	void bg_actor_set_state(AGlActor* actor)
+	static void bg_actor_set_state(AGlActor* actor)
 	{
 		if(agl->use_shaders){
 #if 0
@@ -103,7 +98,7 @@ background_actor(WaveformActor* view)
 		}
 	}
 
-	bool bg_actor_paint(AGlActor* actor)
+	static bool bg_actor_paint(AGlActor* actor)
 	{
 		agl_textured_rect(((AGlTextureActor*)actor)->texture[0],
 			0,
@@ -115,6 +110,11 @@ background_actor(WaveformActor* view)
 
 		return true;
 	}
+
+AGlActor*
+background_actor(WaveformActor* view)
+{
+	agl = agl_get_instance();
 
 	AGlTextureActor* ta = AGL_NEW(AGlTextureActor,
 		.actor = {

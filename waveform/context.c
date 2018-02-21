@@ -125,6 +125,25 @@ wf_context_instance_init(WaveformContext* self)
 }
 
 
+		static bool wf_canvas_try_drawable(gpointer _wfc)
+		{
+			WaveformContext* wfc = _wfc;
+
+			if((wfc->root->type == CONTEXT_TYPE_GTK) && !wfc->root->gl.gdk.drawable){
+				return G_SOURCE_CONTINUE;
+			}
+
+			wf_context_init_gl(wfc);
+
+			if(wfc->root->draw) wf_canvas_queue_redraw(wfc);
+			wfc->use_1d_textures = agl->use_shaders;
+
+#ifdef USE_FRAME_CLOCK
+			frame_clock_connect(G_CALLBACK(wf_context_on_paint_update), wfc);
+#endif
+			return G_SOURCE_REMOVE;
+		}
+
 static void
 wf_canvas_init(WaveformContext* wfc, AGlRootActor* root)
 {
@@ -153,24 +172,6 @@ wf_canvas_init(WaveformContext* wfc, AGlRootActor* root)
 
 	if(wfc->root){
 
-		bool wf_canvas_try_drawable(gpointer _wfc)
-		{
-			WaveformContext* wfc = _wfc;
-
-			if((wfc->root->type == CONTEXT_TYPE_GTK) && !wfc->root->gl.gdk.drawable){
-				return G_SOURCE_CONTINUE;
-			}
-
-			wf_context_init_gl(wfc);
-
-			if(wfc->root->draw) wf_canvas_queue_redraw(wfc);
-			wfc->use_1d_textures = agl->use_shaders;
-
-#ifdef USE_FRAME_CLOCK
-			frame_clock_connect(G_CALLBACK(wf_context_on_paint_update), wfc);
-#endif
-			return G_SOURCE_REMOVE;
-		}
 		if(wf_canvas_try_drawable(wfc)) wfc->priv->pending_init = g_idle_add(wf_canvas_try_drawable, wfc);
 	}
 }
@@ -505,6 +506,37 @@ wf_context_get_zoom(WaveformContext* wfc)
 }
 
 
+	static void set_zoom_on_animation_finished(WfAnimation* animation, gpointer _wfc)
+	{
+		WaveformContext* wfc = _wfc;
+		dbg(1, "wfc=%p", wfc);
+	}
+
+	static void wf_canvas_set_zoom_on_frame(WfAnimation* animation, int time)
+	{
+		WaveformContext* wfc = animation->user_data;
+
+#if 0 // invalidate only the waveform actors
+		GList* l = animation->members;
+		for(;l;l=l->next){
+			WfAnimActor* member = l->data;
+			GList* k = member->transitions;
+			for(;k;k=k->next){
+				WfAnimatable* animatable = k->data;
+#ifdef TRACK_ACTORS
+				GList* a = actors;
+				for(;a;a=a->next){
+					WaveformActor* actor = a->data;
+					agl_actor__invalidate((AGlActor*)actor); // TODO can probably just invalidate the whole scene?
+				}
+#endif
+			}
+		}
+#else
+		agl_actor__invalidate((AGlActor*)wfc->root); // strictly speaking some non-scalable items should not be invalidated
+#endif
+	}
+
 /*
  *  Allows the whole scene to be scaled as a single transition
  *  which is more efficient than scaling many individual waveforms.
@@ -534,37 +566,6 @@ wf_context_set_zoom(WaveformContext* wfc, float zoom)
 	// TODO move this into the animator xx
 	if(wfc->zoom == old_zoom){
 		return;
-	}
-
-	void set_zoom_on_animation_finished(WfAnimation* animation, gpointer _wfc)
-	{
-		WaveformContext* wfc = _wfc;
-		dbg(1, "wfc=%p", wfc);
-	}
-
-	void wf_canvas_set_zoom_on_frame(WfAnimation* animation, int time)
-	{
-		WaveformContext* wfc = animation->user_data;
-
-#if 0 // invalidate only the waveform actors
-		GList* l = animation->members;
-		for(;l;l=l->next){
-			WfAnimActor* member = l->data;
-			GList* k = member->transitions;
-			for(;k;k=k->next){
-				WfAnimatable* animatable = k->data;
-#ifdef TRACK_ACTORS
-				GList* a = actors;
-				for(;a;a=a->next){
-					WaveformActor* actor = a->data;
-					agl_actor__invalidate((AGlActor*)actor); // TODO can probably just invalidate the whole scene?
-				}
-#endif
-			}
-		}
-#else
-		agl_actor__invalidate((AGlActor*)wfc->root); // strictly speaking some non-scalable items should not be invalidated
-#endif
 	}
 
 	g_signal_emit_by_name(wfc, "zoom-changed");

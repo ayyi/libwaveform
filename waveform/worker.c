@@ -53,29 +53,20 @@ wf_worker_init(WfWorker* worker)
 }
 
 
-static gpointer
-worker_thread(gpointer data)
-{
-	dbg(2, "new file load thread.");
-	WfWorker* w = data;
 	typedef struct {
 		WfWorker*  worker;
 		QueueItem* job;
 	} WorkerJob;
 
-	g_return_val_if_fail(w->msg_queue, NULL);
-
-	g_async_queue_ref(w->msg_queue);
-
 	// note that withoug an idle fn, unreffing in the worker can cause a finalize in the worker thread
-	bool worker_unref_waveform(gpointer _w)
+	static bool worker_unref_waveform(gpointer _w)
 	{
 		Waveform* waveform = _w;
 		g_object_unref(waveform); // remove the reference added by g_weak_ref_get()
 		return G_SOURCE_REMOVE;
 	}
 
-	bool worker_post(gpointer _wj)
+	static bool worker_post(gpointer _wj)
 	{
 		// do clean-up and notifications in the main thread
 
@@ -101,6 +92,16 @@ worker_thread(gpointer data)
 
 		return G_SOURCE_REMOVE;
 	}
+
+static gpointer
+worker_thread(gpointer data)
+{
+	dbg(2, "new file load thread.");
+	WfWorker* w = data;
+
+	g_return_val_if_fail(w->msg_queue, NULL);
+
+	g_async_queue_ref(w->msg_queue);
 
 	//check for new work
 	while(true){

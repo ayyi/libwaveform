@@ -225,27 +225,10 @@ _waveform_get_property (GObject* object, guint property_id, GValue* value, GPara
 }
 
 
-/*
- *  Load the peakdata for a waveform, and create a cached peakfile if not already existing.
- */
-void
-waveform_load(Waveform* w, WfCallback3 callback, gpointer user_data)
-{
-	WaveformPriv* _w = w->priv;
-
-	if(!_w->peaks){
-		_w->peaks = am_promise_new(w);
-	}
-
 	typedef struct {
 		WfCallback3 callback;
 		gpointer user_data;
 	} C;
-
-	C* c = WF_NEW(C,
-		.callback = callback,
-		.user_data = user_data,
-	);
 
 	void done(gpointer waveform, gpointer _c)
 	{
@@ -253,13 +236,6 @@ waveform_load(Waveform* w, WfCallback3 callback, gpointer user_data)
 		//GError* error = NULL; // TODO
 		if(c->callback) c->callback((Waveform*)waveform, ((Waveform*)waveform)->priv->peaks->error, c->user_data);
 		g_free(c);
-	}
-
-	am_promise_add_callback(_w->peaks, done, c);
-
-	if(_w->peak.buf[0] || _w->state & WAVEFORM_LOADING){
-		dbg(0, "subsequent load request");
-		return;
 	}
 
 	void waveform_load_done (Waveform* w, char* peakfile, gpointer _)
@@ -276,6 +252,30 @@ waveform_load(Waveform* w, WfCallback3 callback, gpointer user_data)
 			g_signal_emit_by_name(w, "peakdata-ready");
 		}
 		am_promise_resolve(_w->peaks, NULL);
+	}
+
+/*
+ *  Load the peakdata for a waveform, and create a cached peakfile if not already existing.
+ */
+void
+waveform_load(Waveform* w, WfCallback3 callback, gpointer user_data)
+{
+	WaveformPriv* _w = w->priv;
+
+	if(!_w->peaks){
+		_w->peaks = am_promise_new(w);
+	}
+
+	C* c = WF_NEW(C,
+		.callback = callback,
+		.user_data = user_data,
+	);
+
+	am_promise_add_callback(_w->peaks, done, c);
+
+	if(_w->peak.buf[0] || _w->state & WAVEFORM_LOADING){
+		dbg(0, "subsequent load request");
+		return;
 	}
 
 	_w->state |= WAVEFORM_LOADING;
@@ -1167,7 +1167,7 @@ if(!n_chans){ gerr("n_chans"); n_chans = 1; }
 //------------------------------------------------------------------------
 // loaders
 
-#warning TODO location of rms files and RHS.
+//#warning TODO location of rms files and RHS.
 RmsBuf*
 waveform_load_rms_file(Waveform* waveform, int ch_num)
 {
@@ -1425,14 +1425,6 @@ waveform_peak_to_pixbuf(Waveform* w, GdkPixbuf* pixbuf, WfSampleRegion* region, 
 }
 
 
-void
-waveform_peak_to_pixbuf_async(Waveform* w, GdkPixbuf* pixbuf, WfSampleRegion* region, uint32_t colour, uint32_t bg_colour, WfPixbufCallback callback, gpointer user_data)
-{
-	g_return_if_fail(w && pixbuf && region);
-
-					g_return_if_fail(region->start + region->len <= waveform_get_n_frames(w));
-					g_return_if_fail(region->len > 0);
-
 	typedef struct {
 		Waveform*         waveform;
 		WfSampleRegion    region;
@@ -1443,19 +1435,9 @@ waveform_peak_to_pixbuf_async(Waveform* w, GdkPixbuf* pixbuf, WfSampleRegion* re
 		gpointer          user_data;
 		int               n_blocks_total;
 		int               n_blocks_done;
-	} C;
-	C* c = g_new0(C, 1);
-	*c = (C){
-		.waveform  = w,
-		.region    = *region,
-		.colour    = colour,
-		.bg_colour = bg_colour,
-		.pixbuf    = pixbuf,
-		.callback  = callback,
-		.user_data = user_data
-	};
+	} C2;
 
-	void _waveform_peak_to_pixbuf__load_done(C* c)
+	void _waveform_peak_to_pixbuf__load_done(C2* c)
 	{
 		PF;
 		double samples_per_px = c->region.len / gdk_pixbuf_get_width(c->pixbuf);
@@ -1469,7 +1451,7 @@ waveform_peak_to_pixbuf_async(Waveform* w, GdkPixbuf* pixbuf, WfSampleRegion* re
 	void waveform_load_audio_done(Waveform* w, int block, gpointer _c)
 	{
 		dbg(3, "block=%i", block);
-		C* c = _c;
+		C2* c = _c;
 		g_return_if_fail(c);
 
 		c->n_blocks_done++;
@@ -1479,6 +1461,25 @@ waveform_peak_to_pixbuf_async(Waveform* w, GdkPixbuf* pixbuf, WfSampleRegion* re
 			_waveform_peak_to_pixbuf__load_done(c);
 		}
 	}
+
+void
+waveform_peak_to_pixbuf_async(Waveform* w, GdkPixbuf* pixbuf, WfSampleRegion* region, uint32_t colour, uint32_t bg_colour, WfPixbufCallback callback, gpointer user_data)
+{
+	g_return_if_fail(w && pixbuf && region);
+
+					g_return_if_fail(region->start + region->len <= waveform_get_n_frames(w));
+					g_return_if_fail(region->len > 0);
+
+	C2* c = g_new0(C2, 1);
+	*c = (C2){
+		.waveform  = w,
+		.region    = *region,
+		.colour    = colour,
+		.bg_colour = bg_colour,
+		.pixbuf    = pixbuf,
+		.callback  = callback,
+		.user_data = user_data
+	};
 
 	double samples_per_px = region->len / gdk_pixbuf_get_width(pixbuf);
 	bool hires_mode = ((samples_per_px / WF_PEAK_RATIO) < 1.0);
@@ -1925,7 +1926,7 @@ waveform_rms_to_pixbuf(Waveform* w, GdkPixbuf* pixbuf, uint32_t src_inset, int* 
 
 		//-----------------------------------------
 
-#warning review
+//#warning review
 		/*
 	we need some kind of cache.
       -the simplest approach would be to have 1 mmaped file for each audio src.

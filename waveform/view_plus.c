@@ -191,24 +191,7 @@ construct ()
 }
 
 
-WaveformViewPlus*
-waveform_view_plus_new (Waveform* waveform)
-{
-	PF;
-	g_return_val_if_fail(glconfig || __init(), NULL);
-
-	WaveformViewPlus* view = construct ();
-	GtkWidget* widget = (GtkWidget*)view;
-	WaveformViewPlusPrivate* v = view->priv;
-
-	view->waveform = waveform ? g_object_ref(waveform) : NULL;
-
-#ifdef HAVE_GTK_2_18
-	gtk_widget_set_can_focus(widget, TRUE);
-#endif
-	gtk_widget_set_size_request(widget, DEFAULT_WIDTH, DEFAULT_HEIGHT);
-
-	bool waveform_view_plus_load_new_on_idle(gpointer _view)
+	static bool waveform_view_plus_load_new_on_idle(gpointer _view)
 	{
 		WaveformViewPlus* view = _view;
 		g_return_val_if_fail(view, G_SOURCE_REMOVE);
@@ -218,11 +201,6 @@ waveform_view_plus_new (Waveform* waveform)
 		}
 		return G_SOURCE_REMOVE;
 	}
-	// delay initialisation to allow for additional options to be set.
-	g_idle_add(waveform_view_plus_load_new_on_idle, view);
-
-	view->priv->ready = am_promise_new(view);
-	am_promise_when(view->priv->ready, am_promise_new(view), am_promise_new(view), NULL);
 
 	// TODO find a better way to ensure the canvas is ready before calling waveform_view_plus_gl_init
 	gboolean try_canvas(gpointer _a)
@@ -242,6 +220,34 @@ waveform_view_plus_new (Waveform* waveform)
 		if(try_canvas(a)) g_idle_add(try_canvas, a);
 	}
 
+	void _waveform_view_plus_on_draw(AGlScene* scene, gpointer _view)
+	{
+		gtk_widget_queue_draw((GtkWidget*)_view);
+	}
+
+WaveformViewPlus*
+waveform_view_plus_new (Waveform* waveform)
+{
+	PF;
+	g_return_val_if_fail(glconfig || __init(), NULL);
+
+	WaveformViewPlus* view = construct ();
+	GtkWidget* widget = (GtkWidget*)view;
+	WaveformViewPlusPrivate* v = view->priv;
+
+	view->waveform = waveform ? g_object_ref(waveform) : NULL;
+
+#ifdef HAVE_GTK_2_18
+	gtk_widget_set_can_focus(widget, TRUE);
+#endif
+	gtk_widget_set_size_request(widget, DEFAULT_WIDTH, DEFAULT_HEIGHT);
+
+	// delay initialisation to allow for additional options to be set.
+	g_idle_add(waveform_view_plus_load_new_on_idle, view);
+
+	view->priv->ready = am_promise_new(view);
+	am_promise_when(view->priv->ready, am_promise_new(view), am_promise_new(view), NULL);
+
 	v->root = agl_actor__new_root(widget);
 	v->root->init = root_ready;
 	v->canvas = wf_context_new((AGlRootActor*)v->root);
@@ -249,10 +255,6 @@ waveform_view_plus_new (Waveform* waveform)
 	v->actor = (WaveformActor*)waveform_actor(view);
 	((AGlActor*)v->actor)->z = 2;
 
-	void _waveform_view_plus_on_draw(AGlScene* scene, gpointer _view)
-	{
-		gtk_widget_queue_draw((GtkWidget*)_view);
-	}
 	AGlScene* scene = (AGlScene*)v->root;
 	scene->draw = _waveform_view_plus_on_draw;
 	scene->user_data = view;
@@ -260,6 +262,20 @@ waveform_view_plus_new (Waveform* waveform)
 	return view;
 }
 
+
+				static void _waveform_view_plus__show_waveform_done(Waveform* w, gpointer _view)
+				{
+					WaveformViewPlus* view = _view;
+					WaveformViewPlusPrivate* v = view->priv;
+
+					if(w == view->waveform){ // it may have changed during load
+						if(!g_list_find (v->root->children, v->actor)){
+							((AGlActor*)v->actor)->set_size((AGlActor*)v->actor);
+						}
+
+						am_promise_resolve(promise(PROMISE_WAVE_READY), NULL);
+					}
+				}
 
 static void
 _waveform_view_plus__show_waveform(gpointer _view, gpointer _c)
@@ -287,20 +303,6 @@ _waveform_view_plus__show_waveform(gpointer _view, gpointer _c)
 				}
 				wf_actor_set_colour(v->actor, view->fg_colour);
 
-				void _waveform_view_plus__show_waveform_done(Waveform* w, gpointer _view)
-				{
-					WaveformViewPlus* view = _view;
-					WaveformViewPlusPrivate* v = view->priv;
-
-					if(w == view->waveform){ // it may have changed during load
-						if(!g_list_find (v->root->children, v->actor)){
-							((AGlActor*)v->actor)->set_size((AGlActor*)v->actor);
-						}
-
-						am_promise_resolve(promise(PROMISE_WAVE_READY), NULL);
-					}
-				}
-
 				g_signal_connect (view->waveform, "peakdata-ready", (GCallback)_waveform_view_plus__show_waveform_done, view);
 			}
 			waveform_view_plus_gl_on_allocate(view);
@@ -309,6 +311,18 @@ _waveform_view_plus__show_waveform(gpointer _view, gpointer _c)
 	gtk_widget_queue_draw((GtkWidget*)view);
 }
 
+
+	static void waveform_view_plus_load_file_done(WaveformActor* a, gpointer _c)
+	{
+		WfClosure* c = (WfClosure*)_c;
+		if(agl_actor__width(((AGlActor*)a))){
+			a->canvas->samples_per_pixel = waveform_get_n_frames(a->waveform) / agl_actor__width(((AGlActor*)a));
+
+			if(((AGlActor*)a)->parent) agl_actor__invalidate(((AGlActor*)a)->parent); // we dont seem to track the layers, so have to invalidate everything.
+		}
+		call(c->callback, a->waveform, c->user_data);
+		g_free(c);
+	}
 
 void
 waveform_view_plus_load_file (WaveformViewPlus* view, const char* filename, WfCallback2 callback, gpointer user_data)
@@ -328,18 +342,6 @@ waveform_view_plus_load_file (WaveformViewPlus* view, const char* filename, WfCa
 
 	WfClosure* c = g_new0(WfClosure, 1);
 	*c = (WfClosure){.callback = callback, .user_data = user_data};
-
-	void waveform_view_plus_load_file_done(WaveformActor* a, gpointer _c)
-	{
-		WfClosure* c = (WfClosure*)_c;
-		if(agl_actor__width(((AGlActor*)a))){
-			a->canvas->samples_per_pixel = waveform_get_n_frames(a->waveform) / agl_actor__width(((AGlActor*)a));
-
-			if(((AGlActor*)a)->parent) agl_actor__invalidate(((AGlActor*)a)->parent); // we dont seem to track the layers, so have to invalidate everything.
-		}
-		call(c->callback, a->waveform, c->user_data);
-		g_free(c);
-	}
 
 	view->waveform = waveform_new(filename);
 	if(v->actor){
@@ -481,16 +483,9 @@ waveform_view_plus_set_colour(WaveformViewPlus* view, uint32_t fg, uint32_t bg/*
 	}
 }
 
+	static gboolean show;
 
-void
-waveform_view_plus_set_show_rms (WaveformViewPlus* view, gboolean _show)
-{
-	//FIXME this idle hack is because wa is not created until realise.
-	//      (still true?)
-
-	static gboolean show; show = _show;
-
-	gboolean _on_idle(gpointer _view)
+	static gboolean _on_idle(gpointer _view)
 	{
 		WaveformViewPlus* view = _view;
 		if(!view->priv->canvas) return G_SOURCE_CONTINUE;
@@ -500,6 +495,15 @@ waveform_view_plus_set_show_rms (WaveformViewPlus* view, gboolean _show)
 
 		return G_SOURCE_REMOVE;
 	}
+
+void
+waveform_view_plus_set_show_rms (WaveformViewPlus* view, gboolean _show)
+{
+	//FIXME this idle hack is because wa is not created until realise.
+	//      (still true?)
+
+	show = _show;
+
 	g_idle_add(_on_idle, view);
 }
 
@@ -862,34 +866,18 @@ waveform_view_plus_get_height(WaveformViewPlus* view)
 }
 
 
-static void
-add_key_handlers(GtkWindow* window, WaveformViewPlus* waveform, Key keys[])
-{
-	//list of keys must be terminated with a key of value zero.
-
 	static KeyHold key_hold = {0, NULL};
 	static bool key_down = false;
-
 	static GHashTable* key_handlers = NULL;
-	if(!key_handlers){
-		key_handlers = g_hash_table_new(g_int_hash, g_int_equal);
 
-		int i = 0; while(true){
-			Key* key = &keys[i];
-			if(i > 100 || !key->key) break;
-			g_hash_table_insert(key_handlers, &key->key, key->handler);
-			i++;
-		}
-	}
-
-	gboolean key_hold_on_timeout(gpointer user_data)
+	static gboolean key_hold_on_timeout(gpointer user_data)
 	{
 		WaveformViewPlus* waveform = user_data;
 		if(key_hold.handler) key_hold.handler(waveform);
 		return TIMER_CONTINUE;
 	}
 
-	gboolean key_press(GtkWidget* widget, GdkEventKey* event, gpointer user_data)
+	static gboolean key_press(GtkWidget* widget, GdkEventKey* event, gpointer user_data)
 	{
 		WaveformViewPlus* waveform = user_data;
 
@@ -912,7 +900,7 @@ add_key_handlers(GtkWindow* window, WaveformViewPlus* waveform, Key keys[])
 		return key_down;
 	}
 
-	gboolean key_release(GtkWidget* widget, GdkEventKey* event, gpointer user_data)
+	static gboolean key_release(GtkWidget* widget, GdkEventKey* event, gpointer user_data)
 	{
 		PF;
 		if(!key_down) return AGL_NOT_HANDLED; // sometimes happens at startup
@@ -921,6 +909,22 @@ add_key_handlers(GtkWindow* window, WaveformViewPlus* waveform, Key keys[])
 		_g_source_remove0(key_hold.timer);
 
 		return true;
+	}
+
+static void
+add_key_handlers(GtkWindow* window, WaveformViewPlus* waveform, Key keys[])
+{
+	//list of keys must be terminated with a key of value zero.
+
+	if(!key_handlers){
+		key_handlers = g_hash_table_new(g_int_hash, g_int_equal);
+
+		int i = 0; while(true){
+			Key* key = &keys[i];
+			if(i > 100 || !key->key) break;
+			g_hash_table_insert(key_handlers, &key->key, key->handler);
+			i++;
+		}
 	}
 
 	g_signal_connect(waveform, "key-press-event", G_CALLBACK(key_press), waveform);
@@ -1050,10 +1054,7 @@ waveform_view_plus_gl_on_allocate(WaveformViewPlus* view)
 }
 
 
-static AGlActor*
-waveform_actor(WaveformViewPlus* view)
-{
-	void waveform_actor_size(AGlActor* actor)
+	static void waveform_actor_size(AGlActor* actor)
 	{
 		#define V_BORDER 4
 
@@ -1071,7 +1072,7 @@ waveform_actor(WaveformViewPlus* view)
 		}
 	}
 
-	void waveform_actor_size0(AGlActor* actor)
+	static void waveform_actor_size0(AGlActor* actor)
 	{
 		waveform_actor_size(actor);
 #ifdef AGL_ACTOR_RENDER_CACHE
@@ -1081,6 +1082,9 @@ waveform_actor(WaveformViewPlus* view)
 		actor->set_size = waveform_actor_size;
 	}
 
+static AGlActor*
+waveform_actor(WaveformViewPlus* view)
+{
 	AGlActor* actor = (AGlActor*)wf_canvas_add_new_actor(view->priv->canvas, view->waveform);
 	actor->colour = view->fg_colour;
 	actor->set_size = waveform_actor_size0;
