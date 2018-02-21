@@ -44,19 +44,12 @@ static AGl* agl = NULL;
 static bool grid_actor_paint(AGlActor*);
 
 
-AGlActor*
-grid_actor(WaveformActor* wf_actor)
-{
-	g_return_val_if_fail(wf_actor, NULL);
-
-	agl = agl_get_instance();
-
-	void grid_actor_size(AGlActor* actor)
+	static void grid_actor_size(AGlActor* actor)
 	{
 		actor->region = actor->parent->region;
 	}
 
-	void grid_actor_init(AGlActor* actor)
+	static void grid_actor_init(AGlActor* actor)
 	{
 		if(agl->use_shaders){
 			agl_create_program(&((GridActor*)actor)->context->shaders.ruler->shader);
@@ -65,6 +58,13 @@ grid_actor(WaveformActor* wf_actor)
 		actor->fbo = agl_fbo_new(actor->region.x2 - actor->region.x1, actor->region.y2 - actor->region.y1, 0, 0);
 #endif
 	}
+
+AGlActor*
+grid_actor(WaveformActor* wf_actor)
+{
+	g_return_val_if_fail(wf_actor, NULL);
+
+	agl = agl_get_instance();
 
 	GridActor* grid = g_new0(GridActor, 1);
 	*grid = (GridActor){

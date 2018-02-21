@@ -36,6 +36,8 @@
 #include "agl/pango_font.h"
 #include "agl/pango_render.h"
 
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+
 
 struct _PangoGlFontMap
 {

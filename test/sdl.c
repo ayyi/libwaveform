@@ -84,6 +84,10 @@ Key keys[] = {
 };
 
 
+		static void _on_scene_requests_redraw(AGlScene* wfc, gpointer _)
+		{
+			window.dirty = true;
+		}
 int
 main (int argc, char **argv)
 {
@@ -157,10 +161,6 @@ main (int argc, char **argv)
 			wf_actor_set_region(window.a[i], &window.region[i]);
 		}
 
-		void _on_scene_requests_redraw(AGlScene* wfc, gpointer _)
-		{
-			window.dirty = true;
-		}
 		window.scene->draw = _on_scene_requests_redraw;
 	}
 

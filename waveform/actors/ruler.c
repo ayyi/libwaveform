@@ -41,19 +41,12 @@ static AGl* agl = NULL;
 static bool ruler_actor_paint(AGlActor*);
 
 
-AGlActor*
-ruler_actor(WaveformActor* wf_actor)
-{
-	g_return_val_if_fail(wf_actor, NULL);
-
-	agl = agl_get_instance();
-
-	void ruler_actor_size(AGlActor* actor)
+	static void ruler_actor_size(AGlActor* actor)
 	{
 		actor->region.x2 = agl_actor__width(actor->parent);
 	}
 
-	void ruler_init(AGlActor* actor)
+	static void ruler_init(AGlActor* actor)
 	{
 		RulerActor* ruler = (RulerActor*)actor;
 		if(agl->use_shaders){
@@ -65,7 +58,7 @@ ruler_actor(WaveformActor* wf_actor)
 #endif
 	}
 
-	void ruler_set_state(AGlActor* actor)
+	static void ruler_set_state(AGlActor* actor)
 	{
 		if(!agl->use_shaders) return;
 
@@ -81,6 +74,13 @@ ruler_actor(WaveformActor* wf_actor)
 
 		agl_use_program((AGlShader*)shader);
 	}
+
+AGlActor*
+ruler_actor(WaveformActor* wf_actor)
+{
+	g_return_val_if_fail(wf_actor, NULL);
+
+	agl = agl_get_instance();
 
 	return (AGlActor*)AGL_NEW(RulerActor,
 		.actor = {

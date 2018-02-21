@@ -81,15 +81,8 @@ static ASS_Renderer* ass_renderer = NULL;
 #endif
 
 
-static void
-_init()
-{
-	static bool init_done = false;
-
-	void ass_init()
-	{
 #ifdef DEBUG
-		void msg_callback(int level, const char* fmt, va_list va, void* data)
+		static void msg_callback(int level, const char* fmt, va_list va, void* data)
 		{
 			if (wf_debug < 2 || level > 6) return;
 			printf("libass: ");
@@ -98,6 +91,13 @@ _init()
 		}
 #endif
 
+static void
+_init()
+{
+	static bool init_done = false;
+
+	void ass_init()
+	{
 #ifdef USE_LIBASS
 		ass_library = ass_library_init();
 		if (!ass_library) {
@@ -129,14 +129,7 @@ _init()
 }
 
 
-AGlActor*
-text_actor(WaveformActor* _)
-{
-	instance_count++;
-
-	_init();
-
-	bool text_actor_paint(AGlActor* actor)
+	static bool text_actor_paint(AGlActor* actor)
 	{
 		TextActor* ta = (TextActor*)actor;
 
@@ -177,7 +170,7 @@ text_actor(WaveformActor* _)
 		return true;
 	}
 
-	void text_actor_init(AGlActor* a)
+	static void text_actor_init(AGlActor* a)
 	{
 		TextActor* ta = (TextActor*)a;
 
@@ -197,13 +190,13 @@ text_actor(WaveformActor* _)
 #endif
 	}
 
-	void text_actor_set_size(AGlActor* actor)
+	static void text_actor_set_size(AGlActor* actor)
 	{
 		// the texture height will not be available first time
 		actor->region = (AGliRegion){0, 0, actor->parent->region.x2 - actor->parent->region.x1, actor->parent->region.y2 - actor->parent->region.y1};
 	}
 
-	void text_actor_free(AGlActor* actor)
+	static void text_actor_free(AGlActor* actor)
 	{
 		TextActor* ta = (TextActor*)actor;
 
@@ -219,6 +212,13 @@ text_actor(WaveformActor* _)
 		}
 #endif
 	}
+
+AGlActor*
+text_actor(WaveformActor* _)
+{
+	instance_count++;
+
+	_init();
 
 	TextActor* ta = g_new0(TextActor, 1);
 	AGlActor* actor = (AGlActor*)ta;

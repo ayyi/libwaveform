@@ -120,6 +120,20 @@ char* format_channels (int n_channels);
 void  format_time     (char* str, int64_t t_ms);
 
 
+	static bool window_on_delete(GtkWidget* widget, GdkEvent* event, gpointer user_data){
+		gtk_main_quit();
+		return false;
+	}
+
+	static void on_allocate(GtkWidget* widget, GtkAllocation* allocation, gpointer view)
+	{
+		static int height = 0;
+
+		if(allocation->height != height){
+			gtk_widget_set_size_request((GtkWidget*)view, -1, allocation->height);
+			height = allocation->height;
+		}
+	}
 int
 main (int argc, char* argv[])
 {
@@ -176,21 +190,8 @@ main (int argc, char* argv[])
 
 	add_key_handlers((GtkWindow*)window, (WaveformView*)waveform, (Key*)&keys);
 
-	bool window_on_delete(GtkWidget* widget, GdkEvent* event, gpointer user_data){
-		gtk_main_quit();
-		return false;
-	}
 	g_signal_connect(window, "delete-event", G_CALLBACK(window_on_delete), NULL);
 
-	void on_allocate(GtkWidget* widget, GtkAllocation* allocation, gpointer view)
-	{
-		static int height = 0;
-
-		if(allocation->height != height){
-			gtk_widget_set_size_request((GtkWidget*)view, -1, allocation->height);
-			height = allocation->height;
-		}
-	}
 	g_signal_connect(window, "size-allocate", G_CALLBACK(on_allocate), waveform);
 
 	gtk_main();
@@ -206,30 +207,15 @@ quit(gpointer waveform)
 }
 
 
-void
-show_wav(WaveformViewPlus* view, const char* filename)
-{
 	typedef struct {
 		WaveformViewPlus* view;
 		float             zoom;
 	} C;
-	C* c = AGL_NEW(C,
-		.view = view,
-#ifndef USE_CANVAS_SCALING
-		.zoom = view->zoom
-#endif
-	);
-
-	wf_spinner_start((WfSpinner*)layers.spinner);
 
 	void on_loaded_(Waveform* w, gpointer _c)
 	{
 		wf_spinner_stop((WfSpinner*)layers.spinner);
 	}
-
-	// TODO fix widget so that zoom can be set imediately
-
-	waveform_view_plus_load_file(view, filename, on_loaded_, c);
 
 	bool on_loaded(gpointer _c)
 	{
@@ -240,6 +226,22 @@ show_wav(WaveformViewPlus* view, const char* filename)
 		g_free(c);
 		return G_SOURCE_REMOVE;
 	}
+void
+show_wav(WaveformViewPlus* view, const char* filename)
+{
+	C* c = AGL_NEW(C,
+		.view = view,
+#ifndef USE_CANVAS_SCALING
+		.zoom = view->zoom
+#endif
+	);
+
+	wf_spinner_start((WfSpinner*)layers.spinner);
+
+	// TODO fix widget so that zoom can be set imediately
+
+	waveform_view_plus_load_file(view, filename, on_loaded_, c);
+
 	g_idle_add(on_loaded, c);
 
 	char* text = NULL;
@@ -317,16 +319,16 @@ toggle_grid(gpointer view)
 }
 
 
-void
-unrealise(gpointer view)
-{
-	bool on_idle(gpointer _view)
+	static bool on_idle(gpointer _view)
 	{
 		gtk_table_attach(GTK_TABLE(table), (GtkWidget*)_view, 0, 1, 1, 2, GTK_FILL | GTK_EXPAND, GTK_FILL, 0, 0);
 		g_object_unref(_view);
 		return G_SOURCE_REMOVE;
 	}
 
+void
+unrealise(gpointer view)
+{
 	dbg(0, "-----------------------------");
 	g_object_ref((GObject*)view);
 	gtk_container_remove ((GtkContainer*)table, (GtkWidget*)view);
@@ -348,15 +350,15 @@ stop(gpointer view)
 }
 
 
-void
-play(gpointer view)
-{
-	bool tick(gpointer view)
+	static bool tick(gpointer view)
 	{
 		wf_spp_actor_set_time((SppActor*)layers.spp, (_time += 50, _time));
 		return true;
 	}
 
+void
+play(gpointer view)
+{
 	if(!play_timer) play_timer = g_timeout_add(50, tick, view);
 }
 

@@ -146,14 +146,9 @@ hi_gl2_on_steal(WaveformBlock* wb, guint tex)
 	}
 }
 
+	static int n_textures;
 
-// temporary
-void
-hi_gl2_cache_print()
-{
-	static int n_textures; n_textures = 0;
-
-	void _hi_ng_print(gpointer key, gpointer value, gpointer _)
+	static void _hi_ng_print(gpointer key, gpointer value, gpointer _)
 	{
 		HiResNGWaveform* data = (HiResNGWaveform*)value;
 		int s, n=0; for(s=0;s<data->size;s++){
@@ -166,6 +161,12 @@ hi_gl2_cache_print()
 		}
 		if(!n) dbg(0, "all sections EMPTY");
 	}
+
+// temporary
+void
+hi_gl2_cache_print()
+{
+	n_textures = 0;
 
 	if(g_hash_table_size(hi_renderer_gl2.ng_data)){
 		g_hash_table_foreach(hi_renderer_gl2.ng_data, _hi_ng_print, NULL);

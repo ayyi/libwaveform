@@ -104,15 +104,7 @@ am_promise_fail(AMPromise* p, GError* error)
 }
 
 
-/*
- *  The promise will be resolved when all the child promises are resolved.
- */
-void
-am_promise_when(AMPromise* promise, AMPromise* p, ...)
-{
-	if(!p) return;
-
-	void then(gpointer _, gpointer _parent)
+	static void then(gpointer _, gpointer _parent)
 	{
 		AMPromise* parent = _parent;
 		g_return_if_fail(parent);
@@ -129,12 +121,20 @@ am_promise_when(AMPromise* promise, AMPromise* p, ...)
 		if(complete) am_promise_resolve(parent, &(PromiseVal){.i=-1});
 	}
 
-	void add_child(AMPromise* promise, AMPromise* child)
+	static void add_child(AMPromise* promise, AMPromise* child)
 	{
 		g_return_if_fail(child);
 		promise->children = g_list_append(promise->children, child);
 		am_promise_add_callback(child, then, promise);
 	}
+/*
+ *  The promise will be resolved when all the child promises are resolved.
+ */
+void
+am_promise_when(AMPromise* promise, AMPromise* p, ...)
+{
+	if(!p) return;
+
 	add_child(promise, p);
 
 	va_list args;

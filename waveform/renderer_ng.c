@@ -507,16 +507,9 @@ ng_gl2_free_waveform(Renderer* renderer, Waveform* waveform)
 }
 
 
-static void
-ng_gl2_queue_clean(Renderer* renderer)
-{
 	#define MAX_SECTIONS 1024
 
 	static guint idle_id = 0;
-
-	bool clean(gpointer user_data)
-	{
-		Renderer* renderer = user_data;
 
 		static struct _oldest {
 			Waveform*        waveform;
@@ -525,7 +518,7 @@ ng_gl2_queue_clean(Renderer* renderer)
 			int              time_stamp;
 		} oldest;
 
-		void __hi_find_oldest(gpointer key, gpointer value, gpointer _)
+		static void __hi_find_oldest(gpointer key, gpointer value, gpointer _)
 		{
 			HiResNGWaveform* data = (HiResNGWaveform*)value;
 			int s; for(s=0;s<data->size;s++){
@@ -536,6 +529,10 @@ ng_gl2_queue_clean(Renderer* renderer)
 				}
 			}
 		}
+
+	static bool clean(gpointer user_data)
+	{
+		Renderer* renderer = user_data;
 
 #ifdef NG_HASHTABLE
 		GHashTable* table = ((NGRenderer*)renderer)->ng_data;
@@ -560,6 +557,9 @@ ng_gl2_queue_clean(Renderer* renderer)
 		return G_SOURCE_REMOVE;
 	}
 
+static void
+ng_gl2_queue_clean(Renderer* renderer)
+{
 	if(!idle_id) idle_id = g_idle_add_full(G_PRIORITY_LOW, clean, renderer, NULL);
 }
 

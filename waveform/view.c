@@ -122,6 +122,17 @@ construct ()
 }
 
 
+	static void display_ready(AGlActor* a)
+	{
+		WaveformView* view = (WaveformView*)((AGlRootActor*)a)->gl.gdk.widget;
+		WaveformViewPrivate* v = view->priv;
+		v->context = wf_context_new((AGlRootActor*)v->root);
+
+		waveform_view_set_projection(((AGlRootActor*)a)->gl.gdk.widget);
+
+		am_promise_resolve(g_list_nth_data(v->ready->children, PROMISE_DISP_READY), NULL);
+	}
+
 WaveformView*
 waveform_view_new (Waveform* waveform)
 {
@@ -143,17 +154,6 @@ waveform_view_new (Waveform* waveform)
 	view->priv->ready = am_promise_new(view);
 	am_promise_when(view->priv->ready, am_promise_new(view), am_promise_new(view), NULL);
 
-	void display_ready(AGlActor* a)
-	{
-		WaveformView* view = (WaveformView*)((AGlRootActor*)a)->gl.gdk.widget;
-		WaveformViewPrivate* v = view->priv;
-		v->context = wf_context_new((AGlRootActor*)v->root);
-
-		waveform_view_set_projection(((AGlRootActor*)a)->gl.gdk.widget);
-
-		am_promise_resolve(g_list_nth_data(v->ready->children, PROMISE_DISP_READY), NULL);
-	}
-
 	v->root = agl_actor__new_root(widget);
 	v->root->init = display_ready;
 
@@ -162,6 +162,11 @@ waveform_view_new (Waveform* waveform)
 	return view;
 }
 
+
+	static void _waveform_view_on_draw(AGlScene* scene, gpointer _view)
+	{
+		gtk_widget_queue_draw((GtkWidget*)_view);
+	}
 
 static void
 _waveform_view_set_actor (WaveformView* view)
@@ -172,10 +177,6 @@ _waveform_view_set_actor (WaveformView* view)
 	int width = waveform_view_get_width(view);
 	wf_actor_set_rect(actor, &(WfRectangle){0, 0, width, GL_HEIGHT});
 
-	void _waveform_view_on_draw(AGlScene* scene, gpointer _view)
-	{
-		gtk_widget_queue_draw((GtkWidget*)_view);
-	}
 	((AGlScene*)v->root)->draw = _waveform_view_on_draw;
 }
 
@@ -322,27 +323,23 @@ waveform_view_set_region (WaveformView* view, int64_t start_frame, int64_t end_f
 }
 
 
+	static void resolved(gpointer _view, gpointer fg)
+	{
+		wf_actor_set_colour(((WaveformView*)_view)->priv->actor, GPOINTER_TO_UINT(fg));
+	}
+
 void
 waveform_view_set_colour(WaveformView* view, uint32_t fg, uint32_t bg)
 {
 	((AGlScene*)view->priv->root)->bg_colour = bg;
 
-	void resolved(gpointer _view, gpointer fg)
-	{
-		wf_actor_set_colour(((WaveformView*)_view)->priv->actor, GPOINTER_TO_UINT(fg));
-	}
 	am_promise_add_callback(view->priv->ready, resolved, GUINT_TO_POINTER(fg));
 }
 
 
-void
-waveform_view_set_show_rms (WaveformView* view, gboolean _show)
-{
-	//FIXME this idle hack is because wa is not created until realise.
+	static gboolean show;
 
-	static gboolean show; show = _show;
-
-	gboolean _on_idle(gpointer _view)
+	static gboolean _on_idle(gpointer _view)
 	{
 		WaveformView* view = _view;
 
@@ -352,6 +349,14 @@ waveform_view_set_show_rms (WaveformView* view, gboolean _show)
 
 		return G_SOURCE_REMOVE;
 	}
+
+void
+waveform_view_set_show_rms (WaveformView* view, gboolean _show)
+{
+	//FIXME this idle hack is because wa is not created until realise.
+
+	show = _show;
+
 	g_idle_add(_on_idle, view);
 }
 

@@ -30,12 +30,7 @@
 static AGl* agl = NULL;
 
 
-AGlActor*
-wf_debug_actor(WaveformActor* _)
-{
-	agl = agl_get_instance();
-
-	void debug_actor__init(AGlActor* actor)
+	static void debug_actor__init(AGlActor* actor)
 	{
 	}
 
@@ -49,7 +44,7 @@ wf_debug_actor(WaveformActor* _)
 	}
 	*/
 
-	bool debug_actor__paint(AGlActor* actor)
+	static bool debug_actor__paint(AGlActor* actor)
 	{
 #ifdef AGL_ACTOR_RENDER_CACHE
 		DebugActor* view = (DebugActor*)actor;
@@ -64,9 +59,14 @@ wf_debug_actor(WaveformActor* _)
 		return true;
 	}
 
-	void debug_actor__set_size(AGlActor* actor)
+	static void debug_actor__set_size(AGlActor* actor)
 	{
 	}
+
+AGlActor*
+wf_debug_actor(WaveformActor* _)
+{
+	agl = agl_get_instance();
 
 	DebugActor* view = AGL_NEW(DebugActor,
 		.actor = {

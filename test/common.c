@@ -53,6 +53,7 @@ extern gpointer tests[];
 static int __n_tests = 0;
 
 
+	static gboolean fn(gpointer user_data) { next_test(); return G_SOURCE_REMOVE; }
 void
 test_init(gpointer tests[], int n_tests)
 {
@@ -63,27 +64,31 @@ test_init(gpointer tests[], int n_tests)
 
 	set_log_handlers();
 
-	gboolean fn(gpointer user_data) { next_test(); return G_SOURCE_REMOVE; }
 	g_idle_add(fn, NULL);
 }
 
 
-void
-next_test()
-{
-	bool
+	static bool
 	run_test(gpointer test)
 	{
 		((Test)test)();
 		return G_SOURCE_REMOVE;
 	}
 
-	bool _exit()
+	static bool __exit()
 	{
 		exit(n_failed ? EXIT_FAILURE : EXIT_SUCCESS);
 		return G_SOURCE_REMOVE;
 	}
 
+		static bool on_test_timeout(gpointer _user_data)
+		{
+			FAIL_TEST_TIMER("TEST TIMEOUT\n");
+			return G_SOURCE_REMOVE;
+		}
+void
+next_test()
+{
 	printf("\n");
 	current_test++;
 	if(app.timeout) g_source_remove (app.timeout);
@@ -93,14 +98,9 @@ next_test()
 		dbg(2, "test %i of %i.", current_test + 1, __n_tests);
 		g_timeout_add(300, run_test, test);
 
-		bool on_test_timeout(gpointer _user_data)
-		{
-			FAIL_TEST_TIMER("TEST TIMEOUT\n");
-			return G_SOURCE_REMOVE;
-		}
 		app.timeout = g_timeout_add(20000, on_test_timeout, NULL);
 	}
-	else{ printf("finished all. passed=%s%i%s failed=%s%i%s\n", green, app.n_passed, wf_white, (n_failed ? red : wf_white), n_failed, wf_white); g_timeout_add(1000, _exit, NULL); }
+	else{ printf("finished all. passed=%s%i%s failed=%s%i%s\n", green, app.n_passed, wf_white, (n_failed ? red : wf_white), n_failed, wf_white); g_timeout_add(1000, __exit, NULL); }
 }
 
 
@@ -115,31 +115,18 @@ test_finished_()
 }
 
 
-void
-add_key_handlers(GtkWindow* window, WaveformView* waveform, Key keys[])
-{
-	//list of keys must be terminated with a key of value zero.
-
 	static KeyHold key_hold = {0, NULL};
 	static bool key_down = false;
 	static GHashTable* key_handlers = NULL;
 
-	key_handlers = g_hash_table_new(g_int_hash, g_int_equal);
-	int i = 0; while(true){
-		Key* key = &keys[i];
-		if(i > 100 || !key->key) break;
-		g_hash_table_insert(key_handlers, &key->key, key->handler);
-		i++;
-	}
-
-	gboolean key_hold_on_timeout(gpointer user_data)
+	static gboolean key_hold_on_timeout(gpointer user_data)
 	{
 		WaveformView* waveform = user_data;
 		if(key_hold.handler) key_hold.handler(waveform);
 		return TIMER_CONTINUE;
 	}
 
-	gboolean key_press(GtkWidget* widget, GdkEventKey* event, gpointer user_data)
+	static gboolean key_press(GtkWidget* widget, GdkEventKey* event, gpointer user_data)
 	{
 		if(key_down){
 			// key repeat
@@ -160,7 +147,7 @@ add_key_handlers(GtkWindow* window, WaveformView* waveform, Key keys[])
 		return key_down;
 	}
 
-	gboolean key_release(GtkWidget* widget, GdkEventKey* event, gpointer user_data)
+	static gboolean key_release(GtkWidget* widget, GdkEventKey* event, gpointer user_data)
 	{
 		PF;
 		if(!key_down) return AGL_NOT_HANDLED; // sometimes happens at startup
@@ -171,22 +158,35 @@ add_key_handlers(GtkWindow* window, WaveformView* waveform, Key keys[])
 		return true;
 	}
 
+void
+add_key_handlers(GtkWindow* window, WaveformView* waveform, Key keys[])
+{
+	//list of keys must be terminated with a key of value zero.
+
+	key_handlers = g_hash_table_new(g_int_hash, g_int_equal);
+	int i = 0; while(true){
+		Key* key = &keys[i];
+		if(i > 100 || !key->key) break;
+		g_hash_table_insert(key_handlers, &key->key, key->handler);
+		i++;
+	}
+
 	g_signal_connect(window, "key-press-event", G_CALLBACK(key_press), waveform);
 	g_signal_connect(window, "key-release-event", G_CALLBACK(key_release), waveform);
 }
 
 
+	static bool on_test_timeout_(gpointer _user_data)
+	{
+		FAIL_TEST_TIMER("TEST TIMEOUT\n");
+		return G_SOURCE_REMOVE;
+	}
 void
 reset_timeout(int ms)
 {
 	if(app.timeout) g_source_remove (app.timeout);
 
-	bool on_test_timeout(gpointer _user_data)
-	{
-		FAIL_TEST_TIMER("TEST TIMEOUT\n");
-		return G_SOURCE_REMOVE;
-	}
-	app.timeout = g_timeout_add(ms, on_test_timeout, NULL);
+	app.timeout = g_timeout_add(ms, on_test_timeout_, NULL);
 }
 
 

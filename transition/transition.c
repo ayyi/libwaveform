@@ -282,59 +282,14 @@ wf_animation_val_to_str(WfAnimatable* animatable)
 }
 
 
-void
-wf_animation_start(WfAnimation* animation)
-{
-	g_return_if_fail(animation);
-
-	static GSourceFunc on_timeout;
-
-	void print_animation(WfAnimation* animation)
-	{
-		GList* l = animation->members;
-		dbg(0, "animation=%p n_members=%i", animation, g_list_length(l));
-		for(;l;l=l->next){
-			WfAnimActor* actor = l->data;
-			GList* k = actor->transitions;
-			dbg(0, "  actor=%p n_transitions=%i", actor, g_list_length(k));
-			for(;k;k=k->next){
-				WfAnimatable* animatable = k->data;
-				char* val = wf_animation_val_to_str(animatable);
-				dbg(0, "     animatable=%p type=%i %p %s", animatable, animatable->type, animatable->model_val.f, val);
-				if(val) g_free(val);
-			}
-		}
-	}
-	if(wf_debug > 1) print_animation(animation);
-
-	int count_animatables()
-	{
-		int n = 0;
-		GList* l = animation->members;
-		for(;l;l=l->next){
-			GList* k = ((WfAnimActor*)l->data)->transitions;
-			for(;k;k=k->next) n++;
-		}
-		return n;
-	}
-
-	if(!count_animatables()){
-		wf_animation_remove(animation);
-		//cannot call on_finish because there are no member actors - TODO no longer true
-		return;
-	}
-
-	uint64_t _get_time()
+	static uint64_t _get_time()
 	{
 		struct timeval start;
 		gettimeofday(&start, NULL);
 		return start.tv_sec * 1000 + start.tv_usec / 1000;
 	}
 
-	animation->start = _get_time();
-	animation->end   = animation->start + animation->length;
-
-	gboolean wf_transition_frame(gpointer _animation)
+	static gboolean wf_transition_frame(gpointer _animation)
 	{
 		uint64_t time = _get_time();
 
@@ -373,12 +328,61 @@ wf_animation_start(WfAnimation* animation)
 
 		return G_SOURCE_REMOVE;
 	}
-	on_timeout = wf_transition_frame;
+
+	static GSourceFunc on_timeout;
+
 #ifdef USE_FRAME_CLOCK
 	void on_update(GdkFrameClock* clock, void* animation)
 	{
 		on_timeout(animation);
 	}
+#endif
+
+void
+wf_animation_start(WfAnimation* animation)
+{
+	g_return_if_fail(animation);
+
+	void print_animation(WfAnimation* animation)
+	{
+		GList* l = animation->members;
+		dbg(0, "animation=%p n_members=%i", animation, g_list_length(l));
+		for(;l;l=l->next){
+			WfAnimActor* actor = l->data;
+			GList* k = actor->transitions;
+			dbg(0, "  actor=%p n_transitions=%i", actor, g_list_length(k));
+			for(;k;k=k->next){
+				WfAnimatable* animatable = k->data;
+				char* val = wf_animation_val_to_str(animatable);
+				dbg(0, "     animatable=%p type=%i %p %s", animatable, animatable->type, animatable->model_val.f, val);
+				if(val) g_free(val);
+			}
+		}
+	}
+	if(wf_debug > 1) print_animation(animation);
+
+	int count_animatables()
+	{
+		int n = 0;
+		GList* l = animation->members;
+		for(;l;l=l->next){
+			GList* k = ((WfAnimActor*)l->data)->transitions;
+			for(;k;k=k->next) n++;
+		}
+		return n;
+	}
+
+	if(!count_animatables()){
+		wf_animation_remove(animation);
+		//cannot call on_finish because there are no member actors - TODO no longer true
+		return;
+	}
+
+	animation->start = _get_time();
+	animation->end   = animation->start + animation->length;
+
+	on_timeout = wf_transition_frame;
+#ifdef USE_FRAME_CLOCK
 	frame_clock_connect(G_CALLBACK(on_update), animation);
 	frame_clock_begin_updating();
 #endif

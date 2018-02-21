@@ -83,10 +83,7 @@ hi_free_gl1(Renderer* renderer, Waveform* w)
 }
 
 
-static void
-hi_request_block(WaveformActor* a, int b)
-{
-	void hi_request_block_done(Waveform* w, int b, gpointer _a)
+	static void hi_request_block_done(Waveform* w, int b, gpointer _a)
 	{
 		WaveformActor* a = _a;
 		if(w == a->waveform){ // the actor may have a new waveform and there is currently no way to cancel old requests.
@@ -97,6 +94,9 @@ hi_request_block(WaveformActor* a, int b)
 		}
 	}
 
+static void
+hi_request_block(WaveformActor* a, int b)
+{
 	waveform_load_audio(a->waveform, b, HI_MIN_TIERS, hi_request_block_done, a);
 }
 

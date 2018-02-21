@@ -129,6 +129,22 @@ peakfile_is_current(const char* audio_file, const char* peak_file)
 }
 
 
+	typedef struct {
+		Waveform* waveform;
+		WfPeakfileCallback callback;
+		char* filename;
+		gpointer user_data;
+	} C;
+
+	static void waveform_ensure_peakfile_done(Waveform* w, gpointer user_data)
+	{
+		C* c = (C*)user_data;
+		if(c->callback) c->callback(c->waveform, c->filename, c->user_data);
+		else g_free(c->filename);
+		g_object_unref(c->waveform);
+		g_free(c);
+	}
+
 /*
  *  Asynchronously ensure that a peakfile exists for the given Waveform.
  *  If a callback fn is supplied, the caller must g_free the returned filename.
@@ -151,27 +167,12 @@ waveform_ensure_peakfile (Waveform* w, WfPeakfileCallback callback, gpointer use
 		goto out;
 	}
 
-	typedef struct {
-		Waveform* waveform;
-		WfPeakfileCallback callback;
-		char* filename;
-		gpointer user_data;
-	} C;
 	C* c = WF_NEW(C,
 		.waveform = g_object_ref(w),
 		.callback = callback,
 		.filename = peak_filename,
 		.user_data = user_data
 	);
-
-	void waveform_ensure_peakfile_done(Waveform* w, gpointer user_data)
-	{
-		C* c = (C*)user_data;
-		if(c->callback) c->callback(c->waveform, c->filename, c->user_data);
-		else g_free(c->filename);
-		g_object_unref(c->waveform);
-		g_free(c);
-	}
 
 	waveform_peakgen(w, peak_filename, waveform_ensure_peakfile_done, c);
 
@@ -322,11 +323,6 @@ wf_ff_peakgen(const char* infilename, const char* peak_filename)
 	return false;
 
 
-void
-waveform_peakgen(Waveform* w, const char* peak_filename, WfCallback2 callback, gpointer user_data)
-{
-	if(!peakgen.msg_queue) wf_worker_init(&peakgen);
-
 	typedef struct {
 		char*         infilename;
 		const char*   peak_filename;
@@ -337,15 +333,7 @@ waveform_peakgen(Waveform* w, const char* peak_filename, WfCallback2 callback, g
 		void*         user_data;
 	} PeakJob;
 
-	PeakJob* job = g_new0(PeakJob, 1);
-	*job = (PeakJob){
-		.infilename = g_path_is_absolute(w->filename) ? g_strdup(w->filename) : g_build_filename(g_get_current_dir(), w->filename, NULL),
-		.peak_filename = peak_filename,
-		.callback = callback,
-		.user_data = user_data,
-	};
-
-	void peakgen_execute_job(Waveform* w, gpointer _job)
+	static void peakgen_execute_job(Waveform* w, gpointer _job)
 	{
 		// runs in worker thread
 
@@ -359,14 +347,14 @@ waveform_peakgen(Waveform* w, const char* peak_filename, WfCallback2 callback, g
 		}
 	}
 
-	void peakgen_free(gpointer item)
+	static void peakgen_free(gpointer item)
 	{
 		PeakJob* job = item;
 		g_free0(job->infilename);
 		g_free(job);
 	}
 
-	void peakgen_post(Waveform* waveform, gpointer item)
+	static void peakgen_post(Waveform* waveform, gpointer item)
 	{
 		// runs in the main thread
 		// will not be called if the waveform is destroyed.
@@ -375,6 +363,19 @@ waveform_peakgen(Waveform* w, const char* peak_filename, WfCallback2 callback, g
 // TODO if job->out.failed, still need to notify original caller...
 		job->callback(waveform, job->user_data);
 	}
+
+void
+waveform_peakgen(Waveform* w, const char* peak_filename, WfCallback2 callback, gpointer user_data)
+{
+	if(!peakgen.msg_queue) wf_worker_init(&peakgen);
+
+	PeakJob* job = g_new0(PeakJob, 1);
+	*job = (PeakJob){
+		.infilename = g_path_is_absolute(w->filename) ? g_strdup(w->filename) : g_build_filename(g_get_current_dir(), w->filename, NULL),
+		.peak_filename = peak_filename,
+		.callback = callback,
+		.user_data = user_data,
+	};
 
 	wf_worker_push_job(&peakgen, w, peakgen_execute_job, peakgen_post, peakgen_free, job);
 }
@@ -652,14 +653,9 @@ get_cache_dir()
 }
 
 
-static void
-maintain_file_cache()
-{
-	// http://people.freedesktop.org/~vuntz/thumbnail-spec-cache/delete.html
-
 	#define CACHE_EXPIRY_DAYS 30
 
-	bool _maintain_file_cache()
+	static bool _maintain_file_cache()
 	{
 		char* dir_name = get_cache_dir();
 		dbg(2, "dir=%s", dir_name);
@@ -695,6 +691,11 @@ maintain_file_cache()
 
 		return G_SOURCE_REMOVE;
 	}
+
+static void
+maintain_file_cache()
+{
+	// http://people.freedesktop.org/~vuntz/thumbnail-spec-cache/delete.html
 
 	g_idle_add(_maintain_file_cache, NULL);
 }
