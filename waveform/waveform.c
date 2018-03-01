@@ -274,7 +274,7 @@ waveform_load(Waveform* w, WfCallback3 callback, gpointer user_data)
 	am_promise_add_callback(_w->peaks, done, c);
 
 	if(_w->peak.buf[0] || _w->state & WAVEFORM_LOADING){
-		dbg(0, "subsequent load request");
+		dbg(1, "subsequent load request");
 		return;
 	}
 
@@ -822,6 +822,7 @@ waveform_peak_to_alphabuf_hi(Waveform* w, AlphaBuf* a, int block, WfSampleRegion
 
 	//TODO start is -2 so we probably need to load from 2 peakbufs?
 
+#if 0
 	void _draw_line(AlphaBuf* ab, int x, int y1, int y2, float a, int ch, int ch_height)
 	{
 		int rowstride = ab->width; //probably.
@@ -833,6 +834,7 @@ waveform_peak_to_alphabuf_hi(Waveform* w, AlphaBuf* a, int block, WfSampleRegion
 			ab->buf[p] = (int)(0xff * a) >> 8;
 		}
 	}
+#endif
 
 	int chan = 0; //TODO
 	int n_chans = 1; //TODO

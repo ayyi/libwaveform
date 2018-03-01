@@ -84,16 +84,20 @@ agl_actor__have_drawable(AGlRootActor* a, GdkGLDrawable* drawable)
 	if(first_time){
 		agl_gl_init();
 
-		int version = 0;
-		const char* _version = (const char*)glGetString(GL_VERSION);
-		if(_version){
-			gchar** split = g_strsplit(_version, ".", 2);
-			if(split){
-				version = atoi(split[0]);
-				printf("gl version: %i\n", version);
-				g_strfreev(split);
+#ifdef DEBUG
+		if(agl->debug){
+			int version = 0;
+			const char* _version = (const char*)glGetString(GL_VERSION);
+			if(_version){
+				gchar** split = g_strsplit(_version, ".", 2);
+				if(split){
+					version = atoi(split[0]);
+					printf("gl version: %i\n", version);
+					g_strfreev(split);
+				}
 			}
 		}
+#endif
 	}
 
 	agl_actor__init((AGlActor*)a);
