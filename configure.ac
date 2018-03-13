@@ -20,13 +20,17 @@ AC_PROG_LIBTOOL
 privdatadir='${datadir}'/ayyi_meter
 AC_SUBST(privdatadir)
 
+# At least level 2 optimisation is needed to allow GCC to
+# determine that not all nested functions require trampolines.
+CFLAGS="$CFLAGS -O2"
+
 # Check for debugging flag
 debug="yes"
 AC_ARG_ENABLE(debug,
 	[AS_HELP_STRING(--enable-debug, [Enable debugging (false)])],
 	[debug="$enableval"])
 if test "$debug" = "yes"; then
-  CFLAGS="-g -DDEBUG -Wall"
+  CFLAGS="$CFLAGS -g -DDEBUG -Wall"
   CXXFLAGS="$CFLAGS"
 else
   CFLAGS="$CFLAGS -DNDEBUG"
@@ -39,8 +43,8 @@ AC_ARG_ENABLE(strict,
 	[AS_HELP_STRING(--enable-strict, [Enable strict compiler warnings and errors (false)])],
 	[strict="$enableval"])
 if test "$strict" = "yes"; then
-  CFLAGS="$CFLAGS -ansi -Wall -Wextra -Wno-unused-parameter -Wconversion -Winit-self"
-  CXXFLAGS="$CXXFLAGS -ansi -Wall -Wextra -Wno-unused-parameter -Wconversion -Winit-self -Woverloaded-virtual -Wsign-promo"
+  CFLAGS="$CFLAGS -Wall -Wextra -Wno-unused-parameter -Wconversion -Winit-self"
+  CXXFLAGS="$CXXFLAGS -Wall -Wextra -Wno-unused-parameter -Wconversion -Winit-self -Woverloaded-virtual -Wsign-promo"
 fi
 
 JACK_LIBS=`pkg-config jack --cflags --libs`
