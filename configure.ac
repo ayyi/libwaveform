@@ -26,7 +26,7 @@ AC_ARG_ENABLE(debug,
 	[AS_HELP_STRING(--enable-debug, [Enable debugging (false)])],
 	[debug="$enableval"])
 if test "$debug" = "yes"; then
-  CFLAGS="-O0 -g -DDEBUG -Wall"
+  CFLAGS="-g -DDEBUG -Wall"
   CXXFLAGS="$CFLAGS"
 else
   CFLAGS="$CFLAGS -DNDEBUG"
