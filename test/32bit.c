@@ -6,7 +6,7 @@
 
   --------------------------------------------------------------
 
-  Copyright (C) 2013-2016 Tim Orford <tim@orford.org>
+  Copyright (C) 2013-2018 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -52,8 +52,10 @@ gpointer tests[] = {
 	delete_files,
 };
 
-#define WAV1 "test/data/32bit.wav"
+#define WAV1 "data/32bit.wav"
 static char* wavs[] = {WAV1};
+
+float first_peak[WF_PEAK_VALUES_PER_SAMPLE] = {0,};
 
 
 int
@@ -94,6 +96,11 @@ create_files()
 
 			buffer[i * n_channels    ] = (h1 + 0.5 * h2 + 0.5 * h3) * envelope / 1.5;
 			buffer[i * n_channels + 1] = (h1 + 0.5 * h2 + 0.5 * h3) * envelope / 1.5;
+		}
+
+		for(i=0;i<WF_PEAK_RATIO;i++){
+			first_peak[0] = MAX(first_peak[0], buffer[i * n_channels]);
+			first_peak[1] = MIN(first_peak[1], buffer[i * n_channels]);
 		}
 
 		SF_INFO info = {
@@ -157,7 +164,7 @@ test_load()
 
 	void finalize_notify(gpointer data, GObject* was)
 	{
-		dbg(0, "...");
+		dbg(1, "...");
 	}
 
 	bool check_pixbuf(GdkPixbuf* pixbuf)
@@ -189,7 +196,9 @@ test_load()
 		dbg(0, "==========================================================");
 		reset_timeout(40000);
 
-		Waveform* w = waveform_new(wavs[c->wi++]);
+		char* filename = find_wav(wavs[c->wi]);
+		Waveform* w = waveform_new(filename);
+		g_free(filename);
 		WaveformPriv* _w = w->priv;
 		g_object_weak_ref((GObject*)w, finalize_notify, NULL);
 		assert(waveform_load_sync(w), "failed to load wav");
@@ -199,8 +208,13 @@ test_load()
 		assert(_w->peak.buf[WF_LEFT], "peak not loaded");
 		assert(_w->peak.buf[WF_RIGHT], "peak not loaded");
 
-		// TODO calculate these values when the waveform is created.
-		assert(w->priv->peak.buf[WF_LEFT][0] == 14252 && w->priv->peak.buf[WF_LEFT][1] == -13807, "peak file contains wrong values");
+		int expected[] = {
+			first_peak[0] * (1 << 15),
+			first_peak[1] * (1 << 15)
+		};
+		assert(w->priv->peak.buf[WF_LEFT][0] == expected[0] && w->priv->peak.buf[WF_LEFT][1] == expected[1], "%s: peak file contains wrong values: %i, %i", wavs[c->wi], w->priv->peak.buf[WF_LEFT][0], w->priv->peak.buf[WF_LEFT][1]);
+
+		c->wi++;
 
 		// check MED res
 		// the pixbuf generation does not report errors so is difficult to test
