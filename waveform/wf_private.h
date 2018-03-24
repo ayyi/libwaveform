@@ -49,6 +49,12 @@
 #define TIERS_TO_RESOLUTION(T) (256 / (1 << T))
 #define RESOLUTION_TO_TIERS(R) (8 - (int)floor(log2(R)))
 
+#if 0
+#define wf_free(A) ({A;})
+#else
+#define wf_free(A) g_free(A)
+#endif
+
 typedef struct _texture_cache TextureCache;
 
 enum

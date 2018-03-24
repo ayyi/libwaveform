@@ -81,6 +81,11 @@ gpointer tests[] = {
 };
 
 
+	static bool window_on_delete(GtkWidget* widget, GdkEvent* event, gpointer user_data){
+		gtk_main_quit();
+		return false;
+	}
+
 int
 main (int argc, char *argv[])
 {
@@ -109,10 +114,6 @@ main (int argc, char *argv[])
 
 	gtk_widget_show_all(window);
 
-	gboolean window_on_delete(GtkWidget* widget, GdkEvent* event, gpointer user_data){
-		gtk_main_quit();
-		return false;
-	}
 	g_signal_connect(window, "delete-event", G_CALLBACK(window_on_delete), NULL);
 
 	gtk_main();
@@ -127,16 +128,20 @@ create_files()
 	START_TEST;
 	reset_timeout(60000);
 
-	char* filename = find_wav(WAV1);
-	if(filename){
-		g_free(filename);
-	}else{
-		const char* dir = find_data_dir();
-		assert(dir, "data dir not found");
+	char* wavs[] = {WAV1, WAV2};
 
-		char* filename = g_build_filename(dir, WAV1, NULL);
-		create_large_file(filename);
-		g_free(filename);
+	int i; for(i=0;i<G_N_ELEMENTS(wavs);i++){
+		char* filename = find_wav(wavs[i]);
+		if(filename){
+			wf_free(filename);
+		}else{
+			const char* dir = find_data_dir();
+			assert(dir, "data dir not found");
+
+			char* filename = g_build_filename(dir, wavs[i], NULL);
+			create_large_file(filename);
+			wf_free(filename);
+		}
 	}
 	files_created = true;
 
@@ -144,17 +149,9 @@ create_files()
 }
 
 
-void
-test_shown()
-{
-	START_TEST;
-
-	assert(GTK_WIDGET_REALIZED(canvas), "widget not realised");
-	assert(wfc, "canvas not created");
-	assert(a[0], "actor not created");
-
-	bool _test_shown(gpointer _)
+	static bool _test_shown(gpointer _c)
 	{
+		WfTest* c = _c;
 #ifdef AGL_ACTOR_RENDER_CACHE
 		AGlActor* actor = (AGlActor*)a[0];
 		if(actor->cache.valid){
@@ -163,19 +160,39 @@ test_shown()
 			assert_and_stop(wf_actor_test_is_not_blank(a[0]), "output is blank");
 		}
 #endif
-		FINISH_TEST_TIMER_STOP;
+		WF_TEST_FINISH_TIMER_STOP;
 	}
 
-	g_timeout_add(500, _test_shown, NULL);
+void
+test_shown()
+{
+	WfTest* t = NEW_TEST();
+
+	assert(GTK_WIDGET_REALIZED(canvas), "widget not realised");
+	assert(wfc, "canvas not created");
+	assert(a[0], "actor not created");
+
+	g_timeout_add(500, _test_shown, t);
 }
 
 
 #define REGION_LEN 2048
 
+	static bool check_zoom(gpointer _c)
+	{
+		WfTest* c = _c;
+
+		WfSampleRegion* region = &a[0]->region;
+
+		assert_and_stop((region->len == REGION_LEN), "region length");
+
+		WF_TEST_FINISH_TIMER_STOP;
+	}
+
 void
 test_hires()
 {
-	START_TEST;
+	WfTest* t = NEW_TEST();
 
 	assert(wfc, "canvas not created");
 
@@ -192,16 +209,7 @@ test_hires()
 
 	set_region();
 
-	gboolean check_zoom(gpointer data)
-	{
-		WfSampleRegion* region = &a[0]->region;
-
-		assert_and_stop((region->len == REGION_LEN), "region length");
-
-		FINISH_TEST_TIMER_STOP;
-	}
-
-	g_timeout_add(1000, check_zoom, NULL);
+	g_timeout_add(1000, check_zoom, t);
 }
 
 				// duplicates of private stuff from actor.c
@@ -289,6 +297,7 @@ test_hires()
 						.height = agl_actor__height(((AGlActor*)A)), \
 					}
 
+#ifdef LATER
 				static double
 				wf_actor_samples2gl(double zoom, uint32_t n_samples)
 				{
@@ -374,6 +383,7 @@ test_hires()
 
 					out: return range;
 				}
+#endif
 
 
 static WfSampleRegion
@@ -408,16 +418,85 @@ get_random_region(WaveformActor* a, Mode mode, uint32_t max_scroll)
 }
 
 
+
+	typedef struct {
+		int test_idx;
+		int n;
+		int iter;
+		int wait_count;
+		void (*next)();
+		uint64_t start;
+	} C;
+
+		bool _check_scroll(gpointer _c)
+		{
+			C* c = _c;
+
+			/* private!
+			WfAnimatable* animatable = &a[0]->priv->animatable.start;
+			assert_and_stop(animatable->val.i == *animatable->model_val.i, "animation not finished");
+			*/
+
+			if(g_list_length(((AGlActor*)a[0])->transitions)) return TIMER_CONTINUE; // not yet ready
+
+			c->wait_count++;
+
+			WfSampleRegion* region = &a[0]->region;
+
+			assert_and_stop((region->start == c->start), "region");
+
+			const int samples_per_texture = WF_SAMPLES_PER_TEXTURE;// * (resolution == 1024 ? WF_PEAK_STD_TO_LO : 1);
+			int region_start_block = region->start / samples_per_texture;
+			//WfTextureHi* texture = g_hash_table_lookup(w[0]->textures_hi->textures, &region_start_block);
+			//assert_and_stop(texture, "texture loaded %i", region_start_block);
+
+			WfAudioData* audio = &w[0]->priv->audio;
+			assert_and_stop(audio->n_blocks, "n_blocks not set");
+
+			WfBuf16* buf = audio->buf16[region_start_block];
+			WfWorker* worker = &wf->audio_worker;
+			int n_jobs = g_list_length(worker->jobs);
+			if(n_jobs || !buf){
+				if(c->wait_count < 30) return TIMER_CONTINUE;
+			}
+
+			//assert_and_stop(c->wait_count < 30, "timeout loading blocks");
+			assert_and_stop(buf, "buf is empty %i", region_start_block);
+			assert_and_stop(!n_jobs, "jobs still pending: %i", n_jobs);
+
+			if(++c->iter < c->n){
+				c->next(c);
+			}else{
+				WF_TEST_FINISH_TIMER_STOP;
+			}
+
+			return TIMER_STOP;
+		}
+
+	void next_scroll(C* c)
+	{
+		c->wait_count = 0;
+
+		dbg(0, "------------------------- %i", c->iter);
+		WfSampleRegion region = get_random_region(a[0], MODE_V_HI, UINT_MAX);
+		c->start = region.start;
+
+		int i; for(i=0;i<G_N_ELEMENTS(a)&&a[i];i++)
+			wf_actor_set_region(a[i], &region);
+
+		g_timeout_add(200, _check_scroll, c);
+	}
+
 void
 test_scroll()
 {
 	START_LONG_TEST;
 
-	static const int n = 256;
-	static int iter = 0;
-	static uint64_t start = 0;
-	static void (*next)();
-	static int wait_count = 0;
+	C* c = WF_NEW(C,
+		.test_idx = __test_idx,
+		.n = 256,
+		.next = next_scroll,
+	);
 
 	{
 		// test the number of blocks is being calculated correctly.
@@ -440,110 +519,23 @@ test_scroll()
 #endif
 	}
 
-	void next_scroll()
-	{
-		wait_count = 0;
-
-		dbg(0, "------------------------- %i", iter);
-		WfSampleRegion region = get_random_region(a[0], MODE_V_HI, UINT_MAX);
-		start = region.start;
-
-		int i; for(i=0;i<G_N_ELEMENTS(a)&&a[i];i++)
-			wf_actor_set_region(a[i], &region);
-
-		gboolean _check_scroll(gpointer data)
-		{
-			/* private!
-			WfAnimatable* animatable = &a[0]->priv->animatable.start;
-			assert_and_stop(animatable->val.i == *animatable->model_val.i, "animation not finished");
-			*/
-
-			if(g_list_length(((AGlActor*)a[0])->transitions)) return TIMER_CONTINUE; // not yet ready
-
-			wait_count++;
-
-			WfSampleRegion* region = &a[0]->region;
-
-			assert_and_stop((region->start == start), "region");
-
-			const int samples_per_texture = WF_SAMPLES_PER_TEXTURE;// * (resolution == 1024 ? WF_PEAK_STD_TO_LO : 1);
-			int region_start_block = region->start / samples_per_texture;
-			//WfTextureHi* texture = g_hash_table_lookup(w[0]->textures_hi->textures, &region_start_block);
-			//assert_and_stop(texture, "texture loaded %i", region_start_block);
-
-			WfAudioData* audio = &w[0]->priv->audio;
-			assert_and_stop(audio->n_blocks, "n_blocks not set");
-
-			WfBuf16* buf = audio->buf16[region_start_block];
-			WfWorker* worker = &wf->audio_worker;
-			int n_jobs = g_list_length(worker->jobs);
-			if(n_jobs || !buf){
-				if(wait_count < 30) return TIMER_CONTINUE;
-			}
-
-			//assert_and_stop(wait_count < 30, "timeout loading blocks");
-			assert_and_stop(buf, "buf is empty %i", region_start_block);
-			assert_and_stop(!n_jobs, "jobs still pending: %i", n_jobs);
-
-			if(++iter < n){
-				next();
-			}else{
-				FINISH_TEST_TIMER_STOP;
-			}
-
-			return TIMER_STOP;
-		}
-
-		g_timeout_add(200, _check_scroll, NULL);
-	}
-	next = next_scroll;
-
-	next_scroll();
+	next_scroll(c);
 }
 
 
-void
-test_hi_double()
-{
-	START_LONG_TEST;
+typedef struct {
+	int            test_idx;
+	int            n;
+	int            iter;
+	int            wait_count;
+	WfSampleRegion region[2];
+	void (*next)();
+} C3;
 
-	void add_actor(int i)
-	{
-		char* filename = g_build_filename(g_get_current_dir(), WAV2, NULL);
-		// TODO this is be very slow if peakfile not present
-		w[i] = waveform_load_new(filename);
-		g_free(filename);
-
-		a[i] = wf_canvas_add_new_actor(wfc, w[i]);
-		assert(a[i], "failed to create actor");
-
-		wf_actor_set_region(a[i], &(WfSampleRegion){0, 4096 * 256});
-		wf_actor_set_colour(a[i], 0x66eeffff);
-		on_allocate(canvas, &canvas->allocation, NULL);
-	}
-	add_actor(1);
-
-	static const int n = 256;
-	static int iter = 0;
-	static WfSampleRegion region[2];
-	static void (*next)();
-	static int wait_count = 0;
-	static int timeouts[] =  {1000,   700,   600,    500,    400,      300,     100};
-	static uint64_t move[] = {4096, 16384, 65536, 262144, 1048576, 4194304, INT_MAX};
-
-	void next_scroll()
-	{
-		wait_count = 0;
-		int stage = MIN(G_N_ELEMENTS(move) - 1, iter / 8);
-		dbg(0, "------------------------- %i %i", iter, stage);
-
-		int i; for(i=0;i<G_N_ELEMENTS(a);i++){
-			region[i] = get_random_region(a[i], MODE_HI, move[stage]);
-			wf_actor_set_region(a[i], &region[i]);
-		}
-
-		gboolean _check_scroll(gpointer data)
+		bool _hi_check_scroll(gpointer data)
 		{
+			C3* c = data;
+
 			/* private!
 			WfAnimatable* animatable = &a[0]->priv->animatable.start;
 			assert_and_stop(animatable->val.i == *animatable->model_val.i, "animation not finished");
@@ -551,11 +543,11 @@ test_hi_double()
 
 			if(g_list_length(((AGlActor*)a[0])->transitions)) return TIMER_CONTINUE; // not yet ready
 
-			wait_count++;
+			c->wait_count++;
 
 			WfSampleRegion* _region = &a[0]->region;
 
-			assert_and_stop((_region->start == region[0].start), "region");
+			assert_and_stop((_region->start == c->region[0].start), "region");
 
 			const int samples_per_texture = WF_SAMPLES_PER_TEXTURE;// * (resolution == 1024 ? WF_PEAK_STD_TO_LO : 1);
 			int region_start_block = _region->start / samples_per_texture;
@@ -568,90 +560,97 @@ test_hi_double()
 			WfBuf16* buf = audio->buf16[region_start_block];
 			int n_jobs = g_list_length(wf->audio_worker.jobs);
 			if(n_jobs || !buf){
-				if(wait_count < 30) return TIMER_CONTINUE;
+				if(c->wait_count < 30) return TIMER_CONTINUE;
 			}
 
 			//assert_and_stop(wait_count < 30, "timeout loading blocks");
 			assert_and_stop(buf, "buf is empty %i", region_start_block);
 			assert_and_stop(!n_jobs, "jobs still pending: %i", n_jobs);
 
-			if(++iter < n){
-				next();
+			if(++c->iter < c->n){
+				c->next(c);
 			}else{
 				/*
 				hi_ng_cache_print();
 				texture_cache_print();
 				*/
-				FINISH_TEST_TIMER_STOP;
+				WF_TEST_FINISH_TIMER_STOP;
 			}
 
 			return G_SOURCE_REMOVE;
 		}
 
-		g_timeout_add(timeouts[stage], _check_scroll, NULL);
+	void hi_next_scroll(C3* c)
+	{
+		static int timeouts[] =  {1000,   700,   600,    500,    400,      300,     100};
+		static uint64_t move[] = {4096, 16384, 65536, 262144, 1048576, 4194304, INT_MAX};
+
+		c->wait_count = 0;
+		int stage = MIN(G_N_ELEMENTS(move) - 1, c->iter / 8);
+		dbg(0, "------------------------- %i %i", c->iter, stage);
+
+		int i; for(i=0;i<G_N_ELEMENTS(a);i++){
+			c->region[i] = get_random_region(a[i], MODE_HI, move[stage]);
+			wf_actor_set_region(a[i], &c->region[i]);
+		}
+
+		g_timeout_add(timeouts[stage], _hi_check_scroll, c);
 	}
 
-	next = next_scroll;
+void
+test_hi_double()
+{
+	START_LONG_TEST;
 
-	next_scroll();
+	void add_actor(int i)
+	{
+		{
+			char* filename = find_wav(WAV2);
+			assert(filename, "failed to find wav: %s", WAV2)
+			// TODO this is very slow if peakfile not present
+			w[i] = waveform_load_new(filename);
+			wf_free(filename);
+		}
+
+		a[i] = wf_canvas_add_new_actor(wfc, w[i]);
+		assert(a[i], "failed to create actor");
+
+		wf_actor_set_region(a[i], &(WfSampleRegion){0, 4096 * 256});
+		wf_actor_set_colour(a[i], 0x66eeffff);
+		agl_actor__add_child((AGlActor*)scene, (AGlActor*)a[i]);
+		on_allocate(canvas, &canvas->allocation, NULL);
+	}
+	add_actor(1);
+
+	hi_next_scroll(WF_NEW(C3,
+		.test_idx = __test_idx,
+		.n = 256,
+		.next = hi_next_scroll,
+	));
 }
 
 
-void
-test_add_remove()
-{
-	// check the texture is cleared of dead Waveform's in LOW res.
-
-	START_TEST;
-
-	//TODO support other render modes
-	static Mode mode = MODE_LOW;
-	// calculate the region length needed to ensure that the view is of the above mode type.
+	static Mode mode = MODE_LOW; // TODO support other render modes
 	static int len;
-	switch(mode){
-		case MODE_LOW:
-			len = 2 * GL_WIDTH * WF_PEAK_RATIO * WF_PEAK_STD_TO_LO;
-			break;
-		case MODE_V_LOW:
-			len = 2 * GL_WIDTH * WF_PEAK_RATIO * WF_MED_TO_V_LOW;
-			break;
-		default:
-			break;
-	}
 
-	files_created = true; // hack needed if earlier tests are disabled
+		static WaveformBlock wb;
 
-	void on_ready (gpointer user_data, gpointer _)
-	{
-		wf_worker_cancel_jobs(&wf->audio_worker, a[0]->waveform);
-
-		// TODO support gl2 mode also
-		assert(!agl_get_instance()->use_shaders, "shaders must be disabled for this test");
-
-		void set_res()
+		gboolean check_not_in_cache(gpointer _c)
 		{
-			int i; for(i=0;i<G_N_ELEMENTS(a)&&a[i];i++)
-				wf_actor_set_region(a[i], &(WfSampleRegion){
-					0,
-					MIN(len, a[i]->waveform->n_frames - 1)
-				});
-		}
-		set_res();
+			WfTest* c = _c;
 
-		static WaveformBlock wb; wb = (WaveformBlock){a[0]->waveform, 0 | WF_TEXTURE_CACHE_LORES_MASK};
-
-		gboolean check_not_in_cache(gpointer user_data)
-		{
 			int t = texture_cache_lookup(GL_TEXTURE_1D, wb);
 			assert_and_stop((t == -1), "cache not cleared: lookup got texture: %i", t);
 
 			texture_cache_print();
 
-			FINISH_TEST_TIMER_STOP;
+			WF_TEST_FINISH_TIMER_STOP;
 		}
 
-		gboolean check_in_cache(gpointer user_data)
+		static bool check_in_cache(gpointer _c)
 		{
+			WfTest* c = _c;
+
 			WaveformPriv* _w = w[0]->priv;
 
 			WfSampleRegion* region = &a[0]->region;
@@ -697,29 +696,77 @@ test_add_remove()
 				}
 			}
 
-			g_timeout_add(2000, check_not_in_cache, NULL);
+			g_timeout_add(2000, check_not_in_cache, c);
 			return TIMER_STOP;
 		}
 
-		g_timeout_add(5000, check_in_cache, NULL);
+	static void on_ready (gpointer user_data, gpointer _)
+	{
+		WfTest* c = _;
+
+		wf_worker_cancel_jobs(&wf->audio_worker, a[0]->waveform);
+
+		// TODO support gl2 mode also
+#if 0
+		assert(!agl_get_instance()->use_shaders, "shaders must be disabled for this test");
+#else
+		if(agl_get_instance()->use_shaders){
+			gwarn("test only suports GL 1");
+			WF_TEST_FINISH;
+		}
+#endif
+		wb = (WaveformBlock){a[0]->waveform, 0 | WF_TEXTURE_CACHE_LORES_MASK};
+
+		void set_res()
+		{
+			int i; for(i=0;i<G_N_ELEMENTS(a)&&a[i];i++)
+				wf_actor_set_region(a[i], &(WfSampleRegion){
+					0,
+					MIN(len, a[i]->waveform->n_frames - 1)
+				});
+		}
+		set_res();
+
+		g_timeout_add(5000, check_in_cache, c);
 	}
 
-	am_promise_add_callback(ready, on_ready, NULL);
+void
+test_add_remove()
+{
+	// check the texture is cleared of dead Waveform's in LOW res.
+
+	WfTest* t = NEW_TEST();
+
+	// calculate the region length needed to ensure that the view is of the above mode type.
+	switch(mode){
+		case MODE_LOW:
+			len = 2 * GL_WIDTH * WF_PEAK_RATIO * WF_PEAK_STD_TO_LO;
+			break;
+		case MODE_V_LOW:
+			len = 2 * GL_WIDTH * WF_PEAK_RATIO * WF_MED_TO_V_LOW;
+			break;
+		default:
+			break;
+	}
+
+	files_created = true; // hack needed if earlier tests are disabled
+
+	am_promise_add_callback(ready, on_ready, t);
 }
 
+
+	static bool _finish(gpointer _c)
+	{
+		WfTest* c = _c;
+		//assert_and_stop(!g_unlink(WAV1), "file delete failed");
+
+		WF_TEST_FINISH_TIMER_STOP;
+	}
 
 void
 finish()
 {
-	START_TEST;
-
-	gboolean _finish(gpointer data)
-	{
-		//assert_and_stop(!g_unlink(WAV1), "file delete failed");
-
-		FINISH_TEST_TIMER_STOP;
-	}
-	g_timeout_add(5000, _finish, NULL);
+	g_timeout_add(5000, _finish, NEW_TEST());
 }
 
 
@@ -733,13 +780,7 @@ gl_init()
 
 
 
-static void
-on_canvas_realise(GtkWidget* _canvas, gpointer user_data)
-{
-	if(wfc) return;
-	if(!GTK_WIDGET_REALIZED (canvas)) return;
-
-	bool _on_canvas_realise(gpointer user_data)
+	static bool _on_canvas_realise(gpointer user_data)
 	{
 		if(!files_created){
 			return TIMER_CONTINUE;
@@ -753,9 +794,11 @@ on_canvas_realise(GtkWidget* _canvas, gpointer user_data)
 
 		g_signal_connect((gpointer)canvas, "expose-event",  G_CALLBACK(agl_actor__on_expose), scene);
 
-		char* filename = find_wav(WAV1);
-		w[0] = waveform_load_new(filename);
-		g_free(filename);
+		{
+			char* filename = find_wav(WAV1);
+			w[0] = waveform_load_new(filename);
+			wf_free(filename);
+		}
 
 		WfSampleRegion region[] = {
 			{0,    REGION_LEN        },
@@ -780,6 +823,13 @@ on_canvas_realise(GtkWidget* _canvas, gpointer user_data)
 
 		return TIMER_STOP;
 	}
+
+static void
+on_canvas_realise(GtkWidget* _canvas, gpointer user_data)
+{
+	if(wfc) return;
+	if(!GTK_WIDGET_REALIZED (canvas)) return;
+
 	g_timeout_add(200, _on_canvas_realise, user_data);
 }
 

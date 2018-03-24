@@ -115,6 +115,15 @@ test_finished_()
 }
 
 
+WfTest*
+wf_test_new()
+{
+	WfTest* t = WF_NEW(WfTest, .test_idx = current_test);
+
+	return t;
+}
+
+
 	static KeyHold key_hold = {0, NULL};
 	static bool key_down = false;
 	static GHashTable* key_handlers = NULL;
@@ -277,22 +286,41 @@ find_wav(const char* wav)
 	if(g_file_test(filename, G_FILE_TEST_EXISTS)){
 		return filename;
 	}
-	g_free(filename);
+	wf_free(filename);
 
 	filename = g_build_filename(g_get_current_dir(), "test", wav, NULL);
 	if(g_file_test(filename, G_FILE_TEST_EXISTS)){
 		return filename;
 	}
-	g_free(filename);
+	wf_free(filename);
 
 	filename = g_build_filename(g_get_current_dir(), "test/data", wav, NULL);
 	if(g_file_test(filename, G_FILE_TEST_EXISTS)){
 		return filename;
 	}
-	g_free(filename);
+	wf_free(filename);
 
-	filename = g_build_filename(g_get_current_dir(), "../", wav, NULL);
-	return filename;
+	filename = g_build_filename(g_get_current_dir(), "data", wav, NULL);
+	if(g_file_test(filename, G_FILE_TEST_EXISTS)){
+		return filename;
+	}
+	wf_free(filename);
+
+	return NULL;
 }
 
+
+const char*
+find_data_dir()
+{
+	static char* dirs[] = {"test/data", "data"};
+
+	int i; for(i=0;i<G_N_ELEMENTS(dirs);i++){
+		if(g_file_test(dirs[i], G_FILE_TEST_EXISTS)){
+			return dirs[i];
+		}
+	}
+
+	return NULL;
+}
 

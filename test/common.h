@@ -56,6 +56,7 @@ bool get_random_boolean ();
 int  get_random_int     (int max);
 void create_large_file  (char*);
 char*find_wav           (const char*);
+const char* find_data_dir();
 
 void errprintf4         (char* format, ...);
 
@@ -112,13 +113,44 @@ void add_key_handlers   (GtkWindow*, WaveformView*, Key[]);
 	test_finished_(); \
 	return G_SOURCE_REMOVE;}
 
+typedef struct {
+	int test_idx;
+} WfTest;
+
+WfTest* wf_test_new();
+
+#define NEW_TEST() \
+	({ \
+	g_strlcpy(current_test_name, __func__, 64); \
+	printf("%srunning %i of %zu: %s%s ...\n", wf_bold, current_test + 1, G_N_ELEMENTS(tests), __func__, wf_white); \
+	if(test_finished) return; \
+	wf_test_new(); \
+	})
+
+#define WF_TEST_FINISH \
+	if(c->test_idx != current_test) return; \
+	printf("%s: finish\n", current_test_name); \
+	test_finished = true; \
+	passed = true; \
+	test_finished_(); \
+	wf_free(c); \
+	return;
+
+#define WF_TEST_FINISH_TIMER_STOP \
+	if(c->test_idx != current_test) return G_SOURCE_REMOVE; \
+	test_finished = true; \
+	passed = true; \
+	test_finished_(); \
+	wf_free(c); \
+	return G_SOURCE_REMOVE;
+
 #define assert(A, B, ...) \
-	{bool __ok_ = (bool)A; \
+	{bool __ok_ = ((A) != 0); \
 	{if(!__ok_) gerr(B, ##__VA_ARGS__); } \
 	{if(!__ok_) FAIL_TEST("assertion failed") }}
 
 #define assert_and_stop(A, B, ...) \
-	{bool __ok_ = (bool)A; \
+	{bool __ok_ = ((A) != 0); \
 	{if(!__ok_) gerr(B, ##__VA_ARGS__); } \
 	{if(!__ok_) FAIL_TEST_TIMER("assertion failed") }}
 
