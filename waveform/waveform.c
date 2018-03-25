@@ -84,9 +84,10 @@ waveform_construct (GType object_type)
 	wf_get_instance();
 
 	Waveform* w = (Waveform*) g_object_new (object_type, NULL);
-	w->priv = g_new0(WaveformPriv, 1);
-	w->priv->hires_peaks = g_ptr_array_new();
-	w->priv->max_db = -1;
+	w->priv = WF_NEW(WaveformPriv,
+		.hires_peaks = g_ptr_array_new(),
+		.max_db = -1
+	);
 	return w;
 }
 

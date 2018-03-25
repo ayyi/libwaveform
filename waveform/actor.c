@@ -1,5 +1,5 @@
 /*
-  copyright (C) 2012-2017 Tim Orford <tim@orford.org>
+  copyright (C) 2012-2018 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -372,11 +372,6 @@ wf_actor_new(Waveform* w, WaveformContext* wfc)
 
 	g_return_val_if_fail(wfc, NULL);
 
-	uint32_t get_frame(int time)
-	{
-		return 0;
-	}
-
 	if(!modes[MODE_LOW].renderer) wf_actor_class_init();
 
 	if(w){
@@ -384,13 +379,22 @@ wf_actor_new(Waveform* w, WaveformContext* wfc)
 		if(!w->renderable) return NULL;
 	}
 
-	WaveformActor* a = g_new0(WaveformActor, 1);
-	a->priv = g_new0(WfActorPriv, 1);
+	WaveformActor* a = WF_NEW(WaveformActor,
+		.actor = {
+			.class = &actor_class,
+			.name = "Waveform",
+			.paint = wf_actor_paint,
+			.invalidate = _wf_actor_invalidate,
+			.init = wf_actor_on_init,
+			.set_size = wf_actor_set_size,
+		},
+		.canvas = wfc,
+		.priv = g_new0(WfActorPriv, 1),
+		.vzoom = 1.0,
+		.waveform = w ? g_object_ref(w) : NULL,
+	);
 	WfActorPriv* _a = a->priv;
 
-	a->canvas = wfc;
-	a->vzoom = 1.0;
-	a->waveform = w ? g_object_ref(w) : NULL;
 	wf_actor_set_colour(a, 0xffffffff);
 
 	_a->animatable = (struct Animatable){
@@ -441,24 +445,13 @@ wf_actor_new(Waveform* w, WaveformContext* wfc)
 
 	_a->peakdata_ready = am_promise_new(a);
 
-	AGlActor* actor = (AGlActor*)a;
-	actor->class = &actor_class;
-	actor->name = "Waveform";
-	actor->paint = wf_actor_paint;
-
-	actor->invalidate = _wf_actor_invalidate;
-
 	if(w) wf_actor_connect_waveform(a);
 
 	_a->handlers.dimensions_changed = g_signal_connect((gpointer)a->canvas, "dimensions-changed", (GCallback)wf_actor_on_dimensions_changed, a);
-
 	_a->handlers.zoom_changed = g_signal_connect((gpointer)a->canvas, "zoom-changed", (GCallback)wf_actor_on_zoom_changed, a);
 
-	actor->init = wf_actor_on_init;
-
-	actor->set_size = wf_actor_set_size;
-
 	g_object_weak_ref((GObject*)a->canvas, wf_actor_canvas_finalize_notify, a);
+
 	return a;
 }
 
@@ -602,9 +595,11 @@ wf_actor_set_waveform(WaveformActor* a, Waveform* waveform, WaveformActorFn call
 
 	wf_actor_connect_waveform(a);
 
-	C2* c = WF_NEW(C2, .actor = a, .callback = callback, .user_data = user_data);
-
-	waveform_load(a->waveform, wf_actor_set_waveform_done, c);
+	waveform_load(
+		a->waveform,
+		wf_actor_set_waveform_done,
+		WF_NEW(C2, .actor = a, .callback = callback, .user_data = user_data)
+	);
 }
 
 
@@ -647,7 +642,7 @@ wf_actor_set_region(WaveformActor* a, WfSampleRegion* region)
 	AGlScene* scene = actor->root;
 	dbg(1, "region_start=%Li region_end=%Li wave_end=%Lu", region->start, (uint64_t)(region->start + region->len), waveform_get_n_frames(a->waveform));
 	if(!region->len && a->waveform->n_channels){ gwarn("invalid region: len not set"); return; }
-	if(region->start > waveform_get_n_frames(a->waveform)){ gwarn("invalid region: start out of range"); return; }
+	if(region->start > waveform_get_n_frames(a->waveform)){ gwarn("invalid region: start out of range: %"PRIi64" > %"PRIi64"", region->start, waveform_get_n_frames(a->waveform)); return; }
 	if(region->start + region->len > waveform_get_n_frames(a->waveform)){ gwarn("invalid region: too long: %"PRIi64" len=%"PRIi64" n_frames=%"PRIi64, region->start, region->len, waveform_get_n_frames(a->waveform)); return; }
 
 	gboolean start = (region->start != a->region.start);
@@ -675,8 +670,9 @@ wf_actor_set_region(WaveformActor* a, WfSampleRegion* region)
 		return; //no animations
 	}
 
-	GList* animatables = start ? g_list_append(NULL, a1) : NULL;
-	       animatables = end ? g_list_append(animatables, a2) : animatables;
+	GList* animatables;
+	animatables = start ? g_list_append(NULL, a1) : NULL;
+	animatables = end ? g_list_append(animatables, a2) : animatables;
 
 	wf_actor_start_transition(a, animatables, NULL, NULL);
 }

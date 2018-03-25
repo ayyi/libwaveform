@@ -94,7 +94,7 @@ ng_gl2_load_block(Renderer* renderer, WaveformActor* actor, int b)
 	{
 		int block_size = get_block_size(actor);
 		int buffer_size = block_size * MIN(MAX_BLOCKS_PER_TEXTURE, waveform_get_n_audio_blocks(waveform) - s * MAX_BLOCKS_PER_TEXTURE);
-		dbg(1, "%s block_size=%ik section->buffer=%ik", modes[renderer->mode].name, block_size / 1024, buffer_size / 1024);
+		dbg(1, "%s %i block_size=%ik section->buffer=%ik", modes[renderer->mode].name, s, block_size / 1024, buffer_size / 1024);
 
 		Section* section = &data->section[s];
 		section->buffer = g_malloc0(section->buffer_size = buffer_size);
@@ -429,7 +429,7 @@ ng_gl2_render_block(Renderer* renderer, WaveformActor* actor, int b, gboolean is
 
 	if(!_b && b != r->viewport_blocks.first){
 		HiResNGShader* shader = (HiResNGShader*)((NGRenderer*)renderer)->shader;
-		shader->uniform.tex_height = data->section[b / MAX_BLOCKS_PER_TEXTURE].buffer_size / modes[renderer->mode].texture_size;
+		shader->uniform.tex_height = section->buffer_size / modes[renderer->mode].texture_size;
 		shader->shader.set_uniforms_(actor);
 	}
 

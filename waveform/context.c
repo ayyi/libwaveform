@@ -1,5 +1,5 @@
 /*
-  copyright (C) 2012-2017 Tim Orford <tim@orford.org>
+  copyright (C) 2012-2018 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -171,7 +171,6 @@ wf_canvas_init(WaveformContext* wfc, AGlRootActor* root)
 	wfc->shaders.ruler = &ruler;
 
 	if(wfc->root){
-
 		if(wf_canvas_try_drawable(wfc)) wfc->priv->pending_init = g_idle_add(wf_canvas_try_drawable, wfc);
 	}
 }
@@ -222,7 +221,7 @@ wf_context_finalize(GObject* obj)
 {
 	WaveformContext* wfc = WAVEFORM_CONTEXT (obj);
 
-	g_free(wfc->priv);
+	wf_free(wfc->priv);
 
 	G_OBJECT_CLASS (waveform_context_parent_class)->finalize (obj);
 }
@@ -354,6 +353,18 @@ wf_canvas_remove_actor(WaveformContext* wfc, WaveformActor* actor)
 
 
 
+#ifndef USE_FRAME_CLOCK
+	static bool wf_canvas_redraw(gpointer _canvas)
+	{
+		WaveformContext* wfc = _canvas;
+
+		if(wfc->root->draw) wfc->root->draw(wfc->root, wfc->root->user_data);
+		wfc->priv->_queued = false;
+
+		return G_SOURCE_REMOVE;
+	}
+#endif
+
 void
 wf_canvas_queue_redraw(WaveformContext* wfc)
 {
@@ -373,13 +384,6 @@ wf_canvas_queue_redraw(WaveformContext* wfc)
 #else
 	if(wfc->priv->_queued) return;
 
-	gboolean wf_canvas_redraw(gpointer _canvas)
-	{
-		WaveformContext* wfc = _canvas;
-		if(wfc->root->draw) wfc->root->draw(wfc->root, wfc->root->user_data);
-		wfc->priv->_queued = false;
-		return G_SOURCE_REMOVE;
-	}
 	wfc->priv->_queued = g_timeout_add(CLAMP(WF_FRAME_INTERVAL - (wf_get_time() - wfc->priv->_last_redraw_time), 1, WF_FRAME_INTERVAL), wf_canvas_redraw, wfc);
 #endif
 }
@@ -462,7 +466,7 @@ wf_canvas_load_texture_from_alphabuf(WaveformContext* wfc, int texture_name, Alp
 				int width = alphabuf->height / (1<<l);
 #endif
 				glTexImage2D(GL_TEXTURE_2D, l, GL_ALPHA8, width, alphabuf->height/(1<<l), 0, GL_ALPHA, GL_UNSIGNED_BYTE, buf);
-				g_free(buf);
+				wf_free(buf);
 				int w = alphabuf->width / (1<<l);
 				int h = alphabuf->height / (1<<l);
 				if((w < 2) && (h < 2)) break;
