@@ -27,7 +27,6 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <string.h>
-#include <getopt.h>
 #include <time.h>
 #include <unistd.h>
 #include <signal.h>
@@ -40,7 +39,6 @@
 #include <agl/utils.h>
 #include "waveform/audio.h"
 #include "waveform/peakgen.h"
-#include "test/ayyi_utils.h"
 #include "test/common.h"
 
 TestFn create_files, test_audiodata, test_load, delete_files;
@@ -52,7 +50,7 @@ gpointer tests[] = {
 	delete_files,
 };
 
-#define WAV1 "data/32bit.wav"
+#define WAV1 "32bit.wav"
 static char* wavs[] = {WAV1};
 
 float first_peak[WF_PEAK_VALUES_PER_SAMPLE] = {0,};
@@ -112,7 +110,7 @@ create_files()
 
 		SNDFILE* sndfile = sf_open(filename, SFM_WRITE, &info);
 		if(!sndfile) {
-			fprintf(stderr, "Sndfile open failed: %s\n", sf_strerror(sndfile));
+			fprintf(stderr, "Sndfile open failed: %s %s\n", sf_strerror(sndfile), filename);
 			FAIL_TEST("%s", sf_strerror(sndfile));
 		}
 
@@ -128,7 +126,11 @@ create_files()
 		sf_close(sndfile);
 		g_free(buffer);
 	}
+
+	const char* dir = find_data_dir();
+	char* filename = g_build_filename(dir, WAV1, NULL);
 	create_file(WAV1);
+	g_free(filename);
 
 	FINISH_TEST;
 }

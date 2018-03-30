@@ -5,7 +5,7 @@
 
   ---------------------------------------------------------------
 
-  copyright (C) 2012-2017 Tim Orford <tim@orford.org>
+  Copyright (C) 2012-2018 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -26,7 +26,6 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <string.h>
-#include <math.h>
 #include <getopt.h>
 #include <time.h>
 #include <unistd.h>
@@ -36,7 +35,7 @@
 #include <gdk/gdkkeysyms.h>
 #include "test/common.h"
 
-#define WAV "test/data/mono_0:10.wav"
+#define WAV "mono_0:10.wav"
 
 #define GL_WIDTH 300.0
 #define GL_HEIGHT 256.0
@@ -84,6 +83,12 @@ static void on_allocate        (GtkWidget*, GtkAllocation*, gpointer);
 static void start_zoom         (float target_zoom);
 uint64_t    get_time           ();
 
+static const struct option long_options[] = {
+	{ "non-interactive",  0, NULL, 'n' },
+};
+
+static const char* const short_options = "n";
+
 
 int
 main (int argc, char *argv[])
@@ -91,6 +96,15 @@ main (int argc, char *argv[])
 	set_log_handlers();
 
 	wf_debug = 1;
+
+	int opt;
+	while((opt = getopt_long (argc, argv, short_options, long_options, NULL)) != -1) {
+		switch(opt) {
+			case 'n':
+				g_timeout_add(3000, (gpointer)exit, NULL);
+				break;
+		}
+	}
 
 	gtk_init(&argc, &argv);
 	GdkGLConfig* glconfig;
@@ -242,14 +256,11 @@ start_zoom(float target_zoom)
 }
 
 
-void
-toggle_animate(gpointer _)
-{
-	PF0;
-	gboolean on_idle(gpointer _)
+	bool on_idle(gpointer _)
 	{
 		static uint64_t frame = 0;
 		static uint64_t t0    = 0;
+
 		if(!frame)
 			t0 = get_time();
 		else{
@@ -264,8 +275,14 @@ toggle_animate(gpointer _)
 			}
 		}
 		frame++;
-		return IDLE_CONTINUE;
+		return G_SOURCE_CONTINUE;
 	}
+
+void
+toggle_animate(gpointer _)
+{
+	PF0;
+
 	g_timeout_add(50, on_idle, NULL);
 }
 

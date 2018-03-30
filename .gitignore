@@ -45,7 +45,7 @@ test/cache
 test/frame_rate
 test/glx
 test/group
-test/hires_test
+test/hires
 test/large_files
 test/list
 test/multi_scene

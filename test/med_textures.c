@@ -7,7 +7,7 @@
 
   ---------------------------------------------------------------
 
-  copyright (C) 2012-2017 Tim Orford <tim@orford.org>
+  Copyright (C) 2012-2018 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -46,7 +46,6 @@
 #include "agl/utils.h"
 #include "waveform/waveform.h"
 #include "waveform/texture_cache.h"
-#include "test/ayyi_utils.h"
 
 struct _app
 {
@@ -414,10 +413,8 @@ toggle_animate()
 			}
 		}
 		frame++;
-		return IDLE_CONTINUE;
+		return G_SOURCE_CONTINUE;
 	}
-	//g_idle_add(on_idle, NULL);
-	//g_idle_add_full(G_PRIORITY_LOW, on_idle, NULL, NULL);
 	g_timeout_add(50, on_idle, NULL);
 }
 

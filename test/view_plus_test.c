@@ -30,7 +30,7 @@
 
   --------------------------------------------------------------
 
-  Copyright (C) 2012-2016 Tim Orford <tim@orford.org>
+  Copyright (C) 2012-2018 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -51,16 +51,20 @@
 #include <stdlib.h>
 #include <string.h>
 #include <getopt.h>
-#include <sys/time.h>
 #include <sys/types.h>
 #include <gtk/gtk.h>
 #include <gdk/gdkkeysyms.h>
 #include "agl/actor.h"
 #include "waveform/view_plus.h"
-#include "test/ayyi_utils.h"
 #include "common.h"
 
 extern char* basename(const char*);
+
+static const struct option long_options[] = {
+	{ "non-interactive",  0, NULL, 'n' },
+};
+
+static const char* const short_options = "n";
 
 const char* wavs[] = {
 	"data/mono_0:10.flac",
@@ -134,6 +138,7 @@ void  format_time     (char* str, int64_t t_ms);
 			height = allocation->height;
 		}
 	}
+
 int
 main (int argc, char* argv[])
 {
@@ -144,6 +149,16 @@ main (int argc, char* argv[])
 	wf_debug = 0;
 
 	gtk_init(&argc, &argv);
+
+	int opt;
+	while((opt = getopt_long (argc, argv, short_options, long_options, NULL)) != -1) {
+		switch(opt) {
+			case 'n':
+				g_timeout_add(3000, (gpointer)window_on_delete, NULL);
+				break;
+		}
+	}
+
 	GtkWidget* window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
 
 	#if 0

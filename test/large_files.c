@@ -7,7 +7,7 @@
 
   --------------------------------------------------------------
 
-  Copyright (C) 2012-2014 Tim Orford <tim@orford.org>
+  Copyright (C) 2012-2018 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -43,7 +43,6 @@
 #include <agl/utils.h>
 #include "waveform/audio.h"
 #include "waveform/peakgen.h"
-#include "test/ayyi_utils.h"
 #include "test/common.h"
 
 TestFn create_large_files, test_audiodata, test_load, delete_large_files;

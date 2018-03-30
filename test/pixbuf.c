@@ -4,7 +4,7 @@
 
   --------------------------------------------------------------
 
-  Copyright (C) 2012-2015 Tim Orford <tim@orford.org>
+  Copyright (C) 2012-2018 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -40,16 +40,15 @@
 #include "waveform/view_plus.h"
 #include "waveform/actors/text.h"
 #include "waveform/actors/spp.h"
-#include "test/ayyi_utils.h"
 #include "common.h"
 
 const char* wavs[] = {
-	"test/data/stereo_1.wav",
-//	"test/data/mono_0:10.wav",
-//	"test/data/mono_10:00.wav",
-//	"test/data/1_block.wav",
-//	"test/data/3_blocks.wav",
-//	"test/data/2_blocks.wav",
+	"stereo_0:10.wav",
+	"mono_0:10.wav",
+	"mono_10:00.wav",
+	"1_block.wav",
+	"2_blocks.wav",
+	"3_blocks.wav",
 };
 
 KeyHandler
@@ -101,6 +100,7 @@ main (int argc, char *argv[])
 	gtk_container_add((GtkContainer*)window, box);
 
 	char* filename = find_wav(wavs[0]);
+	assert(filename, "file not found");
 	waveform = waveform_new(filename);
 	g_free(filename);
 

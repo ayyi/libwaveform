@@ -2,7 +2,7 @@
 * +----------------------------------------------------------------------+
 * | This file is part of libwaveform                                     |
 * | https://github.com/ayyi/libwaveform                                  |
-* | copyright (C) 2012-2017 Tim Orford <tim@orford.org>                  |
+* | copyright (C) 2012-2018 Tim Orford <tim@orford.org>                  |
 * +----------------------------------------------------------------------+
 * | This program is free software; you can redistribute it and/or modify |
 * | it under the terms of the GNU General Public License version 3       |
@@ -28,7 +28,6 @@
 #include "agl/actor.h"
 #include "agl/shader.h"
 #include "waveform/utils.h"
-#include "test/ayyi_utils.h"
 #include "test/common2.h"
 
 struct
@@ -52,6 +51,12 @@ static AGlActor* actor_with_viewport(WaveformActor*);
 static void      on_canvas_realise  (GtkWidget*, gpointer);
 static void      on_allocate        (GtkWidget*, GtkAllocation*, gpointer);
 
+static const struct option long_options[] = {
+	{ "non-interactive",  0, NULL, 'n' },
+};
+
+static const char* const short_options = "n";
+
 
 int
 main (int argc, char *argv[])
@@ -60,6 +65,15 @@ main (int argc, char *argv[])
 	set_log_handlers();
 
 	wf_debug = 0;
+
+	int opt;
+	while((opt = getopt_long (argc, argv, short_options, long_options, NULL)) != -1) {
+		switch(opt) {
+			case 'n':
+				g_timeout_add(3000, (gpointer)exit, NULL);
+				break;
+		}
+	}
 
 	gtk_init(&argc, &argv);
 	if(!(glconfig = gdk_gl_config_new_by_mode(GDK_GL_MODE_RGBA | GDK_GL_MODE_DEPTH | GDK_GL_MODE_DOUBLE))){

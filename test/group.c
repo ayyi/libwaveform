@@ -4,7 +4,7 @@
 
   ---------------------------------------------------------------
 
-  copyright (C) 2012-2017 Tim Orford <tim@orford.org>
+  Copyright (C) 2012-2018 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -34,7 +34,6 @@
 #include <gdk/gdkkeysyms.h>
 #include "agl/utils.h"
 #include "waveform/waveform.h"
-#include "test/ayyi_utils.h"
 #include "test/common2.h"
 
 struct
@@ -42,7 +41,7 @@ struct
 	int timeout;
 } app;
 
-#define WAV "test/data/mono_0:10.wav"
+#define WAV "mono_0:10.wav"
 
 #define GL_WIDTH 256.0
 #define GL_HEIGHT 256.0
@@ -74,6 +73,12 @@ static void      backward           ();
 static void      toggle_animate     ();
 static uint64_t  get_time           ();
 
+static const struct option long_options[] = {
+	{ "non-interactive",  0, NULL, 'n' },
+};
+
+static const char* const short_options = "n";
+
 
 int
 main (int argc, char *argv[])
@@ -81,6 +86,15 @@ main (int argc, char *argv[])
 	set_log_handlers();
 
 	wf_debug = 0;
+
+	int opt;
+	while((opt = getopt_long (argc, argv, short_options, long_options, NULL)) != -1) {
+		switch(opt) {
+			case 'n':
+				g_timeout_add(3000, (gpointer)exit, NULL);
+				break;
+		}
+	}
 
 	gtk_init(&argc, &argv);
 	if(!(glconfig = gdk_gl_config_new_by_mode(GDK_GL_MODE_RGBA | GDK_GL_MODE_DEPTH | GDK_GL_MODE_DOUBLE))){
@@ -102,7 +116,8 @@ main (int argc, char *argv[])
 
 	wfc = wf_context_new(scene);
 
-	char* filename = g_build_filename(g_get_current_dir(), WAV, NULL);
+	char* filename = find_wav(WAV);
+	g_assert(filename);
 	w1 = waveform_load_new(filename);
 	g_free(filename);
 
@@ -345,7 +360,7 @@ toggle_animate()
 			}
 		}
 		frame++;
-		return IDLE_CONTINUE;
+		return G_SOURCE_CONTINUE;
 	}
 	g_timeout_add(50, on_idle, NULL);
 }

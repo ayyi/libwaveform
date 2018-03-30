@@ -1,6 +1,6 @@
 /*
   This file is part of the Ayyi Project. http://ayyi.org
-  copyright (C) 2004-2017 Tim Orford <tim@orford.org>
+  copyright (C) 2004-2018 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -37,15 +37,14 @@
 #include "agl/actor.h"
 #include "waveform/utils.h"
 #include "waveform/wf_private.h"
-#include "test/ayyi_utils.h"
 #include "test/common.h"
 
-int      n_failed = 0;
-int      n_passed = 0;
-gboolean abort_on_fail  = true;
-gboolean passed         = false;
-int      test_finished  = false;  //current test has finished. Go onto the next test.
-int      current_test = -1;
+int  n_failed      = 0;
+int  n_passed      = 0;
+bool abort_on_fail = true;
+bool passed        = false;
+int  test_finished = false;  // current test has finished. Go onto the next test.
+int  current_test  = -1;
 
 extern char     current_test_name[];
 extern gpointer tests[];
@@ -275,52 +274,4 @@ create_large_file(char* filename)
 	g_free(buffer);
 }
 
-
-char*
-find_wav(const char* wav)
-{
-	if(wav[0] == '/'){
-		return g_strdup(wav);
-	}
-	char* filename = g_build_filename(g_get_current_dir(), wav, NULL);
-	if(g_file_test(filename, G_FILE_TEST_EXISTS)){
-		return filename;
-	}
-	wf_free(filename);
-
-	filename = g_build_filename(g_get_current_dir(), "test", wav, NULL);
-	if(g_file_test(filename, G_FILE_TEST_EXISTS)){
-		return filename;
-	}
-	wf_free(filename);
-
-	filename = g_build_filename(g_get_current_dir(), "test/data", wav, NULL);
-	if(g_file_test(filename, G_FILE_TEST_EXISTS)){
-		return filename;
-	}
-	wf_free(filename);
-
-	filename = g_build_filename(g_get_current_dir(), "data", wav, NULL);
-	if(g_file_test(filename, G_FILE_TEST_EXISTS)){
-		return filename;
-	}
-	wf_free(filename);
-
-	return NULL;
-}
-
-
-const char*
-find_data_dir()
-{
-	static char* dirs[] = {"test/data", "data"};
-
-	int i; for(i=0;i<G_N_ELEMENTS(dirs);i++){
-		if(g_file_test(dirs[i], G_FILE_TEST_EXISTS)){
-			return dirs[i];
-		}
-	}
-
-	return NULL;
-}
 

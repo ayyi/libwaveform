@@ -27,14 +27,14 @@ Magnification and translation transitions are animated.
 There are 4 main ways of using libwaveform:
 
 1. the WaveformView Gtk widget
-2. with GtkGLExt using the WaveformActor interface
+2. with OpenGL using the WaveformActor interface
 3. rendering to a GdkPixbuf
 4. rendering to an Alphabuf
 
 Requirements:
 
 - Gtk2
-- GtkGLExt
+- GtkGLExt/GLX/SDL
 - Libsndfile/FFmpeg
 - OpenGl (recommended)
 
@@ -88,15 +88,15 @@ and audio production tools.
 OpenGl shaders will be used if available, otherwise it will fallback
 to using 8 bit textures.
 
-WaveformActor's share a common WfCanvas object.
-The canvas has the following directly settable properties:
+WaveformActor's share a common WfContext object.
+The context has the following directly settable properties:
 ```c
 	uint32_t sample_rate
+	float    bpm
+	float    samples_per_pixel
+	int64_t  start_time
+	float    v_gain
 ```
-
-In order to remain versatile, the WfCanvas is very minimal.
-For example it has no concept of time or tempo (positions are
-specified in x y coordinates).
 
 For a demonstration of usage, see: test/actor_test.c
 
@@ -151,9 +151,10 @@ One pair of values (for each channel) is stored for every 256 frames of the orig
 Zoom levels
 -----------
 
-There are four distinct drawing modes depending on the zoom level.
+There are five distinct drawing modes depending on the zoom level.
 Each mode has 16 times the resolution of the previous.
 
+- Very Low res.
 - Low res uses a 256 pixel texture per 256^3 audio frames.
 - Std res uses a 256 pixel texture per 256^2 audio frames.
 - Hi res draws individual lines, one per 16 audio frames.

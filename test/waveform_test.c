@@ -4,7 +4,7 @@
 
   --------------------------------------------------------------
 
-  Copyright (C) 2012-2016 Tim Orford <tim@orford.org>
+  Copyright (C) 2012-2018 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -37,10 +37,11 @@
 #include "waveform/peakgen.h"
 #include "waveform/alphabuf.h"
 #include "waveform/worker.h"
-#include "test/ayyi_utils.h"
 #include "test/common.h"
 
 TestFn test_peakgen, test_audio_file, test_audiodata, test_audio_cache, test_alphabuf, test_worker;
+
+static void finalize_notify(gpointer, GObject*);
 
 gpointer tests[] = {
 	test_peakgen,
@@ -51,7 +52,7 @@ gpointer tests[] = {
 	test_worker,
 };
 
-#define WAV "test/data/mono_0:10.wav"
+#define WAV "mono_0:10.wav"
 
 
 int
@@ -72,12 +73,16 @@ test_peakgen()
 {
 	START_TEST;
 
-	if(!wf_peakgen__sync(WAV, WAV ".peak")){
+	char* filename = find_wav(WAV);
+	assert(filename, "cannot find file %s", WAV);
+
+	if(!wf_peakgen__sync(filename, WAV ".peak")){
 		FAIL_TEST("local peakgen failed");
 	}
 
-	//create peakfile in the cache directory
-	Waveform* w = waveform_new(WAV);
+	// create peakfile in the cache directory
+	Waveform* w = waveform_new(filename);
+	g_free(filename);
 	char* p = waveform_ensure_peakfile__sync(w);
 	assert(p, "cache dir peakgen failed");
 
@@ -138,127 +143,158 @@ test_audio_file()
 }
 
 
+typedef struct {
+	WfTest test;
+	int    n;
+	int    tot_blocks;
+	guint  ready_handler;
+} C1;
+
+	static void _on_peakdata_ready(Waveform* waveform, int block, gpointer _c)
+	{
+		WfTest* c = _c;
+		C1* c1 = _c;
+
+		if(wf_debug) printf("\n");
+		dbg(1, "block=%i", block);
+		reset_timeout(5000);
+
+		if(++c1->n >= c1->tot_blocks){
+			g_signal_handler_disconnect((gpointer)waveform, c1->ready_handler);
+			c1->ready_handler = 0;
+			g_object_unref(waveform);
+			WF_TEST_FINISH;
+		}
+	}
+
 void
 test_audiodata()
 {
 	START_TEST;
 
-	Waveform* w = waveform_new(WAV);
+	C1* c = WF_NEW(C1,
+		.test = {
+			.test_idx = current_test,
+		}
+	);
 
-	static int tot_blocks; tot_blocks = waveform_get_n_audio_blocks(w);
-																			tot_blocks = 3;
-	static int n = 0;
+	char* filename = find_wav(WAV);
+	Waveform* w = waveform_new(filename);
+	g_free(filename);
+
+	c->tot_blocks = waveform_get_n_audio_blocks(w);
+
 	static int n_tiers_needed = 3;//4;
-	static guint ready_handler = 0;
 
-	void finalize_notify(gpointer data, GObject* was)
-	{
-		dbg(0, "!");
-	}
 	g_object_weak_ref((GObject*)w, finalize_notify, NULL);
 
-	void _on_peakdata_ready(Waveform* waveform, int block, gpointer data)
-	{
-		printf("\n");
-		dbg(0, "block=%i", block);
-		reset_timeout(5000);
+	c->ready_handler = g_signal_connect (w, "hires-ready", (GCallback)_on_peakdata_ready, c);
 
-		n++;
-		if(n >= tot_blocks){
-			g_signal_handler_disconnect((gpointer)waveform, ready_handler);
-			ready_handler = 0;
-			g_object_unref(waveform);
-			FINISH_TEST;
-		}
-	}
-	ready_handler = g_signal_connect (w, "hires-ready", (GCallback)_on_peakdata_ready, NULL);
-
-	int b; for(b=0;b<tot_blocks;b++){
+	int b; for(b=0;b<c->tot_blocks;b++){
 		waveform_load_audio(w, b, n_tiers_needed, NULL, NULL);
 	}
 }
 
 
-void
-test_audiodata_slow()
-{
-	//queues the requests separately.
-
-	START_TEST;
-
-	Waveform* w = waveform_new(WAV);
-
-	static int tot_blocks; tot_blocks = waveform_get_n_audio_blocks(w);
-	static int n = 0;
+	static int tot_blocks;
 	static int n_tiers_needed = 4;
 	static guint ready_handler = 0;
 
-	void _on_peakdata_ready(Waveform* waveform, int block, gpointer data)
+	void _slow_on_peakdata_ready(Waveform* waveform, int block, gpointer _c)
 	{
-		printf("\n");
-		dbg(0, "block=%i", block);
+		WfTest* c = _c;
+		C1* c1 = _c;
+
+		if(wf_debug) printf("\n");
+		dbg(1, "block=%i", block);
 		reset_timeout(5000);
 
-		n++;
-		if(n < tot_blocks){
-			waveform_load_audio(waveform, n, n_tiers_needed, NULL, NULL);
+		c1->n++;
+		if(c1->n < tot_blocks){
+			waveform_load_audio(waveform, c1->n, n_tiers_needed, NULL, NULL);
 		}else{
 			g_signal_handler_disconnect((gpointer)waveform, ready_handler);
 			g_object_unref(waveform);
-			FINISH_TEST;
+			WF_TEST_FINISH;
 		}
 	}
-	ready_handler = g_signal_connect (w, "hires-ready", (GCallback)_on_peakdata_ready, NULL);
+
+void
+test_audiodata_slow()
+{
+	// queues the requests separately.
+
+	START_TEST;
+
+	C1* c = WF_NEW(C1,
+		.test = {
+			.test_idx = current_test,
+		}
+	);
+
+	Waveform* w = waveform_new(WAV);
+
+	tot_blocks = waveform_get_n_audio_blocks(w);
+
+	ready_handler = g_signal_connect (w, "hires-ready", (GCallback)_slow_on_peakdata_ready, NULL);
 
 	waveform_load_audio(w, 0, n_tiers_needed, NULL, NULL);
 }
 
 
-void
-test_audio_cache()
-{
-	//test that the cache is empty once Waveform's have been destroyed.
-
-	START_TEST;
-
-	Waveform* w = waveform_new(WAV);
-
-	static int tot_blocks; tot_blocks = MIN(20, waveform_get_n_audio_blocks(w)); //cannot do too many parallel requests as the cache will fill.
-	static int n = 0;
-	static int n_tiers_needed = 3;//4;
-	static guint ready_handler = 0;
-
-	void finalize_notify(gpointer data, GObject* was)
-	{
-		dbg(0, "...");
-	}
-	g_object_weak_ref((GObject*)w, finalize_notify, NULL);
-
-	void _on_peakdata_ready(Waveform* waveform, int block, gpointer data)
-	{
-		dbg(1, "block=%i", block);
-		reset_timeout(5000);
-
-		n++;
-		if(n >= tot_blocks){
-			g_signal_handler_disconnect((gpointer)waveform, ready_handler);
-			ready_handler = 0;
-			g_object_unref(waveform);
-
-			gboolean after_unref(gpointer data)
+			static bool after_unref(gpointer _c)
 			{
+				WfTest* c = _c;
 				WF* wf = wf_get_instance();
 
 				assert_and_stop(!wf->audio.mem_size, "cache memory not zero");
 
-				FINISH_TEST_TIMER_STOP;
+				WF_TEST_FINISH_TIMER_STOP;
 			}
+
+	static void _on_peakdata_ready_3(Waveform* waveform, int block, gpointer _c)
+	{
+		C1* c = _c;
+
+		dbg(1, "block=%i", block);
+		reset_timeout(5000);
+
+		c->n++;
+		if(c->n >= tot_blocks){
+			g_signal_handler_disconnect((gpointer)waveform, ready_handler);
+			ready_handler = 0;
+			g_object_unref(waveform);
+
 			// dont know why, but the idle fn runs too early.
 			//g_idle_add_full(G_PRIORITY_LOW, after_unref, NULL, NULL);
-			g_timeout_add(400, after_unref, NULL);
+			g_timeout_add(400, after_unref, c);
 		}
 	}
-	ready_handler = g_signal_connect (w, "hires-ready", (GCallback)_on_peakdata_ready, NULL);
+
+void
+test_audio_cache()
+{
+	// test that the cache is empty once Waveform's have been destroyed.
+
+	START_TEST;
+
+	C1* c = WF_NEW(C1,
+		.test = {
+			.test_idx = current_test,
+		}
+	);
+
+	char* filename = find_wav(WAV);
+	Waveform* w = waveform_new(filename);
+	g_free(filename);
+
+	static int tot_blocks; tot_blocks = MIN(20, waveform_get_n_audio_blocks(w)); //cannot do too many parallel requests as the cache will fill.
+	static int n_tiers_needed = 3;//4;
+	static guint ready_handler = 0;
+
+	g_object_weak_ref((GObject*)w, finalize_notify, NULL);
+
+	ready_handler = g_signal_connect (w, "hires-ready", (GCallback)_on_peakdata_ready_3, c);
 
 	int b; for(b=0;b<tot_blocks;b++){
 		waveform_load_audio(w, b, n_tiers_needed, NULL, NULL);
@@ -271,7 +307,9 @@ test_alphabuf()
 {
 	START_TEST;
 
-	Waveform* w = waveform_load_new(WAV);
+	char* filename = find_wav(WAV);
+	Waveform* w = waveform_load_new(filename);
+	g_free(filename);
 
 	int scale[] = {1, WF_PEAK_STD_TO_LO};
 	int b; for(b=0;b<2;b++){
@@ -421,4 +459,10 @@ test_worker()
 	g_timeout_add(30000, unref, w);
 }
 
+
+static void
+finalize_notify(gpointer data, GObject* was)
+{
+	dbg(1, "...");
+}
 

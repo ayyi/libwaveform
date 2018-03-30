@@ -2,7 +2,7 @@
 * +----------------------------------------------------------------------+
 * | This file is part of libwaveform                                     |
 * | https://github.com/ayyi/libwaveform                                  |
-* | copyright (C) 2012-2017 Tim Orford <tim@orford.org>                  |
+* | copyright (C) 2012-2018 Tim Orford <tim@orford.org>                  |
 * +----------------------------------------------------------------------+
 * | This program is free software; you can redistribute it and/or modify |
 * | it under the terms of the GNU General Public License version 3       |
@@ -15,6 +15,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <getopt.h>
 #include <X11/Xlib.h>
 #include <X11/keysym.h>
 # define GLX_GLXEXT_PROTOTYPES
@@ -28,6 +29,8 @@
 #include "waveform/actors/background.h"
 #include "waveform/actors/plain.h"
 #include "test/common.h"
+
+extern char* basename(const char*);
 
 #ifndef GLX_MESA_swap_control
 typedef GLint (*PFNGLXSWAPINTERVALMESAPROC)    (unsigned interval);
@@ -96,6 +99,23 @@ Key keys[] = {
 	*/
 };
 
+static const struct option long_options[] = {
+	{ "help",             0, NULL, 'h' },
+	{ "non-interactive",  0, NULL, 'n' },
+};
+
+static const char* const short_options = "nh";
+
+static const char* const usage =
+	"Usage: %s [OPTIONS]\n\n"
+	"\n"
+	"Options:\n"
+	"  --help\n"
+	"  -info                   Display GL information\n"
+	"  -swap N                 Swap no more than once per N vertical refreshes\n"
+	"  -forcegetrate           Try to use glXGetMscRateOML function\n"
+	"\n";
+
 
 int
 main(int argc, char *argv[])
@@ -125,15 +145,18 @@ main(int argc, char *argv[])
 			 */
 			force_get_rate = GL_TRUE;
 		}
-		else if (strcmp(argv[i], "-help") == 0) {
-			printf("Usage:\n");
-			printf("  glx [options]\n");
-			printf("Options:\n");
-			printf("  -help                   Print this information\n");
-			printf("  -info                   Display GL information\n");
-			printf("  -swap N                 Swap no more than once per N vertical refreshes\n");
-			printf("  -forcegetrate           Try to use glXGetMscRateOML function\n");
-			return 0;
+	}
+
+	int opt;
+	while((opt = getopt_long (argc, argv, short_options, long_options, NULL)) != -1) {
+		switch(opt) {
+			case 'h':
+				printf(usage, basename(argv[0]));
+				exit(EXIT_SUCCESS);
+				break;
+			case 'n':
+				g_timeout_add(3000, (gpointer)exit, NULL);
+				break;
 		}
 	}
 

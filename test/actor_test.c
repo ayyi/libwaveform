@@ -10,7 +10,7 @@
 
   ---------------------------------------------------------------
 
-  copyright (C) 2012-2017 Tim Orford <tim@orford.org>
+  copyright (C) 2012-2018 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -40,22 +40,27 @@
 #include "agl/utils.h"
 #include "waveform/waveform.h"
 #include "test/common.h"
-#include "test/ayyi_utils.h"
 
-#define WAV "test/data/mono_0:10.wav"
+static const struct option long_options[] = {
+	{ "non-interactive",  0, NULL, 'n' },
+};
+
+static const char* const short_options = "n";
+
+#define WAV "mono_0:10.wav"
 
 #define GL_WIDTH 256.0
 #define VBORDER 8
 
-GtkWidget*      canvas         = NULL;
-AGlScene*       scene          = NULL;
-WaveformContext* wfc[4]        = {NULL,};
-Waveform*       w1             = NULL;
-Waveform*       w2             = NULL;
-WaveformActor*  a[4]           = {NULL,};
-float           zoom           = 1.0;
-float           vzoom          = 1.0;
-gpointer        tests[]        = {};
+GtkWidget*       canvas    = NULL;
+AGlScene*        scene     = NULL;
+WaveformContext* wfc[4]    = {NULL,};
+Waveform*        w1        = NULL;
+Waveform*        w2        = NULL;
+WaveformActor*   a[4]      = {NULL,};
+float            zoom      = 1.0;
+float            vzoom     = 1.0;
+gpointer         tests[]   = {};
 
 KeyHandler
 	zoom_in,
@@ -88,6 +93,7 @@ Key keys[] = {
 static void on_canvas_realise  (GtkWidget*, gpointer);
 static void on_allocate        (GtkWidget*, GtkAllocation*, gpointer);
 static void start_zoom         (float target_zoom);
+static bool window_on_delete   (GtkWidget*, GdkEvent*, gpointer);
 uint64_t    get_time           ();
 
 
@@ -96,9 +102,19 @@ main (int argc, char *argv[])
 {
 	set_log_handlers();
 
-	wf_debug = 1;
+	wf_debug = 0;
 
 	gtk_init(&argc, &argv);
+
+	int opt;
+	while((opt = getopt_long (argc, argv, short_options, long_options, NULL)) != -1) {
+		switch(opt) {
+			case 'n':
+				g_timeout_add(3000, (gpointer)window_on_delete, NULL);
+				break;
+		}
+	}
+
 	GdkGLConfig* glconfig;
 	if(!(glconfig = gdk_gl_config_new_by_mode(GDK_GL_MODE_RGBA | GDK_GL_MODE_DEPTH | GDK_GL_MODE_DOUBLE))){
 		gerr ("Cannot initialise gtkglext."); return EXIT_FAILURE;
@@ -158,11 +174,6 @@ main (int argc, char *argv[])
 
 	add_key_handlers((GtkWindow*)window, NULL, (Key*)&keys);
 
-	bool window_on_delete(GtkWidget* widget, GdkEvent* event, gpointer user_data)
-	{
-		gtk_main_quit();
-		return false;
-	}
 	g_signal_connect(window, "delete-event", G_CALLBACK(window_on_delete), NULL);
 
 	gtk_main();
@@ -263,11 +274,7 @@ scroll_right(gpointer _)
 }
 
 
-void
-toggle_animate(gpointer _)
-{
-	PF0;
-	gboolean on_idle(gpointer _)
+	bool on_idle(gpointer _)
 	{
 		static uint64_t frame = 0;
 		static uint64_t t0    = 0;
@@ -284,11 +291,22 @@ toggle_animate(gpointer _)
 			}
 		}
 		frame++;
-		return IDLE_CONTINUE;
+		return G_SOURCE_CONTINUE;
 	}
-	//g_idle_add(on_idle, NULL);
-	//g_idle_add_full(G_PRIORITY_LOW, on_idle, NULL, NULL);
+
+void
+toggle_animate(gpointer _)
+{
+	PF0;
 	g_timeout_add(50, on_idle, NULL);
+}
+
+
+static bool
+window_on_delete(GtkWidget* widget, GdkEvent* event, gpointer user_data)
+{
+	gtk_main_quit();
+	return false;
 }
 
 

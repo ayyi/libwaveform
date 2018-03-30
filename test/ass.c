@@ -3,7 +3,7 @@
 
   ---------------------------------------------------------------
 
-  copyright (C) 2012-2017 Tim Orford <tim@orford.org>
+  Copyright (C) 2012-2018 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -35,7 +35,7 @@
 #include "agl/utils.h"
 #include "waveform/waveform.h"
 #define __wf_private__
-#include "test/ayyi_utils.h"
+#include "test/common2.h"
 
 extern AssShader ass;
 
@@ -85,7 +85,6 @@ typedef struct
     unsigned char* buf;      // 8 bit alphamap
 } image_t;
 
-static void set_log_handlers   ();
 static void setup_projection   (GtkWidget*);
 static void draw               (GtkWidget*);
 static bool on_expose          (GtkWidget*, GdkEventExpose*, gpointer);
@@ -97,9 +96,14 @@ static void render_text        ();
 static void blend_single       (image_t*, ASS_Image*);
 uint64_t    get_time           ();
 
-#warning TODO
 static ASS_Library* ass_library;
 static ASS_Renderer* ass_renderer;
+
+static const struct option long_options[] = {
+	{ "non-interactive",  0, NULL, 'n' },
+};
+
+static const char* const short_options = "n";
 
 
 void
@@ -141,7 +145,14 @@ main (int argc, char *argv[])
 
 	wf_debug = 0;
 
-	memset(&app, 0, sizeof(app));
+	int opt;
+	while((opt = getopt_long (argc, argv, short_options, long_options, NULL)) != -1) {
+		switch(opt) {
+			case 'n':
+				g_timeout_add(3000, (gpointer)exit, NULL);
+				break;
+		}
+	}
 
 	gtk_init(&argc, &argv);
 	if(!(glconfig = gdk_gl_config_new_by_mode(GDK_GL_MODE_RGBA | GDK_GL_MODE_DEPTH | GDK_GL_MODE_DOUBLE))){
@@ -495,36 +506,9 @@ toggle_animate()
 			}
 		}
 		frame++;
-		return IDLE_CONTINUE;
+		return G_SOURCE_CONTINUE;
 	}
 	g_timeout_add(50, on_idle, NULL);
-}
-
-
-void
-set_log_handlers()
-{
-	void log_handler(const gchar* log_domain, GLogLevelFlags log_level, const gchar* message, gpointer user_data)
-	{
-	  switch(log_level){
-		case G_LOG_LEVEL_CRITICAL:
-		  printf("%s %s\n", ayyi_err, message);
-		  break;
-		case G_LOG_LEVEL_WARNING:
-		  printf("%s %s\n", ayyi_warn, message);
-		  break;
-		default:
-		  printf("log_handler(): level=%i %s\n", log_level, message);
-		  break;
-	  }
-	}
-
-	g_log_set_handler (NULL, G_LOG_LEVEL_WARNING | G_LOG_LEVEL_CRITICAL | G_LOG_FLAG_FATAL | G_LOG_FLAG_RECURSION, log_handler, NULL);
-
-	char* domain[] = {NULL, "Waveform", "GLib-GObject", "GLib", "Gdk", "Gtk"};
-	int i; for(i=0;i<G_N_ELEMENTS(domain);i++){
-		g_log_set_handler (domain[i], G_LOG_LEVEL_MASK | G_LOG_FLAG_FATAL | G_LOG_FLAG_RECURSION, log_handler, NULL);
-	}
 }
 
 

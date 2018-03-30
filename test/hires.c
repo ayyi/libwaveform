@@ -12,7 +12,7 @@
 
   --------------------------------------------------------------
 
-  Copyright (C) 2012-2013 Tim Orford <tim@orford.org>
+  Copyright (C) 2012-2018 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -35,22 +35,25 @@
 #include <getopt.h>
 #include <time.h>
 #include <unistd.h>
-#include <signal.h>
 #include <sys/time.h>
 #include <sys/types.h>
-#include <sys/ipc.h>
-#include <sys/shm.h>
-#include <signal.h>
 #include <GL/gl.h>
 #include <gtk/gtk.h>
 #include <gdk/gdkkeysyms.h>
 #include "waveform/view.h"
-#include "test/ayyi_utils.h"
+#include "test/common.h"
 
-static void  set_log_handlers();
-static char* find_wav();
+static const struct option long_options[] = {
+	{ "non-interactive",  0, NULL, 'n' },
+};
 
-#define WAV "test/data/short.wav"
+static const char* const short_options = "n";
+
+static bool  window_on_delete (GtkWidget*, GdkEvent*, gpointer);
+
+#define WAV "short.wav"
+
+gpointer tests[] = {};
 
 
 int
@@ -60,7 +63,17 @@ main (int argc, char *argv[])
 
 	set_log_handlers();
 
-	wf_debug = 1;
+	wf_debug = 0;
+
+	int opt;
+	while((opt = getopt_long (argc, argv, short_options, long_options, NULL)) != -1) {
+		switch(opt) {
+			case 'n':
+				dbg(0, "non-interative");
+				g_timeout_add(3000, (gpointer)window_on_delete, NULL);
+				break;
+		}
+	}
 
 	gtk_init(&argc, &argv);
 	GtkWidget* window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
@@ -74,7 +87,7 @@ main (int argc, char *argv[])
 
 	gtk_widget_show_all(window);
 
-	char* filename = find_wav();
+	char* filename = find_wav(WAV);
 	waveform_view_load_file(waveform, filename);
 	g_free(filename);
 
@@ -120,10 +133,6 @@ main (int argc, char *argv[])
 
 	g_signal_connect(window, "key-press-event", G_CALLBACK(key_press), waveform);
 
-	gboolean window_on_delete(GtkWidget* widget, GdkEvent* event, gpointer user_data){
-		gtk_main_quit();
-		return false;
-	}
 	g_signal_connect(window, "delete-event", G_CALLBACK(window_on_delete), NULL);
 
 	gtk_main();
@@ -132,45 +141,9 @@ main (int argc, char *argv[])
 }
 
 
-void
-set_log_handlers()
+static bool
+window_on_delete (GtkWidget* widget, GdkEvent* event, gpointer user_data)
 {
-	void log_handler(const gchar* log_domain, GLogLevelFlags log_level, const gchar* message, gpointer user_data)
-	{
-	  switch(log_level){
-		case G_LOG_LEVEL_CRITICAL:
-		  printf("%s %s\n", ayyi_err, message);
-		  break;
-		case G_LOG_LEVEL_WARNING:
-		  printf("%s %s\n", ayyi_warn, message);
-		  break;
-		default:
-		  dbg(0, "level=%i %s", log_level, message);
-		  break;
-	  }
-	}
-
-	g_log_set_handler (NULL, G_LOG_LEVEL_WARNING | G_LOG_LEVEL_CRITICAL | G_LOG_FLAG_FATAL | G_LOG_FLAG_RECURSION, log_handler, NULL);
-	g_log_set_handler ("Gtk", G_LOG_LEVEL_CRITICAL | G_LOG_FLAG_FATAL | G_LOG_FLAG_RECURSION, log_handler, NULL);
-	g_log_set_handler ("Gdk", G_LOG_LEVEL_CRITICAL | G_LOG_FLAG_FATAL | G_LOG_FLAG_RECURSION, log_handler, NULL);
-
-	char* domain[] = {"Waveform", "GLib", "GLib-GObject"};
-	int i; for(i=0;i<G_N_ELEMENTS(domain);i++){
-		g_log_set_handler (domain[i], G_LOG_LEVEL_MASK | G_LOG_FLAG_FATAL | G_LOG_FLAG_RECURSION, log_handler, NULL);
-	}
+	gtk_main_quit();
+	return false;
 }
-
-
-static char*
-find_wav()
-{
-	char* filename = g_build_filename(g_get_current_dir(), WAV, NULL);
-	if(g_file_test(filename, G_FILE_TEST_EXISTS)){
-		return filename;
-	}
-	g_free(filename);
-	filename = g_build_filename(g_get_current_dir(), "../", WAV, NULL);
-	return filename;
-}
-
-

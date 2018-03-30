@@ -1,7 +1,7 @@
 /**
 * +----------------------------------------------------------------------+
 * | This file is part of libwaveform https://github.com/ayyi/libwaveform |
-* | copyright (C) 2013-2017 Tim Orford <tim@orford.org>                  |
+* | copyright (C) 2013-2018 Tim Orford <tim@orford.org>                  |
 * +----------------------------------------------------------------------+
 * | This program is free software; you can redistribute it and/or modify |
 * | it under the terms of the GNU General Public License version 3       |
@@ -33,7 +33,7 @@
 
 #include "transition/frameclockidle.h"
 
-#define WAV "test/data/mono_0:10.wav"
+#define WAV "mono_0:10.wav"
 
 #define FPS 60
 #define HBORDER (16.0)
@@ -63,8 +63,8 @@ struct
 
 gpointer tests[] = {};
 
-static void setup_projection   ();
-static void on_event           (SDL_Event*);
+static void setup_projection ();
+static void on_event         (SDL_Event*);
 
 KeyHandler
 	zoom_in,
@@ -83,6 +83,12 @@ Key keys[] = {
 	{0},
 };
 
+static const struct option long_options[] = {
+	{ "non-interactive",  0, NULL, 'n' },
+};
+
+static const char* const short_options = "n";
+
 
 		static void _on_scene_requests_redraw(AGlScene* wfc, gpointer _)
 		{
@@ -91,7 +97,16 @@ Key keys[] = {
 int
 main (int argc, char **argv)
 {
-	//wf_debug = 1;
+	wf_debug = 0;
+
+	int opt;
+	while((opt = getopt_long (argc, argv, short_options, long_options, NULL)) != -1) {
+		switch(opt) {
+			case 'n':
+				g_timeout_add(3000, (gpointer)exit, NULL);
+				break;
+		}
+	}
 
 	agl = agl_get_instance();
 

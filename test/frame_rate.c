@@ -17,7 +17,7 @@
 
   --------------------------------------------------------------
 
-  Copyright (C) 2012-2013 Tim Orford <tim@orford.org>
+  Copyright (C) 2012-2018 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -49,10 +49,18 @@
 #include <gtk/gtk.h>
 #include <gdk/gdkkeysyms.h>
 #include "waveform/view.h"
-#include "test/ayyi_utils.h"
 #include "test/common2.h"
 
-static uint64_t get_time         ();
+//#define WAV "mono_0:10.wav"
+#define WAV "stereo_0:10.wav"
+
+static uint64_t get_time ();
+
+static const struct option long_options[] = {
+	{ "non-interactive",  0, NULL, 'n' },
+};
+
+static const char* const short_options = "n";
 
 
 int
@@ -61,6 +69,15 @@ main (int argc, char* argv[])
 	if(sizeof(off_t) != 8){ gerr("sizeof(off_t)=%zu\n", sizeof(off_t)); return EXIT_FAILURE; }
 
 	set_log_handlers();
+
+	int opt;
+	while((opt = getopt_long (argc, argv, short_options, long_options, NULL)) != -1) {
+		switch(opt) {
+			case 'n':
+				g_timeout_add(3000, (gpointer)exit, NULL);
+				break;
+		}
+	}
 
 	gtk_init(&argc, &argv);
 	GtkWidget* window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
@@ -74,9 +91,7 @@ main (int argc, char* argv[])
 
 	gtk_widget_show_all(window);
 
-	//#define WAV "test/data/mono_0:10.wav"
-	#define WAV "test/data/stereo_1.wav"
-	char* filename = g_build_filename(g_get_current_dir(), WAV, NULL);
+	char* filename = find_wav(WAV);
 	waveform_view_load_file(waveform[0], filename);
 	g_free(filename);
 
@@ -150,7 +165,7 @@ main (int argc, char* argv[])
 			gtk_widget_queue_draw((GtkWidget*)waveform);
 		}
 		frame++;
-		return IDLE_CONTINUE;
+		return G_SOURCE_CONTINUE;
 	}
 	g_timeout_add(15, on_timeout, waveform[0]);
 

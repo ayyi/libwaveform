@@ -34,6 +34,7 @@ extern BloomShader vertical;
 AGlFBO*
 fbo_new_test()
 {
+#if 0
 	GLuint _wf_create_background()
 	{
 		//create an alpha-map gradient texture for use as background
@@ -65,6 +66,7 @@ fbo_new_test()
 
 		return bg_textures;
 	}
+#endif
 
 	GLuint _wf_create_background_rgba()
 	{

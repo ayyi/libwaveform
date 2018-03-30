@@ -9,12 +9,11 @@ SDLPROGRAMS = sdl
 endif
 
 if ENABLE_OPENGL
-noinst_PROGRAMS = waveform_test view_plus_test actor_test actor_plus actor_no_scene list group hires_test multi_scene $(ASSPROGRAMS) frame_rate resources write_wav write_short write_block large_files cache 32bit pixbuf glx scenegraph viewport $(SDLPROGRAMS)
+noinst_PROGRAMS = waveform_test view_plus_test actor_test actor_plus actor_no_scene list group hires multi_scene $(ASSPROGRAMS) frame_rate resources write_wav write_short write_block large_files cache 32bit pixbuf glx scenegraph viewport $(SDLPROGRAMS)
 ###noinst_PROGRAMS = waveform_test view_plus_test actor_test actor_plus $(ASSPROGRAMS)
 endif
 
 AM_CFLAGS = \
-	-O0 \
 	-D_FILE_OFFSET_BITS=64 \
 	-I$(top_srcdir) \
 	-I$(top_srcdir)/libs \
@@ -35,20 +34,14 @@ TEST_LDFLAGS = \
 
 COMMON_SOURCES = \
 	common.c common.h \
-	common2.c common2.h \
-	ayyi_utils.c ayyi_utils.h
+	common2.c common2.h
 
 COMMON2_SOURCES = \
-	common2.c common2.h \
-	ayyi_utils.c ayyi_utils.h
+	common2.c common2.h
 
 waveform_test_SOURCES = \
 	$(COMMON_SOURCES) \
 	waveform_test.c
-
-view_test_SOURCES = \
-	$(COMMON_SOURCES) \
-	view_test.c
 
 view_plus_test_SOURCES = \
 	$(COMMON_SOURCES) \
@@ -80,9 +73,9 @@ group_SOURCES = \
 
 ass_SOURCES = $(COMMON_SOURCES) ass.c
 
-hires_test_SOURCES = \
-	ayyi_utils.c ayyi_utils.h \
-	hires_test.c
+hires_SOURCES = \
+	$(COMMON_SOURCES) \
+	hires.c
 
 frame_rate_SOURCES = \
 	$(COMMON2_SOURCES) \
@@ -118,8 +111,8 @@ sdl_SOURCES = \
 	sdl.c
 endif
 
-glx_sources = \
-	$(COMMON_SOURCES) \
+glx_SOURCES = \
+	$(COMMON2_SOURCES) \
 	glx.c
 
 scenegraph_sources = \

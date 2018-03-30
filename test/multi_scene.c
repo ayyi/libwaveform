@@ -10,7 +10,7 @@
 
   ---------------------------------------------------------------
 
-  copyright (C) 2012-2017 Tim Orford <tim@orford.org>
+  Copyright (C) 2012-2018 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -40,23 +40,22 @@
 #include "agl/utils.h"
 #include "waveform/waveform.h"
 #include "test/common.h"
-#include "test/ayyi_utils.h"
 
 #define GL_WIDTH 256.0
 #define GL_HEIGHT 256.0
 #define VBORDER 8
 
-GdkGLConfig*    glconfig       = NULL;
-GtkWidget*      canvas         = NULL;
-AGlRootActor*   scene1         = NULL;
-AGlRootActor*   scene2         = NULL;
-WaveformContext* wfc            = NULL;
-Waveform*       w1             = NULL;
-Waveform*       w2             = NULL;
-WaveformActor*  a[]            = {NULL, NULL, NULL, NULL};
-float           zoom           = 1.0;
-float           vzoom          = 1.0;
-gpointer        tests[]        = {};
+GdkGLConfig*     glconfig  = NULL;
+GtkWidget*       canvas    = NULL;
+AGlRootActor*    scene1    = NULL;
+AGlRootActor*    scene2    = NULL;
+WaveformContext* wfc       = NULL;
+Waveform*        w1        = NULL;
+Waveform*        w2        = NULL;
+WaveformActor*   a[]       = {NULL, NULL, NULL, NULL};
+float            zoom      = 1.0;
+float            vzoom     = 1.0;
+gpointer         tests[]   = {};
 
 static void setup_projection   (GtkWidget*);
 static void on_canvas_realise  (GtkWidget*, gpointer);
@@ -93,13 +92,28 @@ Key keys[] = {
 	{0},
 };
 
+static const struct option long_options[] = {
+	{ "non-interactive",  0, NULL, 'n' },
+};
+
+static const char* const short_options = "n";
+
 
 int
 main (int argc, char *argv[])
 {
 	set_log_handlers();
 
-	wf_debug = 1;
+	wf_debug = 0;
+
+	int opt;
+	while((opt = getopt_long (argc, argv, short_options, long_options, NULL)) != -1) {
+		switch(opt) {
+			case 'n':
+				g_timeout_add(3000, (gpointer)exit, NULL);
+				break;
+		}
+	}
 
 	gtk_init(&argc, &argv);
 	if(!(glconfig = gdk_gl_config_new_by_mode(GDK_GL_MODE_RGBA | GDK_GL_MODE_DEPTH | GDK_GL_MODE_DOUBLE))){
@@ -121,7 +135,7 @@ main (int argc, char *argv[])
 	scene1 = (AGlRootActor*)agl_actor__new_root(canvas);
 	scene2 = (AGlRootActor*)agl_actor__new_root(canvas);
 
-	char* filename = g_build_filename(g_get_current_dir(), "test/data/mono_0:10.wav", NULL);
+	char* filename = find_wav("mono_0:10.wav");
 	w1 = waveform_load_new(filename);
 	g_free(filename);
 
@@ -331,11 +345,7 @@ scroll_right(gpointer _)
 }
 
 
-void
-toggle_animate(gpointer _)
-{
-	PF0;
-	gboolean on_idle(gpointer _)
+	bool on_idle(gpointer _)
 	{
 		static uint64_t frame = 0;
 		static uint64_t t0    = 0;
@@ -352,10 +362,13 @@ toggle_animate(gpointer _)
 			}
 		}
 		frame++;
-		return IDLE_CONTINUE;
+		return G_SOURCE_CONTINUE;
 	}
-	//g_idle_add(on_idle, NULL);
-	//g_idle_add_full(G_PRIORITY_LOW, on_idle, NULL, NULL);
+
+void
+toggle_animate(gpointer _)
+{
+	PF0;
 	g_timeout_add(50, on_idle, NULL);
 }
 
