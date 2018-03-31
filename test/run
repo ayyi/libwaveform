@@ -9,19 +9,20 @@ COLOR_NORMAL="\\033[0;39m"
 dir=`dirname $0`
 
 $dir/waveform_test     || echo -en ${COLOR_FAILURE}1 FAIL${COLOR_NORMAL}\\n
-$dir/32bit             || echo -en ${COLOR_FAILURE}2 FAIL${COLOR_NORMAL}\\n
-$dir/cache             || echo -en ${COLOR_FAILURE}3 FAIL${COLOR_NORMAL}\\n
-$dir/view_plus_test -n || echo -en ${COLOR_FAILURE}4 FAIL${COLOR_NORMAL}\\n
-$dir/actor_test -n     || echo -en ${COLOR_FAILURE}5 FAIL${COLOR_NORMAL}\\n
-$dir/actor_plus -n     || echo -en ${COLOR_FAILURE}6 FAIL${COLOR_NORMAL}\\n
-$dir/hires -n          || echo -en ${COLOR_FAILURE}7 FAIL${COLOR_NORMAL}\\n
-$dir/scenegraph -n     || echo -en ${COLOR_FAILURE}8 FAIL${COLOR_NORMAL}\\n
-$dir/vieport -n        || echo -en ${COLOR_FAILURE}9 FAIL${COLOR_NORMAL}\\n
-$dir/group -n          || echo -en ${COLOR_FAILURE}10 FAIL${COLOR_NORMAL}\\n
-$dir/actor_no_scene -n || echo -en ${COLOR_FAILURE}11 FAIL${COLOR_NORMAL}\\n
-$dir/multi_scene -n    || echo -en ${COLOR_FAILURE}12 FAIL${COLOR_NORMAL}\\n
-$dir/frame_rate -n     || echo -en ${COLOR_FAILURE}13 FAIL${COLOR_NORMAL}\\n
-$dir/glx -n            || echo -en ${COLOR_FAILURE}14 FAIL${COLOR_NORMAL}\\n
-$dir/list -n           || echo -en ${COLOR_FAILURE}15 FAIL${COLOR_NORMAL}\\n
-$dir/sdl -n            || echo -en ${COLOR_FAILURE}16 FAIL${COLOR_NORMAL}\\n
-$dir/ass -n            || echo -en ${COLOR_FAILURE}17 FAIL${COLOR_NORMAL}\\n
+$dir/promise           || echo -en ${COLOR_FAILURE}2 FAIL${COLOR_NORMAL}\\n
+$dir/32bit             || echo -en ${COLOR_FAILURE}3 FAIL${COLOR_NORMAL}\\n
+$dir/cache             || echo -en ${COLOR_FAILURE}4 FAIL${COLOR_NORMAL}\\n
+$dir/view_plus_test -n || echo -en ${COLOR_FAILURE}5 FAIL${COLOR_NORMAL}\\n
+$dir/actor_test -n     || echo -en ${COLOR_FAILURE}6 FAIL${COLOR_NORMAL}\\n
+$dir/actor_plus -n     || echo -en ${COLOR_FAILURE}7 FAIL${COLOR_NORMAL}\\n
+$dir/hires -n          || echo -en ${COLOR_FAILURE}8 FAIL${COLOR_NORMAL}\\n
+$dir/scenegraph -n     || echo -en ${COLOR_FAILURE}9 FAIL${COLOR_NORMAL}\\n
+$dir/viewport -n       || echo -en ${COLOR_FAILURE}10 FAIL${COLOR_NORMAL}\\n
+$dir/group -n          || echo -en ${COLOR_FAILURE}11 FAIL${COLOR_NORMAL}\\n
+$dir/actor_no_scene -n || echo -en ${COLOR_FAILURE}12 FAIL${COLOR_NORMAL}\\n
+$dir/multi_scene -n    || echo -en ${COLOR_FAILURE}13 FAIL${COLOR_NORMAL}\\n
+$dir/frame_rate -n     || echo -en ${COLOR_FAILURE}14 FAIL${COLOR_NORMAL}\\n
+$dir/glx -n            || echo -en ${COLOR_FAILURE}15 FAIL${COLOR_NORMAL}\\n
+$dir/list -n           || echo -en ${COLOR_FAILURE}16 FAIL${COLOR_NORMAL}\\n
+$dir/sdl -n            || echo -en ${COLOR_FAILURE}17 FAIL${COLOR_NORMAL}\\n
+$dir/ass -n            || echo -en ${COLOR_FAILURE}18 FAIL${COLOR_NORMAL}\\n

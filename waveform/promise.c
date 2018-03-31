@@ -1,5 +1,5 @@
 /*
-  copyright (C) 2012-2017 Tim Orford <tim@orford.org>
+  copyright (C) 2012-2018 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -30,10 +30,10 @@ typedef struct {
 AMPromise*
 am_promise_new(gpointer user_data)
 {
-	AMPromise* p = g_new0(AMPromise, 1);
-	p->user_data = user_data;
-	p->refcount = 1;
-	return p;
+	return WF_NEW(AMPromise,
+		.user_data = user_data,
+		.refcount = 1
+	);
 }
 
 
@@ -67,11 +67,10 @@ _am_promise_finish(AMPromise* p)
 void
 _add_callback(AMPromise* p, WfPromiseCallback callback, gpointer user_data)
 {
-	Item* item = g_new0(Item, 1);
-	*item = (Item){
+	Item* item = WF_NEW(Item,
 		.callback = callback,
 		.user_data = user_data
-	};
+	);
 	p->callbacks = g_list_append(p->callbacks, item);
 }
 
@@ -87,6 +86,7 @@ am_promise_add_callback(AMPromise* p, WfPromiseCallback callback, gpointer user_
 void
 am_promise_resolve(AMPromise* p, PromiseVal* value)
 {
+	if(value) p->value = *value;
 	p->is_resolved = true;
 	_am_promise_finish(p);
 }

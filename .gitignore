@@ -50,6 +50,7 @@ test/large_files
 test/list
 test/multi_scene
 test/pixbuf
+test/promise
 test/resources
 test/scenegraph
 test/sdl
