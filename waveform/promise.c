@@ -48,9 +48,11 @@ am_promise_unref(AMPromise* p)
 
 
 void
-_am_promise_finish(AMPromise* p)
+_am_promise_callback(AMPromise* p)
 {
 	if(p->callbacks){
+		p->refcount++; // allows promise to be unreffed in a user callback.
+
 		GList* l = p->callbacks;
 		for(;l;l=l->next){
 			Item* item = l->data;
@@ -60,6 +62,8 @@ _am_promise_finish(AMPromise* p)
 		// each callback is only ever called once
 		g_list_free_full(p->callbacks, g_free);
 		p->callbacks = NULL;
+
+		am_promise_unref(p);
 	}
 }
 
@@ -79,7 +83,7 @@ void
 am_promise_add_callback(AMPromise* p, WfPromiseCallback callback, gpointer user_data)
 {
 	_add_callback(p, callback, user_data);
-	if(p->is_resolved) _am_promise_finish(p);
+	if(p->is_resolved) _am_promise_callback(p);
 }
 
 
@@ -88,7 +92,7 @@ am_promise_resolve(AMPromise* p, PromiseVal* value)
 {
 	if(value) p->value = *value;
 	p->is_resolved = true;
-	_am_promise_finish(p);
+	_am_promise_callback(p);
 }
 
 
