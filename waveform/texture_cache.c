@@ -1,5 +1,5 @@
 /*
-  copyright (C) 2012-2017 Tim Orford <tim@orford.org>
+  copyright (C) 2012-2018 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -18,13 +18,10 @@
 #include "config.h"
 #include <stdio.h>
 #include <glib.h>
-#include <gtk/gtk.h>
 #include <stdlib.h>
 #include <string.h>
 #include <gdk-pixbuf/gdk-pixdata.h>
 #include <GL/gl.h>
-#include <gtkglext-1.0/gdk/gdkgl.h>
-#include <gtkglext-1.0/gtk/gtkgl.h>
 #include <GL/glx.h>
 #include <GL/glxext.h>
 #include "waveform/waveform.h"
@@ -76,6 +73,14 @@ texture_cache_init()
 	c2 = g_new0(TextureCache, 1);
 	c2->t = g_array_new(FALSE, TRUE, sizeof(Texture));
 	c2->t = g_array_set_size(c2->t, 0);
+}
+
+
+void
+texture_cache_set_on_steal(AGlOnSteal fn)
+{
+	c1->on_steal = fn;
+	c2->on_steal = fn;
 }
 
 
@@ -274,11 +279,16 @@ texture_cache_unassign(TextureCache* c, WaveformBlock wb)
 static guint
 texture_cache_get(TextureCache* c, int t)
 {
+	g_return_val_if_fail(t < c->t->len, -1);
+
 	Texture* tx = &g_array_index(c->t, Texture, t);
 	return tx ? tx->id : 0;
 }
 
 
+/*
+ *  Returns texture id or -1.
+ */
 int
 texture_cache_lookup(int tex_type, WaveformBlock wb)
 {
@@ -375,15 +385,8 @@ texture_cache_steal(TextureCache* c)
 
 		dbg(2, "%i time=%i", oldest, ((Texture*)&g_array_index(c->t, Texture, n))->time_stamp);
 		Texture* tex = (Texture*)&g_array_index(c->t, Texture, n);
-		WaveformBlock* wb = &tex->wb;
 
-		if(wb->block & WF_TEXTURE_CACHE_HIRES_NG_MASK){
-			extern void hi_gl2_on_steal(WaveformBlock*, guint);
-			hi_gl2_on_steal(wb, tex->id);
-		}else{
-			extern void med_lo_on_steal(WaveformBlock*, guint);
-			med_lo_on_steal(wb, tex->id);
-		}
+		if(c->on_steal) c->on_steal(tex);
 	}
 	return n;
 }

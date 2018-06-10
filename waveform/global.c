@@ -1,5 +1,5 @@
 /*
-  copyright (C) 2012-2016 Tim Orford <tim@orford.org>
+  copyright (C) 2012-2018 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -19,14 +19,9 @@
 #include "config.h"
 #include <unistd.h>
 #include <stdlib.h>
-#include <fcntl.h>
 #include <sys/types.h>
 #include <string.h>
-#include <sys/stat.h>
-#include <math.h>
 #include <stdint.h>
-#include <sys/time.h>
-#include <sndfile.h>
 #include <gtk/gtk.h>
 #include "waveform/waveform.h"
 #include "waveform/loaders/riff.h"
@@ -36,6 +31,23 @@ WF* wf = NULL;
 
 
 																												extern int n_loads[4096];
+#if defined (WF_USE_TEXTURE_CACHE) && defined (USE_OPENGL)
+static void
+on_steal (Texture* tex)
+{
+	WaveformBlock* wb = &tex->wb;
+
+	if(wb->block & WF_TEXTURE_CACHE_HIRES_NG_MASK){
+		extern void hi_gl2_on_steal(WaveformBlock*, guint);
+		hi_gl2_on_steal(wb, tex->id);
+	}else{
+		extern void med_lo_on_steal(WaveformBlock*, guint);
+		med_lo_on_steal(wb, tex->id);
+	}
+}
+#endif
+
+
 WF*
 wf_get_instance()
 {
@@ -49,6 +61,7 @@ wf_get_instance()
 
 #if defined (WF_USE_TEXTURE_CACHE) && defined (USE_OPENGL)
 		texture_cache_init();
+		texture_cache_set_on_steal(on_steal);
 #endif
 	}
 	return wf;
