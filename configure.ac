@@ -112,6 +112,17 @@ else
   HAVE_GLIB_2_36="no"
 fi;
 
+dnl GTK can be disabled if required
+
+AC_ARG_ENABLE(gtk, AC_HELP_STRING([--disable-gtk], [disable use of GTK]), enable_gtk=$enableval, enable_gtk="yes")
+
+if test "$enable_gtk" = "yes"; then
+	AC_DEFINE(USE_GTK, 1, [Use GTK])
+else
+	X11_LDFLAGS=`pkg-config --libs-only-l x11`
+fi
+AM_CONDITIONAL(ENABLE_GTK, test "$enable_gtk" = "yes")
+
 dnl -opengl----------------------------------------------
 
 AC_ARG_ENABLE(
@@ -132,16 +143,25 @@ AC_ARG_ENABLE(
 		esac
 	],
 	[
-		if `pkg-config gtkglext-1.0`; then 
-			enable_opengl="yes"
+		if test "$enable_gtk" = "yes"; then
+			if `pkg-config gtkglext-1.0`; then
+				enable_opengl="yes"
+			else
+				enable_opengl="no"
+			fi
 		else
-			enable_opengl="no"
+			enable_opengl="yes"
 		fi
 	]
 )
 if test "x$enable_opengl" = "xyes" ; then
-	OPENGL_CFLAGS=`pkg-config --cflags-only-I gtkglext-1.0`
-	OPENGL_LDFLAGS=`pkg-config --libs-only-l gtkglext-1.0`
+	if test "$enable_gtk" = "yes"; then
+		OPENGL_CFLAGS=`pkg-config --cflags-only-I gtkglext-1.0`
+		OPENGL_LDFLAGS=`pkg-config --libs-only-l gtkglext-1.0`
+	else
+		OPENGL_CFLAGS=`pkg-config --cflags-only-I gl`
+		OPENGL_LDFLAGS=`pkg-config --libs-only-l gl`
+	fi
 	AC_DEFINE(USE_OPENGL, 1, [Opengl features are enabled])
 	AC_DEFINE(USE_FBO, 1, [enable support for opengl framebuffer objects for offscreen rendering])
 	AC_DEFINE(USE_FX, 1, [enable a single additional pre-zoom shader fx pass])
@@ -255,10 +275,11 @@ AC_OUTPUT
 AC_MSG_RESULT([])
 AC_MSG_RESULT([Libwaveform:])
 AC_MSG_RESULT([Building opengl:          $enable_opengl])
+AC_MSG_RESULT([Building gtk:             $enable_gtk])
 AC_MSG_RESULT([Building sdl:             $enable_sdl])
 AC_MSG_RESULT([Building libass:          $enable_libass])
 AC_MSG_RESULT([Building ffmpeg:          $enable_ffmpeg])
 AC_MSG_RESULT([Building tests:           $enable_test])
-AC_MSG_RESULT([Building lv2:             $enable_lv2 (TODO)])
+dnl AC_MSG_RESULT([Building lv2:             $enable_lv2 (TODO)])
 AC_MSG_RESULT([])
 

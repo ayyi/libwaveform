@@ -1,5 +1,5 @@
 /*
-  copyright (C) 2012-2017 Tim Orford <tim@orford.org>
+  copyright (C) 2012-2018 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -20,7 +20,11 @@
 #ifndef __GTK_H__
 #ifdef USE_GDK_PIXBUF
 #include "limits.h"
+#ifdef USE_GTK
 #include <gtk/gtk.h>
+#else
+#include <gdk/gdk.h>
+#endif
 #else
 #define GdkColor void
 #endif
@@ -200,7 +204,7 @@ typedef struct _buf_stereo
 	guint           size;                 // number of floats, NOT bytes
 } WfBuf;
 
-typedef struct _waveform_block
+typedef struct
 {
 	Waveform*   waveform;
 	int         block;

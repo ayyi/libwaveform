@@ -1,7 +1,7 @@
 /**
 * +----------------------------------------------------------------------+
 * | This file is part of the Ayyi project. http://www.ayyi.org           |
-* | copyright (C) 2013-2017 Tim Orford <tim@orford.org>                  |
+* | copyright (C) 2013-2018 Tim Orford <tim@orford.org>                  |
 * +----------------------------------------------------------------------+
 * | This program is free software; you can redistribute it and/or modify |
 * | it under the terms of the GNU General Public License version 3       |
@@ -13,15 +13,23 @@
 #ifndef __agl_actor_h__
 #define __agl_actor_h__
 #include <X11/Xlib.h>
+#ifdef USE_GTK
 #include <gtkglext-1.0/gdk/gdkgl.h>
 #include <gtkglext-1.0/gtk/gtkgl.h>
+#endif
 #ifdef USE_SDL
 #  include "SDL2/SDL.h"
 #endif
+#include <GL/glx.h>
 #include "transition/transition.h"
 #include "agl/typedefs.h"
 #include "agl/utils.h"
+#ifdef USE_GTK
 #include "gtk/gtk.h"
+#else
+#include "gdk/gdk.h"
+typedef void GtkWidget;
+#endif
 
 #undef AGL_DEBUG_ACTOR
 #define AGL_ACTOR_RENDER_CACHE
@@ -62,7 +70,7 @@ struct _AGlActor {
 	AGlActorFn       free;
 
 	AGliRegion       region;          // position and size. {int x1, y1, x2, y2}
-	AGliRegion       scrollable;      // larger area within which the actor region is visible {int x1, y1, x2, y2}. optional except for root actor where it is mandatory.
+	AGliRegion       scrollable;      // larger area within which the actor region is visible {int x1, y1, x2, y2}. See test/viewport.c
 	AGlShader*       program;
 	uint32_t         colour;          // rgba
 	int              z;               // controls the order objects with the same parent are drawn.
@@ -121,17 +129,22 @@ struct _AGlRootActor {
    gpointer          user_data;
 
    union {
+#ifdef USE_GTK
 		struct {
 			GtkWidget*     widget;
 			GdkGLContext*  context;
 			GdkGLDrawable* drawable;
 		}          gdk;
+#endif
 #ifdef USE_SDL
 		struct {
 			SDL_GLContext context;
 		}          sdl;
 #endif
 		struct {
+			Window     window;
+			GLXContext context;
+			bool       needs_draw;
 		}            glx;
    }                 gl;
    ContextType       type;

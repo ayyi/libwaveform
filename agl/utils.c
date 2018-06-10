@@ -112,6 +112,7 @@ agl_get_instance()
  *   OpenGL display lists between multiple drawables with
  *   dynamic lifetimes.
  */
+#ifdef USE_GTK
 GdkGLContext*
 agl_get_gl_context()
 {
@@ -126,6 +127,7 @@ agl_get_gl_context()
 
 	return share_list;
 }
+#endif
 
 
 void

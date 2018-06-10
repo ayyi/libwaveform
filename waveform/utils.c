@@ -1,5 +1,5 @@
 /*
-  copyright (C) 2013-2015 Tim Orford <tim@orford.org>
+  copyright (C) 2013-2018 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -108,6 +108,7 @@ wf_int2db(short x)
 
 
 //perhaps make all gtk stuff private to the widgets
+#ifdef USE_GTK
 uint32_t
 wf_get_gtk_fg_color(GtkWidget* widget, GtkStateType state)
 {
@@ -137,6 +138,7 @@ wf_get_gtk_base_color(GtkWidget* widget, GtkStateType state, char alpha)
 
 	return (wf_color_gdk_to_rgba(&c) & 0xffffff00) | alpha;
 }
+#endif
 
 
 void

@@ -26,7 +26,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
+#ifdef USE_GTK
 #include <gtk/gtk.h>
+#endif
 #include <GL/gl.h>
 #include <pango/pangofc-font.h>
 #include <pango/pangofc-fontmap.h>
@@ -47,19 +49,29 @@ static AGl* agl = NULL;
 #  define is_sdl(WFC) false
 #endif
 
+#ifdef USE_GTK
 #define WAVEFORM_START_DRAW(wfc) \
 	if(wfc->_draw_depth) gwarn("START_DRAW: already drawing"); \
 	wfc->_draw_depth++; \
 	if (actor_not_is_gtk(wfc->root) || \
 		(wfc->_draw_depth > 1) || gdk_gl_drawable_gl_begin (wfc->root->gl.gdk.drawable, wfc->root->gl.gdk.context) \
 		) {
+#else
+#define WAVEFORM_START_DRAW(wfc) \
+	;
+#endif
 
+#ifdef USE_GTK
 #define WAVEFORM_END_DRAW(wa) \
 	wa->_draw_depth--; \
 	if(wa->root->type == CONTEXT_TYPE_GTK){ \
 		if(!wa->_draw_depth) gdk_gl_drawable_gl_end(wa->root->gl.gdk.drawable); \
 	} \
 	} else gwarn("!! gl_begin fail")
+#else
+#define WAVEFORM_END_DRAW(wa) \
+	;
+#endif
 
 #define WAVEFORM_IS_DRAWING(wa) \
 	(wa->_draw_depth > 0)
@@ -129,9 +141,11 @@ wf_context_instance_init(WaveformContext* self)
 		{
 			WaveformContext* wfc = _wfc;
 
+#ifdef USE_GTK
 			if((wfc->root->type == CONTEXT_TYPE_GTK) && !wfc->root->gl.gdk.drawable){
 				return G_SOURCE_CONTINUE;
 			}
+#endif
 
 			wf_context_init_gl(wfc);
 

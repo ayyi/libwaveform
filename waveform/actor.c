@@ -56,7 +56,9 @@
 #include <string.h>
 #include <math.h>
 #include <sys/time.h>
+#ifdef USE_GTK
 #include <gtk/gtk.h>
+#endif
 #include <GL/gl.h>
 #include "agl/ext.h"
 #include "transition/transition.h"

@@ -1,7 +1,7 @@
 /**
 * +----------------------------------------------------------------------+
 * | This file is part of the Ayyi project. http://www.ayyi.org           |
-* | copyright (C) 2013-2017 Tim Orford <tim@orford.org>                  |
+* | copyright (C) 2013-2018 Tim Orford <tim@orford.org>                  |
 * +----------------------------------------------------------------------+
 * | This program is free software; you can redistribute it and/or modify |
 * | it under the terms of the GNU General Public License version 3       |
@@ -12,8 +12,10 @@
 #ifndef __agl_utils_h__
 #define __agl_utils_h__
 #include <GL/gl.h>
+#ifdef USE_GTK
 #include <gtkglext-1.0/gdk/gdkgl.h>
 #include <gtkglext-1.0/gtk/gtkgl.h>
+#endif
 #include <pango/pango.h>
 #include "agl/typedefs.h"
 #include "agl/material.h"
@@ -53,7 +55,9 @@ struct _texture_unit
 };
 
 AGl*            agl_get_instance             ();
+#ifdef USE_GTK
 GdkGLContext*   agl_get_gl_context           ();
+#endif
 void      agl_enable              (gulong flags);
 void      agl_gl_init             ();
 GLboolean agl_shaders_supported   ();

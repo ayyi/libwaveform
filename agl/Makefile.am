@@ -6,6 +6,7 @@ INCLUDES = \
 	-I$(includedir) \
 	-I$(top_srcdir)/waveform \
 	$(OPENGL_CFLAGS) \
+	$(SDL_CFLAGS) \
 	$(GTK_CFLAGS)
 
 lib_LTLIBRARIES = libagl.la

@@ -15,7 +15,11 @@
 #include <stdlib.h>
 #include <string.h>
 #include <GL/gl.h>
+#ifdef USE_GTK
 #include <gtk/gtk.h>
+#else
+#include <gdk/gdk.h>
+#endif
 #include "agl/utils.h"
 #include "agl/ext.h"
 #include "waveform/utils.h"
@@ -65,6 +69,7 @@ agl_actor__new()
 }
 
 
+#ifdef USE_GTK
 static void
 agl_actor__have_drawable(AGlRootActor* a, GdkGLDrawable* drawable)
 {
@@ -106,8 +111,10 @@ agl_actor__have_drawable(AGlRootActor* a, GdkGLDrawable* drawable)
 
 	first_time = false;
 }
+#endif
 
 
+#ifdef USE_GTK
 static bool
 agl_actor__try_drawable(gpointer _actor)
 {
@@ -120,7 +127,10 @@ agl_actor__try_drawable(gpointer _actor)
 	}
 	return G_SOURCE_REMOVE;
 }
+#endif
 
+
+#ifdef USE_GTK
 static void
 agl_actor__on_unrealise(GtkWidget* widget, gpointer _actor)
 {
@@ -129,8 +139,10 @@ agl_actor__on_unrealise(GtkWidget* widget, gpointer _actor)
 	a->gl.gdk.drawable = NULL;
 	a->gl.gdk.context  = NULL;
 }
+#endif
 
 
+#ifdef USE_GTK
 static void
 agl_actor__on_realise(GtkWidget* widget, gpointer _actor)
 {
@@ -141,8 +153,10 @@ agl_actor__on_realise(GtkWidget* widget, gpointer _actor)
 		g_idle_add(agl_actor__try_drawable, a);
 	}
 }
+#endif
 
 
+#ifdef USE_GTK
 AGlActor*
 agl_actor__new_root(GtkWidget* widget)
 {
@@ -157,6 +171,7 @@ agl_actor__new_root(GtkWidget* widget)
 
 	return (AGlActor*)a;
 }
+#endif
 
 
 AGlActor*
@@ -238,7 +253,11 @@ agl_actor__add_child(AGlActor* actor, AGlActor* child)
 		}
 		set_child_roots(child);
 
+#ifdef USE_GTK
 		#define READY_FOR_INIT(A) (SCENE_IS_GTK(A) ? GTK_WIDGET_REALIZED(A->root->gl.gdk.widget) : true)
+#else
+		#define READY_FOR_INIT(A) true
+#endif
 		if(READY_FOR_INIT(child)) agl_actor__init(child);
 	}
 
@@ -386,11 +405,16 @@ render_from_fbo(AGlActor* a)
 		(-top + h2) / tsize.y
 	});
 
-#undef FBO_MARKER // show red dot in top left corner of fbos for debugging
+#undef FBO_MARKER // show red dots in corner of fbos for debugging
 #ifdef FBO_MARKER
 	agl->shaders.plain->uniform.colour = 0xff0000ff;
 	agl_use_program((AGlShader*)agl->shaders.plain);
-	glRectf(2, 2, 8, 8);
+	#define INSET 2
+	glRectf (INSET,         INSET,         INSET + 6, INSET + 6);
+	glRectf (w - INSET - 6, INSET,         w - INSET, INSET + 6);
+	glRectf (INSET,         h - INSET - 6, 8,         h - INSET);
+	glRectf (w - INSET - 6, h - INSET - 6, w - INSET, h - INSET);
+	#undef INSET
 #endif
 
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -407,10 +431,23 @@ agl_actor__paint(AGlActor* a)
 
 	if(!agl_actor__is_onscreen(a) || ((agl_actor__width(a) < 1 || agl_actor__height(a) < 1) && a->paint != agl_actor__null_painter)) return;
 
+#ifdef AGL_ACTOR_RENDER_CACHE
+	bool use_fbo = a->fbo && a->cache.enabled && !(agl_actor__width(a) > AGL_MAX_FBO_WIDTH);
+#endif
+
 	AGliPt offset = {
-		.x = a->region.x1 + a->scrollable.x1,
-		.y = a->region.y1 + a->scrollable.y1,
+		.x = a->region.x1,
+		.y = a->region.y1,
 	};
+
+#ifdef AGL_ACTOR_RENDER_CACHE
+	if(!use_fbo){
+#else
+	if(true){
+#endif
+		offset.x += a->scrollable.x1;
+		offset.y += a->scrollable.y1;
+	}
 	if(offset.x || offset.y){
 		glMatrixMode(GL_MODELVIEW);
 		glPushMatrix();
@@ -423,7 +460,7 @@ agl_actor__paint(AGlActor* a)
 #ifdef AGL_ACTOR_RENDER_CACHE
 	// TODO check case where actor is translated and is partially offscreen.
 	// TODO actor may be huge. do we need to crop to scrollable ?
-	if(a->fbo && a->cache.enabled && !(agl_actor__width(a) > AGL_MAX_FBO_WIDTH)){
+	if(use_fbo){
 		if(!a->cache.valid){
 			agl_draw_to_fbo(a->fbo) {
 				glClearColor(0.0, 0.0, 0.0, 0.0); // background colour must be same as foreground for correct antialiasing
@@ -560,11 +597,16 @@ agl_actor__set_use_shaders (AGlRootActor* actor, gboolean val)
 {
 	AGl* agl = agl_get_instance();
 
+#ifdef USE_GTK
 	bool changed = (val != agl->use_shaders);
+#endif
 	agl->pref_use_shaders = val;
+#ifdef USE_GTK
 	if(((AGlRootActor*)actor)->gl.gdk.drawable && !val) agl_use_program(NULL); // must do before set use_shaders
+#endif
 	if(!val) agl->use_shaders = false;
 
+#ifdef USE_GTK
 	if(((AGlRootActor*)actor)->gl.gdk.drawable){
 		agl->use_shaders = val;
 
@@ -572,6 +614,7 @@ agl_actor__set_use_shaders (AGlRootActor* actor, gboolean val)
 			agl_actor__init((AGlActor*)actor);
 		}
 	}
+#endif
 }
 
 
@@ -624,10 +667,13 @@ bool
 agl_actor__on_event(AGlScene* root, GdkEvent* event)
 {
 	AGlActor* actor = (AGlActor*)root;
+#ifdef USE_GTK
 	GtkWidget* widget = actor->root->gl.gdk.widget;
+#endif
 
 	switch(event->type){
 		case GDK_KEY_PRESS:
+		case GDK_KEY_RELEASE:
 			AGL_DEBUG printf("%s: keypress: key=%i\n", __func__, ((GdkEventKey*)event)->keyval);
 			AGlActor* selected = root->selected;
 			if(selected && selected->on_event){
@@ -690,9 +736,11 @@ agl_actor__on_event(AGlScene* root, GdkEvent* event)
 
 		if(event->type == GDK_BUTTON_RELEASE){
 			actor_context.grabbed = NULL;
+#ifdef USE_GTK
 			if(SCENE_IS_GTK(actor)){
 				gdk_window_set_cursor(widget->window, NULL);
 			}
+#endif
 		}
 
 		return handled;
@@ -721,7 +769,9 @@ agl_actor__on_event(AGlScene* root, GdkEvent* event)
 
 			break;
 		case GDK_BUTTON_PRESS:
+#ifdef USE_GTK
 			if(SCENE_IS_GTK(actor)) gtk_window_set_focus((GtkWindow*)gtk_widget_get_toplevel(root->gl.gdk.widget), root->gl.gdk.widget);
+#endif
 		case GDK_BUTTON_RELEASE:
 			if(root->selected != a){
 				if(root->selected) agl_actor__invalidate(root->selected);
@@ -757,10 +807,12 @@ agl_actor__on_event(AGlScene* root, GdkEvent* event)
 		if(event->type == GDK_MOTION_NOTIFY){
 			if(hovered){
 				root->hovered = NULL;
+#ifdef USE_GTK
 				if(widget){
 					gdk_window_set_cursor(widget->window, NULL);
 					gtk_widget_queue_draw(widget); // TODO not always needed
 				}
+#endif
 			}
 		}
 	}
@@ -816,9 +868,11 @@ agl_actor__xevent(AGlRootActor* scene, XEvent* xevent)
 			}
 			break;
 		case KeyPress:
+		case KeyRelease:
 			{
 				GdkEventKey event = {
-					.type = GDK_KEY_PRESS,
+					.type = xevent->type == KeyPress ? GDK_KEY_PRESS : GDK_KEY_RELEASE,
+					.state = ((XKeyEvent*)xevent)->state
 				};
 				int code = XLookupKeysym(&xevent->xkey, 0);
 				event.keyval = code;
@@ -834,6 +888,7 @@ agl_actor__xevent(AGlRootActor* scene, XEvent* xevent)
  *  Utility function for use as a gtk "expose-event" handler.
  *  Application must pass the root actor as user_data when connecting the signal.
  */
+#ifdef USE_GTK
 bool
 agl_actor__on_expose(GtkWidget* widget, GdkEventExpose* event, gpointer user_data)
 {
@@ -880,6 +935,7 @@ agl_actor__on_expose(GtkWidget* widget, GdkEventExpose* event, gpointer user_dat
 
 	return true;
 }
+#endif
 
 
 AGlActor*
@@ -950,7 +1006,11 @@ agl_actor__invalidate(AGlActor* actor)
 	}
 	_agl_actor__invalidate(actor);
 	if(actor->root){
+#ifdef USE_GTK
 		if(actor->root->type == CONTEXT_TYPE_GTK) gtk_widget_queue_draw(actor->root->gl.gdk.widget);
+#else
+		if(false);
+#endif
 		else call(actor->root->draw, actor->root, actor->root->user_data);
 	}
 }
@@ -1165,6 +1225,11 @@ agl_actor__print_tree (AGlActor* actor)
 		char* zero_size = agl_actor__width(actor) ? "" : " ZEROSIZE";
 		char* negative_size = (agl_actor__width(actor) < 1 || agl_actor__height(actor) < 1) ? " NEGATIVESIZE" : "";
 		char* disabled = agl_actor__is_disabled(actor) ?  " DISABLED" :  "";
+
+		char scrollable[32] = {0};
+		if(actor->scrollable.y1 || actor->scrollable.y2)
+			sprintf(scrollable, " scrollable(%i,%i)", actor->scrollable.y1, actor->scrollable.y2);
+
 #ifdef AGL_ACTOR_RENDER_CACHE
 		char* colour = !agl_actor__width(actor) || !is_onscreen
 			? dgrey
@@ -1172,7 +1237,7 @@ agl_actor__print_tree (AGlActor* actor)
 				? lgrey
 				: "";
 		AGliPt offset = _agl_actor__find_offset(actor);
-		if(actor->name) printf("%s%s:%s%s%s%s cache(%i,%i) region(%i,%i,%i,%i) viewport(%i,%i,%i,%i) offset(%i,%i)%s\n", colour, actor->name, offscreen, zero_size, negative_size, disabled, actor->cache.enabled, actor->cache.valid, actor->region.x1, actor->region.y1, actor->region.x2, actor->region.y2, actor->scrollable.x1, actor->scrollable.y1, actor->scrollable.x2, actor->scrollable.y2, offset.x, offset.y, white);
+		if(actor->name) printf("%s%s:%s%s%s%s cache(%i,%i) region(%i,%i,%i,%i) viewport(%i,%i,%i,%i) offset(%i,%i)%s%s\n", colour, actor->name, offscreen, zero_size, negative_size, disabled, actor->cache.enabled, actor->cache.valid, actor->region.x1, actor->region.y1, actor->region.x2, actor->region.y2, actor->scrollable.x1, actor->scrollable.y1, actor->scrollable.x2, actor->scrollable.y2, offset.x, offset.y, scrollable, white);
 #else
 		if(actor->name) printf("%s\n", actor->name);
 #endif

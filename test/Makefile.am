@@ -7,9 +7,12 @@ endif
 if ENABLE_SDL
 SDLPROGRAMS = sdl
 endif
+if ENABLE_GTK
+GTKPROGRAMS = view_plus_test actor_test actor_plus actor_no_scene list group hires multi_scene $(ASSPROGRAMS) frame_rate resources cache viewport pixbuf
+endif
 
 if ENABLE_OPENGL
-noinst_PROGRAMS = waveform_test view_plus_test actor_test actor_plus actor_no_scene list group hires multi_scene $(ASSPROGRAMS) frame_rate resources write_wav write_short write_block large_files cache promise 32bit pixbuf glx scenegraph viewport $(SDLPROGRAMS)
+noinst_PROGRAMS = waveform_test $(GTKPROGRAMS) write_wav write_short write_block large_files promise 32bit glx scenegraph $(SDLPROGRAMS)
 ###noinst_PROGRAMS = waveform_test view_plus_test actor_test actor_plus $(ASSPROGRAMS)
 endif
 
@@ -19,6 +22,7 @@ AM_CFLAGS = \
 	-I$(top_srcdir)/libs \
 	$(OPENGL_CFLAGS) \
 	$(GTK_CFLAGS) \
+	$(SDL_CFLAGS) \
 	$(LIBASS_CFLAGS)
 
 TEST_LDFLAGS = \
@@ -28,6 +32,7 @@ TEST_LDFLAGS = \
 	$(top_srcdir)/decoder/.libs/libwaveformdecoder.a \
 	-lm \
 	$(GTK_LDFLAGS) \
+	$(X11_LDFLAGS) \
 	$(SNDFILE_LIBS) \
 	$(FFMPEG_LDFLAGS) \
 	$(OPENGL_LDFLAGS)

@@ -41,6 +41,8 @@ extern int wf_debug;
 #ifndef bool
 #define bool gboolean
 #endif
+#endif
+#ifndef PF
 #define PF {if(wf_debug) printf("%s()...\n", __func__);}
 #define PF0 {printf("%s()...\n", __func__);}
 #define PF2 {if(wf_debug > 1) printf("%s()...\n", __func__);}

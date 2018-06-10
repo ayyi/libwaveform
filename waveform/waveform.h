@@ -28,7 +28,11 @@ extern "C" {
 #include "stdint.h"
 #include "waveform/typedefs.h"
 #ifdef USE_GDK_PIXBUF
+#ifdef USE_GTK
 #include <gtk/gtk.h>
+#else
+#include <gdk/gdk.h>
+#endif
 #endif
 #include "waveform/utils.h"
 #include "waveform/promise.h"

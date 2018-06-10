@@ -1,5 +1,5 @@
 /*
-  copyright (C) 2012-2017 Tim Orford <tim@orford.org>
+  copyright (C) 2012-2018 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -16,7 +16,9 @@
 */
 #ifndef __waveform_actor_h__
 #define __waveform_actor_h__
+#ifdef USE_GTK
 #include <gtk/gtkgl.h>
+#endif
 #include "transition/transition.h"
 #include "agl/actor.h"
 #include "waveform/waveform.h"

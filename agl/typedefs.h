@@ -1,7 +1,7 @@
 /**
 * +----------------------------------------------------------------------+
 * | This file is part of the Ayyi project. http://www.ayyi.org           |
-* | copyright (C) 2013-2017 Tim Orford <tim@orford.org>                  |
+* | copyright (C) 2013-2018 Tim Orford <tim@orford.org>                  |
 * +----------------------------------------------------------------------+
 * | This program is free software; you can redistribute it and/or modify |
 * | it under the terms of the GNU General Public License version 3       |
@@ -30,6 +30,11 @@ typedef struct {float x, y, w, h;}     AGlRect;
 typedef struct {float x0, y0, x1, y1;} AGlQuad;
 typedef struct {float r, g, b;}        AGlColourFloat;
 
+typedef enum
+{
+  AGL_ORIENTATION_HORIZONTAL,
+  AGL_ORIENTATION_VERTICAL
+} AGlOrientation;
 
 #ifndef bool
 #  define bool int

@@ -2,7 +2,7 @@
 * +----------------------------------------------------------------------+
 * | This file is part of libwaveform                                     |
 * | https://github.com/ayyi/libwaveform                                  |
-* | copyright (C) 2012-2017 Tim Orford <tim@orford.org>                  |
+* | copyright (C) 2012-2018 Tim Orford <tim@orford.org>                  |
 * +----------------------------------------------------------------------+
 * | This program is free software; you can redistribute it and/or modify |
 * | it under the terms of the GNU General Public License version 3       |
@@ -20,7 +20,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
-#include <gtk/gtk.h>
 #include <gdk/gdkkeysyms.h>
 #include <GL/gl.h>
 #include "agl/actor.h"
@@ -30,6 +29,7 @@
 static AGl* agl = NULL;
 
 
+#ifdef USE_GTK
 		static bool on_middle_click(GtkWidget* widget, GdkEventButton* event, gpointer _spp)
 		{
 			SppActor* spp = (SppActor*)_spp;
@@ -47,11 +47,17 @@ static AGl* agl = NULL;
 			}
 			return false;
 		}
+#endif
+
 	static void spp_actor__init(AGlActor* actor)
 	{
+#ifdef USE_GTK
 		if(!((SppActor*)actor)->text_colour) ((SppActor*)actor)->text_colour = wf_get_gtk_base_color(actor->root->gl.gdk.widget, GTK_STATE_NORMAL, 0xaa);
+#endif
 
+#ifdef USE_GTK
 		g_signal_connect((gpointer)actor->root->gl.gdk.widget, "button-release-event", G_CALLBACK(on_middle_click), actor);
+#endif
 	}
 
 	static void spp_actor__set_state(AGlActor* actor)
@@ -150,7 +156,7 @@ wf_spp_actor(WaveformActor* wf_actor)
 		SppActor* spp = _spp;
 
 		spp->play_timeout = 0;
-		gtk_widget_queue_draw(((AGlActor*)spp)->root->gl.gdk.widget);
+		agl_actor__invalidate((AGlActor*)spp);
 
 		return G_SOURCE_REMOVE;
 	}
@@ -168,6 +174,6 @@ wf_spp_actor_set_time(SppActor* spp, uint32_t time)
 	if(spp->play_timeout) g_source_remove(spp->play_timeout);
 	spp->play_timeout = g_timeout_add(100, check_playback, spp);
 
-	gtk_widget_queue_draw(((AGlActor*)spp)->root->gl.gdk.widget);
+	agl_actor__invalidate((AGlActor*)spp);
 }
 

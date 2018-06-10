@@ -8,14 +8,20 @@ AM_CFLAGS = \
 	-I$(top_srcdir) \
 	$(GTK_CFLAGS) \
 	$(LIBASS_CFLAGS) \
+	$(SDL_CFLAGS) \
 	$(OPENGL_CFLAGS)
 
 lib_LTLIBRARIES = libwaveform.la
 
+if ENABLE_GTK
+GTK_SOURCES = \
+	view.c view.h \
+	view_plus.c view_plus.h
+endif
+
 if ENABLE_OPENGL
 OPENGL_SOURCES = \
-	view.c view.h \
-	view_plus.c view_plus.h \
+	$(GTK_SOURCES) \
 	context.c context.h \
 	actor.c actor.h \
 	shader.c shader.h \

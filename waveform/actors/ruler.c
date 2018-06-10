@@ -1,5 +1,5 @@
 /*
-  copyright (C) 2012-2017 Tim Orford <tim@orford.org>
+  copyright (C) 2012-2018 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -26,7 +26,6 @@
 #include <string.h>
 #include <math.h>
 #include <sys/time.h>
-#include <gtk/gtk.h>
 #include <GL/gl.h>
 #include "waveform/waveform.h"
 #include "waveform/actors/grid.h"

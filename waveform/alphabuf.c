@@ -27,7 +27,6 @@
 #include <stdint.h>
 #include <sys/time.h>
 #include <sndfile.h>
-#include <gtk/gtk.h>
 #include "agl/utils.h"
 #include "waveform/waveform.h"
 #include "waveform/alphabuf.h"

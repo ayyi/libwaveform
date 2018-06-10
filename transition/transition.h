@@ -1,5 +1,5 @@
 /*
-  copyright (C) 2012-2017 Tim Orford <tim@orford.org>
+  copyright (C) 2012-2018 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -17,6 +17,7 @@
 #ifndef __wf_animator_h__
 #define __wf_animator_h__
 #include "stdint.h"
+#include "glib.h"
 
 #ifndef USE_FRAME_CLOCK
 #define WF_FRAME_INTERVAL ((uint64_t)40)
