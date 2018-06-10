@@ -21,7 +21,7 @@
 # define GLX_GLXEXT_PROTOTYPES
 #include <GL/gl.h>
 #include <GL/glx.h>
-#include "gtk/gtk.h" // TODO
+#include "gdk/gdk.h"
 #include "agl/ext.h"
 #define __wf_private__ // TODO
 #include "waveform/waveform.h"
