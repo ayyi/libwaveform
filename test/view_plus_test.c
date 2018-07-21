@@ -78,7 +78,7 @@ const char* wavs[] = {
 	"data/mono_0:10.m4a",
 	"data/stereo_0:10.opus",
 	"data/mono_0:10.wav",
-	"data/u8.wav",
+	//"data/u8.wav",
 };
 
 KeyHandler
@@ -244,6 +244,8 @@ quit(gpointer waveform)
 void
 show_wav(WaveformViewPlus* view, const char* filename)
 {
+	g_assert(filename);
+
 	C* c = AGL_NEW(C,
 		.view = view,
 #ifndef USE_CANVAS_SCALING
@@ -258,6 +260,8 @@ show_wav(WaveformViewPlus* view, const char* filename)
 	waveform_view_plus_load_file(view, filename, on_loaded_, c);
 
 	g_idle_add(on_loaded, c);
+
+	g_assert(view->waveform);
 
 	char* text = NULL;
 	AGlActor* text_layer = waveform_view_plus_get_layer(view, 3);
