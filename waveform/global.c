@@ -56,7 +56,7 @@ wf_get_instance()
 		wf->domain = "Libwaveform";
 		wf->peak_cache = g_hash_table_new(g_direct_hash, g_direct_equal);
 		wf->audio.cache = g_hash_table_new(g_direct_hash, g_direct_equal);
-																												memset(n_loads, 0, 4096);
+																												memset(n_loads, 0, 4096 * sizeof(int));
 		wf->load_peak = wf_load_riff_peak; //set the default loader
 
 #if defined (WF_USE_TEXTURE_CACHE) && defined (USE_OPENGL)

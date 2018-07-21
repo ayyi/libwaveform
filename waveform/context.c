@@ -42,6 +42,8 @@
 
 static AGl* agl = NULL;
 
+#define _g_source_remove0(S) {if(S) g_source_remove(S); S = 0;}
+
 #undef is_sdl
 #ifdef USE_SDL
 #  define is_sdl(WFC) (WFC->root->type == CONTEXT_TYPE_SDL)
@@ -155,7 +157,7 @@ wf_context_instance_init(WaveformContext* self)
 #ifdef USE_FRAME_CLOCK
 			frame_clock_connect(G_CALLBACK(wf_context_on_paint_update), wfc);
 #endif
-			return G_SOURCE_REMOVE;
+			return wfc->priv->pending_init = G_SOURCE_REMOVE;
 		}
 
 static void
@@ -252,8 +254,8 @@ wf_context_free (WaveformContext* wfc)
 	frame_clock_disconnect(G_CALLBACK(wf_context_on_paint_update), wfc);
 #endif
 
-	if(c->pending_init){ g_source_remove(c->pending_init); c->pending_init = 0; }
-	if(c->_queued){ g_source_remove(c->_queued); c->_queued = false; }
+	_g_source_remove0(c->pending_init);
+	_g_source_remove0(c->_queued);
 	wf_context_finalize((GObject*)wfc);
 
 	pango_gl_render_clear_caches();

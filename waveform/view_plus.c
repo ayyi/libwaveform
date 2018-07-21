@@ -782,10 +782,17 @@ waveform_view_plus_finalize (GObject* obj)
 		wf_actor_clear(v->actor);
 		wf_canvas_remove_actor(v->canvas, v->actor);
 		v->actor = NULL;
-
 	}
+
 	if(v->canvas) wf_context_free0(v->canvas);
+
+#if 0
 	if(view->waveform) waveform_unref0(view->waveform);
+#else
+	// the wavefom was unreffed when removing the actor from the canvas
+	g_assert(!G_IS_OBJECT(view->waveform));
+	view->waveform = NULL;
+#endif
 
 	G_OBJECT_CLASS (waveform_view_plus_parent_class)->finalize(obj);
 }
