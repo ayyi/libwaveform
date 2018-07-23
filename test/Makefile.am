@@ -1,3 +1,4 @@
+SUBDIRS = gen
 
 if BUILD_TESTS
 
@@ -133,23 +134,15 @@ promise_SOURCES = \
 	promise.c
 
 write_wav_SOURCES = \
-	generator.cc generator.h \
-	cpgrs.cc cpgrs.h \
 	write_wav.cpp
 
 write_short_SOURCES = \
-	generator.cc generator.h \
-	cpgrs.cc cpgrs.h \
 	write_short.cc
 
 write_block_SOURCES = \
 	write_block.cc
 
 waveform_test_LDADD = \
-	$(TEST_LDFLAGS)
-
-view_test_LDADD = \
-	$(OPENGL_LDFLAGS) \
 	$(TEST_LDFLAGS)
 
 view_plus_test_LDADD = \
@@ -187,9 +180,11 @@ LDADD = \
 	$(TEST_LDFLAGS)
 
 write_wav_LDADD = \
+	gen/.libs/libgen.a \
 	$(TEST_LDFLAGS)
 
 write_short_LDADD = \
+	gen/.libs/libgen.a \
 	$(TEST_LDFLAGS)
 
 BUILT_SOURCES = test_data
@@ -231,6 +226,9 @@ test_data: Makefile write_block.cc
 	fi;
 	@if [ ! -e "data/3_blocks.wav" ] || [ "./write_block" -nt "data/3_blocks.wav" ]; then \
 		./write_block --numblocks=3 data/3_blocks.wav; \
+	fi;
+	@if [ ! -e "data/piano.wav" ] || [ "./gen/write_piano" -nt "data/piano.wav" ]; then \
+		./gen/write_piano data/piano.wav; \
 	fi;
 
 endif

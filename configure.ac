@@ -269,6 +269,7 @@ waveform/actors/Makefile
 waveform/loaders/Makefile
 shaders/Makefile
 test/Makefile
+test/gen/Makefile
 ])
 AC_OUTPUT
 

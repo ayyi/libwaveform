@@ -5,7 +5,7 @@
 
   ---------------------------------------------------------------
 
-  copyright (C) 2012-2015 Tim Orford <tim@orford.org>
+  copyright (C) 2012-2018 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -29,7 +29,7 @@
 #include <malloc.h>
 #include <getopt.h>
 #include <sndfile.h>
-#include "cpgrs.h"
+#include "gen/cpgrs.h"
 //#include "waveform/wf_private.h" needs gtk
 
 #define MONO 1

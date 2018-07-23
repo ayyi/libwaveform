@@ -1,5 +1,5 @@
 /*
-  Generates a short test wav to trigger drawing in hi-res mode.
+  Generates a test wav using a piano-like note.
 
   contains code generated with Faust (http://faust.grame.fr)
 
@@ -29,10 +29,11 @@
 #include <malloc.h>
 #include <getopt.h>
 #include <sndfile.h>
-#include "gen/generator.h"
-#include "gen/cpgrs.h"
+#include "generator.h"
+#include "piano.cc"
 
 #define MONO 1
+#define STEREO 2
 
 int
 print_help ()
@@ -49,7 +50,7 @@ print_help ()
 
 int main(int argc, char* argv[])
 {
-	int n_channels = MONO;
+	int n_channels = STEREO;
 
 	const char* optstring = "c:hvd:";
 
@@ -88,11 +89,6 @@ int main(int argc, char* argv[])
 			print_help ();
 			exit (0);
 			break;
-		/*
-		case 'd':
-			debug = atoi(optarg);
-			break;
-		*/
 
 		default:
 			return print_help();
@@ -106,14 +102,14 @@ int main(int argc, char* argv[])
 		fprintf(stderr, "No output filename specified\n");
 		return print_help();
 	}
-	printf("Generating 150ms test wav\n");
+	printf("Generating 1000ms piano wav\n");
 
-	double duration    = 150;   // milliseconds
+	double duration    = 1000;  // milliseconds
 	int    sample_rate = 44100; // frames / second
 
 	long n_frames = (duration * sample_rate) / 1000;
 
-	double* buffer = (double*)malloc(n_frames * sizeof(double) * n_channels);
+	float* buffer = (float*)malloc(n_frames * sizeof(float) * n_channels);
 	if (!buffer) {
 		fprintf(stderr, "Could not allocate wav buffer\n");
 		return 1;
@@ -121,18 +117,20 @@ int main(int argc, char* argv[])
 
 	//----------------- generate ------------------
 
-	double* input[2] = {NULL, NULL};
-	double* output[n_channels];// = {buffer + 16384 * n_channels, buffer + 16384 * n_channels};
+	float* input[2] = {NULL, NULL};
+	float* output[n_channels];
 	int ff = 0;
 
-	CPGRS cpgrs;
-	Note note(&cpgrs, 4096);
-	cpgrs.release = 0.1f;
+	PianoNote cpgrs;
+	cpgrs.init();
+	cpgrs.fSamplingFreq = 44100.;
+	cpgrs.pgate = 1.0; // simply trigger a single note at 440Hz
+
 	for(int a=0;a<n_frames;a++){
 		int c; for(c=0;c<n_channels;c++){
 			output[c] = buffer + ff * n_channels + a * n_channels + c;
 		}
-		cpgrs.compute(n_channels, (double**)input, (double**)output);
+		cpgrs.compute(1, (const float**)input, (float**)output);
 	}
 
 	//------------------- save --------------------
@@ -151,7 +149,7 @@ int main(int argc, char* argv[])
 		goto fail;
 	}
 
-	if(sf_writef_double(sndfile, buffer, n_frames) != n_frames){
+	if(sf_writef_float(sndfile, buffer, n_frames) != n_frames){
 		fprintf(stderr, "Write failed\n");
 		sf_close(sndfile);
 		goto fail;
