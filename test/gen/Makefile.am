@@ -17,6 +17,7 @@ write_piano_LDADD = \
 
 libgen_la_SOURCES = \
 	cpgrs.cc cpgrs.h \
-	generator.cc generator.hh \
-	brass.cc
+	generator.cc generator.hh
 
+EXTRA_DIST = \
+	piano.cc piano.hh
