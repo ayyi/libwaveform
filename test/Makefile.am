@@ -10,17 +10,17 @@ SDLPROGRAMS = sdl
 endif
 if ENABLE_GTK
 GTKPROGRAMS = view_plus_test actor_test actor_plus actor_no_scene list group hires multi_scene $(ASSPROGRAMS) frame_rate resources cache viewport pixbuf
+GTKGLEXT_LDFLAGS = -lgmodule-2.0 $(top_srcdir)/gtkglext/gtk/.libs/libgtkglext-x11-1.0.a $(top_srcdir)/gtkglext/gdk/.libs/libgdkglext-x11-1.0.a
 endif
 
 if ENABLE_OPENGL
-noinst_PROGRAMS = waveform_test $(GTKPROGRAMS) write_wav write_short write_block large_files promise 32bit glx scenegraph $(SDLPROGRAMS)
+noinst_PROGRAMS = waveform_test $(GTKPROGRAMS) large_files promise 32bit glx scenegraph $(SDLPROGRAMS)
 ###noinst_PROGRAMS = waveform_test view_plus_test actor_test actor_plus $(ASSPROGRAMS)
 endif
 
 AM_CFLAGS = \
 	-D_FILE_OFFSET_BITS=64 \
 	-I$(top_srcdir) \
-	-I$(top_srcdir)/libs \
 	$(OPENGL_CFLAGS) \
 	$(GTK_CFLAGS) \
 	$(SDL_CFLAGS) \
@@ -133,15 +133,6 @@ promise_SOURCES = \
 	$(COMMON_SOURCES) \
 	promise.c
 
-write_wav_SOURCES = \
-	write_wav.cpp
-
-write_short_SOURCES = \
-	write_short.cc
-
-write_block_SOURCES = \
-	write_block.cc
-
 waveform_test_LDADD = \
 	$(TEST_LDFLAGS)
 
@@ -178,58 +169,6 @@ glx_LDADD = \
 LDADD = \
 	$(OPENGL_LDFLAGS) \
 	$(TEST_LDFLAGS)
-
-write_wav_LDADD = \
-	gen/.libs/libgen.a \
-	$(TEST_LDFLAGS)
-
-write_short_LDADD = \
-	gen/.libs/libgen.a \
-	$(TEST_LDFLAGS)
-
-BUILT_SOURCES = test_data
-
-# disable recompilation of write_block to prevent this running each time
-test_data: Makefile write_block.cc
-	@make write_wav
-	@make write_short
-	@make write_block
-	@if [[ ! -d data ]]; then mkdir data; fi
-	@if [ ! -e "data/mono_0:10.wav" ] || [ "./write_wav" -nt "data/mono_0:10.wav" ] || [ "Makefile" -nt "data/mono_0:10.wav" ]; then \
-		./write_wav data/mono_0:10.wav; \
-		ffmpeg -y -i data/mono_0:10.wav -q 2 data/mono_0:10.mp3; \
-		ffmpeg -y -i data/mono_0:10.wav -vbr 3 data/mono_0:10.m4a; \
-		ffmpeg -y -i data/mono_0:10.wav data/mono_0:10.opus; \
-		ffmpeg -y -i data/mono_0:10.wav data/mono_0:10.flac; \
-		ffmpeg -y -i data/mono_0:10.wav -acodec pcm_s24le data/mono_24b_0:10.wav; \
-	fi;
-	@if [ ! -e "data/stereo_0:10.wav" ] || [ "./write_wav" -nt "data/stereo_0:10.wav" ] || [ "Makefile" -nt "data/stereo_0:10.wav" ]; then \
-		./write_wav --channels=2 data/stereo_0:10.wav; \
-		ffmpeg -y -i data/stereo_0:10.wav -q 2 data/stereo_0:10.mp3; \
-		ffmpeg -y -i data/stereo_0:10.wav -vbr 3 data/stereo_0:10.m4a; \
-		ffmpeg -y -i data/stereo_0:10.wav data/stereo_0:10.opus; \
-		ffmpeg -y -i data/stereo_0:10.wav data/stereo_0:10.flac; \
-		ffmpeg -y -i data/stereo_0:10.wav -acodec pcm_s24le data/stereo_24b_0:10.wav; \
-	fi;
-	@if [ ! -e "data/mono_10:00.wav" ] || [ "./write_wav" -nt "data/mono_10:00.wav" ]; then \
-		./write_wav --length=600  data/mono_10:00.wav; \
-		ffmpeg -y -i data/mono_10:00.wav -q 2 data/mono_10:00.mp3; \
-	fi;
-	@if [ ! -e "data/short.wav" ] || [ "./write_short" -nt "data/short.wav" ]; then \
-		./write_short data/short.wav; \
-	fi;
-	@if [ ! -e "data/1_block.wav" ] || [ "./write_block" -nt "data/1_block.wav" ]; then \
-		./write_block data/1_block.wav; \
-	fi;
-	@if [ ! -e "data/2_blocks.wav" ] || [ "./write_block" -nt "data/2_blocks.wav" ]; then \
-		./write_block --numblocks=2 data/2_blocks.wav; \
-	fi;
-	@if [ ! -e "data/3_blocks.wav" ] || [ "./write_block" -nt "data/3_blocks.wav" ]; then \
-		./write_block --numblocks=3 data/3_blocks.wav; \
-	fi;
-	@if [ ! -e "data/piano.wav" ] || [ "./gen/write_piano" -nt "data/piano.wav" ]; then \
-		./gen/write_piano data/piano.wav; \
-	fi;
 
 endif
 

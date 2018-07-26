@@ -29,7 +29,7 @@
 #include <malloc.h>
 #include <getopt.h>
 #include <sndfile.h>
-#include "gen/cpgrs.h"
+#include "cpgrs.h"
 //#include "waveform/wf_private.h" needs gtk
 
 #define MONO 1

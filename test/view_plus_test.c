@@ -78,6 +78,7 @@ const char* wavs[] = {
 	"data/mono_0:10.m4a",
 	"data/stereo_0:10.opus",
 	"data/mono_0:10.wav",
+	"data/piano.wav",
 	//"data/u8.wav",
 };
 

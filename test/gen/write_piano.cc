@@ -124,6 +124,7 @@ int main(int argc, char* argv[])
 	PianoNote cpgrs;
 	cpgrs.init();
 	cpgrs.fSamplingFreq = 44100.;
+	cpgrs.pgain = 2.0;
 	cpgrs.pgate = 1.0; // simply trigger a single note at 440Hz
 
 	for(int a=0;a<n_frames;a++){

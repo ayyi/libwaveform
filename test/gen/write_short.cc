@@ -29,8 +29,8 @@
 #include <malloc.h>
 #include <getopt.h>
 #include <sndfile.h>
-#include "gen/generator.h"
-#include "gen/cpgrs.h"
+#include "generator.h"
+#include "cpgrs.h"
 
 #define MONO 1
 

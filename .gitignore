@@ -33,9 +33,9 @@ shaders/shaders.c
 test/Makefile
 test/Makefile.in
 test/data/
-test/write_block
-test/write_short
-test/write_wav
+test/gen/write_block
+test/gen/write_short
+test/gen/write_wav
 test/32bit
 test/actor_no_scene
 test/actor_plus
@@ -67,3 +67,4 @@ waveform/actors/Makefile
 waveform/actors/Makefile.in
 waveform/loaders/Makefile
 waveform/loaders/Makefile.in
+*.peak
