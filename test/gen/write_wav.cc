@@ -220,7 +220,7 @@ create_plain_file(int len_seconds, int n_channels)
 	// if the file length is specified, we fallback to creating a file with no content.
 
 	char filename[64] = {0,};
-	sprintf(filename, "data/mono_%i:%02i.wav", len_seconds / 60, len_seconds % 60);
+	sprintf(filename, "../data/mono_%i:%02i.wav", len_seconds / 60, len_seconds % 60);
 	printf("  %s\n", filename);
 
 	long n_frames = 44100;
@@ -637,7 +637,6 @@ int main(int argc, char* argv[])
 		SF_FORMAT_WAV | SF_FORMAT_PCM_16
 	};
 
-	printf("filename=%s\n", output_filename);
 	SNDFILE* sndfile = sf_open(output_filename, SFM_WRITE, &info);
 	if(!sndfile) {
 		fprintf(stderr, "Sndfile open failed '%s': %s\n", argv[1], sf_strerror(sndfile));

@@ -4,15 +4,12 @@ lib_LTLIBRARIES = libgen.la
 noinst_PROGRAMS = write_wav write_short write_block write_piano
 
 DATA_DIR = ../data
+FFMPEG = ffmpeg -y -loglevel warning
 
 AM_CFLAGS = \
 	-D_FILE_OFFSET_BITS=64 \
 	-I$(top_srcdir) \
 	-I$(top_srcdir)/libs
-
-if ENABLE_GTK
-GTKGLEXT_LDFLAGS = -lgmodule-2.0 $(top_srcdir)/gtkglext/gtk/.libs/libgtkglext-x11-1.0.a $(top_srcdir)/gtkglext/gdk/.libs/libgdkglext-x11-1.0.a
-endif
 
 TEST_LDFLAGS = \
 	$(top_srcdir)/waveform/.libs/libwaveform.a \
@@ -24,8 +21,7 @@ TEST_LDFLAGS = \
 	$(X11_LDFLAGS) \
 	$(SNDFILE_LIBS) \
 	$(FFMPEG_LDFLAGS) \
-	$(OPENGL_LDFLAGS) \
-	$(GTKGLEXT_LDFLAGS)
+	$(OPENGL_LDFLAGS)
 
 write_wav_SOURCES = \
 	write_wav.cc
@@ -71,25 +67,24 @@ test_data: Makefile write_block.cc
 	fi
 	@if [[ ! -d $(DATA_DIR) ]]; then mkdir $(DATA_DIR); fi
 	@if [ ! -e "$(DATA_DIR)/mono_0:10.wav" ] || [ "./write_wav" -nt "$(DATA_DIR)/mono_0:10.wav" ] || [ "Makefile" -nt "$(DATA_DIR)/mono_0:10.wav" ]; then \
-			echo AAAAAA; \
 		./write_wav $(DATA_DIR)/mono_0:10.wav; \
-		ffmpeg -y -i $(DATA_DIR)/mono_0:10.wav -q 2 $(DATA_DIR)/mono_0:10.mp3; \
-		ffmpeg -y -i $(DATA_DIR)/mono_0:10.wav -vbr 3 $(DATA_DIR)/mono_0:10.m4a; \
-		ffmpeg -y -i $(DATA_DIR)/mono_0:10.wav $(DATA_DIR)/mono_0:10.opus; \
-		ffmpeg -y -i $(DATA_DIR)/mono_0:10.wav $(DATA_DIR)/mono_0:10.flac; \
-		ffmpeg -y -i $(DATA_DIR)/mono_0:10.wav -acodec pcm_s24le $(DATA_DIR)/mono_24b_0:10.wav; \
+		$(FFMPEG) -i $(DATA_DIR)/mono_0:10.wav -q 2 $(DATA_DIR)/mono_0:10.mp3; \
+		$(FFMPEG) -i $(DATA_DIR)/mono_0:10.wav -vbr 3 $(DATA_DIR)/mono_0:10.m4a; \
+		$(FFMPEG) -i $(DATA_DIR)/mono_0:10.wav $(DATA_DIR)/mono_0:10.opus; \
+		$(FFMPEG) -i $(DATA_DIR)/mono_0:10.wav $(DATA_DIR)/mono_0:10.flac; \
+		$(FFMPEG) -i $(DATA_DIR)/mono_0:10.wav -acodec pcm_s24le $(DATA_DIR)/mono_24b_0:10.wav; \
 	fi;
 	@if [ ! -e "$(DATA_DIR)/stereo_0:10.wav" ] || [ "./write_wav" -nt "$(DATA_DIR)/stereo_0:10.wav" ] || [ "Makefile" -nt "$(DATA_DIR)/stereo_0:10.wav" ]; then \
 		./write_wav --channels=2 $(DATA_DIR)/stereo_0:10.wav; \
-		ffmpeg -y -i $(DATA_DIR)/stereo_0:10.wav -q 2 $(DATA_DIR)/stereo_0:10.mp3; \
-		ffmpeg -y -i $(DATA_DIR)/stereo_0:10.wav -vbr 3 $(DATA_DIR)/stereo_0:10.m4a; \
-		ffmpeg -y -i $(DATA_DIR)/stereo_0:10.wav $(DATA_DIR)/stereo_0:10.opus; \
-		ffmpeg -y -i $(DATA_DIR)/stereo_0:10.wav $(DATA_DIR)/stereo_0:10.flac; \
-		ffmpeg -y -i $(DATA_DIR)/stereo_0:10.wav -acodec pcm_s24le $(DATA_DIR)/stereo_24b_0:10.wav; \
+		$(FFMPEG) -i $(DATA_DIR)/stereo_0:10.wav -q 2 $(DATA_DIR)/stereo_0:10.mp3; \
+		$(FFMPEG) -i $(DATA_DIR)/stereo_0:10.wav -vbr 3 $(DATA_DIR)/stereo_0:10.m4a; \
+		$(FFMPEG) -i $(DATA_DIR)/stereo_0:10.wav $(DATA_DIR)/stereo_0:10.opus; \
+		$(FFMPEG) -i $(DATA_DIR)/stereo_0:10.wav $(DATA_DIR)/stereo_0:10.flac; \
+		$(FFMPEG) -i $(DATA_DIR)/stereo_0:10.wav -acodec pcm_s24le $(DATA_DIR)/stereo_24b_0:10.wav; \
 	fi;
 	@if [ ! -e "$(DATA_DIR)/mono_10:00.wav" ] || [ "./write_wav" -nt "$(DATA_DIR)/mono_10:00.wav" ]; then \
 		./write_wav --length=600  $(DATA_DIR)/mono_10:00.wav; \
-		ffmpeg -y -i $(DATA_DIR)/mono_10:00.wav -q 2 $(DATA_DIR)/mono_10:00.mp3; \
+		$(FFMPEG) -i $(DATA_DIR)/mono_10:00.wav -q 2 $(DATA_DIR)/mono_10:00.mp3; \
 	fi;
 	@if [ ! -e "$(DATA_DIR)/short.wav" ] || [ "./write_short" -nt "$(DATA_DIR)/short.wav" ]; then \
 		./write_short $(DATA_DIR)/short.wav; \
