@@ -14,8 +14,8 @@
 #define __agl_actor_h__
 #include <X11/Xlib.h>
 #ifdef USE_GTK
-#include <gtkglext-1.0/gdk/gdkgl.h>
-#include <gtkglext-1.0/gtk/gtkgl.h>
+#include <gdk/gdkgl.h>
+#include <gtk/gtkgl.h>
 #endif
 #ifdef USE_SDL
 #  include "SDL2/SDL.h"
@@ -191,19 +191,22 @@ extern bool __wf_drawing;
 extern int __draw_depth;
 #endif
 
+#ifdef USE_GTK
 #define AGL_ACTOR_START_DRAW(A) \
 	if(__wf_drawing){ gwarn("AGL_ACTOR_START_DRAW: already drawing"); } \
 	__draw_depth++; \
 	__wf_drawing = TRUE; \
-	if (actor_is_sdl(((AGlRootActor*)A)) || (__draw_depth > 1) || gdk_gl_drawable_gl_begin (((AGlRootActor*)A)->gl.gdk.drawable, ((AGlRootActor*)A)->gl.gdk.context)) {
+	if (actor_is_sdl(((AGlRootActor*)A)) || (__draw_depth > 1) || gdk_gl_drawable_make_current (((AGlRootActor*)A)->gl.gdk.drawable, ((AGlRootActor*)A)->gl.gdk.context)) {
 
 #define AGL_ACTOR_END_DRAW(A) \
 	__draw_depth--; \
 	if(actor_is_sdl(((AGlRootActor*)A))){ \
-		if(!__draw_depth) gdk_gl_drawable_gl_end(((AGlRootActor*)A)->gl.gdk.drawable); \
+		if(!__draw_depth) ; \
 		else { gwarn("!! gl_begin fail"); } \
 	} \
 	} \
 	(__wf_drawing = FALSE);
+
+#endif //USE_GTK
 
 #endif

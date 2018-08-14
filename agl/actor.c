@@ -82,9 +82,14 @@ agl_actor__have_drawable(AGlRootActor* a, GdkGLDrawable* drawable)
 	((AGlActor*)a)->scrollable.y2 = a->gl.gdk.widget->allocation.height;
 
 	a->gl.gdk.drawable = drawable;
-	a->gl.gdk.context = gtk_widget_get_gl_context(a->gl.gdk.widget);
+	a->gl.gdk.context = agl_get_gl_context();
 
-	gdk_gl_drawable_gl_begin (a->gl.gdk.drawable, a->gl.gdk.context);
+#ifdef USE_SYSTEM_GTKGLEXT
+	gdk_gl_drawable_make_current (a->gl.gdk.drawable, a->gl.gdk.context);
+#else
+	g_assert(G_OBJECT_TYPE(a->gl.gdk.drawable) == GDK_TYPE_GL_WINDOW);
+	gdk_gl_window_make_context_current (a->gl.gdk.drawable, a->gl.gdk.context);
+#endif
 
 	if(first_time){
 		agl_gl_init();
@@ -106,8 +111,6 @@ agl_actor__have_drawable(AGlRootActor* a, GdkGLDrawable* drawable)
 	}
 
 	agl_actor__init((AGlActor*)a);
-
-	gdk_gl_drawable_gl_end(a->gl.gdk.drawable);
 
 	first_time = false;
 }
@@ -930,7 +933,12 @@ agl_actor__on_expose(GtkWidget* widget, GdkEventExpose* event, gpointer user_dat
 		glEnd();
 		glEnable(GL_TEXTURE_2D);
 #endif
+
+#if USE_SYSTEM_GTKGLEXT
 		gdk_gl_drawable_swap_buffers(root->gl.gdk.drawable);
+#else
+		gdk_gl_window_swap_buffers(root->gl.gdk.drawable);
+#endif
 	} AGL_ACTOR_END_DRAW(root)
 
 	return true;

@@ -1,5 +1,5 @@
 /*
-  copyright (C) 2013-2017 Tim Orford <tim@orford.org>
+  copyright (C) 2013-2018 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -122,7 +122,11 @@ agl_get_gl_context()
 		GdkGLConfig* const config = gdk_gl_config_new_by_mode(GDK_GL_MODE_RGBA | GDK_GL_MODE_DOUBLE | GDK_GL_MODE_DEPTH);
 		GdkPixmap* const pixmap = gdk_pixmap_new(0, 8, 8, gdk_gl_config_get_depth(config));
 		gdk_pixmap_set_gl_capability(pixmap, config, 0);
+#ifdef USE_SYSTEM_GTKGLEXT
 		share_list = gdk_gl_context_new(gdk_pixmap_get_gl_drawable(pixmap), 0, TRUE, GDK_GL_RGBA_TYPE);
+#else
+		share_list = _gdk_x11_gl_context_new(gdk_pixmap_get_gl_drawable(pixmap), 0, TRUE, GDK_GL_RGBA_TYPE);
+#endif
 	}
 
 	return share_list;
@@ -271,12 +275,21 @@ agl_gl_init()
 	// some older hardware (eg radeon x1600) may not have full support, and may drop back to software rendering if certain features are used.
 	if(GL_ARB_texture_non_power_of_two || version > 1){
 		if(AGL_DEBUG) printf("non_power_of_two textures are available.\n");
-		agl->have_npot_textures = TRUE;
+		agl->have |= AGL_HAVE_NPOT_TEXTURES;
 	}else{
 		if(AGL_DEBUG){
 			fprintf(stderr, "GL_ARB_texture_non_power_of_two extension is not available!\n");
 			fprintf(stderr, "Framebuffer effects will be lower resolution (lower quality).\n\n");
 		}
+	}
+
+	if(agl->xvinfo){
+		int value;
+#define _GET_CONFIG(__attrib) glXGetConfig (agl->xdisplay, agl->xvinfo, __attrib, &value)
+
+		// Has stencil buffer?
+		_GET_CONFIG (GLX_STENCIL_SIZE);
+		if(value) agl->have |= AGL_HAVE_STENCIL;
 	}
 
 #if 0

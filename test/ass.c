@@ -379,7 +379,11 @@ on_expose(GtkWidget* widget, GdkEventExpose* event, gpointer user_data)
 
 		draw(widget);
 
+#if USE_SYSTEM_GTKGLEXT
 		gdk_gl_drawable_swap_buffers(scene->gl.gdk.drawable);
+#else
+		gdk_gl_window_swap_buffers(scene->gl.gdk.drawable);
+#endif
 	} AGL_ACTOR_END_DRAW(scene)
 	return TRUE;
 }

@@ -1,5 +1,5 @@
 /*
-  copyright (C) 2012-2017 Tim Orford <tim@orford.org>
+  copyright (C) 2012-2018 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -153,8 +153,12 @@ __init ()
 		gtk_gl_init(NULL, NULL);
 		if(wf_debug){
 			gint major, minor;
+#ifdef USE_SYSTEM_GTKGLEXT
 			gdk_gl_query_version (&major, &minor);
-			g_print ("GtkGLExt version %d.%d\n", major, minor);
+#else
+			glXQueryVersion (GDK_DISPLAY_XDISPLAY(gdk_display_get_default()), &major, &minor);
+#endif
+			g_print ("GLX version %d.%d\n", major, minor);
 		}
 	}
 
@@ -320,37 +324,43 @@ _waveform_view_plus__show_waveform(gpointer _view, gpointer _c)
 
 			if(((AGlActor*)a)->parent) agl_actor__invalidate(((AGlActor*)a)->parent); // we dont seem to track the layers, so have to invalidate everything.
 		}
-		call(c->callback, a->waveform, c->user_data);
+		call(c->callback, a->waveform, a->waveform->priv->peaks->error, c->user_data);
 		g_free(c);
 	}
 
 void
-waveform_view_plus_load_file (WaveformViewPlus* view, const char* filename, WfCallback2 callback, gpointer user_data)
+waveform_view_plus_load_file (WaveformViewPlus* view, const char* filename, WfCallback3 callback, gpointer user_data)
 {
 	dbg(1, "%s", filename);
 
 	WaveformViewPlusPrivate* v = view->priv;
 
-	if(view->waveform){
-		_g_object_unref0(view->waveform);
-	}
+	_g_object_unref0(view->waveform);
 
 	if(!filename){
 		gtk_widget_queue_draw((GtkWidget*)view);
 		return;
 	}
 
-	WfClosure* c = g_new0(WfClosure, 1);
-	*c = (WfClosure){.callback = callback, .user_data = user_data};
-
 	view->waveform = waveform_new(filename);
 	if(v->actor){
-		wf_actor_set_waveform(v->actor, view->waveform, waveform_view_plus_load_file_done, c);
+		wf_actor_set_waveform(v->actor, view->waveform, waveform_view_plus_load_file_done, AGL_NEW(WfClosure,
+			.callback = callback,
+			.user_data = user_data
+		));
 	}
 
 	am_promise_add_callback(promise(PROMISE_DISP_READY), _waveform_view_plus__show_waveform, NULL);
 }
 
+
+#ifdef DEBUG
+	static void on_waveform_view_finalize(gpointer view, GObject* was)
+	{
+		dbg(0, "^^^");
+		((WaveformViewPlus*)view)->waveform = NULL;
+	}
+#endif
 
 void
 waveform_view_plus_set_waveform (WaveformViewPlus* view, Waveform* waveform)
@@ -363,6 +373,10 @@ waveform_view_plus_set_waveform (WaveformViewPlus* view, Waveform* waveform)
 		v->actor->region.len = 0; // force it to be set once the wav is loaded
 	}
 	view->waveform = g_object_ref(waveform);
+
+#ifdef DEBUG
+	g_object_weak_ref((GObject*)view->waveform, on_waveform_view_finalize, view);
+#endif
 
 	if(v->actor){
 		wf_actor_set_waveform_sync(v->actor, waveform);
@@ -545,13 +559,14 @@ waveform_view_plus_realize (GtkWidget* widget)
 {
 	PF2;
 	WaveformViewPlus* view = (WaveformViewPlus*)widget;
-	GdkWindowAttr attrs = {0};
 	GTK_WIDGET_SET_FLAGS (widget, GTK_REALIZED);
-	memset (&attrs, 0, sizeof (GdkWindowAttr));
+
+	GdkWindowAttr attrs = {0};
 	attrs.window_type = GDK_WINDOW_CHILD;
 	attrs.width = widget->allocation.width;
 	attrs.wclass = GDK_INPUT_OUTPUT;
 	attrs.event_mask = gtk_widget_get_events(widget) | GDK_EXPOSURE_MASK | GDK_KEY_PRESS_MASK | GDK_ENTER_NOTIFY_MASK;
+
 	_g_object_unref0(widget->window);
 	widget->window = gdk_window_new (gtk_widget_get_parent_window(widget), &attrs, 0);
 	gdk_window_set_user_data (widget->window, view);
@@ -611,7 +626,11 @@ waveform_view_plus_on_expose (GtkWidget* widget, GdkEventExpose* event)
 			waveform_view_plus_draw(view);
 		}
 
+#if USE_SYSTEM_GTKGLEXT
 		gdk_gl_drawable_swap_buffers(((AGlRootActor*)view->priv->root)->gl.gdk.drawable);
+#else
+		gdk_gl_window_swap_buffers(((AGlRootActor*)view->priv->root)->gl.gdk.drawable);
+#endif
 	} AGL_ACTOR_END_DRAW(view->priv->root)
 
 	return true;
@@ -785,7 +804,6 @@ waveform_view_plus_finalize (GObject* obj)
 	}
 
 	if(v->canvas) wf_context_free0(v->canvas);
-
 #if 0
 	if(view->waveform) waveform_unref0(view->waveform);
 #else

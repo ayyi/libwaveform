@@ -1,5 +1,5 @@
 /*
-  copyright (C) 2012-2016 Tim Orford <tim@orford.org>
+  copyright (C) 2012-2018 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -31,6 +31,7 @@
 #include "waveform/actors/grid.h"
 #include "waveform/actors/spp.h"
 #include "waveform/actors/text.h"
+#include "waveform/actors/spinner.h"
 #include "waveform/view.h"
 
 G_BEGIN_DECLS
@@ -69,7 +70,7 @@ GType             waveform_view_plus_get_type      () G_GNUC_CONST;
 void              waveform_view_plus_set_gl        (GdkGLContext*);
 
 WaveformViewPlus* waveform_view_plus_new           (Waveform*);
-void              waveform_view_plus_load_file     (WaveformViewPlus*, const char*, WfCallback2, gpointer); // be careful, it force loads, even if already loaded.
+void              waveform_view_plus_load_file     (WaveformViewPlus*, const char*, WfCallback3, gpointer); // be careful, it force loads, even if already loaded.
 void              waveform_view_plus_set_waveform  (WaveformViewPlus*, Waveform*);
 float             waveform_view_plus_get_zoom      (WaveformViewPlus*);
 void              waveform_view_plus_set_zoom      (WaveformViewPlus*, float);

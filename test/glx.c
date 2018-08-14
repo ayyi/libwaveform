@@ -19,7 +19,6 @@
 #include <X11/Xlib.h>
 #include <X11/keysym.h>
 # define GLX_GLXEXT_PROTOTYPES
-#include <GL/gl.h>
 #include <GL/glx.h>
 #include "gdk/gdk.h"
 #include "agl/ext.h"
@@ -305,6 +304,9 @@ on_window_resize(int width, int height)
 static void
 make_window(Display* dpy, const char* name, int width, int height, Window* winRet, GLXContext* ctxRet)
 {
+	AGl* agl = agl_get_instance();
+	agl->xdisplay = dpy;
+
 	int attrib[] = {
 		GLX_RGBA,
 		GLX_RED_SIZE, 1,
@@ -314,49 +316,47 @@ make_window(Display* dpy, const char* name, int width, int height, Window* winRe
 		GLX_DEPTH_SIZE, 1,
 		None
 	};
-	XSetWindowAttributes attr;
-	unsigned long mask;
-	XVisualInfo* visinfo;
 
 	int scrnum = DefaultScreen(dpy);
 	Window root = RootWindow(dpy, scrnum);
 
-	visinfo = glXChooseVisual(dpy, scrnum, attrib);
-	if (!visinfo) {
-		printf("Error: couldn't get an RGB, Double-buffered visual\n");
-		exit(1);
+	if(!agl->xvinfo){
+		if(!(agl->xvinfo = glXChooseVisual(dpy, scrnum, attrib))){
+			printf("Error: couldn't get an RGB, Double-buffered visual\n");
+			exit(1);
+		}
 	}
 
-	/* window attributes */
-	attr.background_pixel = 0;
-	attr.border_pixel = 0;
-	attr.colormap = XCreateColormap(dpy, root, visinfo->visual, AllocNone);
-	attr.event_mask = StructureNotifyMask | ExposureMask | KeyPressMask;
-	mask = CWBackPixel | CWBorderPixel | CWColormap | CWEventMask;
+	XSetWindowAttributes attr = {
+		.background_pixel = 0,
+		.border_pixel = 0,
+		.colormap = XCreateColormap(dpy, root, agl->xvinfo->visual, AllocNone),
+		.event_mask = StructureNotifyMask | ExposureMask | KeyPressMask
+	};
+	unsigned long mask = CWBackPixel | CWBorderPixel | CWColormap | CWEventMask;
 
-	Window win = XCreateWindow(dpy, root, 0, 0, width, height, 0, visinfo->depth, InputOutput, visinfo->visual, mask, &attr);
+	Window win = XCreateWindow(dpy, root, 0, 0, width, height, 0, agl->xvinfo->depth, InputOutput, agl->xvinfo->visual, mask, &attr);
 
 	/* set hints and properties */
 	{
-		XSizeHints sizehints;
-		sizehints.x = 0;
-		sizehints.y = 0;
-		sizehints.width  = width;
-		sizehints.height = height;
-		sizehints.flags = USSize | USPosition;
+		XSizeHints sizehints = {
+			.x = 0,
+			.y = 0,
+			.width = width,
+			.height = height,
+			.flags = USSize | USPosition
+		};
 		XSetNormalHints(dpy, win, &sizehints);
 		XSetStandardProperties(dpy, win, name, name, None, (char **)NULL, 0, &sizehints);
 	}
 
 	XMoveWindow(dpy, win, (XDisplayWidth(dpy, scrnum) - width) / 2, (XDisplayHeight(dpy, scrnum) - height) / 2); // centre the window
 
-	GLXContext ctx = glXCreateContext(dpy, visinfo, NULL, True);
+	GLXContext ctx = glXCreateContext(dpy, agl->xvinfo, NULL, True);
 	if (!ctx) {
 		printf("Error: glXCreateContext failed\n");
 		exit(1);
 	}
-
-	XFree(visinfo);
 
 	*winRet = win;
 	*ctxRet = ctx;

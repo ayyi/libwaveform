@@ -30,8 +30,6 @@
 #include "waveform/actors/spp.h"
 #include "waveform/actors/spinner.h"
 
-#define HAVE_NON_SQUARE_TEXTURES // TODO change to runtime detection (indicated by AGL->have_npot_textures)
-
 #define MULTILINE_SHADER
 #undef MULTILINE_SHADER
 

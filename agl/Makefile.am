@@ -1,10 +1,17 @@
 SUBDIRS = shaders
 
+if ENABLE_SYSTEM_GTKGLEXT
+else
+LOCAL_GTKGLEXT_CFLAGS = \
+	-I$(top_srcdir)/gtkglext-1.0
+endif
+
 INCLUDES = \
 	-DG_LOG_DOMAIN=\"AGl\" \
 	-DPACKAGE_DATA_DIR=\""$(datadir)"\" \
 	-I$(includedir) \
 	-I$(top_srcdir)/waveform \
+	$(LOCAL_GTKGLEXT_CFLAGS) \
 	$(OPENGL_CFLAGS) \
 	$(SDL_CFLAGS) \
 	$(GTK_CFLAGS)

@@ -56,7 +56,7 @@ static AGl* agl = NULL;
 	if(wfc->_draw_depth) gwarn("START_DRAW: already drawing"); \
 	wfc->_draw_depth++; \
 	if (actor_not_is_gtk(wfc->root) || \
-		(wfc->_draw_depth > 1) || gdk_gl_drawable_gl_begin (wfc->root->gl.gdk.drawable, wfc->root->gl.gdk.context) \
+		(wfc->_draw_depth > 1) || gdk_gl_drawable_make_current (wfc->root->gl.gdk.drawable, wfc->root->gl.gdk.context) \
 		) {
 #else
 #define WAVEFORM_START_DRAW(wfc) \
@@ -67,7 +67,7 @@ static AGl* agl = NULL;
 #define WAVEFORM_END_DRAW(wa) \
 	wa->_draw_depth--; \
 	if(wa->root->type == CONTEXT_TYPE_GTK){ \
-		if(!wa->_draw_depth) gdk_gl_drawable_gl_end(wa->root->gl.gdk.drawable); \
+		if(!wa->_draw_depth) ; \
 	} \
 	} else gwarn("!! gl_begin fail")
 #else
@@ -443,19 +443,15 @@ wf_canvas_load_texture_from_alphabuf(WaveformContext* wfc, int texture_name, Alp
 	{
 		int r = 1 << level;
 		int height = MAX(1, a->height / r);
-#ifdef HAVE_NON_SQUARE_TEXTURES
-		int width  = MAX(1, a->width  / r);
-#else
-		int width = height;
-#endif
+		int width = agl->have & AGL_HAVE_NPOT_TEXTURES ? MAX(1, a->width / r) : height;
 		guchar* buf = g_malloc(width * height);
+
 		int y; for(y=0;y<height;y++){
 			int x; for(x=0;x<width;x++){
 				//TODO find max of all peaks, dont just use one.
 				buf[width * y + x] = a->buf[a->width * y * r + x * r];
 			}
 		}
-		//dbg(0, "r=%i size=%ix%i", r, width, height);
 		return buf;
 	}
 #endif
@@ -464,11 +460,7 @@ wf_canvas_load_texture_from_alphabuf(WaveformContext* wfc, int texture_name, Alp
 		//note: gluBuild2DMipmaps is deprecated. instead use GL_GENERATE_MIPMAP (requires GL 1.4)
 
 		glBindTexture(GL_TEXTURE_2D, texture_name);
-#ifdef HAVE_NON_SQUARE_TEXTURES
-		int width = alphabuf->width;
-#else
-		int width = alphabuf->height;
-#endif
+		int width = agl->have & AGL_HAVE_NPOT_TEXTURES ? alphabuf->width : alphabuf->height;
 		dbg (2, "copying texture... width=%i texture_id=%u", width, texture_name);
 		glTexImage2D(GL_TEXTURE_2D, 0, GL_ALPHA8, width, alphabuf->height, 0, GL_ALPHA, GL_UNSIGNED_BYTE, alphabuf->buf);
 
@@ -476,11 +468,8 @@ wf_canvas_load_texture_from_alphabuf(WaveformContext* wfc, int texture_name, Alp
 		{
 			int l; for(l=1;l<16;l++){
 				guchar* buf = generate_mipmap(alphabuf, l);
-#ifdef HAVE_NON_SQUARE_TEXTURES
-				int width = alphabuf->width / (1<<l);
-#else
+				int width = (agl->have & AGL_HAVE_NPOT_TEXTURES ? alphabuf->width : alphabuf->height) / (1<<l);
 				int width = alphabuf->height / (1<<l);
-#endif
 				glTexImage2D(GL_TEXTURE_2D, l, GL_ALPHA8, width, alphabuf->height/(1<<l), 0, GL_ALPHA, GL_UNSIGNED_BYTE, buf);
 				wf_free(buf);
 				int w = alphabuf->width / (1<<l);

@@ -11,10 +11,10 @@
 */
 #ifndef __agl_utils_h__
 #define __agl_utils_h__
-#include <GL/gl.h>
+#include <GL/glx.h>
 #ifdef USE_GTK
-#include <gtkglext-1.0/gdk/gdkgl.h>
-#include <gtkglext-1.0/gtk/gtkgl.h>
+#include <gdk/gdkgl.h>
+#include <gtk/gtkgl.h>
 #endif
 #include <pango/pango.h>
 #include "agl/typedefs.h"
@@ -97,11 +97,22 @@ int       agl_power_of_two        (guint);
 void      agl_rgba_to_float       (uint32_t rgba, float* r, float* g, float* b);
 
 
+typedef enum
+{
+	AGL_HAVE_NPOT_TEXTURES = 1,
+	AGL_HAVE_STENCIL = 2,
+} AGlHave;
+
 struct _agl
 {
 	gboolean        pref_use_shaders;
+
+	XVisualInfo*    xvinfo;
+	Display*        xdisplay;
+
 	gboolean        use_shaders;
-	gboolean        have_npot_textures;
+	AGlHave         have;
+
 	struct {
 		AlphaMapShader* texture;
 		AlphaMapShader* alphamap;
@@ -109,6 +120,7 @@ struct _agl
 		AlphaMapShader* text;
 	}               shaders;
 	AGlMaterial*    aaline;
+
 	int             debug;
 };
 

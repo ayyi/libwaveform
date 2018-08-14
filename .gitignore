@@ -67,4 +67,9 @@ waveform/actors/Makefile
 waveform/actors/Makefile.in
 waveform/loaders/Makefile
 waveform/loaders/Makefile.in
+gtkglext-1.0/m4macros
 *.peak
+*.gz
+*.xz
+*.orig
+*~

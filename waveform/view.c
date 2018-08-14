@@ -85,8 +85,12 @@ __init ()
 		gtk_gl_init(NULL, NULL);
 		if(wf_debug){
 			gint major, minor;
+#ifdef USE_SYSTEM_GTKGLEXT
 			gdk_gl_query_version (&major, &minor);
-			g_print ("GtkGLExt version %d.%d\n", major, minor);
+#else
+			glXQueryVersion (GDK_DISPLAY_XDISPLAY(gdk_display_get_default()), &major, &minor);
+#endif
+			g_print ("GLX version %d.%d\n", major, minor);
 		}
 	}
 
@@ -435,7 +439,11 @@ waveform_view_on_expose (GtkWidget* widget, GdkEventExpose* event)
 
 		agl_actor__paint(v->root);
 
+#if USE_SYSTEM_GTKGLEXT
 		gdk_gl_drawable_swap_buffers(((AGlRootActor*)v->root)->gl.gdk.drawable);
+#else
+		gdk_gl_window_swap_buffers(((AGlRootActor*)v->root)->gl.gdk.drawable);
+#endif
 	} AGL_ACTOR_END_DRAW(v->root)
 
 	return true;

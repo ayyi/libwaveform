@@ -4,7 +4,10 @@ endif
 if ENABLE_SDL
 SDL_SUBDIRS = sdl
 endif
-SUBDIRS = $(OPENGL_SUBDIRS) $(SDL_SUBDIRS) waveform transition decoder test
+if ENABLE_GTK
+GTK_SUBDIRS = gtkglext-1.0
+endif
+SUBDIRS = $(OPENGL_SUBDIRS) $(SDL_SUBDIRS) $(GTK_SUBDIRS) waveform transition decoder test
 
 AM_CFLAGS = \
 	-DG_LOG_DOMAIN=\"Waveform\" \

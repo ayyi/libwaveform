@@ -17,8 +17,7 @@ AC_TYPE_SIZE_T
 AC_PROG_RANLIB
 AC_PROG_LIBTOOL
 
-privdatadir='${datadir}'/ayyi_meter
-AC_SUBST(privdatadir)
+AX_SUBDIRS_CONFIGURE([gtkglext-1.0], [[--enable-test=false]], [], [])
 
 # At least level 2 optimisation is needed to allow GCC to
 # determine that not all nested functions require trampolines.
@@ -125,6 +124,8 @@ AM_CONDITIONAL(ENABLE_GTK, test "$enable_gtk" = "yes")
 
 dnl -opengl----------------------------------------------
 
+AC_ARG_ENABLE(system-gtkglext, AC_HELP_STRING([--enable-system-gtkglext], [disable local opengl extension for gtk]), enable_system_gtkglext=$enableval, enable_system_gtkglext="no")
+
 AC_ARG_ENABLE(
 	[opengl],
 	[  --disable-opengl        dont use the opengl canvas],
@@ -143,21 +144,17 @@ AC_ARG_ENABLE(
 		esac
 	],
 	[
-		if test "$enable_gtk" = "yes"; then
-			if `pkg-config gtkglext-1.0`; then
-				enable_opengl="yes"
-			else
-				enable_opengl="no"
-			fi
-		else
-			enable_opengl="yes"
-		fi
+		enable_opengl="yes"
 	]
 )
 if test "x$enable_opengl" = "xyes" ; then
 	if test "$enable_gtk" = "yes"; then
-		OPENGL_CFLAGS=`pkg-config --cflags-only-I gtkglext-1.0`
-		OPENGL_LDFLAGS=`pkg-config --libs-only-l gtkglext-1.0`
+		OPENGL_CFLAGS=`pkg-config --cflags-only-I gl`
+		OPENGL_LDFLAGS=`pkg-config --libs-only-l gl`
+
+		AS_IF([test "$enable_system_gtkglext" = "yes"], [
+			PKG_CHECK_MODULES(GTKGLEXT, [gtkglext-1.0], [OPENGL_CFLAGS=`pkg-config --cflags-only-I gtkglext-1.0`], [AC_MSG_ERROR([Gtkglext not found]) enable_system_gtkglext=no])
+			])
 	else
 		OPENGL_CFLAGS=`pkg-config --cflags-only-I gl`
 		OPENGL_LDFLAGS=`pkg-config --libs-only-l gl`
@@ -168,6 +165,7 @@ if test "x$enable_opengl" = "xyes" ; then
 	AC_DEFINE(WF_USE_TEXTURE_CACHE, 1, [cannot currently disable if opengl used])
 fi
 AM_CONDITIONAL(ENABLE_OPENGL, test $enable_opengl = "yes")
+AM_CONDITIONAL(ENABLE_SYSTEM_GTKGLEXT, test "$enable_system_gtkglext" = "yes")
 AC_SUBST(OPENGL_CFLAGS)
 AC_SUBST(OPENGL_LDFLAGS)
 
@@ -250,6 +248,13 @@ fi
 
 dnl -----------------------------------------------------
 
+# Local version of Gtkglext only works with X11
+if test "$enable_system_gtkglext" != "no"; then
+	AC_DEFINE(USE_SYSTEM_GTKGLEXT, 1, [do not use the internal Gtkglext library])
+fi
+
+dnl -----------------------------------------------------
+
 AC_DEFINE(USE_FRAME_CLOCK, 1, [Synchronise drawing to screen refresh])
 
 # extra CXXFLAGS that should always be used
@@ -257,19 +262,20 @@ dnl CXXFLAGS="$CXXFLAGS -pipe -fmessage-length=139 -fdiagnostics-show-location=e
 AM_CFLAGS="$CFLAGS -pipe -fmessage-length=139 -fdiagnostics-show-location=every-line"
 
 AC_CONFIG_FILES([
-libwaveform.pc
-Makefile
-agl/Makefile
-agl/shaders/Makefile
-transition/Makefile
-sdl/Makefile
-decoder/Makefile
-waveform/Makefile
-waveform/actors/Makefile
-waveform/loaders/Makefile
-shaders/Makefile
-test/Makefile
-test/gen/Makefile
+	libwaveform.pc
+	Makefile
+	agl/Makefile
+	agl/shaders/Makefile
+	transition/Makefile
+	sdl/Makefile
+	gtkglext-1.0/Makefile
+	decoder/Makefile
+	waveform/Makefile
+	waveform/actors/Makefile
+	waveform/loaders/Makefile
+	shaders/Makefile
+	test/Makefile
+	test/gen/Makefile
 ])
 AC_OUTPUT
 
@@ -281,6 +287,7 @@ AC_MSG_RESULT([Building sdl:             $enable_sdl])
 AC_MSG_RESULT([Building libass:          $enable_libass])
 AC_MSG_RESULT([Building ffmpeg:          $enable_ffmpeg])
 AC_MSG_RESULT([Building tests:           $enable_test])
+AC_MSG_RESULT([Use system GtkGL:         $enable_system_gtkglext])
 dnl AC_MSG_RESULT([Building lv2:             $enable_lv2 (TODO)])
 AC_MSG_RESULT([])
 

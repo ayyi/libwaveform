@@ -11,6 +11,10 @@ AM_CFLAGS = \
 	-I$(top_srcdir) \
 	-I$(top_srcdir)/libs
 
+if ENABLE_GTK
+GTKGLEXT_LDFLAGS = -lgmodule-2.0 $(top_srcdir)/gtkglext-1.0/gtk/.libs/libgtkglext-x11-1.0.a $(top_srcdir)/gtkglext-1.0/gdk/.libs/libgdkglext-x11-1.0.a
+endif
+
 TEST_LDFLAGS = \
 	$(top_srcdir)/waveform/.libs/libwaveform.a \
 	$(top_srcdir)/agl/.libs/libagl.a \
@@ -21,7 +25,8 @@ TEST_LDFLAGS = \
 	$(X11_LDFLAGS) \
 	$(SNDFILE_LIBS) \
 	$(FFMPEG_LDFLAGS) \
-	$(OPENGL_LDFLAGS)
+	$(OPENGL_LDFLAGS) \
+	$(GTKGLEXT_LDFLAGS)
 
 write_wav_SOURCES = \
 	write_wav.cc
@@ -52,7 +57,7 @@ write_piano_LDADD = \
 
 libgen_la_SOURCES = \
 	cpgrs.cc cpgrs.h \
-	generator.cc generator.hh
+	generator.cc generator.h
 
 BUILT_SOURCES = test_data
 

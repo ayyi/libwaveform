@@ -208,14 +208,21 @@ on_expose(GtkWidget* widget, GdkEventExpose* event, gpointer user_data)
 	if(!GTK_WIDGET_REALIZED(widget)) return true;
 	if(!wfc) return true;
 
-	if(gdk_gl_drawable_gl_begin(gtk_widget_get_gl_drawable(widget), gtk_widget_get_gl_context(widget))){
+#ifdef USE_SYSTEM_GTKGLEXT
+	if(gdk_gl_drawable_make_current(gtk_widget_get_gl_drawable(widget), gtk_widget_get_gl_context(widget))){
+#else
+	if(gdk_gl_pixmap_make_context_current(gtk_widget_get_gl_drawable(widget), gtk_widget_get_gl_context(widget))){
+#endif
 		glClearColor(0.0, 0.0, 0.0, 1.0);
 		glClear(GL_COLOR_BUFFER_BIT);
 
 		draw(widget);
 
+#if USE_SYSTEM_GTKGLEXT
 		gdk_gl_drawable_swap_buffers(gtk_widget_get_gl_drawable(widget));
-		gdk_gl_drawable_gl_end(gtk_widget_get_gl_drawable(widget));
+#else
+		gdk_gl_window_swap_buffers(gtk_widget_get_gl_drawable(widget));
+#endif
 	}
 
 	return TRUE;

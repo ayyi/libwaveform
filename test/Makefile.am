@@ -10,7 +10,16 @@ SDLPROGRAMS = sdl
 endif
 if ENABLE_GTK
 GTKPROGRAMS = view_plus_test actor_test actor_plus actor_no_scene list group hires multi_scene $(ASSPROGRAMS) frame_rate resources cache viewport pixbuf
-GTKGLEXT_LDFLAGS = -lgmodule-2.0 $(top_srcdir)/gtkglext/gtk/.libs/libgtkglext-x11-1.0.a $(top_srcdir)/gtkglext/gdk/.libs/libgdkglext-x11-1.0.a
+endif
+
+if !ENABLE_SYSTEM_GTKGLEXT
+LOCAL_GTKGLEXT_CFLAGS = \
+	-I$(top_srcdir)/gtkglext-1.0
+GTKGLEXT_LDFLAGS = \
+	-lgmodule-2.0 \
+	$(top_srcdir)/gtkglext-1.0/gtk/.libs/libgtkglext-x11-1.0.a \
+	$(top_srcdir)/gtkglext-1.0/gdk/.libs/libgdkglext-x11-1.0.a
+GTKGLEXT_LIBS =
 endif
 
 if ENABLE_OPENGL
@@ -21,6 +30,8 @@ endif
 AM_CFLAGS = \
 	-D_FILE_OFFSET_BITS=64 \
 	-I$(top_srcdir) \
+	$(LOCAL_GTKGLEXT_CFLAGS) \
+	$(GTKGLEXT_LIBS) \
 	$(OPENGL_CFLAGS) \
 	$(GTK_CFLAGS) \
 	$(SDL_CFLAGS) \
@@ -36,7 +47,8 @@ TEST_LDFLAGS = \
 	$(X11_LDFLAGS) \
 	$(SNDFILE_LIBS) \
 	$(FFMPEG_LDFLAGS) \
-	$(OPENGL_LDFLAGS)
+	$(OPENGL_LDFLAGS) \
+	$(GTKGLEXT_LDFLAGS)
 
 COMMON_SOURCES = \
 	common.c common.h \
