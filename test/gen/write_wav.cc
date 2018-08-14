@@ -151,9 +151,9 @@ class KPS : public Generator
 		gain     = 1.0;
 
 		IOTA = 0;
+		fRec0[0] = 0;
 		fRec0[1] = 0;
 		fRec0[2] = 0;
-		fRec0[3] = 0;
 		fRec1[0] = 0;
 		fRec1[1] = 0;
 		for (int i=0; i<  2; i++) iRec2[i] = 0;
@@ -221,7 +221,6 @@ create_plain_file(int len_seconds, int n_channels)
 
 	char filename[64] = {0,};
 	sprintf(filename, "../data/mono_%i:%02i.wav", len_seconds / 60, len_seconds % 60);
-	printf("  %s\n", filename);
 
 	long n_frames = 44100;
 	double* buffer = (double*) malloc(n_frames * sizeof(double) * n_channels);
