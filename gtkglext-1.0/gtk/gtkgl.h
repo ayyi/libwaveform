@@ -21,7 +21,6 @@
 
 #include <gdk/gdkgl.h>
 
-#include <gtk/gtkglversion.h>
 #include <gtk/gtkglinit.h>
 #include <gtk/gtkglwidget.h>
 
