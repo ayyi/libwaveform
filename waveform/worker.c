@@ -66,17 +66,18 @@ wf_worker_init(WfWorker* worker)
 		return G_SOURCE_REMOVE;
 	}
 
+	/*
+	 *   Do clean-up and notifications in the main thread
+	 */
 	static bool worker_post(gpointer _wj)
 	{
-		// do clean-up and notifications in the main thread
-
 		WorkerJob* wj = _wj;
 		QueueItem* job = wj->job;
 		WfWorker* w = wj->worker;
 
 		if(!job->cancelled){
 			Waveform* waveform = g_weak_ref_get(&job->ref);
-			call(job->done, waveform, job->user_data);
+			call(job->done, waveform, NULL, job->user_data);
 			if(waveform) g_object_unref(waveform);
 		}
 		if(job->free && job->user_data){
@@ -103,7 +104,7 @@ worker_thread(gpointer data)
 
 	g_async_queue_ref(w->msg_queue);
 
-	//check for new work
+	// check for new work
 	while(true){
 		QueueItem* job = g_async_queue_pop(w->msg_queue); // blocking
 		dbg(2, "starting new job: %p", job);
@@ -116,16 +117,15 @@ worker_thread(gpointer data)
 			}
 			g_idle_add(worker_unref_waveform, waveform);
 		}
-#ifdef DEBUG
-		if(!w || job->cancelled) dbg(1, "job cancelled. not calling work fn");
-#endif
 
-		WorkerJob* wj = g_new0(WorkerJob, 1);
-		wj->job = job;
-		wj->worker = w;
-		g_idle_add(worker_post, wj);
+		g_timeout_add(1, worker_post,
+			WF_NEW(WorkerJob,
+				.job = job,
+				.worker = w
+			)
+		);
 
-		g_usleep(100); // TODO optimise this value
+		g_usleep(100);
 	}
 
 	return NULL;
@@ -133,18 +133,17 @@ worker_thread(gpointer data)
 
 
 void
-wf_worker_push_job(WfWorker* w, Waveform* waveform, WfCallback2 work, WfCallback2 done, WfCallback free, gpointer user_data)
+wf_worker_push_job(WfWorker* w, Waveform* waveform, WfCallback2 work, WfCallback3 done, WfCallback free, gpointer user_data)
 {
 	// note that the ref count for the Waveform is not incremented as
 	// this will prevent the cancellation from occurring.
 
-	QueueItem* item = g_new0(QueueItem, 1);
-	*item = (QueueItem){
+	QueueItem* item = WF_NEW(QueueItem,
 		.work = work,
 		.done = done,
 		.free = free,
 		.user_data = user_data
-	};
+	);
 
 	g_weak_ref_set(&item->ref, waveform);
 

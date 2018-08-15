@@ -1,5 +1,5 @@
 /*
-  copyright (C) 2012-2015 Tim Orford <tim@orford.org>
+  copyright (C) 2012-2018 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -26,7 +26,7 @@ struct _QueueItem
 {
 	GWeakRef         ref;
 	WfCallback2      work;
-	WfCallback2      done;
+	WfCallback3      done;
 	WfCallback       free;
 	void*            user_data;
 	gboolean         cancelled;
@@ -34,7 +34,7 @@ struct _QueueItem
 #endif
 
 void     wf_worker_init        (WfWorker*);
-void     wf_worker_push_job    (WfWorker*, Waveform*, WfCallback2 work, WfCallback2 done, WfCallback free, gpointer);
+void     wf_worker_push_job    (WfWorker*, Waveform*, WfCallback2 work, WfCallback3 done, WfCallback free, gpointer);
 void     wf_worker_cancel_jobs (WfWorker*, Waveform*);
 
 #endif

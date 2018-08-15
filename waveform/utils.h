@@ -28,6 +28,9 @@ extern int wf_debug;
 #ifndef g_list_free0
 #define g_list_free0(var) ((var == NULL) ? NULL : (var = (g_list_free (var), NULL)))
 #endif
+#ifndef g_error_free0
+#define g_error_free0(var) ((var == NULL) ? NULL : (var = (g_error_free (var), NULL)))
+#endif
 
 #ifdef __wf_private__
 #ifndef __ayyi_debug_h__

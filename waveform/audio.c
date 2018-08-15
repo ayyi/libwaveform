@@ -269,7 +269,7 @@ waveform_load_audio_run_job(Waveform* waveform, gpointer _pjob)
 }
 
 static void
-waveform_load_audio_post(Waveform* waveform, gpointer _pjob)
+waveform_load_audio_post(Waveform* waveform, GError* error, gpointer _pjob)
 {
 	// runs in the main thread
 
@@ -421,7 +421,7 @@ waveform_load_audio_sync(Waveform* waveform, int block_num, int n_tiers_needed)
 	wf_worker_push_job(&wf->audio_worker, waveform, audio_run_job, audio_post, g_free, item);
 #else
 	waveform_load_audio_run_job(waveform, item);
-	waveform_load_audio_post(waveform, item);
+	waveform_load_audio_post(waveform, NULL, item);
 	g_free(item);
 #endif
 }

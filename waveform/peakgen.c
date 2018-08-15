@@ -130,15 +130,20 @@ peakfile_is_current(const char* audio_file, const char* peak_file)
 
 
 	typedef struct {
-		Waveform* waveform;
+		Waveform*          waveform;
 		WfPeakfileCallback callback;
-		char* filename;
-		gpointer user_data;
+		char*              filename;
+		gpointer           user_data;
 	} C;
 
-	static void waveform_ensure_peakfile_done(Waveform* w, gpointer user_data)
+	static void waveform_ensure_peakfile_done(Waveform* w, GError* error, gpointer user_data)
 	{
 		C* c = (C*)user_data;
+
+		if(error && w->priv->peaks){
+			w->priv->peaks->error = error;
+		}
+
 		if(c->callback) c->callback(c->waveform, c->filename, c->user_data);
 		else g_free(c->filename);
 		g_object_unref(c->waveform);
@@ -167,14 +172,12 @@ waveform_ensure_peakfile (Waveform* w, WfPeakfileCallback callback, gpointer use
 		goto out;
 	}
 
-	C* c = WF_NEW(C,
+	waveform_peakgen(w, peak_filename, waveform_ensure_peakfile_done, WF_NEW(C,
 		.waveform = g_object_ref(w),
 		.callback = callback,
 		.filename = peak_filename,
 		.user_data = user_data
-	);
-
-	waveform_peakgen(w, peak_filename, waveform_ensure_peakfile_done, c);
+	));
 
   out:
 	g_free(filename);
@@ -208,7 +211,7 @@ waveform_ensure_peakfile__sync (Waveform* w)
 		dbg(1, "peakfile is too old");
 	}
 
-	if(!wf_peakgen__sync(filename, peak_filename)){ g_free0(peak_filename); goto out; }
+	if(!wf_peakgen__sync(filename, peak_filename, NULL)){ g_free0(peak_filename); goto out; }
 
   out:
 	g_free(filename);
@@ -323,15 +326,12 @@ wf_ff_peakgen(const char* infilename, const char* peak_filename)
 	return false;
 
 
-	typedef struct {
-		char*         infilename;
-		const char*   peak_filename;
-		struct {
-			bool          failed; // returned true if peakgen failed
-		}             out;
-		WfCallback2   callback;
-		void*         user_data;
-	} PeakJob;
+typedef struct {
+	char*         infilename;
+	const char*   peak_filename;
+	WfCallback3   callback;
+	void*         user_data;
+} PeakJob;
 
 	static void peakgen_execute_job(Waveform* w, gpointer _job)
 	{
@@ -339,11 +339,12 @@ wf_ff_peakgen(const char* infilename, const char* peak_filename)
 
 		PeakJob* job = _job;
 
-		if(!wf_peakgen__sync(job->infilename, job->peak_filename)){
+		GError* error = NULL;
+		if(!wf_peakgen__sync(job->infilename, job->peak_filename, &error)){
 #ifdef DEBUG
 			if(wf_debug) gwarn("peakgen failed");
 #endif
-			job->out.failed = true; // writing to object owned by main thread
+			w->priv->peaks->error = error;
 		}
 	}
 
@@ -354,30 +355,29 @@ wf_ff_peakgen(const char* infilename, const char* peak_filename)
 		g_free(job);
 	}
 
-	static void peakgen_post(Waveform* waveform, gpointer item)
+	static void peakgen_post(Waveform* waveform, GError* error, gpointer item)
 	{
 		// runs in the main thread
 		// will not be called if the waveform is destroyed.
+		// there is only a single callback which will be called on success and failure
 
 		PeakJob* job = item;
-// TODO if job->out.failed, still need to notify original caller...
-		job->callback(waveform, job->user_data);
+		job->callback(waveform, waveform->priv->peaks->error, job->user_data);
 	}
 
 void
-waveform_peakgen(Waveform* w, const char* peak_filename, WfCallback2 callback, gpointer user_data)
+waveform_peakgen(Waveform* w, const char* peak_filename, WfCallback3 callback, gpointer user_data)
 {
 	if(!peakgen.msg_queue) wf_worker_init(&peakgen);
 
-	PeakJob* job = g_new0(PeakJob, 1);
-	*job = (PeakJob){
-		.infilename = g_path_is_absolute(w->filename) ? g_strdup(w->filename) : g_build_filename(g_get_current_dir(), w->filename, NULL),
-		.peak_filename = peak_filename,
-		.callback = callback,
-		.user_data = user_data,
-	};
-
-	wf_worker_push_job(&peakgen, w, peakgen_execute_job, peakgen_post, peakgen_free, job);
+	wf_worker_push_job(&peakgen, w, peakgen_execute_job, peakgen_post, peakgen_free,
+		WF_NEW(PeakJob,
+			.infilename = g_path_is_absolute(w->filename) ? g_strdup(w->filename) : g_build_filename(g_get_current_dir(), w->filename, NULL),
+			.peak_filename = peak_filename,
+			.callback = callback,
+			.user_data = user_data
+		)
+	);
 }
 
 
@@ -391,9 +391,10 @@ waveform_peakgen_cancel(Waveform* w)
 /*
  *  Generate a peak file on disk for the given audio file.
  *  Returns true on success.
+ *  If error arg is not NULL, the caller must free any GError created.
  */
 bool
-wf_peakgen__sync(const char* infilename, const char* peak_filename)
+wf_peakgen__sync(const char* infilename, const char* peak_filename, GError** error)
 {
 	g_return_val_if_fail(infilename, false);
 	PF;
@@ -404,6 +405,11 @@ wf_peakgen__sync(const char* infilename, const char* peak_filename)
 			if(!g_file_test(infilename, G_FILE_TEST_EXISTS)){
 				printf("peakgen: no such input file: '%s'\n", infilename);
 			}
+		}
+		if(error){
+			char* text = g_strdup_printf("Failed to create peak: not able to open input file: %s: %s", infilename, sf_strerror(NULL));
+			*error = g_error_new(g_quark_from_static_string(wf->domain), 1, text);
+			g_free(text);
 		}
 		return false;
 	}

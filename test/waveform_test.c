@@ -39,12 +39,13 @@
 #include "waveform/worker.h"
 #include "test/common.h"
 
-TestFn test_peakgen, test_audio_file, test_audiodata, test_audio_cache, test_alphabuf, test_worker;
+TestFn test_peakgen, test_bad_wav, test_audio_file, test_audiodata, test_audio_cache, test_alphabuf, test_worker;
 
 static void finalize_notify(gpointer, GObject*);
 
 gpointer tests[] = {
 	test_peakgen,
+	test_bad_wav,
 	test_audio_file,
 	test_audiodata,
 	test_audio_cache,
@@ -76,7 +77,7 @@ test_peakgen()
 	char* filename = find_wav(WAV);
 	assert(filename, "cannot find file %s", WAV);
 
-	if(!wf_peakgen__sync(filename, WAV ".peak")){
+	if(!wf_peakgen__sync(filename, WAV ".peak", NULL)){
 		FAIL_TEST("local peakgen failed");
 	}
 
@@ -87,6 +88,53 @@ test_peakgen()
 	assert(p, "cache dir peakgen failed");
 
 	FINISH_TEST;
+}
+
+
+typedef struct {
+	WfTest test;
+	int    n;
+	int    tot_blocks;
+	guint  ready_handler;
+} C1;
+
+
+/*
+ *  Check the load callback gets called if loading fails
+ */
+void
+test_bad_wav()
+{
+	START_TEST;
+	if(__test_idx == -1) printf("\n"); // stop compiler warning
+
+	bool a = wf_peakgen__sync("bad.wav", "bad.peak", NULL);
+	assert(!a, "peakgen was expected to fail");
+
+	GError* error = NULL;
+	a = wf_peakgen__sync("bad.wav", "bad.peak", &error);
+	assert(error, "expected error");
+	g_error_free(error);
+
+	void callback(Waveform* w, GError* error, gpointer _c)
+	{
+		PF0;
+		WfTest* c = _c;
+
+		assert(error, "GError not set")
+
+		WF_TEST_FINISH;
+	}
+
+	Waveform* w = waveform_new(NULL);
+	waveform_set_file(w, "bad.wav");
+	waveform_load(w, callback,
+		WF_NEW(C1,
+			.test = {
+				.test_idx = current_test,
+			}
+		)
+	);
 }
 
 
@@ -142,13 +190,6 @@ test_audio_file()
 	FINISH_TEST;
 }
 
-
-typedef struct {
-	WfTest test;
-	int    n;
-	int    tot_blocks;
-	guint  ready_handler;
-} C1;
 
 	static void _on_peakdata_ready(Waveform* waveform, int block, gpointer _c)
 	{
@@ -375,7 +416,7 @@ test_worker()
 			}
 		}
 
-		void work_done(Waveform* waveform, gpointer _c)
+		void work_done(Waveform* waveform, GError* error, gpointer _c)
 		{
 			C* c = _c;
 

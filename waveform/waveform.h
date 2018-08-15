@@ -147,9 +147,9 @@ void       waveform_rms_to_pixbuf        (Waveform*, GdkPixbuf*, uint32_t src_in
 
 int32_t    wf_get_peakbuf_len_frames     ();
 
-typedef struct { WfCallback2 callback; gpointer user_data; } WfClosure;
-
 #ifdef __wf_private__
+typedef struct { WfCallback3 callback; gpointer user_data; } WfClosure;
+
 #include "wf_private.h"
 #endif
 

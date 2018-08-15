@@ -42,6 +42,7 @@ am_promise_unref(AMPromise* p)
 {
 	if(!--p->refcount){
 		g_list_free_full(p->callbacks, g_free);
+		g_error_free0(p->error);
 		g_free(p);
 	}
 }

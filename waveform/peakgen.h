@@ -1,5 +1,5 @@
 /*
-  copyright (C) 2012-2015 Tim Orford <tim@orford.org>
+  copyright (C) 2012-2018 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -19,9 +19,9 @@
 
 void     waveform_ensure_peakfile      (Waveform*, WfPeakfileCallback, gpointer);
 char*    waveform_ensure_peakfile__sync(Waveform*);
-void     waveform_peakgen              (Waveform*, const char* peakfile, WfCallback2, gpointer);
+void     waveform_peakgen              (Waveform*, const char* peakfile, WfCallback3, gpointer);
 void     waveform_peakgen_cancel       (Waveform*);
 
-gboolean wf_peakgen__sync              (const char* wav, const char* peakfile);
+gboolean wf_peakgen__sync              (const char* wav, const char* peakfile, GError**);
 
 #endif

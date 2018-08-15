@@ -228,9 +228,18 @@ quit(gpointer waveform)
 		float             zoom;
 	} C;
 
-	void on_loaded_(Waveform* w, gpointer _c)
+	void on_loaded_(Waveform* w, GError* error, gpointer _view)
 	{
+		WaveformViewPlus* view = _view;
+
 		wf_spinner_stop((WfSpinner*)layers.spinner);
+
+		if(error){
+			AGlActor* text_layer = waveform_view_plus_get_layer(view, 3);
+			if(text_layer){
+				text_actor_set_text(((TextActor*)text_layer), NULL, g_strdup(error->message));
+			}
+		}
 	}
 
 	bool on_loaded(gpointer _c)
@@ -242,6 +251,7 @@ quit(gpointer waveform)
 		g_free(c);
 		return G_SOURCE_REMOVE;
 	}
+
 void
 show_wav(WaveformViewPlus* view, const char* filename)
 {
@@ -258,7 +268,7 @@ show_wav(WaveformViewPlus* view, const char* filename)
 
 	// TODO fix widget so that zoom can be set imediately
 
-	waveform_view_plus_load_file(view, filename, on_loaded_, c);
+	waveform_view_plus_load_file(view, filename, on_loaded_, view);
 
 	g_idle_add(on_loaded, c);
 

@@ -29,8 +29,6 @@
 #include "waveform/shader.h"
 #include "waveform/actors/text.h"
 
-#define _g_free0(var) (var = (g_free (var), NULL))
-
 #define FONT \
 	"Droid Sans"
 	//"Ubuntu"
@@ -201,8 +199,8 @@ _init()
 	{
 		TextActor* ta = (TextActor*)actor;
 
-		if(ta->title) _g_free0(ta->title);
-		if(ta->text) _g_free0(ta->text);
+		g_free0(ta->title);
+		g_free0(ta->text);
 
 #ifdef USE_LIBASS
 		if(!--instance_count){
@@ -257,11 +255,14 @@ text_actor_set_colour (TextActor* ta, uint32_t title1, uint32_t title2)
 void
 text_actor_set_text (TextActor* ta, char* title, char* text)
 {
-	if(ta->title) _g_free0(ta->title);
-	if(ta->text) _g_free0(ta->text);
+	if(title){
+		g_free0(ta->title);
+		ta->title = title;
+	}
 
-	ta->title = title;
+	g_free0(ta->text);
 	ta->text = text;
+
 	ta->title_is_rendered = false;
 
 	agl_actor__invalidate((AGlActor*)ta);

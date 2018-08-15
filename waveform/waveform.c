@@ -58,22 +58,22 @@ enum  {
 extern WF* wf;
 guint peak_idle = 0;
 
-static void  waveform_finalize          (GObject*);
-static void _waveform_get_property      (GObject*, guint property_id, GValue*, GParamSpec*);
+static void  waveform_finalize      (GObject*);
+static void _waveform_get_property  (GObject*, guint property_id, GValue*, GParamSpec*);
 
 typedef struct _buf_info
 {
-	short* buf[2];       //source buffer
-	guint  len;
-	guint  len_frames;
-	int    n_tiers;
+    short* buf[2];       // source buffer
+    guint  len;
+    guint  len_frames;
+    int    n_tiers;
 } BufInfo;
 
 struct _rms_buf_info
 {
-	char*  buf;          //source buffer
-	guint  len;
-	guint  len_frames;
+    char*  buf;          // source buffer
+    guint  len;
+    guint  len_frames;
 };
 
 
@@ -119,6 +119,7 @@ waveform_set_file (Waveform* w, const char* filename)
 	if(w->filename) g_free(w->filename);
 	w->filename = g_strdup(filename);
 	w->renderable = true;
+	am_promise_unref0(w->priv->peaks);
 }
 
 
@@ -139,9 +140,6 @@ static void
 waveform_instance_init (Waveform* self)
 {
 	self->priv = WAVEFORM_GET_PRIVATE (self);
-#if 0
-	self->priv->_property1 = 1;
-#endif
 }
 
 
@@ -234,20 +232,21 @@ _waveform_get_property (GObject* object, guint property_id, GValue* value, GPara
 	void done(gpointer waveform, gpointer _c)
 	{
 		C* c = _c;
-		//GError* error = NULL; // TODO
 		if(c->callback) c->callback((Waveform*)waveform, ((Waveform*)waveform)->priv->peaks->error, c->user_data);
 		g_free(c);
 	}
 
-	void waveform_load_done (Waveform* w, char* peakfile, gpointer _)
+	void waveform_load_have_peak (Waveform* w, char* peakfile, gpointer _)
 	{
 		WaveformPriv* _w = w->priv;
 
 		_w->state &= ~WAVEFORM_LOADING;
 
 		if(peakfile){
-			if(!waveform_load_peak(w, peakfile, 0)){
-				_w->peaks->error = g_error_new(g_quark_from_static_string(wf->domain), 1, "failed to load peak");
+			if(!_w->peaks->error){
+				if(!waveform_load_peak(w, peakfile, 0)){
+					//_w->peaks->error = g_error_new(g_quark_from_static_string(wf->domain), 1, "failed to load peak");
+				}
 			}
 			g_free(peakfile);
 			g_signal_emit_by_name(w, "peakdata-ready");
@@ -267,12 +266,11 @@ waveform_load(Waveform* w, WfCallback3 callback, gpointer user_data)
 		_w->peaks = am_promise_new(w);
 	}
 
-	C* c = WF_NEW(C,
-		.callback = callback,
-		.user_data = user_data,
+	am_promise_add_callback(
+		_w->peaks,
+		done,
+		WF_NEW(C, .callback = callback, .user_data = user_data)
 	);
-
-	am_promise_add_callback(_w->peaks, done, c);
 
 	if(_w->peak.buf[0] || _w->state & WAVEFORM_LOADING){
 		dbg(1, "subsequent load request");
@@ -280,7 +278,7 @@ waveform_load(Waveform* w, WfCallback3 callback, gpointer user_data)
 	}
 
 	_w->state |= WAVEFORM_LOADING;
-	waveform_ensure_peakfile(w, waveform_load_done, NULL);
+	waveform_ensure_peakfile(w, waveform_load_have_peak, NULL);
 }
 
 
@@ -288,6 +286,12 @@ gboolean
 waveform_load_sync(Waveform* w)
 {
 	g_return_val_if_fail(w, false);
+
+	WaveformPriv* _w = w->priv;
+
+	if(!_w->peaks){
+		_w->peaks = am_promise_new(w);
+	}
 
 	char* peakfile = waveform_ensure_peakfile__sync(w);
 	if(peakfile){
@@ -392,6 +396,7 @@ waveform_load_peak(Waveform* w, const char* peak_file, int ch_num)
 	g_return_val_if_fail(w, false);
 	g_return_val_if_fail(ch_num <= WF_MAX_CH, false);
 	WaveformPriv* _w = w->priv;
+	g_return_val_if_fail(!_w->peaks->error, false);
 
 	// check is not previously loaded
 	if(_w->peak.buf[ch_num]){
@@ -406,6 +411,10 @@ waveform_load_peak(Waveform* w, const char* peak_file, int ch_num)
 	_w->num_peaks = _w->peak.size / WF_PEAK_VALUES_PER_SAMPLE;
 	_w->n_blocks = _w->num_peaks / WF_TEXTURE_VISIBLE_SIZE + ((_w->num_peaks % WF_TEXTURE_VISIBLE_SIZE) ? 1 : 0);
 	dbg(1, "ch=%i num_peaks=%i", ch_num, _w->num_peaks);
+
+	if(!_w->num_peaks){
+		_w->peaks->error = g_error_new(g_quark_from_static_string(wf->domain), 1, "Failed to load peak");
+	}
 
 #ifdef DEBUG
 	if(!g_str_has_suffix(w->filename, ".mp3")){

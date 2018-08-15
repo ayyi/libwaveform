@@ -1,5 +1,5 @@
 /*
-  copyright (C) 2012-2017 Tim Orford <tim@orford.org>
+  copyright (C) 2012-2018 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -43,5 +43,7 @@ void       am_promise_add_callback (AMPromise*, WfPromiseCallback, gpointer);
 void       am_promise_when         (AMPromise*, AMPromise*, ...);
 void       am_promise_resolve      (AMPromise*, PromiseVal*);
 void       am_promise_fail         (AMPromise*, GError*);
+
+#define am_promise_unref0(var) ((var == NULL) ? NULL : (var = (am_promise_unref(var), NULL)))
 
 #endif
