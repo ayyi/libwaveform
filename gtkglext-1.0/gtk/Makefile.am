@@ -1,8 +1,7 @@
 
 CLEANFILES =
 
-EXTRA_DIST = \
-	gtkglversion.h
+EXTRA_DIST =
 
 common_includes = \
 	-DG_LOG_DOMAIN=\"GtkGLExt\"	\
