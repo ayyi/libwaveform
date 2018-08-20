@@ -113,11 +113,11 @@ MAINTAINERCLEANFILES = \
 	$(gdkglext_built_sources)
 
 # Generate built header without using automake BUILT_SOURCES
-$(libgdkglext_x11_@API_MJ@_@API_MI@_la_OBJECTS) $(libgdkglext_quartz_@API_MJ@_@API_MI@_la_OBJECTS) $(libgdkglext_win32_@API_MJ@_@API_MI@_la_OBJECTS): $(gdkglext_built_public_h_sources)
+$(libgdkglext_x11_@API_MJ@_@API_MI@_la_OBJECTS): $(gdkglext_built_public_h_sources)
 
-$(srcdir)/gdkglenumtypes.h: $(srcdir)/gtkglenumtypes.h.template $(gdkglext_public_h_sources) $(abs_builddir)/$(gdkglext_configure_generated_public_h_source)
+$(srcdir)/gdkglenumtypes.h: $(srcdir)/gtkglenumtypes.h.template $(gdkglext_public_h_sources)
 	( cd $(srcdir) && $(GLIB_MKENUMS) --template gtkglenumtypes.h.template \
-$(gdkglext_public_h_sources) $(abs_builddir)/$(gdkglext_configure_generated_public_h_source) ) >> xgen-geth \
+$(gdkglext_public_h_sources) ) >> xgen-geth \
 && (cmp -s xgen-geth $(srcdir)/gdkglenumtypes.h || cp xgen-geth $(srcdir)/gdkglenumtypes.h ) \
 && rm -f xgen-geth
 
