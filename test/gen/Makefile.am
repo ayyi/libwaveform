@@ -1,3 +1,4 @@
+if BUILD_TESTS
 
 lib_LTLIBRARIES = libgen.la
 
@@ -106,6 +107,8 @@ test_data: Makefile write_block.cc
 	@if [ ! -e "$(DATA_DIR)/piano.wav" ] || [ "./write_piano" -nt "$(DATA_DIR)/piano.wav" ]; then \
 		./write_piano $(DATA_DIR)/piano.wav; \
 	fi;
+
+endif
 
 EXTRA_DIST = \
 	piano.cc piano.hh
