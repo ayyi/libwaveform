@@ -213,6 +213,9 @@ agl_actor__free(AGlActor* actor)
 	if(actor->fbo) agl_fbo_free(actor->fbo);
 #endif
 
+	while(actor->transitions)
+		wf_animation_remove(actor->transitions->data);
+
 	if(actor->free)
 		actor->free(actor);
 	else
@@ -846,14 +849,14 @@ agl_actor__xevent(AGlRootActor* scene, XEvent* xevent)
 		case ButtonRelease:
 			{
 				GdkEvent event = {
-					.type = GDK_BUTTON_RELEASE, // why gets overwritten?
 					.button = {
+						.type = GDK_BUTTON_RELEASE,
 						.x = (double)xevent->xbutton.x,
 						.y = (double)xevent->xbutton.y,
 						.button = xevent->xbutton.button,
+						.state = xevent->xbutton.state,
 					},
 				};
-				event.type = GDK_BUTTON_RELEASE;
 
 				agl_actor__on_event(scene, &event);
 			}
