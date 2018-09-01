@@ -17,8 +17,7 @@ LOCAL_GTKGLEXT_CFLAGS = \
 	-I$(top_srcdir)/gtkglext-1.0
 GTKGLEXT_LDFLAGS = \
 	-lgmodule-2.0 \
-	$(top_srcdir)/gtkglext-1.0/gtk/.libs/libgtkglext-x11-1.0.a \
-	$(top_srcdir)/gtkglext-1.0/gdk/.libs/libgdkglext-x11-1.0.a
+	$(top_srcdir)/gtkglext-1.0/.libs/libgtkglext.a
 GTKGLEXT_LIBS =
 endif
 
@@ -38,16 +37,13 @@ AM_CFLAGS = \
 	$(LIBASS_CFLAGS)
 
 TEST_LDFLAGS = \
-	$(top_srcdir)/waveform/.libs/libwaveform.a \
-	$(top_srcdir)/agl/.libs/libagl.a \
-	$(top_srcdir)/transition/.libs/libtransition.a \
-	$(top_srcdir)/decoder/.libs/libwaveformdecoder.a \
 	-lm \
 	$(GTK_LDFLAGS) \
 	$(X11_LDFLAGS) \
 	$(SNDFILE_LIBS) \
 	$(FFMPEG_LDFLAGS) \
 	$(OPENGL_LDFLAGS) \
+	$(top_srcdir)/.libs/libwaveform.a \
 	$(GTKGLEXT_LDFLAGS)
 
 COMMON_SOURCES = \

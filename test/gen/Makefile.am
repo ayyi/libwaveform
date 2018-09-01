@@ -13,14 +13,13 @@ AM_CFLAGS = \
 	-I$(top_srcdir)/libs
 
 if ENABLE_GTK
-GTKGLEXT_LDFLAGS = -lgmodule-2.0 $(top_srcdir)/gtkglext-1.0/gtk/.libs/libgtkglext-x11-1.0.a $(top_srcdir)/gtkglext-1.0/gdk/.libs/libgdkglext-x11-1.0.a
+GTKGLEXT_LDFLAGS = \
+	-lgmodule-2.0 \
+	$(top_srcdir)/gtkglext-1.0/.libs/libgtkglext.a
 endif
 
 TEST_LDFLAGS = \
-	$(top_srcdir)/waveform/.libs/libwaveform.a \
-	$(top_srcdir)/agl/.libs/libagl.a \
-	$(top_srcdir)/transition/.libs/libtransition.a \
-	$(top_srcdir)/decoder/.libs/libwaveformdecoder.a \
+	$(top_srcdir)/.libs/libwaveform.a \
 	-lm \
 	$(GTK_LDFLAGS) \
 	$(X11_LDFLAGS) \

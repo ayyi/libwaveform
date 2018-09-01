@@ -43,11 +43,11 @@ gtkglext_c_sources = \
 	gtkglwidget.c
 
 gtkglext_headers = \
-	$(gtkglext_public_h_sources)	\
+	$(gtkglext_public_h_sources) \
 	gtkgldebug.h
 
 gtkglext_sources = \
-	$(gtkglext_private_h_sources)	\
+	$(gtkglext_private_h_sources) \
 	$(gtkglext_c_sources)
 
 #
@@ -59,18 +59,9 @@ gtkglextinclude_HEADERS = $(gtkglext_headers)
 
 AM_CPPFLAGS = $(common_includes)
 
-lib_LTLIBRARIES = $(gtkglext_targetlib)
+#libgtkglext_x11_1_0_la_SOURCES = $(gtkglext_sources)
+#libgtkglext_x11_1_0_la_LDFLAGS = $(common_ldflags)
+#libgtkglext_x11_1_0_la_LIBADD = $(common_libadd)
 
-EXTRA_LTLIBRARIES = \
-	libgtkglext-x11-@API_MJ@.@API_MI@.la	\
-	libgtkglext-quartz-@API_MJ@.@API_MI@.la
-
-libgtkglext_x11_@API_MJ@_@API_MI@_la_SOURCES = $(gtkglext_sources)
-libgtkglext_x11_@API_MJ@_@API_MI@_la_LDFLAGS = $(common_ldflags)
-libgtkglext_x11_@API_MJ@_@API_MI@_la_LIBADD = $(common_libadd)
-
-libgtkglext_quartz_@API_MJ@_@API_MI@_la_SOURCES = $(gtkglext_sources)
-libgtkglext_quartz_@API_MJ@_@API_MI@_la_LDFLAGS = $(common_ldflags)
-libgtkglext_quartz_@API_MJ@_@API_MI@_la_LIBADD = $(common_libadd)
-
-
+noinst_LTLIBRARIES = libgtk.la
+libgtk_la_SOURCES = $(gtkglext_sources)

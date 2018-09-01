@@ -1,8 +1,6 @@
 
 SUBDIRS = gdk gtk
 
-#ACLOCAL_AMFLAGS = -I m4macros ${ACLOCAL_FLAGS}
-
 EXTRA_DIST = \
 	configure \
 	gdkglext-uninstalled.pc.in \
@@ -22,3 +20,8 @@ DISTCLEANFILES = \
 	gtkglext-$(GDK_TARGET)-$(API_VER)-uninstalled.pc \
 	gtkglext-$(API_VER)-uninstalled.pc
 
+lib_LTLIBRARIES = libgtkglext.la
+libgtkglext_la_SOURCES =
+libgtkglext_la_LIBADD = \
+  gdk/libgdk.la \
+  gtk/libgtk.la

@@ -18,7 +18,7 @@ AM_CFLAGS = \
 	$(LOCAL_GTKGLEXT_CFLAGS) \
 	$(OPENGL_CFLAGS)
 
-lib_LTLIBRARIES = libwaveform.la
+noinst_LTLIBRARIES = libwf.la
 
 if ENABLE_GTK
 GTK_SOURCES = \
@@ -34,30 +34,23 @@ OPENGL_SOURCES = \
 	shader.c shader.h \
 	alphabuf.c alphabuf.h \
 	texture_cache.c texture_cache.h \
-	fbo.c fbo.h \
-	actors/group.c actors/group.h \
-	actors/background.c actors/background.h \
-	actors/plain.c actors/plain.h \
-	actors/ruler.c actors/ruler.h \
-	actors/grid.c actors/grid.h \
-	actors/spp.c actors/spp.h \
-	actors/spinner.c actors/spinner.h \
-	actors/text.c actors/text.h \
-	actors/debug.c actors/debug.h
+	fbo.c fbo.h
 endif
 
-libwaveform_la_SOURCES = \
+libwf_la_SOURCES = \
 	typedefs.h waveform.h wf_private.h \
 	global.c global.h \
 	waveform.c waveform.h \
-	loaders/ardour.c loaders/ardour.h \
-	loaders/riff.c loaders/riff.h \
 	$(OPENGL_SOURCES) \
 	peakgen.c peakgen.h \
 	audio.c audio.h \
 	worker.c worker.h \
 	promise.c promise.h \
 	utils.c utils.h
+
+libwf_la_LIBADD = \
+	loaders/libloaders.la \
+	actors/libactors.la
 
 EXTRA_DIST = \
 	renderer_ng.c \

@@ -1,6 +1,6 @@
 SUBDIRS =
 
-INCLUDES = \
+AM_CFLAGS = \
 	-I$(includedir) \
 	$(OPENGL_CFLAGS) \
 	$(SDL_CFLAGS)

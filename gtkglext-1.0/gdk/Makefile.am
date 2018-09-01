@@ -90,19 +90,10 @@ AM_CPPFLAGS = $(common_includes)
 lib_LTLIBRARIES = $(gdkglext_targetlib)
 
 EXTRA_LTLIBRARIES = \
-	libgdkglext-x11-@API_MJ@.@API_MI@.la \
-	libgdkglext-quartz-@API_MJ@.@API_MI@.la \
-	libgdkglext-win32-@API_MJ@.@API_MI@.la
+	libgdkglext-x11-1.0.la
 
-libgdkglext_x11_@API_MJ@_@API_MI@_la_SOURCES = $(gdkglext_sources)
-libgdkglext_x11_@API_MJ@_@API_MI@_la_LDFLAGS = $(common_ldflags)
-
-libgdkglext_quartz_@API_MJ@_@API_MI@_la_SOURCES = $(gdkglext_sources)
-libgdkglext_quartz_@API_MJ@_@API_MI@_la_LDFLAGS = $(common_ldflags)
-
-libgdkglext_win32_@API_MJ@_@API_MI@_la_SOURCES = $(gdkglext_sources)
-libgdkglext_win32_@API_MJ@_@API_MI@_la_LDFLAGS = $(common_ldflags)
-libgdkglext_win32_@API_MJ@_@API_MI@_la_DEPENDENCIES = $(gdkglext_def)
+libgdkglext_x11_1_0_la_SOURCES = $(gdkglext_sources)
+libgdkglext_x11_1_0_la_LDFLAGS = $(common_ldflags)
 
 BUILT_SOURCES = \
 	$(gdkglext_built_sources)
@@ -113,7 +104,7 @@ MAINTAINERCLEANFILES = \
 	$(gdkglext_built_sources)
 
 # Generate built header without using automake BUILT_SOURCES
-$(libgdkglext_x11_@API_MJ@_@API_MI@_la_OBJECTS): $(gdkglext_built_public_h_sources)
+$(libgdkglext_x11_1_0_la_OBJECTS): $(gdkglext_built_public_h_sources)
 
 $(srcdir)/gdkglenumtypes.h: $(srcdir)/gtkglenumtypes.h.template $(gdkglext_public_h_sources)
 	( cd $(srcdir) && $(GLIB_MKENUMS) --template gtkglenumtypes.h.template \
@@ -174,3 +165,5 @@ gdkglext_glext_public_h_sources = \
 gdkglextglextincludedir = $(includedir)/gtkglext-@GTKGLEXT_API_VERSION@/gdk/glext
 gdkglextglextinclude_HEADERS = $(gdkglext_glext_public_h_sources)
 
+noinst_LTLIBRARIES = libgdk.la
+libgdk_la_SOURCES = $(gdkglext_sources)

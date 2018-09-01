@@ -6,7 +6,7 @@ LOCAL_GTKGLEXT_CFLAGS = \
 	-I$(top_srcdir)/gtkglext-1.0
 endif
 
-INCLUDES = \
+AM_CFLAGS = \
 	-DG_LOG_DOMAIN=\"AGl\" \
 	-DPACKAGE_DATA_DIR=\""$(datadir)"\" \
 	-I$(includedir) \
@@ -16,7 +16,7 @@ INCLUDES = \
 	$(SDL_CFLAGS) \
 	$(GTK_CFLAGS)
 
-lib_LTLIBRARIES = libagl.la
+noinst_LTLIBRARIES = libagl.la
 
 libagl_la_SOURCES = \
 	fontmap.c fontmap.h \

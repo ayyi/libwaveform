@@ -1,19 +1,19 @@
 SUBDIRS =
 
-INCLUDES = \
+AM_CFLAGS = \
 	-DG_LOG_DOMAIN=\"Transition\" \
 	-DPACKAGE_DATA_DIR=\""$(datadir)"\" \
 	-I$(includedir) \
 	$(GTK_CFLAGS)
 
-lib_LTLIBRARIES = libtransition.la
+noinst_LTLIBRARIES = libtransition.la
 
 libtransition_la_SOURCES = \
 	transition.c transition.h \
-	globals.c \
 	frameclock.c frameclock.h frameclockprivate.h \
 	frameclockidle.c frameclockidle.h \
-	frametimings.c frametimings.h
+	frametimings.c frametimings.h \
+	globals.c
 
 pkgincludedir=$(includedir)/transition
 pkginclude_HEADERS = \

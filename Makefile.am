@@ -7,7 +7,15 @@ endif
 if ENABLE_GTK
 GTK_SUBDIRS = gtkglext-1.0
 endif
-SUBDIRS = $(OPENGL_SUBDIRS) $(SDL_SUBDIRS) $(GTK_SUBDIRS) waveform transition decoder test
+SUBDIRS = $(OPENGL_SUBDIRS) $(SDL_SUBDIRS) $(GTK_SUBDIRS) waveform transition decoder . test
+
+lib_LTLIBRARIES = libwaveform.la
+libwaveform_la_SOURCES =
+libwaveform_la_LIBADD = \
+	waveform/libwf.la \
+	decoder/libdecoder.la \
+	transition/libtransition.la \
+	agl/libagl.la
 
 AM_CFLAGS = \
 	-DG_LOG_DOMAIN=\"Waveform\" \
