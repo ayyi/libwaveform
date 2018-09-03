@@ -1,4 +1,6 @@
 
+if ENABLE_OPENGL
+
 noinst_LTLIBRARIES = libactors.la
 
 libactors_la_SOURCES = \
@@ -29,6 +31,8 @@ AM_CFLAGS = \
 	$(SDL_CFLAGS) \
 	$(LOCAL_GTKGLEXT_CFLAGS) \
 	$(OPENGL_CFLAGS)
+
+endif
 
 pkgincludedir=$(includedir)/waveform/actors
 pkginclude_HEADERS = \

@@ -12,6 +12,7 @@ if ENABLE_GTK
 GTKPROGRAMS = view_plus_test actor_test actor_plus actor_no_scene list group hires multi_scene $(ASSPROGRAMS) frame_rate resources cache viewport pixbuf
 endif
 
+if ENABLE_OPENGL
 if !ENABLE_SYSTEM_GTKGLEXT
 LOCAL_GTKGLEXT_CFLAGS = \
 	-I$(top_srcdir)/gtkglext-1.0
@@ -20,10 +21,13 @@ GTKGLEXT_LDFLAGS = \
 	$(top_srcdir)/gtkglext-1.0/.libs/libgtkglext.a
 GTKGLEXT_LIBS =
 endif
+endif
 
 if ENABLE_OPENGL
 noinst_PROGRAMS = waveform_test $(GTKPROGRAMS) large_files promise 32bit glx scenegraph $(SDLPROGRAMS)
 ###noinst_PROGRAMS = waveform_test view_plus_test actor_test actor_plus $(ASSPROGRAMS)
+else
+noinst_PROGRAMS = waveform_test
 endif
 
 AM_CFLAGS = \
@@ -43,7 +47,7 @@ TEST_LDFLAGS = \
 	$(SNDFILE_LIBS) \
 	$(FFMPEG_LDFLAGS) \
 	$(OPENGL_LDFLAGS) \
-	$(top_srcdir)/.libs/libwaveform.a \
+	$(top_srcdir)/libwaveform.la \
 	$(GTKGLEXT_LDFLAGS)
 
 COMMON_SOURCES = \
@@ -186,6 +190,18 @@ test:
 	cd .. && test/large_files
 	cd .. && test/32bit
 	cd .. && test/cache
+
+CLEANFILES = \
+	large_files \
+	list \
+	multi_scene \
+	pixbuf \
+	resources \
+	scenegraph \
+	sdl \
+	view_plus_test \
+	viewport \
+	waveform_test
 
 EXTRA_DIST = 
 

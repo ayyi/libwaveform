@@ -32,9 +32,10 @@ OPENGL_SOURCES = \
 	context.c context.h \
 	actor.c actor.h \
 	shader.c shader.h \
-	alphabuf.c alphabuf.h \
 	texture_cache.c texture_cache.h \
 	fbo.c fbo.h
+OPENGL_LIBADD = \
+	actors/libactors.la
 endif
 
 libwf_la_SOURCES = \
@@ -42,6 +43,7 @@ libwf_la_SOURCES = \
 	global.c global.h \
 	waveform.c waveform.h \
 	$(OPENGL_SOURCES) \
+	alphabuf.c alphabuf.h \
 	peakgen.c peakgen.h \
 	audio.c audio.h \
 	worker.c worker.h \
@@ -50,7 +52,7 @@ libwf_la_SOURCES = \
 
 libwf_la_LIBADD = \
 	loaders/libloaders.la \
-	actors/libactors.la
+	$(OPENGL_LIBADD)
 
 EXTRA_DIST = \
 	renderer_ng.c \

@@ -1,6 +1,5 @@
 - check pixbuf inset at hi res
 - fix hires segfault with Nouveau driver (status?)
-- opengl 1.0 mode has spurious lines.
 - documentation
 - peak.c / peak.h need renaming (split?)
 - left and right are swapped in some cases.
@@ -12,7 +11,6 @@ later:
 - rms display
 - lv2
 - grid lines / text labels
-- cairo / clutter
 - api:
 	- n_frames property - should we guarantee that it is always correctly set?
 	- wf_get_audio_async -- review api

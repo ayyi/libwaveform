@@ -1423,7 +1423,6 @@ warn_no_src_data(Waveform* waveform, int buflen, int src_stop)
 }
 
 
-#ifdef USE_GDK_PIXBUF
 void
 waveform_peak_to_pixbuf(Waveform* w, GdkPixbuf* pixbuf, WfSampleRegion* region, uint32_t colour, uint32_t bg_colour, bool single)
 {
@@ -1829,7 +1828,6 @@ waveform_peak_to_pixbuf_full(Waveform* waveform, GdkPixbuf* pixbuf, uint32_t reg
 	cairo_destroy(cairo);
 #endif
 }
-#endif
 
 
 #undef PEAK_ANTIALIAS

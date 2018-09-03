@@ -238,3 +238,22 @@ fbo_2_png(AGlFBO* fbo)
 #endif
 
 
+#ifndef USE_OPENGL
+int
+agl_power_of_two(guint a)
+{
+	// return the next power of two up from the given value.
+
+	int i = 0;
+	int orig = a;
+	a = MAX(1, a - 1);
+	while(a){
+		a = a >> 1;
+		i++;
+	}
+	dbg (3, "%i -> %i", orig, 1 << i);
+	return 1 << i;
+}
+#endif
+
+
