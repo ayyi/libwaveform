@@ -25,7 +25,6 @@ endif
 
 if ENABLE_OPENGL
 noinst_PROGRAMS = waveform_test $(GTKPROGRAMS) large_files promise 32bit glx scenegraph $(SDLPROGRAMS)
-###noinst_PROGRAMS = waveform_test view_plus_test actor_test actor_plus $(ASSPROGRAMS)
 else
 noinst_PROGRAMS = waveform_test
 endif
@@ -48,6 +47,7 @@ TEST_LDFLAGS = \
 	$(FFMPEG_LDFLAGS) \
 	$(OPENGL_LDFLAGS) \
 	$(top_srcdir)/libwaveform.la \
+	$(LIBASS_LDFLAGS) \
 	$(GTKGLEXT_LDFLAGS)
 
 COMMON_SOURCES = \
