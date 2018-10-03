@@ -19,8 +19,6 @@
 #ifndef __GDK_GL_H__
 #define __GDK_GL_H__
 
-#include <gdk/gdkglext-config.h>
-
 #include <gdk/gdkgltokens.h>
 #include <gdk/gdkgltypes.h>
 #include <gdk/gdkglenumtypes.h>

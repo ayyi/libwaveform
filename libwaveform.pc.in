@@ -9,6 +9,6 @@ Name: Libwaveform
 Version: @PACKAGE_VERSION@
 Description: Gtk+-2 library for displaying audio waveforms
 URL: https://github.com/ayyi/libwaveform
-Requires: gtk+-2.0 > 2.10, gtkglext-1.0 >= 1.2.0
-Libs: -L${libdir} -lwaveform -ltransition -lagl -lwaveformdecoder ${ass_flags} ${ffmpeg_flags}
-Cflags: -I${includedir}
+Requires: gtk+-2.0 > 2.10
+Libs: -L${libdir} -lwaveform -lgtkglext ${ass_flags} ${ffmpeg_flags}
+Cflags: -I${includedir} -I${includedir}/gtkglext-1.0

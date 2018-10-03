@@ -35,6 +35,7 @@ pkginclude_HEADERS = \
 	ext.h \
 	fbo.h \
 	shader.h \
+	material.h \
 	actor.h \
 	utils.h \
 	pango_render.h \

@@ -46,7 +46,7 @@ TEST_LDFLAGS = \
 	$(SNDFILE_LIBS) \
 	$(FFMPEG_LDFLAGS) \
 	$(OPENGL_LDFLAGS) \
-	$(top_srcdir)/libwaveform.la \
+	$(top_srcdir)/.libs/libwaveform.a \
 	$(LIBASS_LDFLAGS) \
 	$(GTKGLEXT_LDFLAGS)
 

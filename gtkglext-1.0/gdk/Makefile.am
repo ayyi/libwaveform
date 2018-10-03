@@ -87,14 +87,6 @@ gdkglextinclude_HEADERS = $(gdkglext_headers)
 
 AM_CPPFLAGS = $(common_includes)
 
-lib_LTLIBRARIES = $(gdkglext_targetlib)
-
-EXTRA_LTLIBRARIES = \
-	libgdkglext-x11-1.0.la
-
-libgdkglext_x11_1_0_la_SOURCES = $(gdkglext_sources)
-libgdkglext_x11_1_0_la_LDFLAGS = $(common_ldflags)
-
 BUILT_SOURCES = \
 	$(gdkglext_built_sources)
 
@@ -122,13 +114,6 @@ $(gdkglext_public_h_sources) ) > xgen-getc \
 # Rule to install gdkglext-config.h header file
 #
 configexecincludedir = $(libdir)/gtkglext-@GTKGLEXT_API_VERSION@/include
-configexecinclude_DATA = gdkglext-config.h
-
-install-exec-local: gdkglext-config.h
-	$(mkinstalldirs) $(DESTDIR)$(configexecincludedir)
-	file=$(DESTDIR)$(configexecincludedir)/gdkglext-config.h; \
-	if test -r $$file && cmp -s gdkglext-config.h $$file; then :; \
-	else $(INSTALL_DATA) gdkglext-config.h $$file; fi
 
 gdkglext-config.h: stamp-gdkglext-config-h
 	@if test -f gdkglext-config.h; then :; \
