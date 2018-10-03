@@ -15,9 +15,7 @@ agl_get_extensions()
 
    /* OpenGL 2.0 */
    glAttachShader = (PFNGLATTACHSHADERPROC) getProcAddress("glAttachShader");
-#if 0
    glBindAttribLocation = (PFNGLBINDATTRIBLOCATIONPROC) getProcAddress("glBindAttribLocation");
-#endif
    glCompileShader = (PFNGLCOMPILESHADERPROC) getProcAddress("glCompileShader");
    glCreateProgram = (PFNGLCREATEPROGRAMPROC) getProcAddress("glCreateProgram");
    glCreateShader = (PFNGLCREATESHADERPROC) getProcAddress("glCreateShader");
@@ -72,9 +70,9 @@ agl_get_extensions()
    glVertexAttrib2fv_func = (PFNGLVERTEXATTRIB2FVPROC) getProcAddress("glVertexAttrib2fv");
    glVertexAttrib3fv_func = (PFNGLVERTEXATTRIB3FVPROC) getProcAddress("glVertexAttrib3fv");
    glVertexAttrib4fv_func = (PFNGLVERTEXATTRIB4FVPROC) getProcAddress("glVertexAttrib4fv");
-
-   glVertexAttribPointer_func = (PFNGLVERTEXATTRIBPOINTERPROC) getProcAddress("glVertexAttribPointer");
 #endif
+
+   glVertexAttribPointer = (PFNGLVERTEXATTRIBPOINTERPROC) getProcAddress("glVertexAttribPointer");
    glEnableVertexAttribArray = (PFNGLENABLEVERTEXATTRIBARRAYPROC) getProcAddress("glEnableVertexAttribArray");
 #if 0
    glDisableVertexAttribArray_func = (PFNGLDISABLEVERTEXATTRIBARRAYPROC) getProcAddress("glDisableVertexAttribArray");
