@@ -617,7 +617,7 @@ wf_context_set_scale(WaveformContext* wfc, float samples_per_px)
 	}
 	g_signal_emit_by_name(wfc, "zoom-changed");
 
-	WfAnimation* animation = wf_animation_new(set_scale_on_animation_finished, wfc);
+	WfAnimation* animation = wf_animation_new(NULL, wfc);
 	animation->on_frame = wf_context_set_zoom_on_frame;
 
 	wf_transition_add_member(animation, g_list_prepend(NULL, &wfc->priv->samples_per_pixel));
