@@ -9,6 +9,7 @@ libactors_la_SOURCES = \
 	plain.c plain.h \
 	ruler.c ruler.h \
 	grid.c grid.h \
+	labels.c labels.h \
 	spp.c spp.h \
 	spinner.c spinner.h \
 	text.c text.h \
@@ -40,6 +41,7 @@ pkginclude_HEADERS = \
 	plain.h \
 	debug.h \
 	grid.h \
+	labels.h \
 	group.h \
 	ruler.h \
 	spinner.h \

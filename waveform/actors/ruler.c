@@ -20,6 +20,7 @@
 
 */
 #define __wf_private__
+#define __wf_canvas_priv__
 #include "config.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -68,8 +69,8 @@ static bool ruler_actor_paint(AGlActor*);
 		WaveformContext* context = ruler->context;
 
 		shader->uniform.fg_colour = 0xffffff7f;
-		shader->uniform.beats_per_pixel = context->samples_per_pixel / (samples_per_beat(context) * context->zoom);
-		shader->uniform.samples_per_pixel = context->samples_per_pixel;
+		shader->uniform.beats_per_pixel = context->priv->samples_per_pixel.val.f / (samples_per_beat(context) * context->zoom);
+		shader->uniform.samples_per_pixel = context->priv->samples_per_pixel.val.f;
 
 		agl_use_program((AGlShader*)shader);
 	}
@@ -83,9 +84,7 @@ ruler_actor(WaveformActor* wf_actor)
 
 	return (AGlActor*)AGL_NEW(RulerActor,
 		.actor = {
-#ifdef AGL_DEBUG_ACTOR
 			.name = "ruler",
-#endif
 			.init = ruler_init,
 			.set_state = ruler_set_state,
 			.paint = ruler_actor_paint,
@@ -122,8 +121,9 @@ ruler_actor_paint(AGlActor* actor)
 	glPushMatrix();
 	glScalef(1.0, -1.0, 1.0);           // inverted vertically to make alignment of marks to bottom easier in the shader
 	glTranslatef(0.0, -agl_actor__height(actor), 0.0); // making more negative moves downward
-	glRecti(actor->region.x1, actor->region.y1, actor->region.x2, actor->region.y2);
+	glRecti(actor->region.x1, 0, actor->region.x2, agl_actor__height(actor));
 	glPopMatrix();
+
 	return true;
 }
 

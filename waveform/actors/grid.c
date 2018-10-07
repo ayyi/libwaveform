@@ -1,23 +1,19 @@
-/*
-  copyright (C) 2012-2018 Tim Orford <tim@orford.org>
-
-  This program is free software; you can redistribute it and/or modify
-  it under the terms of the GNU General Public License version 3
-  as published by the Free Software Foundation.
-
-  This program is distributed in the hope that it will be useful,
-  but WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-  GNU General Public License for more details.
-
-  You should have received a copy of the GNU General Public License
-  along with this program; if not, write to the Free Software
-  Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
-
-  ---------------------------------------------------------------
-
-  WaveformGrid draws timeline markers onto a shared opengl drawable.
-
+/**
+* +----------------------------------------------------------------------+
+* | This file is part of the Ayyi project. http://ayyi.org               |
+* | copyright (C) 2013-2018 Tim Orford <tim@orford.org>                  |
+* +----------------------------------------------------------------------+
+* | This program is free software; you can redistribute it and/or modify |
+* | it under the terms of the GNU General Public License version 3       |
+* | as published by the Free Software Foundation.                        |
+* +----------------------------------------------------------------------+
+*
+* +----------------------------------------------------------------------+
+* | WaveformGrid draws timeline markers onto a shared opengl drawable.   |
+* +----------------------------------------------------------------------+
+* | The scaling is controlled by the sample_rate and samples_per_pixel   |
+* | properties of the WaveformContext.                                   |
+* +----------------------------------------------------------------------+
 */
 #define __wf_private__
 #include "config.h"
@@ -27,15 +23,14 @@
 #include <math.h>
 #include <sys/time.h>
 #include <GL/gl.h>
+#define __wf_canvas_priv__
 #include "waveform/waveform.h"
-#include "waveform/context.h"
 #include "waveform/actors/grid.h"
-																				// TODO draw over whole viewport not just the wfactor.
+
 typedef struct {
     AGlActor         actor;
     WaveformActor*   wf_actor;
     WaveformContext* context;
-    uint32_t         fg_colour;
 } GridActor;
 
 static AGl* agl = NULL;
@@ -43,20 +38,24 @@ static AGl* agl = NULL;
 static bool grid_actor_paint(AGlActor*);
 
 
-	static void grid_actor_size(AGlActor* actor)
-	{
-		actor->region = actor->parent->region;
-	}
+static void
+grid_actor_size(AGlActor* actor)
+{
+	actor->region = actor->parent->region;
+}
 
-	static void grid_actor_init(AGlActor* actor)
-	{
-		if(agl->use_shaders){
-			agl_create_program(&((GridActor*)actor)->context->shaders.ruler->shader);
-		}
-#ifdef AGL_ACTOR_RENDER_CACHE
-		actor->fbo = agl_fbo_new(actor->region.x2 - actor->region.x1, actor->region.y2 - actor->region.y1, 0, 0);
-#endif
+
+static void
+grid_actor_init(AGlActor* actor)
+{
+	if(agl->use_shaders){
+		agl_create_program(&((GridActor*)actor)->context->shaders.ruler->shader);
 	}
+#ifdef AGL_ACTOR_RENDER_CACHE
+	actor->fbo = agl_fbo_new(actor->region.x2 - actor->region.x1, actor->region.y2 - actor->region.y1, 0, 0);
+#endif
+}
+
 
 AGlActor*
 grid_actor(WaveformActor* wf_actor)
@@ -65,20 +64,16 @@ grid_actor(WaveformActor* wf_actor)
 
 	agl = agl_get_instance();
 
-	GridActor* grid = g_new0(GridActor, 1);
-	*grid = (GridActor){
+	GridActor* grid = AGL_NEW(GridActor,
 		.actor = {
-#ifdef AGL_DEBUG_ACTOR
-			.name = "grid",
-#endif
+			.name = "Grid",
 			.init = grid_actor_init,
 			.paint = grid_actor_paint,
 			.set_size = grid_actor_size,
 		},
 		.wf_actor = wf_actor,
 		.context = wf_actor->canvas,
-		.fg_colour = wf_actor->fg_colour,
-	};
+	);
 
 	return (AGlActor*)grid;
 }
@@ -87,9 +82,7 @@ grid_actor(WaveformActor* wf_actor)
 static bool
 grid_actor_paint(AGlActor* actor)
 {
-	//draw a vertical line every 1 second.
-
-	//only the case of a canvas with a single Waveform is supported.
+	// Draw a vertical line every 1 second.
 
 	GridActor* grid = (GridActor*)actor;
 	WaveformContext* context = grid->context;
@@ -101,7 +94,7 @@ grid_actor_paint(AGlActor* actor)
 #ifdef USE_CANVAS_SCALING
 	float _zoom = wf_context_get_zoom(context);
 	if(_zoom > 0.0){
-		zoom = _zoom / context->samples_per_pixel;
+		zoom = _zoom / context->priv->samples_per_pixel.val.f;
 	}else{
 #endif
 		WfViewPort viewport; wf_actor_get_viewport(grid->wf_actor, &viewport);
@@ -112,7 +105,7 @@ grid_actor_paint(AGlActor* actor)
 
 	int interval = context->sample_rate * (zoom > 0.0002 ? 1 : zoom > 0.0001 ? 5 : zoom > 0.00001 ? 48 : 480);
 	const int64_t region_end = context->scaled
-		? context->start_time + agl_actor__width(actor) * context->samples_per_pixel * context->zoom
+		? context->start_time + agl_actor__width(actor) * context->priv->samples_per_pixel.val.f * context->zoom
 		: grid->wf_actor->region.start + grid->wf_actor->region.len;
 
 	int i = 0;
@@ -129,7 +122,7 @@ grid_actor_paint(AGlActor* actor)
 		}
 
 		agl_set_font_string("Roboto 7");
-		uint32_t colour = (grid->fg_colour & 0xffffff00) + (grid->fg_colour & 0x000000ff) * 0x44 / 0xff;
+		uint32_t colour = (actor->colour & 0xffffff00) + (actor->colour & 0x000000ff) * 0x44 / 0xff;
 		char s[16] = {0,};
 		int x_ = 0;
 		uint64_t f = ((int)(context->start_time / interval)) * interval;
@@ -153,7 +146,6 @@ grid_actor_paint(AGlActor* actor)
 		agl_set_font_string("Roboto 10");
 	}else{
 		glDisable(GL_TEXTURE_1D);
-		//glDisable(GL_TEXTURE_2D);
 		glLineWidth(1);
 		glColor4f(0.5, 0.5, 1.0, 0.25);
 		agl_enable(AGL_ENABLE_BLEND | !AGL_ENABLE_TEXTURE_2D);

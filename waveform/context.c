@@ -161,7 +161,7 @@ wf_context_instance_init(WaveformContext* self)
 		}
 
 static void
-wf_canvas_init(WaveformContext* wfc, AGlRootActor* root)
+wf_context_init(WaveformContext* wfc, AGlRootActor* root)
 {
 	wfc->priv = g_new0(WfContextPriv, 1);
 
@@ -181,6 +181,13 @@ wf_canvas_init(WaveformContext* wfc, AGlRootActor* root)
 		.model_val.f = &wfc->zoom,
 		.start_val.f = wfc->zoom,
 		.val.f       = wfc->zoom,
+		.type        = WF_FLOAT
+	};
+
+	wfc->priv->samples_per_pixel = (WfAnimatable){
+		.model_val.f = &wfc->samples_per_pixel,
+		.start_val.f = wfc->samples_per_pixel,
+		.val.f       = wfc->samples_per_pixel,
 		.type        = WF_FLOAT
 	};
 
@@ -207,7 +214,8 @@ wf_context_new(AGlRootActor* root)
 
 	WaveformContext* wfc = waveform_canvas_construct(TYPE_WAVEFORM_CONTEXT);
 	wfc->root = root;
-	wf_canvas_init(wfc, root);
+	wf_context_init(wfc, root);
+
 	return wfc;
 }
 
@@ -225,7 +233,7 @@ wf_context_new_sdl(SDL_GLContext* context)
 	AGlRootActor* a = wfc->root = (AGlScene*)agl_actor__new_root_(CONTEXT_TYPE_SDL);
 	wfc->root->gl.sdl.context = context;
 
-	wf_canvas_init(wfc, a);
+	wf_context_init(wfc, a);
 
 	return wfc;
 }
@@ -521,7 +529,7 @@ wf_context_get_zoom(WaveformContext* wfc)
 		dbg(1, "wfc=%p", wfc);
 	}
 
-	static void wf_canvas_set_zoom_on_frame(WfAnimation* animation, int time)
+	static void wf_context_set_zoom_on_frame(WfAnimation* animation, int time)
 	{
 		WaveformContext* wfc = animation->user_data;
 
@@ -580,7 +588,7 @@ wf_context_set_zoom(WaveformContext* wfc, float zoom)
 	g_signal_emit_by_name(wfc, "zoom-changed");
 
 	WfAnimation* animation = wf_animation_new(set_zoom_on_animation_finished, wfc);
-	animation->on_frame = wf_canvas_set_zoom_on_frame;
+	animation->on_frame = wf_context_set_zoom_on_frame;
 
 	GList* animatables = g_list_prepend(NULL, &wfc->priv->zoom);
 	wf_transition_add_member(animation, animatables);
@@ -588,6 +596,34 @@ wf_context_set_zoom(WaveformContext* wfc, float zoom)
 	wf_animation_start(animation);
 }
 #endif
+
+
+/*
+ *  wf_context_set_scale is similar to wf_context_set_zoom but
+ *  does not use the zoom property because sometimes it is more
+ *  convenient to specify the numner of samples per pixel directly.
+ */
+void
+wf_context_set_scale(WaveformContext* wfc, float samples_per_px)
+{
+	#define WF_CONTEXT_MAX_SAMPLES_PER_PIXEL 1000000.0
+
+	wfc->samples_per_pixel = CLAMP(samples_per_px, 1.0, WF_CONTEXT_MAX_SAMPLES_PER_PIXEL);
+
+	if(!wfc->root->enable_animations){
+		wfc->priv->samples_per_pixel.val.f = wfc->samples_per_pixel;
+		agl_actor__invalidate((AGlActor*)wfc->root);
+		return;
+	}
+	g_signal_emit_by_name(wfc, "zoom-changed");
+
+	WfAnimation* animation = wf_animation_new(set_scale_on_animation_finished, wfc);
+	animation->on_frame = wf_context_set_zoom_on_frame;
+
+	wf_transition_add_member(animation, g_list_prepend(NULL, &wfc->priv->samples_per_pixel));
+
+	wf_animation_start(animation);
+}
 
 
 void
@@ -601,7 +637,7 @@ wf_context_set_gain(WaveformContext* wfc, float gain)
 float
 wf_context_frame_to_x (WaveformContext* context, uint64_t frame)
 {
-	float pixels_per_sample = context->zoom / context->samples_per_pixel;
+	float pixels_per_sample = context->zoom / context->priv->samples_per_pixel.val.f;
 	return (frame - context->start_time) * pixels_per_sample;
 }
 

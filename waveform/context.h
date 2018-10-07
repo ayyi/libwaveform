@@ -1,5 +1,5 @@
 /*
-  copyright (C) 2012-2016 Tim Orford <tim@orford.org>
+  copyright (C) 2012-2018 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -67,7 +67,9 @@ struct _WaveformContext {
 
 #ifdef __wf_canvas_priv__
 struct _WfContextPriv {
-	WfAnimatable   zoom;     // (float) samples_per_pixel
+	WfAnimatable   zoom;               // (float) samples_per_pixel
+	WfAnimatable   samples_per_pixel;  // type float
+
 #ifdef USE_FRAME_CLOCK
 	guint64       _last_redraw_time;
 #endif
@@ -93,6 +95,7 @@ void             wf_context_set_rotation              (WaveformContext*, float);
 float            wf_context_get_zoom                  (WaveformContext*);
 void             wf_context_set_zoom                  (WaveformContext*, float);
 #endif
+void             wf_context_set_scale                 (WaveformContext*, float samples_per_px);
 void             wf_context_set_gain                  (WaveformContext*, float);
 WaveformActor*   wf_canvas_add_new_actor              (WaveformContext*, Waveform*);
 void             wf_canvas_remove_actor               (WaveformContext*, WaveformActor*);

@@ -106,9 +106,7 @@ wf_spinner(WaveformActor* wf_actor)
 	WfSpinner* spinner = g_new0(WfSpinner, 1);
 	*spinner = (WfSpinner){
 		.actor = {
-#ifdef AGL_DEBUG_ACTOR
 			.name = "Spinner",
-#endif
 			.program = (AGlShader*)agl->shaders.alphamap,
 			.init = spinner__init,
 			.set_state = spinner__set_state,
