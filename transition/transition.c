@@ -204,7 +204,7 @@ wf_animation_remove(WfAnimation* animation)
 	GList* l = animation->members;
 	for(;l;l=l->next){
 		WfAnimActor* aa = l->data;
-		animation->on_finish(animation, animation->user_data); //arg2 is unnecesary
+		if(animation->on_finish) animation->on_finish(animation, animation->user_data); //arg2 is unnecesary
 		transitions = g_list_remove(transitions, animation);
 		g_list_free0(aa->transitions);
 		g_free(aa);
