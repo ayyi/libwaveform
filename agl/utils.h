@@ -12,7 +12,7 @@
 #ifndef __agl_utils_h__
 #define __agl_utils_h__
 #include <GL/glx.h>
-#ifdef USE_GTK
+#if defined(USE_GTK) || defined(__GTK_H__)
 #include <gdk/gdkgl.h>
 #include <gtk/gtkgl.h>
 #endif
@@ -55,7 +55,7 @@ struct _texture_unit
 };
 
 AGl*            agl_get_instance             ();
-#ifdef USE_GTK
+#if defined(USE_GTK) || defined(__GTK_H__)
 GdkGLContext*   agl_get_gl_context           ();
 #endif
 void      agl_enable              (gulong flags);
@@ -135,4 +135,4 @@ extern GLenum _wf_ge;
 
 #define AGL_NEW(T, ...) ({T* obj = g_new0(T, 1); *obj = (T){__VA_ARGS__}; obj;})
 
-#endif //__agl_utils_h__
+#endif

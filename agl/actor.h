@@ -13,7 +13,7 @@
 #ifndef __agl_actor_h__
 #define __agl_actor_h__
 #include <X11/Xlib.h>
-#ifdef USE_GTK
+#if defined(USE_GTK) || defined(__GTK_H__)
 #include <gdk/gdkgl.h>
 #include <gtk/gtkgl.h>
 #endif
@@ -24,7 +24,7 @@
 #include "transition/transition.h"
 #include "agl/typedefs.h"
 #include "agl/utils.h"
-#ifdef USE_GTK
+#if defined(USE_GTK) || defined(__GTK_H__)
 #include "gtk/gtk.h"
 #else
 #include "gdk/gdk.h"
@@ -129,7 +129,7 @@ struct _AGlRootActor {
    gpointer          user_data;
 
    union {
-#ifdef USE_GTK
+#if defined(USE_GTK) || defined(__GTK_H__)
 		struct {
 			GtkWidget*     widget;
 			GdkGLContext*  context;
@@ -191,7 +191,7 @@ extern bool __wf_drawing;
 extern int __draw_depth;
 #endif
 
-#ifdef USE_GTK
+#if defined(USE_GTK) || defined(__GTK_H__)
 #define AGL_ACTOR_START_DRAW(A) \
 	if(__wf_drawing){ gwarn("AGL_ACTOR_START_DRAW: already drawing"); } \
 	__draw_depth++; \
