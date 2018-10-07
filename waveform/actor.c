@@ -1685,6 +1685,10 @@ calc_render_info(WaveformActor* actor)
 	WaveformPriv* _w = w->priv;
 	RenderInfo* r  = &actor->priv->render_info;
 
+	// This check was added because it appears to prevent corruption
+	// but it is not clear why we are trying to render a waveform that has not been loaded
+	if(!waveform_get_n_frames(w)) return false;
+
 	wf_actor_get_viewport(actor, &r->viewport);
 
 	r->region = (WfSampleRegion){_a->animatable.start.val.b, MIN(_a->animatable.len.val.b, w->n_frames)};
@@ -2136,14 +2140,11 @@ wf_actor_start_transition(WaveformActor* a, GList* animatables, AnimationFn done
 		return;
 	}
 
-	C3* c = g_new0(C3, 1);
-	*c = (C3){
+	agl_actor__start_transition(actor, animatables, _done, AGL_NEW(C3,
 		.actor = a,
 		.done = done,
 		.user_data = user_data
-	};
-
-	agl_actor__start_transition(actor, animatables, _done, c);
+	));
 
 	// if neccesary load any additional audio needed by the transition.
 	// - currently only changes to the region start are checked.
