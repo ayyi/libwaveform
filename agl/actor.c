@@ -1049,6 +1049,7 @@ agl_actor__enable_cache(AGlActor* actor, bool enable)
 		AnimationFn    done;
 		gpointer       user_data;
 	} C;
+
 	void agl_actor_on_frame(WfAnimation* animation, int time)
 	{
 		C* c = animation->user_data;
@@ -1113,12 +1114,6 @@ agl_actor__start_transition(AGlActor* actor, GList* animatables, AnimationFn don
 		animatable->start_val.b = animatable->val.b;
 	}
 
-	C* c = AGL_NEW(C,
-		.actor = actor,
-		.done = done,
-		.user_data = user_data
-	);
-
 	l = actor->transitions;
 	for(;l;l=l->next){
 		// remove animatables we are replacing. let others finish.
@@ -1129,7 +1124,11 @@ agl_actor__start_transition(AGlActor* actor, GList* animatables, AnimationFn don
 	}
 
 	if(animatables){
-		WfAnimation* animation = wf_animation_new(_on_animation_finished, c);
+		WfAnimation* animation = wf_animation_new(_on_animation_finished, AGL_NEW(C,
+			.actor = actor,
+			.done = done,
+			.user_data = user_data
+		));
 		animation->on_frame = agl_actor_on_frame;
 		actor->transitions = g_list_append(actor->transitions, animation);
 #ifdef USE_FRAME_CLOCK
