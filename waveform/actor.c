@@ -1459,9 +1459,18 @@ wf_actor_set_rect(WaveformActor* a, WfRectangle* rect)
 	if(a->region.len && !have_full_render && a->waveform->priv->num_peaks) wf_actor_queue_load_render_data(a);
 
 	if(animate){
-		GList* animatables = NULL; //ownership is transferred to the WfAnimation.
-		if(a1->start_val.f != *a1->model_val.f) animatables = g_list_prepend(animatables, a1);
-		if(a2->start_val.f != *a2->model_val.f) animatables = g_list_prepend(animatables, &_a->animatable.rect_len);
+		GList* animatables = NULL; // Ownership is transferred to the WfAnimation.
+
+		if(a1->start_val.f != *a1->model_val.f)
+			animatables = g_list_prepend(animatables, a1);
+		else
+			// ensure the values of the animatable are consistent
+			a1->val.f = *a1->model_val.f;
+
+		if(a2->start_val.f != *a2->model_val.f)
+			animatables = g_list_prepend(animatables, &_a->animatable.rect_len);
+		else
+			a2->val.f = *a2->model_val.f;
 
 #if 0
 		GList* l = animatables;
@@ -1811,7 +1820,7 @@ wf_actor_paint(AGlActor* _actor)
 		return renderer->render_block(renderer, actor, b, is_first, is_last, x);
 	}
 
-	double x = r->rect.left + (r->viewport_blocks.first - r->region_start_block) * r->block_wid - r->first_offset_px; // x is now the start of the first block (can be before part start when inset is present)
+	double x = (r->viewport_blocks.first - r->region_start_block) * r->block_wid - r->first_offset_px; // x is now the start of the first block (can be before part start when inset is present)
 #ifdef RECT_ROUNDING
 	double block_wid0 = r->block_wid;
 	r->block_wid = round(r->block_wid);
