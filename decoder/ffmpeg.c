@@ -16,7 +16,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <math.h>
-#include <gtk/gtk.h>
+#include <glib.h>
 #include <libavcodec/avcodec.h>
 #include <libavformat/avformat.h>
 #include "decoder/debug.h"

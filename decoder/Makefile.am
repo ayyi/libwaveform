@@ -5,8 +5,7 @@ AM_CFLAGS = \
 	-DG_LOG_DOMAIN=\"AGl\" \
 	-DPACKAGE_DATA_DIR=\""$(datadir)"\" \
 	-I$(includedir) \
-	-I$(top_srcdir)/waveform \
-	$(GTK_CFLAGS)
+	$(GLIB_CFLAGS)
 
 if ENABLE_FFMPEG
 FF_SRC = \

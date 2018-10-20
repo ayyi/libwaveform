@@ -18,7 +18,7 @@
 #include <inttypes.h>
 #include <math.h>
 #include <sndfile.h>
-#include <gtk/gtk.h>
+#include <glib.h>
 #include "decoder/debug.h"
 #include "decoder/ad.h"
 
