@@ -814,7 +814,7 @@ agl_actor__on_event(AGlScene* root, GdkEvent* event)
 			if(hovered){
 				root->hovered = NULL;
 #ifdef USE_GTK
-				if(widget){
+				if(SCENE_IS_GTK(actor)){
 					gdk_window_set_cursor(widget->window, NULL);
 					gtk_widget_queue_draw(widget); // TODO not always needed
 				}
