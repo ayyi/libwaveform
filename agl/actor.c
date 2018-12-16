@@ -451,6 +451,8 @@ agl_actor__paint(AGlActor* a)
 #else
 	if(true){
 #endif
+		// Offset so that actors can always draw objects at the same position,
+		// irrespective of scroll position
 		offset.x += a->scrollable.x1;
 		offset.y += a->scrollable.y1;
 	}
@@ -725,7 +727,7 @@ agl_actor__on_event(AGlScene* root, GdkEvent* event)
 		for(;l;l=l->prev){
 			AGlActor* child = l->data;
 			if(!child->disabled && region_match(&child->region, xy.x, xy.y)){
-				AGlActor* sub = child_region_hit(child, (AGliPt){xy.x - child->region.x1 - child->scrollable.x1, xy.y - child->region.y1 - child->scrollable.y1});
+				AGlActor* sub = child_region_hit(child, (AGliPt){xy.x - child->region.x1 - child->scrollable.x1, xy.y - child->region.y1});
 				if(sub) return sub;
 				//printf("  match. y=%i y=%i-->%i x=%i-->%i type=%s\n", xy.y, child->region.y1, child->region.y2, child->region.x1, child->region.x2, child->name);
 				return child;
@@ -1216,9 +1218,11 @@ agl_actor__is_cached(AGlActor* a)
 void
 agl_actor__print_tree (AGlActor* actor)
 {
+#ifdef AGL_ACTOR_RENDER_CACHE
 	char white [16] = "\x1b[0;39m";
 	char lgrey [16] = "\x1b[38;5;244m";
 	char dgrey [16] = "\x1b[38;5;238m";
+#endif
 
 	g_return_if_fail(actor);
 
@@ -1233,12 +1237,17 @@ agl_actor__print_tree (AGlActor* actor)
 		bool is_onscreen = agl_actor__is_onscreen(actor);
 		char* offscreen = is_onscreen ? "" : " OFFSCREEN";
 		char* zero_size = agl_actor__width(actor) ? "" : " ZEROSIZE";
+#ifdef AGL_ACTOR_RENDER_CACHE
 		char* negative_size = (agl_actor__width(actor) < 1 || agl_actor__height(actor) < 1) ? " NEGATIVESIZE" : "";
 		char* disabled = agl_actor__is_disabled(actor) ?  " DISABLED" :  "";
+#endif
 
-		char scrollable[32] = {0};
+		char scrollablex[32] = {0};
+		if(actor->scrollable.x1 || actor->scrollable.x2)
+			sprintf(scrollablex, " scrollable.x(%i,%i)", actor->scrollable.x1, actor->scrollable.x2);
+		char scrollabley[32] = {0};
 		if(actor->scrollable.y1 || actor->scrollable.y2)
-			sprintf(scrollable, " scrollable(%i,%i)", actor->scrollable.y1, actor->scrollable.y2);
+			sprintf(scrollabley, " scrollable.y(%i,%i)", actor->scrollable.y1, actor->scrollable.y2);
 
 #ifdef AGL_ACTOR_RENDER_CACHE
 		char* colour = !agl_actor__width(actor) || !is_onscreen
@@ -1247,7 +1256,7 @@ agl_actor__print_tree (AGlActor* actor)
 				? lgrey
 				: "";
 		AGliPt offset = _agl_actor__find_offset(actor);
-		if(actor->name) printf("%s%s:%s%s%s%s cache(%i,%i) region(%i,%i,%i,%i) viewport(%i,%i,%i,%i) offset(%i,%i)%s%s\n", colour, actor->name, offscreen, zero_size, negative_size, disabled, actor->cache.enabled, actor->cache.valid, actor->region.x1, actor->region.y1, actor->region.x2, actor->region.y2, actor->scrollable.x1, actor->scrollable.y1, actor->scrollable.x2, actor->scrollable.y2, offset.x, offset.y, scrollable, white);
+		if(actor->name) printf("%s%s:%s%s%s%s cache(%i,%i) region(%i,%i,%i,%i) offset(%i,%i)%s%s%s\n", colour, actor->name, offscreen, zero_size, negative_size, disabled, actor->cache.enabled, actor->cache.valid, actor->region.x1, actor->region.y1, actor->region.x2, actor->region.y2, offset.x, offset.y, scrollablex, scrollabley, white);
 #else
 		if(actor->name) printf("%s\n", actor->name);
 #endif
