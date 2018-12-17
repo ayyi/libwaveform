@@ -22,7 +22,9 @@
 #include <sys/types.h>
 #include <string.h>
 #include <stdint.h>
+#ifdef USE_GTK
 #include <gtk/gtk.h>
+#endif
 #include "waveform/waveform.h"
 #include "waveform/loaders/riff.h"
 #include "waveform/texture_cache.h"
