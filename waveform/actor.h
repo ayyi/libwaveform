@@ -19,6 +19,7 @@
 #include "waveform/actors/background.h"
 #include "waveform/actors/ruler.h"
 #include "waveform/actors/grid.h"
+#include "waveform/actors/labels.h"
 #include "waveform/actors/spp.h"
 #include "waveform/actors/spinner.h"
 
