@@ -682,6 +682,7 @@ agl_actor__on_event(AGlScene* root, GdkEvent* event)
 	switch(event->type){
 		case GDK_KEY_PRESS:
 		case GDK_KEY_RELEASE:
+		case GDK_FOCUS_CHANGE:
 			AGL_DEBUG printf("%s: keypress: key=%i\n", __func__, ((GdkEventKey*)event)->keyval);
 			AGlActor* selected = root->selected;
 			if(selected && selected->on_event){
@@ -691,7 +692,6 @@ agl_actor__on_event(AGlScene* root, GdkEvent* event)
 		// TODO perhaps clients should unregister for these events instead?
 		case GDK_EXPOSE:
 		case GDK_VISIBILITY_NOTIFY:
-		case GDK_FOCUS_CHANGE:
 			return AGL_NOT_HANDLED;
 		default:
 			;
@@ -884,6 +884,14 @@ agl_actor__xevent(AGlRootActor* scene, XEvent* xevent)
 				};
 				int code = XLookupKeysym(&xevent->xkey, 0);
 				event.keyval = code;
+				agl_actor__on_event(scene, (GdkEvent*)&event);
+			}
+			break;
+		case FocusOut:
+			{
+				GdkEvent event = {
+					.type = GDK_FOCUS_CHANGE,
+				};
 				agl_actor__on_event(scene, (GdkEvent*)&event);
 			}
 			break;
