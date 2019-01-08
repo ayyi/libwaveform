@@ -116,7 +116,15 @@ waveform_new (const char* filename)
 void
 waveform_set_file (Waveform* w, const char* filename)
 {
-	if(w->filename) g_free(w->filename);
+	if(w->filename){
+		if(!strcmp(filename, w->filename)){
+			// must bail otherwise peak job will not complete
+			if(wf_debug) gwarn("ignoring request to set same filename");
+			return;
+		}
+		g_free(w->filename);
+	}
+
 	w->filename = g_strdup(filename);
 	w->renderable = true;
 	am_promise_unref0(w->priv->peaks);
@@ -229,29 +237,32 @@ _waveform_get_property (GObject* object, guint property_id, GValue* value, GPara
 		gpointer user_data;
 	} C;
 
-	void done(gpointer waveform, gpointer _c)
+	static void waveform_load_done(gpointer waveform, gpointer _c)
 	{
 		C* c = _c;
 		if(c->callback) c->callback((Waveform*)waveform, ((Waveform*)waveform)->priv->peaks->error, c->user_data);
 		g_free(c);
 	}
 
-	void waveform_load_have_peak (Waveform* w, char* peakfile, gpointer _)
+	static void waveform_load_have_peak (Waveform* w, char* peakfile, gpointer _)
 	{
 		WaveformPriv* _w = w->priv;
 
 		_w->state &= ~WAVEFORM_LOADING;
 
-		if(peakfile){
-			if(!_w->peaks->error){
-				if(!waveform_load_peak(w, peakfile, 0)){
-					//_w->peaks->error = g_error_new(g_quark_from_static_string(wf->domain), 1, "failed to load peak");
+		if(_w->peaks){ // the promise may have been removed indicating we are no longer interested in this peak
+			if(peakfile){
+				if(!_w->peaks->error){
+					if(!waveform_load_peak(w, peakfile, 0)){
+						//_w->peaks->error = g_error_new(g_quark_from_static_string(wf->domain), 1, "failed to load peak");
+					}
 				}
+				g_signal_emit_by_name(w, "peakdata-ready");
 			}
-			g_free(peakfile);
-			g_signal_emit_by_name(w, "peakdata-ready");
+			am_promise_resolve(_w->peaks, NULL);
 		}
-		am_promise_resolve(_w->peaks, NULL);
+
+		g_free0(peakfile);
 	}
 
 /*
@@ -268,7 +279,7 @@ waveform_load(Waveform* w, WfCallback3 callback, gpointer user_data)
 
 	am_promise_add_callback(
 		_w->peaks,
-		done,
+		waveform_load_done,
 		WF_NEW(C, .callback = callback, .user_data = user_data)
 	);
 

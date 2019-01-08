@@ -362,7 +362,10 @@ typedef struct {
 		// there is only a single callback which will be called on success and failure
 
 		PeakJob* job = item;
-		job->callback(waveform, waveform->priv->peaks->error, job->user_data);
+		// it is possible for the 'peaks' promise to be removed.
+		// this indicates that we are no longer interested in this peak data.
+		GError* _error = waveform->priv->peaks ? waveform->priv->peaks->error : NULL;
+		job->callback(waveform, _error, job->user_data);
 	}
 
 void
