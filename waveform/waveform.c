@@ -1,5 +1,5 @@
 /*
-  copyright (C) 2012-2018 Tim Orford <tim@orford.org>
+  copyright (C) 2012-2019 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -1843,7 +1843,7 @@ waveform_peak_to_pixbuf_full(Waveform* waveform, GdkPixbuf* pixbuf, uint32_t reg
 
 #undef PEAK_ANTIALIAS
 void
-waveform_rms_to_pixbuf(Waveform* w, GdkPixbuf* pixbuf, uint32_t src_inset, int* start, int* end, double samples_per_px, GdkColor* colour, uint32_t colour_bg, float gain)
+waveform_rms_to_pixbuf(Waveform* w, GdkPixbuf* pixbuf, uint32_t src_inset, int* start, int* end, double samples_per_px, uint32_t colour, uint32_t colour_bg, float gain)
 {
 	/*
      this fn is copied from peak_render_to_pixbuf(). It differs in the size of the src data width, and
@@ -1877,9 +1877,9 @@ waveform_rms_to_pixbuf(Waveform* w, GdkPixbuf* pixbuf, uint32_t src_inset, int* 
 	int bg_red = (colour_bg & 0xff000000) >> 24;
 	int bg_grn = (colour_bg & 0x00ff0000) >> 16;
 	int bg_blu = (colour_bg & 0x0000ff00) >>  8;
-	int fg_red = colour->red   >> 8;
-	int fg_grn = colour->green >> 8;
-	int fg_blu = colour->blue  >> 8;
+	int fg_red = (colour & 0xff000000) >> 24;
+	int fg_grn = (colour & 0x00ff0000) >> 16;
+	int fg_blu = (colour & 0x0000ff00) >>  8;
 	//printf("%s(): bg=%x r=%x g=%x b=%x \n", __func__, colour_bg, bg_red, bg_grn bg_blu);
 
 #if 0
