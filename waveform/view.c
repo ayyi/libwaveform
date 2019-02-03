@@ -543,6 +543,7 @@ waveform_view_finalize (GObject* obj)
 
 	WaveformView* view = WAVEFORM_VIEW(obj);
 	WaveformViewPrivate* v = view->priv;
+	AGlScene* scene = (AGlScene*)v->root;
 
 	// these should really be done in dispose
 	if(v->actor){
@@ -552,6 +553,7 @@ waveform_view_finalize (GObject* obj)
 
 	}
 	if(v->context) wf_context_free0(v->context);
+	scene->draw = NULL;
 
 	G_OBJECT_CLASS (waveform_view_parent_class)->finalize(obj);
 }
