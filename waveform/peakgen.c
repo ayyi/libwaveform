@@ -411,7 +411,7 @@ wf_peakgen__sync(const char* infilename, const char* peak_filename, GError** err
 		}
 		if(error){
 			char* text = g_strdup_printf("Failed to create peak: not able to open input file: %s: %s", infilename, sf_strerror(NULL));
-			*error = g_error_new(g_quark_from_static_string(wf->domain), 1, text);
+			*error = g_error_new_literal(g_quark_from_static_string(wf->domain), 1, text);
 			g_free(text);
 		}
 		return false;

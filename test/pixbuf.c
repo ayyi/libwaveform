@@ -100,7 +100,7 @@ main (int argc, char *argv[])
 	gtk_container_add((GtkContainer*)window, box);
 
 	char* filename = find_wav(wavs[0]);
-	assert(filename, "file not found");
+	assert_and_stop(filename, "file not found");
 	waveform = waveform_new(filename);
 	g_free(filename);
 

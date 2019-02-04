@@ -267,11 +267,13 @@ test_audiodata_slow()
 
 	START_TEST;
 
+#if 0
 	C1* c = WF_NEW(C1,
 		.test = {
 			.test_idx = current_test,
 		}
 	);
+#endif
 
 	Waveform* w = waveform_new(WAV);
 
