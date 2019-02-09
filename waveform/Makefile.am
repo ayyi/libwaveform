@@ -55,12 +55,13 @@ libwf_la_LIBADD = \
 	$(OPENGL_LIBADD)
 
 EXTRA_DIST = \
-	renderer_ng.c \
-	med_res.c \
-	hi_res.c \
-	hi_res_gl2.c \
-	v_hi_res.c \
-	v_low_res.c
+	renderer/ng.c \
+	renderer/res_med.c \
+	renderer/res_hi.c \
+	renderer/res_hi_gl2.c \
+	renderer/res_v_hi.c \
+	renderer/res_low.c \
+	renderer/res_v_low.c
 
 pkgincludedir=$(includedir)/waveform
 pkginclude_HEADERS = \

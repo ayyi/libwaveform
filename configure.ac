@@ -72,42 +72,28 @@ AC_SUBST(GTK_LDFLAGS)
 
 if `pkg-config gtk+-2.0 --atleast-version=2.22`; then
   HAVE_GTK_2_22="yes"
-  AC_DEFINE(HAVE_GTK_2_22, 1, "we have at least gtk version 2.22")
+  AC_DEFINE(HAVE_GTK_2_22, 1, [We have at least gtk version 2.22])
 else
   HAVE_GTK_2_22="no"
 fi;
 
 if `pkg-config gtk+-2.0 --atleast-version=2.18`; then
   HAVE_GTK_2_18="yes"
-  AC_DEFINE(HAVE_GTK_2_18, 1, "we have at least gtk version 2.18")
+  AC_DEFINE(HAVE_GTK_2_18, 1, [We have at least gtk version 2.18])
 else
   HAVE_GTK_2_18="no"
 fi;
 
-if `pkg-config gtk+-2.0 --atleast-version=2.12`; then
-  HAVE_GTK_2_12="yes"
-  AC_DEFINE(HAVE_GTK_2_12, 1, "we have at least gtk version 2.12")
-else
-  HAVE_GTK_2_12="no"
-fi;
-
-if `pkg-config gtk+-2.0 --atleast-version=2.10`; then
-  HAVE_GTK_2_10="yes"
-  AC_DEFINE(HAVE_GTK_2_10, 1, "we have at least gtk version 2.10")
-else
-  HAVE_GTK_2_10="no"
-fi;
-
 if `pkg-config glib-2.0 --atleast-version=2.32`; then
   HAVE_GLIB_2_32="yes"
-  AC_DEFINE(HAVE_GLIB_2_32, 1, "we have at least glib version 2.32")
+  AC_DEFINE(HAVE_GLIB_2_32, 1, [We have at least glib version 2.32])
 else
   HAVE_GLIB_2_32="no"
 fi;
 
 if `pkg-config glib-2.0 --atleast-version=2.36`; then
   HAVE_GLIB_2_36="yes"
-  AC_DEFINE(HAVE_GLIB_2_36, 1, "we have at least glib version 2.36")
+  AC_DEFINE(HAVE_GLIB_2_36, 1, [We have at least glib version 2.36])
 else
   HAVE_GLIB_2_36="no"
 fi;

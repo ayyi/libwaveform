@@ -1,18 +1,13 @@
-/*
-  copyright (C) 2014-2017 Tim Orford <tim@orford.org>
-
-  This program is free software; you can redistribute it and/or modify
-  it under the terms of the GNU General Public License version 3
-  as published by the Free Software Foundation.
-
-  This program is distributed in the hope that it will be useful,
-  but WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-  GNU General Public License for more details.
-
-  You should have received a copy of the GNU General Public License
-  along with this program; if not, write to the Free Software
-  Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+/**
+* +----------------------------------------------------------------------+
+* | This file is part of the Ayyi project. http://ayyi.org               |
+* | copyright (C) 2012-2019 Tim Orford <tim@orford.org>                  |
+* +----------------------------------------------------------------------+
+* | This program is free software; you can redistribute it and/or modify |
+* | it under the terms of the GNU General Public License version 3       |
+* | as published by the Free Software Foundation.                        |
+* +----------------------------------------------------------------------+
+*
 */
 
 #define NG_HASHTABLE
@@ -57,7 +52,7 @@ static void ng_gl2_queue_clean(Renderer*);
 
 
 static void
-ng_gl2_finalize_notify(gpointer user_data, GObject* was)
+ng_gl2_finalize_notify (gpointer user_data, GObject* was)
 {
 	PF;
 	Renderer* renderer = user_data;
@@ -68,7 +63,7 @@ ng_gl2_finalize_notify(gpointer user_data, GObject* was)
 
 #ifdef WF_DEBUG
 static bool
-ng_gl2_set(Section* section, int pos, char val)
+ng_gl2_set (Section* section, int pos, char val)
 {
 	g_return_val_if_fail(section->buffer_size, false);
 	g_return_val_if_fail(pos < section->buffer_size, false);
@@ -82,7 +77,7 @@ ng_gl2_set(Section* section, int pos, char val)
 
 
 static void
-ng_gl2_load_block(Renderer* renderer, WaveformActor* actor, int b)
+ng_gl2_load_block (Renderer* renderer, WaveformActor* actor, int b)
 {
 	NGRenderer* ng_renderer = (NGRenderer*)renderer;
 	Waveform* waveform = actor->waveform;
@@ -364,18 +359,21 @@ ng_gl2_load_block(Renderer* renderer, WaveformActor* actor, int b)
 }
 
 
-static void
-ng_gl2_pre_render(Renderer* renderer, WaveformActor* actor)
+/*
+ *  This is done only once per paint, it doesn not have to be done per block
+ */
+static bool
+ng_gl2_pre_render (Renderer* renderer, WaveformActor* actor)
 {
 	Waveform* w = actor->waveform;
 	WfActorPriv* _a = actor->priv;
 	RenderInfo* r = &_a->render_info;
 
-	if(r->mode >= MODE_V_HI) return; // TODO this will happen when falling through.
+	if(r->mode >= MODE_V_HI) return false; // TODO this will happen when falling through.
 
 	HiResNGWaveform* data = (HiResNGWaveform*)w->priv->render_data[renderer->mode];
 	HiResNGShader* shader = (HiResNGShader*)((NGRenderer*)renderer)->shader;
-	if(!data || !shader) return; // this can happen when we fall through from v hi res.
+	if(!data || !shader) return false; // this can happen when we fall through from v hi res.
 
 	shader->uniform.fg_colour = (actor->fg_colour & 0xffffff00) + (unsigned)(0x100 * _a->animatable.opacity.val.f);
 	shader->uniform.top = r->rect.top;
@@ -406,11 +404,13 @@ ng_gl2_pre_render(Renderer* renderer, WaveformActor* actor)
 		);
 
 	agl_use_program(&shader->shader);
+
+	return true;
 }
 
 
 static bool
-ng_gl2_render_block(Renderer* renderer, WaveformActor* actor, int b, gboolean is_first, gboolean is_last, double x)
+ng_gl2_render_block (Renderer* renderer, WaveformActor* actor, int b, gboolean is_first, gboolean is_last, double x)
 {
 	gl_warn("pre");
 
@@ -452,7 +452,7 @@ ng_gl2_render_block(Renderer* renderer, WaveformActor* actor, int b, gboolean is
 
 
 static void
-ng_make_lod_levels(NGRenderer* renderer, Mode mode)
+ng_make_lod_levels (NGRenderer* renderer, Mode mode)
 {
 	int p = 0;
 	int width = modes[mode].texture_size;
@@ -467,7 +467,7 @@ ng_make_lod_levels(NGRenderer* renderer, Mode mode)
 
 
 static void
-ng_gl2_free_section(Renderer* renderer, Waveform* waveform, Section* section, int s)
+ng_gl2_free_section (Renderer* renderer, Waveform* waveform, Section* section, int s)
 {
 	if(section){
 		if(section->buffer) g_free0(section->buffer);
@@ -482,7 +482,7 @@ ng_gl2_free_section(Renderer* renderer, Waveform* waveform, Section* section, in
 
 
 static void
-ng_gl2_free_waveform(Renderer* renderer, Waveform* waveform)
+ng_gl2_free_waveform (Renderer* renderer, Waveform* waveform)
 {
 	dbg(1, "%s", modes[renderer->mode].name);
 
@@ -558,7 +558,7 @@ ng_gl2_free_waveform(Renderer* renderer, Waveform* waveform)
 	}
 
 static void
-ng_gl2_queue_clean(Renderer* renderer)
+ng_gl2_queue_clean (Renderer* renderer)
 {
 	if(!idle_id) idle_id = g_idle_add_full(G_PRIORITY_LOW, clean, renderer, NULL);
 }

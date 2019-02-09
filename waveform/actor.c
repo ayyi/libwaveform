@@ -1,21 +1,16 @@
+/**
+* +----------------------------------------------------------------------+
+* | This file is part of the Ayyi project. http://ayyi.org               |
+* | copyright (C) 2012-2019 Tim Orford <tim@orford.org>                  |
+* +----------------------------------------------------------------------+
+* | This program is free software; you can redistribute it and/or modify |
+* | it under the terms of the GNU General Public License version 3       |
+* | as published by the Free Software Foundation.                        |
+* +----------------------------------------------------------------------+
+*
+*/
+
 /*
-  copyright (C) 2012-2018 Tim Orford <tim@orford.org>
-
-  This program is free software; you can redistribute it and/or modify
-  it under the terms of the GNU General Public License version 3
-  as published by the Free Software Foundation.
-
-  This program is distributed in the hope that it will be useful,
-  but WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-  GNU General Public License for more details.
-
-  You should have received a copy of the GNU General Public License
-  along with this program; if not, write to the Free Software
-  Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
-
-  ---------------------------------------------------------------
-
   WaveformActor draws a Waveform object onto a shared opengl drawable.
 
   [ **** The description below is out of date **** ]
@@ -36,9 +31,6 @@
   WaveformActor has internal support for animating the following properties:
   region start and end, start and end position onscreen (zoom is derived
   from these) and opacity.
-
-  Where an external animation framework is available, it should be used
-  in preference, eg Clutter (TODO).
 
   ---------------------------------------------------------------
 
@@ -164,7 +156,7 @@ struct _actor_priv
 
 
 typedef void    (*WaveformActorNewFn)       (WaveformActor*);
-typedef void    (*WaveformActorPreRenderFn) (Renderer*, WaveformActor*);
+typedef bool    (*WaveformActorPreRenderFn) (Renderer*, WaveformActor*);
 typedef void    (*WaveformActorBlockFn)     (Renderer*, WaveformActor*, int b);
 typedef bool    (*WaveformActorRenderFn)    (Renderer*, WaveformActor*, int b, bool is_first, bool is_last, double x);
 typedef void    (*WaveformActorFreeFn)      (Renderer*, Waveform*);
@@ -262,12 +254,13 @@ static int    wf_actor_get_n_blocks          (Waveform*, Mode);
 static void   wf_actor_connect_waveform      (WaveformActor*);
 static void   wf_actor_disconnect_waveform   (WaveformActor*);
 
-#include "waveform/renderer_ng.c"
-#include "waveform/med_res.c"
-#include "waveform/hi_res_gl2.c"
-#include "waveform/hi_res.c"
-#include "waveform/v_hi_res.c"
-#include "waveform/v_low_res.c"
+#include "waveform/renderer/ng.c"
+#include "waveform/renderer/res_med.c"
+#include "waveform/renderer/res_lo.c"
+#include "waveform/renderer/res_hi_gl2.c"
+#include "waveform/renderer/res_hi.c"
+#include "waveform/renderer/res_v_hi.c"
+#include "waveform/renderer/res_v_low.c"
 
 static void   wf_actor_canvas_finalize_notify(gpointer, GObject*);
 static void   wf_actor_start_transition      (WaveformActor*, GList* /* WfAnimatable* */, AnimationFn, gpointer);
@@ -1319,6 +1312,7 @@ static void
 _wf_actor_load_missing_blocks(WaveformActor* a)
 {
 	// during a transition, this will load the _currently_ visible blocks, not for the target.
+	// TODO so this means that if zooming _in_, blocks are loaded which are not needed
 
 	PF2;
 	AGlActor* actor = (AGlActor*)a;
@@ -1347,16 +1341,24 @@ _wf_actor_load_missing_blocks(WaveformActor* a)
 																	//TODO can do better than this
 	double zoom_max = MAX(_zoom.end, _zoom.start);
 
-	if(!_w->render_data[mode1]) call(modes[mode1].renderer->new, a);
-	if(!_w->render_data[mode2]) call(modes[mode2].renderer->new, a);
+	Mode mode[] = {
+		MIN(mode1, mode2),
+		MAX(mode1, mode2)
+	};
+
+	for(int i=mode[0];i<=mode[1];i++)
+		if(!_w->render_data[i])
+			call(modes[i].renderer->new, a);
 
 	if(zoom_max >= ZOOM_MED){
 		dbg(1, "HI-RES");
-		if(!a->waveform->offline) _wf_actor_allocate_hi(a);
-		else { mode1 = MAX(mode1, MODE_MED); mode2 = MAX(mode2, MODE_MED); } // fallback to lower res
+		if(!a->waveform->offline)
+			_wf_actor_allocate_hi(a);
+		else
+			{ mode[0] = MAX(mode[0], MODE_MED); mode[1] = MAX(mode[1], MODE_MED); } // fallback to lower res
 	}
 
-	if(mode1 == MODE_MED || mode2 == MODE_MED){
+	if(mode[0] <= MODE_MED && mode[1] >= MODE_MED){
 		dbg(1, "MED");
 		WfViewPort viewport; _wf_actor_get_viewport_max(a, &viewport);
 		double zoom_ = MAX(zoom, ZOOM_LO + 0.00000001);
@@ -1382,7 +1384,7 @@ _wf_actor_load_missing_blocks(WaveformActor* a)
 		}
 	}
 
-	if(mode1 == MODE_LOW || mode2 == MODE_LOW){
+	if(mode[0] <= MODE_LOW && mode[1] >= MODE_LOW){
 		// TODO low resolution doesnt have the same adjustments to region and viewport like STD mode does.
 		// -this doesnt seem to be causing any problems though
 		dbg(2, "LOW");
@@ -1401,7 +1403,7 @@ _wf_actor_load_missing_blocks(WaveformActor* a)
 		}
 	}
 
-	if(mode1 == MODE_V_LOW || mode2 == MODE_V_LOW){
+	if(mode[0] <= MODE_V_LOW && mode[1] >= MODE_V_LOW){
 		dbg(2, "V_LOW");
 		Renderer* renderer = modes[MODE_V_LOW].renderer;
 		WfViewPort viewport; _wf_actor_get_viewport_max(a, &viewport);
@@ -1811,10 +1813,25 @@ wf_actor_paint(AGlActor* _actor)
 #endif
 	}
 
+#ifdef SHOW_RENDERER_STATUS
+	{
+		Renderer* renderer = modes[MODE_MED].renderer;
+		AGlShader* shader = ((NGRenderer*)renderer)->shader;
+		HiResNGWaveform* data = (HiResNGWaveform*)w->priv->render_data[renderer->mode];
+		dbg(1, "renderer status: MED data=%p shader=%p", data, shader);
+
+		renderer = modes[MODE_LOW].renderer;
+		shader = ((NGRenderer*)renderer)->shader;
+		data = (HiResNGWaveform*)w->priv->render_data[renderer->mode];
+		dbg(1, "renderer status: LO data=%p shader=%p", data, shader);
+	}
+#endif
+
 	bool inline render_block(Renderer* renderer, WaveformActor* actor, int b, bool is_first, bool is_last, double x, Mode m, Mode* m_active)
 	{
 		if(m != *m_active){
-			renderer->pre_render(renderer, actor);
+			if(!renderer->pre_render(renderer, actor))
+				return false;
 			*m_active = m;
 		}
 		return renderer->render_block(renderer, actor, b, is_first, is_last, x);
@@ -1835,9 +1852,13 @@ wf_actor_paint(AGlActor* _actor)
 	Mode m_active = N_MODES;
 	bool is_first = true;
 	int b; for(b=r->viewport_blocks.first;b<=r->viewport_blocks.last;b++){
-		gboolean is_last = (b == r->viewport_blocks.last) || (b == r->n_blocks - 1); //2nd test is unneccesary?
+		bool is_last = (b == r->viewport_blocks.last) || (b == r->n_blocks - 1); //2nd test is unneccesary?
 
 		Mode m = r->mode;
+		// I think there is an optimisation to do here.
+		// Pre-render should not be done for each block
+		// but only when changing mode. Once we have fallen through
+		// to a lower mode, it seems like we will not go back to a higher mode.
 		while((m < N_MODES) && !render_block(modes[m].renderer, actor, b, is_first, is_last, x, m, &m_active)){
 			dbg(1, "%i: %sfalling through...%s %s-->%s", b, "\x1b[1;33m", wf_white, modes[m].name, modes[m - 1].name);
 			// TODO pre_render not being set propery for MODE_HI due to use_shader settings.

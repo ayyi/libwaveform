@@ -1,18 +1,13 @@
-/*
-  copyright (C) 2012-2017 Tim Orford <tim@orford.org>
-
-  This program is free software; you can redistribute it and/or modify
-  it under the terms of the GNU General Public License version 3
-  as published by the Free Software Foundation.
-
-  This program is distributed in the hope that it will be useful,
-  but WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-  GNU General Public License for more details.
-
-  You should have received a copy of the GNU General Public License
-  along with this program; if not, write to the Free Software
-  Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+/**
+* +----------------------------------------------------------------------+
+* | This file is part of the Ayyi project. http://ayyi.org               |
+* | copyright (C) 2012-2019 Tim Orford <tim@orford.org>                  |
+* +----------------------------------------------------------------------+
+* | This program is free software; you can redistribute it and/or modify |
+* | it under the terms of the GNU General Public License version 3       |
+* | as published by the Free Software Foundation.                        |
+* +----------------------------------------------------------------------+
+*
 */
 #ifndef __actor_c__
 #define __wf_private__
@@ -48,7 +43,7 @@ static void  _wf_actor_print_hires_textures  (WaveformActor*);
 
 
 void
-hi_new_gl1(WaveformActor* a)
+hi_new_gl1 (WaveformActor* a)
 {
 	WaveformPriv* _w = a->waveform->priv;
 
@@ -63,7 +58,7 @@ hi_new_gl1(WaveformActor* a)
 
 
 static void
-hi_free_gl1(Renderer* renderer, Waveform* w)
+hi_free_gl1 (Renderer* renderer, Waveform* w)
 {
 	if(!w->priv->render_data[MODE_HI]) return;
 
@@ -95,7 +90,7 @@ hi_free_gl1(Renderer* renderer, Waveform* w)
 	}
 
 static void
-hi_request_block(WaveformActor* a, int b)
+hi_request_block (WaveformActor* a, int b)
 {
 	waveform_load_audio(a->waveform, b, HI_MIN_TIERS, hi_request_block_done, a);
 }
@@ -103,7 +98,7 @@ hi_request_block(WaveformActor* a, int b)
 
 #ifdef MULTILINE_SHADER
 GLuint
-_wf_create_lines_texture(guchar* pbuf, int width, int height)
+_wf_create_lines_texture (guchar* pbuf, int width, int height)
 {
 	/*
 	 * This texture is used as data for the shader.
@@ -152,7 +147,7 @@ _wf_create_lines_texture(guchar* pbuf, int width, int height)
 
 
 static void
-hi_gl1_load_block(Renderer* renderer, WaveformActor* a, int block)
+hi_gl1_load_block (Renderer* renderer, WaveformActor* a, int block)
 {
 	// audio data for this block _must_ already be loaded
 
@@ -293,8 +288,8 @@ _set_pixel(int x, int y, guchar r, guchar g, guchar b, guchar aa)
 #endif
 
 
-static void
-hi_gl1_pre_render(Renderer* renderer, WaveformActor* actor)
+static bool
+hi_gl1_pre_render (Renderer* renderer, WaveformActor* actor)
 {
 #ifndef HIRES_NONSHADER_TEXTURES
 	RenderInfo* r  = &actor->priv->render_info;
@@ -327,12 +322,14 @@ hi_gl1_pre_render(Renderer* renderer, WaveformActor* actor)
 #endif
 
 	glEnable(GL_TEXTURE_2D);
+
+	return true;
 }
 
 
 #ifndef HIRES_NONSHADER_TEXTURES
 bool
-draw_wave_buffer_hi_gl1(Renderer* renderer, WaveformActor* actor, int b, bool is_first, bool is_last, double x)
+draw_wave_buffer_hi_gl1 (Renderer* renderer, WaveformActor* actor, int b, bool is_first, bool is_last, double x)
 {
 	void _draw_wave_buffer_hi_gl1(Waveform* w, WfSampleRegion region, WfRectangle* rect, Peakbuf* peakbuf, int chan, float v_gain, uint32_t rgba)
 	{
@@ -392,7 +389,7 @@ draw_wave_buffer_hi_gl1(Renderer* renderer, WaveformActor* actor, int b, bool is
 		dbg(2, "n_lines=%i x0=%.1f x=%i y=%.1f h=%.1f", p, rect->left, x, rect->top, rect->height);
 	}
 
-	Waveform* w = actor->waveform; 
+	Waveform* w = actor->waveform;
 	WfActorPriv* _a = actor->priv;
 	WaveformContext* wfc = actor->canvas;
 	RenderInfo* r  = &_a->render_info;
@@ -458,7 +455,7 @@ draw_wave_buffer_hi_gl1(Renderer* renderer, WaveformActor* actor, int b, bool is
 
 
 static bool
-wf_actor_get_quad_dimensions(WaveformActor* actor, int b, bool is_first, bool is_last, double x, TextureRange* tex, double* tex_x_, double* block_wid_, int border, int multiplier)
+wf_actor_get_quad_dimensions (WaveformActor* actor, int b, bool is_first, bool is_last, double x, TextureRange* tex, double* tex_x_, double* block_wid_, int border, int multiplier)
 {
 	// multiplier is temporary and is used for HIRES_NONSHADER_TEXTURES
 
@@ -549,7 +546,7 @@ dbg (0, "%i: is_first=%i is_last=%i x=%.2f wid=%.2f/%.2f tex_pct=%.3f tex_start=
 
 #ifdef HIRES_NONSHADER_TEXTURES
 static inline bool
-hi_gl1_render_block(Renderer* renderer, WaveformActor* actor, int b, gboolean is_first, gboolean is_last, double x)
+hi_gl1_render_block (Renderer* renderer, WaveformActor* actor, int b, gboolean is_first, gboolean is_last, double x)
 {
 	//render the 2d peak texture onto a block.
 
@@ -632,7 +629,7 @@ hi_gl1_render_block(Renderer* renderer, WaveformActor* actor, int b, gboolean is
 
 
 static void
-_wf_actor_print_hires_textures(WaveformActor* a)
+_wf_actor_print_hires_textures (WaveformActor* a)
 {
 	dbg(0, "");
 	GHashTableIter iter;
@@ -647,6 +644,7 @@ _wf_actor_print_hires_textures(WaveformActor* a)
 
 
 NGRenderer hi_renderer_gl2 = {{MODE_HI, hi_gl2_new, ng_gl2_load_block, ng_gl2_pre_render, ng_gl2_render_block, ng_gl2_free_waveform}};
+
 HiRenderer hi_renderer_gl1 = {{MODE_HI, hi_new_gl1, hi_gl1_load_block, hi_gl1_pre_render,
 #ifdef HIRES_NONSHADER_TEXTURES
 				hi_gl1_render_block,
@@ -659,7 +657,7 @@ HiRenderer hi_renderer_gl1 = {{MODE_HI, hi_new_gl1, hi_gl1_load_block, hi_gl1_pr
 
 
 static Renderer*
-hi_renderer_new()
+hi_renderer_new ()
 {
 	g_return_val_if_fail(!hi_renderer_gl2.ng_data, NULL);
 

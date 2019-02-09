@@ -1,18 +1,13 @@
-/*
-  copyright (C) 2012-2017 Tim Orford <tim@orford.org>
-
-  This program is free software; you can redistribute it and/or modify
-  it under the terms of the GNU General Public License version 3
-  as published by the Free Software Foundation.
-
-  This program is distributed in the hope that it will be useful,
-  but WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-  GNU General Public License for more details.
-
-  You should have received a copy of the GNU General Public License
-  along with this program; if not, write to the Free Software
-  Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+/**
+* +----------------------------------------------------------------------+
+* | This file is part of the Ayyi project. http://ayyi.org               |
+* | copyright (C) 2012-2019 Tim Orford <tim@orford.org>                  |
+* +----------------------------------------------------------------------+
+* | This program is free software; you can redistribute it and/or modify |
+* | it under the terms of the GNU General Public License version 3       |
+* | as published by the Free Software Foundation.                        |
+* +----------------------------------------------------------------------+
+*
 */
 
 extern LinesShader lines;
@@ -58,7 +53,7 @@ v_hi_renderer_new(WaveformActor* actor)
 }
 
 
-static void
+static bool
 v_hi_pre_render(Renderer* renderer, WaveformActor* actor)
 {
 	RenderInfo* r  = &actor->priv->render_info;
@@ -66,6 +61,8 @@ v_hi_pre_render(Renderer* renderer, WaveformActor* actor)
 
 	// block_region_v_hi is actor specific so is only valid for current render.
 	v_hi_renderer->block_region_v_hi = (WfSampleRegion){r->region.start, WF_PEAK_BLOCK_SIZE - r->region.start % WF_PEAK_BLOCK_SIZE};
+
+	return true;
 }
 
 
