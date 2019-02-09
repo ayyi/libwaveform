@@ -46,15 +46,11 @@
 #ifndef __actor_c__
 #define __wf_private__
 #include "config.h"
-#include <unistd.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/types.h>
-#include <math.h>
 #include <stdint.h>
-#include <sys/time.h>
-#include <sndfile.h>
-#include <gtk/gtk.h>
+#include <glib.h>
 #include <GL/gl.h>
 #include "waveform/waveform.h"
 
