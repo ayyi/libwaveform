@@ -2,14 +2,13 @@
 * +----------------------------------------------------------------------+
 * | This file is part of libwaveform                                     |
 * | https://github.com/ayyi/libwaveform                                  |
-* | copyright (C) 2012-2018 Tim Orford <tim@orford.org>                  |
+* | copyright (C) 2012-2019 Tim Orford <tim@orford.org>                  |
 * +----------------------------------------------------------------------+
 * | This program is free software; you can redistribute it and/or modify |
 * | it under the terms of the GNU General Public License version 3       |
 * | as published by the Free Software Foundation.                        |
 * +----------------------------------------------------------------------+
 *
-* *********** TODO only redraw if something has changed (currently redrawing at 60fps) **********
 */
 #include <math.h>
 #include <stdlib.h>
@@ -23,7 +22,7 @@
 #include <GL/glx.h>
 #include "gdk/gdk.h"
 #include "agl/ext.h"
-#define __wf_private__ // TODO
+#define __wf_private__ // for dbg
 #include "waveform/waveform.h"
 #include "agl/actor.h"
 #include "waveform/actors/background.h"
@@ -58,6 +57,8 @@ static void on_window_resize       (int, int);
 static void event_loop             (Display*, Window);
 static void _add_key_handlers      ();
 
+static void scene_needs_redraw (AGlScene* scene, gpointer _){ scene->gl.glx.needs_draw = True; }
+
 #define BENCHMARK
 #define NUL '\0'
 
@@ -74,8 +75,7 @@ static unsigned num_extensions;
 
 static AGlRootActor* scene = NULL;
 struct {
-	AGlActor* bg;
-	AGlActor *l1, *l2;
+	AGlActor *bg, *l1, *l2;
 } layers = {0,};
 
 static GHashTable* key_handlers = NULL;
@@ -118,7 +118,7 @@ static const char* const usage =
 
 
 int
-main(int argc, char *argv[])
+main (int argc, char *argv[])
 {
 	Window win;
 	GLXContext ctx;
@@ -231,15 +231,17 @@ main(int argc, char *argv[])
 
 	scene = (AGlRootActor*)agl_actor__new_root_(CONTEXT_TYPE_GLX);
 
+	scene->draw = scene_needs_redraw;
+
 	agl_actor__add_child((AGlActor*)scene, layers.bg = background_actor(NULL));
 
 	agl_actor__add_child((AGlActor*)scene, layers.l1 = plain_actor(NULL));
 	layers.l1->colour = 0x99ff9999;
-	layers.l1->region = (AGliRegion){10, 10, 60, 60};
+	layers.l1->region = (AGliRegion){10, 15, 60, 65};
 
 	agl_actor__add_child((AGlActor*)scene, layers.l2 = plain_actor(NULL));
 	layers.l2->colour = 0x9999ff99;
-	layers.l2->region = (AGliRegion){40, 40, 90, 90};
+	layers.l2->region = (AGliRegion){40, 45, 90, 95};
 
 	// -----------------------------------------------------------
 
@@ -258,16 +260,19 @@ main(int argc, char *argv[])
 
 
 static void
-draw(void)
+draw (void)
 {
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 	agl_actor__paint((AGlActor*)scene);
+
+	agl_set_font_string("Roboto 8");
+	agl_print(10, 2, 0, 0xffffffff, "You should see 2 overlapping squares");
 }
 
 
 static void
-on_window_resize(int width, int height)
+on_window_resize (int width, int height)
 {
 	// FIXME adding border messes up 1:1 ratio
 	#define HBORDER 0 //50
@@ -289,6 +294,8 @@ on_window_resize(int width, int height)
 		.x2 = width,
 		.y2 = height,
 	};
+
+	agl_actor__set_size((AGlActor*)scene);
 }
 
 
@@ -297,7 +304,7 @@ on_window_resize(int width, int height)
  * Return the window and context handles.
  */
 static void
-make_window(Display* dpy, const char* name, int width, int height, Window* winRet, GLXContext* ctxRet)
+make_window (Display* dpy, const char* name, int width, int height, Window* winRet, GLXContext* ctxRet)
 {
 	int attrib[] = {
 		GLX_RGBA,
@@ -358,9 +365,9 @@ make_window(Display* dpy, const char* name, int width, int height, Window* winRe
 
 
 static void
-event_loop(Display* dpy, Window win)
+event_loop (Display* dpy, Window win)
 {
-	float  frame_usage = 0.0;
+	float frame_usage = 0.0;
 
 	while (1) {
 		while (XPending(dpy) > 0) {
@@ -368,10 +375,11 @@ event_loop(Display* dpy, Window win)
 			XNextEvent(dpy, &event);
 			switch (event.type) {
 				case Expose:
-					/* we'll redraw below */
+					scene->gl.glx.needs_draw = True;
 					break;
 				case ConfigureNotify:
 					on_window_resize(event.xconfigure.width, event.xconfigure.height);
+					scene->gl.glx.needs_draw = True;
 					break;
 				case KeyPress: {
 					int code = XLookupKeysym(&event.xkey, 0);
@@ -391,9 +399,11 @@ event_loop(Display* dpy, Window win)
 			}
 		}
 
-		draw();
-
-		glXSwapBuffers(dpy, win);
+		if(scene->gl.glx.needs_draw){
+			draw();
+			glXSwapBuffers(dpy, win);
+			scene->gl.glx.needs_draw = false;
+		}
 
 		if (get_frame_usage) {
 			GLfloat temp;
@@ -439,7 +449,7 @@ event_loop(Display* dpy, Window win)
  * extension.
  */
 static void
-show_refresh_rate(Display* dpy)
+show_refresh_rate (Display* dpy)
 {
 #if defined(GLX_OML_sync_control) && defined(__STDC_VERSION__) && (__STDC_VERSION__ >= 199901L)
    int32_t  n;
@@ -464,7 +474,7 @@ show_refresh_rate(Display* dpy)
  * \sa is_extension_supported
  */
 static void
-make_extension_table(const char* string)
+make_extension_table (const char* string)
 {
 	char** string_tab;
 	unsigned  num_strings;
@@ -477,8 +487,8 @@ make_extension_table(const char* string)
 	 */
 
 	num_strings = 1;
-	for (i = 0 ; string[i] != NUL; i++) {
-		if ( string[i] == ' ' ) {
+	for (i = 0; string[i] != NUL; i++) {
+		if (string[i] == ' ') {
 			num_strings++;
 		}
 	}
@@ -491,12 +501,10 @@ make_extension_table(const char* string)
 	base = 0;
 	idx = 0;
 
-	while ( string[ base ] != NUL ) {
-	// Determine the length of the next extension string.
+	while (string[base] != NUL) {
+		// Determine the length of the next extension string.
 
-		for ( i = 0
-		; (string[ base + i ] != NUL) && (string[ base + i ] != ' ')
-		; i++ ) {
+		for (i = 0; (string[base + i] != NUL) && (string[base + i] != ' '); i++) {
 			/* empty */ ;
 		}
 
@@ -525,7 +533,6 @@ make_extension_table(const char* string)
 			idx++;
 		}
 
-
 		// Skip to the start of the next extension string.
 		for (base += i; (string[ base ] == ' ') && (string[ base ] != NUL); base++ ) {
 			/* empty */;
@@ -550,8 +557,8 @@ is_extension_supported(const char* ext)
 {
 	unsigned i;
 
-	for (i = 0 ; i < num_extensions ; i++) {
-		if (strcmp( ext, extension_table[i] ) == 0) {
+	for (i = 0; i < num_extensions; i++) {
+		if (strcmp(ext, extension_table[i]) == 0) {
 			return GL_TRUE;
 		}
 	}
@@ -596,7 +603,7 @@ _add_key_handlers()
 	if(!key_handlers){
 		key_handlers = g_hash_table_new(g_int_hash, g_int_equal);
 
-		int i = 0; while(true){
+		int i = 0; while(true) {
 			Key* key = &keys[i];
 			if(i > 100 || !key->key) break;
 			g_hash_table_insert(key_handlers, &key->key, key->handler);
