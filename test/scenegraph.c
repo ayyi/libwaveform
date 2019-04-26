@@ -18,8 +18,6 @@
 #include <X11/Xlib.h>
 #include <X11/keysym.h>
 # define GLX_GLXEXT_PROTOTYPES
-#include <GL/gl.h>
-#include <GL/glx.h>
 #include "gdk/gdk.h"
 #include "agl/ext.h"
 #define __wf_private__ // for dbg
@@ -27,35 +25,22 @@
 #include "agl/actor.h"
 #include "waveform/actors/background.h"
 #include "waveform/actors/plain.h"
-#include "test/common.h"
+#define __glx_test__
+#include "test/common2.h"
 
 extern char* basename(const char*);
-
-#ifndef GLX_MESA_swap_control
-typedef GLint (*PFNGLXSWAPINTERVALMESAPROC)    (unsigned interval);
-typedef GLint (*PFNGLXGETSWAPINTERVALMESAPROC) (void);
-#endif
-
-#if !defined( GLX_OML_sync_control ) && defined( _STDINT_H )
-#define GLX_OML_sync_control 1
-typedef Bool (*PFNGLXGETMSCRATEOMLPROC) (Display*, GLXDrawable, int32_t* numerator, int32_t* denominator);
-#endif
-
-#ifndef GLX_MESA_swap_frame_usage
-#define GLX_MESA_swap_frame_usage 1
-typedef int (*PFNGLXGETFRAMEUSAGEMESAPROC) (Display*, GLXDrawable, float* usage);
-#endif
 
 static GLboolean print_info = GL_FALSE;
 
 static int  current_time           ();
-static void make_window            (Display*, const char*, int, int, Window*, GLXContext*);
 static void make_extension_table   (const char*);
 static bool is_extension_supported (const char*);
 static void show_refresh_rate      (Display*);
 static void on_window_resize       (int, int);
 static void event_loop             (Display*, Window);
 static void _add_key_handlers      ();
+
+static AGlActor* cache_actor       (void*);
 
 static void scene_needs_redraw (AGlScene* scene, gpointer _){ scene->gl.glx.needs_draw = True; }
 
@@ -65,17 +50,12 @@ static void scene_needs_redraw (AGlScene* scene, gpointer _){ scene->gl.glx.need
 PFNGLXGETFRAMEUSAGEMESAPROC get_frame_usage = NULL;
 
 
-static GLboolean has_OML_sync_control = GL_FALSE;
-static GLboolean has_SGI_swap_control = GL_FALSE;
-static GLboolean has_MESA_swap_control = GL_FALSE;
-static GLboolean has_MESA_swap_frame_usage = GL_FALSE;
-
 static char** extension_table = NULL;
 static unsigned num_extensions;
 
 static AGlRootActor* scene = NULL;
 struct {
-	AGlActor *bg, *l1, *l2;
+	AGlActor *bg, *l1, *l2, *l3, *l4, *l5;
 } layers = {0,};
 
 static GHashTable* key_handlers = NULL;
@@ -206,7 +186,7 @@ main (int argc, char *argv[])
 	}
 
 	if(do_swap_interval){
-		if(set_swap_interval != NULL){
+		if(set_swap_interval){
 			if(((swap_interval == 0) && !has_MESA_swap_control) || (swap_interval < 0)){
 				printf( "Swap interval must be non-negative or greater than zero "
 					"if GLX_MESA_swap_control is not supported.\n" );
@@ -243,6 +223,19 @@ main (int argc, char *argv[])
 	layers.l2->colour = 0x9999ff99;
 	layers.l2->region = (AGliRegion){40, 45, 90, 95};
 
+	// now show the same 2 squares again, but wrapped in a caching actor
+
+	agl_actor__add_child((AGlActor*)scene, layers.l3 = cache_actor(NULL));
+	layers.l3->region = (AGliRegion){10, 135, 90, 215};
+
+	agl_actor__add_child(layers.l3, layers.l4 = plain_actor(NULL));
+	layers.l4->colour = 0x99ff9999;
+	layers.l4->region = (AGliRegion){0, 0, 50, 50};
+
+	agl_actor__add_child(layers.l3, layers.l5 = plain_actor(NULL));
+	layers.l5->colour = 0x9999ff99;
+	layers.l5->region = (AGliRegion){30, 30, 80, 80};
+
 	// -----------------------------------------------------------
 
 	on_window_resize(width, height);
@@ -268,6 +261,8 @@ draw (void)
 
 	agl_set_font_string("Roboto 8");
 	agl_print(10, 2, 0, 0xffffffff, "You should see 2 overlapping squares");
+	agl_print(10, 106, 0, 0xffffffff, "The two squares below are from an fbo cache.");
+	agl_print(10, 120, 0, 0xffffffff, "They should be the same as above");
 }
 
 
@@ -296,71 +291,6 @@ on_window_resize (int width, int height)
 	};
 
 	agl_actor__set_size((AGlActor*)scene);
-}
-
-
-/*
- * Create an RGB, double-buffered window.
- * Return the window and context handles.
- */
-static void
-make_window (Display* dpy, const char* name, int width, int height, Window* winRet, GLXContext* ctxRet)
-{
-	int attrib[] = {
-		GLX_RGBA,
-		GLX_RED_SIZE, 1,
-		GLX_GREEN_SIZE, 1,
-		GLX_BLUE_SIZE, 1,
-		GLX_DOUBLEBUFFER,
-		GLX_DEPTH_SIZE, 1,
-		None
-	};
-	XSetWindowAttributes attr;
-	unsigned long mask;
-	XVisualInfo* visinfo;
-
-	int scrnum = DefaultScreen(dpy);
-	Window root = RootWindow(dpy, scrnum);
-
-	visinfo = glXChooseVisual(dpy, scrnum, attrib);
-	if (!visinfo) {
-		printf("Error: couldn't get an RGB, Double-buffered visual\n");
-		exit(1);
-	}
-
-	/* window attributes */
-	attr.background_pixel = 0;
-	attr.border_pixel = 0;
-	attr.colormap = XCreateColormap(dpy, root, visinfo->visual, AllocNone);
-	attr.event_mask = StructureNotifyMask | ExposureMask | KeyPressMask;
-	mask = CWBackPixel | CWBorderPixel | CWColormap | CWEventMask;
-
-	Window win = XCreateWindow(dpy, root, 0, 0, width, height, 0, visinfo->depth, InputOutput, visinfo->visual, mask, &attr);
-
-	/* set hints and properties */
-	{
-		XSizeHints sizehints;
-		sizehints.x = 0;
-		sizehints.y = 0;
-		sizehints.width  = width;
-		sizehints.height = height;
-		sizehints.flags = USSize | USPosition;
-		XSetNormalHints(dpy, win, &sizehints);
-		XSetStandardProperties(dpy, win, name, name, None, (char **)NULL, 0, &sizehints);
-	}
-
-	XMoveWindow(dpy, win, (XDisplayWidth(dpy, scrnum) - width) / 2, (XDisplayHeight(dpy, scrnum) - height) / 2); // centre the window
-
-	GLXContext ctx = glXCreateContext(dpy, visinfo, NULL, True);
-	if (!ctx) {
-		printf("Error: glXCreateContext failed\n");
-		exit(1);
-	}
-
-	XFree(visinfo);
-
-	*winRet = win;
-	*ctxRet = ctx;
 }
 
 
@@ -610,6 +540,35 @@ _add_key_handlers()
 			i++;
 		}
 	}
+}
+
+
+static AGlActor*
+cache_actor (void* _)
+{
+	void cache_set_state (AGlActor* actor)
+	{
+	}
+
+	bool cache_paint (AGlActor* actor)
+	{
+		return true;
+	}
+
+	void cache_init (AGlActor* actor)
+	{
+#ifdef AGL_ACTOR_RENDER_CACHE
+		actor->fbo = agl_fbo_new(agl_actor__width(actor), agl_actor__height(actor), 0, 0);
+		actor->cache.enabled = true;
+#endif
+	}
+
+	return AGL_NEW(AGlActor,
+		.name = "Cache",
+		.init = cache_init,
+		.paint = cache_paint,
+		.set_state = cache_set_state
+	);
 }
 
 

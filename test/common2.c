@@ -1,7 +1,7 @@
 /**
 * +----------------------------------------------------------------------+
 * | This file is part of libwaveform https://github.com/ayyi/libwaveform |
-* | copyright (C) 2013-2018 Tim Orford <tim@orford.org>                  |
+* | copyright (C) 2013-2019 Tim Orford <tim@orford.org>                  |
 * +----------------------------------------------------------------------+
 * | This program is free software; you can redistribute it and/or modify |
 * | it under the terms of the GNU General Public License version 3       |
@@ -21,12 +21,9 @@
 #include <signal.h>
 #include <sys/time.h>
 #include <sys/types.h>
-#include <sys/ipc.h>
-#include <sys/shm.h>
-#include <signal.h>
 #include <gtk/gtk.h>
 #include <glib-object.h>
-#include <sndfile.h>
+#include "agl/actor.h"
 #include "waveform/utils.h"
 #include "test/common2.h"
 #include "waveform/wf_private.h"
@@ -107,3 +104,69 @@ find_data_dir ()
 	return NULL;
 }
 
+
+/*
+ * Create an RGB, double-buffered window.
+ * Return the window and context handles.
+ */
+void
+make_window (Display* dpy, const char* name, int width, int height, Window* winRet, GLXContext* ctxRet)
+{
+	AGl* agl = agl_get_instance();
+	agl->xdisplay = dpy;
+
+	int attrib[] = {
+		GLX_RGBA,
+		GLX_RED_SIZE, 1,
+		GLX_GREEN_SIZE, 1,
+		GLX_BLUE_SIZE, 1,
+		GLX_DOUBLEBUFFER,
+		GLX_DEPTH_SIZE, 1,
+		None
+	};
+
+	int scrnum = DefaultScreen(dpy);
+	Window root = RootWindow(dpy, scrnum);
+
+	if(!agl->xvinfo){
+		if(!(agl->xvinfo = glXChooseVisual(dpy, scrnum, attrib))){
+			printf("Error: couldn't get an RGB, Double-buffered visual\n");
+			exit(1);
+		}
+	}
+
+	/* window attributes */
+	XSetWindowAttributes attr = {
+		.background_pixel = 0,
+		.border_pixel = 0,
+		.colormap = XCreateColormap(dpy, root, agl->xvinfo->visual, AllocNone),
+		.event_mask = StructureNotifyMask | ExposureMask | KeyPressMask
+	};
+	unsigned long mask = CWBackPixel | CWBorderPixel | CWColormap | CWEventMask;
+
+	Window win = XCreateWindow(dpy, root, 0, 0, width, height, 0, agl->xvinfo->depth, InputOutput, agl->xvinfo->visual, mask, &attr);
+
+	/* set hints and properties */
+	{
+		XSizeHints sizehints = {
+			.x = 0,
+			.y = 0,
+			.width = width,
+			.height = height,
+			.flags = USSize | USPosition
+		};
+		XSetNormalHints(dpy, win, &sizehints);
+		XSetStandardProperties(dpy, win, name, name, None, (char **)NULL, 0, &sizehints);
+	}
+
+	XMoveWindow(dpy, win, (XDisplayWidth(dpy, scrnum) - width) / 2, (XDisplayHeight(dpy, scrnum) - height) / 2); // centre the window
+
+	GLXContext ctx = glXCreateContext(dpy, agl->xvinfo, NULL, True);
+	if (!ctx) {
+		printf("Error: glXCreateContext failed\n");
+		exit(1);
+	}
+
+	*winRet = win;
+	*ctxRet = ctx;
+}

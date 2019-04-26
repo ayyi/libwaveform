@@ -31,20 +31,6 @@ struct _app
 } app = {0,};
 #endif
 
-typedef void (KeyHandler)(gpointer);
-
-typedef struct
-{
-	int         key;
-	KeyHandler* handler;
-} Key;
-
-typedef struct
-{
-	guint          timer;
-	KeyHandler*    handler;
-} KeyHold;
-
 typedef void (*Test)    ();
 
 void test_init          (gpointer tests[], int);

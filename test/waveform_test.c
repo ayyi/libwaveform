@@ -212,6 +212,7 @@ void
 test_audiodata()
 {
 	START_TEST;
+	if(__test_idx);
 
 	C1* c = WF_NEW(C1,
 		.test = {
@@ -266,6 +267,7 @@ test_audiodata_slow()
 	// queues the requests separately.
 
 	START_TEST;
+	if(__test_idx);
 
 #if 0
 	C1* c = WF_NEW(C1,
@@ -320,6 +322,7 @@ test_audio_cache()
 	// test that the cache is empty once Waveform's have been destroyed.
 
 	START_TEST;
+	if(__test_idx);
 
 	C1* c = WF_NEW(C1,
 		.test = {
@@ -333,7 +336,7 @@ test_audio_cache()
 
 	static int tot_blocks; tot_blocks = MIN(20, waveform_get_n_audio_blocks(w)); //cannot do too many parallel requests as the cache will fill.
 	static int n_tiers_needed = 3;//4;
-	static guint ready_handler = 0;
+	//static guint ready_handler = 0;
 
 	g_object_weak_ref((GObject*)w, finalize_notify, NULL);
 

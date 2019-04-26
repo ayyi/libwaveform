@@ -133,8 +133,8 @@ glx_SOURCES = \
 	$(COMMON2_SOURCES) \
 	glx.c
 
-scenegraph_sources = \
-	$(COMMON_SOURCES) \
+scenegraph_SOURCES = \
+	$(COMMON2_SOURCES) \
 	scenegraph.c
 
 viewport_SOURCES = \
@@ -176,6 +176,9 @@ sdl_LDADD = \
 
 glx_LDADD = \
 	$(OPENGL_LDFLAGS) \
+	$(TEST_LDFLAGS)
+
+scenegraph_LDADD = \
 	$(TEST_LDFLAGS)
 
 LDADD = \

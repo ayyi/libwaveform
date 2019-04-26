@@ -2,7 +2,7 @@
 * +----------------------------------------------------------------------+
 * | This file is part of libwaveform                                     |
 * | https://github.com/ayyi/libwaveform                                  |
-* | copyright (C) 2012-2018 Tim Orford <tim@orford.org>                  |
+* | copyright (C) 2012-2019 Tim Orford <tim@orford.org>                  |
 * +----------------------------------------------------------------------+
 * | This program is free software; you can redistribute it and/or modify |
 * | it under the terms of the GNU General Public License version 3       |
@@ -26,27 +26,12 @@
 #include "waveform/waveform.h"
 #include "agl/actor.h"
 #include "waveform/actors/background.h"
-#include "test/common.h"
-
-#ifndef GLX_MESA_swap_control
-typedef GLint (*PFNGLXSWAPINTERVALMESAPROC)    (unsigned interval);
-typedef GLint (*PFNGLXGETSWAPINTERVALMESAPROC) (void);
-#endif
-
-#if !defined( GLX_OML_sync_control ) && defined( _STDINT_H )
-#define GLX_OML_sync_control 1
-typedef Bool (*PFNGLXGETMSCRATEOMLPROC) (Display*, GLXDrawable, int32_t* numerator, int32_t* denominator);
-#endif
-
-#ifndef GLX_MESA_swap_frame_usage
-#define GLX_MESA_swap_frame_usage 1
-typedef int (*PFNGLXGETFRAMEUSAGEMESAPROC) (Display*, GLXDrawable, float* usage);
-#endif
+#define __glx_test__
+#include "test/common2.h"
 
 static GLboolean print_info = GL_FALSE;
 
 static int  current_time           ();
-static void make_window            (Display*, const char*, int, int, Window*, GLXContext*);
 static void make_extension_table   (const char*);
 static bool is_extension_supported (const char*);
 static void show_refresh_rate      (Display*);
@@ -58,12 +43,6 @@ static void _add_key_handlers      ();
 #define NUL '\0'
 
 PFNGLXGETFRAMEUSAGEMESAPROC get_frame_usage = NULL;
-
-
-static GLboolean has_OML_sync_control = GL_FALSE;
-static GLboolean has_SGI_swap_control = GL_FALSE;
-static GLboolean has_MESA_swap_control = GL_FALSE;
-static GLboolean has_MESA_swap_frame_usage = GL_FALSE;
 
 static char** extension_table = NULL;
 static unsigned num_extensions;
@@ -294,72 +273,6 @@ on_window_resize(int width, int height)
 	layers.wa->canvas->samples_per_pixel = 0.1 * ((float)waveform_get_n_frames(layers.wa->waveform)) / width;
 	WaveformContext* wfc = layers.wa->canvas;
 	wf_context_set_zoom(wfc, wf_context_get_zoom(wfc) ? wf_context_get_zoom(wfc) : 1.0);
-}
-
-
-/*
- * Create an RGB, double-buffered window.
- * Return the window and context handles.
- */
-static void
-make_window(Display* dpy, const char* name, int width, int height, Window* winRet, GLXContext* ctxRet)
-{
-	AGl* agl = agl_get_instance();
-	agl->xdisplay = dpy;
-
-	int attrib[] = {
-		GLX_RGBA,
-		GLX_RED_SIZE, 1,
-		GLX_GREEN_SIZE, 1,
-		GLX_BLUE_SIZE, 1,
-		GLX_DOUBLEBUFFER,
-		GLX_DEPTH_SIZE, 1,
-		None
-	};
-
-	int scrnum = DefaultScreen(dpy);
-	Window root = RootWindow(dpy, scrnum);
-
-	if(!agl->xvinfo){
-		if(!(agl->xvinfo = glXChooseVisual(dpy, scrnum, attrib))){
-			printf("Error: couldn't get an RGB, Double-buffered visual\n");
-			exit(1);
-		}
-	}
-
-	XSetWindowAttributes attr = {
-		.background_pixel = 0,
-		.border_pixel = 0,
-		.colormap = XCreateColormap(dpy, root, agl->xvinfo->visual, AllocNone),
-		.event_mask = StructureNotifyMask | ExposureMask | KeyPressMask
-	};
-	unsigned long mask = CWBackPixel | CWBorderPixel | CWColormap | CWEventMask;
-
-	Window win = XCreateWindow(dpy, root, 0, 0, width, height, 0, agl->xvinfo->depth, InputOutput, agl->xvinfo->visual, mask, &attr);
-
-	/* set hints and properties */
-	{
-		XSizeHints sizehints = {
-			.x = 0,
-			.y = 0,
-			.width = width,
-			.height = height,
-			.flags = USSize | USPosition
-		};
-		XSetNormalHints(dpy, win, &sizehints);
-		XSetStandardProperties(dpy, win, name, name, None, (char **)NULL, 0, &sizehints);
-	}
-
-	XMoveWindow(dpy, win, (XDisplayWidth(dpy, scrnum) - width) / 2, (XDisplayHeight(dpy, scrnum) - height) / 2); // centre the window
-
-	GLXContext ctx = glXCreateContext(dpy, agl->xvinfo, NULL, True);
-	if (!ctx) {
-		printf("Error: glXCreateContext failed\n");
-		exit(1);
-	}
-
-	*winRet = win;
-	*ctxRet = ctx;
 }
 
 

@@ -19,6 +19,43 @@ void  set_log_handlers   ();
 char* find_wav           (const char*);
 const char* find_data_dir();
 
+typedef void (KeyHandler)(gpointer);
+
+typedef struct
+{
+	int         key;
+	KeyHandler* handler;
+} Key;
+
+typedef struct
+{
+	guint          timer;
+	KeyHandler*    handler;
+} KeyHold;
+
+#ifdef __glx_test__
+static GLboolean has_OML_sync_control = GL_FALSE;
+static GLboolean has_SGI_swap_control = GL_FALSE;
+static GLboolean has_MESA_swap_control = GL_FALSE;
+static GLboolean has_MESA_swap_frame_usage = GL_FALSE;
+
+#ifndef GLX_MESA_swap_control
+typedef GLint (*PFNGLXSWAPINTERVALMESAPROC)    (unsigned interval);
+typedef GLint (*PFNGLXGETSWAPINTERVALMESAPROC) (void);
+#endif
+
+#if !defined( GLX_OML_sync_control ) && defined( _STDINT_H )
+#define GLX_OML_sync_control 1
+typedef Bool (*PFNGLXGETMSCRATEOMLPROC) (Display*, GLXDrawable, int32_t* numerator, int32_t* denominator);
+#endif
+
+#ifndef GLX_MESA_swap_frame_usage
+#define GLX_MESA_swap_frame_usage 1
+typedef int (*PFNGLXGETFRAMEUSAGEMESAPROC) (Display*, GLXDrawable, float* usage);
+#endif
+
+#endif
+
 #ifdef __common2_c__
 char grey     [16] = "\x1b[2;39m"; // 2 = dim
 char yellow   [16] = "\x1b[1;33m";
@@ -53,5 +90,9 @@ extern char ayyi_err [32];
 extern char go_rhs   [32];
 extern char ok       [];
 extern char fail     [];
+#endif
+
+#ifdef GLX_H
+void make_window        (Display*, const char*, int width, int height, Window*, GLXContext*);
 #endif
 
