@@ -1,5 +1,5 @@
 /*
-  copyright (C) 2012-2018 Tim Orford <tim@orford.org>
+  copyright (C) 2012-2019 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -35,7 +35,7 @@ WF* wf = NULL;
 																												extern int n_loads[4096];
 #if defined (WF_USE_TEXTURE_CACHE) && defined (USE_OPENGL)
 static void
-on_steal (Texture* tex)
+on_steal (WfTexture* tex)
 {
 	WaveformBlock* wb = &tex->wb;
 

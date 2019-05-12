@@ -1,5 +1,5 @@
 /*
-  copyright (C) 2012-2018 Tim Orford <tim@orford.org>
+  copyright (C) 2012-2019 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -16,6 +16,7 @@
 */
 #ifndef __wf_worker_h__
 #define __wf_worker_h__
+#include "waveform/typedefs.h"
 
 #ifdef __wf_private__
 

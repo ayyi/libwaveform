@@ -210,12 +210,12 @@ typedef struct
 	int         block;
 } WaveformBlock;
 
-typedef struct _texture
+typedef struct
 {
 	guint         id;
 	WaveformBlock wb;
 	int           time_stamp;
-} Texture;
+} WfTexture;
 
 typedef struct
 {

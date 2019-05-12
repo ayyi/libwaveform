@@ -1,5 +1,5 @@
 /*
-  copyright (C) 2012-2018 Tim Orford <tim@orford.org>
+  copyright (C) 2012-2019 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -67,11 +67,11 @@ texture_cache_init()
 	if(c1) return;
 
 	c1 = g_new0(TextureCache, 1);
-	c1->t = g_array_new(FALSE, TRUE, sizeof(Texture));
+	c1->t = g_array_new(FALSE, TRUE, sizeof(WfTexture));
 	c1->t = g_array_set_size(c1->t, 0);
 
 	c2 = g_new0(TextureCache, 1);
-	c2->t = g_array_new(FALSE, TRUE, sizeof(Texture));
+	c2->t = g_array_new(FALSE, TRUE, sizeof(WfTexture));
 	c2->t = g_array_set_size(c2->t, 0);
 }
 
@@ -97,7 +97,7 @@ texture_cache_gen(TextureCache* c)
 	//check all textures
 	{
 		int i; for(i=0;i<c->t->len;i++){
-			Texture* tx = &g_array_index(c->t, Texture, i);
+			WfTexture* tx = &g_array_index(c->t, WfTexture, i);
 			if(!glIsTexture(tx->id)) gwarn("not texture! %i: %i", i, tx->id);
 		}
 	}
@@ -118,7 +118,7 @@ texture_cache_gen(TextureCache* c)
 	for(t=0;t< WF_TEXTURE_ALLOCATION_INCREMENT;t++){
 		int idx = texture_cache_lookup_idx_by_id (c, textures[t]);
 		if(idx > -1){
-			Texture* tx = &g_array_index(c->t, Texture, t);
+			WfTexture* tx = &g_array_index(c->t, WfTexture, t);
 			gwarn("given duplicate texture id: %i wf=%p b=%i", textures[t], tx->wb.waveform, tx->wb.block);
 		}
 	}
@@ -126,7 +126,7 @@ texture_cache_gen(TextureCache* c)
 
 	int i = 0;
 	for(t=c->t->len-WF_TEXTURE_ALLOCATION_INCREMENT;t<c->t->len;t++, i++){
-		Texture* tx = &g_array_index(c->t, Texture, t);
+		WfTexture* tx = &g_array_index(c->t, WfTexture, t);
 		tx->id = textures[i];
 	}
 }
@@ -142,7 +142,7 @@ texture_cache_shrink(TextureCache* c, int idx)
 
 	int i = 0;
 	int t; for(t=idx;t<idx+WF_TEXTURE_ALLOCATION_INCREMENT;t++, i++){
-		Texture* tx = &g_array_index(c->t, Texture, t);
+		WfTexture* tx = &g_array_index(c->t, WfTexture, t);
 		textures[i] = tx->id;
 	}
 	glDeleteTextures(WF_TEXTURE_ALLOCATION_INCREMENT, textures);
@@ -183,7 +183,7 @@ texture_cache_assign(TextureCache* c, int t, WaveformBlock wb)
 	g_return_if_fail(t >= 0);
 	g_return_if_fail(t < c->t->len);
 
-	Texture* tx = &g_array_index(c->t, Texture, t);
+	WfTexture* tx = &g_array_index(c->t, WfTexture, t);
 	tx->wb = wb;
 	tx->time_stamp = time_stamp++;
 	dbg(2, "t=%i b=%i time=%i", t, wb.block, time_stamp);
@@ -204,7 +204,7 @@ texture_cache_freshen(int tex_type, WaveformBlock wb)
 
 	int i = texture_cache_lookup_idx(c, wb);
 	if(i > -1){
-		Texture* tx = &g_array_index(c->t, Texture, i);
+		WfTexture* tx = &g_array_index(c->t, WfTexture, i);
 		tx->time_stamp = time_stamp++;
 	}
 }
@@ -220,7 +220,7 @@ texture_cache_freshen(int tex_type, WaveformBlock wb)
 			if(m == -1) return false;
 			gboolean empty = true;
 			int i; for(i=0;i<WF_TEXTURE_ALLOCATION_INCREMENT;i++){
-				Texture* tx = &g_array_index(c->t, Texture, m);
+				WfTexture* tx = &g_array_index(c->t, WfTexture, m);
 				if(tx->wb.waveform){
 					empty = false;
 					break;
@@ -261,7 +261,7 @@ texture_cache_unassign(TextureCache* c, WaveformBlock wb)
 	while((t = texture_cache_lookup_idx(c, wb)) > -1){
 		g_return_if_fail(t < c->t->len);
 
-		Texture* tx = &g_array_index(c->t, Texture, t);
+		WfTexture* tx = &g_array_index(c->t, WfTexture, t);
 		g_return_if_fail(tx);
 		tx->wb = (WaveformBlock){NULL, 0};
 		tx->time_stamp = 0;
@@ -281,7 +281,7 @@ texture_cache_get(TextureCache* c, int t)
 {
 	g_return_val_if_fail(t < c->t->len, -1);
 
-	Texture* tx = &g_array_index(c->t, Texture, t);
+	WfTexture* tx = &g_array_index(c->t, WfTexture, t);
 	return tx ? tx->id : 0;
 }
 
@@ -296,7 +296,7 @@ texture_cache_lookup(int tex_type, WaveformBlock wb)
 
 	dbg(2, "%p %i", wb.waveform, wb.block);
 	int i; for(i=0;i<c->t->len;i++){
-		Texture* t = &g_array_index(c->t, Texture, i);
+		WfTexture* t = &g_array_index(c->t, WfTexture, i);
 		if(t->wb.waveform == wb.waveform && t->wb.block == wb.block){
 			dbg(3, "found %i at %i", wb.block, i);
 			return t->id;
@@ -311,7 +311,7 @@ static int
 texture_cache_lookup_idx(TextureCache* c, WaveformBlock wb)
 {
 	int i; for(i=0;i<c->t->len;i++){
-		Texture* t = &g_array_index(c->t, Texture, i);
+		WfTexture* t = &g_array_index(c->t, WfTexture, i);
 		if(t->wb.waveform == wb.waveform && t->wb.block == wb.block){
 			dbg(3, "found %i at %i", wb.block, i);
 			return i;
@@ -327,7 +327,7 @@ static int
 texture_cache_lookup_idx_by_id(TextureCache* c, guint id)
 {
 	int i; for(i=0;i<c->t->len;i++){
-		Texture* t = &g_array_index(c->t, Texture, i);
+		WfTexture* t = &g_array_index(c->t, WfTexture, i);
 		if(t->id == id){
 			return i;
 		}
@@ -356,7 +356,7 @@ static int
 texture_cache_find_empty(TextureCache* c)
 {
 	int t; for(t=0;t<c->t->len;t++){
-		Texture* tx = &g_array_index(c->t, Texture, t);
+		WfTexture* tx = &g_array_index(c->t, WfTexture, t);
 		if(!tx->wb.waveform){
 			dbg(3, "%i", t);
 			return t;
@@ -372,7 +372,7 @@ texture_cache_steal(TextureCache* c)
 	int oldest = -1;
 	int n = -1;
 	int t; for(t=0;t<c->t->len;t++){
-		Texture* tx = &g_array_index(c->t, Texture, t);
+		WfTexture* tx = &g_array_index(c->t, WfTexture, t);
 		if(tx->wb.waveform){
 			if(oldest == -1 || tx->time_stamp < oldest){
 				n = t;
@@ -383,8 +383,8 @@ texture_cache_steal(TextureCache* c)
 	if(n > -1){
 		// clear all references to this texture
 
-		dbg(2, "%i time=%i", oldest, ((Texture*)&g_array_index(c->t, Texture, n))->time_stamp);
-		Texture* tex = (Texture*)&g_array_index(c->t, Texture, n);
+		dbg(2, "%i time=%i", oldest, ((WfTexture*)&g_array_index(c->t, WfTexture, n))->time_stamp);
+		WfTexture* tex = (WfTexture*)&g_array_index(c->t, WfTexture, n);
 
 		if(c->on_steal) c->on_steal(tex);
 	}
@@ -432,7 +432,7 @@ texture_cache_count_by_waveform(Waveform* w)
 	int j; for(j=0;j<2;j++){
 		TextureCache* c = j ? c2 : c1;
 		int i; for(i=0;i<c->t->len;i++){
-			Texture* t = &g_array_index(c->t, Texture, i);
+			WfTexture* t = &g_array_index(c->t, WfTexture, i);
 			if(t->wb.waveform == w) n_found++;
 		}
 	}
@@ -447,7 +447,7 @@ texture_cache_count_used(TextureCache* c)
 	int n_used = 0;
 	if(c->t->len){
 		int i; for(i=0;i<c->t->len;i++){
-			Texture* t = &g_array_index(c->t, Texture, i);
+			WfTexture* t = &g_array_index(c->t, WfTexture, i);
 			if(t->wb.waveform) n_used++;
 		}
 	}
@@ -466,7 +466,7 @@ texture_cache_print()
 		if(c->t->len){
 			printf("         %2s %4s  %3s   %-4s\n", "id", "ts", "b", "wvfm");
 			int i; for(i=0;i<c->t->len;i++){
-				Texture* t = &g_array_index(c->t, Texture, i);
+				WfTexture* t = &g_array_index(c->t, WfTexture, i);
 				if(t->wb.waveform){
 					n_used++;
 					if(!g_list_find(waveforms, t->wb.waveform)) waveforms = g_list_append(waveforms, t->wb.waveform);
@@ -492,4 +492,3 @@ texture_cache_print()
 
 
 #endif //WF_USE_TEXTURE_CACHE
-

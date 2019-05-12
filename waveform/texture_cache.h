@@ -1,5 +1,5 @@
 /*
-  copyright (C) 2012-2018 Tim Orford <tim@orford.org>
+  copyright (C) 2012-2019 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -26,11 +26,11 @@
 #define WF_TEXTURE_CACHE_HIRES_NG_MASK (1 << 21)
 #define WF_TEXTURE_CACHE_V_LORES_MASK (1 << 20)
 
-typedef void  (*AGlOnSteal) (Texture*);
+typedef void  (*AGlOnSteal) (WfTexture*);
 
 struct _texture_cache
 {
-	GArray*     t;             // type Texture
+	GArray*     t;             // type WfTexture
 	AGlOnSteal  on_steal;
 };
 
