@@ -118,7 +118,7 @@ test_bad_wav()
 
 	void callback(Waveform* w, GError* error, gpointer _c)
 	{
-		PF0;
+		PF;
 		WfTest* c = _c;
 
 		assert(error, "GError not set")
@@ -287,15 +287,16 @@ test_audiodata_slow()
 }
 
 
-			static bool after_unref(gpointer _c)
-			{
-				WfTest* c = _c;
-				WF* wf = wf_get_instance();
+static bool
+test_audio_cache__after_unref (gpointer _c)
+{
+	WfTest* c = _c;
+	WF* wf = wf_get_instance();
 
-				assert_and_stop(!wf->audio.mem_size, "cache memory not zero");
+	assert_and_stop(!wf->audio.mem_size, "cache memory not zero");
 
-				WF_TEST_FINISH_TIMER_STOP;
-			}
+	WF_TEST_FINISH_TIMER_STOP;
+}
 
 	static void _on_peakdata_ready_3(Waveform* waveform, int block, gpointer _c)
 	{
@@ -311,13 +312,13 @@ test_audiodata_slow()
 			g_object_unref(waveform);
 
 			// dont know why, but the idle fn runs too early.
-			//g_idle_add_full(G_PRIORITY_LOW, after_unref, NULL, NULL);
-			g_timeout_add(400, after_unref, c);
+			//g_idle_add_full(G_PRIORITY_LOW, test_audio_cache__after_unref, NULL, NULL);
+			g_timeout_add(400, test_audio_cache__after_unref, c);
 		}
 	}
 
 void
-test_audio_cache()
+test_audio_cache ()
 {
 	// test that the cache is empty once Waveform's have been destroyed.
 
@@ -330,13 +331,15 @@ test_audio_cache()
 		}
 	);
 
+	WF* wf = wf_get_instance();
+	assert(!wf->audio.mem_size, "cache memory not zero");
+
 	char* filename = find_wav(WAV);
 	Waveform* w = waveform_new(filename);
 	g_free(filename);
 
 	static int tot_blocks; tot_blocks = MIN(20, waveform_get_n_audio_blocks(w)); //cannot do too many parallel requests as the cache will fill.
 	static int n_tiers_needed = 3;//4;
-	//static guint ready_handler = 0;
 
 	g_object_weak_ref((GObject*)w, finalize_notify, NULL);
 

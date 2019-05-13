@@ -44,9 +44,7 @@ void create_large_file  (char*);
 
 void errprintf4         (char* format, ...);
 
-#ifdef __GTK_H__
-void add_key_handlers   (GtkWindow*, WaveformView*, Key[]);
-#endif
+KeyHandler* key_lookup  (int keycode);
 
 #define START_TEST \
 	static int step = 0;\
@@ -140,8 +138,6 @@ WfTest* wf_test_new();
 
 #define FAIL_IF_ERROR \
 	if(error && *error) FAIL_TEST((*error)->message);
-
-#define g_source_remove0(S) {if(S) g_source_remove(S); S = 0;}
 
 typedef void (TestFn)();
 

@@ -2,7 +2,7 @@
 /**
 * +----------------------------------------------------------------------+
 * | This file is part of the Ayyi project. http://ayyi.org               |
-* | copyright (C) 2013-2018 Tim Orford <tim@orford.org>                  |
+* | copyright (C) 2013-2019 Tim Orford <tim@orford.org>                  |
 * +----------------------------------------------------------------------+
 * | This program is free software; you can redistribute it and/or modify |
 * | it under the terms of the GNU General Public License version 3       |
@@ -34,10 +34,6 @@ typedef struct
 } KeyHold;
 
 #ifdef __glx_test__
-static GLboolean has_OML_sync_control = GL_FALSE;
-static GLboolean has_SGI_swap_control = GL_FALSE;
-static GLboolean has_MESA_swap_control = GL_FALSE;
-static GLboolean has_MESA_swap_frame_usage = GL_FALSE;
 
 #ifndef GLX_MESA_swap_control
 typedef GLint (*PFNGLXSWAPINTERVALMESAPROC)    (unsigned interval);
@@ -55,6 +51,15 @@ typedef int (*PFNGLXGETFRAMEUSAGEMESAPROC) (Display*, GLXDrawable, float* usage)
 #endif
 
 #endif
+
+typedef struct {
+#ifdef __glx_test__
+    Window    window;
+#else
+	unsigned long window;
+#endif
+    AGlScene* scene;
+} AGlWindow;
 
 #ifdef __common2_c__
 char grey     [16] = "\x1b[2;39m"; // 2 = dim
@@ -93,6 +98,16 @@ extern char fail     [];
 #endif
 
 #ifdef GLX_H
-void make_window        (Display*, const char*, int width, int height, Window*, GLXContext*);
+AGlWindow* agl_make_window    (Display*, const char*, int width, int height, AGlScene*);
+void       agl_window_destroy (Display*, AGlWindow**);
+void       event_loop         (Display*);
+void       show_refresh_rate  (Display*);
+
+void add_key_handlers     (Key keys[]);
+#ifdef __GTK_H__
+void add_key_handlers_gtk (GtkWindow*, WaveformView*, Key keys[]);
 #endif
+#endif
+
+#define g_source_remove0(S) {if(S) g_source_remove(S); S = 0;}
 

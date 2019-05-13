@@ -172,7 +172,7 @@ main (int argc, char *argv[])
 
 	gtk_widget_show_all(window);
 
-	add_key_handlers((GtkWindow*)window, NULL, (Key*)&keys);
+	add_key_handlers_gtk((GtkWindow*)window, NULL, (Key*)&keys);
 
 	g_signal_connect(window, "delete-event", G_CALLBACK(window_on_delete), NULL);
 

@@ -28,55 +28,47 @@
 #define __glx_test__
 #include "test/common2.h"
 
+#undef SHOW_2ND_CHILD
+#define SHOW_2ND_CHILD
+
+uint32_t colour0 = 0xff0000ff; // bg
+uint32_t colour1 = 0x7fff007f;
+#ifdef SHOW_2ND_CHILD
+uint32_t colour2 = 0x00ff003f;
+#endif
+
 extern char* basename(const char*);
 
 static GLboolean print_info = GL_FALSE;
 
-static int  current_time           ();
-static void make_extension_table   (const char*);
-static bool is_extension_supported (const char*);
-static void show_refresh_rate      (Display*);
-static void on_window_resize       (int, int);
-static void event_loop             (Display*, Window);
-static void _add_key_handlers      ();
-
-static AGlActor* cache_actor       (void*);
+static AGlActor* cache_actor   (void*);
+static AGlActor* text_actor    (void*);
+static AGlActor* group         (void*);
+static AGlActor* cached_group  (void*);
+#ifdef SHOW_2ND_CHILD
+AGlActor* plain2_actor         (void*);
+#endif
 
 static void scene_needs_redraw (AGlScene* scene, gpointer _){ scene->gl.glx.needs_draw = True; }
 
-#define BENCHMARK
-#define NUL '\0'
-
-PFNGLXGETFRAMEUSAGEMESAPROC get_frame_usage = NULL;
-
-
-static char** extension_table = NULL;
-static unsigned num_extensions;
-
 static AGlRootActor* scene = NULL;
-struct {
-	AGlActor *bg, *l1, *l2, *l3, *l4, *l5;
-} layers = {0,};
-
-static GHashTable* key_handlers = NULL;
+struct {AGlActor *bg, *grp, *l1, *l2, *g2, *ga2, *gb2, *text; } layers = {0,};
 
 static KeyHandler
+	toggle_cache,
 	nav_up,
 	nav_down,
 	zoom_in,
 	zoom_out;
 
 Key keys[] = {
+	{XK_c,           toggle_cache},
 	{XK_Up,          nav_up},
 	{XK_Down,        nav_down},
 	{XK_equal,       zoom_in},
 	{XK_KP_Add,      zoom_in},
 	{XK_minus,       zoom_out},
 	{XK_KP_Subtract, zoom_out},
-	/*
-	XK_Left
-	XK_Right
-	*/
 };
 
 static const struct option long_options[] = {
@@ -100,13 +92,6 @@ static const char* const usage =
 int
 main (int argc, char *argv[])
 {
-	Window win;
-	GLXContext ctx;
-	int swap_interval = 1;
-	GLboolean do_swap_interval = GL_FALSE;
-	GLboolean force_get_rate = GL_FALSE;
-	PFNGLXSWAPINTERVALMESAPROC set_swap_interval = NULL;
-	PFNGLXGETSWAPINTERVALMESAPROC get_swap_interval = NULL;
 	int width = 300, height = 300;
 
 	int i; for (i = 1; i < argc; i++) {
@@ -114,8 +99,8 @@ main (int argc, char *argv[])
 			print_info = GL_TRUE;
 		}
 		else if (strcmp(argv[i], "-swap") == 0 && i + 1 < argc) {
-			swap_interval = atoi( argv[i+1] );
-			do_swap_interval = GL_TRUE;
+//			swap_interval = atoi( argv[i+1] );
+//			do_swap_interval = GL_TRUE;
 			i++;
 		}
 		else if (strcmp(argv[i], "-forcegetrate") == 0) {
@@ -123,7 +108,7 @@ main (int argc, char *argv[])
 			 * full GLX_OML_sync_control extension, but they do support
 			 * glXGetMscRateOML.
 			 */
-			force_get_rate = GL_TRUE;
+//			force_get_rate = GL_TRUE;
 		}
 	}
 
@@ -146,400 +131,80 @@ main (int argc, char *argv[])
 		return -1;
 	}
 
-	make_window(dpy, "waveformscenegraphtest", width, height, &win, &ctx);
-	XMapWindow(dpy, win);
-	glXMakeCurrent(dpy, win, ctx);
+	scene = (AGlRootActor*)agl_actor__new_root_(CONTEXT_TYPE_GLX);
+	scene->draw = scene_needs_redraw;
 
-	// TODO is make_extension_table needed as well as agl_get_extensions ?
-	make_extension_table((char*)glXQueryExtensionsString(dpy, DefaultScreen(dpy)));
-	has_OML_sync_control = is_extension_supported("GLX_OML_sync_control");
-	has_SGI_swap_control = is_extension_supported("GLX_SGI_swap_control");
-	has_MESA_swap_control = is_extension_supported("GLX_MESA_swap_control");
-	has_MESA_swap_frame_usage = is_extension_supported("GLX_MESA_swap_frame_usage");
-
-	agl_gl_init();
-
-	if (has_MESA_swap_control) {
-		set_swap_interval = (PFNGLXSWAPINTERVALMESAPROC) glXGetProcAddressARB((const GLubyte*) "glXSwapIntervalMESA");
-		get_swap_interval = (PFNGLXGETSWAPINTERVALMESAPROC) glXGetProcAddressARB((const GLubyte*) "glXGetSwapIntervalMESA");
-	}
-	else if (has_SGI_swap_control) {
-		set_swap_interval = (PFNGLXSWAPINTERVALMESAPROC) glXGetProcAddressARB((const GLubyte*) "glXSwapIntervalSGI");
-	}
-
-	if (has_MESA_swap_frame_usage) {
-		get_frame_usage = (PFNGLXGETFRAMEUSAGEMESAPROC)  glXGetProcAddressARB((const GLubyte*) "glXGetFrameUsageMESA");
-	}
-
-	if(print_info){
-		printf("GL_RENDERER   = %s\n", (char*)glGetString(GL_RENDERER));
-		printf("GL_VERSION    = %s\n", (char*)glGetString(GL_VERSION));
-		printf("GL_VENDOR     = %s\n", (char*)glGetString(GL_VENDOR));
-		printf("GL_EXTENSIONS = %s\n", (char*)glGetString(GL_EXTENSIONS));
-		if(has_OML_sync_control || force_get_rate){
-			show_refresh_rate(dpy);
-		}
-
-		if(get_swap_interval){
-			printf("Default swap interval = %d\n", (*get_swap_interval)());
-		}
-	}
-
-	if(do_swap_interval){
-		if(set_swap_interval){
-			if(((swap_interval == 0) && !has_MESA_swap_control) || (swap_interval < 0)){
-				printf( "Swap interval must be non-negative or greater than zero "
-					"if GLX_MESA_swap_control is not supported.\n" );
-			}
-			else {
-				(*set_swap_interval)(swap_interval);
-			}
-
-			if (print_info && (get_swap_interval != NULL)){
-				printf("Current swap interval = %d\n", (*get_swap_interval)());
-			}
-		}
-		else {
-			printf("Unable to set swap-interval. Neither GLX_SGI_swap_control "
-				"nor GLX_MESA_swap_control are supported.\n" );
-		}
-	}
-
-	// -----------------------------------------------------------
+	AGlWindow* window = agl_make_window(dpy, "waveformscenegraphtest", width, height, scene);
 
 	g_main_loop_new(NULL, true);
 
-	scene = (AGlRootActor*)agl_actor__new_root_(CONTEXT_TYPE_GLX);
+	{
+		agl_actor__add_child((AGlActor*)scene, layers.grp = group(NULL));
+		layers.grp->region = (AGliRegion){10, 22, 60, 72};
 
-	scene->draw = scene_needs_redraw;
+		agl_actor__add_child((AGlActor*)scene, layers.l2 = plain_actor(NULL));
+		layers.l2->colour = 0x9999ff99;
+		layers.l2->region = (AGliRegion){40, 52, 90, 102};
 
-	agl_actor__add_child((AGlActor*)scene, layers.bg = background_actor(NULL));
+		// now show the same 2 squares again, but wrapped in a caching actor
 
-	agl_actor__add_child((AGlActor*)scene, layers.l1 = plain_actor(NULL));
-	layers.l1->colour = 0x99ff9999;
-	layers.l1->region = (AGliRegion){10, 15, 60, 65};
+		agl_actor__add_child((AGlActor*)scene, layers.g2 = cached_group(NULL));
+		layers.g2->region = (AGliRegion){10, 72, 60, 122};
 
-	agl_actor__add_child((AGlActor*)scene, layers.l2 = plain_actor(NULL));
-	layers.l2->colour = 0x9999ff99;
-	layers.l2->region = (AGliRegion){40, 45, 90, 95};
+		//------------------------------
 
-	// now show the same 2 squares again, but wrapped in a caching actor
+		// 2nd pair of blocks, now with a background
 
-	agl_actor__add_child((AGlActor*)scene, layers.l3 = cache_actor(NULL));
-	layers.l3->region = (AGliRegion){10, 135, 90, 215};
+		//agl_actor__add_child((AGlActor*)scene, layers.bg = background_actor(NULL));
+		agl_actor__add_child((AGlActor*)scene, layers.bg = plain_actor(NULL));
+		layers.bg->colour = colour0;
+		layers.bg->region = (AGliRegion){100, 0, 300, 300};
 
-	agl_actor__add_child(layers.l3, layers.l4 = plain_actor(NULL));
-	layers.l4->colour = 0x99ff9999;
-	layers.l4->region = (AGliRegion){0, 0, 50, 50};
+		agl_actor__add_child((AGlActor*)scene, layers.ga2 = group(NULL));
+		layers.ga2->region = (AGliRegion){110, 22, 160, 72};
 
-	agl_actor__add_child(layers.l3, layers.l5 = plain_actor(NULL));
-	layers.l5->colour = 0x9999ff99;
-	layers.l5->region = (AGliRegion){30, 30, 80, 80};
+		agl_actor__add_child((AGlActor*)scene, layers.gb2 = cached_group(NULL));
+		layers.gb2->region = (AGliRegion){110, 72, 160, 122};
 
-	// -----------------------------------------------------------
+		//------------------------------
 
-	on_window_resize(width, height);
+		agl_actor__add_child((AGlActor*)scene, layers.text = text_actor(NULL));
+		layers.text->region = (AGliRegion){0, 0, 90, 218};
+	}
 
-	_add_key_handlers();
+	add_key_handlers(keys);
 
-	event_loop(dpy, win);
+	event_loop(dpy);
 
-	glXDestroyContext(dpy, ctx);
-	XDestroyWindow(dpy, win);
+	agl_window_destroy(dpy, &window);
 	XCloseDisplay(dpy);
 
 	return 0;
 }
 
 
-static void
-draw (void)
+static AGlActor*
+text_actor (void* _)
 {
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+	bool text_paint (AGlActor* actor)
+	{
+		agl_print(10, 7, 0, 0xffffffff, "You should see 2 overlapping squares");
+		agl_print(10, 108, 0, 0xffffffff, "The two squares below are from an fbo cache.");
+		agl_print(10, 122, 0, 0xffffffff, "They should be the same as above");
 
-	agl_actor__paint((AGlActor*)scene);
-
-	agl_set_font_string("Roboto 8");
-	agl_print(10, 2, 0, 0xffffffff, "You should see 2 overlapping squares");
-	agl_print(10, 106, 0, 0xffffffff, "The two squares below are from an fbo cache.");
-	agl_print(10, 120, 0, 0xffffffff, "They should be the same as above");
-}
-
-
-static void
-on_window_resize (int width, int height)
-{
-	// FIXME adding border messes up 1:1 ratio
-	#define HBORDER 0 //50
-	#define VBORDER 0 //50
-	int vx = 0;
-	int vy = 0;
-	glViewport(vx, vy, width, height);
-	dbg (2, "viewport: %i %i %i %i", vx, vy, width, height);
-	glMatrixMode(GL_PROJECTION);
-	glLoadIdentity();
-
-	double left   = -HBORDER;
-	double right  = width + HBORDER;
-	double bottom = height + VBORDER;
-	double top    = -VBORDER;
-	glOrtho (left, right, bottom, top, 1.0, -1.0);
-
-	((AGlActor*)scene)->region = (AGliRegion){
-		.x2 = width,
-		.y2 = height,
-	};
-
-	agl_actor__set_size((AGlActor*)scene);
-}
-
-
-static void
-event_loop (Display* dpy, Window win)
-{
-	float frame_usage = 0.0;
-
-	while (1) {
-		while (XPending(dpy) > 0) {
-			XEvent event;
-			XNextEvent(dpy, &event);
-			switch (event.type) {
-				case Expose:
-					scene->gl.glx.needs_draw = True;
-					break;
-				case ConfigureNotify:
-					on_window_resize(event.xconfigure.width, event.xconfigure.height);
-					scene->gl.glx.needs_draw = True;
-					break;
-				case KeyPress: {
-					int code = XLookupKeysym(&event.xkey, 0);
-
-					KeyHandler* handler = g_hash_table_lookup(key_handlers, &code);
-					if(handler){
-						handler(NULL);
-					}else{
-						char buffer[10];
-						XLookupString(&event.xkey, buffer, sizeof(buffer), NULL, NULL);
-						if (buffer[0] == 27 || buffer[0] == 'q') {
-							/* escape */
-							return;
-						}
-					}
-				}
-			}
-		}
-
-		if(scene->gl.glx.needs_draw){
-			draw();
-			glXSwapBuffers(dpy, win);
-			scene->gl.glx.needs_draw = false;
-		}
-
-		if (get_frame_usage) {
-			GLfloat temp;
-
-			(*get_frame_usage)(dpy, win, & temp);
-			frame_usage += temp;
-		}
-
-		/* calc framerate */
-		if(print_info){
-			static int t0 = -1;
-			static int frames = 0;
-			int t = current_time();
-
-			if (t0 < 0) t0 = t;
-
-			frames++;
-
-			if (t - t0 >= 5.0) {
-				GLfloat seconds = t - t0;
-				GLfloat fps = frames / seconds;
-				if (get_frame_usage) {
-					printf("%d frames in %3.1f seconds = %6.3f FPS (%3.1f%% usage)\n", frames, seconds, fps, (frame_usage * 100.0) / (float) frames );
-				}
-				else {
-					printf("%d frames in %3.1f seconds = %6.3f FPS\n", frames, seconds, fps);
-				}
-				fflush(stdout);
-
-				t0 = t;
-				frames = 0;
-				frame_usage = 0.0;
-			}
-		}
-
-		g_main_context_iteration(NULL, false); // update animations
-	}
-}
-
-
-/**
- * Display the refresh rate of the display using the GLX_OML_sync_control
- * extension.
- */
-static void
-show_refresh_rate (Display* dpy)
-{
-#if defined(GLX_OML_sync_control) && defined(__STDC_VERSION__) && (__STDC_VERSION__ >= 199901L)
-   int32_t  n;
-   int32_t  d;
-
-   PFNGLXGETMSCRATEOMLPROC get_msc_rate = (PFNGLXGETMSCRATEOMLPROC)glXGetProcAddressARB((const GLubyte*) "glXGetMscRateOML");
-   if (get_msc_rate != NULL) {
-      (*get_msc_rate)(dpy, glXGetCurrentDrawable(), &n, &d);
-      printf( "refresh rate: %.1fHz\n", (float) n / d);
-      return;
-   }
-#endif
-   printf( "glXGetMscRateOML not supported.\n" );
-}
-
-
-/**
- * Fill in the table of extension strings from a supplied extensions string
- * (as returned by glXQueryExtensionsString).
- *
- * \param string   String of GLX extensions.
- * \sa is_extension_supported
- */
-static void
-make_extension_table (const char* string)
-{
-	char** string_tab;
-	unsigned  num_strings;
-	unsigned  base;
-	unsigned  idx;
-	unsigned  i;
-
-	/* Count the number of spaces in the string.  That gives a base-line
-	 * figure for the number of extension in the string.
-	 */
-
-	num_strings = 1;
-	for (i = 0; string[i] != NUL; i++) {
-		if (string[i] == ' ') {
-			num_strings++;
-		}
+		return true;
 	}
 
-	string_tab = (char**)malloc(sizeof(char*) * num_strings);
-	if (string_tab == NULL) {
-		return;
+	void text_init (AGlActor* actor)
+	{
+		agl_set_font_string("Roboto 8");
 	}
 
-	base = 0;
-	idx = 0;
-
-	while (string[base] != NUL) {
-		// Determine the length of the next extension string.
-
-		for (i = 0; (string[base + i] != NUL) && (string[base + i] != ' '); i++) {
-			/* empty */ ;
-		}
-
-		if(i > 0){
-			/* If the string was non-zero length, add it to the table.  We
-			 * can get zero length strings if there is a space at the end of
-			 * the string or if there are two (or more) spaces next to each
-			 * other in the string.
-			 */
-
-			string_tab[ idx ] = malloc(sizeof(char) * (i + 1));
-			if(string_tab[idx] == NULL){
-				unsigned j = 0;
-
-				for(j = 0; j < idx; j++){
-					free(string_tab[j]);
-				}
-
-				free(string_tab);
-
-				return;
-			}
-
-			(void) memcpy(string_tab[idx], & string[base], i);
-			string_tab[idx][i] = NUL;
-			idx++;
-		}
-
-		// Skip to the start of the next extension string.
-		for (base += i; (string[ base ] == ' ') && (string[ base ] != NUL); base++ ) {
-			/* empty */;
-		}
-	}
-
-	extension_table = string_tab;
-	num_extensions = idx;
-}
-
-
-/**
- * Determine of an extension is supported.  The extension string table
- * must have already be initialized by calling \c make_extension_table.
- *
- * \praram ext  Extension to be tested.
- * \return GL_TRUE of the extension is supported, GL_FALSE otherwise.
- * \sa make_extension_table
- */
-static bool
-is_extension_supported(const char* ext)
-{
-	unsigned i;
-
-	for (i = 0; i < num_extensions; i++) {
-		if (strcmp(ext, extension_table[i]) == 0) {
-			return GL_TRUE;
-		}
-	}
-
-	return false;
-}
-
-
-#ifdef BENCHMARK
-#include <sys/time.h>
-#include <unistd.h>
-
-/* return current time (in seconds) */
-static int
-current_time(void)
-{
-   struct timeval tv;
-#ifdef __VMS
-   (void) gettimeofday(&tv, NULL);
-#else
-   struct timezone tz;
-   (void) gettimeofday(&tv, &tz);
-#endif
-   return (int) tv.tv_sec;
-}
-
-#else /*BENCHMARK*/
-
-/* dummy */
-static int
-current_time(void)
-{
-   return 0;
-}
-
-#endif /*BENCHMARK*/
-
-
-static void
-_add_key_handlers()
-{
-	if(!key_handlers){
-		key_handlers = g_hash_table_new(g_int_hash, g_int_equal);
-
-		int i = 0; while(true) {
-			Key* key = &keys[i];
-			if(i > 100 || !key->key) break;
-			g_hash_table_insert(key_handlers, &key->key, key->handler);
-			i++;
-		}
-	}
+	return AGL_NEW(AGlActor,
+		.name = "Text",
+		.init = text_init,
+		.paint = text_paint,
+	);
 }
 
 
@@ -572,29 +237,175 @@ cache_actor (void* _)
 }
 
 
+#if 0
+static int
+_red (uint32_t rgba, uint32_t b)
+{
+	double _r = (rgba & 0xff000000) >> 24;
+	double _a = (rgba & 0x000000ff);
+
+	double _a2 = (b & 0x000000ff);
+
+	return (int)(_r * (_a - _a2) / 256.0);
+}
+#endif
+
+
+static bool
+read_values (gpointer _)
+{
+	AGlActor* actor = layers.gb2;
+	AGlFBO* fbo = actor->fbo;
+	guchar data[128] = {0,};
+
+	printf("cache=%i %i\n", actor->cache.enabled, actor->cache.valid);
+	printf("0x%x\n", (int)(0.389376 * 256));
+	dbg(0, "bgc: %08x", colour0);
+	dbg(0, "fg1: %08x", colour1);
+#ifdef SHOW_2ND_CHILD
+	dbg(0, "fg2: %08x", colour2);
+#endif
+
+	glBindFramebuffer(GL_FRAMEBUFFER_EXT, fbo->id);
+	glReadPixels(25, fbo->width / 2, 4, 4, GL_RGBA, GL_UNSIGNED_BYTE, data);
+	//uint32_t expected = _red(colour1, colour2) + _red(colour2, 0);
+	//dbg(0, "fbe: %02x%02x%02x%02x", expected, 0, 0, 0);
+	dbg(0, "fbo: %02x%02x%02x%02x", (int)data[0], (int)data[1], (int)data[2], (int)data[3]);
+
+	glBindFramebuffer(GL_FRAMEBUFFER_EXT, 0);
+	glReadPixels(130, 180, 4, 4, GL_RGBA, GL_UNSIGNED_BYTE, data);
+	dbg(0, "chd: %02x%02x%02x%02x %s", (int)data[0], (int)data[1], (int)data[2], (int)data[3], actor->cache.valid ? "<-- brighter when from fbo" : "");
+
+	glReadPixels(130, 250, 4, 4, GL_RGBA, GL_UNSIGNED_BYTE, data);
+	dbg(0, "dir: %02x%02x%02x%02x", (int)data[0], (int)data[1], (int)data[2], (int)data[3]);
+
+	return G_SOURCE_REMOVE;
+}
+
+
 static void
-nav_up(gpointer user_data)
+toggle_cache (gpointer user_data)
+{
+	if(layers.g2){
+		layers.g2->cache.enabled = !layers.g2->cache.enabled;
+		agl_actor__invalidate(layers.g2);
+	}
+
+	layers.gb2->cache.enabled = !layers.gb2->cache.enabled;
+	agl_actor__invalidate(layers.gb2);
+
+	g_timeout_add(50, read_values, NULL);
+}
+
+
+static void
+nav_up (gpointer user_data)
 {
 	PF0;
 }
 
 
 static void
-nav_down(gpointer user_data)
+nav_down (gpointer user_data)
 {
 	PF0;
 }
 
 
 static void
-zoom_in(gpointer user_data)
+zoom_in (gpointer user_data)
 {
 }
 
 
 static void
-zoom_out(gpointer user_data)
+zoom_out (gpointer user_data)
 {
 }
 
 
+#ifdef SHOW_2ND_CHILD
+	static void plain2_set_state(AGlActor* actor)
+	{
+		((PlainShader*)actor->program)->uniform.colour = actor->colour;
+	}
+
+	static bool plain2_paint(AGlActor* actor)
+	{
+		agl_rect(
+			0,
+			0,
+			agl_actor__width(actor),
+			agl_actor__height(actor)
+		);
+
+		return true;
+	}
+
+AGlActor*
+plain2_actor (void* view)
+{
+	AGlActor* actor = WF_NEW(AGlActor,
+		.name = "plain",
+		.region = {
+			.x2 = 1, .y2 = 1 // must have size else will not be rendered
+		},
+		.set_state = plain2_set_state,
+		.paint = plain2_paint,
+		.program = (AGlShader*)agl_get_instance()->shaders.plain,
+	);
+
+	return actor;
+}
+#endif
+
+
+AGlActor*
+group (void* _)
+{
+	AGlActor* g = group_actor(NULL);
+
+	AGlActor* a;
+	agl_actor__add_child(g, a = plain_actor(NULL));
+	a->colour = colour1;
+	//layers.l1->region = (AGliRegion){10, 22, 60, 72};
+	a->region = (AGliRegion){0, 0, 50, 50};
+
+#ifdef SHOW_2ND_CHILD
+	AGlActor* b;
+	agl_actor__add_child(g, b = plain_actor(NULL));
+	b->colour = colour2;
+	//layers.l1b->region = (AGliRegion){10, 22, 60, 72};
+	b->region = (AGliRegion){0, 0, 50, 50};
+#endif
+
+	return g;
+}
+
+
+AGlActor*
+cached_group (void* _)
+{
+	AGlActor* g = cache_actor(NULL);
+	g->region = (AGliRegion){10, 72, 60, 122};
+
+	AGlActor* a = plain_actor(NULL);
+	agl_actor__add_child(g, a);
+	a->colour = colour1;
+	a->region = (AGliRegion){0, 0, 50, 50};
+
+#ifdef SHOW_2ND_CHILD
+	AGlActor* b = plain2_actor(NULL);
+	agl_actor__add_child(g, b);
+	b->colour = colour2;
+	b->region = (AGliRegion){0, 0, 50, 50};
+#endif
+
+#if 0
+	agl_actor__add_child(layers.l3, layers.l5 = plain_actor(NULL));
+	layers.l5->colour = 0x9999ff99;
+	layers.l5->region = (AGliRegion){30, 30, 80, 80};
+#endif
+
+	return g;
+}

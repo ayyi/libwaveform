@@ -139,7 +139,7 @@ main (int argc, char *argv[])
 
 	gtk_widget_show_all(window);
 
-	add_key_handlers((GtkWindow*)window, NULL, (Key*)&keys);
+	add_key_handlers_gtk((GtkWindow*)window, NULL, (Key*)&keys);
 
 	bool window_on_delete(GtkWidget* widget, GdkEvent* event, gpointer user_data){
 		return gtk_main_quit(), G_SOURCE_REMOVE;
