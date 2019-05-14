@@ -1,7 +1,7 @@
 /**
 * +----------------------------------------------------------------------+
 * | This file is part of the Ayyi project. http://ayyi.org               |
-* | copyright (C) 2013-2018 Tim Orford <tim@orford.org>                  |
+* | copyright (C) 2013-2019 Tim Orford <tim@orford.org>                  |
 * +----------------------------------------------------------------------+
 * | This program is free software; you can redistribute it and/or modify |
 * | it under the terms of the GNU General Public License version 3       |
@@ -404,7 +404,7 @@ render_from_fbo(AGlActor* a)
 	float top = -a->cache.offset.y;
 
 	// The FBO is upside down so y has to be reversed. TODO render the FBO so that it is not upside down
-	agl_textured_rect_(fbo->texture, 0.0, top * 2, w, h, &(AGlQuad){
+	agl_textured_rect_(fbo->texture, a->cache.position.x, top * 2, w, h, &(AGlQuad){
 		start / tsize.x,
 		(-top + h + h2) / tsize.y,
 		(start + w) / tsize.x,
@@ -461,21 +461,19 @@ agl_actor__paint(AGlActor* a)
 		glPushMatrix();
 		glTranslatef(offset.x, offset.y, 0.0);
 	}
-#ifdef DEBUG
-	AGL_DEBUG if(wf_debug > 2 && a == (AGlActor*)a->root) agl_actor__print_tree (a);
-#endif
 
 #ifdef AGL_ACTOR_RENDER_CACHE
 	// TODO check case where actor is translated and is partially offscreen.
-	// TODO actor may be huge. do we need to crop to scrollable ?
 	if(use_fbo){
 		if(!a->cache.valid){
 			agl_draw_to_fbo(a->fbo) {
+				glTranslatef(- a->cache.position.x, 0.0, 0.0);
 				glClearColor(0.0, 0.0, 0.0, 0.0); // background colour must be same as foreground for correct antialiasing
 				glClear(GL_COLOR_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 
 				call(a->set_state, a);
 				if(agl->use_shaders && a->program) agl_use_program(a->program);
+				glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
 
 				a->paint(a);
 
@@ -483,11 +481,23 @@ agl_actor__paint(AGlActor* a)
 				for(;l;l=l->next){
 					agl_actor__paint((AGlActor*)l->data);
 				}
+				glTranslatef(a->cache.position.x, 0.0, 0.0);
 			} agl_end_draw_to_fbo;
 			a->cache.valid = true;
 		}
 
 		render_from_fbo(a);
+
+#undef SHOW_FBO_BORDERS
+#ifdef SHOW_FBO_BORDERS
+		agl->shaders.plain->uniform.colour = 0x3333ffaa;
+		agl_use_program((AGlShader*)agl->shaders.plain);
+		AGlRect r = {
+			.w = a->fbo->width,
+			.h = agl_actor__height(a)
+		};
+		agl_box(1, r.x, r.y, r.w, r.h);
+#endif
 	}else{
 #else
 	if(true){
@@ -512,6 +522,10 @@ agl_actor__paint(AGlActor* a)
 	if(offset.x || offset.y){
 		glPopMatrix();
 	}
+
+#ifdef DEBUG
+	AGL_DEBUG if(wf_debug > 2 && a == (AGlActor*)a->root) agl_actor__print_tree (a);
+#endif
 
 #undef SHOW_ACTOR_BORDERS
 #ifdef SHOW_ACTOR_BORDERS
@@ -686,7 +700,7 @@ agl_actor__on_event(AGlScene* root, GdkEvent* event)
 			AGL_DEBUG printf("%s: keypress: key=%i\n", __func__, ((GdkEventKey*)event)->keyval);
 			AGlActor* selected = root->selected;
 			if(selected && selected->on_event){
-				return selected->on_event(selected, event, (AGliPt){});
+				return _agl_actor__on_event(selected, event, (AGliPt){});
 			}
 			return AGL_NOT_HANDLED;
 		// TODO perhaps clients should unregister for these events instead?

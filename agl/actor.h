@@ -1,7 +1,7 @@
 /**
 * +----------------------------------------------------------------------+
 * | This file is part of the Ayyi project. http://www.ayyi.org           |
-* | copyright (C) 2013-2018 Tim Orford <tim@orford.org>                  |
+* | copyright (C) 2013-2019 Tim Orford <tim@orford.org>                  |
 * +----------------------------------------------------------------------+
 * | This program is free software; you can redistribute it and/or modify |
 * | it under the terms of the GNU General Public License version 3       |
@@ -82,7 +82,8 @@ struct _AGlActor {
 	struct {
 	    bool         enabled;         // if false, caching must be disabled. if true, caching is used only if fbo is present.
 	    bool         valid;
-	    AGliPt       offset;
+	    AGliPt       offset;          // offset within the fbo texture
+	    AGliPt       position;        // offset of the fbo texture relative to the actor origin
 	    AGliPt       size_request;    // actors can use this to specify an oversized cache to allow for translations.
 	}                cache;
 #endif
