@@ -14,7 +14,7 @@ extern HiResNGShader hires_ng_shader;
 static void
 low_new_gl2(WaveformActor* actor)
 {
-	WaveformPriv* w = actor->waveform->priv;
+	WaveformPrivate* w = actor->waveform->priv;
 
 	g_return_if_fail(!w->render_data[MODE_LOW]);
 
@@ -32,7 +32,7 @@ lo_new_gl1(WaveformActor* actor)
 	// TODO this can be combined with v_lo_new_gl1
 
 	Waveform* w = actor->waveform;
-	WaveformPriv* _w = w->priv;
+	WaveformPrivate* _w = w->priv;
 
 	if(!_w->render_data[MODE_LOW]){
 		//#warning check TEX_BORDER effect not multiplied in WF_PEAK_STD_TO_LO transformation

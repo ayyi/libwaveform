@@ -76,7 +76,7 @@ med_allocate_block_gl1(Renderer* renderer, WaveformActor* a, int b)
 	g_return_if_fail(b >= 0);
 
 	Waveform* w = a->waveform;
-	WaveformPriv* _w = w->priv;
+	WaveformPrivate* _w = w->priv;
 	WfGlBlock* blocks = (WfGlBlock*)(_w->render_data[MODE_MED]
 		?  _w->render_data[MODE_MED]
 		: (_w->render_data[MODE_MED] = (WaveformModeRender*)wf_texture_array_new(_w->n_blocks, w->n_channels)));
@@ -365,7 +365,7 @@ med_lo_gl1_free_waveform(Renderer* renderer, Waveform* waveform)
 {
 	dbg(1, "%s", modes[renderer->mode].name);
 
-	WaveformPriv* w = waveform->priv;
+	WaveformPrivate* w = waveform->priv;
 	texture_cache_remove_waveform(waveform);
 
 	WfGlBlock* textures = (WfGlBlock*)w->render_data[renderer->mode];

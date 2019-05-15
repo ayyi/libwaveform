@@ -651,7 +651,7 @@ test_hi_double()
 		{
 			WfTest* c = _c;
 
-			WaveformPriv* _w = w[0]->priv;
+			WaveformPrivate* _w = w[0]->priv;
 
 			WfSampleRegion* region = &a[0]->region;
 			assert_and_stop((region->start == 0), "region start");

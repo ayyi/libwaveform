@@ -1317,7 +1317,7 @@ _wf_actor_load_missing_blocks(WaveformActor* a)
 	PF2;
 	AGlActor* actor = (AGlActor*)a;
 	Waveform* w = a->waveform;
-	WaveformPriv* _w = w->priv;
+	WaveformPrivate* _w = w->priv;
 
 	WfdRange _zoom =
 #ifdef USE_CANVAS_SCALING
@@ -1693,7 +1693,7 @@ calc_render_info(WaveformActor* actor)
 	WaveformContext* wfc = actor->canvas;
 	Waveform* w = actor->waveform; 
 	WfActorPriv* _a = actor->priv;
-	WaveformPriv* _w = w->priv;
+	WaveformPrivate* _w = w->priv;
 	RenderInfo* r  = &actor->priv->render_info;
 
 	// This check was added because it appears to prevent corruption
@@ -2208,7 +2208,7 @@ wf_actor_get_n_blocks(Waveform* waveform, Mode mode)
 	// better to use render_data[mode]->n_blocks
 	// but this fn is useful if the render_data is not initialised
 
-	WaveformPriv* w = waveform->priv;
+	WaveformPrivate* w = waveform->priv;
 
 	switch(mode){
 		case MODE_V_LOW:

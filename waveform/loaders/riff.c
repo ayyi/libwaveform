@@ -41,7 +41,7 @@ wf_load_riff_peak(Waveform* wv, const char* peak_file)
 	g_return_val_if_fail(wv, 0);
 	PF2;
 
-	WaveformPriv* _w = wv->priv;
+	WaveformPrivate* _w = wv->priv;
 
 	SNDFILE* sndfile;
 	SF_INFO sfinfo = { .format = 0 };

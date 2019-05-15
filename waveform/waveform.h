@@ -92,7 +92,7 @@ struct _Waveform
 	gboolean           offline;
 	gboolean           renderable;
 
-	WaveformPriv*      priv;
+	WaveformPrivate*   priv;
 };
 
 struct _WaveformClass {

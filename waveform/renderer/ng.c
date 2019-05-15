@@ -81,7 +81,7 @@ ng_gl2_load_block (Renderer* renderer, WaveformActor* actor, int b)
 {
 	NGRenderer* ng_renderer = (NGRenderer*)renderer;
 	Waveform* waveform = actor->waveform;
-	WaveformPriv* w = waveform->priv;
+	WaveformPrivate* w = waveform->priv;
 
 	#define get_block_size(ACTOR) (modes[renderer->mode].texture_size * waveform_get_n_channels(ACTOR->waveform) * WF_PEAK_VALUES_PER_SAMPLE * ROWS_PER_PEAK_TYPE)
 
@@ -140,7 +140,7 @@ ng_gl2_load_block (Renderer* renderer, WaveformActor* actor, int b)
 		// borders: source data is not blocked so borders need to be added here.
 
 		Waveform* waveform = actor->waveform;
-		WaveformPriv* w = waveform->priv;
+		WaveformPrivate* w = waveform->priv;
 		WfPeakBuf* peak = &w->peak;
 		int _b = b % MAX_BLOCKS_PER_TEXTURE;
 
@@ -188,7 +188,7 @@ ng_gl2_load_block (Renderer* renderer, WaveformActor* actor, int b)
 		// borders: source data is not blocked so borders are added here.
 
 		Waveform* waveform = actor->waveform;
-		WaveformPriv* w = waveform->priv;
+		WaveformPrivate* w = waveform->priv;
 		WfPeakBuf* peak = &w->peak;
 		int _b = b % MAX_BLOCKS_PER_TEXTURE;
 

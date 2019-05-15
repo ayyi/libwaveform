@@ -32,7 +32,7 @@ typedef struct _WaveformActor       WaveformActor;
 typedef struct _wf_texture_list     WfGlBlock;
 typedef struct _textures_hi         WfTexturesHi;
 typedef struct _texture_hi          WfTextureHi;
-typedef struct _WaveformPriv        WaveformPriv;
+typedef struct _WaveformPrivate     WaveformPrivate;
 typedef struct _WfAudioData         WfAudioData;
 typedef struct _WfViewPort          WfViewPort; 
 typedef struct _WaveformView        WaveformView;

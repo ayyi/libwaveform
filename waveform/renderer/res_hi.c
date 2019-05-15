@@ -45,7 +45,7 @@ static void  _wf_actor_print_hires_textures  (WaveformActor*);
 void
 hi_new_gl1 (WaveformActor* a)
 {
-	WaveformPriv* _w = a->waveform->priv;
+	WaveformPrivate* _w = a->waveform->priv;
 
 	g_return_if_fail(!_w->render_data[MODE_HI]);
 

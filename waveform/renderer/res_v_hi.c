@@ -34,7 +34,7 @@ typedef struct {Vertex v0, v1, v2, v3;} Quad;
 static void
 v_hi_renderer_new(WaveformActor* actor)
 {
-	WaveformPriv* w = actor->waveform->priv;
+	WaveformPrivate* w = actor->waveform->priv;
 
 	g_return_if_fail(!w->render_data[MODE_V_HI]);
 

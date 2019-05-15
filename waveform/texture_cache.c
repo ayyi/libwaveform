@@ -402,7 +402,7 @@ texture_cache_remove(int tex_type, Waveform* w, int b)
 void
 texture_cache_remove_waveform(Waveform* waveform) //tmp? should probably only be called by wf_unref()
 {
-	WaveformPriv* w = waveform->priv;
+	WaveformPrivate* w = waveform->priv;
 
 	int j; for(j=0;j<2;j++){
 		TextureCache* c = j ? c2 : c1;

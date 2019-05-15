@@ -1,18 +1,14 @@
-/*
-  copyright (C) 2012-2015 Tim Orford <tim@orford.org>
-
-  This program is free software; you can redistribute it and/or modify
-  it under the terms of the GNU General Public License version 3
-  as published by the Free Software Foundation.
-
-  This program is distributed in the hope that it will be useful,
-  but WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-  GNU General Public License for more details.
-
-  You should have received a copy of the GNU General Public License
-  along with this program; if not, write to the Free Software
-  Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+/**
+* +----------------------------------------------------------------------+
+* | This file is part of libwaveform                                     |
+* | https://github.com/ayyi/libwaveform                                  |
+* | copyright (C) 2012-2019 Tim Orford <tim@orford.org>                  |
+* +----------------------------------------------------------------------+
+* | This program is free software; you can redistribute it and/or modify |
+* | it under the terms of the GNU General Public License version 3       |
+* | as published by the Free Software Foundation.                        |
+* +----------------------------------------------------------------------+
+*
 */
 #define __waveform_peak_c__
 #define __wf_private__
@@ -67,7 +63,7 @@ wf_alphabuf_new(Waveform* waveform, int blocknum, int scale, gboolean is_rms, in
 	   ----------
 	*/
 	PF2;
-	WaveformPriv* _w = waveform->priv;
+	WaveformPrivate* _w = waveform->priv;
 	g_return_val_if_fail(_w->num_peaks, NULL);
 	GdkColor fg_colour = {0, 0xffff, 0xffff, 0xffff};
 
@@ -148,7 +144,7 @@ wf_alphabuf_new_hi(Waveform* waveform, int blocknum, int Xscale, gboolean is_rms
 	   ----------
 	*/
 	PF2;
-	WaveformPriv* _w = waveform->priv;
+	WaveformPrivate* _w = waveform->priv;
 	g_return_val_if_fail(_w->num_peaks, NULL);
 	GdkColor fg_colour = {0, 0xffff, 0xffff, 0xffff};
 

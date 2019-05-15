@@ -20,7 +20,7 @@ static void
 v_lo_new_gl2(WaveformActor* actor)
 {
 	Waveform* waveform = actor->waveform;
-	WaveformPriv* w = waveform->priv;
+	WaveformPrivate* w = waveform->priv;
 	Renderer* renderer = modes[MODE_V_LOW].renderer;
 
 	int n_blocks = w->num_peaks / (WF_MED_TO_V_LOW * WF_TEXTURE_VISIBLE_SIZE) + ((w->num_peaks % (WF_MED_TO_V_LOW * WF_TEXTURE_VISIBLE_SIZE)) ? 1 : 0);
@@ -49,7 +49,7 @@ v_lo_new_gl2(WaveformActor* actor)
 static void
 v_lo_new_gl1(WaveformActor* actor)
 {
-	WaveformPriv* w = actor->waveform->priv;
+	WaveformPrivate* w = actor->waveform->priv;
 
 	waveform_load_sync(actor->waveform);
 
@@ -65,7 +65,7 @@ static void
 v_lo_buf_to_tex(Renderer* renderer, WaveformActor* actor, int b)
 {
 	Waveform* waveform = actor->waveform;
-	WaveformPriv* w = waveform->priv;
+	WaveformPrivate* w = waveform->priv;
 	WfPeakBuf* peak = &w->peak;
 	int s  = b / MAX_BLOCKS_PER_TEXTURE;
 	int _b = b % MAX_BLOCKS_PER_TEXTURE;

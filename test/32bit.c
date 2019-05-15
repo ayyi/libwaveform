@@ -201,7 +201,7 @@ test_load()
 		char* filename = find_wav(wavs[c->wi]);
 		Waveform* w = waveform_new(filename);
 		g_free(filename);
-		WaveformPriv* _w = w->priv;
+		WaveformPrivate* _w = w->priv;
 		g_object_weak_ref((GObject*)w, finalize_notify, NULL);
 		assert(waveform_load_sync(w), "failed to load wav");
 

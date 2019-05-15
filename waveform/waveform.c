@@ -45,8 +45,8 @@
 #include "waveform/peakgen.h"
 #include "waveform/utils.h"
 
-static gpointer waveform_parent_class = NULL;
-#define WAVEFORM_GET_PRIVATE(o) (G_TYPE_INSTANCE_GET_PRIVATE ((o), TYPE_WAVEFORM, WaveformPriv))
+G_DEFINE_TYPE_WITH_PRIVATE (Waveform, waveform, G_TYPE_OBJECT);
+
 enum  {
 	WAVEFORM_DUMMY_PROPERTY,
 	WAVEFORM_PROPERTY1
@@ -84,10 +84,10 @@ waveform_construct (GType object_type)
 	wf_get_instance();
 
 	Waveform* w = (Waveform*) g_object_new (object_type, NULL);
-	w->priv = WF_NEW(WaveformPriv,
+	*w->priv = (WaveformPrivate){
 		.hires_peaks = g_ptr_array_new(),
 		.max_db = -1
-	);
+	};
 	return w;
 }
 
@@ -135,7 +135,6 @@ static void
 waveform_class_init (WaveformClass* klass)
 {
 	waveform_parent_class = g_type_class_peek_parent (klass);
-	g_type_class_add_private (klass, sizeof(WaveformPriv));
 	G_OBJECT_CLASS (klass)->get_property = _waveform_get_property;
 	G_OBJECT_CLASS (klass)->finalize = waveform_finalize;
 	g_object_class_install_property (G_OBJECT_CLASS (klass), WAVEFORM_PROPERTY1, g_param_spec_int ("property1", "property1", "property1", G_MININT, G_MAXINT, 0, G_PARAM_STATIC_NAME | G_PARAM_STATIC_NICK | G_PARAM_STATIC_BLURB | G_PARAM_READABLE));
@@ -145,9 +144,9 @@ waveform_class_init (WaveformClass* klass)
 
 
 static void
-waveform_instance_init (Waveform* self)
+waveform_init (Waveform* self)
 {
-	self->priv = WAVEFORM_GET_PRIVATE (self);
+	self->priv = waveform_get_instance_private(self);
 }
 
 
@@ -156,7 +155,7 @@ waveform_finalize (GObject* obj)
 {
 	PF;
 	Waveform* w = WAVEFORM(obj);
-	WaveformPriv* _w = w->priv;
+	WaveformPrivate* _w = w->priv;
 
 #if 0 // the worker now uses a weak reference so there is no need to explictly cancel outstanding jobs
 	wf_worker_cancel_jobs(&wf->audio_worker, w);
@@ -196,24 +195,10 @@ waveform_finalize (GObject* obj)
 	waveform_free_render_data(w);
 #endif
 	waveform_audio_free(w);
-	g_free(w->priv);
 	g_free(w->filename);
 
 	G_OBJECT_CLASS (waveform_parent_class)->finalize (obj);
 	dbg(1, "done");
-}
-
-
-GType
-waveform_get_type ()
-{
-	static volatile gsize waveform_type_id__volatile = 0;
-	if (g_once_init_enter (&waveform_type_id__volatile)) {
-		static const GTypeInfo g_define_type_info = { sizeof (WaveformClass), (GBaseInitFunc) NULL, (GBaseFinalizeFunc) NULL, (GClassInitFunc) waveform_class_init, (GClassFinalizeFunc) NULL, NULL, sizeof (Waveform), 0, (GInstanceInitFunc) waveform_instance_init, NULL };
-		GType waveform_type_id = g_type_register_static (G_TYPE_OBJECT, "Waveform", &g_define_type_info, 0);
-		g_once_init_leave (&waveform_type_id__volatile, waveform_type_id);
-	}
-	return waveform_type_id__volatile;
 }
 
 
@@ -246,7 +231,7 @@ _waveform_get_property (GObject* object, guint property_id, GValue* value, GPara
 
 	static void waveform_load_have_peak (Waveform* w, char* peakfile, gpointer _)
 	{
-		WaveformPriv* _w = w->priv;
+		WaveformPrivate* _w = w->priv;
 
 		_w->state &= ~WAVEFORM_LOADING;
 
@@ -271,7 +256,7 @@ _waveform_get_property (GObject* object, guint property_id, GValue* value, GPara
 void
 waveform_load(Waveform* w, WfCallback3 callback, gpointer user_data)
 {
-	WaveformPriv* _w = w->priv;
+	WaveformPrivate* _w = w->priv;
 
 	if(!_w->peaks){
 		_w->peaks = am_promise_new(w);
@@ -298,7 +283,7 @@ waveform_load_sync(Waveform* w)
 {
 	g_return_val_if_fail(w, false);
 
-	WaveformPriv* _w = w->priv;
+	WaveformPrivate* _w = w->priv;
 
 	if(!_w->peaks){
 		_w->peaks = am_promise_new(w);
@@ -318,7 +303,7 @@ static void
 waveform_get_sf_data(Waveform* w)
 {
 	g_return_if_fail(w->filename);
-	WaveformPriv* _w = w->priv;
+	WaveformPrivate* _w = w->priv;
 
 	if(w->offline) return;
 
@@ -406,7 +391,7 @@ waveform_load_peak(Waveform* w, const char* peak_file, int ch_num)
 {
 	g_return_val_if_fail(w, false);
 	g_return_val_if_fail(ch_num <= WF_MAX_CH, false);
-	WaveformPriv* _w = w->priv;
+	WaveformPrivate* _w = w->priv;
 	g_return_val_if_fail(!_w->peaks->error, false);
 
 	// check is not previously loaded
