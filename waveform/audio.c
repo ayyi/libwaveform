@@ -1,5 +1,5 @@
 /*
-  copyright (C) 2012-2016 Tim Orford <tim@orford.org>
+  copyright (C) 2012-2019 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -60,6 +60,7 @@ typedef struct {
 #define MAX_AUDIO_CACHE_SIZE (1 << 23) // words, NOT bytes.
 
 static short*      audio_cache_malloc (Waveform*, WfBuf16*, int);
+static void        audio_cache_insert (Waveform*, WfBuf16*, int);
 static void        audio_cache_free   (Waveform*, int block);
 #if 0
 static void        audio_cache_print  ();
@@ -69,7 +70,7 @@ static WF* wf = NULL;
 
 
 void
-waveform_audio_free(Waveform* waveform)
+waveform_audio_free (Waveform* waveform)
 {
 	PF;
 	g_return_if_fail(waveform);
@@ -93,7 +94,7 @@ waveform_audio_free(Waveform* waveform)
  *  Usually called by a worker. Not intended to be used directly.
  */
 static bool
-waveform_load_audio_block(Waveform* waveform, WfBuf16* buf16, int block_num)
+waveform_load_audio_block (Waveform* waveform, WfBuf16* buf16, int block_num)
 {
 	g_return_val_if_fail(waveform, false);
 	g_return_val_if_fail(buf16 && buf16->buf[WF_LEFT], false);
@@ -218,7 +219,7 @@ waveform_load_audio_block(Waveform* waveform, WfBuf16* buf16, int block_num)
 
 #ifdef NOT_USED
 static gboolean
-peakbuf_is_present(Waveform* waveform, int block_num)
+peakbuf_is_present (Waveform* waveform, int block_num)
 {
 	Peakbuf* peakbuf = waveform_get_peakbuf_n(waveform, block_num);
 	if(!peakbuf){ dbg(2, "no"); return FALSE; }
@@ -233,7 +234,7 @@ peakbuf_is_present(Waveform* waveform, int block_num)
 
 
 static Peakbuf*
-wf_peakbuf_new(int block_num)
+wf_peakbuf_new (int block_num)
 {
 	Peakbuf* peakbuf = g_new0(Peakbuf, 1);
 	peakbuf->block_num = block_num;
@@ -243,10 +244,11 @@ wf_peakbuf_new(int block_num)
 
 
 static void
-waveform_load_audio_run_job(Waveform* waveform, gpointer _pjob)
+waveform_load_audio_run_job (Waveform* waveform, gpointer _pjob)
 {
-	// runs in the worker thread.
-	// does not modify the waveform.
+	// Runs in the worker thread.
+	// Does not modify the waveform
+	// (though it does insert into the wf->audio.cache hash table)
 
 	PeakbufQueueItem* pjob = _pjob;
 	if(!waveform) return;
@@ -268,13 +270,17 @@ waveform_load_audio_run_job(Waveform* waveform, gpointer _pjob)
 	}
 }
 
+
 static void
-waveform_load_audio_post(Waveform* waveform, GError* error, gpointer _pjob)
+waveform_load_audio_post (Waveform* waveform, GError* error, gpointer _pjob)
 {
-	// runs in the main thread
+	// Runs in the main thread
 
 	PeakbufQueueItem* pjob = _pjob;
+
 	if(waveform){
+		audio_cache_insert(waveform, pjob->out.buf16, pjob->block_num);
+
 		WfAudioData* audio = &waveform->priv->audio;
 		GPtrArray* peaks = waveform->priv->hires_peaks;
 		if(audio->buf16[pjob->block_num]){
@@ -290,6 +296,15 @@ waveform_load_audio_post(Waveform* waveform, GError* error, gpointer _pjob)
 		if(pjob->done) pjob->done(waveform, pjob->block_num, pjob->user_data);
 		dbg(2, "--->");
 		g_signal_emit_by_name(waveform, "hires-ready", pjob->block_num);
+
+	}else{
+		if(pjob->out.buf16){
+			for(int c=0;c<2;c++){
+				if(pjob->out.buf16->buf[c])
+					g_free0(pjob->out.buf16->buf[c]);
+			}
+			g_free0(pjob->out.buf16);
+		}
 	}
 }
 
@@ -312,7 +327,7 @@ waveform_load_audio_post(Waveform* waveform, GError* error, gpointer _pjob)
  *
  */
 void
-waveform_load_audio(Waveform* waveform, int block_num, int n_tiers_needed, WfAudioCallback done, gpointer user_data)
+waveform_load_audio (Waveform* waveform, int block_num, int n_tiers_needed, WfAudioCallback done, gpointer user_data)
 {
 	// if the file is local we access it directly, otherwise send a msg.
 	// -for now, we assume the file is local.
@@ -358,7 +373,7 @@ waveform_load_audio(Waveform* waveform, int block_num, int n_tiers_needed, WfAud
 		return false;
 	}
 
-	void wf_peakbuf_queue_for_regen(Waveform* waveform, int block_num, int min_output_tiers, WfAudioCallback done, gpointer user_data)
+	void wf_peakbuf_queue_for_regen (Waveform* waveform, int block_num, int min_output_tiers, WfAudioCallback done, gpointer user_data)
 	{
 		dbg(1, "%i", block_num);
 
@@ -367,13 +382,12 @@ waveform_load_audio(Waveform* waveform, int block_num, int n_tiers_needed, WfAud
 		WfAudioData* audio = &waveform->priv->audio;
 		if(!audio->buf16) audio->buf16 = g_malloc0(sizeof(void*) * waveform_get_n_audio_blocks(waveform));
 
-		PeakbufQueueItem* item = g_new0(PeakbufQueueItem, 1);
-		*item = (PeakbufQueueItem){
+		PeakbufQueueItem* item = WF_NEW(PeakbufQueueItem,
 			.done = done,
 			.user_data = user_data,
 			.block_num = block_num,
 			.min_output_tiers = min_output_tiers
-		};
+		);
 
 		GPtrArray* peaks = waveform->priv->hires_peaks;
 		if(peaks->pdata && peaks->pdata[block_num]) peaks->pdata[block_num] = NULL; // disconnect until job finished
@@ -387,7 +401,7 @@ waveform_load_audio(Waveform* waveform, int block_num, int n_tiers_needed, WfAud
 
 
 void
-waveform_load_audio_sync(Waveform* waveform, int block_num, int n_tiers_needed)
+waveform_load_audio_sync (Waveform* waveform, int block_num, int n_tiers_needed)
 {
 	PF2;
 	g_return_if_fail(block_num < waveform_get_n_audio_blocks(waveform));
@@ -408,27 +422,24 @@ waveform_load_audio_sync(Waveform* waveform, int block_num, int n_tiers_needed)
 
 	if(!audio->buf16) audio->buf16 = g_malloc0(sizeof(void*) * waveform_get_n_audio_blocks(waveform));
 
-	PeakbufQueueItem* item = g_new0(PeakbufQueueItem, 1);
-	*item = (PeakbufQueueItem){
+	PeakbufQueueItem* item = WF_NEW(PeakbufQueueItem,
 		.block_num = block_num,
 		.min_output_tiers = n_tiers_needed
-	};
+	);
 
 	GPtrArray* peaks = waveform->priv->hires_peaks;
 	if(peaks->pdata && peaks->pdata[block_num]) peaks->pdata[block_num] = NULL; // disconnect until job finished
 
-#if 0
-	wf_worker_push_job(&wf->audio_worker, waveform, audio_run_job, audio_post, g_free, item);
-#else
 	waveform_load_audio_run_job(waveform, item);
+
 	waveform_load_audio_post(waveform, NULL, item);
+
 	g_free(item);
-#endif
 }
 
 
 static int
-wf_block_lookup_by_audio_buf(Waveform* w, WfBuf16* buf)
+wf_block_lookup_by_audio_buf (Waveform* w, WfBuf16* buf)
 {
 	g_return_val_if_fail(w && buf, -1);
 
@@ -440,13 +451,24 @@ wf_block_lookup_by_audio_buf(Waveform* w, WfBuf16* buf)
 
 
 static short*
-audio_cache_malloc(Waveform* w, WfBuf16* buf16, int b)
+audio_cache_malloc (Waveform* w, WfBuf16* buf16, int b)
 {
-	WF* wf = wf_get_instance();
-
 	int size = WF_PEAK_BLOCK_SIZE;
 
-	if(wf->audio.mem_size + size > MAX_AUDIO_CACHE_SIZE){
+	short* buf = g_malloc(sizeof(short) * size);
+	buf16->size = size;
+	dbg(2, "inserting b=%i", b);
+																						n_loads[b]++;
+	//audio_cache_print();
+
+	return buf;
+}
+
+
+static void
+audio_cache_insert(Waveform* w, WfBuf16* buf16, int b)
+{
+	if(wf->audio.mem_size + buf16->size > MAX_AUDIO_CACHE_SIZE){
 		dbg(2, "**** cache full. looking for audio block to delete...");
 		//what to delete?
 		// - audio cache items can be in use, but only if we are at high zoom.
@@ -469,19 +491,13 @@ audio_cache_malloc(Waveform* w, WfBuf16* buf16, int b)
 			dbg(2, "*** cache full: clearing buf with stamp=%i ...", oldest->stamp);
 			audio_cache_free(oldest_waveform, wf_block_lookup_by_audio_buf(oldest_waveform, oldest));
 		}
-		if(wf->audio.mem_size + size > MAX_AUDIO_CACHE_SIZE){
+		if(wf->audio.mem_size + buf16->size > MAX_AUDIO_CACHE_SIZE){
 			gerr("cant free space in audio cache");
 		}
 	}
 
-	short* buf = g_malloc(sizeof(short) * size);
-	wf->audio.mem_size += size;
-	buf16->size = size;
-	dbg(2, "inserting b=%i", b);
+	wf->audio.mem_size += buf16->size;
 	g_hash_table_insert(wf->audio.cache, buf16, w); //each channel has its own entry. however as channels are always accessed together, it might be better to have one entry per Buf16*
-																						n_loads[b]++;
-	//audio_cache_print();
-	return buf;
 }
 
 

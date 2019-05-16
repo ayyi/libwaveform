@@ -57,7 +57,7 @@ wf_worker_init(WfWorker* worker)
 		QueueItem* job;
 	} WorkerJob;
 
-	// note that withoug an idle fn, unreffing in the worker can cause a finalize in the worker thread
+	// note that without an idle fn, unreffing in the worker can cause a finalize in the worker thread
 	static bool worker_unref_waveform(gpointer _w)
 	{
 		Waveform* waveform = _w;
@@ -79,6 +79,7 @@ wf_worker_init(WfWorker* worker)
 			call(job->done, waveform, NULL, job->user_data);
 			if(waveform) g_object_unref(waveform);
 		}
+
 		if(job->free && job->user_data){
 			job->free(job->user_data);
 			job->user_data = NULL;
@@ -114,7 +115,7 @@ worker_thread(gpointer data)
 				// note that the job is run directly so that it runs in the worker thread.
 				job->work(waveform, job->user_data);
 			}
-			g_idle_add(worker_unref_waveform, waveform);
+			g_idle_add(worker_unref_waveform, waveform); // release the ref added by g_weak_ref_get()
 		}
 
 		g_timeout_add(1, worker_post,
