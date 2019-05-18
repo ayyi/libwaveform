@@ -618,6 +618,39 @@ show_refresh_rate(Display* dpy)
 }
 
 
+static bool
+on_window_delete (GtkWidget* widget, GdkEvent* event, gpointer user_data)
+{
+	gtk_main_quit();
+
+	return false;
+}
+
+
+int
+gtk_window (Key keys[], WindowFn content)
+{
+	GdkGLConfig* glconfig;
+	if(!(glconfig = gdk_gl_config_new_by_mode(GDK_GL_MODE_RGBA | GDK_GL_MODE_DEPTH | GDK_GL_MODE_DOUBLE))){
+		gerr ("Cannot initialise gtkglext."); return EXIT_FAILURE;
+	}
+
+	GtkWidget* window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
+
+	content((GtkWindow*)window, glconfig);
+
+	gtk_widget_show_all(window);
+
+	add_key_handlers_gtk((GtkWindow*)window, NULL, keys);
+
+	g_signal_connect(window, "delete-event", G_CALLBACK(on_window_delete), NULL);
+
+	gtk_main();
+
+	return EXIT_SUCCESS;
+}
+
+
 	static KeyHold key_hold = {0, NULL};
 	static bool key_down = false;
 	static GHashTable* key_handlers = NULL;

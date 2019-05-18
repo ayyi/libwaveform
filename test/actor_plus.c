@@ -5,7 +5,7 @@
 
   ---------------------------------------------------------------
 
-  Copyright (C) 2012-2018 Tim Orford <tim@orford.org>
+  Copyright (C) 2012-2019 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -90,35 +90,16 @@ static const struct option long_options[] = {
 static const char* const short_options = "n";
 
 
-int
-main (int argc, char *argv[])
+static void
+window_content (GtkWindow* window, GdkGLConfig* glconfig)
 {
-	set_log_handlers();
-
-	wf_debug = 1;
-
-	int opt;
-	while((opt = getopt_long (argc, argv, short_options, long_options, NULL)) != -1) {
-		switch(opt) {
-			case 'n':
-				g_timeout_add(3000, (gpointer)exit, NULL);
-				break;
-		}
-	}
-
-	gtk_init(&argc, &argv);
-	GdkGLConfig* glconfig;
-	if(!(glconfig = gdk_gl_config_new_by_mode(GDK_GL_MODE_RGBA | GDK_GL_MODE_DEPTH | GDK_GL_MODE_DOUBLE))){
-		gerr ("Cannot initialise gtkglext."); return EXIT_FAILURE;
-	}
-
-	GtkWidget* window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
-
 	canvas = gtk_drawing_area_new();
+
 	gtk_widget_set_can_focus     (canvas, true);
 	gtk_widget_set_size_request  (canvas, GL_WIDTH + 2 * HBORDER, 128);
 	gtk_widget_set_gl_capability (canvas, glconfig, NULL, 1, GDK_GL_RGBA_TYPE);
 	gtk_widget_add_events        (canvas, GDK_POINTER_MOTION_MASK | GDK_BUTTON_PRESS_MASK | GDK_BUTTON_RELEASE_MASK);
+
 	gtk_container_add((GtkContainer*)window, (GtkWidget*)canvas);
 
 	agl = agl_get_instance();
@@ -136,19 +117,28 @@ main (int argc, char *argv[])
 	g_signal_connect((gpointer)canvas, "realize",       G_CALLBACK(on_canvas_realise), NULL);
 	g_signal_connect((gpointer)canvas, "size-allocate", G_CALLBACK(on_allocate), NULL);
 	g_signal_connect((gpointer)canvas, "expose-event",  G_CALLBACK(agl_actor__on_expose), scene);
+}
 
-	gtk_widget_show_all(window);
 
-	add_key_handlers_gtk((GtkWindow*)window, NULL, (Key*)&keys);
+int
+main (int argc, char *argv[])
+{
+	set_log_handlers();
 
-	bool window_on_delete(GtkWidget* widget, GdkEvent* event, gpointer user_data){
-		return gtk_main_quit(), G_SOURCE_REMOVE;
+	wf_debug = 1;
+
+	int opt;
+	while((opt = getopt_long (argc, argv, short_options, long_options, NULL)) != -1) {
+		switch(opt) {
+			case 'n':
+				g_timeout_add(3000, (gpointer)exit, NULL);
+				break;
+		}
 	}
-	g_signal_connect(window, "delete-event", G_CALLBACK(window_on_delete), NULL);
 
-	gtk_main();
+	gtk_init(&argc, &argv);
 
-	return EXIT_SUCCESS;
+	return gtk_window((Key*)&keys, window_content);
 }
 
 

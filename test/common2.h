@@ -102,10 +102,16 @@ AGlWindow* agl_make_window    (Display*, const char*, int width, int height, AGl
 void       agl_window_destroy (Display*, AGlWindow**);
 void       event_loop         (Display*);
 void       show_refresh_rate  (Display*);
+#endif
 
-void add_key_handlers     (Key keys[]);
+void add_key_handlers         (Key keys[]);
 #ifdef __GTK_H__
-void add_key_handlers_gtk (GtkWindow*, WaveformView*, Key keys[]);
+void add_key_handlers_gtk     (GtkWindow*, WaveformView*, Key keys[]);
+
+#ifdef __GDK_GL_CONFIG_H__
+typedef void (*WindowFn)      (GtkWindow*, GdkGLConfig*);
+
+int  gtk_window               (Key keys[], WindowFn);
 #endif
 #endif
 
