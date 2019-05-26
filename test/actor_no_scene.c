@@ -13,7 +13,7 @@
 
   ---------------------------------------------------------------
 
-  Copyright (C) 2012-2018 Tim Orford <tim@orford.org>
+  Copyright (C) 2012-2019 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -48,7 +48,7 @@
 #define GL_HEIGHT 256.0
 #define VBORDER 8
 
-GdkGLConfig*    glconfig       = NULL;
+AGlScene*       scene          = NULL;
 GtkWidget*      canvas         = NULL;
 WaveformContext* wfc           = NULL;
 Waveform*       w1             = NULL;
@@ -58,13 +58,13 @@ float           zoom           = 1.0;
 float           vzoom          = 1.0;
 gpointer        tests[]        = {};
 
+static void init               (AGlActor*);
 static void setup_projection   (GtkWidget*);
 static void draw               (GtkWidget*);
 static bool on_expose          (GtkWidget*, GdkEventExpose*, gpointer);
 static void on_canvas_realise  (GtkWidget*, gpointer);
 static void on_allocate        (GtkWidget*, GtkAllocation*, gpointer);
 static void start_zoom         (float target_zoom);
-uint64_t    get_time           ();
 
 KeyHandler
 	zoom_in,
@@ -101,12 +101,38 @@ static const struct option long_options[] = {
 static const char* const short_options = "n";
 
 
+static void
+window_content (GtkWindow* window, GdkGLConfig* glconfig)
+{
+	canvas = gtk_drawing_area_new();
+
+#ifdef HAVE_GTK_2_18
+	gtk_widget_set_can_focus     (canvas, true);
+#endif
+	gtk_widget_set_size_request  (canvas, 320, 128);
+	gtk_widget_set_gl_capability (canvas, glconfig, NULL, 1, GDK_GL_RGBA_TYPE);
+	gtk_widget_add_events        (canvas, GDK_POINTER_MOTION_MASK | GDK_BUTTON_PRESS_MASK | GDK_BUTTON_RELEASE_MASK);
+	gtk_container_add((GtkContainer*)window, (GtkWidget*)canvas);
+
+	// This test is not supposed to be using a scene.
+	// It is used here for utilities it provides but not actually for the scene-graph itself
+	scene = (AGlRootActor*)agl_actor__new_root(canvas);
+	((AGlActor*)scene)->init = init;
+
+	g_signal_connect((gpointer)canvas, "realize",       G_CALLBACK(on_canvas_realise), NULL);
+	g_signal_connect((gpointer)canvas, "size-allocate", G_CALLBACK(on_allocate), NULL);
+	g_signal_connect((gpointer)canvas, "expose_event",  G_CALLBACK(on_expose), NULL);
+}
+
+
 int
 main (int argc, char *argv[])
 {
 	set_log_handlers();
 
 	wf_debug = 0;
+
+	gtk_init(&argc, &argv);
 
 	int opt;
 	while((opt = getopt_long (argc, argv, short_options, long_options, NULL)) != -1) {
@@ -117,39 +143,24 @@ main (int argc, char *argv[])
 		}
 	}
 
-	gtk_init(&argc, &argv);
-	if(!(glconfig = gdk_gl_config_new_by_mode(GDK_GL_MODE_RGBA | GDK_GL_MODE_DEPTH | GDK_GL_MODE_DOUBLE))){
-		gerr ("Cannot initialise gtkglext."); return EXIT_FAILURE;
-	}
+	return gtk_window((Key*)&keys, window_content);
+}
 
-	GtkWidget* window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
 
-	canvas = gtk_drawing_area_new();
-#ifdef HAVE_GTK_2_18
-	gtk_widget_set_can_focus     (canvas, true);
-#endif
-	gtk_widget_set_size_request  (canvas, 320, 128);
-	gtk_widget_set_gl_capability (canvas, glconfig, NULL, 1, GDK_GL_RGBA_TYPE);
-	gtk_widget_add_events        (canvas, GDK_POINTER_MOTION_MASK | GDK_BUTTON_PRESS_MASK | GDK_BUTTON_RELEASE_MASK);
-	gtk_container_add((GtkContainer*)window, (GtkWidget*)canvas);
+bool
+_zoom (gpointer _)
+{
+	start_zoom(zoom);
 
-	g_signal_connect((gpointer)canvas, "realize",       G_CALLBACK(on_canvas_realise), NULL);
-	g_signal_connect((gpointer)canvas, "size-allocate", G_CALLBACK(on_allocate), NULL);
-	g_signal_connect((gpointer)canvas, "expose_event",  G_CALLBACK(on_expose), NULL);
+	return G_SOURCE_REMOVE;
+}
 
-	gtk_widget_show_all(window);
 
-	add_key_handlers_gtk((GtkWindow*)window, NULL, (Key*)&keys);
-
-	gboolean window_on_delete(GtkWidget* widget, GdkEvent* event, gpointer user_data){
-		gtk_main_quit();
-		return false;
-	}
-	g_signal_connect(window, "delete-event", G_CALLBACK(window_on_delete), NULL);
-
-	gtk_main();
-
-	return EXIT_SUCCESS;
+static void
+init (AGlActor* actor)
+{
+	on_allocate(canvas, &canvas->allocation, NULL);
+	g_timeout_add(500, _zoom, NULL);
 }
 
 
@@ -176,10 +187,15 @@ setup_projection(GtkWidget* widget)
 
 
 static void
-draw(GtkWidget* widget)
+draw (GtkWidget* widget)
 {
 	glPushMatrix(); /* modelview matrix */
-		int i; for(i=0;i<G_N_ELEMENTS(a);i++) if(a[i]) ((AGlActor*)a[i])->paint((AGlActor*)a[i]);
+		for(int i=0;i<G_N_ELEMENTS(a);i++)
+			if(a[i]){
+				glTranslatef(0, ((AGlActor*)a[i])->region.y1, 0);
+				((AGlActor*)a[i])->paint((AGlActor*)a[i]);
+				glTranslatef(0, -((AGlActor*)a[i])->region.y1, 0);
+			}
 	glPopMatrix();
 
 #undef SHOW_BOUNDING_BOX
@@ -203,7 +219,7 @@ draw(GtkWidget* widget)
 
 
 static gboolean
-on_expose(GtkWidget* widget, GdkEventExpose* event, gpointer user_data)
+on_expose (GtkWidget* widget, GdkEventExpose* event, gpointer user_data)
 {
 	if(!GTK_WIDGET_REALIZED(widget)) return true;
 	if(!wfc) return true;
@@ -211,7 +227,7 @@ on_expose(GtkWidget* widget, GdkEventExpose* event, gpointer user_data)
 #ifdef USE_SYSTEM_GTKGLEXT
 	if(gdk_gl_drawable_make_current(gtk_widget_get_gl_drawable(widget), gtk_widget_get_gl_context(widget))){
 #else
-	if(gdk_gl_pixmap_make_context_current(gtk_widget_get_gl_drawable(widget), gtk_widget_get_gl_context(widget))){
+	if(gdk_gl_window_make_context_current(gtk_widget_get_gl_drawable(widget), scene->gl.gdk.context)){
 #endif
 		glClearColor(0.0, 0.0, 0.0, 1.0);
 		glClear(GL_COLOR_BUFFER_BIT);
@@ -225,19 +241,19 @@ on_expose(GtkWidget* widget, GdkEventExpose* event, gpointer user_data)
 #endif
 	}
 
-	return TRUE;
+	return true;
 }
 
 
 static void
-on_canvas_realise(GtkWidget* _canvas, gpointer user_data)
+on_canvas_realise (GtkWidget* _canvas, gpointer user_data)
 {
 	if(wfc) return;
 	if(!GTK_WIDGET_REALIZED (canvas)) return;
 
 	agl_get_instance()->pref_use_shaders = USE_SHADERS;
 
-	wfc = wf_context_new((AGlRootActor*)agl_actor__new_root(canvas));
+	wfc = wf_context_new(scene);
 
 	char* filename = find_wav("mono_0:10.wav");
 	w1 = waveform_load_new(filename);
@@ -271,7 +287,7 @@ on_canvas_realise(GtkWidget* _canvas, gpointer user_data)
 
 
 static void
-on_allocate(GtkWidget* widget, GtkAllocation* allocation, gpointer user_data)
+on_allocate (GtkWidget* widget, GtkAllocation* allocation, gpointer user_data)
 {
 	if(!wfc || !gtk_widget_get_gl_drawable(widget)) return;
 
@@ -285,7 +301,7 @@ on_allocate(GtkWidget* widget, GtkAllocation* allocation, gpointer user_data)
 
 
 static void
-start_zoom(float target_zoom)
+start_zoom (float target_zoom)
 {
 	// when zooming in, the Region is preserved so the box gets bigger. Drawing is clipped by the Viewport.
 
@@ -293,33 +309,34 @@ start_zoom(float target_zoom)
 	dbg(0, "zoom=%.2f", zoom);
 
 	int i; for(i=0;i<G_N_ELEMENTS(a);i++)
-		if(a[i]) wf_actor_set_rect(a[i], &(WfRectangle){
-			0.0,
-			i * GL_HEIGHT / 4,
-			GL_WIDTH * target_zoom,
-			GL_HEIGHT / 4 * 0.95
-		});
+		if(a[i])
+			wf_actor_set_rect(a[i], &(WfRectangle){
+				0.0,
+				i * GL_HEIGHT / 4,
+				GL_WIDTH * target_zoom,
+				GL_HEIGHT / 4 * 0.95
+			});
 
 	gdk_window_invalidate_rect(canvas->window, NULL, false);
 }
 
 
 void
-zoom_in(gpointer _)
+zoom_in (gpointer _)
 {
 	start_zoom(zoom * 1.5);
 }
 
 
 void
-zoom_out(gpointer _)
+zoom_out (gpointer _)
 {
 	start_zoom(zoom / 1.5);
 }
 
 
 void
-vzoom_up(gpointer _)
+vzoom_up (gpointer _)
 {
 	vzoom *= 1.1;
 	vzoom = MIN(vzoom, 100.0);
@@ -329,7 +346,7 @@ vzoom_up(gpointer _)
 
 
 void
-vzoom_down(gpointer _)
+vzoom_down (gpointer _)
 {
 	vzoom /= 1.1;
 	vzoom = MAX(vzoom, 1.0);
@@ -339,7 +356,7 @@ vzoom_down(gpointer _)
 
 
 void
-scroll_left(gpointer _)
+scroll_left (gpointer _)
 {
 	//int n_visible_frames = ((float)waveform->waveform->n_frames) / waveform->zoom;
 	//waveform_view_set_start(waveform, waveform->start_frame - n_visible_frames / 10);
@@ -347,7 +364,7 @@ scroll_left(gpointer _)
 
 
 void
-scroll_right(gpointer _)
+scroll_right (gpointer _)
 {
 	//int n_visible_frames = ((float)waveform->waveform->n_frames) / waveform->zoom;
 	//waveform_view_set_start(waveform, waveform->start_frame + n_visible_frames / 10);
@@ -355,16 +372,16 @@ scroll_right(gpointer _)
 
 
 void
-toggle_animate(gpointer _)
+toggle_animate (gpointer _)
 {
 	PF0;
 	gboolean on_idle(gpointer _)
 	{
 		static uint64_t frame = 0;
 		static uint64_t t0    = 0;
-		if(!frame) t0 = get_time();
+		if(!frame) t0 = g_get_monotonic_time();
 		else{
-			uint64_t time = get_time();
+			uint64_t time = g_get_monotonic_time();
 			if(!(frame % 1000))
 				dbg(0, "rate=%.2f fps", ((float)frame) / ((float)(time - t0)) / 1000.0);
 
@@ -377,25 +394,13 @@ toggle_animate(gpointer _)
 		frame++;
 		return G_SOURCE_CONTINUE;
 	}
-	//g_idle_add(on_idle, NULL);
-	//g_idle_add_full(G_PRIORITY_LOW, on_idle, NULL, NULL);
 	g_timeout_add(50, on_idle, NULL);
 }
 
 
 void
-quit(gpointer _)
+quit (gpointer _)
 {
 	exit(EXIT_SUCCESS);
 }
-
-
-uint64_t
-get_time()
-{
-	struct timeval start;
-	gettimeofday(&start, NULL);
-	return start.tv_sec * 1000 + start.tv_usec / 1000;
-}
-
 
