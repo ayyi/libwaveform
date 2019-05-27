@@ -97,7 +97,7 @@ void      agl_actor__free            (AGlActor*);
 AGlActor* agl_actor__add_child       (AGlActor*, AGlActor*);
 void      agl_actor__remove_child    (AGlActor*, AGlActor*);
 AGlActor* agl_actor__replace_child   (AGlActor*, AGlActor*, AGlActor*);
-void      agl_actor__paint           (AGlActor*);
+bool      agl_actor__paint           (AGlActor*);
 void      agl_actor__set_size        (AGlActor*);
 void      agl_actor__set_use_shaders (AGlRootActor*, gboolean);
 void      agl_actor__grab            (AGlActor*);

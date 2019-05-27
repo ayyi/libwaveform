@@ -430,12 +430,12 @@ render_from_fbo(AGlActor* a)
 #endif
 
 
-void
+bool
 agl_actor__paint(AGlActor* a)
 {
-	if(!a->root) return;
+	if(!a->root) return false;
 
-	if(!agl_actor__is_onscreen(a) || ((agl_actor__width(a) < 1 || agl_actor__height(a) < 1) && a->paint != agl_actor__null_painter)) return;
+	if(!agl_actor__is_onscreen(a) || ((agl_actor__width(a) < 1 || agl_actor__height(a) < 1) && a->paint != agl_actor__null_painter)) return false;
 
 #ifdef AGL_ACTOR_RENDER_CACHE
 	bool use_fbo = a->fbo && a->cache.enabled && !(agl_actor__width(a) > AGL_MAX_FBO_WIDTH);
@@ -462,6 +462,7 @@ agl_actor__paint(AGlActor* a)
 		glTranslatef(offset.x, offset.y, 0.0);
 	}
 
+	bool good = true;
 #ifdef AGL_ACTOR_RENDER_CACHE
 	// TODO check case where actor is translated and is partially offscreen.
 	if(use_fbo){
@@ -475,15 +476,16 @@ agl_actor__paint(AGlActor* a)
 				if(agl->use_shaders && a->program) agl_use_program(a->program);
 				glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
 
-				a->paint(a);
+				good &= a->paint(a);
 
 				GList* l = a->children;
 				for(;l;l=l->next){
-					agl_actor__paint((AGlActor*)l->data);
+					bool _good = agl_actor__paint((AGlActor*)l->data);
+					good = good & _good;
 				}
 				glTranslatef(a->cache.position.x, 0.0, 0.0);
 			} agl_end_draw_to_fbo;
-			a->cache.valid = true;
+			a->cache.valid = good;
 		}
 
 		render_from_fbo(a);
@@ -505,7 +507,7 @@ agl_actor__paint(AGlActor* a)
 		call(a->set_state, a);
 		if(agl->use_shaders && a->program) agl_use_program(a->program);
 
-		a->paint(a);
+		good &= a->paint(a);
 	}
 
 #ifdef AGL_ACTOR_RENDER_CACHE
@@ -513,7 +515,7 @@ agl_actor__paint(AGlActor* a)
 #endif
 		GList* l = a->children;
 		for(;l;l=l->next){
-			agl_actor__paint((AGlActor*)l->data);
+			good &= agl_actor__paint((AGlActor*)l->data);
 		}
 #ifdef AGL_ACTOR_RENDER_CACHE
 	}
@@ -576,6 +578,8 @@ agl_actor__paint(AGlActor* a)
 		paint_border(a);
 	}
 #endif
+
+	return good;
 }
 
 
