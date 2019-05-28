@@ -99,19 +99,23 @@ void      agl_actor__remove_child    (AGlActor*, AGlActor*);
 AGlActor* agl_actor__replace_child   (AGlActor*, AGlActor*, AGlActor*);
 bool      agl_actor__paint           (AGlActor*);
 void      agl_actor__set_size        (AGlActor*);
-void      agl_actor__set_use_shaders (AGlRootActor*, gboolean);
+void      agl_actor__scroll_to       (AGlActor*, AGliPt);
 void      agl_actor__grab            (AGlActor*);
 void      agl_actor__invalidate      (AGlActor*);
 void      agl_actor__enable_cache    (AGlActor*, bool);
 void      agl_actor__start_transition(AGlActor*, GList* animatables, AnimationFn done, gpointer);
 bool      agl_actor__is_disabled     (AGlActor*);
-bool      agl_actor__on_event        (AGlRootActor*, GdkEvent*);
-bool      agl_actor__xevent          (AGlRootActor*, XEvent*);
 AGlActor* agl_actor__find_by_name    (AGlActor*, const char*);
 AGlActor* agl_actor__find_by_z       (AGlActor*, int);
 AGliPt    agl_actor__find_offset     (AGlActor*);
-bool      agl_actor__null_painter    (AGlActor*);
 bool      agl_actor__on_expose       (GtkWidget*, GdkEventExpose*, gpointer);
+
+bool      agl_actor__null_painter    (AGlActor*);
+bool      agl_actor__solid_painter   (AGlActor*);
+
+void      agl_actor__set_use_shaders (AGlRootActor*, gboolean);
+bool      agl_actor__on_event        (AGlRootActor*, GdkEvent*);
+bool      agl_actor__xevent          (AGlRootActor*, XEvent*);
 
 #ifdef DEBUG
 void      agl_actor__print_tree      (AGlActor*);

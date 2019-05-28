@@ -282,6 +282,11 @@ agl_actor__remove_child(AGlActor* actor, AGlActor* child)
 
 	actor->children = g_list_remove(actor->children, child);
 
+	GList* l = child->children;
+	for(;l;l=l->next){
+		agl_actor__remove_child(child, (AGlActor*)l->data);
+	}
+
 	agl_actor__free(child);
 
 	agl_actor__invalidate(actor);
@@ -614,6 +619,33 @@ agl_actor__set_size(AGlActor* actor)
 	for(;l;l=l->next){
 		AGlActor* a = l->data;
 		agl_actor__set_size(a);
+	}
+}
+
+
+void
+agl_actor__scroll_to (AGlActor* actor, AGliPt pt)
+{
+	if(pt.x > -1){
+		int width_inner = agl_actor__width(actor);
+		int width_outer = actor->scrollable.x2 - actor->scrollable.x1;
+
+		if(width_outer > width_inner){
+			pt.x = CLAMP(pt.x, 0, width_outer - width_inner);
+			actor->scrollable.x1 = -pt.x;
+			actor->scrollable.x2 = -pt.x + width_outer;
+		}
+	}
+
+	if(pt.y > -1){
+		int height_inner = agl_actor__height(actor);
+		int height_outer = actor->scrollable.y2 - actor->scrollable.y1;
+
+		if(height_outer > height_inner){
+			pt.y = CLAMP(pt.y, 0, height_outer - height_inner);
+			actor->scrollable.y1 = -pt.y;
+			actor->scrollable.y2 = -pt.y + height_outer;
+		}
 	}
 }
 
@@ -1004,6 +1036,18 @@ agl_actor__find_by_z(AGlActor* actor, int z)
 bool
 agl_actor__null_painter(AGlActor* actor)
 {
+	return true;
+}
+
+
+bool
+agl_actor__solid_painter(AGlActor* actor)
+{
+	agl->shaders.plain->uniform.colour = 0xff000055;
+	agl_use_program((AGlShader*)agl->shaders.plain);
+
+	agl_rect_((AGlRect){.w = agl_actor__width(actor), .h = agl_actor__height(actor)});
+
 	return true;
 }
 
