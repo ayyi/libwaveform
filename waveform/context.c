@@ -341,14 +341,15 @@ wf_context_set_viewport(WaveformContext* wfc, WfViewPort* _viewport)
 
 
 /*
- *  The actor is owned by the canvas and will be freed on calling wf_canvas_remove_actor()
+ *  The actor is owned by the context and will be freed on calling wf_canvas_remove_actor().
+ *
+ *  After adding a waveform to the context you can g_object_unref the waveform if
+ *  You do not need to hold an additional reference.
  */
 WaveformActor*
 wf_canvas_add_new_actor(WaveformContext* wfc, Waveform* w)
 {
 	g_return_val_if_fail(wfc, NULL);
-
-	if(w) g_object_ref(w);
 
 	WaveformActor* a = wf_actor_new(w, wfc);
 #ifdef TRACK_ACTORS
@@ -356,25 +357,6 @@ wf_canvas_add_new_actor(WaveformContext* wfc, Waveform* w)
 #endif
 	return a;
 }
-
-
-void
-wf_canvas_remove_actor(WaveformContext* wfc, WaveformActor* actor)
-{
-	g_return_if_fail(actor);
-	PF;
-	Waveform* w = actor->waveform;
-
-	wf_actor_free(actor);
-#ifdef TRACK_ACTORS
-	if(!g_list_find(actors, actor)) gwarn("actor not found! %p", actor);
-	actors = g_list_remove(actors, actor);
-	if(actors) dbg(1, "n_actors=%i", g_list_length(actors));
-#endif
-
-	if(w) g_object_unref(w);
-}
-
 
 
 #ifndef USE_FRAME_CLOCK
@@ -533,25 +515,10 @@ wf_context_get_zoom(WaveformContext* wfc)
 	{
 		WaveformContext* wfc = animation->user_data;
 
-#if 0 // invalidate only the waveform actors
-		GList* l = animation->members;
-		for(;l;l=l->next){
-			WfAnimActor* member = l->data;
-			GList* k = member->transitions;
-			for(;k;k=k->next){
-				WfAnimatable* animatable = k->data;
-#ifdef TRACK_ACTORS
-				GList* a = actors;
-				for(;a;a=a->next){
-					WaveformActor* actor = a->data;
-					agl_actor__invalidate((AGlActor*)actor); // TODO can probably just invalidate the whole scene?
-				}
-#endif
-			}
-		}
-#else
-		agl_actor__invalidate((AGlActor*)wfc->root); // strictly speaking some non-scalable items should not be invalidated
-#endif
+		// note that everything under the context root is invalidated.
+		// Any non-scalable items should be in a separate sub-graph
+		agl_actor__invalidate((AGlActor*)wfc->root);
+		agl_actor__set_size((AGlActor*)wfc->root);
 	}
 
 /*
@@ -559,20 +526,24 @@ wf_context_get_zoom(WaveformContext* wfc)
  *  which is more efficient than scaling many individual waveforms.
  *
  *  Calling this function puts the canvas into 'scaled' mode.
+ *
+ *  Before using scaled mode, the user must set the base
+ *  samples_per_pixel value.
  */
 void
-wf_context_set_zoom(WaveformContext* wfc, float zoom)
+wf_context_set_zoom (WaveformContext* wfc, float zoom)
 {
 	// TODO should probably call agl_actor__start_transition
 
 	wfc->scaled = true;
 	dbg(1, "zoom=%f spp=%.2f", zoom, wfc->samples_per_pixel);
+#ifdef DEBUG
+	if(wfc->samples_per_pixel < 0.001) gwarn("spp too low: %f", wfc->samples_per_pixel);
+#endif
 
 	float old_zoom = wfc->zoom;
 
-	#define MAX_ZOOM 10000.0 // TODO
-	#define MIN_ZOOM 0.1     // TODO
-	wfc->zoom = CLAMP(zoom, MIN_ZOOM, MAX_ZOOM);
+	wfc->zoom = CLAMP(zoom, WF_CONTEXT_MIN_ZOOM, WF_CONTEXT_MAX_ZOOM);
 
 	if(!wfc->root->enable_animations){
 		wfc->priv->zoom.val.f = zoom;
@@ -601,7 +572,7 @@ wf_context_set_zoom(WaveformContext* wfc, float zoom)
 /*
  *  wf_context_set_scale is similar to wf_context_set_zoom but
  *  does not use the zoom property because sometimes it is more
- *  convenient to specify the numner of samples per pixel directly.
+ *  convenient to specify the number of samples per pixel directly.
  */
 void
 wf_context_set_scale(WaveformContext* wfc, float samples_per_px)

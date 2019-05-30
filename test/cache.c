@@ -685,8 +685,7 @@ test_hi_double()
 
 			int i; for(i=0;i<G_N_ELEMENTS(a);i++){
 				if(a[i]){
-					wf_canvas_remove_actor(wfc, a[i]);
-					a[i] = 0;
+					a[i] = (agl_actor__remove_child((AGlActor*)scene, (AGlActor*)a[1]), NULL);
 				}
 			}
 			for(i=0;i<G_N_ELEMENTS(w);i++){

@@ -323,22 +323,18 @@ test_delete ()
 
 	g_object_weak_ref((GObject*)w1, finalize_notify, NULL);
 
-	wf_canvas_remove_actor(wfc[0], a[0]);
-	a[0] = NULL;
+	a[0] = (agl_actor__remove_child((AGlActor*)scene, (AGlActor*)a[0]), NULL);
 
 	if(finalize_done){
 		gwarn("waveform should not be free'd");
 		return false;
 	}
 
-	wf_canvas_remove_actor(wfc[1], a[1]);
-	a[1] = NULL;
+	a[1] = (agl_actor__remove_child((AGlActor*)scene, (AGlActor*)a[1]), NULL);
 
-	wf_canvas_remove_actor(wfc[2], a[2]);
-	a[2] = NULL;
+	a[2] = (agl_actor__remove_child((AGlActor*)scene, (AGlActor*)a[2]), NULL);
 
-	wf_canvas_remove_actor(wfc[3], a[3]);
-	a[3] = NULL;
+	a[3] = (agl_actor__remove_child((AGlActor*)scene, (AGlActor*)a[3]), NULL);
 
 	if(!finalize_done){
 		gwarn("waveform was not free'd");

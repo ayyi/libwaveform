@@ -262,7 +262,7 @@ static void   wf_actor_disconnect_waveform   (WaveformActor*);
 #include "waveform/renderer/res_v_hi.c"
 #include "waveform/renderer/res_v_low.c"
 
-static void   wf_actor_canvas_finalize_notify(gpointer, GObject*);
+static void   wf_actor_waveform_finalize_notify(gpointer, GObject*);
 static void   wf_actor_start_transition      (WaveformActor*, GList* /* WfAnimatable* */, AnimationFn, gpointer);
 static void   wf_actor_queue_load_render_data(WaveformActor*);
 static void  _wf_actor_load_missing_blocks   (WaveformActor*);
@@ -334,11 +334,6 @@ wf_actor_class_init()
 	{
 		WaveformActor* a = (WaveformActor*)actor;
 
-		if(a->waveform){
-			int m; for(m=0;m<N_MODES;m++){
-				call(modes[m].renderer->free, modes[m].renderer, a->waveform);
-			}
-		}
 		a->priv->render_info.valid = false;
 
 		a->canvas->use_1d_textures = agl->use_shaders;
@@ -378,9 +373,10 @@ wf_actor_new(Waveform* w, WaveformContext* wfc)
 		.actor = {
 			.class = &actor_class,
 			.name = "Waveform",
+			.init = wf_actor_on_init,
+			.free = wf_actor_free,
 			.paint = wf_actor_paint,
 			.invalidate = _wf_actor_invalidate,
-			.init = wf_actor_on_init,
 			.set_size = wf_actor_set_size,
 		},
 		.canvas = wfc,
@@ -445,8 +441,6 @@ wf_actor_new(Waveform* w, WaveformContext* wfc)
 	_a->handlers.dimensions_changed = g_signal_connect((gpointer)a->canvas, "dimensions-changed", (GCallback)wf_actor_on_dimensions_changed, a);
 	_a->handlers.zoom_changed = g_signal_connect((gpointer)a->canvas, "zoom-changed", (GCallback)wf_actor_on_zoom_changed, a);
 
-	g_object_weak_ref((GObject*)a->canvas, wf_actor_canvas_finalize_notify, a);
-
 	return a;
 }
 
@@ -484,6 +478,8 @@ wf_actor_connect_waveform(WaveformActor* a)
 	g_return_if_fail(!_a->handlers.peakdata_ready);
 
 	_a->handlers.peakdata_ready = g_signal_connect (a->waveform, "hires-ready", (GCallback)_wf_actor_on_peakdata_available, a);
+
+	g_object_weak_ref((GObject*)a->waveform, wf_actor_waveform_finalize_notify, a);
 }
 
 
@@ -493,20 +489,26 @@ wf_actor_disconnect_waveform(WaveformActor* a)
 	WfActorPriv* _a = a->priv;
 	g_return_if_fail(_a->handlers.peakdata_ready);
 
-	g_signal_handler_disconnect((gpointer)a->waveform, _a->handlers.peakdata_ready);
-	_a->handlers.peakdata_ready = 0;
+	_g_signal_handler_disconnect0(a->waveform, _a->handlers.peakdata_ready);
+
+	g_object_weak_unref((GObject*)a->waveform, wf_actor_waveform_finalize_notify, a);
 }
 
 
+/*
+ *  This would not normally be called by the user.
+ *  Freeing the actor can be triggered by calling
+ *  agl_actor__remove_child.
+ */
 void
-wf_actor_free(WaveformActor* a)
+wf_actor_free (AGlActor* actor)
 {
 	// Waveform data is shared so is not free'd here.
 
 	PF;
-	g_return_if_fail(a);
+	g_return_if_fail(actor);
+	WaveformActor* a = (WaveformActor*)actor;
 	WfActorPriv* _a = a->priv;
-	AGlActor* actor = (AGlActor*)a;
 
 	GList* l = actor->transitions;
 	for(;l;l=l->next) wf_animation_remove((WfAnimation*)l->data);
@@ -515,19 +517,18 @@ wf_actor_free(WaveformActor* a)
 	if(_a->load_render_data_queue) g_source_remove(_a->load_render_data_queue);
 
 	if(a->waveform){
-		_g_signal_handler_disconnect0(a->waveform, _a->handlers.peakdata_ready);
+		wf_actor_disconnect_waveform(a);
 		_g_signal_handler_disconnect0(a->canvas, _a->handlers.dimensions_changed);
 		_g_signal_handler_disconnect0(a->canvas, _a->handlers.zoom_changed);
 
-		waveform_free_render_data(a->waveform);
-
-		g_object_weak_unref((GObject*)a->canvas, wf_actor_canvas_finalize_notify, a);
-
+		// if the waveform has no more users, the finalise notify will run which will clear the render data
 		waveform_unref0(a->waveform);
 	}
 	g_free(a->priv);
 
+#if 0 // no, cannot call this because it calls the free function
 	if(actor->parent) agl_actor__remove_child(actor->parent, actor);
+#endif
 }
 
 
@@ -544,13 +545,11 @@ waveform_free_render_data(Waveform* waveform)
 
 
 static void
-wf_actor_canvas_finalize_notify(gpointer _actor, GObject* was)
+wf_actor_waveform_finalize_notify (gpointer _actor, GObject* was)
 {
-	//should not get here. the weak_ref is removed in wf_actor_free.
-
-	WaveformActor* a = (WaveformActor*)_actor;
-	gwarn("actor should have been freed before canvas finalize. actor=%p", a);
+	waveform_free_render_data(((WaveformActor*)_actor)->waveform);
 }
+
 
 	typedef struct { WaveformActor* actor; WaveformActorFn callback; gpointer user_data; } C2;
 

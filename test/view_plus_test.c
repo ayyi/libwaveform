@@ -88,6 +88,7 @@ KeyHandler
 	toggle_shaders,
 	toggle_grid,
 	unrealise,
+	delete,
 	play,
 	stop,
 	quit;
@@ -104,7 +105,7 @@ Key keys[] = {
 	{(char)'s',     toggle_shaders},
 	{(char)'g',     toggle_grid},
 	{(char)'u',     unrealise},
-	{GDK_Delete,    NULL},
+	{GDK_Delete,    delete},
 	{65438,         stop},
 	{65421,         play},
 	{113,           quit},
@@ -114,6 +115,7 @@ Key keys[] = {
 gpointer tests[] = {};
 uint32_t _time = 1000 + 321;
 GtkWidget* table = NULL;
+WaveformViewPlus* view = NULL;
 struct Layers {
     AGlActor* grid;
     AGlActor* spp;
@@ -123,21 +125,12 @@ struct Layers {
 void  show_wav        (WaveformViewPlus*, const char* filename);
 char* format_channels (int n_channels);
 void  format_time     (char* str, int64_t t_ms);
+static void on_allocate (GtkWidget*, GtkAllocation*, gpointer);
 
 
 	static bool window_on_delete(GtkWidget* widget, GdkEvent* event, gpointer user_data){
 		gtk_main_quit();
 		return false;
-	}
-
-	static void on_allocate(GtkWidget* widget, GtkAllocation* allocation, gpointer view)
-	{
-		static int height = 0;
-
-		if(allocation->height != height){
-			gtk_widget_set_size_request((GtkWidget*)view, -1, allocation->height);
-			height = allocation->height;
-		}
 	}
 
 int
@@ -166,7 +159,7 @@ main (int argc, char* argv[])
 	agl_get_instance()->pref_use_shaders = false;
 	#endif
 
-	WaveformViewPlus* waveform = waveform_view_plus_new(NULL);
+	WaveformViewPlus* waveform = view = waveform_view_plus_new(NULL);
 	waveform_view_plus_set_show_rms(waveform, false);
 	waveform_view_plus_set_colour(waveform, 0xccccddaa, 0x000000ff);
 
@@ -216,8 +209,22 @@ main (int argc, char* argv[])
 }
 
 
+static void
+on_allocate (GtkWidget* widget, GtkAllocation* allocation, gpointer _view)
+{
+	if(!view) return;
+
+	static int height = 0;
+
+	if(allocation->height != height){
+		gtk_widget_set_size_request((GtkWidget*)view, -1, allocation->height);
+		height = allocation->height;
+	}
+}
+
+
 void
-quit(gpointer waveform)
+quit (gpointer waveform)
 {
 	exit(EXIT_SUCCESS);
 }
@@ -253,7 +260,7 @@ quit(gpointer waveform)
 	}
 
 void
-show_wav(WaveformViewPlus* view, const char* filename)
+show_wav (WaveformViewPlus* view, const char* filename)
 {
 	g_assert(filename);
 
@@ -296,7 +303,7 @@ show_wav(WaveformViewPlus* view, const char* filename)
 static int i = 0;
 
 void
-next_wav(gpointer view)
+next_wav (gpointer view)
 {
 	printf("next...\n");
 
@@ -310,7 +317,7 @@ next_wav(gpointer view)
 
 
 void
-prev_wav(gpointer waveform)
+prev_wav (gpointer waveform)
 {
 	printf("prev...\n");
 
@@ -323,7 +330,7 @@ prev_wav(gpointer waveform)
 
 
 void
-toggle_shaders(gpointer view)
+toggle_shaders (gpointer view)
 {
 	printf(">> %s ...\n", __func__);
 
@@ -337,7 +344,7 @@ toggle_shaders(gpointer view)
 
 
 void
-toggle_grid(gpointer view)
+toggle_grid (gpointer view)
 {
 	static bool visible = true;
 	visible = !visible;
@@ -349,7 +356,7 @@ toggle_grid(gpointer view)
 }
 
 
-	static bool on_idle(gpointer _view)
+	static bool reattach (gpointer _view)
 	{
 		gtk_table_attach(GTK_TABLE(table), (GtkWidget*)_view, 0, 1, 1, 2, GTK_FILL | GTK_EXPAND, GTK_FILL, 0, 0);
 		g_object_unref(_view);
@@ -357,12 +364,58 @@ toggle_grid(gpointer view)
 	}
 
 void
-unrealise(gpointer view)
+unrealise (gpointer view)
 {
 	dbg(0, "-----------------------------");
 	g_object_ref((GObject*)view);
 	gtk_container_remove ((GtkContainer*)table, (GtkWidget*)view);
-	g_timeout_add(600, on_idle, view);
+	g_timeout_add(600, reattach, view);
+}
+
+
+typedef struct {
+    int finalize_done;
+} DeleteTest;
+
+DeleteTest dt = {0,};
+
+static void
+finalize_notify (gpointer data, GObject* was)
+{
+	PF;
+
+	dt.finalize_done = true;
+}
+
+
+static bool
+test_delete ()
+{
+	if(!view) return false;
+
+	g_object_weak_ref((GObject*)view->waveform, finalize_notify, NULL);
+
+	if(dt.finalize_done){
+		gwarn("waveform should not be free'd");
+		return false;
+	}
+
+	gtk_widget_destroy((GtkWidget*)view);
+	view = NULL;
+
+	if(!dt.finalize_done){
+		gwarn("waveform was not free'd");
+		return false;
+	}
+
+	return true;
+}
+
+
+void
+delete (gpointer view)
+{
+	test_delete();
 }
 
 

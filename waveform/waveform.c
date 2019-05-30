@@ -2173,6 +2173,7 @@ waveform_rms_to_pixbuf(Waveform* w, GdkPixbuf* pixbuf, uint32_t src_inset, int* 
 #endif // USE_GDK_PIXBUF
 
 
+#if 0
 void
 waveform_print_blocks(Waveform* w)
 {
@@ -2202,6 +2203,7 @@ waveform_print_blocks(Waveform* w)
 	} else printf("  LOW: not allocated\n");
 	printf("}\n");
 }
+#endif
 
 
 WfTextureHi*

@@ -1,5 +1,5 @@
 /*
-  copyright (C) 2012-2017 Tim Orford <tim@orford.org>
+  copyright (C) 2012-2019 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -32,6 +32,8 @@
 #include "agl/utils.h"
 #include "waveform/waveform.h"
 #include "waveform/view.h"
+
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 
 #define DIRECT 1
 #define DEFAULT_HEIGHT 64
@@ -226,8 +228,7 @@ waveform_view_load_file (WaveformView* view, const char* filename)
 	WaveformViewPrivate* v = view->priv;
 
 	if(v->actor){
-		wf_canvas_remove_actor(v->context, v->actor);
-		v->actor = NULL;
+		v->actor = (agl_actor__remove_child(v->root, (AGlActor*)v->actor), NULL);
 	}
 	else dbg(2, " ... no actor");
 	if(view->waveform){
@@ -252,8 +253,7 @@ waveform_view_set_waveform (WaveformView* view, Waveform* waveform)
 	WaveformViewPrivate* v = view->priv;
 
 	if(v->actor && v->context){
-		wf_canvas_remove_actor(v->context, v->actor);
-		v->actor = NULL;
+		v->actor = (agl_actor__remove_child(v->root, (AGlActor*)v->actor), NULL);
 	}
 	if(view->waveform){
 		g_object_unref(view->waveform);
@@ -548,10 +548,9 @@ waveform_view_finalize (GObject* obj)
 	// these should really be done in dispose
 	if(v->actor){
 		wf_actor_clear(v->actor);
-		wf_canvas_remove_actor(v->context, v->actor);
-		v->actor = NULL;
-
+		v->actor = (agl_actor__remove_child(v->root, (AGlActor*)v->actor), NULL);
 	}
+
 	if(v->context) wf_context_free0(v->context);
 	scene->draw = NULL;
 

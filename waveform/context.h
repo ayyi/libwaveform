@@ -1,5 +1,5 @@
 /*
-  copyright (C) 2012-2018 Tim Orford <tim@orford.org>
+  copyright (C) 2012-2019 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -27,6 +27,7 @@
 #include "waveform/utils.h"
 
 #define USE_CANVAS_SCALING 1
+#define WF_CONTEXT_MIN_ZOOM 0.1
 #define WF_CONTEXT_MAX_ZOOM 51200.0
 
 #define TYPE_WAVEFORM_CONTEXT (waveform_context_get_type ())
@@ -89,6 +90,9 @@ WaveformContext* wf_context_new                       (AGlRootActor*);
 WaveformContext* wf_context_new_sdl                   (SDL_GLContext*);
 #endif
 void             wf_context_free                      (WaveformContext*);
+
+WaveformActor*   wf_canvas_add_new_actor              (WaveformContext*, Waveform*);
+
 void             wf_context_set_viewport              (WaveformContext*, WfViewPort*);
 void             wf_context_set_rotation              (WaveformContext*, float);
 #ifdef USE_CANVAS_SCALING
@@ -97,8 +101,6 @@ void             wf_context_set_zoom                  (WaveformContext*, float);
 #endif
 void             wf_context_set_scale                 (WaveformContext*, float samples_per_px);
 void             wf_context_set_gain                  (WaveformContext*, float);
-WaveformActor*   wf_canvas_add_new_actor              (WaveformContext*, Waveform*);
-void             wf_canvas_remove_actor               (WaveformContext*, WaveformActor*);
 void             wf_canvas_queue_redraw               (WaveformContext*);
 void             wf_canvas_load_texture_from_alphabuf (WaveformContext*, int texture_id, AlphaBuf*);
 float            wf_context_frame_to_x                (WaveformContext*, uint64_t);
