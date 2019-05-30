@@ -60,7 +60,7 @@ EXTRA_DIST = \
 	renderer/res_hi.c \
 	renderer/res_hi_gl2.c \
 	renderer/res_v_hi.c \
-	renderer/res_low.c \
+	renderer/res_lo.c \
 	renderer/res_v_low.c
 
 pkgincludedir=$(includedir)/waveform
