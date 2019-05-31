@@ -2,6 +2,7 @@
 SUBDIRS = gdk gtk
 
 EXTRA_DIST = \
+	config.h.in \
 	configure \
 	gdkglext-uninstalled.pc.in \
 	gtkglext-uninstalled.pc.in
@@ -25,3 +26,7 @@ libgtkglext_la_SOURCES =
 libgtkglext_la_LIBADD = \
   gdk/libgdk.la \
   gtk/libgtk.la
+
+.PHONY: am--refresh
+am--refresh:
+	@:
