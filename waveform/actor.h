@@ -1,7 +1,7 @@
 /**
 * +----------------------------------------------------------------------+
 * | This file is part of the Ayyi project. http://ayyi.org               |
-* | copyright (C) 2013-2018 Tim Orford <tim@orford.org>                  |
+* | copyright (C) 2013-2019 Tim Orford <tim@orford.org>                  |
 * +----------------------------------------------------------------------+
 * | This program is free software; you can redistribute it and/or modify |
 * | it under the terms of the GNU General Public License version 3       |
@@ -36,7 +36,6 @@ struct _WaveformActor {
 	WfSampleRegion  region;
 	uint32_t        fg_colour;
 	float           vzoom;     // vertical zoom. default 1.0
-	float           z;         // render position on z-axis.
 
 	WfActorPriv*    priv;
 };
@@ -50,11 +49,12 @@ void            wf_actor_set_waveform_sync          (WaveformActor*, Waveform*);
 void            wf_actor_set_region                 (WaveformActor*, WfSampleRegion*);
 void            wf_actor_set_rect                   (WaveformActor*, WfRectangle*);
 void            wf_actor_set_colour                 (WaveformActor*, uint32_t fg_colour);
-void            wf_actor_set_z                      (WaveformActor*, float);
 void            wf_actor_set_full                   (WaveformActor*, WfSampleRegion*, WfRectangle*, int time, WaveformActorFn, gpointer);
 void            wf_actor_fade_out                   (WaveformActor*, WaveformActorFn, gpointer);
 void            wf_actor_fade_in                    (WaveformActor*, void* /*WfAnimatable* */, float, WaveformActorFn, gpointer);
 void            wf_actor_set_vzoom                  (WaveformActor*, float);
+WfAnimatable*   wf_actor_get_z                      (WaveformActor*);
+void            wf_actor_set_z                      (WaveformActor*, float);
 void            wf_actor_get_viewport               (WaveformActor*, WfViewPort*);
 float           wf_actor_frame_to_x                 (WaveformActor*, uint64_t);
 void            wf_actor_clear                      (WaveformActor*);

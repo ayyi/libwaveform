@@ -54,24 +54,21 @@ float isometric_rotation[3] = {35.264f, 45.0f, 0.0f};
 GdkGLConfig*    glconfig       = NULL;
 static bool     gl_initialised = false;
 GtkWidget*      canvas         = NULL;
-WaveformContext* wfc            = NULL;
+WaveformContext* wfc           = NULL;
 AGlScene*       scene          = NULL;
 Waveform*       w1             = NULL;
-Waveform*       w2             = NULL;
 WaveformActor*  a[]            = {NULL, NULL, NULL, NULL};
-int             a_front        = 3;
 float           zoom           = 1.0;
 float           dz             = 20.0;
 gpointer        tests[]        = {};
 
-static AGlActor* rotator            (WaveformActor*);
-static void      on_canvas_realise  (GtkWidget*, gpointer);
-static void      on_allocate        (GtkWidget*, GtkAllocation*, gpointer);
-static void      start_zoom         (float target_zoom);
-static void      forward            ();
-static void      backward           ();
-static void      toggle_animate     ();
-static uint64_t  get_time           ();
+static AGlActor* rotator           (WaveformActor*);
+static void      on_canvas_realise (GtkWidget*, gpointer);
+static void      on_allocate       (GtkWidget*, GtkAllocation*, gpointer);
+static void      start_zoom        (float target_zoom);
+static void      forward           ();
+static void      backward          ();
+static void      toggle_animate    ();
 
 static const struct option long_options[] = {
 	{ "non-interactive",  0, NULL, 'n' },
@@ -187,9 +184,25 @@ main (int argc, char *argv[])
 }
 
 
+static AGlActorPaint wrapped = NULL;
+
+bool
+_paint (AGlActor* actor)
+{
+	WfAnimatable* z = wf_actor_get_z((WaveformActor*)actor);
+
+	glTranslatef(0, 0, z->val.f);
+	wrapped(actor);
+	glTranslatef(0, 0, -z->val.f);
+
+	return true;
+}
+
+
 static gboolean canvas_init_done = false;
+
 static void
-on_canvas_realise(GtkWidget* _canvas, gpointer user_data)
+on_canvas_realise (GtkWidget* _canvas, gpointer user_data)
 {
 	PF;
 	if(canvas_init_done) return;
@@ -215,12 +228,18 @@ on_canvas_realise(GtkWidget* _canvas, gpointer user_data)
 		{0x66ff66ff, 0x0000ffff}, // green
 	};
 
+	AGlActor* rotator = ((AGlActor*)scene)->children->data;
 	int i; for(i=0;i<G_N_ELEMENTS(a);i++){
-		agl_actor__add_child((AGlActor*)scene, (AGlActor*)(a[i] = wf_canvas_add_new_actor(wfc, w1)));
+		agl_actor__add_child(rotator, (AGlActor*)(a[i] = wf_canvas_add_new_actor(wfc, w1)));
+
+		wrapped = ((AGlActor*)a[i])->paint;
+		((AGlActor*)a[i])->paint = _paint;
+
+		((AGlActor*)a[i])->name = g_strdup_printf("Waveform %i", i);
 
 		wf_actor_set_region (a[i], &region[i]);
 		wf_actor_set_colour (a[i], colours[i][0]);
-		wf_actor_set_z      (a[i], i * dz);
+		wf_actor_set_z      (a[i], -i * dz);
 	}
 
 	on_allocate(canvas, &canvas->allocation, user_data);
@@ -228,7 +247,7 @@ on_canvas_realise(GtkWidget* _canvas, gpointer user_data)
 
 
 static void
-on_allocate(GtkWidget* widget, GtkAllocation* allocation, gpointer user_data)
+on_allocate (GtkWidget* widget, GtkAllocation* allocation, gpointer user_data)
 {
 	((AGlActor*)scene)->region.x2 = allocation->width;
 	((AGlActor*)scene)->region.y2 = allocation->height;
@@ -240,7 +259,7 @@ on_allocate(GtkWidget* widget, GtkAllocation* allocation, gpointer user_data)
 
 
 AGlActor*
-rotator(WaveformActor* wf_actor)
+rotator (WaveformActor* wf_actor)
 {
 	void rotator_set_state(AGlActor* actor)
 	{
@@ -262,7 +281,7 @@ rotator(WaveformActor* wf_actor)
 
 
 static void
-set_position(int i, int j)
+set_position (int i, int j)
 {
 	#define Y_FACTOR 0.0f //0.5f //currently set to zero to simplify changing stack order
 
@@ -276,82 +295,116 @@ set_position(int i, int j)
 
 
 static void
-start_zoom(float target_zoom)
+start_zoom (float target_zoom)
 {
-	//when zooming in, the Region is preserved so the box gets bigger. Drawing is clipped by the Viewport.
+	// When zooming in, the Region is preserved so the box gets bigger. Drawing is clipped by the Viewport.
 
-	PF0;
+	PF;
 	zoom = MAX(0.1, target_zoom);
 
 	int i; for(i=0;i<G_N_ELEMENTS(a);i++) set_position(i, i);
 }
 
 
+/*
+ *  Move all actors forward
+ *  Fade out the front actor, then move it to the back
+ */
 static void
-forward()
+forward ()
 {
-	void fade_out_done(WaveformActor* actor, gpointer user_data)
+	void fade_out_done (WaveformActor* actor, gpointer user_data)
 	{
-		gboolean fade_out_really_done(WaveformActor* actor)
+		gboolean fade_out_really_done (WaveformActor* actor)
 		{
 			AGlScene* scene = ((AGlActor*)actor)->root;
+			AGlActor* rotator = ((AGlActor*)scene)->children->data;
+
+			scene->enable_animations = false;
+			wf_actor_set_z(actor, - 3 * dz);
+			scene->enable_animations = true;
+
+			// move front element to back (becomes first element)
+			GList* front = g_list_last(rotator->children);
+			rotator->children = g_list_remove_link(rotator->children, front);
+			front->next = rotator->children;
+			rotator->children ->prev = front;
+			rotator->children = front;
+
+			wf_actor_fade_in(actor, NULL, 1.0f, NULL, NULL);
+
+			return G_SOURCE_REMOVE;
+		}
+		g_idle_add((GSourceFunc)fade_out_really_done, actor);
+	}
+
+	AGlActor* rotator = ((AGlActor*)scene)->children->data;
+	float z = - 2 * dz; // actors have to be drawn from back to front
+	for(GList* l=rotator->children;l;l=l->next){
+		WaveformActor* a = l->data;
+		wf_actor_set_z(a, z);
+		z += dz;
+	}
+
+	wf_actor_fade_out(g_list_last(rotator->children)->data, fade_out_done, NULL);
+}
+
+
+/*
+ *  Move all actors backward
+ *  Fade out the back actor, then move it to the front
+ */
+static void
+backward ()
+{
+	void fade_out_done (WaveformActor* actor, gpointer user_data)
+	{
+		gboolean fade_out_really_done (WaveformActor* actor)
+		{
+			AGlScene* scene = ((AGlActor*)actor)->root;
+			AGlActor* rotator = ((AGlActor*)scene)->children->data;
 
 			scene->enable_animations = false;
 			wf_actor_set_z(actor, 0);
 			scene->enable_animations = true;
-			wf_actor_fade_in(actor, NULL, 1.0f, NULL, NULL);
-			set_position(a_front, 0); //move to back
 
-			if(--a_front < 0) a_front = G_N_ELEMENTS(a) - 1;
+			GList* first = rotator->children;
+			g_assert(actor == first->data);
+			rotator->children = g_list_remove_link(rotator->children, rotator->children);
+			GList* last = g_list_last(rotator->children);
+			last->next = first;
+			first->prev = last;
+
+			wf_actor_fade_in(actor, NULL, 1.0f, NULL, NULL);
+
 			return G_SOURCE_REMOVE;
 		}
-		g_idle_add((GSourceFunc)fade_out_really_done, actor); //TODO fix issues with overlapping transitions.
+		g_idle_add((GSourceFunc)fade_out_really_done, actor);
 	}
 
-	int i; for(i=0;i<G_N_ELEMENTS(a);i++) wf_actor_set_z(a[i], a[i]->z + dz);
-	dbg(1, "a_front=%i", a_front);
-	wf_actor_fade_out(a[a_front], fade_out_done, NULL);
+	AGlActor* rotator = ((AGlActor*)scene)->children->data;
+	float z = - 4 * dz; // actors have to be drawn from back to front
+	for(GList* l=rotator->children;l;l=l->next){
+		WaveformActor* a = l->data;
+		wf_actor_set_z(a, z);
+		z += dz;
+	}
+	wf_actor_fade_out(rotator->children->data, fade_out_done, NULL);
 }
 
 
 static void
-backward()
+toggle_animate ()
 {
-	void fade_out_done(WaveformActor* actor, gpointer user_data)
-	{
-		gboolean fade_out_really_done(WaveformActor* actor)
-		{
-			AGlScene* scene = ((AGlActor*)actor)->root;
+	PF;
 
-			scene->enable_animations = false;
-			wf_actor_set_z(actor, dz * (G_N_ELEMENTS(a) - 1));
-			scene->enable_animations = true;
-			wf_actor_fade_in(actor, NULL, 1.0f, NULL, NULL);
-			set_position(a_front, G_N_ELEMENTS(a) - 1); //move to front
-
-			if(++a_front > G_N_ELEMENTS(a) - 1) a_front = 0;
-			return G_SOURCE_REMOVE;
-		}
-		g_idle_add((GSourceFunc)fade_out_really_done, actor); //TODO fix issues with overlapping transitions.
-	}
-
-	int i; for(i=0;i<G_N_ELEMENTS(a);i++) wf_actor_set_z(a[i], a[i]->z - dz);
-	dbg(1, "a_front=%i", a_front);
-	wf_actor_fade_out(a[(a_front + 1) % G_N_ELEMENTS(a)], fade_out_done, NULL);
-}
-
-
-static void
-toggle_animate()
-{
-	PF0;
-	gboolean on_idle(gpointer _)
+	gboolean on_idle (gpointer _)
 	{
 		static uint64_t frame = 0;
 		static uint64_t t0    = 0;
-		if(!frame) t0 = get_time();
+		if(!frame) t0 = g_get_monotonic_time();
 		else{
-			uint64_t time = get_time();
+			uint64_t time = g_get_monotonic_time();
 			if(!(frame % 1000))
 				dbg(0, "rate=%.2f fps", ((float)frame) / ((float)(time - t0)) / 1000.0);
 
@@ -363,15 +416,6 @@ toggle_animate()
 		return G_SOURCE_CONTINUE;
 	}
 	g_timeout_add(50, on_idle, NULL);
-}
-
-
-static uint64_t
-get_time()
-{
-	struct timeval start;
-	gettimeofday(&start, NULL);
-	return start.tv_sec * 1000 + start.tv_usec / 1000;
 }
 
 

@@ -110,6 +110,7 @@ struct _actor_priv
 {
 	WfRectangle     rect;        // TODO should be removed in favour of AGlActor.region - this is in progress, but raises the question, why is AGlActor.region integer?
 	float           opacity;     // derived from background colour
+	float           z;           // render position on z-axis.
 
 	struct Animatable {
 		WfAnimatable  start;     // (int64) region
@@ -414,9 +415,9 @@ wf_actor_new(Waveform* w, WaveformContext* wfc)
 			.type        = WF_FLOAT
 		},
 		.z = (WfAnimatable){
-			.model_val.f = &a->z,
-			.start_val.f = a->z,
-			.val.f       = a->z,
+			.model_val.f = &_a->z,
+			.start_val.f = _a->z,
+			.val.f       = _a->z,
 			.type        = WF_FLOAT
 		},
 		.opacity = (WfAnimatable){
@@ -1496,19 +1497,27 @@ wf_actor_set_rect(WaveformActor* a, WfRectangle* rect)
 }
 
 
+WfAnimatable*
+wf_actor_get_z (WaveformActor* a)
+{
+	return &a->priv->animatable.z;
+}
+
+
 void
-wf_actor_set_z(WaveformActor* a, float z)
+wf_actor_set_z (WaveformActor* a, float z)
 {
 	g_return_if_fail(a);
 	WfActorPriv* _a = a->priv;
 
-	if(z == a->z) return;
+	if(z == _a->z) return;
 
-	// the start value is taken from the current value, not the model value, to support overriding of previous transitions.
 	WfAnimatable* animatable = &_a->animatable.z;
-	if(animatable->val.f != *animatable->model_val.f) dbg(0, "*** transient value in effect. is currently animating?");
+
+	// The start value is taken from the current value, not the
+	// model value, to support overriding of previous transitions.
 	animatable->start_val.f = animatable->val.f;
-	a->z = z;
+	_a->z = z;
 
 	if(animatable->start_val.f != *animatable->model_val.f){
 		GList* animatables = g_list_prepend(NULL, animatable);
@@ -1847,6 +1856,12 @@ wf_actor_paint(AGlActor* _actor)
 #ifdef DEBUG
 	g_return_val_if_fail(WF_PEAK_BLOCK_SIZE == (WF_PEAK_RATIO * WF_PEAK_TEXTURE_SIZE), false); // temp check. we use a simplified loop which requires the two block sizes are the same
 #endif
+
+#if 0
+	// Currently, because using the z property is not common, users have to do the translation themselves
+	glTranslatef(0, 0, actor->priv->animatable.z.val.f);
+#endif
+
 	bool render_ok = true;
 	Mode m_active = N_MODES;
 	bool is_first = true;
@@ -1878,6 +1893,10 @@ wf_actor_paint(AGlActor* _actor)
 #endif
 		is_first = false;
 	}
+
+#if 0
+	glTranslatef(0, 0, -actor->priv->animatable.z.val.f);
+#endif
 
 #if 0
 #define DEBUG_BLOCKS
@@ -2165,6 +2184,11 @@ wf_actor_start_transition(WaveformActor* a, GList* animatables, AnimationFn done
 	AGlActor* actor = (AGlActor*)a;
 
 	if(!actor->root->enable_animations/* || !actor->root->draw*/){ //if we cannot initiate painting we cannot animate.
+		GList* l = animatables;
+		for(;l;l=l->next){
+			WfAnimatable* animatable = l->data;
+			animatable->val.f = *animatable->model_val.f;
+		}
 		g_list_free(animatables);
 		return;
 	}
