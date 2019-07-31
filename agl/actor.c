@@ -1187,7 +1187,10 @@ agl_actor__start_transition(AGlActor* actor, GList* animatables, AnimationFn don
 	}
 
 	l = actor->transitions;
-	for(;l;l=l->next){
+	GList* next = NULL;
+	for(;l;l=next){
+		next = l->next; // store before the link is freed
+
 		// remove animatables we are replacing. let others finish.
 		GList* k = animatables;
 		for(;k;k=k->next){

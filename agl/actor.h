@@ -177,6 +177,7 @@ extern AGlActorContext actor_context;
 #define agl_actor__width(A)      ((A)->region.x2 - (A)->region.x1)
 #define agl_actor__height(A)     ((A)->region.y2 - (A)->region.y1)
 #define agl_actor__is_hovered(A) (A->root->hovered == A)
+#define agl_actor__free0(A)      (agl_actor__free(A), NULL)
 
 #define AGL_HANDLED TRUE
 #define AGL_NOT_HANDLED FALSE
