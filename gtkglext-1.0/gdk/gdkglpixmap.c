@@ -79,7 +79,6 @@ static void
 gdk_gl_pixmap_class_init (GdkGLPixmapClass *klass)
 {
   GObjectClass *object_class = G_OBJECT_CLASS (klass);
-  GdkDrawableClass *drawable_class = GDK_DRAWABLE_CLASS (klass);
 
   GDK_GL_NOTE_FUNC_PRIVATE ();
 
@@ -242,7 +241,6 @@ gdk_gl_pixmap_get_gl_config (GdkGLDrawable *gldrawable)
 gboolean
 gdk_gl_pixmap_make_context_current (GdkGLDrawable *draw, GdkGLContext  *glcontext)
 {
-  GdkGLDrawable *read = draw;
   GLXContext glxcontext;
 
   g_return_val_if_fail (GDK_IS_GL_PIXMAP(draw), FALSE);
@@ -274,8 +272,12 @@ gdk_gl_pixmap_make_context_current (GdkGLDrawable *draw, GdkGLContext  *glcontex
     }
 
   _gdk_gl_context_set_gl_drawable (glcontext, draw);
+
   /* currently unused. */
-  /* _gdk_gl_context_set_gl_drawable_read (glcontext, read); */
+#if 0
+  GdkGLDrawable *read = draw;
+  gdk_gl_context_set_gl_drawable_read (glcontext, read);
+#endif
 
   if (_GDK_GL_CONFIG_AS_SINGLE_MODE (glconfig))
     {

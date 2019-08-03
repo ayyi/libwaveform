@@ -56,7 +56,6 @@ static void
 gdk_gl_window_class_init (GdkGLWindowClass *klass)
 {
   GObjectClass *object_class = G_OBJECT_CLASS (klass);
-  GdkDrawableClass *drawable_class = GDK_DRAWABLE_CLASS (klass);
 
   GDK_GL_NOTE_FUNC_PRIVATE ();
 
@@ -325,7 +324,6 @@ gdk_gl_window_swap_buffers (GdkGLDrawable *gldrawable)
 gboolean
 gdk_gl_window_make_context_current (GdkGLDrawable *draw, GdkGLContext *glcontext)
 {
-  GdkGLDrawable *read = draw;
   GdkGLConfig *glconfig;
   Window glxwindow;
   GLXContext glxcontext;

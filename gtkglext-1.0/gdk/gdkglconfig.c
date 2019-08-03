@@ -513,7 +513,6 @@ gdk_gl_config_setup_colormap (GdkScreen *screen, XVisualInfo *xvinfo, gboolean i
 {
 	GdkColormap *colormap;
 	GdkVisual *visual;
-	gboolean overlay_supported;
 
 	GDK_GL_NOTE_FUNC_PRIVATE ();
 

@@ -360,7 +360,7 @@ ng_gl2_load_block (Renderer* renderer, WaveformActor* actor, int b)
 
 
 /*
- *  This is done only once per paint, it doesn not have to be done per block
+ *  This is done only once per paint, it does not have to be done per block
  */
 static bool
 ng_gl2_pre_render (Renderer* renderer, WaveformActor* actor)
