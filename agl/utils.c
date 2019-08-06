@@ -1,5 +1,5 @@
 /*
-  copyright (C) 2013-2018 Tim Orford <tim@orford.org>
+  copyright (C) 2013-2019 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -41,6 +41,7 @@ extern void wf_debug_printf (const char* func, int level, const char* format, ..
 #else
 #define AGL_DEBUG FALSE
 #endif
+#define g_object_unref0(var) ((var == NULL) ? NULL : (var = (g_object_unref (var), NULL)))
 
 static gulong __enable_flags = 0;
 #define GL_ENABLE_ALPHA_TEST   (1<<3)
@@ -108,6 +109,18 @@ agl_get_instance()
 }
 
 
+static GdkGLContext* share_list = 0;
+
+void
+agl_free ()
+{
+#ifdef USE_GTK
+	// remove the reference that was added by gdk_gl_context_new
+	g_object_unref0(share_list);
+#endif
+}
+
+
 /*   Returns a global GdkGLContext that can be used to share
  *   OpenGL display lists between multiple drawables with
  *   dynamic lifetimes.
@@ -116,17 +129,11 @@ agl_get_instance()
 GdkGLContext*
 agl_get_gl_context()
 {
-	static GdkGLContext* share_list = 0;
-
 	if(!share_list){
 		GdkGLConfig* const config = gdk_gl_config_new_by_mode(GDK_GL_MODE_RGBA | GDK_GL_MODE_DOUBLE | GDK_GL_MODE_DEPTH);
 		GdkPixmap* const pixmap = gdk_pixmap_new(0, 8, 8, gdk_gl_config_get_depth(config));
 		gdk_pixmap_set_gl_capability(pixmap, config, 0);
-#ifdef USE_SYSTEM_GTKGLEXT
 		share_list = gdk_gl_context_new(gdk_pixmap_get_gl_drawable(pixmap), 0, TRUE, GDK_GL_RGBA_TYPE);
-#else
-		share_list = _gdk_x11_gl_context_new(gdk_pixmap_get_gl_drawable(pixmap), 0, TRUE, GDK_GL_RGBA_TYPE);
-#endif
 	}
 
 	return share_list;
@@ -691,6 +698,36 @@ agl_print(int x, int y, double z, uint32_t colour, const char *fmt, ...)
 #endif
 
 	glPixelStorei (GL_UNPACK_ROW_LENGTH, 0); //reset back to the default value
+}
+
+
+/*
+ *  A variation of agl_print that updates the y position after printing
+ */
+void
+agl_print_with_cursor (int x, int* y, double z, uint32_t colour, const char* fmt, ...)
+{
+	if(!fmt) return;
+
+	va_list args;
+	va_start(args, fmt);
+	gchar* text = g_strdup_vprintf(fmt, args);
+	va_end(args); // text now contains the string.
+
+	PangoGlRendererClass* PGRC = g_type_class_peek(PANGO_TYPE_GL_RENDERER);
+
+	PangoLayout* layout = pango_layout_new (PGRC->context);
+	pango_layout_set_text (layout, text, -1);
+	g_free(text);
+
+	agl_print_layout(x, *y, z, colour, layout);
+
+	PangoRectangle irect = {0,}, lrect = {0,};
+	pango_layout_get_pixel_extents (layout, &irect, &lrect);
+
+	g_object_unref(layout);
+
+	*y += irect.height;
 }
 
 

@@ -32,18 +32,19 @@
 
 gboolean _gdk_gl_context_force_indirect = FALSE;
 
-static void          gdk_gl_context_insert (GdkGLContext *glcontext);
-static void          gdk_gl_context_remove (GdkGLContextImplX11 *glcontext);
-static GdkGLContext *gdk_gl_context_lookup (GLXContext    glxcontext);
+static void          gdk_gl_context_insert (GdkGLContext*);
+static void          gdk_gl_context_remove (GdkGLContextImplX11*);
+static GdkGLContext *gdk_gl_context_lookup (GLXContext);
 
 G_DEFINE_TYPE (GdkGLContextImplX11, gdk_gl_context_impl_x11, G_TYPE_OBJECT)
+
 
 static void
 gdk_gl_context_impl_x11_init (GdkGLContextImplX11 *self)
 {
 }
 
-void
+static void
 _gdk_gl_context_destroy (GdkGLContextImplX11* glcontext)
 {
   GdkGLContextImplX11 *impl = GDK_GL_CONTEXT_IMPL_X11 (glcontext);
@@ -171,9 +172,8 @@ gdk_gl_context_new_common (GdkGLConfig *glconfig, GdkGLContext *share_list, int 
   return glcontext;
 }
 
-/*< private >*/
 GdkGLContext *
-_gdk_x11_gl_context_new (GdkGLDrawable *gldrawable, GdkGLContext *share_list, gboolean direct, int render_type)
+gdk_gl_context_new (GdkGLDrawable *gldrawable, GdkGLContext *share_list, gboolean direct, int render_type)
 {
   GdkGLContextImplX11 *share_impl = NULL;
   GLXContext share_glxcontext = NULL;

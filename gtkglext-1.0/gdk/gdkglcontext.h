@@ -24,8 +24,8 @@
 
 G_BEGIN_DECLS
 
-typedef struct _GdkGLContextImplX11      GdkGLContextImplX11;
-typedef struct _GdkGLContextImplX11Class GdkGLContextImplX11Class;
+typedef struct _GdkGLContext      GdkGLContextImplX11;
+typedef struct _GdkGLContextClass GdkGLContextImplX11Class;
 
 #define GDK_TYPE_GL_CONTEXT_IMPL_X11              (gdk_gl_context_impl_x11_get_type ())
 #define GDK_GL_CONTEXT_IMPL_X11(object)           (G_TYPE_CHECK_INSTANCE_CAST ((object), GDK_TYPE_GL_CONTEXT_IMPL_X11, GdkGLContextImplX11))
@@ -34,7 +34,7 @@ typedef struct _GdkGLContextImplX11Class GdkGLContextImplX11Class;
 #define GDK_IS_GL_CONTEXT_IMPL_X11_CLASS(klass)   (G_TYPE_CHECK_CLASS_TYPE ((klass), GDK_TYPE_GL_CONTEXT_IMPL_X11))
 #define GDK_GL_CONTEXT_IMPL_X11_GET_CLASS(obj)    (G_TYPE_INSTANCE_GET_CLASS ((obj), GDK_TYPE_GL_CONTEXT_IMPL_X11, GdkGLContextImplX11Class))
 
-struct _GdkGLContextImplX11
+struct _GdkGLContext
 {
   GObject parent_instance;
 
@@ -52,14 +52,14 @@ struct _GdkGLContextImplX11
   guint is_foreign   : 1;
 };
 
-struct _GdkGLContextImplX11Class
+struct _GdkGLContextClass
 {
   GObjectClass parent_class;
 };
 
 GType gdk_gl_context_impl_x11_get_type (void);
 
-GdkGLContext*  _gdk_x11_gl_context_new        (GdkGLDrawable*, GdkGLContext* share_list, gboolean direct, int render_type);
+GdkGLContext*  gdk_gl_context_new             (GdkGLDrawable*, GdkGLContext* share_list, gboolean direct, int render_type);
 GdkGLContext*  gdk_gl_context_get_current     ();
 GdkGLDrawable* gdk_gl_context_get_gl_drawable (GdkGLContext*);
 

@@ -447,7 +447,7 @@ gtk_widget_create_gl_context (GtkWidget    *widget,
    * Create OpenGL rendering context.
    */
 
-  glcontext = _gdk_x11_gl_context_new (gldrawable, share_list, direct, render_type);
+  glcontext = gdk_gl_context_new (gldrawable, share_list, direct, render_type);
   if (glcontext == NULL)
     {
       g_warning ("cannot create GdkGLContext\n");

@@ -1,7 +1,7 @@
 /**
 * +----------------------------------------------------------------------+
 * | This file is part of the Ayyi project. http://www.ayyi.org           |
-* | copyright (C) 2013-2018 Tim Orford <tim@orford.org>                  |
+* | copyright (C) 2013-2019 Tim Orford <tim@orford.org>                  |
 * +----------------------------------------------------------------------+
 * | This program is free software; you can redistribute it and/or modify |
 * | it under the terms of the GNU General Public License version 3       |
@@ -60,6 +60,7 @@ GdkGLContext*   agl_get_gl_context           ();
 #endif
 void      agl_enable              (gulong flags);
 void      agl_gl_init             ();
+void      agl_free                ();
 GLboolean agl_shaders_supported   ();
 GLuint    agl_create_program      (AGlShader*);
 GLuint    agl_compile_shader_text (GLenum shaderType, const char* text);
@@ -91,6 +92,7 @@ void      agl_set_font            (char* family, int size, PangoWeight);
 void      agl_set_font_string     (char* font_string);
 void      agl_print               (int x, int y, double z, uint32_t colour, const char* fmt, ...);
 void      agl_print_layout        (int x, int y, double z, uint32_t colour, PangoLayout*);
+void      agl_print_with_cursor   (int x, int* y, double z, uint32_t colour, const char* fmt, ...);
 void      agl_print_with_background(int x, int y, double z, uint32_t colour, uint32_t bg_colour, const char* fmt, ...);
 
 int       agl_power_of_two        (guint);

@@ -40,6 +40,11 @@ typedef enum
 #  define bool int
 #endif
 
+#ifndef true
+#  define true TRUE
+#  define false FALSE
+#endif
+
 #define AGL_ENABLE_BLEND        (1<<1)
 #define AGL_ENABLE_TEXTURE_2D   (1<<2)
 #define AGL_ENABLE_ALPHA_TEST   (1<<3)
