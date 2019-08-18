@@ -109,7 +109,9 @@ agl_get_instance()
 }
 
 
+#ifdef USE_GTK
 static GdkGLContext* share_list = 0;
+#endif
 
 void
 agl_free ()

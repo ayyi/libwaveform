@@ -78,6 +78,7 @@ static ASS_Renderer* ass_renderer = NULL;
 #endif
 
 
+#ifdef USE_LIBASS
 #ifdef DEBUG
 		static void msg_callback(int level, const char* fmt, va_list va, void* data)
 		{
@@ -86,6 +87,7 @@ static ASS_Renderer* ass_renderer = NULL;
 			vprintf(fmt, va);
 			printf("\n");
 		}
+#endif
 #endif
 
 static void
