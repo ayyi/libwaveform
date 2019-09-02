@@ -117,7 +117,7 @@ void
 waveform_set_file (Waveform* w, const char* filename)
 {
 	if(w->filename){
-		if(!strcmp(filename, w->filename)){
+		if(filename && !strcmp(filename, w->filename)){
 			// must bail otherwise peak job will not complete
 			if(wf_debug) gwarn("ignoring request to set same filename");
 			return;
