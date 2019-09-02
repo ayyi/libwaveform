@@ -42,6 +42,8 @@ static AGlActorClass root_actor_class = {0, "ROOT"};
 
 #define SCENE_IS_GTK(A) (A->root->type == CONTEXT_TYPE_GTK)
 
+#define IS_DRAWABLE(A) (!(!agl_actor__is_onscreen(A) || ((agl_actor__width(A) < 1 || agl_actor__height(A) < 1))))
+
 static bool   agl_actor__is_onscreen  (AGlActor*);
 static bool  _agl_actor__on_event     (AGlActor*, GdkEvent*, AGliPt);
 static void   agl_actor__init         (AGlActor*);        // called once when gl context is available. and again if gl context changes, eg after re-realize.
@@ -367,13 +369,15 @@ agl_actor__is_onscreen(AGlActor* a)
 
 
 #ifdef AGL_ACTOR_RENDER_CACHE
-static void
-render_from_fbo(AGlActor* a)
+void
+agl_actor__render_from_fbo (AGlActor* a)
 {
 	// render the FBO to screen
 
 	AGlFBO* fbo = a->fbo;
 	g_return_if_fail(fbo);
+
+	g_return_if_fail(a->cache.valid);
 
 	// TODO fix the real agl_textured_rect so that it doesnt call glBlendFunc
 	void agl_textured_rect_(guint texture, float x, float y, float w, float h, AGlQuad* _t)
@@ -436,12 +440,8 @@ render_from_fbo(AGlActor* a)
 
 
 bool
-agl_actor__paint(AGlActor* a)
+_agl_actor__paint(AGlActor* a)
 {
-	if(!a->root) return false;
-
-	if(!agl_actor__is_onscreen(a) || ((agl_actor__width(a) < 1 || agl_actor__height(a) < 1) && a->paint != agl_actor__null_painter)) return false;
-
 #ifdef AGL_ACTOR_RENDER_CACHE
 	bool use_fbo = a->fbo && a->cache.enabled && !(agl_actor__width(a) > AGL_MAX_FBO_WIDTH);
 #endif
@@ -485,15 +485,18 @@ agl_actor__paint(AGlActor* a)
 
 				GList* l = a->children;
 				for(;l;l=l->next){
-					bool _good = agl_actor__paint((AGlActor*)l->data);
-					good = good & _good;
+					AGlActor* a = l->data;
+					if(IS_DRAWABLE(a)){
+						good &= _agl_actor__paint(a);
+					}
 				}
 				glTranslatef(a->cache.position.x, 0.0, 0.0);
 			} agl_end_draw_to_fbo;
+
 			a->cache.valid = good;
 		}
-
-		render_from_fbo(a);
+		if(a->cache.valid)
+			agl_actor__render_from_fbo(a);
 
 #undef SHOW_FBO_BORDERS
 #ifdef SHOW_FBO_BORDERS
@@ -520,7 +523,8 @@ agl_actor__paint(AGlActor* a)
 #endif
 		GList* l = a->children;
 		for(;l;l=l->next){
-			good &= agl_actor__paint((AGlActor*)l->data);
+			if(IS_DRAWABLE((AGlActor*)l->data))
+				good &= _agl_actor__paint((AGlActor*)l->data);
 		}
 #ifdef AGL_ACTOR_RENDER_CACHE
 	}
@@ -585,6 +589,17 @@ agl_actor__paint(AGlActor* a)
 #endif
 
 	return good;
+}
+
+
+bool
+agl_actor__paint(AGlActor* a)
+{
+	if(!a->root) return false;
+
+	if(!agl_actor__is_onscreen(a) || ((agl_actor__width(a) < 1 || agl_actor__height(a) < 1) && a->paint != agl_actor__null_painter)) return false;
+
+	return _agl_actor__paint(a);
 }
 
 
@@ -982,7 +997,7 @@ agl_actor__on_expose(GtkWidget* widget, GdkEventExpose* event, gpointer user_dat
 		agl_bg_colour_rbga(root->bg_colour);
 		glClear(GL_COLOR_BUFFER_BIT);
 
-		agl_actor__paint((AGlActor*)root);
+		_agl_actor__paint((AGlActor*)root);
 
 #undef SHOW_BOUNDING_BOX
 #ifdef SHOW_BOUNDING_BOX

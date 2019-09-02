@@ -1,6 +1,6 @@
 /**
 * +----------------------------------------------------------------------+
-* | copyright (C) 2013-2015 Tim Orford <tim@orford.org>                  |
+* | copyright (C) 2013-2019 Tim Orford <tim@orford.org>                  |
 * +----------------------------------------------------------------------+
 * | This program is free software; you can redistribute it and/or modify |
 * | it under the terms of the GNU General Public License version 3       |
@@ -29,6 +29,17 @@ void    agl_fbo_set_size (AGlFBO*, int width, int height);
 
 #define agl_fbo_free0(var) (var = (agl_fbo_free(var), NULL))
 
+typedef struct {
+   uint32_t fb[10];
+   int      i;
+} FbStack;
+
+#ifdef __agl_fbo_c__
+FbStack fbs = {{0,},};
+#else
+extern FbStack fbs;
+#endif
+
 #define agl_draw_to_fbo(F) \
 	glMatrixMode(GL_PROJECTION); \
 	glPushMatrix(); \
@@ -39,12 +50,13 @@ void    agl_fbo_set_size (AGlFBO*, int width, int height);
 	glPushMatrix(); \
 	glLoadIdentity(); \
 	\
+	fbs.fb[++fbs.i] = F->id; \
 	glBindFramebuffer(GL_FRAMEBUFFER_EXT, F->id); \
 	glPushAttrib(GL_VIEWPORT_BIT); \
 	glViewport(0, 0, F->width, F->height);
 
 #define agl_end_draw_to_fbo \
-	glBindFramebuffer(GL_FRAMEBUFFER_EXT, 0); \
+	glBindFramebuffer(GL_FRAMEBUFFER_EXT, fbs.fb[--fbs.i]); \
 	glPopAttrib(); /*restore viewport */ \
 	\
 	glMatrixMode(GL_PROJECTION); \

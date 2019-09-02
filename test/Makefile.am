@@ -193,6 +193,20 @@ test:
 	cd .. && test/large_files
 	cd .. && test/32bit
 	cd .. && test/cache
+	./view_plus_test -n
+	./actor_test -n
+	./actor_plus -n
+	./hires -n
+	./scenegraph -n
+	./viewport -n
+	./group -n
+	./actor_no_scene -n
+	./multi_scene -n
+	./frame_rate -n
+	./glx -n
+	./list -n
+	./sdl -n
+	./ass -n
 
 CLEANFILES = \
 	large_files \
