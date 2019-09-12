@@ -1,5 +1,5 @@
 /*
-  copyright (C) 2012-2018 Tim Orford <tim@orford.org>
+  copyright (C) 2012-2019 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -113,9 +113,7 @@ enum {
 static int      waveform_view_plus_get_width            (WaveformViewPlus*);
 static int      waveform_view_plus_get_height           (WaveformViewPlus*);
 
-static gpointer waveform_view_plus_parent_class = NULL;
-
-#define WAVEFORM_VIEW_PLUS_GET_PRIVATE(o) (G_TYPE_INSTANCE_GET_PRIVATE ((o), TYPE_WAVEFORM_VIEW_PLUS, WaveformViewPlusPrivate))
+G_DEFINE_TYPE_WITH_PRIVATE (WaveformViewPlus, waveform_view_plus, GTK_TYPE_DRAWING_AREA)
 enum  {
 	WAVEFORM_VIEW_PLUS_DUMMY_PROPERTY
 };
@@ -195,7 +193,7 @@ construct ()
 }
 
 
-	static bool waveform_view_plus_load_new_on_idle(gpointer _view)
+	static bool waveform_view_plus_load_new_on_idle (gpointer _view)
 	{
 		WaveformViewPlus* view = _view;
 		g_return_val_if_fail(view, G_SOURCE_REMOVE);
@@ -207,7 +205,7 @@ construct ()
 	}
 
 	// TODO find a better way to ensure the canvas is ready before calling waveform_view_plus_gl_init
-	gboolean try_canvas(gpointer _a)
+	gboolean try_canvas (gpointer _a)
 	{
 		AGlActor* a = _a;
 		WaveformViewPlus* view = (WaveformViewPlus*)((AGlRootActor*)a)->gl.gdk.widget;
@@ -219,12 +217,12 @@ construct ()
 		return G_SOURCE_REMOVE;
 	}
 
-	void root_ready(AGlActor* a)
+	void root_ready (AGlActor* a)
 	{
 		if(try_canvas(a)) g_idle_add(try_canvas, a);
 	}
 
-	void _waveform_view_plus_on_draw(AGlScene* scene, gpointer _view)
+	void _waveform_view_plus_on_draw (AGlScene* scene, gpointer _view)
 	{
 		gtk_widget_queue_draw((GtkWidget*)_view);
 	}
@@ -267,7 +265,7 @@ waveform_view_plus_new (Waveform* waveform)
 }
 
 
-				static void _waveform_view_plus__show_waveform_done(Waveform* w, gpointer _view)
+				static void _waveform_view_plus__show_waveform_done (Waveform* w, gpointer _view)
 				{
 					WaveformViewPlus* view = _view;
 					WaveformViewPlusPrivate* v = view->priv;
@@ -282,7 +280,7 @@ waveform_view_plus_new (Waveform* waveform)
 				}
 
 static void
-_waveform_view_plus__show_waveform(gpointer _view, gpointer _c)
+_waveform_view_plus__show_waveform (gpointer _view, gpointer _c)
 {
 	// this must NOT be called until the canvas is ready
 
@@ -316,7 +314,7 @@ _waveform_view_plus__show_waveform(gpointer _view, gpointer _c)
 }
 
 
-	static void waveform_view_plus_load_file_done(WaveformActor* a, gpointer _c)
+	static void waveform_view_plus_load_file_done (WaveformActor* a, gpointer _c)
 	{
 		WfClosure* c = (WfClosure*)_c;
 		if(agl_actor__width(((AGlActor*)a))){
@@ -355,7 +353,7 @@ waveform_view_plus_load_file (WaveformViewPlus* view, const char* filename, WfCa
 
 
 #ifdef DEBUG
-	static void on_waveform_view_finalize(gpointer view, GObject* was)
+	static void on_waveform_view_finalize (gpointer view, GObject* was)
 	{
 		dbg(0, "^^^");
 		((WaveformViewPlus*)view)->waveform = NULL;
@@ -485,7 +483,7 @@ waveform_view_plus_set_region (WaveformViewPlus* view, int64_t start_frame, int6
 
 
 void
-waveform_view_plus_set_colour(WaveformViewPlus* view, uint32_t fg, uint32_t bg/*, uint32_t text1, uint32_t text2*/)
+waveform_view_plus_set_colour (WaveformViewPlus* view, uint32_t fg, uint32_t bg/*, uint32_t text1, uint32_t text2*/)
 {
 	WaveformViewPlusPrivate* v = view->priv;
 
@@ -523,7 +521,7 @@ waveform_view_plus_set_show_rms (WaveformViewPlus* view, gboolean _show)
 
 
 AGlActor*
-waveform_view_plus_add_layer(WaveformViewPlus* view, AGlActor* actor, int z)
+waveform_view_plus_add_layer (WaveformViewPlus* view, AGlActor* actor, int z)
 {
 	PF;
 	WaveformViewPlusPrivate* v = view->priv;
@@ -538,14 +536,14 @@ waveform_view_plus_add_layer(WaveformViewPlus* view, AGlActor* actor, int z)
 
 
 AGlActor*
-waveform_view_plus_get_layer(WaveformViewPlus* view, int z)
+waveform_view_plus_get_layer (WaveformViewPlus* view, int z)
 {
 	return agl_actor__find_by_z(view->priv->root, z);
 }
 
 
 void
-waveform_view_plus_remove_layer(WaveformViewPlus* view, AGlActor* actor)
+waveform_view_plus_remove_layer (WaveformViewPlus* view, AGlActor* actor)
 {
 	g_return_if_fail(actor);
 	WaveformViewPlusPrivate* v = view->priv;
@@ -561,12 +559,12 @@ waveform_view_plus_realize (GtkWidget* widget)
 	WaveformViewPlus* view = (WaveformViewPlus*)widget;
 	GTK_WIDGET_SET_FLAGS (widget, GTK_REALIZED);
 
-	GdkWindowAttr attrs = {0};
-	attrs.window_type = GDK_WINDOW_CHILD;
-	attrs.width = widget->allocation.width;
-	attrs.wclass = GDK_INPUT_OUTPUT;
-	attrs.event_mask = gtk_widget_get_events(widget) | GDK_EXPOSURE_MASK | GDK_KEY_PRESS_MASK | GDK_ENTER_NOTIFY_MASK;
-
+	GdkWindowAttr attrs = {
+		.window_type = GDK_WINDOW_CHILD,
+		.width = widget->allocation.width,
+		.wclass = GDK_INPUT_OUTPUT,
+		.event_mask = gtk_widget_get_events(widget) | GDK_EXPOSURE_MASK | GDK_KEY_PRESS_MASK | GDK_ENTER_NOTIFY_MASK
+	};
 	_g_object_unref0(widget->window);
 	widget->window = gdk_window_new (gtk_widget_get_parent_window(widget), &attrs, 0);
 	gdk_window_set_user_data (widget->window, view);
@@ -626,7 +624,7 @@ waveform_view_plus_on_expose (GtkWidget* widget, GdkEventExpose* event)
 			waveform_view_plus_draw(view);
 		}
 
-#if USE_SYSTEM_GTKGLEXT
+#ifdef USE_SYSTEM_GTKGLEXT
 		gdk_gl_drawable_swap_buffers(((AGlRootActor*)view->priv->root)->gl.gdk.drawable);
 #else
 		gdk_gl_window_swap_buffers(((AGlRootActor*)view->priv->root)->gl.gdk.drawable);
@@ -759,7 +757,7 @@ static void
 waveform_view_plus_class_init (WaveformViewPlusClass * klass)
 {
 	waveform_view_plus_parent_class = g_type_class_peek_parent (klass);
-	g_type_class_add_private (klass, sizeof (WaveformViewPlusPrivate));
+
 	GTK_WIDGET_CLASS (klass)->expose_event = waveform_view_plus_on_expose;
 	GTK_WIDGET_CLASS (klass)->button_press_event = waveform_view_plus_button_press_event;
 	GTK_WIDGET_CLASS (klass)->button_release_event = waveform_view_plus_button_release_event;
@@ -778,13 +776,13 @@ waveform_view_plus_class_init (WaveformViewPlusClass * klass)
 
 
 static void
-waveform_view_plus_instance_init (WaveformViewPlus * self)
+waveform_view_plus_init (WaveformViewPlus * self)
 {
 #ifndef USE_CANVAS_SCALING
 	self->zoom = 1.0;
 #endif
 	self->start_frame = 0;
-	self->priv = WAVEFORM_VIEW_PLUS_GET_PRIVATE (self);
+	self->priv = waveform_view_plus_get_instance_private(self);
 	self->priv->canvas = NULL;
 	self->priv->actor = NULL;
 }
@@ -814,22 +812,8 @@ waveform_view_plus_finalize (GObject* obj)
 }
 
 
-GType
-waveform_view_plus_get_type ()
-{
-	static volatile gsize waveform_view_plus_type_id__volatile = 0;
-	if (g_once_init_enter (&waveform_view_plus_type_id__volatile)) {
-		static const GTypeInfo g_define_type_info = { sizeof (WaveformViewPlusClass), (GBaseInitFunc) NULL, (GBaseFinalizeFunc) NULL, (GClassInitFunc) waveform_view_plus_class_init, (GClassFinalizeFunc) NULL, NULL, sizeof (WaveformViewPlus), 0, (GInstanceInitFunc) waveform_view_plus_instance_init, NULL };
-		GType waveform_view_plus_type_id;
-		waveform_view_plus_type_id = g_type_register_static (GTK_TYPE_DRAWING_AREA, "WaveformViewPlus", &g_define_type_info, 0);
-		g_once_init_leave (&waveform_view_plus_type_id__volatile, waveform_view_plus_type_id);
-	}
-	return waveform_view_plus_type_id__volatile;
-}
-
-
 static void
-waveform_view_plus_set_projection(GtkWidget* widget)
+waveform_view_plus_set_projection (GtkWidget* widget)
 {
 	int vx = 0;
 	int vy = 0;
@@ -856,7 +840,7 @@ waveform_view_plus_set_projection(GtkWidget* widget)
  *  Returns the underlying canvas that the WaveformViewPlus is using.
  */
 WaveformContext*
-waveform_view_plus_get_context(WaveformViewPlus* view)
+waveform_view_plus_get_context (WaveformViewPlus* view)
 {
 	g_return_val_if_fail(view, NULL);
 	return view->priv->canvas;
@@ -864,7 +848,7 @@ waveform_view_plus_get_context(WaveformViewPlus* view)
 
 
 WaveformActor*
-waveform_view_plus_get_actor(WaveformViewPlus* view)
+waveform_view_plus_get_actor (WaveformViewPlus* view)
 {
 	g_return_val_if_fail(view, NULL);
 	return view->priv->actor;
@@ -872,7 +856,7 @@ waveform_view_plus_get_actor(WaveformViewPlus* view)
 
 
 static int
-waveform_view_plus_get_width(WaveformViewPlus* view)
+waveform_view_plus_get_width (WaveformViewPlus* view)
 {
 	GtkWidget* widget = (GtkWidget*)view;
 
@@ -881,7 +865,7 @@ waveform_view_plus_get_width(WaveformViewPlus* view)
 
 
 static int
-waveform_view_plus_get_height(WaveformViewPlus* view)
+waveform_view_plus_get_height (WaveformViewPlus* view)
 {
 	GtkWidget* widget = (GtkWidget*)view;
 
@@ -935,7 +919,7 @@ waveform_view_plus_get_height(WaveformViewPlus* view)
 	}
 
 static void
-add_key_handlers(GtkWindow* window, WaveformViewPlus* waveform, Key keys[])
+add_key_handlers (GtkWindow* window, WaveformViewPlus* waveform, Key keys[])
 {
 	//list of keys must be terminated with a key of value zero.
 
@@ -956,7 +940,7 @@ add_key_handlers(GtkWindow* window, WaveformViewPlus* waveform, Key keys[])
 
 
 static void
-remove_key_handlers(GtkWindow* window, WaveformViewPlus* waveform)
+remove_key_handlers (GtkWindow* window, WaveformViewPlus* waveform)
 {
 	g_signal_handlers_disconnect_matched (waveform, G_SIGNAL_MATCH_ID | G_SIGNAL_MATCH_DATA, g_signal_lookup ("key-press-event", GTK_TYPE_WIDGET), 0, NULL, NULL, waveform);
 	g_signal_handlers_disconnect_matched (waveform, G_SIGNAL_MATCH_ID | G_SIGNAL_MATCH_DATA, g_signal_lookup ("key-release-event", GTK_TYPE_WIDGET), 0, NULL, NULL, waveform);
@@ -964,7 +948,7 @@ remove_key_handlers(GtkWindow* window, WaveformViewPlus* waveform)
 
 
 static void
-scroll_left(WaveformViewPlus* view)
+scroll_left (WaveformViewPlus* view)
 {
 #ifdef USE_CANVAS_SCALING
 	WaveformViewPlusPrivate* v = view->priv;
@@ -982,7 +966,7 @@ scroll_left(WaveformViewPlus* view)
 
 
 static void
-scroll_right(WaveformViewPlus* view)
+scroll_right (WaveformViewPlus* view)
 {
 #ifdef USE_CANVAS_SCALING
 	WaveformViewPlusPrivate* v = view->priv;
@@ -1000,28 +984,28 @@ scroll_right(WaveformViewPlus* view)
 
 
 static void
-home(WaveformViewPlus* view)
+home (WaveformViewPlus* view)
 {
 	waveform_view_plus_set_start(view, 0);
 }
 
 
 static void
-zoom_in(WaveformViewPlus* view)
+zoom_in (WaveformViewPlus* view)
 {
 	waveform_view_plus_set_zoom(view, view->priv->canvas->zoom * 1.5);
 }
 
 
 static void
-zoom_out(WaveformViewPlus* view)
+zoom_out (WaveformViewPlus* view)
 {
 	waveform_view_plus_set_zoom(view, view->priv->canvas->zoom / 1.5);
 }
 
 
 static void
-zoom_up(WaveformViewPlus* view)
+zoom_up (WaveformViewPlus* view)
 {
 	WaveformActor* actor = view->priv->actor;
 	wf_actor_set_vzoom(actor, actor->canvas->v_gain * 1.3);
@@ -1029,7 +1013,7 @@ zoom_up(WaveformViewPlus* view)
 
 
 static void
-zoom_down(WaveformViewPlus* view)
+zoom_down (WaveformViewPlus* view)
 {
 	WaveformActor* actor = view->priv->actor;
 	wf_actor_set_vzoom(actor, actor->canvas->v_gain / 1.3);
@@ -1037,7 +1021,7 @@ zoom_down(WaveformViewPlus* view)
 
 
 static void
-waveform_view_plus_draw(WaveformViewPlus* view)
+waveform_view_plus_draw (WaveformViewPlus* view)
 {
 	WaveformViewPlusPrivate* v = view->priv;
 
@@ -1061,7 +1045,7 @@ waveform_view_plus_draw(WaveformViewPlus* view)
 
 
 static void
-waveform_view_plus_gl_on_allocate(WaveformViewPlus* view)
+waveform_view_plus_gl_on_allocate (WaveformViewPlus* view)
 {
 	WaveformViewPlusPrivate* v = view->priv;
 
@@ -1077,7 +1061,7 @@ waveform_view_plus_gl_on_allocate(WaveformViewPlus* view)
 }
 
 
-	static void waveform_actor_size(AGlActor* actor)
+	static void waveform_actor_size (AGlActor* actor)
 	{
 		#define V_BORDER 4
 
@@ -1095,7 +1079,7 @@ waveform_view_plus_gl_on_allocate(WaveformViewPlus* view)
 		}
 	}
 
-	static void waveform_actor_size0(AGlActor* actor)
+	static void waveform_actor_size0 (AGlActor* actor)
 	{
 		waveform_actor_size(actor);
 #ifdef AGL_ACTOR_RENDER_CACHE
@@ -1106,7 +1090,7 @@ waveform_view_plus_gl_on_allocate(WaveformViewPlus* view)
 	}
 
 static AGlActor*
-waveform_actor(WaveformViewPlus* view)
+waveform_actor (WaveformViewPlus* view)
 {
 	AGlActor* actor = (AGlActor*)wf_canvas_add_new_actor(view->priv->canvas, view->waveform);
 	actor->colour = view->fg_colour;
