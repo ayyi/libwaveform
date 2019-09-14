@@ -78,6 +78,7 @@ test_data: Makefile write_block.cc
 		$(FFMPEG) -i $(DATA_DIR)/mono_0:10.wav $(DATA_DIR)/mono_0:10.opus; \
 		$(FFMPEG) -i $(DATA_DIR)/mono_0:10.wav $(DATA_DIR)/mono_0:10.flac; \
 		$(FFMPEG) -i $(DATA_DIR)/mono_0:10.wav -acodec pcm_s24le $(DATA_DIR)/mono_24b_0:10.wav; \
+		$(FFMPEG) -i $(DATA_DIR)/mono_0:10.wav -acodec pcm_u8 $(DATA_DIR)/mono_8b_0:10.wav; \
 	fi;
 	@if [ ! -e "$(DATA_DIR)/stereo_0:10.wav" ] || [ "./write_wav" -nt "$(DATA_DIR)/stereo_0:10.wav" ] || [ "Makefile" -nt "$(DATA_DIR)/stereo_0:10.wav" ]; then \
 		./write_wav --channels=2 $(DATA_DIR)/stereo_0:10.wav; \
