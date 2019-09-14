@@ -144,10 +144,12 @@ wf_load_riff_peak(Waveform* wv, const char* peak_file)
 	if((readcount_frames = ad_read_peak(&decoder, &buf)) < r_frames){
 #endif
 		int shortfall = n_frames * 2 - readcount_frames;
+#ifndef USE_SNDFILE
 		if(shortfall){
 			memset(buf.buf[0] + readcount_frames, 0, shortfall);
 			memset(buf.buf[1] + readcount_frames, 0, shortfall);
 		}
+#endif
 		if(shortfall < 100){
 			gwarn("shortfall");
 		}else{
