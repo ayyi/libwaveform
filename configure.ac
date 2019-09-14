@@ -50,9 +50,6 @@ fi
 JACK_LIBS=`pkg-config jack --cflags --libs`
 AC_SUBST(JACK_LIBS)
 
-SNDFILE_LIBS=`pkg-config --cflags --libs sndfile`
-AC_SUBST(SNDFILE_LIBS)
-
 AYYI_CFLAGS="-I./ayyi"
 AC_SUBST(AYYI_CFLAGS)
 GLIB_CFLAGS=`pkg-config --cflags glib-2.0`
@@ -158,7 +155,22 @@ AC_SUBST(OPENGL_LDFLAGS)
 
 dnl -----------------------------------------------------
 
-AC_ARG_ENABLE(ffmpeg,   AC_HELP_STRING([--disable-ffmpeg], [disable use of FFMPEG]), enable_ffmpeg=$enableval, enable_ffmpeg="auto")
+AC_ARG_ENABLE(sndfile, AC_HELP_STRING([--disable-sndfile], [disable use of libsndfile]), enable_sndfile=$enableval, enable_sndfile="auto")
+
+AS_IF([test "$enable_sndfile" != "no"], [
+	PKG_CHECK_MODULES(SNDFILE, sndfile, enable_sndfile=yes, enable_sndfile=no)
+	])
+
+if test "$enable_sndfile" = "yes"; then
+	AC_DEFINE(USE_SNDFILE,1,[Use libsndfile audio decoder])
+fi
+AM_CONDITIONAL(ENABLE_SNDFILE, test "$enable_sndfile" = "yes")
+SNDFILE_LDFLAGS=${SNDFILE_LIBS}
+AC_SUBST(SNDFILE_LDFLAGS)
+
+dnl -----------------------------------------------------
+
+AC_ARG_ENABLE(ffmpeg, AC_HELP_STRING([--disable-ffmpeg], [disable use of FFMPEG]), enable_ffmpeg=$enableval, enable_ffmpeg="auto")
 
 AS_IF([test "$enable_ffmpeg" != "no"], [
 	PKG_CHECK_MODULES(FFMPEG, [libavformat >= 51.0.0 libavcodec >= 51.0.0 libavutil >= 50.0.0], enable_ffmpeg=yes, enable_ffmpeg=no)
@@ -272,6 +284,7 @@ AC_MSG_RESULT([Building opengl:          $enable_opengl])
 AC_MSG_RESULT([Building gtk:             $enable_gtk])
 AC_MSG_RESULT([Building sdl:             $enable_sdl])
 AC_MSG_RESULT([Building libass:          $enable_libass])
+AC_MSG_RESULT([Building sndfile:         $enable_sndfile])
 AC_MSG_RESULT([Building ffmpeg:          $enable_ffmpeg])
 AC_MSG_RESULT([Building tests:           $enable_test])
 AC_MSG_RESULT([Use system GtkGL:         $enable_system_gtkglext])

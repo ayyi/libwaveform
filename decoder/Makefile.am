@@ -12,11 +12,16 @@ FF_SRC = \
 	ffmpeg.c
 endif
 
+if ENABLE_SNDFILE
+SNDFILE_SRC = \
+	sndfile.c
+endif
+
 libdecoder_la_SOURCES = \
 	ad.c ad.h \
-	sndfile.c \
-	debug.h \
-	$(FF_SRC)
+	$(SNDFILE_SRC) \
+	$(FF_SRC) \
+	debug.h
 
 pkgincludedir=$(includedir)/decoder
 

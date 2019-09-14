@@ -321,7 +321,9 @@ waveform_get_sf_data(Waveform* w)
 		if(!g_file_test(w->filename, G_FILE_TEST_EXISTS)){
 			if(wf_debug) gwarn("file open failure. no such file: %s", w->filename);
 		}else{
+#ifdef USE_SNDFILE
 			if(wf_debug) g_warning("file open failure (%s) \"%s\"\n", sf_strerror(NULL), w->filename);
+#endif
 
 			// attempt to work with only a pre-existing peakfile in case file is temporarily unmounted
 			if(waveform_load_sync(w)){
@@ -336,7 +338,10 @@ waveform_get_sf_data(Waveform* w)
 	if(_w->num_peaks && !CHECKS_DONE(w)){
 		if(w->n_frames > _w->num_peaks * WF_PEAK_RATIO){
 			char* peakfile = waveform_ensure_peakfile__sync(w);
-			gwarn("peakfile is too short. maybe corrupted. len=%i expected=%"PRIi64" '%s'", _w->num_peaks, w->n_frames / WF_PEAK_RATIO, peakfile);
+			int diff0 = w->n_frames - _w->num_peaks * WF_PEAK_RATIO;
+			int diff = diff0 / WF_PEAK_RATIO + (diff0 % WF_PEAK_RATIO ? 1 : 0);
+			gwarn("peakfile is too short. maybe corrupted. len=%i expected=%"PRIi64" (short by %i) '%s'", _w->num_peaks, w->n_frames / WF_PEAK_RATIO + (diff0 % WF_PEAK_RATIO ? 1 : 0), diff, peakfile);
+
 			w->renderable = false;
 			g_free(peakfile);
 		}

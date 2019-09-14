@@ -13,7 +13,6 @@
 #define __gl_canvas_priv__
 #include "config.h"
 #include <stdlib.h>
-#include <string.h>
 #include <GL/gl.h>
 #ifdef USE_GTK
 #include <gtk/gtk.h>

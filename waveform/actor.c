@@ -357,7 +357,7 @@ wf_actor_class_init()
  *  Normally called by the parent canvas from wf_canvas_add_new_actor.
  */
 WaveformActor*
-wf_actor_new(Waveform* w, WaveformContext* wfc)
+wf_actor_new (Waveform* w, WaveformContext* wfc)
 {
 	dbg(2, "%s-------------------------%s", "\x1b[1;33m", "\x1b[0;39m");
 
@@ -367,7 +367,6 @@ wf_actor_new(Waveform* w, WaveformContext* wfc)
 
 	if(w){
 		waveform_get_n_frames(w);
-		if(!w->renderable) return NULL;
 	}
 
 	WaveformActor* a = WF_NEW(WaveformActor,
@@ -575,26 +574,31 @@ wf_actor_set_waveform(WaveformActor* a, Waveform* waveform, WaveformActorFn call
 	g_return_if_fail(a);
 	PF;
 
-	waveform_get_n_frames(waveform);
-	if(!waveform->renderable) return;
-
-	agl_actor__invalidate((AGlActor*)a);
-
 	if(a->waveform){
 		wf_actor_clear(a);
 		wf_actor_disconnect_waveform(a);
-		g_object_unref(a->waveform);
+		waveform_unref0(a->waveform);
 	}
-	a->waveform = g_object_ref(waveform);
-	wf_actor_set_region(a, &(WfSampleRegion){0, waveform->n_frames});
 
-	wf_actor_connect_waveform(a);
+	if(waveform){
+		waveform_get_n_frames(waveform);
+		if(!waveform->renderable) return;
 
-	waveform_load(
-		a->waveform,
-		wf_actor_set_waveform_done,
-		WF_NEW(C2, .actor = a, .callback = callback, .user_data = user_data)
-	);
+		a->waveform = g_object_ref(waveform);
+		wf_actor_set_region(a, &(WfSampleRegion){0, waveform->n_frames});
+
+		wf_actor_connect_waveform(a);
+
+		waveform_load(
+			a->waveform,
+			wf_actor_set_waveform_done,
+			WF_NEW(C2, .actor = a, .callback = callback, .user_data = user_data)
+		);
+	}else{
+		a->waveform = NULL;
+	}
+
+	agl_actor__invalidate((AGlActor*)a);
 }
 
 

@@ -1,7 +1,7 @@
 /**
 * +----------------------------------------------------------------------+
 * | This file is part of the Ayyi project. http://ayyi.org               |
-* | copyright (C) 2016 Tim Orford <tim@orford.org>                       |
+* | copyright (C) 2016-2019 Tim Orford <tim@orford.org>                  |
 * | copyright (C) 2011 Robin Gareus <robin@gareus.org>                   |
 * +----------------------------------------------------------------------+
 * | This program is free software; you can redistribute it and/or modify |
@@ -53,13 +53,25 @@ struct _AdPlugin
 };
 
 
+typedef struct
+{
+    int      width;
+    int      height;
+    int      row_stride;
+    uint8_t* data;
+} AdPicture;
+
 /* low level API */
 gboolean ad_open          (WfDecoder*, const char*);
 int      ad_close         (WfDecoder*);
 int64_t  ad_seek          (WfDecoder*, int64_t);
 ssize_t  ad_read          (WfDecoder*, float*, size_t);
 ssize_t  ad_read_short    (WfDecoder*, WfBuf16*);
+ssize_t  ad_read_peak     (WfDecoder*, WfBuf16*);
 int      ad_info          (WfDecoder*);
+
+void     ad_thumbnail     (WfDecoder*, AdPicture*);
+void     ad_thumbnail_free(WfDecoder*, AdPicture*);
 
 void     ad_clear_nfo     (WfAudioInfo*);
 void     ad_free_nfo      (WfAudioInfo*);
@@ -70,7 +82,9 @@ void     ad_print_nfo     (int dbglvl, WfAudioInfo*);
 ssize_t  ad_read_mono_dbl (WfDecoder*, double*, size_t);
 
 /* hardcoded backends */
+#ifdef USE_SNDFILE
 const AdPlugin* get_sndfile ();
+#endif
 #ifdef USE_FFMPEG
 const AdPlugin* get_ffmpeg  ();
 #endif

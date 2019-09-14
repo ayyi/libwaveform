@@ -15,10 +15,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
+#include <inttypes.h>
 #include <math.h>
 #include "decoder/debug.h"
 #include "decoder/ad.h"
+
+#define g_free0(A) (A = (g_free(A), NULL))
 
 #if 0
 int      ad_eval_null  (const char* f)               { return -1; }
@@ -44,10 +46,12 @@ choose_backend(const char* filename)
 	int max = 0;
 	int score;
 
+#ifdef USE_SNDFILE
 	if((score = get_sndfile()->eval(filename)) > max){
 		max = score;
 		b = get_sndfile();
 	}
+#endif
 
 #ifdef USE_FFMPEG
 	if((score = get_ffmpeg()->eval(filename)) > max){
@@ -116,6 +120,21 @@ ad_read_short(WfDecoder* d, WfBuf16* out)
 }
 
 
+ssize_t
+ad_read_peak (WfDecoder* d, WfBuf16* out)
+{
+#ifdef USE_FFMPEG
+	if (!d) return -1;
+
+	ssize_t ff_read_peak(WfDecoder* d, WfBuf16* buf);
+
+	return ff_read_peak(d, out);
+#else
+	return -1;
+#endif
+}
+
+
 /*
  *  For fftw clients that prefer data as double.
  *  side-effects: allocates buffer
@@ -158,6 +177,25 @@ ad_finfo (const char* f, WfAudioInfo* nfo)
 		return TRUE;
 	}
 	return FALSE;
+}
+
+
+void
+ad_thumbnail (WfDecoder* d, AdPicture* picture)
+{
+#ifdef USE_FFMPEG
+	extern void get_scaled_thumbnail (WfDecoder*, int size, AdPicture*);
+	if(d->b == get_ffmpeg()){
+		get_scaled_thumbnail (d, 200, picture);
+	}
+#endif
+}
+
+
+void
+ad_thumbnail_free (WfDecoder* d, AdPicture* picture)
+{
+	g_free0(picture->data);
 }
 
 
