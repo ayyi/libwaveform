@@ -18,9 +18,8 @@ Multi-level caching is provided:
 * peak files are saved to disk roughly following freedeskop.org standards. (Ardour session peak files are also supported.)
 * peak files are cached in ram at multiple resolutions.
 * audio is cached in ram for use at high resolutions.
-* peaks are stored as OpenGl 2D textures in graphics hardware.
-* peaks are stored as OpenGl 1D textures for use with shader programs.
-* rendered and filtered images are stored as OpenGl FBO's.
+* peak data is stored as OpenGL textures for use with shader programs.
+* rendered and filtered images are stored as OpenGL FBO's.
 
 Magnification and translation transitions are animated.
 
@@ -33,10 +32,9 @@ There are 4 main ways of using libwaveform:
 
 Requirements:
 
-- Gtk2
-- GtkGLExt/GLX/SDL
-- Libsndfile/FFmpeg
-- OpenGl (recommended)
+- GLX
+- Libsndfile and/or FFmpeg (Libsndfile is recommended if you are using wav or flac files)
+- Gtk2/SDL (optional)
 
 
 Status
