@@ -19,7 +19,6 @@
 #include <glib-object.h>
 #include <pango/pango.h>
 #include <fontconfig/fontconfig.h>
-//#include <clutter/clutter-color.h>
 
 G_BEGIN_DECLS
 

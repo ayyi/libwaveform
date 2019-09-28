@@ -29,14 +29,11 @@
 
 #define PANGO_ENABLE_BACKEND
 #include <pango/pangofc-font.h>
-#include <pango/pangofc-fontmap.h>
 #include <fontconfig/fontconfig.h>
 
 #include "agl/fontmap.h"
 #include "agl/pango_font.h"
 #include "agl/pango_render.h"
-
-#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 
 
 struct _PangoGlFontMap
@@ -140,7 +137,7 @@ pango_gl_font_map_create_context (PangoGlFontMap *fontmap)
 {
   g_return_val_if_fail (PANGO_GL_IS_FONT_MAP (fontmap), NULL);
   
-  return pango_fc_font_map_create_context (PANGO_FC_FONT_MAP (fontmap));
+  return pango_font_map_create_context(PANGO_FONT_MAP(fontmap));
 }
 
 FT_Library
