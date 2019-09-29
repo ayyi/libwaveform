@@ -139,14 +139,6 @@ ad_info_ffmpeg (WfDecoder* d)
 
 	GPtrArray* tags = g_ptr_array_new_full(32, g_free);
 
-	#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
-	// this is deprecated. not sure if it is needed here
-	if(av_demuxer_open(f->format_context)){
-		dbg(0, "cannot open demuxer");
-//		return -1;
-	}
-	#pragma GCC diagnostic warning "-Wdeprecated-declarations"
-
 	AVDictionaryEntry* tag = NULL;
 	// Tags in container
 	while ((tag = av_dict_get(f->format_context->metadata, "", tag, AV_DICT_IGNORE_SUFFIX))) {
@@ -373,7 +365,7 @@ get_scaled_thumbnail (WfDecoder* d, int size, AdPicture* picture)
 
 	uint8_t* frame_data = g_malloc0(line_size * height);
 	memcpy(frame_data, frame->data[0], line_size * height);
-	dbg(0, "result: %ix%i row_stride=%i", width, height, line_size);
+	dbg(1, "result: %ix%i row_stride=%i", width, height, line_size);
 
 	if (f->thumbnail.graph) {
 		// Free the graph and destroy its links
@@ -1099,32 +1091,34 @@ ff_read_float_planar_to_planar (WfDecoder* d, WfBuf16* buf)
 	int data_size = av_get_bytes_per_sample(f->codec_parameters->format);
 	g_return_val_if_fail(data_size == 4, 0);
 
-	bool have_frame = false;
-	if(f->frame.nb_samples && f->frame_iter < f->frame.nb_samples){
-		have_frame = true;
-	}
-	while(have_frame || !av_read_frame(f->format_context, &f->packet)){
-		have_frame = false;
+	bool have_prev_frame = (f->frame.nb_samples && f->frame_iter < f->frame.nb_samples);
+	while(have_prev_frame || !av_read_frame(f->format_context, &f->packet)){
+		have_prev_frame = false;
 		if(f->packet.stream_index == f->audio_stream){
 			int got_frame = false;
 			if(f->frame_iter && f->frame_iter < f->frame.nb_samples){
 				got_frame = true;
 			}else{
-				memset(&f->frame, 0, sizeof(AVFrame));
 				av_frame_unref(&f->frame);
 				f->frame_iter = 0;
 
-				int ret = avcodec_receive_frame(f->codec_context, &f->frame);
-				if (ret == 0) got_frame = true;
-				if (ret == AVERROR(EAGAIN)) ret = 0;
-				if (ret == 0) ret = avcodec_send_packet(f->codec_context, &f->packet);
-				if (ret == AVERROR(EAGAIN)) ret = 0;
-				if (ret < 0) gwarn("error decoding audio");
+				int error = avcodec_receive_frame(f->codec_context, &f->frame);
+				if (!error)
+					got_frame = true;
+					error = avcodec_send_packet(f->codec_context, &f->packet);
+					if (error == AVERROR(EAGAIN))
+						error = 0;
+				else if (error == AVERROR(EAGAIN))
+					error = 0; // try again next iteration
+				if (error) {
+					char errbuff[64] = {0,};
+					gwarn("error decoding audio: %s", av_make_error_string(errbuff, 64, error));
+				}
 			}
 			if(got_frame){
 				int size = av_samples_get_buffer_size (NULL, f->codec_parameters->channels, f->frame.nb_samples, f->codec_parameters->format, 1);
 				if (size < 0)  {
-					dbg(0, "av_samples_get_buffer_size invalid value");
+					gwarn("av_samples_get_buffer_size invalid value");
 				}
 
 				int64_t fr = f->frame.best_effort_timestamp * d->info.sample_rate / f->format_context->streams[f->audio_stream]->time_base.den + f->frame_iter;
@@ -1331,7 +1325,7 @@ ff_read_u8_interleaved_to_planar (WfDecoder* d, WfBuf16* buf)
 				if (ret == AVERROR(EAGAIN)) ret = 0;
 				if (ret == 0) ret = avcodec_send_packet(f->codec_context, &f->packet);
 				if (ret == AVERROR(EAGAIN)) ret = 0;
-				if(ret < 0) gwarn("error decoding audio");
+				if (ret < 0) gwarn("error decoding audio");
 			}
 
 			if(got_frame){

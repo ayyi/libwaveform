@@ -24,6 +24,8 @@
   - output is 16bit, alternating positive and negative peaks
   - output has riff header so we know what type of peak file it is. Could possibly revert to headerless file.
   - peak files are cached in ~/.cache/
+  - peak files are expired after 90 days
+  - there is no size limit to the cache directory
 
   todo:
   - what is maximum file size?
@@ -809,44 +811,44 @@ get_cache_dir()
 }
 
 
-	#define CACHE_EXPIRY_DAYS 30
+#define CACHE_EXPIRY_DAYS 90
 
-	static bool _maintain_file_cache()
-	{
-		char* dir_name = get_cache_dir();
-		dbg(2, "dir=%s", dir_name);
-		GError* error = NULL;
-		GDir* d = g_dir_open(dir_name, 0, &error);
+static bool _maintain_file_cache()
+{
+	char* dir_name = get_cache_dir();
+	dbg(2, "dir=%s", dir_name);
+	GError* error = NULL;
+	GDir* d = g_dir_open(dir_name, 0, &error);
 
-		struct timeval time;
-		gettimeofday(&time, NULL);
-		time_t now = time.tv_sec;
+	struct timeval time;
+	gettimeofday(&time, NULL);
+	time_t now = time.tv_sec;
 
-		int n_deleted = 0;
-		struct stat info;
-		const char* leaf;
-		while ((leaf = g_dir_read_name(d))) {
-			if (g_str_has_suffix(leaf, ".peak")) {
-				gchar* filename = g_build_filename(dir_name, leaf, NULL);
-				if(!stat(filename, &info)){
-					time_t days_old = (now - info.st_mtime) / (60 * 60 * 24);
-					//dbg(0, "%i days_old=%i", info.st_mtime, days_old);
-					if(days_old > CACHE_EXPIRY_DAYS){
-						dbg(2, "deleting: %s", filename);
-						g_unlink(filename);
-						n_deleted++;
-					}
+	int n_deleted = 0;
+	struct stat info;
+	const char* leaf;
+	while ((leaf = g_dir_read_name(d))) {
+		if (g_str_has_suffix(leaf, ".peak")) {
+			gchar* filename = g_build_filename(dir_name, leaf, NULL);
+			if(!stat(filename, &info)){
+				time_t days_old = (now - info.st_mtime) / (60 * 60 * 24);
+				//dbg(0, "%i days_old=%i", info.st_mtime, days_old);
+				if(days_old > CACHE_EXPIRY_DAYS){
+					dbg(2, "deleting: %s", filename);
+					g_unlink(filename);
+					n_deleted++;
 				}
-				g_free(filename);
 			}
+			g_free(filename);
 		}
-		dbg(1, "peak files deleted: %i", n_deleted);
-
-		g_dir_close(d);
-		g_free(dir_name);
-
-		return G_SOURCE_REMOVE;
 	}
+	dbg(1, "peak files deleted: %i", n_deleted);
+
+	g_dir_close(d);
+	g_free(dir_name);
+
+	return G_SOURCE_REMOVE;
+}
 
 static void
 maintain_file_cache()

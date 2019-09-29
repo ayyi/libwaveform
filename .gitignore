@@ -64,6 +64,7 @@ test/view_test
 test/viewport
 test/waveform_test
 test/gen/write_piano
+test/gen/thumbnail
 transition/Makefile
 transition/Makefile.in
 waveform/Makefile

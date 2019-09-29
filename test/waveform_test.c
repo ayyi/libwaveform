@@ -21,15 +21,9 @@
 */
 #define __wf_private__
 #include "config.h"
-#include <stdio.h>
-#include <stdlib.h>
-#include <stdint.h>
-#include <string.h>
 #include <getopt.h>
 #include <time.h>
-#include <unistd.h>
 #include <inttypes.h>
-#include <signal.h>
 #include <sys/time.h>
 #include <glib.h>
 #include "decoder/ad.h"
@@ -39,7 +33,7 @@
 #include "waveform/worker.h"
 #include "test/common.h"
 
-TestFn test_peakgen, test_bad_wav, test_audio_file, test_audiodata, test_audio_cache, test_alphabuf, test_worker;
+TestFn test_peakgen, test_bad_wav, test_audio_file, test_audiodata, test_audio_cache, test_alphabuf, test_worker, test_thumbnail;
 
 static void finalize_notify(gpointer, GObject*);
 
@@ -51,6 +45,7 @@ gpointer tests[] = {
 	test_audio_cache,
 	test_alphabuf,
 	test_worker,
+	test_thumbnail,
 };
 
 #define WAV "mono_0:10.wav"
@@ -70,7 +65,7 @@ main (int argc, char *argv[])
 
 
 void
-test_peakgen()
+test_peakgen ()
 {
 	START_TEST;
 
@@ -103,7 +98,7 @@ typedef struct {
  *  Check the load callback gets called if loading fails
  */
 void
-test_bad_wav()
+test_bad_wav ()
 {
 	START_TEST;
 	if(__test_idx == -1) printf("\n"); // stop compiler warning
@@ -142,7 +137,7 @@ test_bad_wav()
  *  Test reading of audio files.
  */
 void
-test_audio_file()
+test_audio_file ()
 {
 	START_TEST;
 
@@ -180,7 +175,7 @@ test_audio_file()
 			assert(!(total % 512) || !(total % 100), "%s: bad framecount: %zu", filenames[i], total); // test file sizes are always a round number
 		}else{
 			// for some file types, f.info.frames is only an estimate
-			assert(abs((int)total - (int)f.info.frames) < 2048, "%s: incorrect number of frames read: %"PRIi64, filenames[i], f.info.frames);
+			assert(abs((int)total - (int)f.info.frames) < 2048, "%s: incorrect number of frames read: %"PRIi64" (expected %"PRIi64")", filenames[i], total, f.info.frames);
 		}
 
 		ad_close(&f);
@@ -209,7 +204,7 @@ test_audio_file()
 	}
 
 void
-test_audiodata()
+test_audiodata ()
 {
 	START_TEST;
 	if(__test_idx);
@@ -262,7 +257,7 @@ test_audiodata()
 	}
 
 void
-test_audiodata_slow()
+test_audiodata_slow ()
 {
 	// queues the requests separately.
 
@@ -352,7 +347,7 @@ test_audio_cache ()
 
 
 void
-test_alphabuf()
+test_alphabuf ()
 {
 	START_TEST;
 
@@ -377,7 +372,7 @@ test_alphabuf()
 
 
 void
-test_worker()
+test_worker ()
 {
 	// run jobs in two worker threads with activity in main thread.
 
@@ -499,7 +494,6 @@ test_worker()
 			FINISH_TEST_TIMER_STOP;
 		}
 
-		dbg(0, "");
 		waveform_unref0(w);
 		g_timeout_add(15000, stop, NULL);
 		return G_SOURCE_REMOVE;
@@ -509,8 +503,36 @@ test_worker()
 }
 
 
+void
+test_thumbnail ()
+{
+	START_TEST;
+
+	char* filename = find_wav("thumbnail.mp3");
+
+	WfDecoder dec = {0,};
+	if(!ad_open(&dec, filename)){
+		FAIL_TEST("failed to open file");
+	}
+
+	AdPicture picture;
+	ad_thumbnail(&dec, &picture);
+
+	assert(picture.width, "width");
+	assert(picture.height, "height");
+	assert(picture.row_stride, "rowstride");
+	assert(picture.data, "data");
+
+	ad_close(&dec);
+	ad_thumbnail_free(NULL, &picture);
+
+	g_free(filename);
+	FINISH_TEST;
+}
+
+
 static void
-finalize_notify(gpointer data, GObject* was)
+finalize_notify (gpointer data, GObject* was)
 {
 	dbg(1, "...");
 }

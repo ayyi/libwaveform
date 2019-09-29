@@ -23,16 +23,6 @@
 */
 #define __wf_private__
 #include "config.h"
-#include <stdio.h>
-#include <stdlib.h>
-#include <stdint.h>
-#include <string.h>
-#include <time.h>
-#include <unistd.h>
-#include <signal.h>
-#include <sys/time.h>
-#include <sys/types.h>
-#include <math.h>
 #include <glib.h>
 #include <glib/gstdio.h>
 #include <sndfile.h>
