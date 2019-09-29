@@ -39,16 +39,18 @@ AM_CFLAGS = \
 	$(SDL_CFLAGS) \
 	$(LIBASS_CFLAGS)
 
+# be careful before changing the order here
 TEST_LDFLAGS = \
-	-lm \
+	$(top_srcdir)/.libs/libwaveform.a \
+	$(OPENGL_LDFLAGS) \
+	$(LIBASS_LDFLAGS) \
 	$(GTK_LDFLAGS) \
 	$(X11_LDFLAGS) \
+	$(GTKGLEXT_LDFLAGS) \
+	$(GMODULE_LDFLAGS) \
 	$(SNDFILE_LIBS) \
 	$(FFMPEG_LDFLAGS) \
-	$(OPENGL_LDFLAGS) \
-	$(top_srcdir)/.libs/libwaveform.a \
-	$(LIBASS_LDFLAGS) \
-	$(GTKGLEXT_LDFLAGS)
+	-lm
 
 COMMON_SOURCES = \
 	common.c common.h \

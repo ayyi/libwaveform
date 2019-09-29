@@ -64,6 +64,9 @@ AC_SUBST(GTHREAD_LIBS)
 X11_LDFLAGS=`pkg-config --libs x11`
 AC_SUBST(X11_LDFLAGS)
 
+GMODULE_LDFLAGS=`pkg-config gmodule-2.0 --libs`
+AC_SUBST(GMODULE_LDFLAGS)
+
 dnl -----------------------------------------------------
 
 GTK_CFLAGS=`pkg-config gtk+-2.0 --cflags`
