@@ -252,6 +252,9 @@ on_allocate (GtkWidget* widget, GtkAllocation* allocation, gpointer user_data)
 	((AGlActor*)scene)->region.x2 = allocation->width;
 	((AGlActor*)scene)->region.y2 = allocation->height;
 
+	AGlActor* rotator = ((AGlActor*)scene)->children->data;
+	rotator->region = (AGliRegion){0, 0, allocation->width, allocation->height};
+
 	if(!gl_initialised) return;
 
 	start_zoom(zoom);
