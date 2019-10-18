@@ -68,8 +68,8 @@ struct _WaveformContext {
 
 #ifdef __wf_canvas_priv__
 struct _WfContextPriv {
-	WfAnimatable   zoom;               // (float) samples_per_pixel
-	WfAnimatable   samples_per_pixel;  // type float
+	WfAnimatable  zoom;               // (float) samples_per_pixel
+	WfAnimatable  samples_per_pixel;  // type float
 
 #ifdef USE_FRAME_CLOCK
 	guint64       _last_redraw_time;

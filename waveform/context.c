@@ -1,5 +1,5 @@
 /*
-  copyright (C) 2012-2018 Tim Orford <tim@orford.org>
+  copyright (C) 2012-2019 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -178,17 +178,17 @@ wf_context_init(WaveformContext* wfc, AGlRootActor* root)
 	wfc->bpm = 120.0;
 
 	wfc->priv->zoom = (WfAnimatable){
-		.model_val.f = &wfc->zoom,
-		.start_val.f = wfc->zoom,
-		.val.f       = wfc->zoom,
-		.type        = WF_FLOAT
+		.val.f        = &wfc->zoom,
+		.start_val.f  = wfc->zoom,
+		.target_val.f = wfc->zoom,
+		.type         = WF_FLOAT
 	};
 
 	wfc->priv->samples_per_pixel = (WfAnimatable){
-		.model_val.f = &wfc->samples_per_pixel,
-		.start_val.f = wfc->samples_per_pixel,
-		.val.f       = wfc->samples_per_pixel,
-		.type        = WF_FLOAT
+		.val.f        = &wfc->samples_per_pixel,
+		.start_val.f  = wfc->samples_per_pixel,
+		.target_val.f = wfc->samples_per_pixel,
+		.type         = WF_FLOAT
 	};
 
 	wfc->shaders.ruler = &ruler;
@@ -501,7 +501,7 @@ wf_context_set_rotation(WaveformContext* wfc, float rotation)
 float
 wf_context_get_zoom(WaveformContext* wfc)
 {
-	return wfc->scaled ? wfc->priv->zoom.val.f : 0.0;
+	return wfc->scaled ? wfc->zoom : 0.0;
 }
 
 
@@ -541,22 +541,24 @@ wf_context_set_zoom (WaveformContext* wfc, float zoom)
 	if(wfc->samples_per_pixel < 0.001) gwarn("spp too low: %f", wfc->samples_per_pixel);
 #endif
 
-	float old_zoom = wfc->zoom;
+	//float old_zoom = wfc->zoom;
 
-	wfc->zoom = CLAMP(zoom, WF_CONTEXT_MIN_ZOOM, WF_CONTEXT_MAX_ZOOM);
+	zoom = CLAMP(zoom, WF_CONTEXT_MIN_ZOOM, WF_CONTEXT_MAX_ZOOM);
 
 	if(!wfc->root->enable_animations){
-		wfc->priv->zoom.val.f = zoom;
+		wfc->zoom = zoom;
 		agl_actor__invalidate((AGlActor*)wfc->root);
 		return;
 	}
 
 	// TODO move this into the animator xx
-	if(wfc->zoom == old_zoom){
+	if(zoom == wfc->zoom){
 		return;
 	}
 
 	g_signal_emit_by_name(wfc, "zoom-changed");
+
+	wfc->priv->zoom.target_val.f = zoom;
 
 	WfAnimation* animation = wf_animation_new(set_zoom_on_animation_finished, wfc);
 	animation->on_frame = wf_context_set_zoom_on_frame;
@@ -579,10 +581,10 @@ wf_context_set_scale(WaveformContext* wfc, float samples_per_px)
 {
 	#define WF_CONTEXT_MAX_SAMPLES_PER_PIXEL 1000000.0
 
-	wfc->samples_per_pixel = CLAMP(samples_per_px, 1.0, WF_CONTEXT_MAX_SAMPLES_PER_PIXEL);
+	samples_per_px = CLAMP(samples_per_px, 1.0, WF_CONTEXT_MAX_SAMPLES_PER_PIXEL);
 
 	if(!wfc->root->enable_animations){
-		wfc->priv->samples_per_pixel.val.f = wfc->samples_per_pixel;
+		wfc->samples_per_pixel = samples_per_px;
 		agl_actor__invalidate((AGlActor*)wfc->root);
 		return;
 	}
@@ -591,6 +593,7 @@ wf_context_set_scale(WaveformContext* wfc, float samples_per_px)
 	WfAnimation* animation = wf_animation_new(NULL, wfc);
 	animation->on_frame = wf_context_set_zoom_on_frame;
 
+	wfc->priv->samples_per_pixel.target_val.f = samples_per_px;
 	wf_transition_add_member(animation, g_list_prepend(NULL, &wfc->priv->samples_per_pixel));
 
 	wf_animation_start(animation);
@@ -608,7 +611,7 @@ wf_context_set_gain(WaveformContext* wfc, float gain)
 float
 wf_context_frame_to_x (WaveformContext* context, uint64_t frame)
 {
-	float pixels_per_sample = context->zoom / context->priv->samples_per_pixel.val.f;
+	float pixels_per_sample = context->zoom / context->samples_per_pixel;
 	return (frame - context->start_time) * pixels_per_sample;
 }
 

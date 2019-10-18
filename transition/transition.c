@@ -1,5 +1,5 @@
 /*
-  copyright (C) 2012-2017 Tim Orford <tim@orford.org>
+  copyright (C) 2012-2019 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -95,7 +95,7 @@ static WfEasing linear = {transition_linear, transition_linear_64, transition_li
 
 
 WfAnimation*
-wf_animation_new(AnimationFn on_finished, gpointer user_data)
+wf_animation_new (AnimationFn on_finished, gpointer user_data)
 {
 	WfAnimation* animation = g_new0(WfAnimation, 1);
 	animation->length = wf_transition.length;
@@ -116,7 +116,7 @@ wf_animation_new(AnimationFn on_finished, gpointer user_data)
  *  Ownership of the animatables list is taken. Caller should not free it.
  */
 void
-wf_transition_add_member(WfAnimation* animation, GList* animatables)
+wf_transition_add_member (WfAnimation* animation, GList* animatables)
 {
 
 	g_return_if_fail(animation);
@@ -144,20 +144,20 @@ wf_transition_add_member(WfAnimation* animation, GList* animatables)
 	l = animatables;
 	for(;l;l=l->next){
 		WfAnimatable* a = l->data;
-		a->start_val.f = a->val.f;
+		a->start_val.f = *a->val.f;
 	}
 
 	WfAnimatable* animatable = animatables->data;
 	if(animatable->type == WF_INT)
-		dbg(2, "start=%i end=%i", animatable->start_val.i, *animatable->model_val.i);
+		dbg(2, "start=%i end=%i", animatable->start_val.i, animatable->target_val.i);
 	else
-		dbg(2, "start=%.2f end=%.2f", animatable->start_val.f, *animatable->model_val.f);
+		dbg(2, "start=%.2f end=%.2f", animatable->start_val.f, animatable->target_val.f);
 }
 
 
 #ifdef NOT_USED
 static int
-wf_animation_count_animatables(WfAnimation* animation)
+wf_animation_count_animatables (WfAnimation* animation)
 {
 	int n = 0;
 	GList* l = animation->members;
@@ -175,7 +175,7 @@ wf_animation_count_animatables(WfAnimation* animation)
 
 
 static const char*
-wf_animation_list_animatables(WfAnimation* animation)
+wf_animation_list_animatables (WfAnimation* animation)
 {
 	static char str[256];
 	str[0] = '\0';
@@ -199,7 +199,7 @@ wf_animation_list_animatables(WfAnimation* animation)
 
 
 void
-wf_animation_remove(WfAnimation* animation)
+wf_animation_remove (WfAnimation* animation)
 {
 	GList* l = animation->members;
 	for(;l;l=l->next){
@@ -231,7 +231,7 @@ wf_animation_remove(WfAnimation* animation)
 
 
 gboolean
-wf_animation_remove_animatable(WfAnimation* animation, WfAnimatable* animatable)
+wf_animation_remove_animatable (WfAnimation* animation, WfAnimatable* animatable)
 {
 	// returns true if the whole animation is removed.
 
@@ -249,7 +249,7 @@ wf_animation_remove_animatable(WfAnimation* animation, WfAnimatable* animatable)
 		if(g_list_find(actor->transitions, animatable)){
 			//remove the animatable from the old animation
 			dbg(2, "       already animating: 'start'");
-			animatable->start_val.i = animatable->val.i;
+			animatable->start_val.i = *animatable->val.i;
 
 			if(!(actor->transitions = g_list_remove(actor->transitions, animatable))){
 				wf_animation_remove(animation);
@@ -263,22 +263,17 @@ wf_animation_remove_animatable(WfAnimation* animation, WfAnimatable* animatable)
 
 
 static char*
-wf_animation_val_to_str(WfAnimatable* animatable)
+wf_animation_val_to_str2 (WfAnimatable* animatable)
 {
-	char* str;
-
 	switch(animatable->type){
 		case WF_FLOAT:
-			str = g_strdup_printf("%.2f (%.2f --> %.2f)", animatable->val.f, animatable->start_val.f, *animatable->model_val.f);
-			break;
+			return g_strdup_printf("%.2f (%.2f --> %.2f)", *animatable->val.f, animatable->start_val.f, animatable->target_val.f);
 		case WF_INT64:
-			str = g_strdup_printf("%"PRIi64" (%"PRIi64" --> %"PRIi64")", animatable->val.b, animatable->start_val.b, *animatable->model_val.b);
-			break;
+			return g_strdup_printf("%"PRIi64" (%"PRIi64" --> %"PRIi64")", *animatable->val.b, animatable->start_val.b, animatable->target_val.b);
 		default:
-			str = g_strdup_printf("%i (%i --> %i)", animatable->val.i, animatable->start_val.i, *animatable->model_val.i);
-			break;
+			return g_strdup_printf("%i (%i --> %i)", *animatable->val.i, animatable->start_val.i, animatable->target_val.i);
 	}
-	return str;
+	return NULL;
 }
 
 
@@ -289,7 +284,7 @@ wf_animation_val_to_str(WfAnimatable* animatable)
 		return start.tv_sec * 1000 + start.tv_usec / 1000;
 	}
 
-	static gboolean wf_transition_frame(gpointer _animation)
+	static gboolean wf_transition_frame (gpointer _animation)
 	{
 		uint64_t time = _get_time();
 
@@ -338,8 +333,9 @@ wf_animation_val_to_str(WfAnimatable* animatable)
 	}
 #endif
 
+
 void
-wf_animation_start(WfAnimation* animation)
+wf_animation_start (WfAnimation* animation)
 {
 	g_return_if_fail(animation);
 
@@ -353,8 +349,8 @@ wf_animation_start(WfAnimation* animation)
 			dbg(0, "  actor=%p n_transitions=%i", actor, g_list_length(k));
 			for(;k;k=k->next){
 				WfAnimatable* animatable = k->data;
-				char* val = wf_animation_val_to_str(animatable);
-				dbg(0, "     animatable=%p type=%i %p %s", animatable, animatable->type, animatable->model_val.f, val);
+				char* val = wf_animation_val_to_str2(animatable);
+				dbg(0, "     animatable=%p type=%i %p %s", animatable, animatable->type, animatable->target_val.f, val);
 				if(val) g_free(val);
 			}
 		}
@@ -387,12 +383,13 @@ wf_animation_start(WfAnimation* animation)
 	frame_clock_begin_updating();
 #endif
 
-	wf_transition_frame(animation);
+	// it seems this is not needed as the callback is imediately fired
+	//wf_transition_frame(animation);
 }
 
 
 void
-wf_animation_preview(WfAnimation* animation, AnimationValueFn on_frame, gpointer user_data)
+wf_animation_preview (WfAnimation* animation, AnimationValueFn on_frame, gpointer user_data)
 {
 #ifndef USE_FRAME_CLOCK
 	int t; for(t=0;t<animation->length+WF_FRAME_INTERVAL;t+=WF_FRAME_INTERVAL){
@@ -428,52 +425,53 @@ wf_animation_preview(WfAnimation* animation, AnimationValueFn on_frame, gpointer
 
 
 static void
-transition_linear(WfAnimation* animation, WfAnimatable* animatable, uint64_t time)
+transition_linear (WfAnimation* animation, WfAnimatable* animatable, uint64_t time)
 {
 	uint64_t len = animation->end - animation->start;
 	uint64_t t = time - animation->start;
 
 	float time_fraction = MIN(1.0, ((float)t) / len);
 	float orig_val   = animatable->start_val.i;
-	float target_val = *animatable->model_val.i;
+	float target_val = animatable->target_val.i;
 #if 0
 	dbg(2, "%.2f orig=%.2f target=%.2f", time_fraction, orig_val, target_val);
 #endif
-	animatable->val.i = (1.0 - time_fraction) * orig_val + time_fraction * target_val;
+	*animatable->val.i = (1.0 - time_fraction) * orig_val + time_fraction * target_val;
 }
 
 
 static void
-transition_linear_64(WfAnimation* animation, WfAnimatable* animatable, uint64_t time)
+transition_linear_64 (WfAnimation* animation, WfAnimatable* animatable, uint64_t time)
 {
 	uint64_t len = animation->end - animation->start;
 	uint64_t t = time - animation->start;
 
 	float time_fraction = MIN(1.0, ((float)t) / len);
 	float orig_val   = animatable->start_val.b;
-	float target_val = *animatable->model_val.b;
-	animatable->val.b = (1.0 - time_fraction) * orig_val + time_fraction * target_val;
+	float target_val = animatable->target_val.b;
+	*animatable->val.b = (1.0 - time_fraction) * orig_val + time_fraction * target_val;
 }
 
 
 static void
-transition_linear_f(WfAnimation* animation, WfAnimatable* animatable, uint64_t time)
+transition_linear_f (WfAnimation* animation, WfAnimatable* animatable, uint64_t time)
 {
 	uint64_t len = animation->end - animation->start;
 	uint64_t t = time - animation->start;
 
 	float time_fraction = MIN(1.0f, ((float)t) / ((float)len));
 	float orig_val   = animatable->start_val.f;
-	float target_val = *animatable->model_val.f;
+	float target_val = animatable->target_val.f;
 #if 0
 	dbg(2, "%.2f orig=%.2f target=%.2f", time_fraction, orig_val, target_val);
 #endif
-	animatable->val.f = (1.0 - time_fraction) * orig_val + time_fraction * target_val;
+	*animatable->val.f = (1.0 - time_fraction) * orig_val + time_fraction * target_val;
 }
 
 
 #if 0
-static void print_animation(WfAnimation* animation)
+static void
+print_animation (WfAnimation* animation)
 {
 	GList* l = animation->members;
 	dbg(0, "animation=%p n_members=%i", animation, g_list_length(l));

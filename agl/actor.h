@@ -103,7 +103,8 @@ void      agl_actor__scroll_to       (AGlActor*, AGliPt);
 void      agl_actor__grab            (AGlActor*);
 void      agl_actor__invalidate      (AGlActor*);
 void      agl_actor__enable_cache    (AGlActor*, bool);
-void      agl_actor__start_transition(AGlActor*, GList* animatables, AnimationFn done, gpointer);
+WfAnimation*
+          agl_actor__start_transition(AGlActor*, GList* animatables, AnimationFn done, gpointer);
 bool      agl_actor__is_disabled     (AGlActor*);
 AGlActor* agl_actor__find_by_name    (AGlActor*, const char*);
 AGlActor* agl_actor__find_by_z       (AGlActor*, int);

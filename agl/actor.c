@@ -1187,18 +1187,26 @@ agl_actor__enable_cache(AGlActor* actor, bool enable)
  *
  *   @param animatables - ownership of this list is transferred to the WfAnimation.
  */
-void
-agl_actor__start_transition(AGlActor* actor, GList* animatables, AnimationFn done, gpointer user_data)
+WfAnimation*
+agl_actor__start_transition (AGlActor* actor, GList* animatables, AnimationFn done, gpointer user_data)
 {
-	// TODO handle the case here where animating is disabled.
+	g_return_val_if_fail(actor, NULL);
 
-	g_return_if_fail(actor);
+	if(!actor->root->enable_animations/* || !actor->root->draw*/){ //if we cannot initiate painting we cannot animate.
+		GList* l = animatables;
+		for(;l;l=l->next){
+			WfAnimatable* animatable = l->data;
+			*animatable->val.f = animatable->target_val.f;
+		}
+		g_list_free(animatables);
+		return NULL;
+	}
 
 	// set initial value
 	GList* l = animatables;
 	for(;l;l=l->next){
 		WfAnimatable* animatable = l->data;
-		animatable->start_val.b = animatable->val.b;
+		animatable->start_val.b = *animatable->val.b;
 	}
 
 	l = actor->transitions;
@@ -1227,7 +1235,10 @@ agl_actor__start_transition(AGlActor* actor, GList* animatables, AnimationFn don
 		wf_transition_add_member(animation, animatables);
 		wf_animation_start(animation);
 		agl_actor__enable_cache(actor, false);
+		return animation;
 	}
+
+	return NULL;
 }
 
 
