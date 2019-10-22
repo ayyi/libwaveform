@@ -8,8 +8,6 @@
 * | it under the terms of the GNU General Public License version 3       |
 * | as published by the Free Software Foundation.                        |
 * +----------------------------------------------------------------------+
-*
-* *********** TODO only redraw if something has changed (currently redrawing at 60fps) **********
 */
 #include <math.h>
 #include <stdlib.h>
@@ -67,9 +65,9 @@ static const char* const short_options = "n";
 
 
 int
-main(int argc, char *argv[])
+main (int argc, char *argv[])
 {
-	int width = 300, height = 300;
+	int width = 400, height = 160;
 
 	int i; for (i = 1; i < argc; i++) {
 		if (strcmp(argv[i], "-info") == 0) {
@@ -130,7 +128,7 @@ main(int argc, char *argv[])
 		int width = agl_actor__width(actor->parent);
 		int height = agl_actor__height(actor->parent);
 
-		((AGlActor*)layers.wa)->region = (AGliRegion){.x2 = width, .y2 = height};
+		((AGlActor*)layers.wa)->region = (AGlfRegion){.x2 = width, .y2 = height};
 	}
 
 	layers.bg->set_size = set_size;
@@ -139,7 +137,8 @@ main(int argc, char *argv[])
 	Waveform* w = waveform_load_new(filename);
 	g_free(filename);
 
-	WaveformContext* wfc = wf_context_new(scene);
+	WaveformContext* wfc = wf_context_new((AGlActor*)scene);
+	wfc->samples_per_pixel = waveform_get_n_frames(w) / 400.0;
 
 	agl_actor__add_child((AGlActor*)scene, (AGlActor*)(layers.wa = wf_canvas_add_new_actor(wfc, w)));
 
@@ -179,7 +178,7 @@ zoom_in (gpointer user_data)
 {
 	PF0;
 	WaveformContext* wfc = layers.wa->canvas;
-	wf_context_set_zoom(wfc, wf_context_get_zoom(wfc) * 1.5);
+	wf_context_set_zoom(wfc, (wfc->scaled ? wf_context_get_zoom(wfc) : 1.0) * 1.5);
 }
 
 
@@ -188,7 +187,7 @@ zoom_out (gpointer user_data)
 {
 	PF0;
 	WaveformContext* wfc = layers.wa->canvas;
-	wf_context_set_zoom(wfc, wf_context_get_zoom(wfc) / 1.5);
+	wf_context_set_zoom(wfc, (wfc->scaled ? wf_context_get_zoom(wfc) : 1.0) / 1.5);
 }
 
 

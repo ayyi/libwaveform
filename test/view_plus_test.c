@@ -30,7 +30,7 @@
 
   --------------------------------------------------------------
 
-  Copyright (C) 2012-2018 Tim Orford <tim@orford.org>
+  Copyright (C) 2012-2019 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -125,7 +125,7 @@ struct Layers {
 void  show_wav        (WaveformViewPlus*, const char* filename);
 char* format_channels (int n_channels);
 void  format_time     (char* str, int64_t t_ms);
-static void on_allocate (GtkWidget*, GtkAllocation*, gpointer);
+void  on_allocate     (GtkWidget*, GtkAllocation*, gpointer);
 
 
 	static bool window_on_delete(GtkWidget* widget, GdkEvent* event, gpointer user_data){
@@ -209,7 +209,7 @@ main (int argc, char* argv[])
 }
 
 
-static void
+void
 on_allocate (GtkWidget* widget, GtkAllocation* allocation, gpointer _view)
 {
 	if(!view) return;
@@ -273,17 +273,15 @@ show_wav (WaveformViewPlus* view, const char* filename)
 
 	wf_spinner_start((WfSpinner*)layers.spinner);
 
-	// TODO fix widget so that zoom can be set imediately
-
 	waveform_view_plus_load_file(view, filename, on_loaded_, view);
 
 	g_idle_add(on_loaded, c);
 
 	g_assert(view->waveform);
 
-	char* text = NULL;
 	AGlActor* text_layer = waveform_view_plus_get_layer(view, 3);
 	if(text_layer){
+		char* text = NULL;
 		Waveform* w = view->waveform;
 		if(w->n_channels){
 			char* ch_str = format_channels(w->n_channels);

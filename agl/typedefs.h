@@ -1,7 +1,7 @@
 /**
 * +----------------------------------------------------------------------+
 * | This file is part of the Ayyi project. http://www.ayyi.org           |
-* | copyright (C) 2013-2018 Tim Orford <tim@orford.org>                  |
+* | copyright (C) 2013-2019 Tim Orford <tim@orford.org>                  |
 * +----------------------------------------------------------------------+
 * | This program is free software; you can redistribute it and/or modify |
 * | it under the terms of the GNU General Public License version 3       |
@@ -26,6 +26,7 @@ typedef struct {int x, y;}             AGliPt;
 typedef struct {float x, y;}           AGlfPt;
 typedef struct {int w, h;}             AGliSize;
 typedef struct {int x1, y1, x2, y2;}   AGliRegion;
+typedef struct {float x1, y1, x2, y2;} AGlfRegion;
 typedef struct {float x, y, w, h;}     AGlRect;
 typedef struct {float x0, y0, x1, y1;} AGlQuad;
 typedef struct {float r, g, b;}        AGlColourFloat;

@@ -69,7 +69,7 @@ struct _AGlActor {
 	AGlActorOnEvent  on_event;
 	AGlActorFn       free;
 
-	AGliRegion       region;          // position and size. {int x1, y1, x2, y2}
+	AGlfRegion       region;          // position and size. {int x1, y1, x2, y2}
 	AGliRegion       scrollable;      // larger area within which the actor region is visible {int x1, y1, x2, y2}. See test/viewport.c
 	AGlShader*       program;
 	uint32_t         colour;          // rgba
@@ -102,6 +102,7 @@ void      agl_actor__set_size        (AGlActor*);
 void      agl_actor__scroll_to       (AGlActor*, AGliPt);
 void      agl_actor__grab            (AGlActor*);
 void      agl_actor__invalidate      (AGlActor*);
+void      agl_actor__invalidate_down (AGlActor*);
 void      agl_actor__enable_cache    (AGlActor*, bool);
 WfAnimation*
           agl_actor__start_transition(AGlActor*, GList* animatables, AnimationFn done, gpointer);

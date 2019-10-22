@@ -111,7 +111,7 @@ main (int argc, char *argv[])
 
 	scene = (AGlScene*)agl_actor__new_root(canvas);
 
-	wfc = wf_context_new(scene);
+	wfc = wf_context_new((AGlActor*)scene);
 
 	char* filename = find_wav(WAV);
 	g_assert(filename);
@@ -253,7 +253,7 @@ on_allocate (GtkWidget* widget, GtkAllocation* allocation, gpointer user_data)
 	((AGlActor*)scene)->region.y2 = allocation->height;
 
 	AGlActor* rotator = ((AGlActor*)scene)->children->data;
-	rotator->region = (AGliRegion){0, 0, allocation->width, allocation->height};
+	rotator->region = (AGlfRegion){0, 0, allocation->width, allocation->height};
 
 	if(!gl_initialised) return;
 

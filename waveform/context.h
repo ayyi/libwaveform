@@ -1,18 +1,13 @@
-/*
-  copyright (C) 2012-2019 Tim Orford <tim@orford.org>
-
-  This program is free software; you can redistribute it and/or modify
-  it under the terms of the GNU General Public License version 3
-  as published by the Free Software Foundation.
-
-  This program is distributed in the hope that it will be useful,
-  but WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-  GNU General Public License for more details.
-
-  You should have received a copy of the GNU General Public License
-  along with this program; if not, write to the Free Software
-  Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+/**
+* +----------------------------------------------------------------------+
+* | This file is part of the Ayyi project. http://ayyi.org               |
+* | copyright (C) 2013-2019 Tim Orford <tim@orford.org>                  |
+* +----------------------------------------------------------------------+
+* | This program is free software; you can redistribute it and/or modify |
+* | it under the terms of the GNU General Public License version 3       |
+* | as published by the Free Software Foundation.                        |
+* +----------------------------------------------------------------------+
+*
 */
 #ifndef __waveform_context_h__
 #define __waveform_context_h__
@@ -44,9 +39,8 @@ struct _WaveformContext {
 
 	gboolean       show_rms;
 	gboolean       use_1d_textures;
-	gboolean       blend;              // true by default - set to false to increase performance if using without background (doesnt make much difference). Flag currently not honoured in all cases.
 
-	AGlScene*      root;               // optional
+	AGlActor*      root;               // note the context root is not neccesarily the scenegraph root
 
 	uint32_t       sample_rate;
 	float          bpm;
@@ -85,7 +79,7 @@ struct _WaveformContextClass {
 
 struct _WfViewPort { double left, top, right, bottom; };
 
-WaveformContext* wf_context_new                       (AGlRootActor*);
+WaveformContext* wf_context_new                       (AGlActor*);
 #ifdef USE_SDL
 WaveformContext* wf_context_new_sdl                   (SDL_GLContext*);
 #endif
@@ -107,4 +101,4 @@ float            wf_context_frame_to_x                (WaveformContext*, uint64_
 
 #define wf_context_free0(A) (wf_context_free(A), A = NULL)
 
-#endif //__waveform_context_h__
+#endif

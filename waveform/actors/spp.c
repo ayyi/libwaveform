@@ -2,7 +2,7 @@
 * +----------------------------------------------------------------------+
 * | This file is part of libwaveform                                     |
 * | https://github.com/ayyi/libwaveform                                  |
-* | copyright (C) 2012-2018 Tim Orford <tim@orford.org>                  |
+* | copyright (C) 2012-2019 Tim Orford <tim@orford.org>                  |
 * +----------------------------------------------------------------------+
 * | This program is free software; you can redistribute it and/or modify |
 * | it under the terms of the GNU General Public License version 3       |
@@ -117,7 +117,7 @@ static AGl* agl = NULL;
 	{
 		#define V_BORDER 0
 
-		actor->region = (AGliRegion){
+		actor->region = (AGlfRegion){
 			.x1 = 0,
 			.y1 = V_BORDER,
 			.x2 = actor->parent->region.x2,

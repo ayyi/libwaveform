@@ -59,3 +59,29 @@ transition_behaviour_set_f (TransitionBehaviour* behaviour, AGlActor* actor, flo
 		.user_data = user_data
 	));
 }
+
+
+WfAnimation*
+transition_behaviour_set_i64 (TransitionBehaviour* behaviour, AGlActor* actor, int64_t val, WaveformActorFn callback, gpointer user_data)
+{
+	WfAnimatable* animatable = &behaviour->animatable;
+
+	if(val == animatable->target_val.b){
+		if(callback){
+			callback((WaveformActor*)actor, user_data);
+		}
+		return NULL;
+	}
+
+	animatable->target_val.b = val;
+
+	GList* animatables = TRUE || (animatable->start_val.b != animatable->target_val.b)
+		? g_list_prepend(NULL, animatable)
+		: NULL;
+
+	return agl_actor__start_transition(actor, animatables, on_transition_finished, AGL_NEW(C,
+		.actor = (WaveformActor*)actor,
+		.callback = callback,
+		.user_data = user_data
+	));
+}

@@ -41,6 +41,7 @@
 */
 #define __actor_c__
 #define __wf_private__
+#define __wf_canvas_priv__
 #include "config.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -109,7 +110,7 @@ typedef enum
 	REGION_START = 0,
 	REGION_LEN,
 	RECT_LEFT,
-	RECT_LEN,
+	RECT_RIGHT,
 	Z,
 	OPACITY,
 	N_BEHAVIOURS
@@ -118,6 +119,7 @@ typedef enum
 #define START(A) (((TransitionBehaviour*)A->behaviours[REGION_START])->animatable)
 #define LEN(A) (((TransitionBehaviour*)A->behaviours[REGION_LEN])->animatable)
 #define LEFT(A) (((TransitionBehaviour*)A->behaviours[RECT_LEFT])->animatable)
+#define RIGHT(A) (((TransitionBehaviour*)A->behaviours[RECT_RIGHT])->animatable)
 
 typedef void    (*WaveformActorTransitionFn) (WaveformActor*, WfAnimatable*);
 
@@ -129,7 +131,6 @@ typedef struct
 
 struct _actor_priv
 {
-	WfRectangle     rect;        // TODO should be removed in favour of AGlActor.region - this is in progress, but raises the question, why is AGlActor.region integer?
 	float           opacity;     // derived from background colour
 
 	AGlBehaviour*   behaviours[N_BEHAVIOURS];
@@ -358,24 +359,31 @@ wf_actor_class_init()
 		if(a->waveform && !a->waveform->priv->peak.size) waveform_load(a->waveform, wf_actor_init_load_done, actor);
 	}
 
-	static void wf_actor_set_size(AGlActor* actor)
-	{
-		WfActorPriv* _a = ((WaveformActor*)actor)->priv;
+/*
+ *	Graph layout handler
+ *	No animations are done here, they must be requested explictly
+ */
+static void
+wf_actor_set_size (AGlActor* actor)
+{
+	WfActorPriv* _a = ((WaveformActor*)actor)->priv;
 
-		_a->rect = (WfRectangle){
-			0.0,
-			0.0,
-			agl_actor__width(actor),
-			agl_actor__height(actor)
-		};
-		_a->rect.len = agl_actor__width(actor);
+	WfAnimatable* right = &RIGHT(_a);
+	if(!right->target_val.f){
+		LEFT(_a).target_val.f = actor->region.x1;
+		right->target_val.f = actor->region.x2;
 	}
 
+	if(agl_actor__width(actor) && ((WaveformActor*)actor)->waveform)
+		_wf_actor_load_missing_blocks((WaveformActor*)actor);
+}
+
+
 /*
- *  Normally called by the parent canvas from wf_canvas_add_new_actor.
+ *  Normally called by wf_context_add_new_actor.
  */
 WaveformActor*
-wf_actor_new(Waveform* w, WaveformContext* wfc)
+wf_actor_new (Waveform* w, WaveformContext* wfc)
 {
 	dbg(2, "%s-------------------------%s", "\x1b[1;33m", "\x1b[0;39m");
 
@@ -403,7 +411,9 @@ wf_actor_new(Waveform* w, WaveformContext* wfc)
 		.vzoom = 1.0,
 		.waveform = w ? g_object_ref(w) : NULL,
 	);
+
 	WfActorPriv* _a = a->priv;
+	AGlActor* actor = (AGlActor*)a;
 
 	wf_actor_set_colour(a, 0xffffffff);
 
@@ -413,8 +423,8 @@ wf_actor_new(Waveform* w, WaveformContext* wfc)
 				.dummy = 1
 			},
 			.animatable = {
-				.val.f = &_a->rect.left,
-				.type = WF_FLOAT,
+				.val.b = &a->region.start,
+				.type = WF_INT64,
 #ifdef WF_DEBUG
 			.name = "region-start"
 #endif
@@ -425,8 +435,8 @@ wf_actor_new(Waveform* w, WaveformContext* wfc)
 	_a->behaviours[REGION_LEN] = (AGlBehaviour*)AGL_NEW(WfWaveformActorSizeTransition,
 		.behaviour = {
 			.animatable = {
-				.val.f = &_a->rect.left,
-				.type = WF_FLOAT,
+				.val.b = &a->region.len,
+				.type = WF_INT64,
 #ifdef WF_DEBUG
 			.name = "region-len"
 #endif
@@ -437,7 +447,7 @@ wf_actor_new(Waveform* w, WaveformContext* wfc)
 	_a->behaviours[RECT_LEFT] = (AGlBehaviour*)AGL_NEW(WfWaveformActorSizeTransition,
 		.behaviour = {
 			.animatable = {
-				.val.f = &_a->rect.left,
+				.val.f = &actor->region.x1,
 				.type = WF_FLOAT,
 #ifdef WF_DEBUG
 			.name = "rect-left"
@@ -446,13 +456,13 @@ wf_actor_new(Waveform* w, WaveformContext* wfc)
 		},
 		.callback = wf_actor_on_transition_start
 	);
-	_a->behaviours[RECT_LEN] = (AGlBehaviour*)AGL_NEW(WfWaveformActorSizeTransition,
+	_a->behaviours[RECT_RIGHT] = (AGlBehaviour*)AGL_NEW(WfWaveformActorSizeTransition,
 		.behaviour = {
 			.animatable = {
-				.val.f = &_a->rect.len,
+				.val.f = &actor->region.x2,
 				.type = WF_FLOAT,
 #ifdef WF_DEBUG
-			.name = "rect-len"
+			.name = "rect-right"
 #endif
 			}
 		},
@@ -677,7 +687,8 @@ wf_actor_set_region (WaveformActor* a, WfSampleRegion* region)
 	AGlActor* actor = (AGlActor*)a;
 	WfActorPriv* _a = a->priv;
 	AGlScene* scene = actor->root;
-	dbg(1, "region_start=%Li region_end=%Li wave_end=%Lu", region->start, (uint64_t)(region->start + region->len), waveform_get_n_frames(a->waveform));
+	dbg(1, "region_start=%"PRIi64" region_end=%"PRIi64" wave_end=%Lu", region->start, region->start + region->len, waveform_get_n_frames(a->waveform));
+															dbg(0, "region_start=%"PRIi64" region_end=%"PRIi64" wave_end=%Lu", region->start, region->start + region->len, waveform_get_n_frames(a->waveform));
 	if(!region->len && a->waveform->n_channels){ gwarn("invalid region: len not set"); return; }
 	if(region->start > waveform_get_n_frames(a->waveform)){ gwarn("invalid region: start out of range: %"PRIi64" > %"PRIi64"", region->start, waveform_get_n_frames(a->waveform)); return; }
 	if(region->start + region->len > waveform_get_n_frames(a->waveform)){ gwarn("invalid region: too long: %"PRIi64" len=%"PRIi64" n_frames=%"PRIi64, region->start, region->len, waveform_get_n_frames(a->waveform)); return; }
@@ -687,8 +698,8 @@ wf_actor_set_region (WaveformActor* a, WfSampleRegion* region)
 	bool start = (region->start != a->region.start);
 	bool end   = (region->len   != a->region.len);
 
-	WfAnimatable* a1 = &START(a->priv);
-	WfAnimatable* a2 = &LEN(a->priv);
+	WfAnimatable* a1 = &START(_a);
+	WfAnimatable* a2 = &LEN(_a);
 
 	if(a->region.len < 2){
 		a->region.len = a1->target_val.b = region->len; // dont animate on initial region set.
@@ -700,6 +711,7 @@ wf_actor_set_region (WaveformActor* a, WfSampleRegion* region)
 
 	if(!(scene && scene->draw) || !scene->enable_animations){
 		a->region = *region;
+		LEN(_a).target_val.b = region->len;
 
 		_a->render_info.valid = false;
 		if(scene && scene->draw) wf_canvas_queue_redraw(a->canvas);
@@ -717,17 +729,19 @@ wf_actor_set_region (WaveformActor* a, WfSampleRegion* region)
 		// TODO combine these 2 into 1
 		if(start){
 			TransitionBehaviour* transition = (TransitionBehaviour*)_a->behaviours[REGION_START];
-			transition_behaviour_set_f(transition, (AGlActor*)a, region->start, NULL, NULL);
+			transition_behaviour_set_i64(transition, (AGlActor*)a, region->start, NULL, NULL);
 			wf_actor_on_transition_start(a, &transition->animatable);
 		}
 
 		if(end){
 			TransitionBehaviour* transition = (TransitionBehaviour*)_a->behaviours[REGION_LEN];
-			transition_behaviour_set_f(transition, (AGlActor*)a, region->len, NULL, NULL);
+			transition_behaviour_set_i64(transition, (AGlActor*)a, region->len, NULL, NULL);
 			wf_actor_on_transition_start(a, &transition->animatable);
 		}
 
 		g_list_free(animatables);
+
+		if(!a->waveform->offline && a->waveform->priv->n_blocks) _wf_actor_load_missing_blocks(a);
 	}
 #endif
 }
@@ -751,7 +765,7 @@ wf_actor_set_colour (WaveformActor* a, uint32_t fg_colour)
 
 // temporary while removing wfactor->rect
 #define AGL_ACTOR__SET_REGION_FROM_RECT(ACTOR, RECT) \
-	ACTOR->region = (AGliRegion){ \
+	ACTOR->region = (AGlfRegion){ \
 		.x1 = (RECT)->left, \
 		.y1 = (RECT)->top, \
 		.x2 = (RECT)->left + (RECT)->len, \
@@ -765,6 +779,9 @@ wf_actor_set_colour (WaveformActor* a, uint32_t fg_colour)
 		.len = agl_actor__width(((AGlActor*)A)), \
 		.height = agl_actor__height(((AGlActor*)A)), \
 	}
+
+#define WF_ACTOR_RECT(A) \
+	{A->region.x1, A->region.y1, agl_actor__width(A), agl_actor__height(A)}
 
 
 void
@@ -819,37 +836,37 @@ wf_actor_set_full (WaveformActor* a, WfSampleRegion* region, WfRectangle* rect, 
 		}
 	}
 
-	if(rect && !(rect->len == _a->rect.len && rect->left == _a->rect.left && rect->height == _a->rect.height && rect->top == _a->rect.top)){
+	float len = agl_actor__width(actor);
+	float height = agl_actor__height(actor);
+	if(rect && !(rect->len == len && rect->left == actor->region.x1 && rect->height == height && rect->top == actor->region.y1)){
 
 		_a->render_info.valid = false;
 
 		WfAnimatable* a3 = &((TransitionBehaviour*)_a->behaviours[RECT_LEFT])->animatable;
-		WfAnimatable* a4 = &((TransitionBehaviour*)_a->behaviours[RECT_LEN])->animatable;
+		WfAnimatable* a4 = &((TransitionBehaviour*)_a->behaviours[RECT_RIGHT])->animatable;
 
 		rect->len = MAX(1, rect->len);
 
-		_a->rect = *rect;
 		AGL_ACTOR__SET_REGION_FROM_RECT(actor, rect);
 
 		dbg(2, "rect: %.2f --> %.2f", actor->region.x1, actor->region.x2);
-
-				// TODO move to bottom
-		if(!a->waveform->offline) _wf_actor_load_missing_blocks(a);
 
 		if(animate){
 			if(a3->target_val.f != rect->left) animatables = g_list_prepend(animatables, a3);
 			if(a4->target_val.f != rect->len) animatables = g_list_prepend(animatables, a4);
 		}else{
 			*a3->val.f = actor->region.x1;
-			a3->start_val.f = actor->region.x1;
+			a3->start_val.f = a3->target_val.f = actor->region.x1;
 			*a4->val.f = agl_actor__width(actor);
-			a4->start_val.f = agl_actor__width(actor);
+			a4->start_val.f = a4->target_val.f = agl_actor__width(actor);
 
 			if(scene->draw) wf_canvas_queue_redraw(a->canvas);
 		}
+
+		if(!a->waveform->offline) _wf_actor_load_missing_blocks(a);
 	}
 
-	int len = wf_transition.length;
+	int tlen = wf_transition.length;
 	wf_transition.length = transition_time;
 
 #if 0
@@ -858,18 +875,18 @@ wf_actor_set_full (WaveformActor* a, WfSampleRegion* region, WfRectangle* rect, 
 	if(animatables){
 		// TODO combine these 2 into 1
 		TransitionBehaviour* transition = (TransitionBehaviour*)_a->behaviours[RECT_LEFT];
-		transition_behaviour_set_f((TransitionBehaviour*)_a->behaviours[RECT_LEFT], (AGlActor*)a, _a->rect.left, NULL, NULL);
+		transition_behaviour_set_f((TransitionBehaviour*)_a->behaviours[RECT_LEFT], (AGlActor*)a, actor->region.x1, NULL, NULL);
 		wf_actor_on_transition_start(a, &transition->animatable);
 
-		transition = (TransitionBehaviour*)_a->behaviours[RECT_LEN];
-		transition_behaviour_set_f((TransitionBehaviour*)_a->behaviours[RECT_LEN], (AGlActor*)a, _a->rect.len, callback, user_data);
+		transition = (TransitionBehaviour*)_a->behaviours[RECT_RIGHT];
+		transition_behaviour_set_f(transition, (AGlActor*)a, actor->region.x2, callback, user_data);
 		wf_actor_on_transition_start(a, &transition->animatable);
 
 		g_list_free(animatables);
 	}
 #endif
 
-	wf_transition.length = len;
+	wf_transition.length = tlen;
 }
 
 
@@ -925,7 +942,8 @@ wf_actor_get_first_visible_block(WfSampleRegion* region, double zoom, WfRectangl
 static BlockRange
 wf_actor_get_visible_block_range(WfSampleRegion* region, WfRectangle* rect, double zoom, WfViewPort* viewport_px, int n_blocks)
 {
-	//the region, rect and viewport are passed explictly because different users require slightly different values during transitions.
+	// The region, rect and viewport are passed explictly because different users require slightly
+	// different values during transitions.
 
 	BlockRange range = {FIRST_NOT_VISIBLE, LAST_NOT_VISIBLE};
 
@@ -942,7 +960,7 @@ wf_actor_get_visible_block_range(WfSampleRegion* region, WfRectangle* rect, doub
 	{
 		//float _end_block = ((float)(region->start + region->len - 1)) / samples_per_texture;
 		float _end_block = ((float)(region->start + region->len)) / samples_per_texture;
-		dbg(2, "%s region=%Li-->%Li blocks=%i-->%.2f(%.i) n_peak_frames=%i n_blocks=%i", modes[mode].name, region->start, region->start + region->len, region_blocks.first, _end_block, (int)ceil(_end_block), n_blocks * 256, n_blocks);
+		dbg(2, "%s region=%"PRIi64"-->%"PRIi64" blocks=%i-->%.2f(%.i) n_peak_frames=%i tot_blocks=%i", modes[mode].name, region->start, region->start + region->len, region_blocks.first, _end_block, (int)ceil(_end_block), n_blocks * 256, n_blocks);
 
 		// round _down_ as the block corresponds to the _start_ of a section.
 		region_blocks.last = MIN(((int)_end_block), n_blocks - 1);
@@ -1120,8 +1138,8 @@ void
 wf_actor_get_viewport(WaveformActor* a, WfViewPort* viewport)
 {
 	AGlActor* actor = (AGlActor*)a;
-	WfActorPriv* _a = a->priv;
 #if 0
+	WfActorPriv* _a = a->priv;
 	WaveformContext* canvas = a->canvas;
 
 	if(canvas->viewport) *viewport = *canvas->viewport;
@@ -1129,9 +1147,9 @@ wf_actor_get_viewport(WaveformActor* a, WfViewPort* viewport)
 #else
 	{
 #endif
-		viewport->left   = _a->rect.left;
+		viewport->left   = actor->region.x1;
 		viewport->top    = actor->region.y1;
-		viewport->right  = _a->rect.left + _a->rect.len;
+		viewport->right  = actor->region.x2;
 		viewport->bottom = actor->region.y2;
 	}
 }
@@ -1140,10 +1158,10 @@ wf_actor_get_viewport(WaveformActor* a, WfViewPort* viewport)
 float
 wf_actor_frame_to_x (WaveformActor* actor, uint64_t frame)
 {
-	WfActorPriv* a = actor->priv;
-	#define PIXELS_PER_SAMPLE (a->rect.len / actor->region.len)
+	//WfActorPriv* a = actor->priv;
+	#define PIXELS_PER_SAMPLE (agl_actor__width((AGlActor*)actor) / actor->region.len)
 
-	return ((float)frame - actor->region.start) * PIXELS_PER_SAMPLE + a->rect.left;
+	return ((float)frame - actor->region.start) * PIXELS_PER_SAMPLE + ((AGlActor*)actor)->region.x1;
 }
 
 
@@ -1194,24 +1212,16 @@ _wf_actor_get_viewport_max(WaveformActor* a, WfViewPort* viewport)
 	//special version of get_viewport that gets the outer viewport for duration of the current animation.
 
 	AGlActor* actor = (AGlActor*)a;
-#if 0
-	WaveformContext* canvas = a->canvas;
 
-	if(canvas->viewport) *viewport = *canvas->viewport;
-	else {
-#else
-	{
-#endif
-		float left_max = MAX(actor->region.x1, a->priv->rect.left);
-		float left_min = MIN(actor->region.x1, a->priv->rect.left);
+	float left_max = MAX(actor->region.x1, ((TransitionBehaviour*)a->priv->behaviours[RECT_LEFT])->animatable.target_val.f);
+	float left_min = MIN(actor->region.x1, ((TransitionBehaviour*)a->priv->behaviours[RECT_LEFT])->animatable.target_val.f);
 
-		*viewport = (WfViewPort){
-			.left   = left_min,
-			.top    = actor->region.y1,
-			.right  = left_max + agl_actor__width(actor),
-			.bottom = actor->region.y2
-		};
-	}
+	*viewport = (WfViewPort){
+		.left   = left_min,
+		.top    = actor->region.y1,
+		.right  = left_max + agl_actor__width(actor),
+		.bottom = actor->region.y2
+	};
 }
 
 
@@ -1241,8 +1251,12 @@ mode_range(WaveformActor* a)
 {
 	AGlActor* actor = (AGlActor*)a;
 
+	float t1 = ((TransitionBehaviour*)a->priv->behaviours[RECT_LEFT])->animatable.target_val.f;
+	float t2 = ((TransitionBehaviour*)a->priv->behaviours[RECT_RIGHT])->animatable.target_val.f;
+	float target = t2 - t1;
+
 	double zoom_end = ((float)agl_actor__width(actor)) / a->region.len;
-	double zoom_start = a->priv->rect.len / a->region.len;
+	double zoom_start = target / a->region.len;
 	if(zoom_start == 0.0) zoom_start = zoom_end;
 
 	return (ModeRange){get_mode(zoom_start), get_mode(zoom_end)};
@@ -1371,6 +1385,7 @@ static void
 _wf_actor_load_missing_blocks (WaveformActor* a)
 {
 	// during a transition, this will load the _currently_ visible blocks, not for the target.
+	// (animation_preview is used to load blocks for the whole animation)
 	// TODO so this means that if zooming _in_, blocks are loaded which are not needed
 
 	PF2;
@@ -1383,13 +1398,12 @@ _wf_actor_load_missing_blocks (WaveformActor* a)
 #ifdef USE_CANVAS_SCALING
 		a->canvas->scaled ? (WfdRange){
 			.start = a->canvas->zoom / a->canvas->samples_per_pixel,
-			//.start = a->priv->animatable.rect_len.val.f / a->priv->animatable.len.val.b,
-			.end = a->canvas->zoom / a->canvas->samples_per_pixel,
+			.end = a->canvas->priv->zoom.target_val.f / a->canvas->samples_per_pixel,
 		} :
 #endif
 		(WfdRange){
-			.start = _a->rect.len / a->region.len,
-			.end = ((float)agl_actor__width(actor)) / LEN(_a).target_val.b,
+			.start = agl_actor__width(actor) / a->region.len,
+			.end = (RIGHT(_a).target_val.f - LEFT(_a).target_val.f) / LEN(_a).target_val.b,
 	};
 
 	if(_zoom.start == 0.0) _zoom.start = _zoom.end;
@@ -1433,7 +1447,7 @@ _wf_actor_load_missing_blocks (WaveformActor* a)
 		int len_max = start_max - start_min + MAX(a->region.len, LEN(_a).target_val.b);
 		WfSampleRegion region = {start_min, len_max};
 
-		WfRectangle rect_ = {actor->region.x1, actor->region.y1, _a->rect.len, agl_actor__height(actor)};
+		WfRectangle rect_ = {actor->region.x1, actor->region.y1, agl_actor__width(actor), agl_actor__height(actor)};
 
 		WfViewPort clippingport = viewport;
 // TODO what is it doing?
@@ -1460,7 +1474,7 @@ _wf_actor_load_missing_blocks (WaveformActor* a)
 		double zoom_ = MAX(zoom, ZOOM_V_LO + 0.00000001);
 
 		WfSampleRegion region = {a->region.start, MAX(a->region.len, LEN(_a).target_val.b)};
-		WfRectangle rect_ = {actor->region.x1, actor->region.y1, _a->rect.len, agl_actor__height(actor)};
+		WfRectangle rect_ = {actor->region.x1, actor->region.y1, agl_actor__width(actor), agl_actor__height(actor)};
 		BlockRange viewport_blocks = wf_actor_get_visible_block_range (&region, &rect_, zoom_, &viewport, wf_actor_get_n_blocks(w, MODE_LOW));
 		//dbg(2, "LOW block range: %i --> %i", viewport_blocks.first, viewport_blocks.last);
 
@@ -1476,7 +1490,7 @@ _wf_actor_load_missing_blocks (WaveformActor* a)
 		double zoom_ = MIN(zoom, ZOOM_LO - 0.0001);
 
 		WfSampleRegion region = {a->region.start, MAX(a->region.len, LEN(_a).target_val.b)};
-		WfRectangle rect_ = {actor->region.x1, actor->region.y1, _a->rect.len, agl_actor__height(actor)};
+		WfRectangle rect_ = {actor->region.x1, actor->region.y1, agl_actor__width(actor), agl_actor__height(actor)};
 		BlockRange viewport_blocks = wf_actor_get_visible_block_range (&region, &rect_, zoom_, &viewport, _w->render_data[MODE_V_LOW]->n_blocks);
 
 		int b; for(b=viewport_blocks.first;b<=viewport_blocks.last;b++){
@@ -1504,12 +1518,12 @@ wf_actor_set_rect (WaveformActor* a, WfRectangle* rect)
 	AGlActor* actor = (AGlActor*)a;
 	AGlScene* scene = actor->root;
 
-	if(rect->len == _a->rect.len && rect->left == _a->rect.left && rect->height == _a->rect.height && rect->top == _a->rect.top) dbg(1, "unchanged");
+	AGL_DEBUG if(rect->len == agl_actor__width(actor) && rect->left == actor->region.x1 && rect->height == agl_actor__height(actor) && rect->top == actor->region.y1) dbg(1, "unchanged");
 #if 0
 	if(rect->len == a->rect.len && rect->left == a->rect.left && rect->height == a->rect.height && rect->top == a->rect.top) return;
 #else
 	// the renderer check is to ensure an initial draw. perhaps there is a better method.
-	if(_a->render_info.renderer && rect->len == _a->rect.len && rect->left == _a->rect.left && rect->height == _a->rect.height && rect->top == _a->rect.top) return;
+	if(_a->render_info.renderer && rect->len == agl_actor__width(actor) && rect->left == actor->region.x1 && rect->height == agl_actor__height(actor) && rect->top == actor->region.y1) return;
 #endif
 
 	// TODO this test fails if we are called twice in quick succession because the valid flag is cleared in the first call
@@ -1518,22 +1532,20 @@ wf_actor_set_rect (WaveformActor* a, WfRectangle* rect)
 	_a->render_info.valid = false;
 
 	WfAnimatable* a1 = &((TransitionBehaviour*)_a->behaviours[RECT_LEFT])->animatable;
-	WfAnimatable* a2 = &((TransitionBehaviour*)_a->behaviours[RECT_LEN])->animatable;
+	WfAnimatable* a2 = &((TransitionBehaviour*)_a->behaviours[RECT_RIGHT])->animatable;
 
-	bool is_new = _a->rect.len == 0.0;
+	bool is_new = agl_actor__width(actor) == 0.0;
 	bool animate = scene && scene->enable_animations && !is_new;
 	bool left_changed = rect->left != a1->target_val.f;
 	bool len_changed = rect->len != a2->target_val.f;
 	bool have_full_render = had_full_render && !len_changed;
 
-	if(!_a->rect.len){
-		_a->rect = *rect;
-	}
 	if(agl_actor__width(actor) < 1 || agl_actor__height(actor) < 1){
 		AGL_ACTOR__SET_REGION_FROM_RECT(actor, rect);
 	}
 
 	dbg(2, "rect: %i --> %i", actor->region.x1, actor->region.x2);
+									dbg(0, "rect: old: x: %.0f --> %.0f new: x: %0.f --> %.0f", actor->region.x1, actor->region.x2, rect->left, rect->left + rect->len);
 
 	if(a->region.len && !have_full_render && a->waveform->priv->num_peaks) wf_actor_queue_load_render_data(a);
 
@@ -1557,31 +1569,40 @@ wf_actor_set_rect (WaveformActor* a, WfRectangle* rect)
 			}
 
 			if(len_changed){
-				TransitionBehaviour* transition = (TransitionBehaviour*)_a->behaviours[RECT_LEN];
-				WfAnimation* animation = transition_behaviour_set_f(transition, (AGlActor*)a, rect->len, NULL, NULL);
+				TransitionBehaviour* transition = (TransitionBehaviour*)_a->behaviours[RECT_RIGHT];
+				/*WfAnimation* animation = */transition_behaviour_set_f(transition, (AGlActor*)a, rect->left + rect->len, NULL, NULL);
 //				wf_actor_on_transition_start(a, &transition->animatable);
 
 				// TODO remove this once rect and region have merged
+#if 0
 				void on_frame (WfAnimation* animation, int time)
 				{
 					C4* c = animation->user_data;
+					AGlActor* actor = c->actor;
+					//WaveformActor* wfa = (WaveformActor*)c->actor;
+
+					//AGL_ACTOR__SET_REGION_FROM_RECT(actor, &wfa->priv->rect);
 
 					agl_actor__invalidate(c->actor);
 				}
 				if(animation) animation->on_frame = on_frame;
+#endif
 			}
 #endif
 		}
 
 	}else{
-		*a1->val.f = a1->target_val.f = a1->start_val.f = actor->region.x1;
-		*a2->val.f = a2->target_val.f = a2->start_val.f = agl_actor__width(actor);
+		*a1->val.f = a1->target_val.f = a1->start_val.f = rect->left;
+		*a2->val.f = a2->target_val.f = a2->start_val.f = rect->left + rect->len;
 
 		if(scene && scene->draw) wf_canvas_queue_redraw(a->canvas);
 	}
 }
 
 
+/*
+ *  Function may be removed
+ */
 WfAnimatable*
 wf_actor_get_z (WaveformActor* a)
 {
@@ -1596,8 +1617,37 @@ wf_actor_set_z (WaveformActor* a, float z, WaveformActorFn callback, gpointer us
 	WfActorPriv* _a = a->priv;
 
 	transition_behaviour_set_f((TransitionBehaviour*)_a->behaviours[Z], (AGlActor*)a, z, callback, user_data);
+
+				// no, only needed for size changes
+				//wf_actor_on_transition_start(a, &transition->animatable);
 }
 
+
+#if 0
+	static void _on_fadeout_finished(WfAnimation* animation, gpointer user_data)
+	{
+		PF;
+		g_return_if_fail(user_data);
+		g_return_if_fail(animation);
+		C* c = user_data;
+#if 0
+		WfActorPriv* _a = actor->priv;
+		if(animation->members){
+			GList* m = animation->members;
+			if(m){
+				GList* t = ((WfAnimActor*)m->data)->transitions;
+				if(!t) gwarn("animation has no transitions");
+				for(;t;t=t->next){
+					WfAnimatable* animatable = t->data;
+					if(animatable == &_a->animatable.opacity) dbg(0, "opacity transition finished");
+				}
+			}
+		}
+#endif
+		if(c->callback) c->callback(c->actor, c->user_data);
+		g_free(c);
+	}
+#endif
 
 void
 wf_actor_fade_out (WaveformActor* a, WaveformActorFn callback, gpointer user_data)
@@ -1608,15 +1658,60 @@ wf_actor_fade_out (WaveformActor* a, WaveformActorFn callback, gpointer user_dat
 	//     -can we get away with just setting _a->opacity?
 
 	g_return_if_fail(a);
+	WfActorPriv* _a = a->priv;
 
-	transition_behaviour_set_f((TransitionBehaviour*)a->priv->behaviours[OPACITY], (AGlActor*)a, 0.0, callback, user_data);
+#if 0
+	if(_a->opacity == 0.0f) return;
+
+	WfAnimatable* animatable = &_a->animatable.opacity;
+	animatable->start_val.f = animatable->val.f;
+	_a->opacity = 0.0f;
+
+	GList* animatables = TRUE || (animatable->start_val.f != *animatable->model_val.f)
+		? g_list_prepend(NULL, animatable)
+		: NULL;
+
+	C* c = closure((C){
+		.actor = a,
+		.callback = callback,
+		.user_data = user_data
+	});
+
+	wf_actor_start_transition(a, animatables, _on_fadeout_finished, c);
+#else
+	transition_behaviour_set_f((TransitionBehaviour*)_a->behaviours[OPACITY], (AGlActor*)a, 0.0, callback, user_data);
+
+	// no, only needed for size changes
+	//wf_actor_on_transition_start(a, &((TransitionBehaviour*)_a->behaviours[OPACITY])->animatable);
+#endif
 }
 
 
 void
 wf_actor_fade_in (WaveformActor* a, float target, WaveformActorFn callback, gpointer user_data)
 {
+#if 0
+	g_return_if_fail(a);
+	WfActorPriv* _a = a->priv;
+
+	if(_a->opacity == 1.0f) return; //TODO interaction with fg_colour?
+
+	WfAnimatable* animatable = &_a->animatable.opacity;
+	animatable->start_val.f = animatable->val.f;
+	_a->opacity = ((float)(a->fg_colour & 0xff)) / 256.0;
+
+	GList* animatables = TRUE || (animatable->start_val.f != *animatable->model_val.f)
+		? g_list_prepend(NULL, animatable)
+		: NULL;
+
+	wf_actor_start_transition(a, animatables, _on_fadein_finished, AGL_NEW(C,
+		.actor = a,
+		.callback = callback,
+		.user_data = user_data,
+	));
+#else
 	transition_behaviour_set_f((TransitionBehaviour*)a->priv->behaviours[OPACITY], (AGlActor*)a, 1.0, callback, user_data);
+#endif
 }
 
 
@@ -1698,12 +1793,11 @@ set_renderer(WaveformActor* actor)
 
 
 static inline bool
-calc_render_info(WaveformActor* actor)
+calc_render_info (WaveformActor* actor)
 {
 	AGlActor* a = (AGlActor*)actor;
 	WaveformContext* wfc = actor->canvas;
 	Waveform* w = actor->waveform; 
-	WfActorPriv* _a = actor->priv;
 	WaveformPrivate* _w = w->priv;
 	RenderInfo* r  = &actor->priv->render_info;
 
@@ -1723,7 +1817,7 @@ calc_render_info(WaveformActor* actor)
 		r->region.len = w->n_frames - r->region.start;
 	}
 
-	r->rect = (WfRectangle){_a->rect.left, 0.0, _a->rect.len, agl_actor__height(a)};
+	r->rect = (WfRectangle){a->region.x1, 0.0, agl_actor__width(a), agl_actor__height(a)};
 	g_return_val_if_fail(r->rect.len, false);
 
 	r->zoom = wfc->scaled
@@ -1777,7 +1871,7 @@ calc_render_info(WaveformActor* actor)
 
 
 static bool
-wf_actor_paint(AGlActor* _actor)
+wf_actor_paint (AGlActor* _actor)
 {
 	// -it is assumed that all textures have been loaded.
 
@@ -1792,6 +1886,8 @@ wf_actor_paint(AGlActor* _actor)
 	Waveform* w = actor->waveform; 
 	RenderInfo* r  = &_a->render_info;
 	if(!w || !w->priv->num_peaks) return false;
+
+	g_return_val_if_fail(actor->region.start < actor->waveform->n_frames, false);
 
 	if(!_actor->root || !_actor->root->draw) r->valid = false;
 
@@ -1809,7 +1905,7 @@ wf_actor_paint(AGlActor* _actor)
 	}else{
 		// temporary checks:
 
-		WfRectangle rect = {_a->animatable.rect_left.val.f, _actor->region.y1, _a->animatable.rect_len.val.f, agl_actor__height(_actor)};
+		WfRectangle rect = {_a->animatable.rect_left.val.f, _actor->region.y1, _a->animatable.rect_right.val.f, agl_actor__height(_actor)};
 
 		WfSampleRegion region = (WfSampleRegion){_a->animatable.start.val.b, _a->animatable.len.val.b};
 		double zoom = rect.len / region.len;
@@ -2129,10 +2225,11 @@ wf_actor_load_texture2d(WaveformActor* a, Mode mode, int texture_id, int blocknu
 	} C3;
 
 		// TODO consider having each wf_animation_preview callback as a separate idle fn.
-		static void set_region_on_frame_preview(WfAnimation* animation, UVal val[], gpointer _c)
+		static void set_region_on_frame_preview (WfAnimation* animation, UVal val[], gpointer _c)
 		{
 			WaveformActor* a = _c;
 			WfActorPriv* _a = a->priv;
+			AGlActor* actor = (AGlActor*)a;
 
 			GList* l = animation->members;
 			for(;l;l=l->next){
@@ -2149,7 +2246,7 @@ wf_actor_load_texture2d(WaveformActor* a, Mode mode, int texture_id, int blocknu
 					}
 
 #ifdef USE_CANVAS_SCALING
-					double zoom = a->canvas->scaled ? wf_context_get_zoom(a->canvas) : _a->rect.len / region.len;
+					double zoom = a->canvas->scaled ? wf_context_get_zoom(a->canvas) : agl_actor__width(actor) / region.len;
 #else
 					double zoom = _a->rect.len / region.len;
 #endif
@@ -2157,7 +2254,7 @@ wf_actor_load_texture2d(WaveformActor* a, Mode mode, int texture_id, int blocknu
 					int mode = get_mode(zoom);
 					WfViewPort viewport; _wf_actor_get_viewport_max(a, &viewport);
 
-					BlockRange blocks = wf_actor_get_visible_block_range (&region, &_a->rect, zoom, &viewport, wf_actor_get_n_blocks(a->waveform, mode));
+					BlockRange blocks = wf_actor_get_visible_block_range (&region, &(WfRectangle)WF_ACTOR_RECT(actor), zoom, &viewport, wf_actor_get_n_blocks(a->waveform, mode));
 
 					int b;for(b=blocks.first;b<=blocks.last;b++){
 						if(mode >= MODE_HI){
@@ -2175,6 +2272,7 @@ wf_actor_load_texture2d(WaveformActor* a, Mode mode, int texture_id, int blocknu
 static void
 wf_actor_on_transition_start (WaveformActor* a, WfAnimatable* animatable)
 {
+										PF0;
 	WfActorPriv* _a = a->priv;
 	AGlActor* actor = (AGlActor*)a;
 
@@ -2182,8 +2280,8 @@ wf_actor_on_transition_start (WaveformActor* a, WfAnimatable* animatable)
 	// - currently only changes to the region start are checked.
 	{
 
-		double zoom_start = _a->rect.len / a->region.len;
-		double zoom_end = _a->rect.len / a->region.len;
+		double zoom_start = agl_actor__width(actor) / a->region.len;
+		double zoom_end = RIGHT(_a).target_val.f / a->region.len;
 		if(zoom_start == 0.0) zoom_start = zoom_end;
 		GList* l = actor->transitions;
 		for(;l;l=l->next){
@@ -2194,7 +2292,7 @@ wf_actor_on_transition_start (WaveformActor* a, WfAnimatable* animatable)
 				GList* k = anim_actor->transitions;
 				for(;k;k=k->next){
 					WfAnimatable* animatable = k->data;
-					if(animatable == &((TransitionBehaviour*)_a->behaviours[RECT_LEN])->animatable){
+					if(animatable == &((TransitionBehaviour*)_a->behaviours[RECT_RIGHT])->animatable){
 						wf_animation_preview(g_list_last(actor->transitions)->data, set_region_on_frame_preview, a);
 					}
 				}
@@ -2214,7 +2312,7 @@ wf_actor_get_n_blocks(Waveform* waveform, Mode mode)
 
 	switch(mode){
 		case MODE_V_LOW:
-			return w->n_blocks / WF_MED_TO_V_LOW;
+			return w->n_blocks / WF_MED_TO_V_LOW + (w->n_blocks % WF_MED_TO_V_LOW ? 1 : 0);
 		case MODE_LOW:
 			return w->n_blocks / WF_PEAK_STD_TO_LO + (w->n_blocks % WF_PEAK_STD_TO_LO ? 1 : 0);
 		case MODE_MED:

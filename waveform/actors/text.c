@@ -2,7 +2,7 @@
 * +----------------------------------------------------------------------+
 * | This file is part of libwaveform                                     |
 * | https://github.com/ayyi/libwaveform                                  |
-* | copyright (C) 2012-2018 Tim Orford <tim@orford.org>                  |
+* | copyright (C) 2012-2019 Tim Orford <tim@orford.org>                  |
 * +----------------------------------------------------------------------+
 * | This program is free software; you can redistribute it and/or modify |
 * | it under the terms of the GNU General Public License version 3       |
@@ -194,7 +194,7 @@ _init()
 	static void text_actor_set_size(AGlActor* actor)
 	{
 		// the texture height will not be available first time
-		actor->region = (AGliRegion){0, 0, actor->parent->region.x2 - actor->parent->region.x1, actor->parent->region.y2 - actor->parent->region.y1};
+		actor->region = (AGlfRegion){0, 0, actor->parent->region.x2 - actor->parent->region.x1, actor->parent->region.y2 - actor->parent->region.y1};
 	}
 
 	static void text_actor_free(AGlActor* actor)

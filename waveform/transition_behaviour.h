@@ -25,5 +25,6 @@ typedef struct
 } TransitionBehaviour;
 
 WfAnimation* transition_behaviour_set_f (TransitionBehaviour*, AGlActor*, float, WaveformActorFn, gpointer);
+WfAnimation* transition_behaviour_set_i64 (TransitionBehaviour*, AGlActor*, int64_t, WaveformActorFn, gpointer);
 
 #endif

@@ -28,11 +28,6 @@ static AGl* agl = NULL;
 extern void wf_debug_printf (const char* func, int level, const char* format, ...);
 #define gwarn(A, ...) g_warning("%s(): "A, __func__, ##__VA_ARGS__);
 #define dbg(A, B, ...) wf_debug_printf(__func__, A, B, ##__VA_ARGS__)
-#ifdef DEBUG
-#define AGL_DEBUG agl->debug
-#else
-#define AGL_DEBUG FALSE
-#endif
 
 static void agl_create_line_texture();
 

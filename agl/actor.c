@@ -29,13 +29,11 @@
 #include "agl/fbo.h"
 #endif
 
-#define CURSOR_NORMAL 0
+extern void wf_debug_printf (const char* func, int level, const char* format, ...);
+#define gwarn(A, ...) g_warning("%s(): "A, __func__, ##__VA_ARGS__);
+#define dbg(A, B, ...) wf_debug_printf(__func__, A, B, ##__VA_ARGS__)
 
-#ifdef DEBUG
-#define AGL_DEBUG if(agl->debug)
-#else
-#define AGL_DEBUG if(false)
-#endif
+#define CURSOR_NORMAL 0
 
 static AGl* agl = NULL;
 static AGlActorClass root_actor_class = {0, "ROOT"};
@@ -212,7 +210,7 @@ agl_actor__free(AGlActor* actor)
 	g_list_free0(actor->children);
 
 #ifdef AGL_ACTOR_RENDER_CACHE
-	if(actor->fbo) agl_fbo_free(actor->fbo);
+	if(actor->fbo) agl_fbo_free0(actor->fbo);
 #endif
 
 	while(actor->transitions)
@@ -776,14 +774,14 @@ agl_actor__on_event(AGlScene* root, GdkEvent* event)
 		return AGL_HANDLED;
 	}
 
-	bool region_match(AGliRegion* r, int x, int y)
+	bool region_match (AGlfRegion* r, float x, float y)
 	{
 		bool match = x > r->x1 && x < r->x2 && y > r->y1 && y < r->y2;
 		//printf("     x=%i x2=%i  y=%i %i-->%i match=%i\n", x, r->x2, y, r->y1, r->y2, match);
 		return match;
 	}
 
-	AGlActor* child_region_hit(AGlActor* actor, AGliPt xy)
+	AGlActor* child_region_hit (AGlActor* actor, AGliPt xy)
 	{
 		// Find the child of the actor at the given coordinate.
 		// The coordinate is relative to the actor, ie all position offsets have been applied.
@@ -895,7 +893,7 @@ agl_actor__on_event(AGlScene* root, GdkEvent* event)
 
 
 bool
-agl_actor__xevent(AGlRootActor* scene, XEvent* xevent)
+agl_actor__xevent (AGlRootActor* scene, XEvent* xevent)
 {
 	switch (xevent->type) {
 		case ButtonPress:
@@ -971,7 +969,7 @@ agl_actor__xevent(AGlRootActor* scene, XEvent* xevent)
  */
 #ifdef USE_GTK
 bool
-agl_actor__on_expose(GtkWidget* widget, GdkEventExpose* event, gpointer user_data)
+agl_actor__on_expose (GtkWidget* widget, GdkEventExpose* event, gpointer user_data)
 {
 	void set_projection(AGlActor* actor)
 	{
@@ -1074,6 +1072,9 @@ agl_actor__grab(AGlActor* actor)
 }
 
 
+/*
+ *  Remove render caches for the actor and all parents
+ */
 void
 agl_actor__invalidate(AGlActor* actor)
 {
@@ -1103,6 +1104,7 @@ agl_actor__invalidate(AGlActor* actor)
 		}
 	}
 	_agl_actor__invalidate(actor);
+
 	if(actor->root){
 #ifdef USE_GTK
 		if(actor->root->type == CONTEXT_TYPE_GTK) gtk_widget_queue_draw(actor->root->gl.gdk.widget);
@@ -1115,11 +1117,35 @@ agl_actor__invalidate(AGlActor* actor)
 
 
 /*
+ *  Invalidate both parents and children
+ */
+void
+agl_actor__invalidate_down (AGlActor* actor)
+{
+	agl_actor__invalidate(actor);
+
+	void _agl_actor__invalidate_down(AGlActor* actor)
+	{
+#ifdef AGL_ACTOR_RENDER_CACHE
+		actor->cache.valid = false;
+#endif
+		call(actor->invalidate, actor);
+
+		GList* l = actor->children;
+		for(;l;l=l->next){
+			_agl_actor__invalidate_down((AGlActor*)l->data);
+		}
+	}
+	_agl_actor__invalidate_down(actor);
+}
+
+
+/*
  *  Enable / disable caching of all actors that the given actor participates in.
  *  Note that the caching of child actors and actors in other parts of the tree are not affected.
  */
 void
-agl_actor__enable_cache(AGlActor* actor, bool enable)
+agl_actor__enable_cache (AGlActor* actor, bool enable)
 {
 #ifdef AGL_ACTOR_RENDER_CACHE
 	while(actor){
@@ -1137,7 +1163,7 @@ agl_actor__enable_cache(AGlActor* actor, bool enable)
 		gpointer       user_data;
 	} C;
 
-	void agl_actor_on_frame(WfAnimation* animation, int time)
+	void agl_actor_on_frame (WfAnimation* animation, int time)
 	{
 		C* c = animation->user_data;
 
@@ -1355,11 +1381,11 @@ agl_actor__print_tree (AGlActor* actor)
 				? lgrey
 				: "";
 		AGliPt offset = _agl_actor__find_offset(actor);
-		if(actor->name) printf("%s%s:%s%s%s%s cache(%i,%i) region(%i,%i,%i,%i) offset(%i,%i)%s%s%s\n", colour, actor->name, offscreen, zero_size, negative_size, disabled, actor->cache.enabled, actor->cache.valid, actor->region.x1, actor->region.y1, actor->region.x2, actor->region.y2, offset.x, offset.y, scrollablex, scrollabley, white);
+		if(actor->name) printf("%s%s:%s%s%s%s cache(%i,%i) region(%0f,%0f,%0f,%0f) offset(%i,%i)%s%s%s\n", colour, actor->name, offscreen, zero_size, negative_size, disabled, actor->cache.enabled, actor->cache.valid, actor->region.x1, actor->region.y1, actor->region.x2, actor->region.y2, offset.x, offset.y, scrollablex, scrollabley, white);
 #else
 		if(actor->name) printf("%s\n", actor->name);
 #endif
-		if(!actor->name) printf("%s%s (%i,%i)\n", offscreen, zero_size, actor->region.x1, actor->region.y1);
+		if(!actor->name) printf("%s%s (%0f,%0f)\n", offscreen, zero_size, actor->region.x1, actor->region.y1);
 		indent++;
 		GList* l = actor->children;
 		for(;l;l=l->next){

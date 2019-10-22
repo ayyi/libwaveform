@@ -36,11 +36,6 @@
 extern void wf_debug_printf (const char* func, int level, const char* format, ...); //TODO, perhaps just remove custom debugging messages...
 #define gwarn(A, ...) g_warning("%s(): "A, __func__, ##__VA_ARGS__);
 #define dbg(A, B, ...) wf_debug_printf(__func__, A, B, ##__VA_ARGS__)
-#ifdef DEBUG
-#define AGL_DEBUG agl->debug
-#else
-#define AGL_DEBUG FALSE
-#endif
 #define g_object_unref0(var) ((var == NULL) ? NULL : (var = (g_object_unref (var), NULL)))
 
 static gulong __enable_flags = 0;
@@ -266,7 +261,7 @@ agl_gl_init()
 		//agl_use_program(NULL);
 		//wfc->use_1d_textures = false;
 	}
-	if(AGL_DEBUG) printf("GL_RENDERER = %s\n", (const char*)glGetString(GL_RENDERER));
+	AGL_DEBUG printf("GL_RENDERER = %s\n", (const char*)glGetString(GL_RENDERER));
 
 	int version = 0;
 	const char* _version = (const char*)glGetString(GL_VERSION);
@@ -283,10 +278,10 @@ agl_gl_init()
 	// npot capability also means non-square textures are supported.
 	// some older hardware (eg radeon x1600) may not have full support, and may drop back to software rendering if certain features are used.
 	if(GL_ARB_texture_non_power_of_two || version > 1){
-		if(AGL_DEBUG) printf("non_power_of_two textures are available.\n");
+		AGL_DEBUG printf("non_power_of_two textures are available.\n");
 		agl->have |= AGL_HAVE_NPOT_TEXTURES;
 	}else{
-		if(AGL_DEBUG){
+		AGL_DEBUG {
 			fprintf(stderr, "GL_ARB_texture_non_power_of_two extension is not available!\n");
 			fprintf(stderr, "Framebuffer effects will be lower resolution (lower quality).\n\n");
 		}
