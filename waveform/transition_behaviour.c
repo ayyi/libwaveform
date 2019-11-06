@@ -28,30 +28,70 @@ on_transition_finished (WfAnimation* animation, gpointer user_data)
 	g_return_if_fail(user_data);
 	g_return_if_fail(animation);
 	C* c = user_data;
+
 	if(c->callback) c->callback(c->actor, c->user_data);
+
 	g_free(c);
 }
 
 
 // TODO move this up to AGlActor
-// TODO This only handles one animatable :-(
 WfAnimation*
 transition_behaviour_set_f (TransitionBehaviour* behaviour, AGlActor* actor, float val, WaveformActorFn callback, gpointer user_data)
 {
-	WfAnimatable* animatable = &behaviour->animatable;
+	return transition_behaviour_set(
+		behaviour,
+		actor,
+		(TransitionValue[]){{true, .value.f = val}},
+		callback,
+		user_data
+	);
+}
 
-	if(val == animatable->target_val.f){
+
+WfAnimation*
+transition_behaviour_set (TransitionBehaviour* behaviour, AGlActor* actor, TransitionValue values[], WaveformActorFn callback, gpointer user_data)
+{
+	inline bool maybe_update (TransitionValue tv, WfAnimatable* animatable)
+	{
+		bool changed = false;
+
+		switch(animatable->type){
+			case WF_INT:
+				if((changed = tv.value.i != animatable->target_val.i))
+					animatable->target_val.i = tv.value.i;
+				break;
+			case WF_FLOAT:
+				if((changed = tv.value.f != animatable->target_val.f))
+					animatable->target_val.f = tv.value.f;
+				break;
+			case WF_INT64:
+				if((changed = tv.value.b != animatable->target_val.b))
+					animatable->target_val.b = tv.value.b;
+				break;
+			default:
+				g_return_val_if_fail(false, false);
+		}
+		return changed;
+	}
+
+	GList* animatables = NULL;
+	for(int i = 0; i < behaviour->size; i++){
+		WfAnimatable* animatable = &behaviour->animatables[i];
+		TransitionValue tv = values[i];
+		if(tv.active){
+			if(maybe_update(tv, animatable)){
+				animatables = g_list_prepend(animatables, animatable);
+			}
+		}
+	}
+
+	if(!animatables){
 		if(callback){
 			callback((WaveformActor*)actor, user_data);
 		}
 		return NULL;
 	}
-
-	animatable->target_val.f = val;
-
-	GList* animatables = TRUE || (animatable->start_val.f != animatable->target_val.f)
-		? g_list_prepend(NULL, animatable)
-		: NULL;
 
 	return agl_actor__start_transition(actor, animatables, on_transition_finished, AGL_NEW(C,
 		.actor = (WaveformActor*)actor,
@@ -61,23 +101,59 @@ transition_behaviour_set_f (TransitionBehaviour* behaviour, AGlActor* actor, flo
 }
 
 
+#if 0
 WfAnimation*
-transition_behaviour_set_i64 (TransitionBehaviour* behaviour, AGlActor* actor, int64_t val, WaveformActorFn callback, gpointer user_data)
+transition_behaviours_set_f (TransitionBehaviour* behaviour, AGlActor* actor, TransitionValuef values[], WaveformActorFn callback, gpointer user_data)
 {
-	WfAnimatable* animatable = &behaviour->animatable;
+	GList* animatables = NULL;
+	for(int i = 0; i < behaviour->size; i++){
+		WfAnimatable* animatable = &behaviour->animatables[i];
+		TransitionValuef tv = values[i];
+		if(tv.active){
+			if(tv.value != animatable->target_val.f){
+				animatable->target_val.f = tv.value;
+				animatables = g_list_prepend(animatables, animatable);
+			}
+		}
+	}
 
-	if(val == animatable->target_val.b){
+	if(!animatables){
 		if(callback){
 			callback((WaveformActor*)actor, user_data);
 		}
 		return NULL;
 	}
 
-	animatable->target_val.b = val;
+	return agl_actor__start_transition(actor, animatables, on_transition_finished, AGL_NEW(C,
+		.actor = (WaveformActor*)actor,
+		.callback = callback,
+		.user_data = user_data
+	));
+}
+#endif
 
-	GList* animatables = TRUE || (animatable->start_val.b != animatable->target_val.b)
-		? g_list_prepend(NULL, animatable)
-		: NULL;
+
+WfAnimation*
+transition_behaviour_set_i64 (TransitionBehaviour* behaviour, AGlActor* actor, TransitionValue64 values[], WaveformActorFn callback, gpointer user_data)
+{
+	GList* animatables = NULL;
+	for(int i = 0; i < behaviour->size; i++){
+		WfAnimatable* animatable = &behaviour->animatables[i];
+		TransitionValue64 tv = values[i];
+		if(tv.active){
+			if(tv.value != animatable->target_val.b){
+				animatable->target_val.b = tv.value;
+				animatables = g_list_prepend(animatables, animatable);
+			}
+		}
+	}
+
+	if(!animatables){
+		if(callback){
+			callback((WaveformActor*)actor, user_data);
+		}
+		return NULL;
+	}
 
 	return agl_actor__start_transition(actor, animatables, on_transition_finished, AGL_NEW(C,
 		.actor = (WaveformActor*)actor,

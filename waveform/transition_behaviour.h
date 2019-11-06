@@ -21,10 +21,31 @@ typedef struct
 typedef struct
 {
     AGlBehaviour behaviour;
-    WfAnimatable animatable;
+    int          size;
+    WfAnimatable animatables[];
 } TransitionBehaviour;
 
+typedef struct
+{
+    bool active;
+    UVal value;
+} TransitionValue;
+
+typedef struct
+{
+    bool active;
+    float value;
+} TransitionValuef;
+
+typedef struct
+{
+    bool active;
+    int64_t value;
+} TransitionValue64;
+
+
+WfAnimation* transition_behaviour_set (TransitionBehaviour*, AGlActor*, TransitionValue[], WaveformActorFn, gpointer);
 WfAnimation* transition_behaviour_set_f (TransitionBehaviour*, AGlActor*, float, WaveformActorFn, gpointer);
-WfAnimation* transition_behaviour_set_i64 (TransitionBehaviour*, AGlActor*, int64_t, WaveformActorFn, gpointer);
+WfAnimation* transition_behaviour_set_i64 (TransitionBehaviour*, AGlActor*, TransitionValue64[], WaveformActorFn, gpointer);
 
 #endif

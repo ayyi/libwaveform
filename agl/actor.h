@@ -58,8 +58,10 @@ typedef struct {
 struct _AGlActor {
 	AGlActorClass*   class;
 	char*            name;
+
 	AGlActor*        parent;
 	AGlRootActor*    root;
+	GList*           children;        // type AGlActor
 
 	AGlActorFn       init;            // called once when gl context is available.
 	AGlActorFn       set_size;        // called when the parent widget is resized.
@@ -75,7 +77,6 @@ struct _AGlActor {
 	uint32_t         colour;          // rgba
 	int              z;               // controls the order objects with the same parent are drawn.
 	bool             disabled;        // when disabled, actor and children are greyed-out and are non-interactive.
-	GList*           children;        // type AGlActor
 	GList*           transitions;     // list of WfAnimation*'s that are currently active.
 #ifdef AGL_ACTOR_RENDER_CACHE
 	AGlFBO*          fbo;
