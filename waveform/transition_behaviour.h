@@ -13,10 +13,7 @@
 #ifndef __transition_behaviour_h__
 #define __transition_behaviour_h__
 
-typedef struct
-{
-    int dummy;
-} AGlBehaviour;
+#include "agl/behaviour.h"
 
 typedef struct
 {
@@ -44,8 +41,10 @@ typedef struct
 } TransitionValue64;
 
 
-WfAnimation* transition_behaviour_set (TransitionBehaviour*, AGlActor*, TransitionValue[], WaveformActorFn, gpointer);
-WfAnimation* transition_behaviour_set_f (TransitionBehaviour*, AGlActor*, float, WaveformActorFn, gpointer);
-WfAnimation* transition_behaviour_set_i64 (TransitionBehaviour*, AGlActor*, TransitionValue64[], WaveformActorFn, gpointer);
+AGlBehaviourClass* transition_behaviour_get_class ();
+
+WfAnimation* transition_behaviour_set      (TransitionBehaviour*, AGlActor*, TransitionValue[], WaveformActorFn, gpointer);
+WfAnimation* transition_behaviour_set_f    (TransitionBehaviour*, AGlActor*, float, WaveformActorFn, gpointer);
+WfAnimation* transition_behaviour_set_i64  (TransitionBehaviour*, AGlActor*, TransitionValue64[], WaveformActorFn, gpointer);
 
 #endif

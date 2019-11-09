@@ -37,7 +37,10 @@
 
 #define FONT_SIZE 18 //TODO
 
+static void text_actor_free (AGlActor*);
+
 static AGl* agl = NULL;
+static AGlActorClass actor_class = {0, "Overview", (AGlActorNew*)text_actor, text_actor_free};
 static int instance_count = 0;
 
 #ifdef USE_LIBASS
@@ -197,23 +200,6 @@ _init()
 		actor->region = (AGlfRegion){0, 0, actor->parent->region.x2 - actor->parent->region.x1, actor->parent->region.y2 - actor->parent->region.y1};
 	}
 
-	static void text_actor_free(AGlActor* actor)
-	{
-		TextActor* ta = (TextActor*)actor;
-
-		g_free0(ta->title);
-		g_free0(ta->text);
-
-#ifdef USE_LIBASS
-		if(!--instance_count){
-			ass_renderer_done(ass_renderer);
-			ass_library_done(ass_library);
-			ass_renderer = NULL;
-			ass_library = NULL;
-		}
-#endif
-	}
-
 AGlActor*
 text_actor(WaveformActor* _)
 {
@@ -221,23 +207,42 @@ text_actor(WaveformActor* _)
 
 	_init();
 
-	TextActor* ta = g_new0(TextActor, 1);
-	AGlActor* actor = (AGlActor*)ta;
-#ifdef AGL_DEBUG_ACTOR
-	actor->name = "Text";
-#endif
-	actor->init = text_actor_init;
-	actor->free = text_actor_free;
-	actor->paint = text_actor_paint;
-	actor->set_size = text_actor_set_size;
+	TextActor* ta = AGL_NEW(TextActor,
+		.actor = {
+			.class = &actor_class,
+			.name = "Text",
+			.init = text_actor_init,
+			.paint = text_actor_paint,
+			.set_size = text_actor_set_size
+		},
+		.title_colour1 = 0xff0000ff,
+		//ta->title_colour2 = 0xffffffaa,
+		.title_colour2 = 0x0000ffff //FIXME
+	);
 
-	ta->title_colour1 = 0xff0000ff;
-	//ta->title_colour2 = 0xffffffaa;
-	ta->title_colour2 = 0x0000ffff; //FIXME
+	AGlActor* actor = (AGlActor*)ta;
 
 	return actor;
 }
 
+
+static void
+text_actor_free(AGlActor* actor)
+{
+	TextActor* ta = (TextActor*)actor;
+
+	g_free0(ta->title);
+	g_free0(ta->text);
+
+#ifdef USE_LIBASS
+	if(!--instance_count){
+		ass_renderer_done(ass_renderer);
+		ass_library_done(ass_library);
+		ass_renderer = NULL;
+		ass_library = NULL;
+	}
+#endif
+}
 
 void
 text_actor_set_colour (TextActor* ta, uint32_t title1, uint32_t title2)

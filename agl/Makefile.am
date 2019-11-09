@@ -1,4 +1,4 @@
-SUBDIRS = shaders
+SUBDIRS = shaders behaviours
 
 if ENABLE_SYSTEM_GTKGLEXT
 else
@@ -27,6 +27,8 @@ libagl_la_SOURCES = \
 	actor.c actor.h \
 	utils.c utils.h \
 	material.c material.h \
+	behaviour.h \
+	observable.c observable.h \
 	typedefs.h shader.h
 
 pkgincludedir=$(includedir)/agl
@@ -38,6 +40,7 @@ pkginclude_HEADERS = \
 	material.h \
 	actor.h \
 	utils.h \
+	behaviour.h \
 	pango_render.h \
 	fontmap.h
 

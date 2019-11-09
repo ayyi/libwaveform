@@ -21,6 +21,25 @@ typedef struct {
 } C;
 
 
+typedef struct
+{
+    AGlBehaviourClass class;
+} TransitionBehaviourClass;
+
+static TransitionBehaviourClass klass = {
+	.class = {
+		.free = (AGlBehaviourFn)g_free,
+	}
+};
+
+
+AGlBehaviourClass*
+transition_behaviour_get_class ()
+{
+	return (AGlBehaviourClass*)&klass;
+}
+
+
 static void
 on_transition_finished (WfAnimation* animation, gpointer user_data)
 {

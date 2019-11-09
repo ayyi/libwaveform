@@ -22,8 +22,8 @@
 #endif
 #include <GL/glx.h>
 #include "transition/transition.h"
-#include "agl/typedefs.h"
 #include "agl/utils.h"
+#include "agl/behaviour.h"
 #if defined(USE_GTK) || defined(__GTK_H__)
 #include "gtk/gtk.h"
 #else
@@ -33,6 +33,7 @@ typedef void GtkWidget;
 
 #undef AGL_DEBUG_ACTOR
 #define AGL_ACTOR_RENDER_CACHE
+#define AGL_ACTOR_N_BEHAVIOURS 4
 
 typedef AGlActor* (AGlActorNew)       (GtkWidget*);
 typedef void      (*AGlActorSetState) (AGlActor*);
@@ -52,7 +53,11 @@ typedef enum {
 typedef struct {
 	AGlActorType type;
 	char*        name;
+
 	AGlActorNew* new;
+	AGlActorFn   free;
+
+	GType        behaviour_types[4];
 } AGlActorClass;
 
 struct _AGlActor {
@@ -61,7 +66,7 @@ struct _AGlActor {
 
 	AGlActor*        parent;
 	AGlRootActor*    root;
-	GList*           children;        // type AGlActor
+	GList*           children;        // type AGlActor*
 
 	AGlActorFn       init;            // called once when gl context is available.
 	AGlActorFn       set_size;        // called when the parent widget is resized.
@@ -69,7 +74,6 @@ struct _AGlActor {
 	AGlActorFn       invalidate;      // clear fbo caches (and most likely other cached render information too)
 	AGlActorPaint    paint;           // called multiple times per expose, once for each object.
 	AGlActorOnEvent  on_event;
-	AGlActorFn       free;
 
 	AGlfRegion       region;          // position and size. {int x1, y1, x2, y2}
 	AGliRegion       scrollable;      // larger area within which the actor region is visible {int x1, y1, x2, y2}. See test/viewport.c
@@ -78,6 +82,7 @@ struct _AGlActor {
 	int              z;               // controls the order objects with the same parent are drawn.
 	bool             disabled;        // when disabled, actor and children are greyed-out and are non-interactive.
 	GList*           transitions;     // list of WfAnimation*'s that are currently active.
+	AGlBehaviour*    behaviours[AGL_ACTOR_N_BEHAVIOURS];
 #ifdef AGL_ACTOR_RENDER_CACHE
 	AGlFBO*          fbo;
 	struct {

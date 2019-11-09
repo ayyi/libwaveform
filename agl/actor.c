@@ -216,8 +216,19 @@ agl_actor__free(AGlActor* actor)
 	while(actor->transitions)
 		wf_animation_remove(actor->transitions->data);
 
-	if(actor->free)
-		actor->free(actor);
+	int i; for(i=0;i<AGL_ACTOR_N_BEHAVIOURS;i++){
+		AGlBehaviour* behaviour = actor->behaviours[i];
+		if(!behaviour)
+			break;
+		if(behaviour->klass->free)
+			behaviour->klass->free(behaviour);
+		else
+			g_free(behaviour);
+		actor->behaviours[i] = NULL;
+	}
+
+	if(actor->class->free)
+		actor->class->free(actor);
 	else
 		g_free(actor);
 }
