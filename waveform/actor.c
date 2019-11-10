@@ -347,7 +347,7 @@ wf_actor_class_init()
 	static void wf_actor_set_size(AGlActor* actor)
 	{
 		wf_actor_set_rect((WaveformActor*)actor, &(WfRectangle){
-			0.0,
+			actor->region.x1,
 			actor->region.y1,
 			agl_actor__width(actor),
 			agl_actor__height(actor)

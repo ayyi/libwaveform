@@ -1,7 +1,7 @@
 /**
 * +----------------------------------------------------------------------+
 * | This file is part of the Ayyi project. http://ayyi.org               |
-* | copyright (C) 2019 Tim Orford <tim@orford.org>                       |
+* | copyright (C) 2011-2019 Tim Orford <tim@orford.org>                  |
 * | copyright (C) 2011 Robin Gareus <robin@gareus.org>                   |
 * +----------------------------------------------------------------------+
 * | This program is free software; you can redistribute it and/or modify |
@@ -109,7 +109,10 @@ static ssize_t ff_read_float_planar_to_interleaved          (WfDecoder*, float*,
 static ssize_t ff_read_default_interleaved                  (WfDecoder*, float*, size_t);
 #endif
 
-static gboolean ad_metadata_array_set_tag_postion           (GPtrArray* tags, const char* tag_name, int pos);
+static bool    ad_metadata_array_set_tag_postion            (GPtrArray* tags, const char* tag_name, int pos);
+
+static bool    ff_decode_video_frame                        (FFmpegAudioDecoder*);
+static void    ff_filters_init                              (FFmpegAudioDecoder*);
 
 #define U8_TO_SHORT(V) ((V - 128) * 128)
 #define INT32_TO_SHORT(V) (V >> 16)
@@ -169,148 +172,6 @@ ad_info_ffmpeg (WfDecoder* d)
 }
 
 
-static void
-filters_init (FFmpegAudioDecoder* f)
-{
-	if(!f->thumbnail.codec_context)
-		return;
-
-	static enum AVPixelFormat pixel_formats[] = { AV_PIX_FMT_RGB24, AV_PIX_FMT_NONE };
-
-#if HAVE_FFMPEG_4
-	// not needed since ffmpeg-4.0
-	avfilter_register_all();
-#endif
-
-	AVFilterGraph* graph = f->thumbnail.graph = avfilter_graph_alloc();
-	g_assert(graph);
-
-	AVBufferSinkParams* params = av_buffersink_params_alloc();
-
-	AVRational time_base = f->thumbnail.codec_context->time_base;
-
-	char* str = g_strdup_printf("video_size=%ix%i:pix_fmt=%i:time_base=%d/%d:pixel_aspect=%d/%d",
-		f->thumbnail.codec_context->width, f->thumbnail.codec_context->height,
-		f->thumbnail.codec_context->pix_fmt,
-		time_base.num, time_base.den,
-		f->thumbnail.codec_context->sample_aspect_ratio.num, f->thumbnail.codec_context->sample_aspect_ratio.den
-	);
-
-	if(avfilter_graph_create_filter(&f->thumbnail.filter_source, avfilter_get_by_name("buffer"), "thumb_buffer", str, NULL, graph)){
-		gwarn("Failed to create filter source");
-	}
-	params->pixel_fmts = pixel_formats;
-	if(avfilter_graph_create_filter(&f->thumbnail.filter_sink, avfilter_get_by_name("buffersink"), "thumb_buffersink", NULL, params, graph)){
-		gwarn("Failed to create filter sink");
-	}
-	AVFilterContext* scale_filter = NULL;
-	if(avfilter_graph_create_filter(&scale_filter, avfilter_get_by_name("scale"), "thumb_scale", "w=200:h=200", NULL, graph)){
-		gwarn("Failed to create scale filter");
-	}
-
-	AVFilterContext* format_filter = NULL;
-	if(avfilter_graph_create_filter(&format_filter, avfilter_get_by_name("format"), "thumb_format", "pix_fmts=rgb24", NULL, graph)){
-		gwarn("Failed to create format filter");
-	}
-	//av_opt_set_int_list(f->thumbnail.filter_sink, "pix_fmts", pixel_formats, AV_PIX_FMT_NONE, AV_OPT_SEARCH_CHILDREN);
-	//buffersinkParams.release();
-
-	if(avfilter_link(format_filter, 0, f->thumbnail.filter_sink, 0)){
-		gwarn("Failed to link final filter");
-	}
-
-	if(avfilter_link(scale_filter, 0, format_filter, 0)){
-		gwarn("Failed to link scale filter");
-	}
-
-	if(avfilter_link(f->thumbnail.filter_source, 0, scale_filter, 0)){
-		gwarn("Failed to link source filter");
-	}
-
-	if(avfilter_graph_config(graph, NULL)){
-		gwarn("Failed to configure filter graph");
-	}
-
-	g_free(str);
-}
-
-
-static bool
-decode_video_packet (FFmpegAudioDecoder* f)
-{
-	if (f->thumbnail.packet->stream_index != f->thumbnail.stream) {
-		return false;
-	}
-
-	av_frame_unref(f->thumbnail.frame);
-
-	int frame_finished = false;
-
-#ifdef USE_DEPRECATED
-	#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
-	int bytes_decoded = avcodec_decode_video2(f->thumbnail.codec_context, f->thumbnail.frame, &frame_finished, f->thumbnail.packet);
-	#pragma GCC diagnostic warning "-Wdeprecated-declarations"
-	if (bytes_decoded < 0) {
-		perr("Failed to decode video frame: nothing decoded");
-	}
-#else
-	int ret = avcodec_receive_frame(f->thumbnail.codec_context, f->thumbnail.frame);
-	if (ret == 0) frame_finished = 1;
-	if (ret == AVERROR(EAGAIN)) ret = 0;
-	if (ret == 0) ret = avcodec_send_packet(f->thumbnail.codec_context, f->thumbnail.packet);
-	if (ret < 0) {
-		perr("Failed to decode video frame");
-	}
-#endif
-
-	return frame_finished > 0;
-}
-
-
-static bool
-get_video_packet (FFmpegAudioDecoder* f)
-{
-	bool framesAvailable = true;
-	bool frameDecoded = false;
-
-	if (f->thumbnail.packet) {
-		av_packet_unref(f->thumbnail.packet);
-		f->thumbnail.packet = NULL;
-	}
-
-	f->thumbnail.packet = g_new0(AVPacket, 1);
-
-	while (framesAvailable && !frameDecoded) {
-		framesAvailable = av_read_frame(f->format_context, f->thumbnail.packet) >= 0;
-		if (framesAvailable) {
-			frameDecoded = f->thumbnail.packet->stream_index == f->thumbnail.stream;
-			if (!frameDecoded) {
-				av_packet_unref(f->thumbnail.packet);
-			}
-		}
-	}
-
-	return frameDecoded;
-}
-
-
-static bool
-decode_video_frame (FFmpegAudioDecoder* f)
-{
-	bool frame_finished = false;
-
-	while (!frame_finished && get_video_packet(f)) {
-		frame_finished = decode_video_packet(f);
-	}
-
-	if (!frame_finished) {
-		perr("decode_video_frame failed: frame not finished");
-	}
-
-	return frame_finished;
-}
-
-
 void
 get_scaled_thumbnail (WfDecoder* d, int size, AdPicture* picture)
 {
@@ -318,7 +179,7 @@ get_scaled_thumbnail (WfDecoder* d, int size, AdPicture* picture)
 	if(!f->thumbnail.codec_context)
 		return;
 
-	filters_init(f);
+	ff_filters_init(f);
 
 	AVFrame* frame = f->thumbnail.frame = av_frame_alloc();
 
@@ -338,7 +199,7 @@ get_scaled_thumbnail (WfDecoder* d, int size, AdPicture* picture)
 	int attempts = 0;
 	int rc = av_buffersink_get_frame(f->thumbnail.filter_sink, frame);
 	while (rc == AVERROR(EAGAIN) && attempts++ < 10) {
-		if(!decode_video_frame(f)){
+		if(!ff_decode_video_frame(f)){
 			break;
 		}
 
@@ -371,15 +232,15 @@ get_scaled_thumbnail (WfDecoder* d, int size, AdPicture* picture)
 		// Free the graph and destroy its links
 		avfilter_graph_free(&f->thumbnail.graph);
 
-		// causes segault in avformat_close_input
+		// causes segfault in avformat_close_input
 		//avcodec_free_context(&f->thumbnail.codec_context);
 // TODO ensure other stuff is freed
 /*
 avcodec_free_context(&dec_ctx);
 avformat_close_input(&fmt_ctx);
 av_frame_free(&frame);
-av_frame_free(&filt_frame);
 */
+		av_frame_free(&f->thumbnail.frame);
 	}
 
 	*picture = (AdPicture){
@@ -391,7 +252,7 @@ av_frame_free(&filt_frame);
 }
 
 
-gboolean
+bool
 ad_open_ffmpeg (WfDecoder* decoder, const char* filename)
 {
 	FFmpegAudioDecoder* f = decoder->d = g_new0(FFmpegAudioDecoder, 1);
@@ -518,12 +379,12 @@ ad_open_ffmpeg (WfDecoder* decoder, const char* filename)
 	return TRUE;
 
 f:
-	g_free(f);
+	g_free0(decoder->d);
 	return FALSE;
 }
 
 
-gboolean
+bool
 ad_open_ffmpeg_new (WfDecoder* decoder, const char* filename)
 {
 	FFmpegAudioDecoder* f = decoder->d = g_new0(FFmpegAudioDecoder, 1);
@@ -569,7 +430,7 @@ ad_open_ffmpeg_new (WfDecoder* decoder, const char* filename)
 
 	return true;
 f:
-	g_free(f);
+	g_free0(decoder->d);
 	return FALSE;
 }
 
@@ -584,10 +445,10 @@ ad_close_ffmpeg (WfDecoder* d)
 	avcodec_close(priv->codec_context);
 #else
 	// TODO the docs say dont use avcodec_close. try this instead
-	avcodec_free_context(&priv->codec_context)
+	avcodec_free_context(&priv->codec_context);
 #endif
 	avformat_close_input(&priv->format_context);
-	g_free(priv);
+	g_free0(d->d);
 
 	return 0;
 }
@@ -767,7 +628,6 @@ ff_read_short_interleaved_to_planar (WfDecoder* d, WfBuf16* buf)
 			if(f->frame_iter && f->frame_iter < f->frame.nb_samples){
 				got_frame = true;
 			}else{
-				memset(&f->frame, 0, sizeof(AVFrame));
 				av_frame_unref(&f->frame);
 				f->frame_iter = 0;
 
@@ -835,7 +695,6 @@ ff_read_short_planar_to_planar (WfDecoder* d, WfBuf16* buf)
 			if(f->frame_iter && f->frame_iter < f->frame.nb_samples){
 				got_frame = true;
 			}else{
-				memset(&f->frame, 0, sizeof(AVFrame));
 				av_frame_unref(&f->frame);
 				f->frame_iter = 0;
 
@@ -903,7 +762,6 @@ ff_read_short_planar_to_interleaved (WfDecoder* d, float* out, size_t len)
 			if(f->frame_iter && f->frame_iter < f->frame.nb_samples){
 				got_frame = true;
 			}else{
-				memset(&f->frame, 0, sizeof(AVFrame));
 				av_frame_unref(&f->frame);
 				f->frame_iter = 0;
 
@@ -952,7 +810,7 @@ static ssize_t
 ff_read_float_interleaved_to_planar (WfDecoder* d, WfBuf16* buf)
 {
 	FFmpegAudioDecoder* f = d->d;
-	AVFrame frame;
+	AVFrame frame = {0,};
 	int64_t n_fr_done = 0;
 
 	int data_size = av_get_bytes_per_sample(f->codec_parameters->format);
@@ -962,7 +820,6 @@ ff_read_float_interleaved_to_planar (WfDecoder* d, WfBuf16* buf)
 
 		if(f->packet.stream_index == f->audio_stream){
 
-			memset(&frame, 0, sizeof(AVFrame));
 			av_frame_unref(&frame);
 
 			int got_frame = 0;
@@ -1034,7 +891,6 @@ ff_read_short_interleaved_to_interleaved (WfDecoder* d, float* out, size_t len)
 			if(f->frame_iter && f->frame_iter < f->frame.nb_samples){
 				got_frame = true;
 			}else{
-				memset(&f->frame, 0, sizeof(AVFrame));
 				av_frame_unref(&f->frame);
 				f->frame_iter = 0;
 
@@ -1103,13 +959,14 @@ ff_read_float_planar_to_planar (WfDecoder* d, WfBuf16* buf)
 				f->frame_iter = 0;
 
 				int error = avcodec_receive_frame(f->codec_context, &f->frame);
-				if (!error)
+				if (!error) {
 					got_frame = true;
 					error = avcodec_send_packet(f->codec_context, &f->packet);
 					if (error == AVERROR(EAGAIN))
 						error = 0;
-				else if (error == AVERROR(EAGAIN))
+				} else if (error == AVERROR(EAGAIN))
 					error = 0; // try again next iteration
+
 				if (error) {
 					char errbuff[64] = {0,};
 					gwarn("error decoding audio: %s", av_make_error_string(errbuff, 64, error));
@@ -1181,7 +1038,6 @@ ff_read_float_planar_to_interleaved (WfDecoder* d, float* out, size_t len)
 			if(f->frame_iter && f->frame_iter < f->frame.nb_samples){
 				got_frame = true;
 			}else{
-				memset(&f->frame, 0, sizeof(AVFrame));
 				av_frame_unref(&f->frame);
 				f->frame_iter = 0;
 
@@ -1248,7 +1104,6 @@ ff_read_int32_interleaved_to_planar (WfDecoder* d, WfBuf16* buf)
 			if(f->frame_iter && f->frame_iter < f->frame.nb_samples){
 				got_frame = true;
 			}else{
-				memset(&f->frame, 0, sizeof(AVFrame));
 				av_frame_unref(&f->frame);
 				f->frame_iter = 0;
 
@@ -1316,7 +1171,6 @@ ff_read_u8_interleaved_to_planar (WfDecoder* d, WfBuf16* buf)
 			if(f->frame_iter && f->frame_iter < f->frame.nb_samples){
 				got_frame = true;
 			}else{
-				memset(&f->frame, 0, sizeof(AVFrame));
 				av_frame_unref(&f->frame);
 				f->frame_iter = 0;
 
@@ -1390,7 +1244,6 @@ ff_read_peak (WfDecoder* d, WfBuf16* buf)
 			dbg(0, "------------- NEVER GET HERE ----------------");
 			got_frame = true;
 		}else{
-			memset(&f->frame, 0, sizeof(AVFrame));
 			av_frame_unref(&f->frame);
 			f->frame_iter = 0;
 
@@ -1466,6 +1319,7 @@ ad_seek_ffmpeg (WfDecoder* d, int64_t pos)
 	f->pkt_ptr = NULL;
 	f->decoder_clock = 0;
 
+	// TODO this looks like a memory leak
 	memset(&f->frame, 0, sizeof(AVFrame));
 	av_frame_unref(&f->frame);
 	f->frame_iter = 0;
@@ -1523,6 +1377,148 @@ ad_metadata_array_set_tag_postion (GPtrArray* tags, const char* tag_name, int po
 }
 
 
+static void
+ff_filters_init (FFmpegAudioDecoder* f)
+{
+	if(!f->thumbnail.codec_context)
+		return;
+
+	static enum AVPixelFormat pixel_formats[] = { AV_PIX_FMT_RGB24, AV_PIX_FMT_NONE };
+
+#if HAVE_FFMPEG_4
+	// not needed since ffmpeg-4.0
+	avfilter_register_all();
+#endif
+
+	AVFilterGraph* graph = f->thumbnail.graph = avfilter_graph_alloc();
+	g_assert(graph);
+
+	AVBufferSinkParams* params = av_buffersink_params_alloc();
+
+	AVRational time_base = f->thumbnail.codec_context->time_base;
+
+	char* str = g_strdup_printf("video_size=%ix%i:pix_fmt=%i:time_base=%d/%d:pixel_aspect=%d/%d",
+		f->thumbnail.codec_context->width, f->thumbnail.codec_context->height,
+		f->thumbnail.codec_context->pix_fmt,
+		time_base.num, time_base.den,
+		f->thumbnail.codec_context->sample_aspect_ratio.num, f->thumbnail.codec_context->sample_aspect_ratio.den
+	);
+
+	if(avfilter_graph_create_filter(&f->thumbnail.filter_source, avfilter_get_by_name("buffer"), "thumb_buffer", str, NULL, graph)){
+		gwarn("Failed to create filter source");
+	}
+	params->pixel_fmts = pixel_formats;
+	if(avfilter_graph_create_filter(&f->thumbnail.filter_sink, avfilter_get_by_name("buffersink"), "thumb_buffersink", NULL, params, graph)){
+		gwarn("Failed to create filter sink");
+	}
+	AVFilterContext* scale_filter = NULL;
+	if(avfilter_graph_create_filter(&scale_filter, avfilter_get_by_name("scale"), "thumb_scale", "w=200:h=200", NULL, graph)){
+		gwarn("Failed to create scale filter");
+	}
+
+	AVFilterContext* format_filter = NULL;
+	if(avfilter_graph_create_filter(&format_filter, avfilter_get_by_name("format"), "thumb_format", "pix_fmts=rgb24", NULL, graph)){
+		gwarn("Failed to create format filter");
+	}
+	//av_opt_set_int_list(f->thumbnail.filter_sink, "pix_fmts", pixel_formats, AV_PIX_FMT_NONE, AV_OPT_SEARCH_CHILDREN);
+	//buffersinkParams.release();
+
+	if(avfilter_link(format_filter, 0, f->thumbnail.filter_sink, 0)){
+		gwarn("Failed to link final filter");
+	}
+
+	if(avfilter_link(scale_filter, 0, format_filter, 0)){
+		gwarn("Failed to link scale filter");
+	}
+
+	if(avfilter_link(f->thumbnail.filter_source, 0, scale_filter, 0)){
+		gwarn("Failed to link source filter");
+	}
+
+	if(avfilter_graph_config(graph, NULL)){
+		gwarn("Failed to configure filter graph");
+	}
+
+	g_free(str);
+}
+
+
+static bool
+decode_video_packet (FFmpegAudioDecoder* f)
+{
+	if (f->thumbnail.packet->stream_index != f->thumbnail.stream) {
+		return false;
+	}
+
+	av_frame_unref(f->thumbnail.frame);
+
+	int frame_finished = false;
+
+#ifdef USE_DEPRECATED
+	#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+	int bytes_decoded = avcodec_decode_video2(f->thumbnail.codec_context, f->thumbnail.frame, &frame_finished, f->thumbnail.packet);
+	#pragma GCC diagnostic warning "-Wdeprecated-declarations"
+	if (bytes_decoded < 0) {
+		perr("Failed to decode video frame: nothing decoded");
+	}
+#else
+	int ret = avcodec_receive_frame(f->thumbnail.codec_context, f->thumbnail.frame);
+	if (ret == 0) frame_finished = 1;
+	if (ret == AVERROR(EAGAIN)) ret = 0;
+	if (ret == 0) ret = avcodec_send_packet(f->thumbnail.codec_context, f->thumbnail.packet);
+	if (ret < 0) {
+		perr("Failed to decode video frame");
+	}
+#endif
+
+	return frame_finished > 0;
+}
+
+
+static bool
+get_video_packet (FFmpegAudioDecoder* f)
+{
+	bool framesAvailable = true;
+	bool frameDecoded = false;
+
+	if (f->thumbnail.packet) {
+		av_packet_unref(f->thumbnail.packet);
+		f->thumbnail.packet = NULL;
+	}
+
+	f->thumbnail.packet = g_new0(AVPacket, 1);
+
+	while (framesAvailable && !frameDecoded) {
+		framesAvailable = av_read_frame(f->format_context, f->thumbnail.packet) >= 0;
+		if (framesAvailable) {
+			frameDecoded = f->thumbnail.packet->stream_index == f->thumbnail.stream;
+			if (!frameDecoded) {
+				av_packet_unref(f->thumbnail.packet);
+			}
+		}
+	}
+
+	return frameDecoded;
+}
+
+
+static bool
+ff_decode_video_frame (FFmpegAudioDecoder* f)
+{
+	bool frame_finished = false;
+
+	while (!frame_finished && get_video_packet(f)) {
+		frame_finished = decode_video_packet(f);
+	}
+
+	if (!frame_finished) {
+		perr("decode_video_frame failed: frame not finished");
+	}
+
+	return frame_finished;
+}
+
+
 const static AdPlugin ad_ffmpeg = {
 	&ad_eval_ffmpeg,
 	&ad_open_ffmpeg,
@@ -1535,6 +1531,7 @@ const static AdPlugin ad_ffmpeg = {
 
 
 extern int wf_debug; // TODO
+
 
 /* dlopen handler */
 const AdPlugin*

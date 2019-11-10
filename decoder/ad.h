@@ -30,16 +30,12 @@ typedef struct
 
 typedef struct _AdPlugin AdPlugin;
 
-#ifndef __ad_plugin_c__
 typedef struct
 {
     WfAudioInfo     info;
-    const AdPlugin* b;      // backend
-    void*           d;      // private backend data
+    const AdPlugin* b;      // impl
+    void*           d;      // private impl data
 } WfDecoder;
-#else
-typedef struct _WfDecoder WfDecoder;
-#endif
 
 struct _AdPlugin
 {
@@ -90,5 +86,9 @@ const AdPlugin* get_ffmpeg  ();
 #endif
 
 #define AD_FLOAT_TO_SHORT(A) (A * (1<<15));
+
+#ifndef g_free0
+#define g_free0(var) (var = (g_free (var), NULL))
+#endif
 
 #endif

@@ -1,7 +1,7 @@
 /**
 * +----------------------------------------------------------------------+
 * | This file is part of the Ayyi project. http://ayyi.org               |
-* | copyright (C) 2011-2018 Tim Orford <tim@orford.org>                  |
+* | copyright (C) 2011-2019 Tim Orford <tim@orford.org>                  |
 * | copyright (C) 2011 Robin Gareus <robin@gareus.org>                   |
 * +----------------------------------------------------------------------+
 * | This program is free software; you can redistribute it and/or modify |
@@ -20,8 +20,6 @@
 #include "decoder/debug.h"
 #include "decoder/ad.h"
 
-#define g_free0(A) (A = (g_free(A), NULL))
-
 #if 0
 int      ad_eval_null  (const char* f)               { return -1; }
 gboolean ad_open_null  (WfDecoder* d, const char* f) { return  0; }
@@ -30,13 +28,6 @@ int      ad_info_null  (WfDecoder* d)                { return -1; }
 int64_t  ad_seek_null  (void* sf, int64_t p)         { return -1; }
 ssize_t  ad_read_null  (void* sf, float*d, size_t s) { return -1; }
 #endif
-
-struct _WfDecoder
-{
-    WfAudioInfo       info;
-    const AdPlugin* b;      // backend
-    void*           d;      // data
-};
 
 
 static AdPlugin const*
@@ -65,16 +56,15 @@ choose_backend(const char* filename)
 
 
 /*
- *  Opening will fill WfDecoder.info which the caller must free using ad_free_info()
+ *  Opening will fill WfDecoder.info which the caller must free using ad_free_nfo()
  */
-gboolean
+bool
 ad_open(WfDecoder* d, const char* fname)
 {
 	ad_clear_nfo(&d->info);
 
-	d->b = choose_backend(fname);
-	if (!d->b) {
-		return g_warning("no decoder backend available for filetype: '%s'", strrchr(fname, '.')), FALSE;
+	if(!(d->b = choose_backend(fname))){
+		return g_warning("no decoder available for filetype: '%s'", strrchr(fname, '.')), FALSE;
 	}
 
 	return d->b->open(d, fname);
@@ -84,8 +74,9 @@ ad_open(WfDecoder* d, const char* fname)
 int
 ad_info(WfDecoder* d)
 {
-	if (!d) return -1;
-	return d->b->info(d->d);
+	return d
+		? d->b->info(d->d)
+		: -1;
 }
 
 
@@ -166,7 +157,7 @@ ad_read_mono_dbl(WfDecoder* d, double* data, size_t len)
 }
 
 
-gboolean
+bool
 ad_finfo (const char* f, WfAudioInfo* nfo)
 {
 	ad_clear_nfo(nfo);
@@ -209,7 +200,10 @@ ad_clear_nfo(WfAudioInfo* nfo)
 void
 ad_free_nfo(WfAudioInfo* nfo)
 {
-	if (nfo->meta_data) g_ptr_array_unref(nfo->meta_data);
+	if (nfo->meta_data){
+		g_ptr_array_unref(nfo->meta_data);
+		nfo->meta_data = NULL;
+	}
 }
 
 

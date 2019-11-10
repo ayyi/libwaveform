@@ -92,6 +92,10 @@ waveform_construct (GType object_type)
 }
 
 
+/*
+ *  This does a synchronous load so may be very slow.
+ *  For an async load, instead use waveform_new() followed by waveform_load().
+ */
 Waveform*
 waveform_load_new(const char* filename)
 {

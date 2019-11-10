@@ -1,7 +1,7 @@
 /**
 * +----------------------------------------------------------------------+
 * | This file is part of the Ayyi project. http://ayyi.org               |
-* | copyright (C) 2011-2018 Tim Orford <tim@orford.org>                  |
+* | copyright (C) 2011-2019 Tim Orford <tim@orford.org>                  |
 * | copyright (C) 2011 Robin Gareus <robin@gareus.org>                   |
 * +----------------------------------------------------------------------+
 * | This program is free software; you can redistribute it and/or modify |
@@ -40,8 +40,8 @@ struct _WfBuf16 // also defined in waveform.h
 };
 
 
-int
-parse_bit_depth(int format)
+static int
+parse_bit_depth (int format)
 {
 	/* see http://www.mega-nerd.com/libsndfile/api.html */
 	switch (format&0x0f) {
