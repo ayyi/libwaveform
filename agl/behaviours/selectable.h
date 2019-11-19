@@ -24,6 +24,5 @@ typedef struct {
 } SelectBehaviour;
 
 AGlBehaviour* selectable      ();
-void          selectable_init (AGlBehaviour*, AGlActor*);
 
 #endif

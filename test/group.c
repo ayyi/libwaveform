@@ -4,7 +4,7 @@
 
   ---------------------------------------------------------------
 
-  Copyright (C) 2012-2018 Tim Orford <tim@orford.org>
+  Copyright (C) 2012-2019 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -273,10 +273,8 @@ rotator (WaveformActor* wf_actor)
 		glScalef(1.0f, 1.0f, -1.0f);
 	}
 
-	AGlActor* actor = agl_actor__new();
-#ifdef AGL_DEBUG_ACTOR
+	AGlActor* actor = agl_actor__new(AGlActor);
 	actor->name = "Rotator";
-#endif
 	actor->set_state = rotator_set_state;
 
 	return actor;

@@ -107,6 +107,9 @@ typedef struct {
     AGlActorClass parent;
 } WfActorClass;
 
+static void   wf_actor_free  (AGlActor*);
+static bool   wf_actor_paint (AGlActor*);
+
 static WfActorClass actor_class = {{0, "Waveform", (AGlActorNew*)wf_actor_new, wf_actor_free}};
 
 typedef enum
@@ -245,8 +248,6 @@ typedef struct { int lower; int upper; } ModeRange;
 
 static inline Mode get_mode                  (double zoom);
 static ModeRange   mode_range                (WaveformActor*);
-
-static bool   wf_actor_paint                 (AGlActor*);
 
 #if 0
 static void   wf_actor_load_texture1d        (Waveform*, Mode, WfGlBlock*, int b);
@@ -609,7 +610,7 @@ wf_actor_disconnect_waveform (WaveformActor* a)
  *  Freeing the actor can be triggered by calling
  *  agl_actor__remove_child.
  */
-void
+static void
 wf_actor_free (AGlActor* actor)
 {
 	// Waveform data is shared so is not free'd here.
@@ -663,7 +664,7 @@ wf_actor_waveform_finalize_notify (gpointer _actor, GObject* was)
 
 	typedef struct { WaveformActor* actor; WaveformActorFn callback; gpointer user_data; } C2;
 
-	static void wf_actor_set_waveform_done(Waveform* w, GError* error, gpointer _c)
+	static void wf_actor_set_waveform_done (Waveform* w, GError* error, gpointer _c)
 	{
 		C2* c = (C2*)_c;
 		PF;
@@ -2382,5 +2383,3 @@ wf_actor_test_is_not_blank(WaveformActor* a)
 }
 
 #endif
-
-

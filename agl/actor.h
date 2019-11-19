@@ -57,7 +57,7 @@ typedef struct {
 	AGlActorNew* new;
 	AGlActorFn   free;
 
-	GType        behaviour_types[4];
+	AGlBehaviourClass* behaviour_classes[AGL_ACTOR_N_BEHAVIOURS];
 } AGlActorClass;
 
 struct _AGlActor {
@@ -95,14 +95,31 @@ struct _AGlActor {
 #endif
 };
 
+#define agl_actor__new(T, ...) \
+	({ \
+		T* a = g_new0(T, 1); \
+		*a = (T){__VA_ARGS__}; \
+		AGlActor* actor = (AGlActor*)a; \
+		if(!actor->paint) actor->paint = agl_actor__null_painter; \
+		\
+		if(actor->class){ \
+			int i; for(i=0;i<AGL_ACTOR_N_BEHAVIOURS;i++){ \
+				AGlBehaviourClass* behaviour_class = actor->class->behaviour_classes[i]; \
+				if(!behaviour_class) break; \
+				actor->behaviours[i] = behaviour_class->new(); \
+			} \
+		} \
+		a; \
+	})
 
-AGlActor* agl_actor__new             ();
 AGlActor* agl_actor__new_root        (GtkWidget*);
 AGlActor* agl_actor__new_root_       (ContextType);
 void      agl_actor__free            (AGlActor*);
 AGlActor* agl_actor__add_child       (AGlActor*, AGlActor*);
+AGlActor* agl_actor__insert_child    (AGlActor*, AGlActor*, int);
 void      agl_actor__remove_child    (AGlActor*, AGlActor*);
 AGlActor* agl_actor__replace_child   (AGlActor*, AGlActor*, AGlActor*);
+
 bool      agl_actor__paint           (AGlActor*);
 void      agl_actor__set_size        (AGlActor*);
 void      agl_actor__scroll_to       (AGlActor*, AGliPt);
@@ -114,9 +131,13 @@ WfAnimation*
           agl_actor__start_transition(AGlActor*, GList* animatables, AnimationFn done, gpointer);
 bool      agl_actor__is_disabled     (AGlActor*);
 AGlActor* agl_actor__find_by_name    (AGlActor*, const char*);
+AGlActor* agl_actor__find_by_class   (AGlActor*, AGlActorClass*);
 AGlActor* agl_actor__find_by_z       (AGlActor*, int);
 AGliPt    agl_actor__find_offset     (AGlActor*);
 bool      agl_actor__on_expose       (GtkWidget*, GdkEventExpose*, gpointer);
+
+AGlBehaviour*
+          agl_actor__find_behaviour  (AGlActor*, AGlBehaviourClass*);
 
 bool      agl_actor__null_painter    (AGlActor*);
 bool      agl_actor__solid_painter   (AGlActor*);
@@ -124,6 +145,12 @@ bool      agl_actor__solid_painter   (AGlActor*);
 void      agl_actor__set_use_shaders (AGlRootActor*, gboolean);
 bool      agl_actor__on_event        (AGlRootActor*, GdkEvent*);
 bool      agl_actor__xevent          (AGlRootActor*, XEvent*);
+
+AGlActorClass*
+          agl_scene_get_class        ();
+
+void      agl_actor_class__add_behaviour
+                                     (AGlActorClass*, AGlBehaviourClass*);
 
 #ifdef DEBUG
 void      agl_actor__print_tree      (AGlActor*);

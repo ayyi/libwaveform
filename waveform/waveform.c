@@ -387,7 +387,7 @@ waveform_get_n_channels(Waveform* w)
  *  @param ch_num - must be 0 or 1. Should be 0 unless loading rhs for split file.
  */
 bool
-waveform_load_peak(Waveform* w, const char* peak_file, int ch_num)
+waveform_load_peak (Waveform* w, const char* peak_file, int ch_num)
 {
 	g_return_val_if_fail(w, false);
 	g_return_val_if_fail(ch_num <= WF_MAX_CH, false);

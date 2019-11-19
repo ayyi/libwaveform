@@ -782,12 +782,13 @@ agl_print_with_background(int x, int y, double z, uint32_t colour, uint32_t bg_c
 
 
 static gboolean
-font_is_scalable(PangoContext* context, const char* font_name)
+font_is_scalable (PangoContext* context, const char* font_name)
 {
 	//scalable fonts dont list sizes, so if the font has a size list, we assume it is not scalable.
 	//TODO surely there is a better way to find a font than iterating over every system font?
 
 	g_return_val_if_fail(context, FALSE);
+	g_return_val_if_fail(font_name, FALSE);
 
 	gboolean scalable = TRUE;
 

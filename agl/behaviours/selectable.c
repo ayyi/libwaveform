@@ -13,7 +13,7 @@
 
 void selectable_init (AGlBehaviour*, AGlActor*);
 
-AGlBehaviourClass klass = {
+static AGlBehaviourClass klass = {
 	.init = selectable_init
 };
 

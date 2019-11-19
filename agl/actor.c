@@ -38,7 +38,7 @@ extern void wf_debug_printf (const char* func, int level, const char* format, ..
 static AGl* agl = NULL;
 static AGlActorClass root_actor_class = {0, "ROOT"};
 
-#define SCENE_IS_GTK(A) (A->root->type == CONTEXT_TYPE_GTK)
+#define SCENE_IS_GTK(A) ((A)->root->type == CONTEXT_TYPE_GTK)
 
 #define IS_DRAWABLE(A) (!(!agl_actor__is_onscreen(A) || ((agl_actor__width(A) < 1 || agl_actor__height(A) < 1))))
 
@@ -56,17 +56,6 @@ static bool   agl_actor__is_cached    (AGlActor*);
 #endif
 #endif
 static AGliPt _agl_actor__find_offset (AGlActor*);
-
-
-AGlActor*
-agl_actor__new()
-{
-	agl = agl_get_instance();
-
-	AGlActor* a = g_new0(AGlActor, 1);
-	a->paint = agl_actor__null_painter;
-	return a;
-}
 
 
 #ifdef USE_GTK
@@ -159,6 +148,13 @@ agl_actor__on_realise(GtkWidget* widget, gpointer _actor)
 #endif
 
 
+AGlActorClass*
+agl_scene_get_class ()
+{
+	return &root_actor_class;
+}
+
+
 #ifdef USE_GTK
 AGlActor*
 agl_actor__new_root(GtkWidget* widget)
@@ -182,8 +178,7 @@ agl_actor__new_root_(ContextType type)
 {
 	agl = agl_get_instance();
 
-	AGlRootActor* a = g_new0(AGlRootActor, 1);
-	*a = (AGlRootActor){
+	AGlRootActor* a = agl_actor__new(AGlRootActor,
 		.actor = {
 			.class = &root_actor_class,
 			.name = "ROOT",
@@ -193,7 +188,14 @@ agl_actor__new_root_(ContextType type)
 		.type = type,
 		.bg_colour = 0x000000ff,
 		.enable_animations = true,
-	};
+	);
+
+#ifdef USE_GTK
+		#define READY_FOR_INIT(A) (SCENE_IS_GTK(A) ? ((A)->root->gl.gdk.widget && GTK_WIDGET_REALIZED((A)->root->gl.gdk.widget)) : true)
+#else
+		#define READY_FOR_INIT(A) true
+#endif
+	if(READY_FOR_INIT((AGlActor*)a)) agl_actor__init((AGlActor*)a);
 
 	return (AGlActor*)a;
 }
@@ -227,7 +229,7 @@ agl_actor__free(AGlActor* actor)
 		actor->behaviours[i] = NULL;
 	}
 
-	if(actor->class->free)
+	if(actor->class && actor->class->free)
 		actor->class->free(actor);
 	else
 		g_free(actor);
@@ -270,11 +272,6 @@ agl_actor__add_child(AGlActor* actor, AGlActor* child)
 		}
 		set_child_roots(child);
 
-#ifdef USE_GTK
-		#define READY_FOR_INIT(A) (SCENE_IS_GTK(A) ? GTK_WIDGET_REALIZED(A->root->gl.gdk.widget) : true)
-#else
-		#define READY_FOR_INIT(A) true
-#endif
 		if(READY_FOR_INIT(child)) agl_actor__init(child);
 	}
 
@@ -282,8 +279,18 @@ agl_actor__add_child(AGlActor* actor, AGlActor* child)
 }
 
 
+AGlActor*
+agl_actor__insert_child (AGlActor* actor, AGlActor* child, int position)
+{
+	agl_actor__add_child(actor, child);
+	actor->children = g_list_remove(actor->children, child);
+	actor->children = g_list_insert_before(actor->children, g_list_nth(actor->children, position), child);
+	return child;
+}
+
+
 void
-agl_actor__remove_child(AGlActor* actor, AGlActor* child)
+agl_actor__remove_child (AGlActor* actor, AGlActor* child)
 {
 	g_return_if_fail(actor && child);
 	g_return_if_fail(g_list_find(actor->children, child));
@@ -325,15 +332,23 @@ agl_actor__replace_child(AGlActor* actor, AGlActor* child, AGlActor* new_child)
 
 
 static void
-agl_actor__init(AGlActor* a)
+agl_actor__init (AGlActor* actor)
 {
 	// note that this may be called more than once, eg on settings change.
 
-	if(agl->use_shaders && a->program && !a->program->program) agl_create_program(a->program);
+	if(agl->use_shaders && actor->program && !actor->program->program) agl_create_program(actor->program);
 
-	call(a->init, a);
+	call(actor->init, actor);
 
-	GList* l = a->children;
+	for(int i = 0; i < AGL_ACTOR_N_BEHAVIOURS; i++){
+		AGlBehaviour* behaviour = actor->behaviours[i];
+		if(!behaviour)
+			break;
+
+		if(behaviour->klass->init) agl_behaviour_init(behaviour, actor);
+	}
+
+	GList* l = actor->children;
 	for(;l;l=l->next) agl_actor__init((AGlActor*)l->data);
 }
 
@@ -551,7 +566,7 @@ _agl_actor__paint(AGlActor* a)
 #ifdef SHOW_ACTOR_BORDERS
 	static int depth; depth = -1;
 	#define MAX_COLOURS 10
-	static uint32_t colours[MAX_COLOURS] = {0xff000088, 0xff990088, 0x00ff0088, 0x0000ff88, 0xff000088, 0xffff0088, 0x00ffff88};
+	static uint32_t colours[MAX_COLOURS] = {0xff000088, 0xff990088, 0x00ff0088, 0x3333ff88, 0xff000088, 0xffff0088, 0x00ffff88};
 
 	int n_no_x_offset_parents(AGlActor* a)
 	{
@@ -1034,7 +1049,7 @@ agl_actor__on_expose (GtkWidget* widget, GdkEventExpose* event, gpointer user_da
 
 
 AGlActor*
-agl_actor__find_by_name(AGlActor* actor, const char* name)
+agl_actor__find_by_name (AGlActor* actor, const char* name)
 {
 	GList* l = actor->children;
 	for(;l;l=l->next){
@@ -1046,12 +1061,39 @@ agl_actor__find_by_name(AGlActor* actor, const char* name)
 
 
 AGlActor*
-agl_actor__find_by_z(AGlActor* actor, int z)
+agl_actor__find_by_class (AGlActor* actor, AGlActorClass* klass)
+{
+	GList* l = actor->children;
+	for(;l;l=l->next){
+		AGlActor* a = l->data;
+		if(a->class == klass || (a = agl_actor__find_by_class(a, klass))) return a;
+	}
+	return NULL;
+}
+
+
+AGlActor*
+agl_actor__find_by_z (AGlActor* actor, int z)
 {
 	GList* l = actor->children;
 	for(;l;l=l->next){
 		AGlActor* a = l->data;
 		if(a->z == z) return a;
+	}
+	return NULL;
+}
+
+
+AGlBehaviour*
+agl_actor__find_behaviour (AGlActor* actor, AGlBehaviourClass* klass)
+{
+	for(int i = 0; i < AGL_ACTOR_N_BEHAVIOURS; i++){
+		AGlBehaviour* behaviour = actor->behaviours[i];
+		if(!behaviour)
+			break;
+
+		if(behaviour->klass == klass)
+			return behaviour;
 	}
 	return NULL;
 }
@@ -1348,6 +1390,19 @@ agl_actor__is_cached(AGlActor* a)
 }
 #endif
 #endif
+
+
+void
+agl_actor_class__add_behaviour (AGlActorClass* K, AGlBehaviourClass* B)
+{
+	int i; for(i=0;i<AGL_ACTOR_N_BEHAVIOURS;i++){
+		AGlBehaviourClass* behaviour = K->behaviour_classes[i];
+		if(!behaviour){
+			K->behaviour_classes[i] = B;
+			break;
+		}
+	}
+}
 
 
 #ifdef DEBUG

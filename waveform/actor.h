@@ -43,8 +43,6 @@ struct _WaveformActor {
 
 AGlActorClass* wf_actor_get_class            ();
 
-void           wf_actor_free                 (AGlActor*);
-
 void           wf_actor_set_waveform         (WaveformActor*, Waveform*, WaveformActorFn, gpointer);
 void           wf_actor_set_waveform_sync    (WaveformActor*, Waveform*);
 void           wf_actor_set_region           (WaveformActor*, WfSampleRegion*);

@@ -31,4 +31,6 @@ struct _AGlBehaviour
     AGlBehaviourClass* klass;
 };
 
+#define agl_behaviour_init(B, A) ((B)->klass->init((B), A))
+
 #endif
