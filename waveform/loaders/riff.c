@@ -73,6 +73,11 @@ wf_load_riff_peak(Waveform* wv, const char* peak_file)
 	dbg(2, "n_channels=%i n_frames=%Li n_bytes=%Li n_blocks=%i", sfinfo.channels, n_frames, sfinfo.frames * peak_byte_depth * sfinfo.channels, (int)(ceil((float)n_frames / WF_PEAK_TEXTURE_SIZE)));
 	dbg(2, "secs=%.3f %.3f", ((float)(n_frames)) / 44100, ((float)(n_frames * WF_PEAK_RATIO)) / 44100);
 
+	if(!n_frames){
+		wv->renderable = false;
+		goto out_close;
+	}
+
 	const sf_count_t max_frames = wv->n_frames ? (wv->n_frames / WF_PEAK_RATIO + (wv->n_frames % WF_PEAK_RATIO ? 1 : 0)) : WF_MAX_FRAMES;
 #ifdef DEBUG
 	if(sfinfo.frames / WF_PEAK_VALUES_PER_SAMPLE > max_frames) gwarn("peakfile is too long: %"PRIi64", expected %"PRIi64, sfinfo.frames / WF_PEAK_VALUES_PER_SAMPLE, max_frames);

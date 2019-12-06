@@ -47,9 +47,6 @@
 */
 #define __wf_private__
 #include "config.h"
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
 #include <getopt.h>
 #include <sys/types.h>
 #include <gtk/gtk.h>
@@ -79,6 +76,8 @@ const char* wavs[] = {
 	"data/stereo_0:10.opus",
 	"data/mono_0:10.wav",
 	"data/piano.wav",
+	"data/v_short.wav",
+	"data/mono_0:00.wav",
 	//"data/u8.wav",
 };
 
