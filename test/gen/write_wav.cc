@@ -22,15 +22,11 @@
 
 */
 #include "config.h"
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
 #include <math.h>
 #include <malloc.h>
 #include <getopt.h>
 #include <sndfile.h>
 #include "cpgrs.h"
-//#include "waveform/wf_private.h" needs gtk
 
 #define MONO 1
 
@@ -263,8 +259,9 @@ create_plain_file(int len_seconds, int n_channels)
 int main(int argc, char* argv[])
 {
 	int n_channels = MONO;
+	double duration = 10;  // seconds
 
-	const char* optstring = "c:hvd:";
+	const char* optstring = "c:l:hvd:";
 
 	const struct option longopts[] = {
 		{ "channels", 1, 0, 'c' },
@@ -325,10 +322,9 @@ int main(int argc, char* argv[])
 		fprintf(stderr, "Output filename required\n");
 		return print_help();
 	}
-	printf("Generating 10s test wav\n");
+	printf("Generating %.0fs test wav\n", duration);
 
 	double freq        = 440;   // hz
-	double duration    = 10;    // seconds
 	int    sample_rate = 44100; // frames / second
 
 	long n_frames = duration * sample_rate;
