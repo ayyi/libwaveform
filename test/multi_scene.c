@@ -10,7 +10,7 @@
 
   ---------------------------------------------------------------
 
-  Copyright (C) 2012-2018 Tim Orford <tim@orford.org>
+  Copyright (C) 2012-2019 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -141,9 +141,7 @@ main (int argc, char *argv[])
 
 	agl_get_instance()->pref_use_shaders = USE_SHADERS;
 
-										// TODO dont pass root
-	wfc = wf_context_new(scene1);
-	//wfc = wf_context_new(NULL);
+	wfc = wf_context_new((AGlActor*)scene1);
 
 	int n_frames = waveform_get_n_frames(w1);
 
@@ -177,7 +175,7 @@ main (int argc, char *argv[])
 
 	add_key_handlers_gtk((GtkWindow*)window, NULL, (Key*)&keys);
 
-	gboolean window_on_delete(GtkWidget* widget, GdkEvent* event, gpointer user_data){
+	bool window_on_delete(GtkWidget* widget, GdkEvent* event, gpointer user_data){
 		gtk_main_quit();
 		return false;
 	}
@@ -227,8 +225,8 @@ on_allocate(GtkWidget* widget, GtkAllocation* allocation, gpointer user_data)
 
 	setup_projection(widget);
 
-	((AGlActor*)scene1)->region = (AGliRegion){0, 0, GL_WIDTH, GL_HEIGHT};
-	((AGlActor*)scene2)->region = (AGliRegion){0, 0, GL_WIDTH, GL_HEIGHT};
+	((AGlActor*)scene1)->region = (AGlfRegion){0, 0, GL_WIDTH, GL_HEIGHT};
+	((AGlActor*)scene2)->region = (AGlfRegion){0, 0, GL_WIDTH, GL_HEIGHT};
 
 	start_zoom(zoom);
 }

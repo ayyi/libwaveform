@@ -253,7 +253,7 @@ on_canvas_realise (GtkWidget* _canvas, gpointer user_data)
 
 	agl_get_instance()->pref_use_shaders = USE_SHADERS;
 
-	wfc = wf_context_new(scene);
+	wfc = wf_context_new((AGlActor*)scene);
 
 	char* filename = find_wav("mono_0:10.wav");
 	w1 = waveform_load_new(filename);

@@ -43,7 +43,6 @@
 #define VBORDER 8
 
 AGl*            agl            = NULL;
-static bool     gl_initialised = false;
 GtkWidget*      canvas         = NULL;
 AGlRootActor*   scene          = NULL;
 AGlActor*       group          = NULL;
@@ -107,9 +106,6 @@ window_content (GtkWindow* window, GdkGLConfig* glconfig)
 	scene = (AGlRootActor*)agl_actor__new_root(canvas);
 	//scene->enable_animations = false;
 
-	wfc = wf_context_new((AGlRootActor*)scene);
-	wf_context_set_zoom(wfc, 1.0);
-
 	char* filename = find_wav(WAV);
 	w1 = waveform_load_new(filename);
 	g_free(filename);
@@ -125,7 +121,7 @@ main (int argc, char *argv[])
 {
 	set_log_handlers();
 
-	wf_debug = 1;
+	wf_debug = 0;
 
 	int opt;
 	while((opt = getopt_long (argc, argv, short_options, long_options, NULL)) != -1) {
@@ -143,23 +139,12 @@ main (int argc, char *argv[])
 
 
 static void
-gl_init()
-{
-	if(gl_initialised) return;
-
-	gl_initialised = true;
-}
-
-
-static void
-on_canvas_realise(GtkWidget* _canvas, gpointer user_data)
+on_canvas_realise (GtkWidget* _canvas, gpointer user_data)
 {
 	PF;
 	static gboolean canvas_init_done = false;
 	if(canvas_init_done) return;
 	if(!GTK_WIDGET_REALIZED (canvas)) return;
-
-	gl_init();
 
 	canvas_init_done = true;
 
@@ -167,7 +152,7 @@ on_canvas_realise(GtkWidget* _canvas, gpointer user_data)
 
 	void group__set_size(AGlActor* actor)
 	{
-		actor->region = (AGliRegion){
+		actor->region = (AGlfRegion){
 			.x1 = HBORDER,
 			.y1 = VBORDER,
 			.x2 = actor->parent->region.x2 - HBORDER,
@@ -175,6 +160,9 @@ on_canvas_realise(GtkWidget* _canvas, gpointer user_data)
 		};
 	}
 	group->set_size = group__set_size;
+
+	wfc = wf_context_new(group);
+	wf_context_set_zoom(wfc, 1.0);
 
 	int n_frames = waveform_get_n_frames(w1);
 
@@ -202,7 +190,7 @@ on_canvas_realise(GtkWidget* _canvas, gpointer user_data)
 	agl_actor__add_child(group, background_actor(a[0]));
 
 	AGlActor* ruler = agl_actor__add_child(group, ruler_actor(a[0]));
-	ruler->region = (AGliRegion){0, 0, 0, 20};
+	ruler->region = (AGlfRegion){0, 0, 0, 20};
 
 	on_allocate(canvas, &canvas->allocation, user_data);
 
@@ -215,14 +203,14 @@ on_canvas_realise(GtkWidget* _canvas, gpointer user_data)
 
 
 static void
-on_allocate(GtkWidget* widget, GtkAllocation* allocation, gpointer user_data)
+on_allocate (GtkWidget* widget, GtkAllocation* allocation, gpointer user_data)
 {
 	if(!GTK_WIDGET_REALIZED (canvas)) return;
 
 	double width = canvas->allocation.width - 2 * ((int)HBORDER);
 	wfc->samples_per_pixel = waveform_get_n_frames(w1) / width;
 
-	((AGlActor*)scene)->region = (AGliRegion){0, 0, allocation->width, allocation->height};
+	((AGlActor*)scene)->region = (AGlfRegion){0, 0, allocation->width, allocation->height};
 	agl_actor__set_size((AGlActor*)scene);
 
 	#define ruler_height 20.0
@@ -240,13 +228,13 @@ on_allocate(GtkWidget* widget, GtkAllocation* allocation, gpointer user_data)
 
 
 static void
-start_zoom(float target_zoom)
+start_zoom (float target_zoom)
 {
 	wf_context_set_zoom(wfc, target_zoom);
 }
 
 
-	bool on_idle(gpointer _)
+	bool on_idle (gpointer _)
 	{
 		static uint64_t frame = 0;
 		static uint64_t t0    = 0;
@@ -269,7 +257,7 @@ start_zoom(float target_zoom)
 	}
 
 void
-toggle_animate(gpointer _)
+toggle_animate (gpointer _)
 {
 	PF0;
 
@@ -278,7 +266,7 @@ toggle_animate(gpointer _)
 
 
 void
-toggle_shaders(gpointer _)
+toggle_shaders (gpointer _)
 {
 	PF0;
 	agl_actor__set_use_shaders(scene, !agl->use_shaders);
@@ -286,21 +274,21 @@ toggle_shaders(gpointer _)
 
 
 void
-zoom_in(gpointer _)
+zoom_in (gpointer _)
 {
 	start_zoom(wf_context_get_zoom(wfc) * 1.5);
 }
 
 
 void
-zoom_out(gpointer _)
+zoom_out (gpointer _)
 {
 	start_zoom(wf_context_get_zoom(wfc) / 1.5);
 }
 
 
 void
-scroll_left(gpointer _)
+scroll_left (gpointer _)
 {
 	//int n_visible_frames = ((float)waveform->waveform->n_frames) / waveform->zoom;
 	//waveform_view_set_start(waveform, waveform->start_frame - n_visible_frames / 10);
@@ -308,7 +296,7 @@ scroll_left(gpointer _)
 
 
 void
-scroll_right(gpointer _)
+scroll_right (gpointer _)
 {
 	//int n_visible_frames = ((float)waveform->waveform->n_frames) / waveform->zoom;
 	//waveform_view_set_start(waveform, waveform->start_frame + n_visible_frames / 10);
@@ -316,14 +304,14 @@ scroll_right(gpointer _)
 
 
 void
-quit(gpointer _)
+quit (gpointer _)
 {
 	exit(EXIT_SUCCESS);
 }
 
 
 uint64_t
-get_time()
+get_time ()
 {
 	struct timeval start;
 	gettimeofday(&start, NULL);

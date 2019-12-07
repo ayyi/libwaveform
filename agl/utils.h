@@ -137,4 +137,10 @@ extern GLenum _wf_ge;
 
 #define AGL_NEW(T, ...) ({T* obj = g_new0(T, 1); *obj = (T){__VA_ARGS__}; obj;})
 
+#ifdef DEBUG
+#define AGL_DEBUG if(agl->debug)
+#else
+#define AGL_DEBUG if(false)
+#endif
+
 #endif

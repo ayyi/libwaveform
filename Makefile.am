@@ -11,7 +11,8 @@ SUBDIRS = $(OPENGL_SUBDIRS) $(SDL_SUBDIRS) $(GTK_SUBDIRS) waveform transition de
 
 if ENABLE_OPENGL
 OPENGL_LIBADD = \
-	agl/libagl.la
+	agl/libagl.la \
+	agl/behaviours/libbehaviours.la
 endif
 
 lib_LTLIBRARIES = libwaveform.la

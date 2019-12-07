@@ -789,7 +789,7 @@ gl_init()
 
 		gl_init();
 
-		wfc = wf_context_new(scene = (AGlScene*)agl_actor__new_root(canvas));
+		wfc = wf_context_new((AGlActor*)(scene = (AGlScene*)agl_actor__new_root(canvas)));
 
 		g_signal_connect((gpointer)canvas, "expose-event",  G_CALLBACK(agl_actor__on_expose), scene);
 

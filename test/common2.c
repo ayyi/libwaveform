@@ -22,6 +22,8 @@
 #include <signal.h>
 #include <sys/time.h>
 #include <sys/types.h>
+#define XLIB_ILLEGAL_ACCESS // needed to access Display internals
+#include <X11/Xlib.h>
 #include <gtk/gtk.h>
 #include <glib-object.h>
 #include "agl/actor.h"
@@ -317,6 +319,12 @@ window_lookup (Window window)
 }
 
 
+static void
+scene_needs_redraw (AGlScene* scene, gpointer _){
+	scene->gl.glx.needs_draw = true;
+}
+
+
 /*
  * Create an RGB, double-buffered window.
  * Return the window and context handles.
@@ -326,6 +334,8 @@ agl_make_window (Display* dpy, const char* name, int width, int height, AGlScene
 {
 	AGl* agl = agl_get_instance();
 	agl->xdisplay = dpy;
+
+	scene->draw = scene_needs_redraw;
 
 	int attrib[] = {
 		GLX_RGBA,
@@ -440,7 +450,7 @@ on_window_resize (Display* dpy, AGlWindow* window, int width, int height)
 	double top    = 0;
 	glOrtho (left, right, bottom, top, 1.0, -1.0);
 
-	((AGlActor*)window->scene)->region = (AGliRegion){
+	((AGlActor*)window->scene)->region = (AGlfRegion){
 		.x2 = width,
 		.y2 = height,
 	};
@@ -482,8 +492,13 @@ void
 event_loop (Display* dpy)
 {
 	float frame_usage = 0.0;
+	fd_set rfds;
 
 	while (1) {
+		FD_ZERO(&rfds);
+		FD_SET(dpy->fd, &rfds);
+		select(dpy->fd + 1, &rfds, NULL, NULL, &(struct timeval){.tv_usec = 50000});
+
 		while (XPending(dpy) > 0) {
 			XEvent event;
 			XNextEvent(dpy, &event);
@@ -516,17 +531,21 @@ event_loop (Display* dpy)
 				}
 			}
 
-			if(window->scene->gl.glx.needs_draw){
-				draw(dpy, window);
-				glXSwapBuffers(dpy, window->window);
-				window->scene->gl.glx.needs_draw = false;
-			}
-
 			if (get_frame_usage) {
 				GLfloat temp;
 
 				(*get_frame_usage)(dpy, window->window, & temp);
 				frame_usage += temp;
+			}
+		}
+
+		GList* l = windows;
+		for(;l;l=l->next){
+			AGlWindow* window = l->data;
+			if(window->scene->gl.glx.needs_draw){
+				draw(dpy, window);
+				glXSwapBuffers(dpy, window->window);
+				window->scene->gl.glx.needs_draw = false;
 			}
 		}
 
@@ -561,7 +580,8 @@ event_loop (Display* dpy)
 			}
 		}
 
-		g_main_context_iteration(NULL, false); // update animations
+		int i = 0;
+		while(g_main_context_iteration(NULL, false) && i++ < 32); // update animations, idle callbacks etc
 	}
 }
 

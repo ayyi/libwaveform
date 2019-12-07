@@ -1,10 +1,10 @@
 /*
 
-  Low level tests for libwaveform
+  libwaveform unit tests
 
   --------------------------------------------------------------
 
-  Copyright (C) 2012-2018 Tim Orford <tim@orford.org>
+  Copyright (C) 2012-2019 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -21,25 +21,20 @@
 */
 #define __wf_private__
 #include "config.h"
-#include <stdio.h>
-#include <stdlib.h>
-#include <stdint.h>
-#include <string.h>
 #include <getopt.h>
 #include <time.h>
-#include <unistd.h>
 #include <inttypes.h>
-#include <signal.h>
 #include <sys/time.h>
 #include <glib.h>
 #include "decoder/ad.h"
+#include "transition/transition.h"
 #include "waveform/waveform.h"
 #include "waveform/peakgen.h"
 #include "waveform/alphabuf.h"
 #include "waveform/worker.h"
 #include "test/common.h"
 
-TestFn test_peakgen, test_bad_wav, test_audio_file, test_audiodata, test_audio_cache, test_alphabuf, test_worker;
+TestFn test_peakgen, test_bad_wav, test_audio_file, test_audiodata, test_audio_cache, test_alphabuf, test_transition, test_worker;
 
 static void finalize_notify(gpointer, GObject*);
 
@@ -50,6 +45,7 @@ gpointer tests[] = {
 	test_audiodata,
 	test_audio_cache,
 	test_alphabuf,
+	test_transition,
 	test_worker,
 };
 
@@ -373,6 +369,49 @@ test_alphabuf()
 
 	g_object_unref(w);
 	FINISH_TEST;
+}
+
+
+void
+test_transition ()
+{
+	START_TEST;
+
+	static int64_t value = 0;
+	static int64_t iter_val = -1;
+
+	WfAnimatable* animatable = WF_NEW(WfAnimatable,
+		.target_val.b = 1000,
+		.start_val.b  = 0,
+		.val.b        = &value,
+		.type         = WF_INT64
+	);
+
+	void done (WfAnimation* animation, gpointer _)
+	{
+		GList* members = animation->members;
+		WfAnimActor* actor = members->data;
+		GList* transitions = actor->transitions;
+		WfAnimatable* animatable = transitions->data;
+
+		assert(value == animatable->target_val.b, "final value");
+		g_free(animatable);
+		FINISH_TEST;
+	}
+
+	void on_frame(WfAnimation* animation, int time)
+	{
+		assert(value > iter_val, "not incremented");
+		iter_val = value;
+	}
+
+	GList* animatables = g_list_prepend(NULL, animatable);
+
+	WfAnimation* animation = wf_animation_new(done, NULL);
+	animation->on_frame = on_frame;
+	wf_transition_add_member(animation, animatables);
+
+	wf_animation_start(animation);
 }
 
 

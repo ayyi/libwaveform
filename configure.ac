@@ -257,6 +257,7 @@ AC_CONFIG_FILES([
 	Makefile
 	agl/Makefile
 	agl/shaders/Makefile
+	agl/behaviours/Makefile
 	transition/Makefile
 	sdl/Makefile
 	gtkglext-1.0/Makefile

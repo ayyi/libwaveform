@@ -1,5 +1,5 @@
 /*
-  copyright (C) 2012-2018 Tim Orford <tim@orford.org>
+  copyright (C) 2012-2019 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -55,8 +55,8 @@ static AGl* agl = NULL;
 #define WAVEFORM_START_DRAW(wfc) \
 	if(wfc->_draw_depth) gwarn("START_DRAW: already drawing"); \
 	wfc->_draw_depth++; \
-	if (actor_not_is_gtk(wfc->root) || \
-		(wfc->_draw_depth > 1) || gdk_gl_drawable_make_current (wfc->root->gl.gdk.drawable, wfc->root->gl.gdk.context) \
+	if (actor_not_is_gtk(wfc->root->root) || \
+		(wfc->_draw_depth > 1) || gdk_gl_drawable_make_current (wfc->root->root->gl.gdk.drawable, wfc->root->root->gl.gdk.context) \
 		) {
 #else
 #define WAVEFORM_START_DRAW(wfc) \
@@ -66,7 +66,7 @@ static AGl* agl = NULL;
 #ifdef USE_GTK
 #define WAVEFORM_END_DRAW(wa) \
 	wa->_draw_depth--; \
-	if(wa->root->type == CONTEXT_TYPE_GTK){ \
+	if(wa->root->root->type == CONTEXT_TYPE_GTK){ \
 		if(!wa->_draw_depth) ; \
 	} \
 	} else gwarn("!! gl_begin fail")
@@ -142,16 +142,17 @@ wf_context_instance_init(WaveformContext* self)
 		static bool wf_canvas_try_drawable(gpointer _wfc)
 		{
 			WaveformContext* wfc = _wfc;
+			AGlScene* scene = wfc->root->root;
 
 #ifdef USE_GTK
-			if((wfc->root->type == CONTEXT_TYPE_GTK) && !wfc->root->gl.gdk.drawable){
+			if((scene->type == CONTEXT_TYPE_GTK) && !wfc->root->root->gl.gdk.drawable){
 				return G_SOURCE_CONTINUE;
 			}
 #endif
 
 			wf_context_init_gl(wfc);
 
-			if(wfc->root->draw) wf_canvas_queue_redraw(wfc);
+			if(scene->draw) wf_canvas_queue_redraw(wfc);
 			wfc->use_1d_textures = agl->use_shaders;
 
 #ifdef USE_FRAME_CLOCK
@@ -161,11 +162,10 @@ wf_context_instance_init(WaveformContext* self)
 		}
 
 static void
-wf_context_init(WaveformContext* wfc, AGlRootActor* root)
+wf_context_init (WaveformContext* wfc, AGlActor* root)
 {
 	wfc->priv = g_new0(WfContextPriv, 1);
 
-	wfc->blend = true;
 	wfc->sample_rate = 44100;
 	wfc->v_gain = 1.0;
 	wfc->texture_unit[0] = agl_texture_unit_new(WF_TEXTURE0);
@@ -178,17 +178,17 @@ wf_context_init(WaveformContext* wfc, AGlRootActor* root)
 	wfc->bpm = 120.0;
 
 	wfc->priv->zoom = (WfAnimatable){
-		.model_val.f = &wfc->zoom,
-		.start_val.f = wfc->zoom,
-		.val.f       = wfc->zoom,
-		.type        = WF_FLOAT
+		.val.f        = &wfc->zoom,
+		.start_val.f  = wfc->zoom,
+		.target_val.f = wfc->zoom,
+		.type         = WF_FLOAT
 	};
 
 	wfc->priv->samples_per_pixel = (WfAnimatable){
-		.model_val.f = &wfc->samples_per_pixel,
-		.start_val.f = wfc->samples_per_pixel,
-		.val.f       = wfc->samples_per_pixel,
-		.type        = WF_FLOAT
+		.val.f        = &wfc->samples_per_pixel,
+		.start_val.f  = wfc->samples_per_pixel,
+		.target_val.f = wfc->samples_per_pixel,
+		.type         = WF_FLOAT
 	};
 
 	wfc->shaders.ruler = &ruler;
@@ -208,7 +208,7 @@ waveform_canvas_construct(GType object_type)
 
 
 WaveformContext*
-wf_context_new(AGlRootActor* root)
+wf_context_new(AGlActor* root)
 {
 	PF;
 
@@ -230,8 +230,8 @@ wf_context_new_sdl(SDL_GLContext* context)
 
 	wfc->show_rms = true;
 
-	AGlRootActor* a = wfc->root = (AGlScene*)agl_actor__new_root_(CONTEXT_TYPE_SDL);
-	wfc->root->gl.sdl.context = context;
+	AGlActor* a = wfc->root = agl_actor__new_root_(CONTEXT_TYPE_SDL);
+	wfc->root->root->gl.sdl.context = context;
 
 	wf_context_init(wfc, a);
 
@@ -311,12 +311,15 @@ wf_context_on_paint_update(GdkFrameClock* clock, void* _canvas)
 {
 	WaveformContext* wfc = _canvas;
 
-	if(wfc->root->draw) wfc->root->draw(wfc->root, wfc->root->user_data);
+	if(wfc->root->root->draw) wfc->root->root->draw(wfc->root->root, wfc->root->root->user_data);
 	wfc->priv->_last_redraw_time = wf_get_time();
 }
 #endif
 
 
+/*
+ *  This will likely be removed. Instead just set scene->scrollable
+ */
 void
 wf_context_set_viewport(WaveformContext* wfc, WfViewPort* _viewport)
 {
@@ -336,7 +339,7 @@ wf_context_set_viewport(WaveformContext* wfc, WfViewPort* _viewport)
 		};
 	}
 
-	if(wfc->root->draw) g_signal_emit_by_name(wfc, "dimensions-changed");
+	if(wfc->root->root->draw) g_signal_emit_by_name(wfc, "dimensions-changed");
 }
 
 
@@ -375,7 +378,7 @@ void
 wf_canvas_queue_redraw(WaveformContext* wfc)
 {
 #ifdef USE_FRAME_CLOCK
-	if(wfc->root->is_animating){
+	if(wfc->root->root->is_animating){
 #if 0 // this is not needed - draw is called via the frame_clock_connect callback
 		if(wfc->draw) wfc->draw(wfc, wfc->draw_data);
 #endif
@@ -501,7 +504,7 @@ wf_context_set_rotation(WaveformContext* wfc, float rotation)
 float
 wf_context_get_zoom(WaveformContext* wfc)
 {
-	return wfc->scaled ? wfc->priv->zoom.val.f : 0.0;
+	return wfc->scaled ? wfc->zoom : 0.0;
 }
 
 
@@ -517,7 +520,8 @@ wf_context_get_zoom(WaveformContext* wfc)
 
 		// note that everything under the context root is invalidated.
 		// Any non-scalable items should be in a separate sub-graph
-		agl_actor__invalidate((AGlActor*)wfc->root);
+		agl_actor__invalidate_down (wfc->root);
+
 		agl_actor__set_size((AGlActor*)wfc->root);
 	}
 
@@ -537,26 +541,25 @@ wf_context_set_zoom (WaveformContext* wfc, float zoom)
 
 	wfc->scaled = true;
 	dbg(1, "zoom=%f spp=%.2f", zoom, wfc->samples_per_pixel);
-#ifdef DEBUG
-	if(wfc->samples_per_pixel < 0.001) gwarn("spp too low: %f", wfc->samples_per_pixel);
-#endif
 
-	float old_zoom = wfc->zoom;
+	AGL_DEBUG if(wfc->samples_per_pixel < 0.001) gwarn("spp too low: %f", wfc->samples_per_pixel);
 
-	wfc->zoom = CLAMP(zoom, WF_CONTEXT_MIN_ZOOM, WF_CONTEXT_MAX_ZOOM);
+	zoom = CLAMP(zoom, WF_CONTEXT_MIN_ZOOM, WF_CONTEXT_MAX_ZOOM);
 
-	if(!wfc->root->enable_animations){
-		wfc->priv->zoom.val.f = zoom;
-		agl_actor__invalidate((AGlActor*)wfc->root);
+	if(!wfc->root->root->enable_animations){
+		wfc->zoom = zoom;
+		agl_actor__invalidate(wfc->root);
 		return;
 	}
 
 	// TODO move this into the animator xx
-	if(wfc->zoom == old_zoom){
+	if(zoom == wfc->zoom){
 		return;
 	}
 
 	g_signal_emit_by_name(wfc, "zoom-changed");
+
+	wfc->priv->zoom.target_val.f = zoom;
 
 	WfAnimation* animation = wf_animation_new(set_zoom_on_animation_finished, wfc);
 	animation->on_frame = wf_context_set_zoom_on_frame;
@@ -575,14 +578,14 @@ wf_context_set_zoom (WaveformContext* wfc, float zoom)
  *  convenient to specify the number of samples per pixel directly.
  */
 void
-wf_context_set_scale(WaveformContext* wfc, float samples_per_px)
+wf_context_set_scale (WaveformContext* wfc, float samples_per_px)
 {
 	#define WF_CONTEXT_MAX_SAMPLES_PER_PIXEL 1000000.0
 
-	wfc->samples_per_pixel = CLAMP(samples_per_px, 1.0, WF_CONTEXT_MAX_SAMPLES_PER_PIXEL);
+	samples_per_px = CLAMP(samples_per_px, 1.0, WF_CONTEXT_MAX_SAMPLES_PER_PIXEL);
 
-	if(!wfc->root->enable_animations){
-		wfc->priv->samples_per_pixel.val.f = wfc->samples_per_pixel;
+	if(!wfc->root->root->enable_animations){
+		wfc->samples_per_pixel = samples_per_px;
 		agl_actor__invalidate((AGlActor*)wfc->root);
 		return;
 	}
@@ -591,6 +594,7 @@ wf_context_set_scale(WaveformContext* wfc, float samples_per_px)
 	WfAnimation* animation = wf_animation_new(NULL, wfc);
 	animation->on_frame = wf_context_set_zoom_on_frame;
 
+	wfc->priv->samples_per_pixel.target_val.f = samples_per_px;
 	wf_transition_add_member(animation, g_list_prepend(NULL, &wfc->priv->samples_per_pixel));
 
 	wf_animation_start(animation);
@@ -608,7 +612,7 @@ wf_context_set_gain(WaveformContext* wfc, float gain)
 float
 wf_context_frame_to_x (WaveformContext* context, uint64_t frame)
 {
-	float pixels_per_sample = context->zoom / context->priv->samples_per_pixel.val.f;
+	float pixels_per_sample = context->zoom / context->samples_per_pixel;
 	return (frame - context->start_time) * pixels_per_sample;
 }
 
