@@ -133,6 +133,7 @@ bool      agl_actor__is_disabled     (AGlActor*);
 AGlActor* agl_actor__find_by_name    (AGlActor*, const char*);
 AGlActor* agl_actor__find_by_class   (AGlActor*, AGlActorClass*);
 AGlActor* agl_actor__find_by_z       (AGlActor*, int);
+AGlActor* agl_actor__pick            (AGlActor*, AGliPt);
 AGliPt    agl_actor__find_offset     (AGlActor*);
 bool      agl_actor__on_expose       (GtkWidget*, GdkEventExpose*, gpointer);
 

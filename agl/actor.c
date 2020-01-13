@@ -757,11 +757,41 @@ _agl_actor__on_event(AGlActor* a, GdkEvent* event, AGliPt xy)
 }
 
 
+static bool
+region_match (AGlfRegion* r, float x, float y)
+{
+	bool match = x > r->x1 && x < r->x2 && y > r->y1 && y < r->y2;
+	//printf("     x=%.0f x2=%.0f  y=%.0f %.0f-->%.0f match=%i\n", x, r->x2, y, r->y1, r->y2, match);
+	return match;
+}
+
+
+/*
+ *  Find the child of the actor at the given coordinate.
+ *  The coordinate is relative to the actor, ie all position offsets have been applied.
+ */
+static AGlActor*
+child_region_hit (AGlActor* actor, AGliPt xy)
+{
+	GList* l = g_list_last(actor->children); // iterate backwards so that the 'top' actor get the events first.
+	for(;l;l=l->prev){
+		AGlActor* child = l->data;
+		if(!child->disabled && region_match(&child->region, xy.x, xy.y)){
+			AGlActor* sub = child_region_hit(child, (AGliPt){xy.x - child->region.x1 - child->scrollable.x1, xy.y - child->region.y1});
+			if(sub) return sub;
+			//printf("  match. y=%i y=%i-->%i x=%i-->%i type=%s\n", xy.y, child->region.y1, child->region.y2, child->region.x1, child->region.x2, child->name);
+			return child;
+		}
+	}
+	return NULL;
+}
+
+
 /*
  * agl_actor__on_event can be used by clients that handle their own events to forward them on to the AGlScene.
  */
 bool
-agl_actor__on_event(AGlScene* root, GdkEvent* event)
+agl_actor__on_event (AGlScene* root, GdkEvent* event)
 {
 	AGlActor* actor = (AGlActor*)root;
 #ifdef USE_GTK
@@ -798,31 +828,6 @@ agl_actor__on_event(AGlScene* root, GdkEvent* event)
 			root->hovered = NULL;
 		}
 		return AGL_HANDLED;
-	}
-
-	bool region_match (AGlfRegion* r, float x, float y)
-	{
-		bool match = x > r->x1 && x < r->x2 && y > r->y1 && y < r->y2;
-		//printf("     x=%i x2=%i  y=%i %i-->%i match=%i\n", x, r->x2, y, r->y1, r->y2, match);
-		return match;
-	}
-
-	AGlActor* child_region_hit (AGlActor* actor, AGliPt xy)
-	{
-		// Find the child of the actor at the given coordinate.
-		// The coordinate is relative to the actor, ie all position offsets have been applied.
-
-		GList* l = g_list_last(actor->children); // iterate backwards so that the 'top' actor get the events first.
-		for(;l;l=l->prev){
-			AGlActor* child = l->data;
-			if(!child->disabled && region_match(&child->region, xy.x, xy.y)){
-				AGlActor* sub = child_region_hit(child, (AGliPt){xy.x - child->region.x1 - child->scrollable.x1, xy.y - child->region.y1});
-				if(sub) return sub;
-				//printf("  match. y=%i y=%i-->%i x=%i-->%i type=%s\n", xy.y, child->region.y1, child->region.y2, child->region.x1, child->region.x2, child->name);
-				return child;
-			}
-		}
-		return NULL;
 	}
 
 	if(actor_context.grabbed){
@@ -1084,6 +1089,34 @@ agl_actor__find_by_z (AGlActor* actor, int z)
 }
 
 
+/*
+ *  Searches up then down
+ *
+ *  This can be more efficient than starting at the root,
+ *  but could conceivably return a concealled actor
+ *  To avoid this, pass the root actor as the argument.
+ */
+AGlActor*
+agl_actor__pick (AGlActor* actor, AGliPt _pt)
+{
+	AGlfPt pt = (AGlfPt){_pt.x, _pt.y};
+	AGlfRegion region = actor->region;
+	AGlActor* parent = actor;
+	while((parent = parent->parent)){
+		float y = (float)pt.y + region.y1;
+		pt = (AGlfPt){(float)pt.x + region.x1, y};
+		bool match = region_match(&parent->region, pt.x, pt.y);
+		if(match){
+			AGlActor* child = child_region_hit(parent, (AGliPt){pt.x, pt.y});
+			return child ? child : parent;
+		}
+		region = parent->region;
+	}
+
+	return NULL;
+}
+
+
 AGlBehaviour*
 agl_actor__find_behaviour (AGlActor* actor, AGlBehaviourClass* klass)
 {
@@ -1100,14 +1133,14 @@ agl_actor__find_behaviour (AGlActor* actor, AGlBehaviourClass* klass)
 
 
 bool
-agl_actor__null_painter(AGlActor* actor)
+agl_actor__null_painter (AGlActor* actor)
 {
 	return true;
 }
 
 
 bool
-agl_actor__solid_painter(AGlActor* actor)
+agl_actor__solid_painter (AGlActor* actor)
 {
 	agl->shaders.plain->uniform.colour = 0xff000055;
 	agl_use_program((AGlShader*)agl->shaders.plain);
@@ -1119,7 +1152,7 @@ agl_actor__solid_painter(AGlActor* actor)
 
 
 void
-agl_actor__grab(AGlActor* actor)
+agl_actor__grab (AGlActor* actor)
 {
 	actor_context.grabbed = actor;
 }
@@ -1129,11 +1162,11 @@ agl_actor__grab(AGlActor* actor)
  *  Remove render caches for the actor and all parents
  */
 void
-agl_actor__invalidate(AGlActor* actor)
+agl_actor__invalidate (AGlActor* actor)
 {
 	g_return_if_fail(actor);
 
-	void _agl_actor__invalidate(AGlActor* actor)
+	void _agl_actor__invalidate (AGlActor* actor)
 	{
 #ifdef AGL_ACTOR_RENDER_CACHE
 		actor->cache.valid = false;
