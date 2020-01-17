@@ -102,6 +102,10 @@ else
   HAVE_GLIB_2_36="no"
 fi;
 
+if `pkg-config pango --atleast-version=1.44`; then
+  AC_DEFINE(HAVE_PANGO_1_44, 1, [We have at least pango version 1.44])
+fi;
+
 dnl GTK can be disabled if required
 
 AC_ARG_ENABLE(gtk, AC_HELP_STRING([--disable-gtk], [disable use of GTK]), enable_gtk=$enableval, enable_gtk="yes")

@@ -21,17 +21,19 @@
  * Boston, MA 02111-1307, USA.
  */
 
-#define PANGO_ENABLE_BACKEND
-
+#include "config.h"
 #include <string.h>
-#include <stdlib.h>
 #include <math.h>
 #include <glib.h>
 #include <glib/gprintf.h>
 
+#define PANGO_ENABLE_BACKEND
 #include <pango/pango.h>
 #include <pango/pangofc-font.h>
 #include <pango/pangofc-fontmap.h>
+#ifdef HAVE_PANGO_1_44
+#include "pango/pangofc-fontmap-private.h"
+#endif
 
 #include "agl/fontmap.h"
 #include "agl/pango_font.h"
