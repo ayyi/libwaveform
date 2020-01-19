@@ -191,10 +191,10 @@ endif
 
 test:
 	@echo running tests...
-	cd .. && test/waveform_test
+	./waveform_test
 	cd .. && test/large_files
-	cd .. && test/32bit
-	cd .. && test/cache
+	./32bit
+	./cache
 	./view_plus_test -n
 	./actor_test -n
 	./actor_plus -n

@@ -1,5 +1,5 @@
 /*
-  copyright (C) 2012-2019 Tim Orford <tim@orford.org>
+  copyright (C) 2012-2020 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -25,19 +25,11 @@
 
 */
 #define __waveform_peak_c__
-#define __wf_private__
 #include "config.h"
-#include <unistd.h>
-#include <stdlib.h>
-#include <fcntl.h>
-#include <sys/types.h>
-#include <string.h>
-#include <sys/stat.h>
-#include <math.h>
 #include <stdint.h>
 #include <sys/time.h>
-#include <sndfile.h>
 #include <gtk/gtk.h>
+#define __wf_private__
 #include "decoder/ad.h"
 #include "waveform/waveform.h"
 #define __wf_worker_private__
@@ -301,9 +293,9 @@ waveform_load_audio_post (Waveform* waveform, GError* error, gpointer _pjob)
 		if(pjob->out.buf16){
 			for(int c=0;c<2;c++){
 				if(pjob->out.buf16->buf[c])
-					g_free0(pjob->out.buf16->buf[c]);
+					wf_free0(pjob->out.buf16->buf[c]);
 			}
-			g_free0(pjob->out.buf16);
+			wf_free0(pjob->out.buf16);
 		}
 	}
 }
@@ -376,23 +368,30 @@ waveform_load_audio (Waveform* waveform, int block_num, int n_tiers_needed, WfAu
 	void wf_peakbuf_queue_for_regen (Waveform* waveform, int block_num, int min_output_tiers, WfAudioCallback done, gpointer user_data)
 	{
 		dbg(1, "%i", block_num);
+		g_return_if_fail(block_num >= 0);
 
 		if(is_queued(waveform, block_num)) return;
 
 		WfAudioData* audio = &waveform->priv->audio;
 		if(!audio->buf16) audio->buf16 = g_malloc0(sizeof(void*) * waveform_get_n_audio_blocks(waveform));
 
-		PeakbufQueueItem* item = WF_NEW(PeakbufQueueItem,
-			.done = done,
-			.user_data = user_data,
-			.block_num = block_num,
-			.min_output_tiers = min_output_tiers
-		);
-
 		GPtrArray* peaks = waveform->priv->hires_peaks;
-		if(peaks->pdata && peaks->pdata[block_num]) peaks->pdata[block_num] = NULL; // disconnect until job finished
+		if(peaks->pdata && block_num < peaks->len && peaks->pdata[block_num])
+			peaks->pdata[block_num] = NULL; // disconnect until job finished
 
-		wf_worker_push_job(&wf->audio_worker, waveform, waveform_load_audio_run_job, waveform_load_audio_post, g_free, item);
+		wf_worker_push_job(
+			&wf->audio_worker,
+			waveform,
+			waveform_load_audio_run_job,
+			waveform_load_audio_post,
+			wf_free,
+			WF_NEW(PeakbufQueueItem,
+				.done = done,
+				.user_data = user_data,
+				.block_num = block_num,
+				.min_output_tiers = min_output_tiers
+			)
+		);
 	}
 
 	// if(!peakbuf_is_present(waveform, block_num))        -- if v_hi_mode, the peakbuf is not enough, we need the actual audio.
@@ -434,7 +433,7 @@ waveform_load_audio_sync (Waveform* waveform, int block_num, int n_tiers_needed)
 
 	waveform_load_audio_post(waveform, NULL, item);
 
-	g_free(item);
+	wf_free(item);
 }
 
 
@@ -513,16 +512,16 @@ audio_cache_free(Waveform* w, int block)
 		if(!g_hash_table_remove(wf->audio.cache, buf16)) dbg(2, "%i: failed to remove waveform block from audio_cache", block);
 		if(buf16->buf[WF_LEFT]){
 			wf->audio.mem_size -= buf16->size;
-			g_free0(buf16->buf[WF_LEFT]);
+			wf_free0(buf16->buf[WF_LEFT]);
 		}
 		else { dbg(2, "%i: left buffer empty", block); }
 
 		if(buf16->buf[WF_RIGHT]){
 			wf->audio.mem_size -= buf16->size;
 			dbg(2, "b=%i clearing right...", block);
-			g_free0(buf16->buf[WF_RIGHT]);
+			wf_free0(buf16->buf[WF_RIGHT]);
 		}
-		g_free0(audio->buf16[block]);
+		wf_free0(audio->buf16[block]);
 	}
 	//audio_cache_print();
 }

@@ -1,5 +1,5 @@
 /*
-  copyright (C) 2012-2019 Tim Orford <tim@orford.org>
+  copyright (C) 2012-2020 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -22,8 +22,6 @@
 #define __wf_private__
 #define __wf_canvas_priv__
 #include "config.h"
-#include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
 #include <math.h>
 #ifdef USE_GTK
@@ -344,13 +342,13 @@ wf_context_set_viewport(WaveformContext* wfc, WfViewPort* _viewport)
 
 
 /*
- *  The actor is owned by the context and will be freed on calling wf_canvas_remove_actor().
+ *  The actor is owned by the context and will be freed on calling agl_actor__remove_child().
  *
  *  After adding a waveform to the context you can g_object_unref the waveform if
  *  You do not need to hold an additional reference.
  */
 WaveformActor*
-wf_canvas_add_new_actor(WaveformContext* wfc, Waveform* w)
+wf_canvas_add_new_actor (WaveformContext* wfc, Waveform* w)
 {
 	g_return_val_if_fail(wfc, NULL);
 
@@ -541,6 +539,7 @@ wf_context_set_zoom (WaveformContext* wfc, float zoom)
 
 	wfc->scaled = true;
 	dbg(1, "zoom=%f spp=%.2f", zoom, wfc->samples_per_pixel);
+	dbg(1, "zoom=%.2f-->%.2f spp=%.2f", wfc->zoom, zoom, wfc->samples_per_pixel);
 
 	AGL_DEBUG if(wfc->samples_per_pixel < 0.001) gwarn("spp too low: %f", wfc->samples_per_pixel);
 

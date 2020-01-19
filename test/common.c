@@ -115,19 +115,23 @@ test_finished_()
 
 
 WfTest*
-wf_test_new()
+wf_test_new ()
 {
-	WfTest* t = WF_NEW(WfTest, .test_idx = current_test);
+	static WfTest* t = NULL;
+	//if(t) g_free0(t); // valgrind says 'invalid free'
 
-	return t;
+	return t = WF_NEW(WfTest, .test_idx = current_test);
 }
 
 
-	static bool on_test_timeout_(gpointer _user_data)
-	{
-		FAIL_TEST_TIMER("TEST TIMEOUT\n");
-		return G_SOURCE_REMOVE;
-	}
+static bool
+on_test_timeout_(gpointer _user_data)
+{
+	FAIL_TEST_TIMER("TEST TIMEOUT\n");
+	return G_SOURCE_REMOVE;
+}
+
+
 void
 reset_timeout(int ms)
 {

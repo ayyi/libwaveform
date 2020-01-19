@@ -1,7 +1,7 @@
 /**
 * +----------------------------------------------------------------------+
 * | This file is part of libwaveform https://github.com/ayyi/libwaveform |
-* | copyright (C) 2012-2019 Tim Orford <tim@orford.org>                  |
+* | copyright (C) 2012-2020 Tim Orford <tim@orford.org>                  |
 * +----------------------------------------------------------------------+
 * | This program is free software; you can redistribute it and/or modify |
 * | it under the terms of the GNU General Public License version 3       |
@@ -24,6 +24,7 @@
 #define GdkColor void
 #endif
 #endif
+
 #include "agl/fbo.h"
 #include "waveform/waveform.h"
 
@@ -48,11 +49,12 @@
 #define TIERS_TO_RESOLUTION(T) (256 / (1 << T))
 #define RESOLUTION_TO_TIERS(R) (8 - (int)floor(log2(R)))
 
-#if 0
+#ifdef DEBUG_SAFE
 #define wf_free(A) ({A;})
 #else
-#define wf_free(A) g_free(A)
+#define wf_free g_free
 #endif
+#define wf_free0(var) ((var == NULL) ? NULL : (var = (wf_free(var), NULL)))
 
 typedef struct _texture_cache TextureCache;
 

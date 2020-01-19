@@ -1,7 +1,7 @@
 /**
 * +----------------------------------------------------------------------+
 * | This file is part of the Ayyi project. http://ayyi.org               |
-* | copyright (C) 2011-2018 Tim Orford <tim@orford.org>                  |
+* | copyright (C) 2011-2020 Tim Orford <tim@orford.org>                  |
 * | copyright (C) 2011 Robin Gareus <robin@gareus.org>                   |
 * +----------------------------------------------------------------------+
 * | This program is free software; you can redistribute it and/or modify |
@@ -11,16 +11,14 @@
 *
 */
 #include "config.h"
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <unistd.h>
 #include <inttypes.h>
 #include <math.h>
 #include <sndfile.h>
 #include <glib.h>
 #include "decoder/debug.h"
 #include "decoder/ad.h"
+
+#define g_free0(var) ((var == NULL) ? NULL : (var = (g_free(var), NULL)))
 
 extern void int16_to_float(float* out, int16_t* in, int n_channels, int n_frames, int out_offset);
 
@@ -41,7 +39,7 @@ struct _WfBuf16 // also defined in waveform.h
 
 
 int
-parse_bit_depth(int format)
+parse_bit_depth (int format)
 {
 	/* see http://www.mega-nerd.com/libsndfile/api.html */
 	switch (format&0x0f) {
@@ -59,7 +57,7 @@ parse_bit_depth(int format)
 
 
 int
-ad_info_sndfile(WfDecoder* d)
+ad_info_sndfile (WfDecoder* d)
 {
 	SndfileDecoder* sf = d->d;
 	if (!sf) return -1;
@@ -79,7 +77,7 @@ ad_info_sndfile(WfDecoder* d)
 
 
 static gboolean
-ad_open_sndfile(WfDecoder* decoder, const char* filename)
+ad_open_sndfile (WfDecoder* decoder, const char* filename)
 {
 	SndfileDecoder* priv = decoder->d = g_new0(SndfileDecoder, 1);
 	priv->sfinfo.format = 0;
@@ -94,7 +92,7 @@ ad_open_sndfile(WfDecoder* decoder, const char* filename)
 
 
 int
-ad_close_sndfile(WfDecoder* decoder)
+ad_close_sndfile (WfDecoder* decoder)
 {
 	SndfileDecoder* priv = (SndfileDecoder*)decoder->d;
 	if (!priv) return -1;
@@ -102,12 +100,13 @@ ad_close_sndfile(WfDecoder* decoder)
 		perr("bad file close.\n");
 		return -1;
 	}
+	g_free0(decoder->d);
 	return 0;
 }
 
 
 int64_t
-ad_seek_sndfile(WfDecoder* d, int64_t pos)
+ad_seek_sndfile (WfDecoder* d, int64_t pos)
 {
 	SndfileDecoder* priv = (SndfileDecoder*)d->d;
 	if (!priv) return -1;
@@ -116,7 +115,7 @@ ad_seek_sndfile(WfDecoder* d, int64_t pos)
 
 
 ssize_t
-ad_read_sndfile(WfDecoder* d, float* out, size_t len)
+ad_read_sndfile (WfDecoder* d, float* out, size_t len)
 {
 	SndfileDecoder* priv = (SndfileDecoder*)d->d;
 	if (!priv) return -1;
@@ -142,7 +141,7 @@ ad_read_sndfile(WfDecoder* d, float* out, size_t len)
 
 
 ssize_t
-ad_read_sndfile_short(WfDecoder* d, WfBuf16* buf)
+ad_read_sndfile_short (WfDecoder* d, WfBuf16* buf)
 {
 	SndfileDecoder* sf = (SndfileDecoder*)d->d;
 
@@ -195,7 +194,7 @@ ad_read_sndfile_short(WfDecoder* d, WfBuf16* buf)
 
 
 int
-ad_eval_sndfile(const char *f)
+ad_eval_sndfile (const char *f)
 {
 	char *ext = strrchr(f, '.');
 	if (!ext) return 5;
@@ -247,7 +246,7 @@ const static AdPlugin ad_sndfile = {
 
 /* dlopen handler */
 const AdPlugin*
-get_sndfile()
+get_sndfile ()
 {
 	return &ad_sndfile;
 }

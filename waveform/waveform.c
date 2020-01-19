@@ -88,6 +88,7 @@ waveform_construct (GType object_type)
 		.hires_peaks = g_ptr_array_new(),
 		.max_db = -1
 	};
+
 	return w;
 }
 
@@ -1349,6 +1350,8 @@ void
 waveform_peakbuf_assign(Waveform* w, int block_num, Peakbuf* peakbuf)
 {
 	g_return_if_fail(peakbuf);
+	g_return_if_fail(block_num >= 0);
+	g_return_if_fail(block_num < WF_MAX_AUDIO_BLOCKS);
 
 	GPtrArray* peaks = w->priv->hires_peaks;
 	if(block_num >= peaks->len){
