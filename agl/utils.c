@@ -1,28 +1,17 @@
-/*
-  copyright (C) 2013-2019 Tim Orford <tim@orford.org>
-
-  This program is free software; you can redistribute it and/or modify
-  it under the terms of the GNU General Public License version 3
-  as published by the Free Software Foundation.
-
-  This program is distributed in the hope that it will be useful,
-  but WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-  GNU General Public License for more details.
-
-  You should have received a copy of the GNU General Public License
-  along with this program; if not, write to the Free Software
-  Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+/**
+* +----------------------------------------------------------------------+
+* | This file is part of the Ayyi project. http://ayyi.org               |
+* | copyright (C) 2013-2020 Tim Orford <tim@orford.org>                  |
+* +----------------------------------------------------------------------+
+* | This program is free software; you can redistribute it and/or modify |
+* | it under the terms of the GNU General Public License version 3       |
+* | as published by the Free Software Foundation.                        |
+* +----------------------------------------------------------------------+
+*
 */
 #define __agl_utils_c__
 #include "config.h"
 #include <assert.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <GL/gl.h>
-#include <GL/glext.h>
-#include <GL/glx.h>
 #include <glib.h>
 #include <pango/pangofc-font.h>
 #include <pango/pangofc-fontmap.h>
@@ -44,7 +33,7 @@ static gulong __enable_flags = 0;
 
 #define TEXTURE_UNIT 0 // GL_TEXTURE0
 
-int _program = 0;
+static int _program = 0;
 GLenum _wf_ge = 0;
 
 static gboolean font_is_scalable (PangoContext*, const char* font_name);
@@ -63,7 +52,7 @@ _alphamap_set_uniforms()
 	glUniform4fv(glGetUniformLocation(alphamap.shader.program, "fg_colour"), 1, fg_colour);
 }
 
-//plain 2d texture
+// plain 2d texture
 static void _tex_set_uniforms();
 static AlphaMapShader tex2d = {{NULL, NULL, 0, uniforms, _tex_set_uniforms, &texture_2d_text}};
 //TODO if we pass the shader as arg we can reuse
@@ -75,7 +64,7 @@ _tex_set_uniforms()
 	glUniform4fv(glGetUniformLocation(tex2d.shader.program, "fg_colour"), 1, fg_colour);
 }
 
-//plain colour shader
+// plain colour shader
 static void _plain_set_uniforms();
 PlainShader plain = {{NULL, NULL, 0, NULL, _plain_set_uniforms, &plain_colour_text}, {0xff000077}};
 static void
@@ -90,7 +79,7 @@ _plain_set_uniforms()
 static AGl* agl = NULL;
 
 AGl*
-agl_get_instance()
+agl_get_instance ()
 {
 	if(!agl){
 		agl = g_new0(AGl, 1);
@@ -124,7 +113,7 @@ agl_free ()
  */
 #ifdef USE_GTK
 GdkGLContext*
-agl_get_gl_context()
+agl_get_gl_context ()
 {
 	if(!share_list){
 		GdkGLConfig* const config = gdk_gl_config_new_by_mode(GDK_GL_MODE_RGBA | GDK_GL_MODE_DOUBLE | GDK_GL_MODE_DEPTH);
@@ -209,7 +198,7 @@ agl_enable (gulong flags)
 
 
 GLboolean
-agl_shaders_supported()
+agl_shaders_supported ()
 {
 	agl_get_instance();
 
@@ -248,7 +237,7 @@ agl_shaders_supported()
 
 
 void
-agl_gl_init()
+agl_gl_init ()
 {
 	static gboolean done = FALSE;
 	if(done++) return;
@@ -316,7 +305,7 @@ agl_gl_init()
 
 
 GLuint
-agl_create_program(AGlShader* sh)
+agl_create_program (AGlShader* sh)
 {
 	GLuint vert_shader = sh->vertex_file
 		? agl_compile_shader_file(GL_VERTEX_SHADER, sh->vertex_file)
@@ -346,7 +335,7 @@ agl_create_program(AGlShader* sh)
 
 
 GLuint
-agl_compile_shader_text(GLenum shaderType, const char* text)
+agl_compile_shader_text (GLenum shaderType, const char* text)
 {
    GLint stat;
 
@@ -369,7 +358,7 @@ agl_compile_shader_text(GLenum shaderType, const char* text)
  * Read a shader from a file.
  */
 GLuint
-agl_compile_shader_file(GLenum shaderType, const char* filename)
+agl_compile_shader_file (GLenum shaderType, const char* filename)
 {
    const int max = 100*1000;
    GLuint shader = 0;
@@ -404,7 +393,7 @@ agl_compile_shader_file(GLenum shaderType, const char* filename)
 
 
 void
-agl_uniforms_init(GLuint program, AGlUniformInfo uniforms[])
+agl_uniforms_init (GLuint program, AGlUniformInfo uniforms[])
 {
 	GLuint i;
 	dbg(1, "program=%u", program);
@@ -439,7 +428,7 @@ agl_uniforms_init(GLuint program, AGlUniformInfo uniforms[])
 
 
 GLuint
-agl_link_shaders(GLuint vertShader, GLuint fragShader)
+agl_link_shaders (GLuint vertShader, GLuint fragShader)
 {
    GLuint program = glCreateProgram();
 
@@ -469,7 +458,7 @@ agl_link_shaders(GLuint vertShader, GLuint fragShader)
 
 
 void
-agl_colour_rbga(uint32_t colour)
+agl_colour_rbga (uint32_t colour)
 {
 	float r = (colour & 0xff000000) >> 24;
 	float g = (colour & 0x00ff0000) >> 16;
@@ -481,7 +470,7 @@ agl_colour_rbga(uint32_t colour)
 
 
 void
-agl_bg_colour_rbga(uint32_t colour)
+agl_bg_colour_rbga (uint32_t colour)
 {
 	float r = (colour & 0xff000000) >> 24;
 	float g = (colour & 0x00ff0000) >> 16;
@@ -493,28 +482,28 @@ agl_bg_colour_rbga(uint32_t colour)
 
 
 void
-agl_rect(float x, float y, float w, float h)
+agl_rect (float x, float y, float w, float h)
 {
 	glRectf(x, y, x + w, y + h);
 }
 
 
 void
-agl_rect_(AGlRect r)
+agl_rect_ (AGlRect r)
 {
 	glRectf(r.x, r.y, r.x + r.w, r.y + r.h);
 }
 
 
 void
-agl_irect(int x, int y, int w, int h)
+agl_irect (int x, int y, int w, int h)
 {
 	glRecti(x, y, x + w, y + h);
 }
 
 
 void
-agl_textured_rect(guint texture, float x, float y, float w, float h, AGlQuad* _t)
+agl_textured_rect (guint texture, float x, float y, float w, float h, AGlQuad* _t)
 {
 	// to use the whole texture, pass NULL for _t
 
@@ -533,7 +522,7 @@ agl_textured_rect(guint texture, float x, float y, float w, float h, AGlQuad* _t
 
 // TODO api to be reviewed (see similar fn above)
 void
-agl_texture_box(guint texture, uint32_t colour, double x, double y, double width, double height)
+agl_texture_box (guint texture, uint32_t colour, double x, double y, double width, double height)
 {
 	if(agl->use_shaders){
 		agl->shaders.texture->uniform.fg_colour = colour;
@@ -562,7 +551,7 @@ agl_texture_box(guint texture, uint32_t colour, double x, double y, double width
  *   The dimensions specify the outer size.
  */
 void
-agl_box(int s, float x, float y, float w, float h)
+agl_box (int s, float x, float y, float w, float h)
 {
 	agl_rect(x,         y,         w, s        ); // top
 	agl_rect(x,         y + s,     s, h - 2 * s); // left
@@ -575,7 +564,7 @@ static PangoFontDescription* font_desc = NULL;
 static gboolean renderer_inited = FALSE;
 
 static PangoContext*
-get_context()
+get_context ()
 {
 	PangoGlRendererClass* renderer_init()
 	{
@@ -602,7 +591,7 @@ get_context()
 
 
 void
-agl_set_font(char* family, int size, PangoWeight weight)
+agl_set_font (char* family, int size, PangoWeight weight)
 {
 	PangoContext* context = get_context();
 
@@ -621,7 +610,7 @@ agl_set_font(char* family, int size, PangoWeight weight)
 
 
 void
-agl_set_font_string(char* font_string)
+agl_set_font_string (char* font_string)
 {
 	if(font_desc) pango_font_description_free(font_desc);
 	font_desc = pango_font_description_from_string(font_string);
@@ -639,7 +628,7 @@ agl_set_font_string(char* font_string)
  *  GL_TEXTURE_2D and GL_BLEND will be automatically enabled.
  */
 void
-agl_print(int x, int y, double z, uint32_t colour, const char *fmt, ...)
+agl_print (int x, int y, double z, uint32_t colour, const char *fmt, ...)
 {
 	if(!fmt) return;
 
@@ -686,7 +675,9 @@ agl_print(int x, int y, double z, uint32_t colour, const char *fmt, ...)
 #endif
 
 	//pango_renderer_draw_layout (renderer, layout, 10 * PANGO_SCALE, -20 * PANGO_SCALE);
+#ifndef HAVE_PANGO_1_44
 	pango_gl_render_layout (layout, x, y, z, (Colour32*)&colour, 0);
+#endif
 	g_object_unref(layout);
 
 #ifdef TEST
@@ -729,11 +720,13 @@ agl_print_with_cursor (int x, int* y, double z, uint32_t colour, const char* fmt
 
 
 void
-agl_print_layout(int x, int y, double z, uint32_t colour, PangoLayout* layout)
+agl_print_layout (int x, int y, double z, uint32_t colour, PangoLayout* layout)
 {
 	pango_layout_set_font_description(layout, font_desc);
 
+#ifndef HAVE_PANGO_1_44
 	pango_gl_render_layout (layout, x, y, z, (Colour32*)&colour, 0);
+#endif
 
 	glPixelStorei (GL_UNPACK_ROW_LENGTH, 0); //reset back to the default value
 }
@@ -743,7 +736,7 @@ agl_print_layout(int x, int y, double z, uint32_t colour, PangoLayout* layout)
  *  x, and y specify the top left corner of the background box.
  */
 void
-agl_print_with_background(int x, int y, double z, uint32_t colour, uint32_t bg_colour, const char *fmt, ...)
+agl_print_with_background (int x, int y, double z, uint32_t colour, uint32_t bg_colour, const char *fmt, ...)
 {
 	#define PADDING 2
 
@@ -773,7 +766,9 @@ agl_print_with_background(int x, int y, double z, uint32_t colour, uint32_t bg_c
 	agl_use_program((AGlShader*)agl->shaders.plain);
 	agl_rect(x, y, ink_rect.width + 2 * PADDING, ink_rect.height + 2 * PADDING);
 
+#ifndef HAVE_PANGO_1_44
 	pango_gl_render_layout (layout, x + PADDING, y + PADDING - ink_rect.y, z, (Colour32*)&colour, 0);
+#endif
 	g_object_unref(layout);
 	g_free(text);
 
@@ -830,7 +825,7 @@ font_is_scalable (PangoContext* context, const char* font_name)
 
 
 void
-agl_use_program(AGlShader* shader)
+agl_use_program (AGlShader* shader)
 {
 	int program = shader ? shader->program : 0;
 
@@ -847,7 +842,7 @@ agl_use_program(AGlShader* shader)
 
 
 void
-agl_use_texture(GLuint texture)
+agl_use_texture (GLuint texture)
 {
 	//note: 2d texture
 
@@ -869,7 +864,7 @@ agl_use_texture(GLuint texture)
 
 
 void
-agl_enable_stencil(float x, float y, float w, float h)
+agl_enable_stencil (float x, float y, float w, float h)
 {
 	glClear(GL_DEPTH_BUFFER_BIT);
 	glEnable(GL_STENCIL_TEST);
@@ -902,14 +897,14 @@ agl_enable_stencil(float x, float y, float w, float h)
 
 
 void
-agl_disable_stencil()
+agl_disable_stencil ()
 {
 	glDisable(GL_STENCIL_TEST);
 }
 
 
 int
-agl_power_of_two(guint a)
+agl_power_of_two (guint a)
 {
 	// return the next power of two up from the given value.
 
@@ -926,7 +921,7 @@ agl_power_of_two(guint a)
 
 
 void
-agl_print_error(const char* func, int __ge, const char* format, ...)
+agl_print_error (const char* func, int __ge, const char* format, ...)
 {
 	char str[256];
 	char* e_str = NULL;
@@ -968,7 +963,7 @@ agl_print_error(const char* func, int __ge, const char* format, ...)
 
 
 void
-agl_print_stack_depths()
+agl_print_stack_depths ()
 {
 	GLint depth, max;
 	printf("stack depths:\n");
@@ -985,7 +980,7 @@ agl_print_stack_depths()
 
 
 void
-agl_rgba_to_float(uint32_t rgba, float* r, float* g, float* b)
+agl_rgba_to_float (uint32_t rgba, float* r, float* g, float* b)
 {
 	double _r = (rgba & 0xff000000) >> 24;
 	double _g = (rgba & 0x00ff0000) >> 16;
@@ -1002,7 +997,7 @@ static AGlTextureUnit* active_texture_unit = NULL;
 
 
 AGlTextureUnit*
-agl_texture_unit_new(GLenum unit)
+agl_texture_unit_new (GLenum unit)
 {
 	AGlTextureUnit* texture_unit = g_new0(AGlTextureUnit, 1);
 	texture_unit->unit = unit;
@@ -1011,7 +1006,7 @@ agl_texture_unit_new(GLenum unit)
 
 
 void
-agl_texture_unit_use_texture(AGlTextureUnit* unit, int texture)
+agl_texture_unit_use_texture (AGlTextureUnit* unit, int texture)
 {
 	g_return_if_fail(unit);
 
@@ -1032,5 +1027,3 @@ agl_texture_unit_use_texture(AGlTextureUnit* unit, int texture)
 	glEnable(GL_BLEND);
 #endif
 }
-
-
