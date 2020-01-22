@@ -42,7 +42,8 @@ int
 parse_bit_depth (int format)
 {
 	/* see http://www.mega-nerd.com/libsndfile/api.html */
-	switch (format&0x0f) {
+
+	switch (format & 0x0f) {
 		case SF_FORMAT_PCM_S8: return 8;
 		case SF_FORMAT_PCM_16: return 16; /* Signed 16 bit data */
 		case SF_FORMAT_PCM_24: return 24; /* Signed 24 bit data */
@@ -50,7 +51,11 @@ parse_bit_depth (int format)
 		case SF_FORMAT_PCM_U8: return 8;  /* Unsigned 8 bit data (WAV and RAW only) */
 		case SF_FORMAT_FLOAT : return 32; /* 32 bit float data */
 		case SF_FORMAT_DOUBLE: return 64; /* 64 bit float data */
-		default: break;
+		default:
+#ifdef DEBUG
+			gwarn("missing format 0x%x", format);
+#endif
+			break;
 	}
 	return 0;
 }
@@ -72,6 +77,7 @@ ad_info_sndfile (WfDecoder* d)
 		.bit_rate    = bit_depth * sf->sfinfo.channels * sf->sfinfo.samplerate,
 		.meta_data   = NULL,
 	};
+
 	return 0;
 }
 
@@ -81,12 +87,14 @@ ad_open_sndfile (WfDecoder* decoder, const char* filename)
 {
 	SndfileDecoder* priv = decoder->d = g_new0(SndfileDecoder, 1);
 	priv->sfinfo.format = 0;
+
 	if(!(priv->sffile = sf_open(filename, SFM_READ, &priv->sfinfo))){
 		dbg(1, "unable to open file '%s': %i: %s", filename, sf_error(NULL), sf_strerror(NULL));
 		g_free(priv);
 		return FALSE;
 	}
 	ad_info_sndfile(decoder);
+
 	return TRUE;
 }
 
@@ -96,6 +104,7 @@ ad_close_sndfile (WfDecoder* decoder)
 {
 	SndfileDecoder* priv = (SndfileDecoder*)decoder->d;
 	if (!priv) return -1;
+
 	if (!priv->sffile || sf_close(priv->sffile)) {
 		perr("bad file close.\n");
 		return -1;
@@ -184,9 +193,11 @@ ad_read_sndfile_short (WfDecoder* d, WfBuf16* buf)
 			g_free(data);
 			return r;
 		}
+		case 0:
+			return -1;
 #ifdef DEBUG
 		default:
-			dbg(0, "!!! unhandled bit depth: %i", d->info.bit_depth);
+			dbg(0, "unhandled bit depth: %i", d->info.bit_depth);
 #endif
 	}
 	return -1;
