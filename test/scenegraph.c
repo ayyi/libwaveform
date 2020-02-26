@@ -2,7 +2,7 @@
 * +----------------------------------------------------------------------+
 * | This file is part of libwaveform                                     |
 * | https://github.com/ayyi/libwaveform                                  |
-* | copyright (C) 2012-2019 Tim Orford <tim@orford.org>                  |
+* | copyright (C) 2012-2020 Tim Orford <tim@orford.org>                  |
 * +----------------------------------------------------------------------+
 * | This program is free software; you can redistribute it and/or modify |
 * | it under the terms of the GNU General Public License version 3       |
@@ -10,23 +10,20 @@
 * +----------------------------------------------------------------------+
 *
 */
-#include <math.h>
-#include <stdlib.h>
-#include <stdio.h>
-#include <string.h>
+#define __glx_test__
+#include "config.h"
 #include <getopt.h>
 #include <X11/Xlib.h>
 #include <X11/keysym.h>
 # define GLX_GLXEXT_PROTOTYPES
 #include "gdk/gdk.h"
 #include "agl/ext.h"
-#define __wf_private__ // for dbg
-#include "waveform/waveform.h"
 #include "agl/actor.h"
+#include "test/common2.h"
+#include "waveform/waveform.h"
+#include "waveform/utils.h"
 #include "waveform/actors/background.h"
 #include "waveform/actors/plain.h"
-#define __glx_test__
-#include "test/common2.h"
 
 #undef SHOW_2ND_CHILD
 #define SHOW_2ND_CHILD
@@ -251,9 +248,10 @@ _red (uint32_t rgba, uint32_t b)
 #endif
 
 
-static bool
+static gboolean
 read_values (gpointer _)
 {
+#ifdef AGL_ACTOR_RENDER_CACHE
 	AGlActor* actor = layers.gb2;
 	AGlFBO* fbo = actor->fbo;
 	guchar data[128] = {0,};
@@ -278,6 +276,7 @@ read_values (gpointer _)
 
 	glReadPixels(130, 250, 4, 4, GL_RGBA, GL_UNSIGNED_BYTE, data);
 	dbg(0, "dir: %02x%02x%02x%02x", (int)data[0], (int)data[1], (int)data[2], (int)data[3]);
+#endif
 
 	return G_SOURCE_REMOVE;
 }
@@ -286,6 +285,7 @@ read_values (gpointer _)
 static void
 toggle_cache (gpointer user_data)
 {
+#ifdef AGL_ACTOR_RENDER_CACHE
 	if(layers.g2){
 		layers.g2->cache.enabled = !layers.g2->cache.enabled;
 		agl_actor__invalidate(layers.g2);
@@ -293,6 +293,7 @@ toggle_cache (gpointer user_data)
 
 	layers.gb2->cache.enabled = !layers.gb2->cache.enabled;
 	agl_actor__invalidate(layers.gb2);
+#endif
 
 	g_timeout_add(50, read_values, NULL);
 }

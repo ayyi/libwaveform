@@ -1,7 +1,7 @@
 /**
 * +----------------------------------------------------------------------+
 * | This file is part of the Ayyi project. http://www.ayyi.org           |
-* | copyright (C) 2013-2019 Tim Orford <tim@orford.org>                  |
+* | copyright (C) 2013-2020 Tim Orford <tim@orford.org>                  |
 * +----------------------------------------------------------------------+
 * | This program is free software; you can redistribute it and/or modify |
 * | it under the terms of the GNU General Public License version 3       |
@@ -11,6 +11,8 @@
 */
 #ifndef __agl_utils_h__
 #define __agl_utils_h__
+
+#include <stdbool.h>
 #include <GL/glx.h>
 #if defined(USE_GTK) || defined(__GTK_H__)
 #include <gdk/gdkgl.h>
@@ -54,9 +56,10 @@ struct _texture_unit
    int         texture;
 };
 
-AGl*            agl_get_instance             ();
+AGl*      agl_get_instance        ();
 #if defined(USE_GTK) || defined(__GTK_H__)
-GdkGLContext*   agl_get_gl_context           ();
+GdkGLContext*
+          agl_get_gl_context      ();
 #endif
 void      agl_enable              (gulong flags);
 void      agl_gl_init             ();
@@ -68,6 +71,7 @@ GLuint    agl_compile_shader_file (GLenum shaderType, const char* filename);
 void      agl_uniforms_init       (GLuint program, AGlUniformInfo uniforms[]);
 GLuint    agl_link_shaders        (GLuint vertShader, GLuint fragShader);
 void      agl_use_program         (AGlShader*);
+void      agl_use_program_id      (int);
 void      agl_use_texture         (GLuint texture);
 
 AGlTextureUnit* agl_texture_unit_new         (GLenum unit);
@@ -85,6 +89,9 @@ void      agl_box                 (int line_width, float x, float y, float w, fl
 
 void      agl_enable_stencil      (float x, float y, float w, float h);
 void      agl_disable_stencil     ();
+void      agl_push_clip           (float x, float y, float w, float h);
+void      agl_pop_clip            ();
+
 void      agl_print_error         (const char* func, int err, const char* format, ...);
 void      agl_print_stack_depths  ();
 
@@ -93,7 +100,8 @@ void      agl_set_font_string     (char* font_string);
 void      agl_print               (int x, int y, double z, uint32_t colour, const char* fmt, ...);
 void      agl_print_layout        (int x, int y, double z, uint32_t colour, PangoLayout*);
 void      agl_print_with_cursor   (int x, int* y, double z, uint32_t colour, const char* fmt, ...);
-void      agl_print_with_background(int x, int y, double z, uint32_t colour, uint32_t bg_colour, const char* fmt, ...);
+void      agl_print_with_background
+                                  (int x, int y, double z, uint32_t colour, uint32_t bg_colour, const char* fmt, ...);
 
 int       agl_power_of_two        (guint);
 void      agl_rgba_to_float       (uint32_t rgba, float* r, float* g, float* b);
@@ -102,17 +110,19 @@ void      agl_rgba_to_float       (uint32_t rgba, float* r, float* g, float* b);
 typedef enum
 {
 	AGL_HAVE_NPOT_TEXTURES = 1,
-	AGL_HAVE_STENCIL = 2,
+	AGL_HAVE_STENCIL       = 2,
+	AGL_HAVE_3_0           = 4,
+	AGL_HAVE_3_2           = 8,
 } AGlHave;
 
 struct _agl
 {
-	gboolean        pref_use_shaders;
+	bool            pref_use_shaders;
 
 	XVisualInfo*    xvinfo;
 	Display*        xdisplay;
 
-	gboolean        use_shaders;
+	bool            use_shaders;
 	AGlHave         have;
 
 	struct {
@@ -124,6 +134,7 @@ struct _agl
 	AGlMaterial*    aaline;
 
 	int             debug;
+	int             debug_flags;
 };
 
 #define END_OF_UNIFORMS   { NULL, 0, GL_NONE, { 0, 0, 0, 0 }, -1 }
@@ -136,11 +147,5 @@ extern GLenum _wf_ge;
 	}}
 
 #define AGL_NEW(T, ...) ({T* obj = g_new0(T, 1); *obj = (T){__VA_ARGS__}; obj;})
-
-#ifdef DEBUG
-#define AGL_DEBUG if(agl->debug)
-#else
-#define AGL_DEBUG if(false)
-#endif
 
 #endif

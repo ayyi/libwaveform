@@ -1,6 +1,9 @@
 #!/bin/sh
 
-ls -l ./cache
+PROG=./cache
+PROG=./text
+
+ls -l $PROG
 export G_SLICE=always-malloc
 export G_DEBUG=gc-friendly
 /usr/bin/valgrind \
@@ -9,4 +12,5 @@ export G_DEBUG=gc-friendly
 	--suppressions=suppressions/glib.supp \
 	--suppressions=suppressions/mesa.supp \
 	--gen-suppressions=yes \
-	$@ ./cache
+	--num-callers=20 \
+	$@ $PROG

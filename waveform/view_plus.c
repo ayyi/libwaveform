@@ -1,20 +1,19 @@
+/**
+* +----------------------------------------------------------------------+
+* | This file is part of the Ayyi project. http://ayyi.org               |
+* | copyright (C) 2012-2020 Tim Orford <tim@orford.org>                  |
+* +----------------------------------------------------------------------+
+* | This program is free software; you can redistribute it and/or modify |
+* | it under the terms of the GNU General Public License version 3       |
+* | as published by the Free Software Foundation.                        |
+* +----------------------------------------------------------------------+
+* |                                                                      |
+* | WaveformView is a Gtk widget based on GtkDrawingArea.                |
+* | It displays an audio waveform represented by a Waveform object.      |
+* +----------------------------------------------------------------------+
+*
+*/
 /*
-  copyright (C) 2012-2019 Tim Orford <tim@orford.org>
-
-  This program is free software; you can redistribute it and/or modify
-  it under the terms of the GNU General Public License version 3
-  as published by the Free Software Foundation.
-
-  This program is distributed in the hope that it will be useful,
-  but WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-  GNU General Public License for more details.
-
-  You should have received a copy of the GNU General Public License
-  along with this program; if not, write to the Free Software
-  Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
-
-  ---------------------------------------------------------------
 
   WaveformViewPlus is a Gtk widget based on GtkDrawingArea.
   It displays an audio waveform represented by a Waveform object.
@@ -34,13 +33,11 @@
 #define __waveform_view_private__
 #define __wf_canvas_priv__
 #include "config.h"
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
 #include <math.h>
 #include <gtk/gtk.h>
 #include <gdk/gdkkeysyms.h>
 #include <GL/gl.h>
+#include "agl/debug.h"
 #include "agl/utils.h"
 #include "waveform/waveform.h"
 #include "view_plus.h"
@@ -135,7 +132,6 @@ static bool     waveform_view_plus_init_drawable        (WaveformViewPlus*);
 static void     waveform_view_plus_display_ready        (WaveformViewPlus*);
 
 static void     waveform_view_plus_gl_on_allocate       (WaveformViewPlus*);
-static void     waveform_view_plus_draw                 (WaveformViewPlus*);
 
 static void     add_key_handlers                        (GtkWindow*, WaveformViewPlus*, Key keys[]);
 static void     remove_key_handlers                     (GtkWindow*, WaveformViewPlus*);
@@ -162,7 +158,7 @@ __init ()
 	}
 
 	glconfig = gdk_gl_config_new_by_mode( GDK_GL_MODE_RGBA | GDK_GL_MODE_DEPTH | GDK_GL_MODE_DOUBLE );
-	if (!glconfig) { gerr ("Cannot initialise gtkglext."); return false; }
+	if (!glconfig) { perr ("Cannot initialise gtkglext."); return false; }
 
 	return true;
 }
@@ -194,7 +190,7 @@ construct ()
 }
 
 
-	static bool waveform_view_plus_load_new_on_idle (gpointer _view)
+	static gboolean waveform_view_plus_load_new_on_idle (gpointer _view)
 	{
 		WaveformViewPlus* view = _view;
 		g_return_val_if_fail(view, G_SOURCE_REMOVE);
@@ -461,7 +457,7 @@ waveform_view_plus_set_start (WaveformViewPlus* view, int64_t start_frame)
 		0,
 		(int64_t)(waveform_get_n_frames(view->waveform) - MAX(10, n_frames_visible))
 	);
-	dbg(1, "start=%Li", view->start_frame);
+	dbg(1, "start=%"PRIi64, view->start_frame);
 	wf_actor_set_region(v->actor, &(WfSampleRegion){
 		view->start_frame,
 		n_frames_visible
@@ -486,7 +482,7 @@ waveform_view_plus_set_region (WaveformViewPlus* view, int64_t start_frame, int6
 #ifndef USE_CANVAS_SCALING
 	view->zoom = view->waveform->n_frames / (float)region.len;
 #endif
-	dbg(1, "start=%Lu", view->start_frame);
+	dbg(1, "start=%"PRIu64, view->start_frame);
 
 	wf_actor_set_region(v->actor, &region);
 
@@ -540,8 +536,6 @@ waveform_view_plus_add_layer (WaveformViewPlus* view, AGlActor* actor, int z)
 
 	actor->z = z;
 	agl_actor__add_child(v->root, actor);
-
-	agl_actor__invalidate(v->root);
 
 	return actor;
 }
@@ -619,6 +613,7 @@ static gboolean
 waveform_view_plus_on_expose (GtkWidget* widget, GdkEventExpose* event)
 {
 	WaveformViewPlus* view = (WaveformViewPlus*)widget;
+	WaveformViewPlusPrivate* v = view->priv;
 	g_return_val_if_fail (event, FALSE);
 
 	if(!GTK_WIDGET_REALIZED(widget)) return true;
@@ -633,13 +628,28 @@ waveform_view_plus_on_expose (GtkWidget* widget, GdkEventExpose* event)
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 		if(promise(PROMISE_DISP_READY)->is_resolved){
-			waveform_view_plus_draw(view);
+#if 0 //white border
+			glPushMatrix(); /* modelview matrix */
+				glNormal3f(0, 0, 1); glDisable(GL_TEXTURE_2D);
+				glLineWidth(1);
+				glColor3f(1.0, 1.0, 1.0);
+
+				int wid = waveform_view_plus_get_width(view);
+				int h   = waveform_view_plus_get_height(view);
+				glBegin(GL_LINES);
+				glVertex3f(0.0, 0.0, 1); glVertex3f(wid, 0.0, 1);
+				glVertex3f(wid, h,   1); glVertex3f(0.0,   h, 1);
+				glEnd();
+			glPopMatrix();
+#endif
+
+			if(view->waveform) agl_actor__paint(v->root);
 		}
 
 #ifdef USE_SYSTEM_GTKGLEXT
-		gdk_gl_drawable_swap_buffers(((AGlRootActor*)view->priv->root)->gl.gdk.drawable);
+		gdk_gl_drawable_swap_buffers(((AGlRootActor*)v->root)->gl.gdk.drawable);
 #else
-		gdk_gl_window_swap_buffers(((AGlRootActor*)view->priv->root)->gl.gdk.drawable);
+		gdk_gl_window_swap_buffers(((AGlRootActor*)v->root)->gl.gdk.drawable);
 #endif
 	} AGL_ACTOR_END_DRAW(view->priv->root)
 
@@ -667,7 +677,7 @@ waveform_view_plus_button_press_event (GtkWidget* widget, GdkEventButton* event)
 }
 
 
-static bool
+static gboolean
 waveform_view_plus_button_release_event (GtkWidget* widget, GdkEventButton* event)
 {
 	g_return_val_if_fail(event, false);
@@ -1029,30 +1039,6 @@ zoom_down (WaveformViewPlus* view)
 {
 	WaveformActor* actor = view->priv->actor;
 	wf_actor_set_vzoom(actor, actor->canvas->v_gain / 1.3);
-}
-
-
-static void
-waveform_view_plus_draw (WaveformViewPlus* view)
-{
-	WaveformViewPlusPrivate* v = view->priv;
-
-#if 0 //white border
-	glPushMatrix(); /* modelview matrix */
-		glNormal3f(0, 0, 1); glDisable(GL_TEXTURE_2D);
-		glLineWidth(1);
-		glColor3f(1.0, 1.0, 1.0);
-
-		int wid = waveform_view_plus_get_width(view);
-		int h   = waveform_view_plus_get_height(view);
-		glBegin(GL_LINES);
-		glVertex3f(0.0, 0.0, 1); glVertex3f(wid, 0.0, 1);
-		glVertex3f(wid, h,   1); glVertex3f(0.0,   h, 1);
-		glEnd();
-	glPopMatrix();
-#endif
-
-	if(view->waveform) agl_actor__paint(v->root);
 }
 
 

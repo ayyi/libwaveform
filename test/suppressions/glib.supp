@@ -40,3 +40,9 @@
    ...
    fun:_dl_init
 }
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   ...
+   fun:g_main_loop_new
+}

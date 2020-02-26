@@ -23,15 +23,10 @@
 #define __wf_utils_c__
 #define __wf_private__
 #include "config.h"
-#include <stdio.h>
-#include <string.h>
-#include <stdlib.h>
-#include <stdarg.h>
-#include <stdint.h>
 #include <math.h>
 #include <sys/ioctl.h>
-#include <sys/time.h>
 #include <glib.h>
+#include "waveform/debug.h"
 #include "waveform/waveform.h"
 
 int wf_debug = 0;
@@ -39,7 +34,7 @@ int wf_debug = 0;
 
 #undef SHOW_TIME
 #ifdef SHOW_TIME
-static uint64_t _get_time()
+static uint64_t _get_time ()
 {
 	struct timeval start;
 	gettimeofday(&start, NULL);
@@ -49,7 +44,7 @@ static uint64_t _get_time()
 
 
 void
-wf_debug_printf(const char* func, int level, const char* format, ...)
+wf_debug_printf (const char* func, int level, const char* format, ...)
 {
     va_list args;
 
@@ -68,7 +63,7 @@ wf_debug_printf(const char* func, int level, const char* format, ...)
 
 
 void
-wf_deinterleave(float* src, float** dest, uint64_t n_frames)
+wf_deinterleave (float* src, float** dest, uint64_t n_frames)
 {
 	int f; for(f=0;f<n_frames;f++){
 		int c; for(c=0;c<WF_STEREO;c++){
@@ -79,7 +74,7 @@ wf_deinterleave(float* src, float** dest, uint64_t n_frames)
 
 
 void
-wf_deinterleave16(short* src, short** dest, uint64_t n_frames)
+wf_deinterleave16 (short* src, short** dest, uint64_t n_frames)
 {
 	int f; for(f=0;f<n_frames;f++){
 		int c; for(c=0;c<WF_STEREO;c++){
@@ -90,7 +85,7 @@ wf_deinterleave16(short* src, short** dest, uint64_t n_frames)
 
 
 float
-wf_int2db(short x)
+wf_int2db (short x)
 {
 	//converts a signed 16bit int to a dB value.
 
@@ -110,7 +105,7 @@ wf_int2db(short x)
 //perhaps make all gtk stuff private to the widgets
 #ifdef USE_GTK
 uint32_t
-wf_get_gtk_fg_color(GtkWidget* widget, GtkStateType state)
+wf_get_gtk_fg_color (GtkWidget* widget, GtkStateType state)
 {
 	GtkStyle* style = gtk_widget_get_style(widget);
 	//GdkColor fg = style->fg[state];
@@ -119,7 +114,7 @@ wf_get_gtk_fg_color(GtkWidget* widget, GtkStateType state)
 
 
 uint32_t
-wf_get_gtk_text_color(GtkWidget* widget, GtkStateType state)
+wf_get_gtk_text_color (GtkWidget* widget, GtkStateType state)
 {
 	GtkStyle* style = gtk_style_copy(gtk_widget_get_style(widget));
 	GdkColor c = style->text[state];
@@ -130,7 +125,7 @@ wf_get_gtk_text_color(GtkWidget* widget, GtkStateType state)
 
 
 uint32_t
-wf_get_gtk_base_color(GtkWidget* widget, GtkStateType state, char alpha)
+wf_get_gtk_base_color (GtkWidget* widget, GtkStateType state, char alpha)
 {
 	GtkStyle* style = gtk_style_copy(gtk_widget_get_style(widget));
 	GdkColor c = style->base[state];
@@ -142,7 +137,7 @@ wf_get_gtk_base_color(GtkWidget* widget, GtkStateType state, char alpha)
 
 
 void
-wf_colour_rgba_to_float(AGlColourFloat* colour, uint32_t rgba)
+wf_colour_rgba_to_float (AGlColourFloat* colour, uint32_t rgba)
 {
 	//returned values are in the range 0.0 to 1.0;
 
@@ -155,14 +150,14 @@ wf_colour_rgba_to_float(AGlColourFloat* colour, uint32_t rgba)
 
 
 uint32_t
-wf_color_gdk_to_rgba(GdkColor* color)
+wf_color_gdk_to_rgba (GdkColor* color)
 {
 	return ((color->red / 0x100) << 24) + ((color->green / 0x100) << 16) + ((color->blue / 0x100) << 8) + 0xff;
 }
 
 
-gboolean
-wf_colour_is_dark_rgba(uint32_t colour)
+bool
+wf_colour_is_dark_rgba (uint32_t colour)
 {
 	int r = (colour & 0xff000000) >> 24;
 	int g = (colour & 0x00ff0000) >> 16;
@@ -173,8 +168,8 @@ wf_colour_is_dark_rgba(uint32_t colour)
 }
 
 
-gboolean
-wf_get_filename_for_other_channel(const char* filename, char* other, int n_chars)
+bool
+wf_get_filename_for_other_channel (const char* filename, char* other, int n_chars)
 {
 	//return the filename of the other half of a split stereo pair.
 

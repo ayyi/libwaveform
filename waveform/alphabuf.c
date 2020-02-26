@@ -2,7 +2,7 @@
 * +----------------------------------------------------------------------+
 * | This file is part of libwaveform                                     |
 * | https://github.com/ayyi/libwaveform                                  |
-* | copyright (C) 2012-2019 Tim Orford <tim@orford.org>                  |
+* | copyright (C) 2012-2020 Tim Orford <tim@orford.org>                  |
 * +----------------------------------------------------------------------+
 * | This program is free software; you can redistribute it and/or modify |
 * | it under the terms of the GNU General Public License version 3       |
@@ -13,8 +13,6 @@
 #define __waveform_peak_c__
 #define __wf_private__
 #include "config.h"
-#include <unistd.h>
-#include <stdlib.h>
 #include <fcntl.h>
 #include <sys/types.h>
 #include <string.h>
@@ -23,6 +21,7 @@
 #include <stdint.h>
 #include <sys/time.h>
 #include <sndfile.h>
+#include "agl/debug.h"
 #include "agl/utils.h"
 #include "waveform/waveform.h"
 #include "waveform/alphabuf.h"

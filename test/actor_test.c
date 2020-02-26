@@ -10,7 +10,7 @@
 
   ---------------------------------------------------------------
 
-  copyright (C) 2012-2019 Tim Orford <tim@orford.org>
+  copyright (C) 2012-2020 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -30,10 +30,7 @@
 
 #define __wf_private__
 #include "config.h"
-#include <stdlib.h>
-#include <stdint.h>
 #include <getopt.h>
-#include <sys/time.h>
 #include <gdk/gdkkeysyms.h>
 #include "agl/utils.h"
 #include "waveform/waveform.h"
@@ -150,20 +147,24 @@ window_content (GtkWindow* window, GdkGLConfig* glconfig)
 }
 
 
-static bool
+static gboolean
 automated ()
 {
-	if(!test_delete())
-		exit(EXIT_FAILURE);
+	static bool done = false;
+	if(!done){
+		done = true;
 
-	gtk_main_quit();
+		if(!test_delete())
+			exit(EXIT_FAILURE);
 
+		gtk_main_quit();
+	}
 	return G_SOURCE_REMOVE;
 }
 
 
 int
-main (int argc, char *argv[])
+main (int argc, char* argv[])
 {
 	set_log_handlers();
 
@@ -178,6 +179,10 @@ main (int argc, char *argv[])
 				g_timeout_add(3000, automated, NULL);
 				break;
 		}
+	}
+
+	if(g_getenv("NON_INTERACTIVE")){
+		g_timeout_add(3000, automated, NULL);
 	}
 
 	return gtk_window((Key*)&keys, window_content);
@@ -276,25 +281,30 @@ scroll_right (gpointer _)
 }
 
 
-	bool on_idle (gpointer _)
-	{
-		static uint64_t frame = 0;
-		static uint64_t t0    = 0;
-		if(!frame) t0 = g_get_monotonic_time();
-		else{
-			uint64_t time = g_get_monotonic_time();
-			if(!(frame % 1000))
-				dbg(0, "rate=%.2f fps", ((float)frame) / ((float)(time - t0)) / 1000.0);
+static gboolean
+on_idle (gpointer _)
+{
+	static uint64_t frame = 0;
+	static uint64_t t0    = 0;
 
-			if(!(frame % 8)){
-				float v = (frame % 16) ? 2.0 : 1.0/2.0;
-				if(v > 16.0) v = 1.0;
-				start_zoom(v);
-			}
+	if(!frame)
+		t0 = g_get_monotonic_time();
+	else{
+		uint64_t time = g_get_monotonic_time();
+		if(!(frame % 1000))
+			dbg(0, "rate=%.2f fps", ((float)frame) / ((float)(time - t0)) / 1000.0);
+
+		if(!(frame % 8)){
+			float v = (frame % 16) ? 2.0 : 1.0/2.0;
+			if(v > 16.0) v = 1.0;
+			start_zoom(v);
 		}
-		frame++;
-		return G_SOURCE_CONTINUE;
 	}
+	frame++;
+
+	return G_SOURCE_CONTINUE;
+}
+
 
 void
 toggle_animate (gpointer _)
@@ -326,7 +336,7 @@ test_delete ()
 	a[0] = (agl_actor__remove_child((AGlActor*)scene, (AGlActor*)a[0]), NULL);
 
 	if(finalize_done){
-		gwarn("waveform should not be free'd");
+		pwarn("waveform should not be free'd");
 		return false;
 	}
 
@@ -337,7 +347,7 @@ test_delete ()
 	a[3] = (agl_actor__remove_child((AGlActor*)scene, (AGlActor*)a[3]), NULL);
 
 	if(!finalize_done){
-		gwarn("waveform was not free'd");
+		pwarn("waveform was not free'd");
 		return false;
 	}
 

@@ -1,5 +1,5 @@
 /*
-  copyright (C) 2012-2019 Tim Orford <tim@orford.org>
+  copyright (C) 2012-2020 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -64,14 +64,8 @@
 #define __wf_private__
 #define __wf_transition_c__
 #include "config.h"
-#include <stdio.h>
-#include <stdlib.h>
-#include <stdint.h>
-#include <inttypes.h>
-#include <string.h>
 #include <math.h>
-#include <sys/time.h>
-#include <gtk/gtk.h>
+#include "waveform/debug.h"
 #include "waveform/utils.h"
 #include "transition/transition.h"
 #include "transition/frameclock.h"
@@ -295,7 +289,7 @@ wf_animation_val_to_str2 (WfAnimatable* animatable)
 
 			GList* k = anim_actor->transitions;
 #ifdef DEBUG
-			if(!k) gwarn("AnimActor member has no transitions");
+			if(!k) pwarn("AnimActor member has no transitions");
 #endif
 			for(;k;k=k->next){
 				WfAnimatable* animatable = k->data;

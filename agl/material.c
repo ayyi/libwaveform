@@ -1,7 +1,7 @@
 /**
 * +----------------------------------------------------------------------+
 * | This file is part of the Ayyi project. http://www.ayyi.org           |
-* | copyright (C) 2013-2017 Tim Orford <tim@orford.org>                  |
+* | copyright (C) 2013-2020 Tim Orford <tim@orford.org>                  |
 * +----------------------------------------------------------------------+
 * | This program is free software; you can redistribute it and/or modify |
 * | it under the terms of the GNU General Public License version 3       |
@@ -11,15 +11,8 @@
 */
 #include "config.h"
 #include <assert.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <GL/gl.h>
-#include <GL/glext.h>
-#include <GL/glx.h>
 #include <glib.h>
 #include "agl/ext.h"
-#include "agl/pango_render.h"
 #include "agl/shader.h"
 #include "agl/utils.h"
 

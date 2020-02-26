@@ -21,6 +21,7 @@ agl_get_extensions()
    glCreateShader = (PFNGLCREATESHADERPROC) getProcAddress("glCreateShader");
    glDeleteProgram = (PFNGLDELETEPROGRAMPROC) getProcAddress("glDeleteProgram");
    glDeleteShader = (PFNGLDELETESHADERPROC) getProcAddress("glDeleteShader");
+   glDetachShader = (PFNGLDETACHSHADERPROC) getProcAddress("glDetachShader");
 #if 0
    glGetActiveAttrib_func = (PFNGLGETACTIVEATTRIBPROC) getProcAddress("glGetActiveAttrib");
    glGetActiveUniform_func = (PFNGLGETACTIVEUNIFORMPROC) getProcAddress("glGetActiveUniform");
@@ -31,9 +32,7 @@ agl_get_extensions()
    glGetShaderInfoLog = (PFNGLGETSHADERINFOLOGPROC) getProcAddress("glGetShaderInfoLog");
    glGetProgramiv = (PFNGLGETPROGRAMIVPROC) getProcAddress("glGetProgramiv");
    glGetShaderiv = (PFNGLGETSHADERIVPROC) getProcAddress("glGetShaderiv");
-#if 0
-   glGetShaderSource_func = (PFNGLGETSHADERSOURCEPROC) getProcAddress("glGetShaderSource");
-#endif
+   glGetShaderSource = (PFNGLGETSHADERSOURCEPROC) getProcAddress("glGetShaderSource");
    glGetUniformLocation = (PFNGLGETUNIFORMLOCATIONPROC) getProcAddress("glGetUniformLocation");
 #if 0
    glGetUniformfv_func = (PFNGLGETUNIFORMFVPROC) getProcAddress("glGetUniformfv");
@@ -102,10 +101,10 @@ agl_get_extensions()
 
    /* GL_APPLE_vertex_array_object */
 #endif
-   glBindVertexArrayAPPLE = (PFNGLBINDVERTEXARRAYAPPLEPROC) getProcAddress("glBindVertexArrayAPPLE");
+   glBindVertexArray = (PFNGLBINDVERTEXARRAYPROC) getProcAddress("glBindVertexArray");
+   glDeleteVertexArrays = (PFNGLDELETEVERTEXARRAYSPROC) getProcAddress("glDeleteVertexArrays");
+   glGenVertexArrays = (PFNGLGENVERTEXARRAYSPROC) getProcAddress("glGenVertexArrays");
 #if 0
-   glDeleteVertexArraysAPPLE_func = (PFNGLDELETEVERTEXARRAYSAPPLEPROC) getProcAddress("glDeleteVertexArraysAPPLE");
-   glGenVertexArraysAPPLE_func = (PFNGLGENVERTEXARRAYSAPPLEPROC) getProcAddress("glGenVertexArraysAPPLE");
    glIsVertexArrayAPPLE_func = (PFNGLISVERTEXARRAYAPPLEPROC) getProcAddress("glIsVertexArrayAPPLE");
 
    /* GL_EXT_stencil_two_side */
@@ -113,10 +112,10 @@ agl_get_extensions()
 
    /* GL_ARB_vertex_buffer_object */
 #endif
-   glGenBuffersARB = (PFNGLGENBUFFERSARBPROC) getProcAddress("glGenBuffersARB");
-   glDeleteBuffersARB = (PFNGLDELETEBUFFERSARBPROC) getProcAddress("glDeleteBuffersARB");
-   glBindBufferARB = (PFNGLBINDBUFFERARBPROC) getProcAddress("glBindBufferARB");
-   glBufferDataARB = (PFNGLBUFFERDATAARBPROC) getProcAddress("glBufferDataARB");
+   glGenBuffers = (PFNGLGENBUFFERSPROC) getProcAddress("glGenBuffers");
+   glDeleteBuffers = (PFNGLDELETEBUFFERSPROC) getProcAddress("glDeleteBuffers");
+   glBindBuffer = (PFNGLBINDBUFFERPROC) getProcAddress("glBindBuffer");
+   glBufferData = (PFNGLBUFFERDATAPROC) getProcAddress("glBufferData");
 #if 0
    glBufferSubDataARB_func = (PFNGLBUFFERSUBDATAARBPROC) getProcAddress("glBufferSubDataARB");
    glMapBufferARB_func = (PFNGLMAPBUFFERARBPROC) getProcAddress("glMapBufferARB");
@@ -172,5 +171,12 @@ agl_get_extensions()
    glFramebufferTextureLayer_func = (PFNGLFRAMEBUFFERTEXTURELAYERPROC) getProcAddress("glFramebufferTextureLayer");
 #endif
    glStringMarkerGREMEDY = (PFNGLSTRINGMARKERGREMEDYPROC) getProcAddress("glStringMarkerGREMEDY");
+
+   glBeginQuery = (PFNGLBEGINQUERYPROC) getProcAddress("glBeginQuery");
+   glEndQuery = (PFNGLENDQUERYPROC) getProcAddress("glEndQuery");
+#if 0
+   glGetQueryObjectiv = PFNGLGETQUERYOBJECTIVPROC getProcAddress("glGetQueryObjectiv");
+   glGetQueryObjectui64v = PFNGLGETQUERYOBJECTUI64VPROC getProcAddress("glGetQueryObjectui64v");
+#endif
 }
 

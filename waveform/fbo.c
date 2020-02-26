@@ -1,27 +1,18 @@
-/*
-  copyright (C) 2013-2018 Tim Orford <tim@orford.org>
-
-  This program is free software; you can redistribute it and/or modify
-  it under the terms of the GNU General Public License version 3
-  as published by the Free Software Foundation.
-
-  This program is distributed in the hope that it will be useful,
-  but WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-  GNU General Public License for more details.
-
-  You should have received a copy of the GNU General Public License
-  along with this program; if not, write to the Free Software
-  Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+/**
+* +----------------------------------------------------------------------+
+* | This file is part of the Ayyi project. http://ayyi.org               |
+* | copyright (C) 2013-2020 Tim Orford <tim@orford.org>                  |
+* +----------------------------------------------------------------------+
+* | This program is free s20tware; you can redistribute it and/or modify |
+* | it under the terms of the GNU General Public License version 3       |
+* | as published by the Free Software Foundation.                        |
+* +----------------------------------------------------------------------+
+*
 */
 #define __wf_private__
 #include "config.h"
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <math.h>
-#include <sys/time.h>
 #include <GL/gl.h>
+#include "waveform/debug.h"
 #include "waveform/waveform.h"
 #include "waveform/fbo.h"
 
@@ -51,7 +42,7 @@ fbo_new_test()
 
 		GLuint bg_textures;
 		glGenTextures(1, &bg_textures);
-		if(glGetError() != GL_NO_ERROR){ gerr ("couldnt create bg_texture."); return 0; }
+		if(glGetError() != GL_NO_ERROR){ perr ("couldnt create bg_texture."); return 0; }
 		dbg(2, "bg_texture=%i", bg_textures);
 
 		int pixel_format = GL_ALPHA;
@@ -59,7 +50,7 @@ fbo_new_test()
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 		glTexImage2D(GL_TEXTURE_2D, 0, GL_ALPHA, width, height, 0, pixel_format, GL_UNSIGNED_BYTE, pbuf);
-		if(glGetError() != GL_NO_ERROR) gwarn("gl error binding bg texture!");
+		if(glGetError() != GL_NO_ERROR) pwarn("gl error binding bg texture!");
 
 		g_free(pbuf);
 
@@ -94,7 +85,7 @@ fbo_new_test()
 
 		GLuint bg_textures;
 		glGenTextures(1, &bg_textures);
-		if(glGetError() != GL_NO_ERROR){ gerr ("couldnt create bg_texture."); return 0; }
+		if(glGetError() != GL_NO_ERROR){ perr ("couldnt create bg_texture."); return 0; }
 		dbg(2, "bg_texture=%i", bg_textures);
 
 		int pixel_format = GL_RGBA;
@@ -102,7 +93,7 @@ fbo_new_test()
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, pixel_format, GL_UNSIGNED_BYTE, pbuf);
-		if(glGetError() != GL_NO_ERROR) gwarn("gl error binding bg texture!");
+		if(glGetError() != GL_NO_ERROR) pwarn("gl error binding bg texture!");
 
 		g_free(pbuf);
 

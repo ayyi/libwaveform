@@ -1,7 +1,7 @@
 /**
 * +----------------------------------------------------------------------+
 * | This file is part of the Ayyi project. http://ayyi.org               |
-* | copyright (C) 2012-2019 Tim Orford <tim@orford.org>                  |
+* | copyright (C) 2012-2020 Tim Orford <tim@orford.org>                  |
 * +----------------------------------------------------------------------+
 * | This program is free software; you can redistribute it and/or modify |
 * | it under the terms of the GNU General Public License version 3       |
@@ -265,7 +265,7 @@ med_lo_get_quad_dimensions(WaveformActor* actor, int b, bool is_first, bool is_l
 		quad.wid = r->block_wid * tex.wid;
 #endif
 		tex.start = 1.0 - tex.wid;
-		dbg(3, "rect.left=%.2f region->start=%i first_offset=%i", r->rect.left, r->region.start, r->first_offset);
+		dbg(3, "rect.left=%.2f region->start=%"PRIi64" first_offset=%i", r->rect.left, r->region.start, r->first_offset);
  		//if(r->first_offset) quad.start += r->first_offset_px;
 		quad.start = x + r->block_wid - quad.wid; // align the block end to the start of the following one
 	}

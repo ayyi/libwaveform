@@ -13,18 +13,18 @@
 #include "config.h"
 #include <assert.h>
 #include <glib.h>
-#include <pango/pangofc-font.h>
-#include <pango/pangofc-fontmap.h>
+#include "agl/debug.h"
 #include "agl/ext.h"
-#include "agl/pango_render.h"
 #include "agl/shader.h"
 #include "agl/utils.h"
+#include "agl/transform.h"
+#include "text/pango.h"
+#include "text/driver.h"
+#include "text/renderer.h"
+#include "text/roundedrect.h"
 
 #include "shaders/shaders.c"
 
-extern void wf_debug_printf (const char* func, int level, const char* format, ...); //TODO, perhaps just remove custom debugging messages...
-#define gwarn(A, ...) g_warning("%s(): "A, __func__, ##__VA_ARGS__);
-#define dbg(A, B, ...) wf_debug_printf(__func__, A, B, ##__VA_ARGS__)
 #define g_object_unref0(var) ((var == NULL) ? NULL : (var = (g_object_unref (var), NULL)))
 
 static gulong __enable_flags = 0;
@@ -36,7 +36,7 @@ static gulong __enable_flags = 0;
 static int _program = 0;
 GLenum _wf_ge = 0;
 
-static gboolean font_is_scalable (PangoContext*, const char* font_name);
+static bool font_is_scalable (PangoContext*, const char* font_name);
 
 static void  _alphamap_set_uniforms();
 static AGlUniformInfo uniforms[] = {
@@ -45,7 +45,7 @@ static AGlUniformInfo uniforms[] = {
 };
 AlphaMapShader alphamap = {{NULL, NULL, 0, uniforms, _alphamap_set_uniforms, &alpha_map_text}};
 static void
-_alphamap_set_uniforms()
+_alphamap_set_uniforms ()
 {
 	float fg_colour[4] = {0.0, 0.0, 0.0, ((float)(alphamap.uniform.fg_colour & 0xff)) / 0x100};
 	agl_rgba_to_float(alphamap.uniform.fg_colour, &fg_colour[0], &fg_colour[1], &fg_colour[2]);
@@ -57,7 +57,7 @@ static void _tex_set_uniforms();
 static AlphaMapShader tex2d = {{NULL, NULL, 0, uniforms, _tex_set_uniforms, &texture_2d_text}};
 //TODO if we pass the shader as arg we can reuse
 static void
-_tex_set_uniforms()
+_tex_set_uniforms ()
 {
 	float fg_colour[4] = {0.0, 0.0, 0.0, ((float)(tex2d.uniform.fg_colour & 0xff)) / 0x100};
 	agl_rgba_to_float(tex2d.uniform.fg_colour, &fg_colour[0], &fg_colour[1], &fg_colour[2]);
@@ -68,11 +68,14 @@ _tex_set_uniforms()
 static void _plain_set_uniforms();
 PlainShader plain = {{NULL, NULL, 0, NULL, _plain_set_uniforms, &plain_colour_text}, {0xff000077}};
 static void
-_plain_set_uniforms()
+_plain_set_uniforms ()
 {
-	float colour[4] = {0.0, 0.0, 0.0, ((float)(plain.uniform.colour & 0xff)) / 0x100};
-	agl_rgba_to_float(plain.uniform.colour, &colour[0], &colour[1], &colour[2]);
-	glUniform4fv(glGetUniformLocation(plain.shader.program, "colour"), 1, colour);
+	if(plain.uniform.colour != plain.state.colour){
+		float colour[4] = {0.0, 0.0, 0.0, ((float)(plain.uniform.colour & 0xff)) / 0x100};
+		agl_rgba_to_float(plain.uniform.colour, &colour[0], &colour[1], &colour[2]);
+		glUniform4fv(glGetUniformLocation(plain.shader.program, "colour"), 1, colour);
+		plain.state.colour = plain.uniform.colour;
+	}
 }
 
 
@@ -82,12 +85,16 @@ AGl*
 agl_get_instance ()
 {
 	if(!agl){
-		agl = g_new0(AGl, 1);
-		agl->pref_use_shaders = TRUE;
-		agl->use_shaders = FALSE;        // not set until we an have active gl context based on the value of pref_use_shaders.
+		agl = AGL_NEW(AGl,
+			.pref_use_shaders = TRUE,
+			.use_shaders = FALSE,    // not set until we an have active gl context based on the value of pref_use_shaders.
+		);
 		agl->shaders.alphamap = &alphamap;
 		agl->shaders.texture = &tex2d;
 		agl->shaders.plain = &plain;
+		agl->debug_flags = AGL_DEBUG_ALL;
+
+		driver_init();
 	}
 	return agl;
 }
@@ -104,6 +111,9 @@ agl_free ()
 	// remove the reference that was added by gdk_gl_context_new
 	g_object_unref0(share_list);
 #endif
+
+	driver_free();
+	ops_free(renderer.current_builder);
 }
 
 
@@ -127,12 +137,12 @@ agl_get_gl_context ()
 #endif
 
 
+/*
+ *  Cache glEnable state to reduce number of GL calls.
+ */
 void
 agl_enable (gulong flags)
 {
-  /* This function essentially caches glEnable state() in the
-   * hope of lessening number GL traffic.
-  */
   if (flags & AGL_ENABLE_BLEND)
     {
       if (!(__enable_flags & AGL_ENABLE_BLEND))
@@ -160,7 +170,7 @@ agl_enable (gulong flags)
       __enable_flags &= ~AGL_ENABLE_TEXTURE_2D;
     }
 
-																			#if 0
+#if 0
 #ifdef GL_TEXTURE_RECTANGLE_ARB
   if (flags & GL_ENABLE_TEXTURE_RECT)
     {
@@ -187,7 +197,7 @@ agl_enable (gulong flags)
       glDisable (GL_ALPHA_TEST);
       __enable_flags &= ~GL_ENABLE_ALPHA_TEST;
     }
-																			#endif
+#endif
 
 #if 0
   if (__enable_flags & AGL_ENABLE_BLEND)      dbg(0, "blend is enabled.");
@@ -255,18 +265,31 @@ agl_gl_init ()
 	int version = 0;
 	const char* _version = (const char*)glGetString(GL_VERSION);
 	if(_version){
-		gchar** split = g_strsplit(_version, ".", 2);
-		if(split){
-			version = atoi(split[0]);
-			dbg(1, "gl_version=%i", version);
-			g_strfreev(split);
+
+		GLint major, minor;
+		int scanf_count = sscanf(_version, "%i.%i", &major, &minor);
+		if (scanf_count != 2) {
+			gwarn("failed to parse gl version");
 		}
+		dbg(1, "gl_version=%i.%i", major, minor);
+		int factor = minor >= 10 ? 100 : 10;
+
+		int r = factor * major + minor;
+		dbg(1, "r=%i", r);
+		if(r >= 30){
+			agl->have |= AGL_HAVE_3_0;
+		}
+		if(r >= 32){
+			agl->have |= AGL_HAVE_3_2;
+		}
+		version = r;
 	}
 
 	// npot textures are mandatory for opengl 2.0
 	// npot capability also means non-square textures are supported.
-	// some older hardware (eg radeon x1600) may not have full support, and may drop back to software rendering if certain features are used.
-	if(GL_ARB_texture_non_power_of_two || version > 1){
+	// some older hardware (eg radeon x1600) may not have full support,
+	// and may drop back to software rendering if certain features are used.
+	if(GL_ARB_texture_non_power_of_two || version > 10){
 		AGL_DEBUG printf("non_power_of_two textures are available.\n");
 		agl->have |= AGL_HAVE_NPOT_TEXTURES;
 	}else{
@@ -301,6 +324,8 @@ agl_gl_init ()
 
 		agl->shaders.text = &alphamap;
 	}
+
+	renderer_init();
 }
 
 
@@ -502,11 +527,12 @@ agl_irect (int x, int y, int w, int h)
 }
 
 
+/*
+ *  To use the whole texture, pass NULL for _t
+ */
 void
 agl_textured_rect (guint texture, float x, float y, float w, float h, AGlQuad* _t)
 {
-	// to use the whole texture, pass NULL for _t
-
 	agl_use_texture(texture);
 
 	AGlQuad t = _t ? *_t : (AGlQuad){0.0, 0.0, 1.0, 1.0};
@@ -561,39 +587,12 @@ agl_box (int s, float x, float y, float w, float h)
 
 
 static PangoFontDescription* font_desc = NULL;
-static gboolean renderer_inited = FALSE;
-
-static PangoContext*
-get_context ()
-{
-	PangoGlRendererClass* renderer_init()
-	{
-		g_type_class_unref (g_type_class_ref (PANGO_TYPE_GL_RENDERER));
-
-		PangoGlRendererClass* PGRC = g_type_class_peek(PANGO_TYPE_GL_RENDERER);
-
-		if(PGRC && !PGRC->context){
-			PangoFontMap* fontmap = pango_gl_font_map_new();
-			//pango_gl_font_map_set_resolution (PANGO_GL_FONT_MAP(fontmap), 96.0);
-			PGRC->context = pango_gl_font_map_create_context(PANGO_GL_FONT_MAP(fontmap));
-
-			renderer_inited = TRUE;
-		}
-
-		return PGRC;
-	}
-
-	PangoGlRendererClass* PGRC;
-	if(!renderer_inited) g_return_val_if_fail((PGRC = renderer_init()), NULL);
-	else PGRC = g_type_class_peek(PANGO_TYPE_GL_RENDERER);
-	return PGRC ? PGRC->context : NULL;
-}
 
 
 void
 agl_set_font (char* family, int size, PangoWeight weight)
 {
-	PangoContext* context = get_context();
+	PangoContext* context = agl_pango_get_context();
 
 	if(font_desc) pango_font_description_free(font_desc);
 
@@ -617,7 +616,7 @@ agl_set_font_string (char* font_string)
 
 	dbg(2, "%s", font_string);
 	// for some reason there seems to be an issue with pixmap fonts
-	if(!font_is_scalable(get_context(), pango_font_description_get_family(font_desc))){
+	if(!font_is_scalable(agl_pango_get_context(), pango_font_description_get_family(font_desc))){
 		pango_font_description_set_family(font_desc, "Sans");
 	}
 }
@@ -628,16 +627,15 @@ agl_set_font_string (char* font_string)
  *  GL_TEXTURE_2D and GL_BLEND will be automatically enabled.
  */
 void
-agl_print (int x, int y, double z, uint32_t colour, const char *fmt, ...)
+agl_print (int x, int y, double z, uint32_t colour, const char* fmt, ...)
 {
 	if(!fmt) return;
 
 	va_list args;
 	va_start(args, fmt);
 	gchar* text = g_strdup_vprintf(fmt, args);
-	va_end(args); // text now contains the string.
+	va_end(args);
 
-	PangoGlRendererClass* PGRC = g_type_class_peek(PANGO_TYPE_GL_RENDERER);
 #if 0
 	if(!PGRC->context){
 		PangoFontMap* fontmap = pango_gl_font_map_new();
@@ -646,7 +644,7 @@ agl_print (int x, int y, double z, uint32_t colour, const char *fmt, ...)
 	}
 #endif
 
-	PangoLayout* layout = pango_layout_new (PGRC->context);
+	PangoLayout* layout = pango_layout_new (agl_pango_get_context ());
 	pango_layout_set_text (layout, text, -1);
 	g_free(text);
 
@@ -674,18 +672,9 @@ agl_print (int x, int y, double z, uint32_t colour, const char *fmt, ...)
 	PangoRenderer* renderer = pango_gl_font_map_get_renderer (PANGO_GL_FONT_MAP (fontmap));
 #endif
 
-	//pango_renderer_draw_layout (renderer, layout, 10 * PANGO_SCALE, -20 * PANGO_SCALE);
-#ifndef HAVE_PANGO_1_44
-	pango_gl_render_layout (layout, x, y, z, (Colour32*)&colour, 0);
-#endif
+	agl_pango_show_layout (layout, x, y, z, colour);
+
 	g_object_unref(layout);
-
-#ifdef TEST
-	//prints the whole texture with all glyphs.
-	pango_gl_debug_textures();
-#endif
-
-	glPixelStorei (GL_UNPACK_ROW_LENGTH, 0); //reset back to the default value
 }
 
 
@@ -700,11 +689,9 @@ agl_print_with_cursor (int x, int* y, double z, uint32_t colour, const char* fmt
 	va_list args;
 	va_start(args, fmt);
 	gchar* text = g_strdup_vprintf(fmt, args);
-	va_end(args); // text now contains the string.
+	va_end(args);
 
-	PangoGlRendererClass* PGRC = g_type_class_peek(PANGO_TYPE_GL_RENDERER);
-
-	PangoLayout* layout = pango_layout_new (PGRC->context);
+	PangoLayout* layout = pango_layout_new (agl_pango_get_context());
 	pango_layout_set_text (layout, text, -1);
 	g_free(text);
 
@@ -724,11 +711,7 @@ agl_print_layout (int x, int y, double z, uint32_t colour, PangoLayout* layout)
 {
 	pango_layout_set_font_description(layout, font_desc);
 
-#ifndef HAVE_PANGO_1_44
-	pango_gl_render_layout (layout, x, y, z, (Colour32*)&colour, 0);
-#endif
-
-	glPixelStorei (GL_UNPACK_ROW_LENGTH, 0); //reset back to the default value
+	agl_pango_show_layout (layout, x, y, z, colour);
 }
 
 
@@ -745,11 +728,9 @@ agl_print_with_background (int x, int y, double z, uint32_t colour, uint32_t bg_
 	va_list args;
 	va_start(args, fmt);
 	gchar* text = g_strdup_vprintf(fmt, args);
-	va_end(args); // text now contains the string.
+	va_end(args);
 
-	PangoGlRendererClass* PGRC = g_type_class_peek(PANGO_TYPE_GL_RENDERER);
-
-	PangoLayout* layout = pango_layout_new (PGRC->context);
+	PangoLayout* layout = pango_layout_new (agl_pango_get_context());
 	pango_layout_set_text (layout, text, -1);
 
 	pango_layout_set_font_description(layout, font_desc);
@@ -766,26 +747,24 @@ agl_print_with_background (int x, int y, double z, uint32_t colour, uint32_t bg_
 	agl_use_program((AGlShader*)agl->shaders.plain);
 	agl_rect(x, y, ink_rect.width + 2 * PADDING, ink_rect.height + 2 * PADDING);
 
-#ifndef HAVE_PANGO_1_44
-	pango_gl_render_layout (layout, x + PADDING, y + PADDING - ink_rect.y, z, (Colour32*)&colour, 0);
-#endif
+	agl_pango_show_layout (layout, x + PADDING, y + PADDING - ink_rect.y, z, colour);
+
 	g_object_unref(layout);
 	g_free(text);
-
-	glPixelStorei (GL_UNPACK_ROW_LENGTH, 0); //reset back to the default value
 }
 
 
-static gboolean
+/*
+ *  Scalable fonts dont list sizes, so if the font has a size list, we assume it is not scalable.
+ *  TODO surely there is a better way to find a font than iterating over every system font?
+ */
+static bool
 font_is_scalable (PangoContext* context, const char* font_name)
 {
-	//scalable fonts dont list sizes, so if the font has a size list, we assume it is not scalable.
-	//TODO surely there is a better way to find a font than iterating over every system font?
-
 	g_return_val_if_fail(context, FALSE);
 	g_return_val_if_fail(font_name, FALSE);
 
-	gboolean scalable = TRUE;
+	bool scalable = TRUE;
 
 	gchar* family_name = g_ascii_strdown(font_name, -1);
 	dbg(3, "looking for: %s", family_name);
@@ -827,7 +806,7 @@ font_is_scalable (PangoContext* context, const char* font_name)
 void
 agl_use_program (AGlShader* shader)
 {
-	int program = shader ? shader->program : 0;
+	const int program = shader ? shader->program : 0;
 
 	if(!agl_get_instance()->use_shaders) return;
 
@@ -838,6 +817,18 @@ agl_use_program (AGlShader* shader)
 
 	//it remains to be seen whether automatic setting of uniforms gives enough control.
 	if(shader && shader->set_uniforms_) shader->set_uniforms_();
+}
+
+
+void
+agl_use_program_id (int id)
+{
+	if(!agl_get_instance()->use_shaders) return;
+
+	if(id != _program){
+		dbg(3, "%i", id);
+		glUseProgram(_program = id);
+	}
 }
 
 
@@ -900,6 +891,28 @@ void
 agl_disable_stencil ()
 {
 	glDisable(GL_STENCIL_TEST);
+}
+
+
+void
+agl_push_clip (float x, float y, float w, float h)
+{
+	ops_push_clip (
+		builder(),
+		&AGL_ROUNDED_RECT_INIT(
+			x,
+			y,
+			w,
+			h
+		)
+	);
+}
+
+
+void
+agl_pop_clip ()
+{
+	ops_pop_clip (builder());
 }
 
 

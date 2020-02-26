@@ -3,7 +3,7 @@
 
   ---------------------------------------------------------------
 
-  Copyright (C) 2012-2019 Tim Orford <tim@orford.org>
+  Copyright (C) 2012-2020 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -22,17 +22,12 @@
 #define __wf_private__
 #define __wf_canvas_priv__
 #include "config.h"
-#include <stdlib.h>
-#include <stdint.h>
-#include <string.h>
 #include <getopt.h>
-#include <unistd.h>
-#include <sys/time.h>
-#include <GL/gl.h>
 #include <gtk/gtk.h>
 #include <gdk/gdkkeysyms.h>
 #include <ass/ass.h>
 #include "agl/utils.h"
+#include "waveform/debug.h"
 #include "waveform/waveform.h"
 #define __wf_private__
 #include "test/common2.h"
@@ -87,7 +82,7 @@ typedef struct
 
 static void setup_projection   (GtkWidget*);
 static void draw               (GtkWidget*);
-static bool on_expose          (GtkWidget*, GdkEventExpose*, gpointer);
+static gboolean on_expose      (GtkWidget*, GdkEventExpose*, gpointer);
 static void on_canvas_realise  (GtkWidget*, gpointer);
 static void on_allocate        (GtkWidget*, GtkAllocation*, gpointer);
 static void start_zoom         (float target_zoom);
@@ -107,7 +102,7 @@ static const char* const short_options = "n";
 
 
 void
-msg_callback(int level, const char* fmt, va_list va, void* data)
+msg_callback (int level, const char* fmt, va_list va, void* data)
 {
     if (level > 6) return;
     printf("libass: ");
@@ -117,7 +112,7 @@ msg_callback(int level, const char* fmt, va_list va, void* data)
 
 
 static void
-init(int frame_w, int frame_h)
+init (int frame_w, int frame_h)
 {
     ass_library = ass_library_init();
     if (!ass_library) {
@@ -156,7 +151,7 @@ main (int argc, char *argv[])
 
 	gtk_init(&argc, &argv);
 	if(!(glconfig = gdk_gl_config_new_by_mode(GDK_GL_MODE_RGBA | GDK_GL_MODE_DEPTH | GDK_GL_MODE_DOUBLE))){
-		gerr ("Cannot initialise gtkglext."); return EXIT_FAILURE;
+		perr ("Cannot initialise gtkglext."); return EXIT_FAILURE;
 	}
 
 	GtkWidget* window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
@@ -271,7 +266,7 @@ render_text()
 
 	{
 		glGenTextures(1, ass_textures);
-		if(gl_error){ gerr ("couldnt create ass_texture."); exit(EXIT_FAILURE); }
+		if(gl_error){ perr ("couldnt create ass_texture."); exit(EXIT_FAILURE); }
 
 		int pixel_format = GL_LUMINANCE_ALPHA;
 		glBindTexture  (GL_TEXTURE_2D, ass_textures[0]);
@@ -289,7 +284,7 @@ render_text()
 
 
 static void
-setup_projection(GtkWidget* widget)
+setup_projection (GtkWidget* widget)
 {
 	int vx = 0;
 	int vy = 0;
@@ -311,22 +306,24 @@ setup_projection(GtkWidget* widget)
 
 
 static void
-draw(GtkWidget* widget)
+draw (GtkWidget* widget)
 {
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-	glEnable(GL_BLEND); glEnable(GL_DEPTH_TEST); glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-	glPushMatrix(); /* modelview matrix */
-		if(actor) ((AGlActor*)actor)->paint((AGlActor*)actor);
-	glPopMatrix();
+	glEnable(GL_BLEND);
+	glEnable(GL_DEPTH_TEST);
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-	//text:
-	AGl* agl = agl_get_instance();
-	if(agl->use_shaders){
+	agl_actor__paint((AGlActor*)scene);
+
+	agl_print(0, 0, 0, 0x66ff66ff, "Regular text");
+
+	// text:
+	if(agl_get_instance()->use_shaders){
 		glEnable(GL_TEXTURE_2D);
 		glActiveTexture(GL_TEXTURE0);
 		glBindTexture(GL_TEXTURE_2D, ass_textures[0]);
-		if(!glIsTexture(ass_textures[0])) gwarn("not texture");
+		if(!glIsTexture(ass_textures[0])) pwarn("not texture");
 
 		ass.uniform.colour1 = 0xffffffff;
 		ass.uniform.colour2 = 0xff0000ff;
@@ -368,7 +365,7 @@ draw(GtkWidget* widget)
 
 
 static gboolean
-on_expose(GtkWidget* widget, GdkEventExpose* event, gpointer user_data)
+on_expose (GtkWidget* widget, GdkEventExpose* event, gpointer user_data)
 {
 	if(!GTK_WIDGET_REALIZED(widget)) return TRUE;
 	if(!gl_initialised) return TRUE;
@@ -391,7 +388,7 @@ on_expose(GtkWidget* widget, GdkEventExpose* event, gpointer user_data)
 
 static gboolean canvas_init_done = false;
 static void
-on_canvas_realise(GtkWidget* _canvas, gpointer user_data)
+on_canvas_realise (GtkWidget* _canvas, gpointer user_data)
 {
 	PF;
 	if(canvas_init_done) return;
@@ -433,7 +430,7 @@ on_canvas_realise(GtkWidget* _canvas, gpointer user_data)
 
 
 static void
-on_allocate(GtkWidget* widget, GtkAllocation* allocation, gpointer user_data)
+on_allocate (GtkWidget* widget, GtkAllocation* allocation, gpointer user_data)
 {
 	if(!gl_initialised) return;
 
@@ -452,7 +449,7 @@ on_allocate(GtkWidget* widget, GtkAllocation* allocation, gpointer user_data)
 #define _a(c)  (((c)    )&0xFF)
 
 static void
-blend_single(image_t* frame, ASS_Image* img)
+blend_single (image_t* frame, ASS_Image* img)
 {
 	// composite img onto frame
 
@@ -478,7 +475,7 @@ blend_single(image_t* frame, ASS_Image* img)
 
 
 static void
-start_zoom(float target_zoom)
+start_zoom (float target_zoom)
 {
 	PF;
 	zoom = MAX(0.1, target_zoom);
@@ -493,7 +490,7 @@ start_zoom(float target_zoom)
 
 
 static void
-toggle_animate()
+toggle_animate ()
 {
 	PF0;
 	gboolean on_idle(gpointer _)
@@ -517,7 +514,7 @@ toggle_animate()
 
 
 uint64_t
-get_time()
+get_time ()
 {
 	struct timeval start;
 	gettimeofday(&start, NULL);

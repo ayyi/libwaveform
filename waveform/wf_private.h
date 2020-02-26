@@ -12,6 +12,7 @@
 #ifndef __wf_private_h__
 #define __wf_private_h__
 
+#include <math.h>
 #ifndef __GTK_H__
 #ifdef USE_GDK_PIXBUF
 #include "limits.h"
@@ -223,16 +224,6 @@ typedef struct
 typedef struct _wf_drect { double x1, y1, x2, y2; } WfDRect;
 typedef struct { double start, end; } WfdRange;
 
-
-#ifdef __wf_utils_c__
-char wf_bold     [16] = "\x1b[1;39m";
-char wf_white    [16] = "\x1b[0;39m";
-char wf_grey     [16] = "\x1b[38;5;240m";
-#else
-extern char wf_bold  [16];
-extern char wf_white [16];
-extern char wf_grey  [16];
-#endif
 
 WF*            wf_get_instance             ();
 uint32_t       wf_peakbuf_get_max_size     (int n_tiers);

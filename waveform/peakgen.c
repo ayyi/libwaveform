@@ -1,5 +1,5 @@
 /*
-  copyright (C) 2012-2018 Tim Orford <tim@orford.org>
+  copyright (C) 2012-2020 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -31,11 +31,7 @@
 */
 #define __wf_private__
 #include "config.h"
-#include <stdio.h>
-#include <string.h>
-#include <stdint.h>
 #include <sys/stat.h>
-#include <sys/time.h>
 #include <glib.h>
 #include <glib/gprintf.h>
 #include <glib/gstdio.h>
@@ -44,6 +40,7 @@
 #ifdef USE_OPENGL
 #include "agl/utils.h"
 #endif
+#include "waveform/debug.h"
 #include "waveform/waveform.h"
 #include "waveform/audio.h"
 #include "waveform/worker.h"
@@ -77,14 +74,14 @@ waveform_get_peak_filename(const char* filename)
 	// caller must g_free the returned value.
 
 	if(wf->load_peak == wf_load_ardour_peak){
-		gwarn("cannot automatically determine path of Ardour peakfile");
+		pwarn("cannot automatically determine path of Ardour peakfile");
 		return NULL;
 	}
 
 	GError* error = NULL;
 	gchar* uri = g_filename_to_uri(filename, NULL, &error);
 	if(error){
-		gwarn("%s", error->message);
+		pwarn("%s", error->message);
 		return NULL;
 	}
 	dbg(1, "uri=%s", uri);
@@ -305,7 +302,7 @@ wf_ff_peakgen(const char* infilename, const char* peak_filename)
 	}
 #else
 	if(total_frames_written / WF_PEAK_VALUES_PER_SAMPLE != f.info.frames / WF_PEAK_RATIO){
-		gwarn("unexpected number of frames: %i != %"PRIu64, total_frames_written / WF_PEAK_VALUES_PER_SAMPLE, f.info.frames / WF_PEAK_RATIO);
+		pwarn("unexpected number of frames: %i != %"PRIu64, total_frames_written / WF_PEAK_VALUES_PER_SAMPLE, f.info.frames / WF_PEAK_RATIO);
 	}
 #endif
 
@@ -342,7 +339,7 @@ typedef struct {
 		GError* error = NULL;
 		if(!wf_peakgen__sync(job->infilename, job->peak_filename, &error)){
 #ifdef DEBUG
-			if(wf_debug) gwarn("peakgen failed");
+			if(wf_debug) pwarn("peakgen failed");
 #endif
 			w->priv->peaks->error = error;
 		}
@@ -463,22 +460,22 @@ sample2time(SF_INFO sfinfo, long samplenum)
 #endif
 
 
-static gboolean
-wf_create_cache_dir()
+static bool
+wf_create_cache_dir ()
 {
 	gchar* path = get_cache_dir();
 	gboolean ret  = !g_mkdir_with_parents(path, S_IRUSR | S_IWUSR | S_IXUSR | S_IRGRP);
-	if(!ret) gwarn("cannot access cache dir: %s", path);
+	if(!ret) pwarn("cannot access cache dir: %s", path);
 	g_free(path);
 	return ret;
 }
 
 
 static void*
-peakbuf_allocate(Peakbuf* peakbuf, int c)
+peakbuf_allocate (Peakbuf* peakbuf, int c)
 {
 	g_return_val_if_fail(c < WF_STEREO, NULL);
-	if(peakbuf->buf[c]){ gwarn("buffer already allocated. c=%i", c); return NULL; }
+	if(peakbuf->buf[c]){ pwarn("buffer already allocated. c=%i", c); return NULL; }
 
 	peakbuf->buf[c] = g_malloc0(sizeof(short) * peakbuf->size);
 	peak_mem_size += (peakbuf->size * sizeof(short));
@@ -501,7 +498,7 @@ waveform_peakbuf_free(Peakbuf* p)
 static void
 peakbuf_set_n_tiers(Peakbuf* peakbuf, int n_tiers, int resolution)
 {
-	if(n_tiers < 1 || n_tiers > MAX_TIERS){ gwarn("n_tiers out of range: %i", n_tiers); n_tiers = MAX_TIERS; }
+	if(n_tiers < 1 || n_tiers > MAX_TIERS){ pwarn("n_tiers out of range: %i", n_tiers); n_tiers = MAX_TIERS; }
 	peakbuf->resolution = resolution;
 	dbg(2, "n_tiers=%i", n_tiers);
 }
@@ -662,44 +659,46 @@ get_cache_dir()
 }
 
 
-	#define CACHE_EXPIRY_DAYS 30
+#define CACHE_EXPIRY_DAYS 30
 
-	static bool _maintain_file_cache()
-	{
-		char* dir_name = get_cache_dir();
-		dbg(2, "dir=%s", dir_name);
-		GError* error = NULL;
-		GDir* d = g_dir_open(dir_name, 0, &error);
+static gboolean
+_maintain_file_cache()
+{
+	char* dir_name = get_cache_dir();
+	dbg(2, "dir=%s", dir_name);
+	GError* error = NULL;
+	GDir* d = g_dir_open(dir_name, 0, &error);
 
-		struct timeval time;
-		gettimeofday(&time, NULL);
-		time_t now = time.tv_sec;
+	struct timeval time;
+	gettimeofday(&time, NULL);
+	time_t now = time.tv_sec;
 
-		int n_deleted = 0;
-		struct stat info;
-		const char* leaf;
-		while ((leaf = g_dir_read_name(d))) {
-			if (g_str_has_suffix(leaf, ".peak")) {
-				gchar* filename = g_build_filename(dir_name, leaf, NULL);
-				if(!stat(filename, &info)){
-					time_t days_old = (now - info.st_mtime) / (60 * 60 * 24);
-					//dbg(0, "%i days_old=%i", info.st_mtime, days_old);
-					if(days_old > CACHE_EXPIRY_DAYS){
-						dbg(2, "deleting: %s", filename);
-						g_unlink(filename);
-						n_deleted++;
-					}
+	int n_deleted = 0;
+	struct stat info;
+	const char* leaf;
+	while ((leaf = g_dir_read_name(d))) {
+		if (g_str_has_suffix(leaf, ".peak")) {
+			gchar* filename = g_build_filename(dir_name, leaf, NULL);
+			if(!stat(filename, &info)){
+				time_t days_old = (now - info.st_mtime) / (60 * 60 * 24);
+				//dbg(0, "%i days_old=%i", info.st_mtime, days_old);
+				if(days_old > CACHE_EXPIRY_DAYS){
+					dbg(2, "deleting: %s", filename);
+					g_unlink(filename);
+					n_deleted++;
 				}
-				g_free(filename);
 			}
+			g_free(filename);
 		}
-		dbg(1, "peak files deleted: %i", n_deleted);
-
-		g_dir_close(d);
-		g_free(dir_name);
-
-		return G_SOURCE_REMOVE;
 	}
+	dbg(1, "peak files deleted: %i", n_deleted);
+
+	g_dir_close(d);
+	g_free(dir_name);
+
+	return G_SOURCE_REMOVE;
+}
+
 
 static void
 maintain_file_cache()

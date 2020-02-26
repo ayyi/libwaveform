@@ -1,7 +1,7 @@
 /**
 * +----------------------------------------------------------------------+
 * | This file is part of the Ayyi project. http://ayyi.org               |
-* | copyright (C) 2013-2019 Tim Orford <tim@orford.org>                  |
+* | copyright (C) 2013-2020 Tim Orford <tim@orford.org>                  |
 * +----------------------------------------------------------------------+
 * | This program is free software; you can redistribute it and/or modify |
 * | it under the terms of the GNU General Public License version 3       |
@@ -12,8 +12,6 @@
 #define __agl_actor_c__
 #define __gl_canvas_priv__
 #include "config.h"
-#include <stdlib.h>
-#include <string.h>
 #include <GL/gl.h>
 #ifdef USE_GTK
 #include <gtk/gtk.h>
@@ -21,19 +19,22 @@
 #include <gdk/gdk.h>
 #endif
 #include "agl/utils.h"
+#include "agl/debug.h"
 #include "agl/ext.h"
 #include "waveform/utils.h"
 #include "agl/shader.h"
+#include "agl/transform.h"
+#include "text/renderops.h"
+#include "text/renderer.h"
+#include "text/roundedrect.h"
 #include "agl/actor.h"
 #ifdef AGL_ACTOR_RENDER_CACHE
 #include "agl/fbo.h"
 #endif
 
-extern void wf_debug_printf (const char* func, int level, const char* format, ...);
-#define gwarn(A, ...) g_warning("%s(): "A, __func__, ##__VA_ARGS__);
-#define dbg(A, B, ...) wf_debug_printf(__func__, A, B, ##__VA_ARGS__)
-
 #define CURSOR_NORMAL 0
+
+#define call(FN, A, ...) if(FN) (FN)(A, ##__VA_ARGS__)
 
 static AGl* agl = NULL;
 static AGlActorClass root_actor_class = {0, "ROOT"};
@@ -41,6 +42,8 @@ static AGlActorClass root_actor_class = {0, "ROOT"};
 #define SCENE_IS_GTK(A) ((A)->root->type == CONTEXT_TYPE_GTK)
 
 #define IS_DRAWABLE(A) (!(!agl_actor__is_onscreen(A) || ((agl_actor__width(A) < 1 || agl_actor__height(A) < 1))))
+
+bool         _agl_actor__paint        (AGlActor*);
 
 static bool   agl_actor__is_onscreen  (AGlActor*);
 static bool  _agl_actor__on_event     (AGlActor*, GdkEvent*, AGliPt);
@@ -107,7 +110,7 @@ agl_actor__have_drawable(AGlRootActor* a, GdkGLDrawable* drawable)
 
 
 #ifdef USE_GTK
-static bool
+static gboolean
 agl_actor__try_drawable(gpointer _actor)
 {
 	AGlRootActor* a = _actor;
@@ -272,6 +275,8 @@ agl_actor__add_child(AGlActor* actor, AGlActor* child)
 		}
 		set_child_roots(child);
 
+		agl_actor__invalidate(actor);
+
 		if(READY_FOR_INIT(child)) agl_actor__init(child);
 	}
 
@@ -393,11 +398,12 @@ agl_actor__is_onscreen(AGlActor* a)
 
 
 #ifdef AGL_ACTOR_RENDER_CACHE
+/*
+ * Render the FBO to screen
+ */
 void
 agl_actor__render_from_fbo (AGlActor* a)
 {
-	// render the FBO to screen
-
 	AGlFBO* fbo = a->fbo;
 	g_return_if_fail(fbo);
 
@@ -463,34 +469,9 @@ agl_actor__render_from_fbo (AGlActor* a)
 #endif
 
 
-bool
-_agl_actor__paint(AGlActor* a)
+static bool
+__draw (AGlActor* a, bool use_fbo)
 {
-#ifdef AGL_ACTOR_RENDER_CACHE
-	bool use_fbo = a->fbo && a->cache.enabled && !(agl_actor__width(a) > AGL_MAX_FBO_WIDTH);
-#endif
-
-	AGliPt offset = {
-		.x = a->region.x1,
-		.y = a->region.y1,
-	};
-
-#ifdef AGL_ACTOR_RENDER_CACHE
-	if(!use_fbo){
-#else
-	if(true){
-#endif
-		// Offset so that actors can always draw objects at the same position,
-		// irrespective of scroll position
-		offset.x += a->scrollable.x1;
-		offset.y += a->scrollable.y1;
-	}
-	if(offset.x || offset.y){
-		glMatrixMode(GL_MODELVIEW);
-		glPushMatrix();
-		glTranslatef(offset.x, offset.y, 0.0);
-	}
-
 	bool good = true;
 #ifdef AGL_ACTOR_RENDER_CACHE
 	// TODO check case where actor is translated and is partially offscreen.
@@ -505,6 +486,15 @@ _agl_actor__paint(AGlActor* a)
 				if(agl->use_shaders && a->program) agl_use_program(a->program);
 				glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
 
+				renderer_push_builder();
+
+				ops_set_viewport (builder(), &(graphene_rect_t){
+					.size.width = a->fbo->width,
+					.size.height = a->fbo->height
+				});
+
+				ops_push_clip (builder(), &AGL_ROUNDED_RECT_INIT (0, 0, ((float)a->fbo->width) * 1.0, ((float)a->fbo->height) * 1.0));
+
 				good &= a->paint(a);
 
 				GList* l = a->children;
@@ -515,6 +505,13 @@ _agl_actor__paint(AGlActor* a)
 					}
 				}
 				glTranslatef(a->cache.position.x, 0.0, 0.0);
+
+				ops_pop_clip (builder());
+
+				builder()->target = a->fbo->id;
+				renderer_render (builder());
+
+				renderer_pop_builder();
 			} agl_end_draw_to_fbo;
 
 			a->cache.valid = good;
@@ -553,9 +550,72 @@ _agl_actor__paint(AGlActor* a)
 #ifdef AGL_ACTOR_RENDER_CACHE
 	}
 #endif
+	return good;
+}
+
+
+bool
+_agl_actor__paint (AGlActor* a)
+{
+#ifdef AGL_ACTOR_RENDER_CACHE
+	bool use_fbo = a->fbo && a->cache.enabled && !(agl_actor__width(a) > AGL_MAX_FBO_WIDTH);
+#else
+	#define use_fbo false;
+#endif
+
+	AGliPt offset = {
+		.x = a->region.x1,
+		.y = a->region.y1,
+	};
+
+#ifdef AGL_ACTOR_RENDER_CACHE
+	if(!use_fbo){
+#else
+	if(true){
+#endif
+		// Offset so that actors can always draw objects at the same position,
+		// irrespective of scroll position
+		offset.x += a->scrollable.x1;
+		offset.y += a->scrollable.y1;
+	}
+	if(offset.x || offset.y){
+		glMatrixMode(GL_MODELVIEW);
+		glPushMatrix();
+		glTranslatef(offset.x, offset.y, 0.0);
+
+		builder()->offset.x += offset.x;
+		builder()->offset.y += offset.y;
+	}
+
+	static int j; j = -1;
+	static bool f; f = use_fbo;
+
+	bool decorator_next (AGlActor* a)
+	{
+		AGlBehaviour* behaviour = a->behaviours[++j];
+		if(behaviour){
+			if(behaviour->klass->draw){
+				return behaviour->klass->draw(behaviour, a, decorator_next);
+			}else{
+				return decorator_next(a);
+			}
+		}
+		return __draw(a, f);
+	}
+
+#ifdef AGL_ACTOR_RENDER_CACHE
+	bool good = use_fbo && a->cache.valid
+#else
+	bool good = false
+#endif
+		? __draw(a, f)
+		: decorator_next(a);
 
 	if(offset.x || offset.y){
 		glPopMatrix();
+
+		builder()->offset.x -= offset.x;
+		builder()->offset.y -= offset.y;
 	}
 
 #ifdef DEBUG
@@ -568,7 +628,7 @@ _agl_actor__paint(AGlActor* a)
 	#define MAX_COLOURS 10
 	static uint32_t colours[MAX_COLOURS] = {0xff000088, 0xff990088, 0x00ff0088, 0x3333ff88, 0xff000088, 0xffff0088, 0x00ffff88};
 
-	int n_no_x_offset_parents(AGlActor* a)
+	int n_no_x_offset_parents (AGlActor* a)
 	{
 		int n = 0;
 		AGlActor* _a = a;
@@ -576,11 +636,31 @@ _agl_actor__paint(AGlActor* a)
 		return n;
 	}
 
-	int n_no_y_offset_parents(AGlActor* a)
+	int n_no_y_offset_parents (AGlActor* a)
 	{
 		int n = 0;
 		AGlActor* _a = a;
 		while(_a && !_a->region.y1) n++, _a = _a->parent;
+		return n;
+	}
+
+	int n_no_x_offset_parents2 (AGlActor* a)
+	{
+		int n = 0;
+		AGlActor* _a = a;
+		while(_a && _a->parent && _a->region.x2 == agl_actor__width(_a->parent))
+			n++,
+			_a = _a->parent;
+		return n;
+	}
+
+	int n_no_y_offset_parents2 (AGlActor* a)
+	{
+		int n = 0;
+		AGlActor* _a = a;
+		while(_a && _a->parent && _a->region.y2 == agl_actor__height(_a->parent))
+			n++,
+			_a = _a->parent;
 		return n;
 	}
 
@@ -592,9 +672,9 @@ _agl_actor__paint(AGlActor* a)
 		agl->shaders.plain->uniform.colour = colours[MIN(depth, MAX_COLOURS - 1)];
 		agl_use_program((AGlShader*)agl->shaders.plain);
 
-		float x = 1.0 * n_no_x_offset_parents(a);
-		float y = 1.0 * n_no_y_offset_parents(a);
-		agl_box(1, x, 0.0, agl_actor__width(a) - x, MAX(0, agl_actor__height(a)) -y);
+		float x = 0.5 * n_no_x_offset_parents(a);
+		float y1 = 0.5 * n_no_y_offset_parents(a);
+		agl_box(1, x, y1, agl_actor__width(a) - x - 0.5 * n_no_x_offset_parents2(a), MAX(0, agl_actor__height(a) - y1) - 0.5 * n_no_y_offset_parents2(a));
 
 		GList* l = a->children;
 		for(;l;l=l->next){
@@ -617,18 +697,40 @@ _agl_actor__paint(AGlActor* a)
 
 
 bool
-agl_actor__paint(AGlActor* a)
+agl_actor__paint (AGlActor* a)
 {
 	if(!a->root) return false;
 
 	if(!agl_actor__is_onscreen(a) || ((agl_actor__width(a) < 1 || agl_actor__height(a) < 1) && a->paint != agl_actor__null_painter)) return false;
 
-	return _agl_actor__paint(a);
+	if(a->root == (AGlScene*)a){
+		ops_push_clip (builder(), &AGL_ROUNDED_RECT_INIT (0, 0, a->region.x2, a->region.y2));
+		ops_set_program (builder(), &renderer.coloring_program);
+
+		AGlTransform* transform = agl_transform_new();
+		ops_set_modelview (builder(), transform);
+
+		if(!a->region.x2 || !a->region.y2){
+			return false;
+		}
+
+		ops_set_viewport (builder(), &(graphene_rect_t){.size.width = a->region.x2, .size.height = a->region.y2});
+	}
+
+	bool good =  _agl_actor__paint(a);
+
+	if(a->root == (AGlScene*)a && builder()->vertices->len){
+		renderer_render (builder());
+
+		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA); // restore normal blend function
+	}
+
+	return good;
 }
 
 
 void
-agl_actor__set_size(AGlActor* actor)
+agl_actor__set_size (AGlActor* actor)
 {
 	call(actor->set_size, actor); // actors need to update their own regions.
 
@@ -1016,7 +1118,7 @@ agl_actor__on_expose (GtkWidget* widget, GdkEventExpose* event, gpointer user_da
 		glOrtho (actor->scrollable.x1, actor->scrollable.x2, actor->scrollable.y2, actor->scrollable.y1, 256.0, -256.0);
 	}
 
-	AGlRootActor* root = user_data;
+	AGlScene* root = user_data;
 	g_return_val_if_fail(root, false);
 
 	if(!GTK_WIDGET_REALIZED(widget)) return true;
@@ -1026,7 +1128,7 @@ agl_actor__on_expose (GtkWidget* widget, GdkEventExpose* event, gpointer user_da
 		agl_bg_colour_rbga(root->bg_colour);
 		glClear(GL_COLOR_BUFFER_BIT);
 
-		_agl_actor__paint((AGlActor*)root);
+		agl_actor__paint((AGlActor*)root);
 
 #undef SHOW_BOUNDING_BOX
 #ifdef SHOW_BOUNDING_BOX
@@ -1222,6 +1324,7 @@ agl_actor__invalidate_down (AGlActor* actor)
 			_agl_actor__invalidate_down((AGlActor*)l->data);
 		}
 	}
+
 	_agl_actor__invalidate_down(actor);
 }
 

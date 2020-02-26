@@ -1,7 +1,7 @@
 /**
 * +----------------------------------------------------------------------+
 * | This file is part of the Ayyi project. http://ayyi.org               |
-* | copyright (C) 2012-2019 Tim Orford <tim@orford.org>                  |
+* | copyright (C) 2012-2020 Tim Orford <tim@orford.org>                  |
 * +----------------------------------------------------------------------+
 * | This program is free software; you can redistribute it and/or modify |
 * | it under the terms of the GNU General Public License version 3       |
@@ -32,7 +32,7 @@ typedef struct {Vertex v0, v1, v2, v3;} Quad;
 
 
 static void
-v_hi_renderer_new(WaveformActor* actor)
+v_hi_renderer_new (WaveformActor* actor)
 {
 	WaveformPrivate* w = actor->waveform->priv;
 
@@ -54,7 +54,7 @@ v_hi_renderer_new(WaveformActor* actor)
 
 
 static bool
-v_hi_pre_render(Renderer* renderer, WaveformActor* actor)
+v_hi_pre_render (Renderer* renderer, WaveformActor* actor)
 {
 	RenderInfo* r  = &actor->priv->render_info;
 	VHiRenderer* v_hi_renderer = (VHiRenderer*)renderer;
@@ -67,7 +67,7 @@ v_hi_pre_render(Renderer* renderer, WaveformActor* actor)
 
 
 static void
-_v_hi_set_gl_state(WaveformActor* actor)
+_v_hi_set_gl_state (WaveformActor* actor)
 {
 	AGl* agl = agl_get_instance();
 	const WaveformContext* wfc = actor->canvas;
@@ -103,7 +103,7 @@ _v_hi_set_gl_state(WaveformActor* actor)
 
 
 bool
-draw_wave_buffer_v_hi(Renderer* renderer, WaveformActor* actor, int block, bool is_first, bool is_last, double x_block0)
+draw_wave_buffer_v_hi (Renderer* renderer, WaveformActor* actor, int block, bool is_first, bool is_last, double x_block0)
 {
 	//for use at resolution 1, operates on audio data, NOT peak data.
 
@@ -136,7 +136,7 @@ draw_wave_buffer_v_hi(Renderer* renderer, WaveformActor* actor, int block, bool 
 	g_return_val_if_fail(b_region.len <= buf->size, false);
 
 	if(rect->left + rect->len < ri->viewport.left){
-		gerr("rect is outside viewport");
+		perr("rect is outside viewport");
 	}
 
 	_v_hi_set_gl_state(actor);
@@ -228,7 +228,7 @@ draw_wave_buffer_v_hi(Renderer* renderer, WaveformActor* actor, int block, bool 
 										if(s_max > buf->size){
 											int over = s_max - buf->size;
 											if(over < 4 + sr.border) dbg(0, "TODO block overlap - need to access next block");
-											else gerr("error at block changeover. s_max=%i over=%i", s_max, over);
+											else perr("error at block changeover. s_max=%i over=%i", s_max, over);
 										}else{
 											// its fairly normal to be limited by region, as the region can be set deliberately to match the viewport.
 											// (the region can either correspond to a defined Section/Part of the waveform, or dynamically created with the viewport
@@ -398,14 +398,14 @@ draw_wave_buffer_v_hi(Renderer* renderer, WaveformActor* actor, int block, bool 
 
 
 static void
-v_hi_load_block(Renderer* renderer, WaveformActor* a, int b)
+v_hi_load_block (Renderer* renderer, WaveformActor* a, int b)
 {
 	if(((AGlActor*)a)->root->draw) wf_canvas_queue_redraw(a->canvas);
 }
 
 
 static void
-v_hi_free_waveform(Renderer* renderer, Waveform* w)
+v_hi_free_waveform (Renderer* renderer, Waveform* w)
 {
 	if(w->priv->render_data[MODE_V_HI]) g_free0(w->priv->render_data[MODE_V_HI]);
 }

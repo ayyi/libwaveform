@@ -1,29 +1,20 @@
-/*
-  copyright (C) 2012-2019 Tim Orford <tim@orford.org>
-
-  This program is free software; you can redistribute it and/or modify
-  it under the terms of the GNU General Public License version 3
-  as published by the Free Software Foundation.
-
-  This program is distributed in the hope that it will be useful,
-  but WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-  GNU General Public License for more details.
-
-  You should have received a copy of the GNU General Public License
-  along with this program; if not, write to the Free Software
-  Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+/**
+* +----------------------------------------------------------------------+
+* | This file is part of the Ayyi project. http://ayyi.org               |
+* | copyright (C) 2012-2020 Tim Orford <tim@orford.org>                  |
+* +----------------------------------------------------------------------+
+* | This program is free s20tware; you can redistribute it and/or modify |
+* | it under the terms of the GNU General Public License version 3       |
+* | as published by the Free Software Foundation.                        |
+* +----------------------------------------------------------------------+
+*
 */
 #define __wf_private__
 #include "config.h"
-#include <stdio.h>
 #include <glib.h>
-#include <stdlib.h>
-#include <string.h>
 #include <gdk-pixbuf/gdk-pixdata.h>
-#include <GL/gl.h>
-#include <GL/glx.h>
-#include <GL/glxext.h>
+#include "agl/ext.h"
+#include "waveform/debug.h"
 #include "waveform/waveform.h"
 #include "waveform/texture_cache.h"
 
@@ -104,7 +95,9 @@ texture_cache_gen(TextureCache* c)
 #endif
 
 	int size = c->t->len + WF_TEXTURE_ALLOCATION_INCREMENT;
-	if(size > WF_TEXTURE_MAX){ if(wf_debug){ gwarn("texture allocation full"); if(!error_shown) texture_cache_print(); error_shown = true;} return; }
+	if(size > WF_TEXTURE_MAX){
+		if(wf_debug){ pwarn("texture allocation full"); if(!error_shown) texture_cache_print(); error_shown = true;} return;
+	}
 	c->t = g_array_set_size(c->t, size);
 
 	guint textures[WF_TEXTURE_ALLOCATION_INCREMENT];

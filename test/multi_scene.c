@@ -30,9 +30,6 @@
 
 #define __wf_private__
 #include "config.h"
-#include <stdlib.h>
-#include <stdint.h>
-#include <string.h>
 #include <getopt.h>
 #include <sys/time.h>
 #include <gtk/gtk.h>
@@ -57,12 +54,12 @@ float            zoom      = 1.0;
 float            vzoom     = 1.0;
 gpointer         tests[]   = {};
 
-static void setup_projection   (GtkWidget*);
-static void on_canvas_realise  (GtkWidget*, gpointer);
-static void on_allocate        (GtkWidget*, GtkAllocation*, gpointer);
-static bool on_expose          (GtkWidget*, GdkEventExpose*, gpointer);
-static void start_zoom         (float target_zoom);
-uint64_t    get_time           ();
+static void setup_projection  (GtkWidget*);
+static void on_canvas_realise (GtkWidget*, gpointer);
+static void on_allocate       (GtkWidget*, GtkAllocation*, gpointer);
+static int  on_expose         (GtkWidget*, GdkEventExpose*, gpointer);
+static void start_zoom        (float target_zoom);
+uint64_t    get_time          ();
 
 KeyHandler
 	zoom_in,
@@ -117,7 +114,7 @@ main (int argc, char *argv[])
 
 	gtk_init(&argc, &argv);
 	if(!(glconfig = gdk_gl_config_new_by_mode(GDK_GL_MODE_RGBA | GDK_GL_MODE_DEPTH | GDK_GL_MODE_DOUBLE))){
-		gerr ("Cannot initialise gtkglext."); return EXIT_FAILURE;
+		perr ("Cannot initialise gtkglext."); return EXIT_FAILURE;
 	}
 
 	GtkWidget* window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
@@ -188,7 +185,7 @@ main (int argc, char *argv[])
 
 
 static void
-setup_projection(GtkWidget* widget)
+setup_projection (GtkWidget* widget)
 {
 	int vx = 0;
 	int vy = 0;
@@ -210,7 +207,7 @@ setup_projection(GtkWidget* widget)
 
 
 static void
-on_canvas_realise(GtkWidget* _canvas, gpointer user_data)
+on_canvas_realise (GtkWidget* _canvas, gpointer user_data)
 {
 	if(!GTK_WIDGET_REALIZED (canvas)) return;
 
@@ -219,7 +216,7 @@ on_canvas_realise(GtkWidget* _canvas, gpointer user_data)
 
 
 static void
-on_allocate(GtkWidget* widget, GtkAllocation* allocation, gpointer user_data)
+on_allocate (GtkWidget* widget, GtkAllocation* allocation, gpointer user_data)
 {
 	if(!wfc) return;
 
@@ -233,7 +230,7 @@ on_allocate(GtkWidget* widget, GtkAllocation* allocation, gpointer user_data)
 
 
 static gboolean
-on_expose(GtkWidget* widget, GdkEventExpose* event, gpointer user_data)
+on_expose (GtkWidget* widget, GdkEventExpose* event, gpointer user_data)
 {
 	if(!GTK_WIDGET_REALIZED(widget)) return true;
 	if(!wfc) return true;
@@ -280,7 +277,7 @@ on_expose(GtkWidget* widget, GdkEventExpose* event, gpointer user_data)
 
 
 static void
-start_zoom(float target_zoom)
+start_zoom (float target_zoom)
 {
 	//when zooming in, the Region is preserved so the box gets bigger. Drawing is clipped by the Viewport.
 
@@ -298,21 +295,21 @@ start_zoom(float target_zoom)
 
 
 void
-zoom_in(gpointer _)
+zoom_in (gpointer _)
 {
 	start_zoom(zoom * 1.5);
 }
 
 
 void
-zoom_out(gpointer _)
+zoom_out (gpointer _)
 {
 	start_zoom(zoom / 1.5);
 }
 
 
 void
-vzoom_up(gpointer _)
+vzoom_up (gpointer _)
 {
 	vzoom *= 1.1;
 	zoom = MIN(vzoom, 100.0);
@@ -322,7 +319,7 @@ vzoom_up(gpointer _)
 
 
 void
-vzoom_down(gpointer _)
+vzoom_down (gpointer _)
 {
 	vzoom /= 1.1;
 	zoom = MAX(vzoom, 1.0);
@@ -332,7 +329,7 @@ vzoom_down(gpointer _)
 
 
 void
-scroll_left(gpointer _)
+scroll_left (gpointer _)
 {
 	//int n_visible_frames = ((float)waveform->waveform->n_frames) / waveform->zoom;
 	//waveform_view_set_start(waveform, waveform->start_frame - n_visible_frames / 10);
@@ -340,35 +337,37 @@ scroll_left(gpointer _)
 
 
 void
-scroll_right(gpointer _)
+scroll_right (gpointer _)
 {
 	//int n_visible_frames = ((float)waveform->waveform->n_frames) / waveform->zoom;
 	//waveform_view_set_start(waveform, waveform->start_frame + n_visible_frames / 10);
 }
 
 
-	bool on_idle(gpointer _)
-	{
-		static uint64_t frame = 0;
-		static uint64_t t0    = 0;
-		if(!frame) t0 = get_time();
-		else{
-			uint64_t time = get_time();
-			if(!(frame % 1000))
-				dbg(0, "rate=%.2f fps", ((float)frame) / ((float)(time - t0)) / 1000.0);
+static gboolean
+on_idle (gpointer _)
+{
+	static uint64_t frame = 0;
+	static uint64_t t0    = 0;
+	if(!frame) t0 = get_time();
+	else{
+		uint64_t time = get_time();
+		if(!(frame % 1000))
+			dbg(0, "rate=%.2f fps", ((float)frame) / ((float)(time - t0)) / 1000.0);
 
-			if(!(frame % 8)){
-				float v = (frame % 16) ? 2.0 : 1.0/2.0;
-				if(v > 16.0) v = 1.0;
-				start_zoom(v);
-			}
+		if(!(frame % 8)){
+			float v = (frame % 16) ? 2.0 : 1.0/2.0;
+			if(v > 16.0) v = 1.0;
+			start_zoom(v);
 		}
-		frame++;
-		return G_SOURCE_CONTINUE;
 	}
+	frame++;
+	return G_SOURCE_CONTINUE;
+}
+
 
 void
-toggle_animate(gpointer _)
+toggle_animate (gpointer _)
 {
 	PF0;
 	g_timeout_add(50, on_idle, NULL);
@@ -376,14 +375,14 @@ toggle_animate(gpointer _)
 
 
 void
-quit(gpointer _)
+quit (gpointer _)
 {
 	exit(EXIT_SUCCESS);
 }
 
 
 uint64_t
-get_time()
+get_time ()
 {
 	struct timeval start;
 	gettimeofday(&start, NULL);

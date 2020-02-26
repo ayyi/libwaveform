@@ -2,7 +2,7 @@
 * +----------------------------------------------------------------------+
 * | This file is part of libwaveform                                     |
 * | https://github.com/ayyi/libwaveform                                  |
-* | copyright (C) 2012-2019 Tim Orford <tim@orford.org>                  |
+* | copyright (C) 2012-2020 Tim Orford <tim@orford.org>                  |
 * +----------------------------------------------------------------------+
 * | This program is free software; you can redistribute it and/or modify |
 * | it under the terms of the GNU General Public License version 3       |
@@ -12,10 +12,6 @@
 */
 #define __wf_private__
 #include "config.h"
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <math.h>
 #include <gdk/gdkkeysyms.h>
 #include <GL/gl.h>
 #ifdef USE_LIBASS
@@ -24,6 +20,7 @@
 #include "agl/ext.h"
 #include "agl/utils.h"
 #include "agl/actor.h"
+#include "waveform/debug.h"
 #include "waveform/waveform.h"
 #include "waveform/peakgen.h"
 #include "waveform/shader.h"
@@ -37,7 +34,9 @@
 
 #define FONT_SIZE 18 //TODO
 
-static void text_actor_free (AGlActor*);
+static void text_actor_free     (AGlActor*);
+static void text_actor_set_size (AGlActor*);
+static bool text_actor_paint    (AGlActor*);
 
 static AGl* agl = NULL;
 static AGlActorClass actor_class = {0, "Overview", (AGlActorNew*)text_actor, text_actor_free};
@@ -83,15 +82,17 @@ static ASS_Renderer* ass_renderer = NULL;
 
 #ifdef USE_LIBASS
 #ifdef DEBUG
-		static void msg_callback(int level, const char* fmt, va_list va, void* data)
-		{
-			if (wf_debug < 2 || level > 6) return;
-			printf("libass: ");
-			vprintf(fmt, va);
-			printf("\n");
-		}
+static void
+msg_callback(int level, const char* fmt, va_list va, void* data)
+{
+	if (wf_debug < 2 || level > 6) return;
+	printf("libass: ");
+	vprintf(fmt, va);
+	printf("\n");
+}
 #endif
 #endif
+
 
 static void
 _init()
@@ -122,57 +123,14 @@ _init()
 	}
 
 	if(!init_done){
-		agl = agl_get_instance();
 		ass_init();
-		agl_set_font_string("Roboto 10"); // initialise the pango context
 
 		init_done = true;
 	}
 }
 
 
-	static bool text_actor_paint(AGlActor* actor)
-	{
-		TextActor* ta = (TextActor*)actor;
-
-		if(!agl->use_shaders) agl_enable(0); // TODO find out why this is needed when AGlActor caching is enabled.
-
-		agl_print(2, agl_actor__height(actor) - 16, 0, ta->text_colour, ta->text);
-
-#ifdef USE_LIBASS
-		if(ta->title){
-			if(!ta->title_is_rendered) text_actor_render_text(ta);
-
-			// title text:
-			if(agl->use_shaders){
-				agl_enable(AGL_ENABLE_TEXTURE_2D | AGL_ENABLE_BLEND);
-				glActiveTexture(GL_TEXTURE0);
-
-				agl_use_program((AGlShader*)&ass);
-
-				float th = ((TextActor*)actor)->texture.height;
-
-#undef ALIGN_TOP
-#ifdef ALIGN_TOP
-				float y1 = -((int)th - ta->_title.height - ta->_title.y_offset);
-				agl_textured_rect(ta->texture.ids[0], (actor->region.x2 - actor->region.x1) - ta->_title.width - 4.0f, y, ta->_title.width, th, &(AGlRect){0.0, 0.0, ((float)ta->_title.width) / ta->texture.width, 1.0});
-#else
-				agl_textured_rect(ta->texture.ids[0],
-					actor->region.x2 - ta->_title.width - 4.0f,
-					actor->region.y2 - actor->region.y1 - th + ((TextActor*)actor)->baseline - 4.0f,
-					ta->_title.width,
-					th,
-					&(AGlQuad){0.0, 0.0, ((float)ta->_title.width) / ta->texture.width, 1.0}
-				);
-#endif
-			}
-		}
-#endif
-
-		return true;
-	}
-
-	static void text_actor_init(AGlActor* a)
+	static void text_actor_init (AGlActor* a)
 	{
 #ifdef USE_GTK
 		TextActor* ta = (TextActor*)a;
@@ -180,6 +138,9 @@ _init()
 		if(!ta->title_colour1) ta->title_colour1 = wf_get_gtk_text_color(a->root->gl.gdk.widget, GTK_STATE_NORMAL);
 		if(!ta->text_colour) ta->text_colour = wf_get_gtk_base_color(a->root->gl.gdk.widget, GTK_STATE_NORMAL, 0xaa);
 #endif
+
+		agl = agl_get_instance();
+		agl_set_font_string("Roboto 10"); // initialise the pango context
 
 #ifdef USE_LIBASS
 		if(agl_get_instance()->use_shaders){
@@ -189,19 +150,13 @@ _init()
 		}
 #endif
 #ifdef AGL_ACTOR_RENDER_CACHE
-		a->fbo = agl_fbo_new(a->region.x2 - a->region.x1, a->region.y2 - a->region.y1, 0, 0);
+		a->fbo = agl_fbo_new(agl_actor__width(a), agl_actor__height(a), 0, 0);
 		a->cache.enabled = true;
 #endif
 	}
 
-	static void text_actor_set_size(AGlActor* actor)
-	{
-		// the texture height will not be available first time
-		actor->region = (AGlfRegion){0, 0, actor->parent->region.x2 - actor->parent->region.x1, actor->parent->region.y2 - actor->parent->region.y1};
-	}
-
 AGlActor*
-text_actor(WaveformActor* _)
+text_actor (WaveformActor* _)
 {
 	instance_count++;
 
@@ -216,8 +171,7 @@ text_actor(WaveformActor* _)
 			.set_size = text_actor_set_size
 		},
 		.title_colour1 = 0xff0000ff,
-		//ta->title_colour2 = 0xffffffaa,
-		.title_colour2 = 0x0000ffff //FIXME
+		.title_colour2 = 0xffffffff
 	);
 
 	AGlActor* actor = (AGlActor*)ta;
@@ -227,7 +181,7 @@ text_actor(WaveformActor* _)
 
 
 static void
-text_actor_free(AGlActor* actor)
+text_actor_free (AGlActor* actor)
 {
 	TextActor* ta = (TextActor*)actor;
 
@@ -243,6 +197,7 @@ text_actor_free(AGlActor* actor)
 	}
 #endif
 }
+
 
 void
 text_actor_set_colour (TextActor* ta, uint32_t title1, uint32_t title2)
@@ -273,6 +228,57 @@ text_actor_set_text (TextActor* ta, char* title, char* text)
 	ta->title_is_rendered = false;
 
 	agl_actor__invalidate((AGlActor*)ta);
+}
+
+
+static bool
+text_actor_paint (AGlActor* actor)
+{
+	TextActor* ta = (TextActor*)actor;
+
+	if(!agl->use_shaders) agl_enable(0); // TODO find out why this is needed when AGlActor caching is enabled.
+
+	agl_print(2, agl_actor__height(actor) - 16, 0, ta->text_colour, ta->text);
+
+#ifdef USE_LIBASS
+	if(ta->title){
+		if(!ta->title_is_rendered) text_actor_render_text(ta);
+
+		// title text:
+		if(agl->use_shaders){
+			agl_enable(AGL_ENABLE_TEXTURE_2D | AGL_ENABLE_BLEND);
+			glActiveTexture(GL_TEXTURE0);
+
+			agl_use_program((AGlShader*)&ass);
+
+			float th = ((TextActor*)actor)->texture.height;
+
+#undef ALIGN_TOP
+#ifdef ALIGN_TOP
+			float y1 = -((int)th - ta->_title.height - ta->_title.y_offset);
+			agl_textured_rect(ta->texture.ids[0], (actor->region.x2 - actor->region.x1) - ta->_title.width - 4.0f, y, ta->_title.width, th, &(AGlRect){0.0, 0.0, ((float)ta->_title.width) / ta->texture.width, 1.0});
+#else
+			agl_textured_rect(ta->texture.ids[0],
+				actor->region.x2 - ta->_title.width - 4.0f,
+				actor->region.y2 - actor->region.y1 - th + ((TextActor*)actor)->baseline - 4.0f,
+				ta->_title.width,
+				th,
+				&(AGlQuad){0.0, 0.0, ((float)ta->_title.width) / ta->texture.width, 1.0}
+			);
+#endif
+		}
+	}
+#endif
+
+	return true;
+}
+
+
+static void
+text_actor_set_size (AGlActor* actor)
+{
+	float height = MIN(40.0, agl_actor__height(actor->parent));
+	actor->region = (AGlfRegion){0, agl_actor__height(actor->parent) - height, agl_actor__width(actor->parent), agl_actor__height(actor->parent)};
 }
 
 
@@ -311,12 +317,12 @@ blend_single(image_t* frame, ASS_Image* img)
 
 
 static void
-text_actor_render_text(TextActor* ta)
+text_actor_render_text (TextActor* ta)
 {
 	AGlActor* actor = (AGlActor*)ta;
 
 	PF;
-	if(ta->title_is_rendered) gwarn("title is already rendered");
+	if(ta->title_is_rendered) pwarn("title is already rendered");
 
 	GError* error = NULL;
 	GRegexMatchFlags flags = 0;
@@ -401,7 +407,7 @@ text_actor_render_text(TextActor* ta)
 	{
 		if(!((TextActor*)actor)->texture.ids[0]){
 			glGenTextures(1, ((TextActor*)actor)->texture.ids);
-			if(gl_error){ gerr ("couldnt create ass_texture."); goto out; }
+			if(gl_error){ perr ("couldnt create ass_texture."); goto out; }
 		}
 		((TextActor*)actor)->texture.height = out.height;
 		agl_actor__set_size(actor);

@@ -9,7 +9,7 @@ if ENABLE_SDL
 SDLPROGRAMS = sdl
 endif
 if ENABLE_GTK
-GTKPROGRAMS = view_plus_test actor_test actor_plus actor_no_scene list group hires multi_scene $(ASSPROGRAMS) frame_rate resources cache viewport pixbuf
+GTKPROGRAMS = view_plus_test actor_test actor_plus actor_no_scene list group hires multi_scene $(ASSPROGRAMS) frame_rate resources cache viewport pixbuf text
 endif
 
 if ENABLE_OPENGL
@@ -50,6 +50,8 @@ TEST_LDFLAGS = \
 	$(GMODULE_LDFLAGS) \
 	$(SNDFILE_LIBS) \
 	$(FFMPEG_LDFLAGS) \
+	$(SYSPROF_LIBS) \
+	$(GRAPHENE_LDFLAGS) \
 	-lm
 
 COMMON_SOURCES = \
@@ -135,6 +137,10 @@ glx_SOURCES = \
 	$(COMMON2_SOURCES) \
 	glx.c
 
+text_SOURCES = \
+	$(COMMON2_SOURCES) \
+	text.c
+
 scenegraph_SOURCES = \
 	$(COMMON2_SOURCES) \
 	scenegraph.c
@@ -180,6 +186,10 @@ glx_LDADD = \
 	$(OPENGL_LDFLAGS) \
 	$(TEST_LDFLAGS)
 
+text_LDADD = \
+	$(OPENGL_LDFLAGS) \
+	$(TEST_LDFLAGS)
+
 scenegraph_LDADD = \
 	$(TEST_LDFLAGS)
 
@@ -188,6 +198,32 @@ LDADD = \
 	$(TEST_LDFLAGS)
 
 endif
+
+AM_TESTS_FD_REDIRECT = 9>&2 --non-interactive
+
+AM_TESTS_ENVIRONMENT = \
+	export NON_INTERACTIVE=1;
+
+# these tests will be run as part of make-check
+# TODO dont swallow stdout
+TESTS = \
+	waveform_test \
+	32bit \
+	cache \
+	view_plus_test \
+	actor_test \
+	actor_plus \
+	hires \
+	scenegraph \
+	viewport \
+	group \
+	actor_no_scene \
+	multi_scene \
+	frame_rate \
+	glx \
+	list \
+	sdl \
+	ass
 
 test:
 	@echo running tests...

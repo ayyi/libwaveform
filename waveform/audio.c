@@ -26,11 +26,10 @@
 */
 #define __waveform_peak_c__
 #include "config.h"
-#include <stdint.h>
-#include <sys/time.h>
 #include <gtk/gtk.h>
 #define __wf_private__
 #include "decoder/ad.h"
+#include "waveform/debug.h"
 #include "waveform/waveform.h"
 #define __wf_worker_private__
 #include "waveform/worker.h"
@@ -100,7 +99,7 @@ waveform_load_audio_block (Waveform* waveform, WfBuf16* buf16, int block_num)
 	WfDecoder f = {{0,}};
 
 	if(!ad_open(&f, waveform->filename)){
-		gwarn ("not able to open input file %s.", waveform->filename);
+		pwarn ("not able to open input file %s.", waveform->filename);
 		return false;
 	}
 
@@ -122,8 +121,8 @@ waveform_load_audio_block (Waveform* waveform, WfBuf16* buf16, int block_num)
 	{
 		int64_t readcount;
 		if((readcount = f->read(f, buf, n_frames)) < n_frames){
-			gwarn("unexpected EOF: %s", waveform->filename);
-			gwarn("                start_frame=%"PRIi64" expected=%"PRIi64" got=%"PRIi64, start_pos, n_frames, readcount);
+			pwarn("unexpected EOF: %s", waveform->filename);
+			pwarn("                start_frame=%"PRIi64" expected=%"PRIi64" got=%"PRIi64, start_pos, n_frames, readcount);
 			return false;
 		}
 
@@ -137,8 +136,8 @@ waveform_load_audio_block (Waveform* waveform, WfBuf16* buf16, int block_num)
 		float readbuf[buf->size];
 		int64_t readcount;
 		if((readcount = wf_ff_read(f, readbuf, n_frames)) < n_frames){
-			gwarn("unexpected EOF: %s", waveform->filename);
-			gwarn("                start_frame=%Li n_frames=%Lu read=%Li", start_pos, n_frames, readcount);
+			pwarn("unexpected EOF: %s", waveform->filename);
+			pwarn("                start_frame=%Li n_frames=%Lu read=%Li", start_pos, n_frames, readcount);
 			return false;
 		}
 
@@ -155,8 +154,8 @@ waveform_load_audio_block (Waveform* waveform, WfBuf16* buf16, int block_num)
 		float readbuf[n_frames];
 		int64_t readcount;
 		if((readcount = wf_ff_read(f, readbuf, n_frames)) < n_frames){
-			gwarn("unexpected EOF: %s", waveform->filename);
-			gwarn("                start_frame=%Li n_frames=%Lu (%Lu) read=%Li", start_pos, n_frames, start_pos + n_frames, readcount);
+			pwarn("unexpected EOF: %s", waveform->filename);
+			pwarn("                start_frame=%Li n_frames=%Lu (%Lu) read=%Li", start_pos, n_frames, start_pos + n_frames, readcount);
 			return false;
 		}
 
@@ -184,7 +183,7 @@ waveform_load_audio_block (Waveform* waveform, WfBuf16* buf16, int block_num)
 
 						ad_close(&f);
 						if(!ad_open(&f, rhs)){
-							gwarn ("not able to open input file %s.", rhs);
+							pwarn ("not able to open input file %s.", rhs);
 							return false;
 						}
 						ad_seek(&f, start_pos);
@@ -277,7 +276,7 @@ waveform_load_audio_post (Waveform* waveform, GError* error, gpointer _pjob)
 		GPtrArray* peaks = waveform->priv->hires_peaks;
 		if(audio->buf16[pjob->block_num]){
 			// this is unexpected. If the data is obsolete, it should probably be cleared imediately.
-			gwarn("overwriting old audio buffer");
+			pwarn("overwriting old audio buffer");
 			audio_cache_free(waveform, pjob->block_num);
 		}
 		audio->buf16[pjob->block_num] = pjob->out.buf16;
@@ -491,7 +490,7 @@ audio_cache_insert(Waveform* w, WfBuf16* buf16, int b)
 			audio_cache_free(oldest_waveform, wf_block_lookup_by_audio_buf(oldest_waveform, oldest));
 		}
 		if(wf->audio.mem_size + buf16->size > MAX_AUDIO_CACHE_SIZE){
-			gerr("cant free space in audio cache");
+			perr("cant free space in audio cache");
 		}
 	}
 

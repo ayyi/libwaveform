@@ -2,7 +2,7 @@
 * +----------------------------------------------------------------------+
 * | This file is part of libwaveform                                     |
 * | https://github.com/ayyi/libwaveform                                  |
-* | copyright (C) 2012-2018 Tim Orford <tim@orford.org>                  |
+* | copyright (C) 2012-2020 Tim Orford <tim@orford.org>                  |
 * +----------------------------------------------------------------------+
 * | This program is free software; you can redistribute it and/or modify |
 * | it under the terms of the GNU General Public License version 3       |
@@ -15,12 +15,7 @@
 */
 #define __wf_private__
 #include "config.h"
-#include <stdlib.h>
-#include <stdint.h>
-#include <string.h>
 #include <getopt.h>
-#include <unistd.h>
-#include <signal.h>
 #include <sys/time.h>
 #include <GL/gl.h>
 #include <gtk/gtk.h>
@@ -40,7 +35,6 @@ struct
 #define VBORDER 8
 
 GdkGLConfig* glconfig       = NULL;
-static bool  gl_initialised = false;
 GtkWidget*   canvas         = NULL;
 AGlScene*    scene          = NULL;
 gpointer     tests[]        = {};
@@ -77,7 +71,7 @@ main (int argc, char *argv[])
 
 	gtk_init(&argc, &argv);
 	if(!(glconfig = gdk_gl_config_new_by_mode(GDK_GL_MODE_RGBA | GDK_GL_MODE_DEPTH | GDK_GL_MODE_DOUBLE))){
-		gerr ("Cannot initialise gtkglext."); return EXIT_FAILURE;
+		perr ("Cannot initialise gtkglext."); return EXIT_FAILURE;
 	}
 
 	GtkWidget* window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
@@ -98,6 +92,7 @@ main (int argc, char *argv[])
 	AGlActor* b = agl_actor__add_child((AGlActor*)_container, actor_with_viewport(NULL));
 	AGlActor* c = agl_actor__add_child((AGlActor*)_container, actor_with_viewport(NULL));
 	AGlActor* d = agl_actor__add_child((AGlActor*)_container, actor_with_viewport(NULL));
+
 	int w = 50;
 	int h = 50;
 	int y = 25;
@@ -178,14 +173,13 @@ main (int argc, char *argv[])
 
 
 static gboolean canvas_init_done = false;
+
 static void
-on_canvas_realise(GtkWidget* _canvas, gpointer user_data)
+on_canvas_realise (GtkWidget* _canvas, gpointer user_data)
 {
 	PF;
 	if(canvas_init_done) return;
 	if(!GTK_WIDGET_REALIZED (canvas)) return;
-
-	gl_initialised = true;
 
 	canvas_init_done = true;
 
@@ -220,17 +214,15 @@ on_canvas_realise(GtkWidget* _canvas, gpointer user_data)
 
 
 static void
-on_allocate(GtkWidget* widget, GtkAllocation* allocation, gpointer user_data)
+on_allocate (GtkWidget* widget, GtkAllocation* allocation, gpointer user_data)
 {
 	((AGlActor*)scene)->region.x2 = allocation->width;
 	((AGlActor*)scene)->region.y2 = allocation->height;
-
-	if(!gl_initialised) return;
 }
 
 
 AGlActor*
-container(WaveformActor* wf_actor)
+container (WaveformActor* wf_actor)
 {
 	bool container_paint(AGlActor* actor)
 	{
@@ -261,12 +253,12 @@ container(WaveformActor* wf_actor)
 
 
 AGlActor*
-actor_with_viewport(WaveformActor* wf_actor)
+actor_with_viewport (WaveformActor* wf_actor)
 {
-	agl_set_font_string("Sans 10");
 
-	bool viewport_paint(AGlActor* actor)
+	bool viewport_paint (AGlActor* actor)
 	{
+	agl_set_font_string("Sans 10");
 		// coords here are relative to the start of the world region
 		// -but we only want to draw inside the Region
 
@@ -281,25 +273,24 @@ actor_with_viewport(WaveformActor* wf_actor)
 		agl_box(1, 0, 0, actor->scrollable.x2 - actor->scrollable.x1, actor->scrollable.y2 - actor->scrollable.y1);
 
 		// normal contents, cropped to viewable region
-		agl_enable_stencil(rx, ry, agl_actor__width(actor), agl_actor__height(actor));
+		agl_push_clip(rx, ry, agl_actor__width(actor), agl_actor__height(actor));
 		agl_print(2, 2, 0, 0xff9933ff, "A B C D E F G H I J K L M N O P Q R S T U V W X Y Z");
-		agl_disable_stencil();
+		agl_pop_clip();
 
 		return true;
 	}
 
-	void viewport_set_state(AGlActor* actor)
+	void viewport_set_state (AGlActor* actor)
 	{
 		agl_enable(AGL_ENABLE_BLEND);
 		((PlainShader*)actor->program)->uniform.colour = 0x00ff0099;
 	}
 
-	AGlActor* actor = AGL_NEW(AGlActor,
+	AGlActor* actor = agl_actor__new(AGlActor,
 #ifdef AGL_DEBUG_ACTOR
 		.name = "Viewport",
 #endif
 		.program = (AGlShader*)agl->shaders.plain,
-		//.region = {0, 0, 100, 100},
 		.set_state = viewport_set_state,
 		.paint = viewport_paint,
 	);

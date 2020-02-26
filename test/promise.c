@@ -4,7 +4,7 @@
 
   --------------------------------------------------------------
 
-  Copyright (C) 2012-2018 Tim Orford <tim@orford.org>
+  Copyright (C) 2012-2020 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -21,14 +21,9 @@
 */
 #define __wf_private__
 #include "config.h"
-#include <stdio.h>
-#include <stdlib.h>
-#include <stdint.h>
-#include <string.h>
-#include <inttypes.h>
-#include <signal.h>
 #include <glib.h>
 #include "decoder/ad.h"
+#include "waveform/debug.h"
 #include "waveform/waveform.h"
 #include "test/common.h"
 
@@ -124,7 +119,7 @@ test_2_when()
 		AMPromise* promise;
 	} C3;
 
-	bool test_3_1(gpointer _c)
+	static gboolean test_3_1 (gpointer _c)
 	{
 		C3* c3 = _c;
 
@@ -135,7 +130,7 @@ test_2_when()
 		return G_SOURCE_REMOVE;
 	}
 
-	bool test_3_finish(gpointer _c)
+	static gboolean test_3_finish (gpointer _c)
 	{
 		WfTest* c = _c;
 		C3* c3 = _c;
@@ -178,14 +173,14 @@ test_3()
 		GList* promises;
 	} C4;
 
-	bool test_4_resolve(gpointer promise)
+	static gboolean test_4_resolve (gpointer promise)
 	{
 		am_promise_resolve((AMPromise*)promise, NULL);
 
 		return G_SOURCE_REMOVE;
 	}
 
-	bool test_4_1(gpointer _c)
+	static gboolean test_4_1 (gpointer _c)
 	{
 		C4* c4 = _c;
 
@@ -200,14 +195,14 @@ test_3()
 		return G_SOURCE_REMOVE;
 	}
 
-	bool test_4_finish(gpointer _c)
+	static gboolean test_4_finish (gpointer _c)
 	{
 		WfTest* c = _c;
 
 		WF_TEST_FINISH_TIMER_STOP;
 	}
 
-	bool test_4_after_resolve(gpointer _promise)
+	static gboolean test_4_after_resolve (gpointer _promise)
 	{
 		AMPromise* promise = _promise;
 

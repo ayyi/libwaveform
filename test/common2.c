@@ -1,7 +1,7 @@
 /**
 * +----------------------------------------------------------------------+
 * | This file is part of libwaveform https://github.com/ayyi/libwaveform |
-* | copyright (C) 2013-2019 Tim Orford <tim@orford.org>                  |
+* | copyright (C) 2013-2020 Tim Orford <tim@orford.org>                  |
 * +----------------------------------------------------------------------+
 * | This program is free software; you can redistribute it and/or modify |
 * | it under the terms of the GNU General Public License version 3       |
@@ -12,10 +12,6 @@
 #define __common2_c__
 #define __wf_private__
 #include "config.h"
-#include <stdio.h>
-#include <stdlib.h>
-#include <stdint.h>
-#include <string.h>
 #include <getopt.h>
 #include <time.h>
 #include <unistd.h>
@@ -27,6 +23,7 @@
 #include <gtk/gtk.h>
 #include <glib-object.h>
 #include "agl/actor.h"
+#include "waveform/debug.h"
 #include "waveform/utils.h"
 #include "test/common2.h"
 #include "waveform/wf_private.h"
@@ -433,6 +430,10 @@ agl_window_destroy (Display* dpy, AGlWindow** window)
 		AGlWindow* w = l->data;
 		w->scene->gl.glx.needs_draw = true;
 	}
+
+	if(!windows){
+		agl_free();
+	}
 }
 
 
@@ -652,7 +653,7 @@ gtk_window (Key keys[], WindowFn content)
 {
 	GdkGLConfig* glconfig;
 	if(!(glconfig = gdk_gl_config_new_by_mode(GDK_GL_MODE_RGBA | GDK_GL_MODE_DEPTH | GDK_GL_MODE_DOUBLE))){
-		gerr ("Cannot initialise gtkglext."); return EXIT_FAILURE;
+		perr ("Cannot initialise gtkglext."); return EXIT_FAILURE;
 	}
 
 	GtkWidget* window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
@@ -692,7 +693,7 @@ gtk_window (Key keys[], WindowFn content)
 		KeyHandler* handler = g_hash_table_lookup(key_handlers, &event->keyval);
 		if(handler){
 			key_down = true;
-			if(key_hold.timer) gwarn("timer already started");
+			if(key_hold.timer) pwarn("timer already started");
 			key_hold.timer = g_timeout_add(100, key_hold_on_timeout, user_data);
 			key_hold.handler = handler;
 
@@ -715,7 +716,7 @@ gtk_window (Key keys[], WindowFn content)
 	}
 
 void
-add_key_handlers_gtk (GtkWindow* window, WaveformView* waveform, Key keys[])
+add_key_handlers_gtk (GtkWindow* window, gpointer user_data, Key keys[])
 {
 	//list of keys must be terminated with a key of value zero.
 
@@ -727,8 +728,8 @@ add_key_handlers_gtk (GtkWindow* window, WaveformView* waveform, Key keys[])
 		i++;
 	}
 
-	g_signal_connect(window, "key-press-event", G_CALLBACK(key_press), waveform);
-	g_signal_connect(window, "key-release-event", G_CALLBACK(key_release), waveform);
+	g_signal_connect(window, "key-press-event", G_CALLBACK(key_press), user_data);
+	g_signal_connect(window, "key-release-event", G_CALLBACK(key_release), user_data);
 }
 
 

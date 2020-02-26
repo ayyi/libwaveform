@@ -13,7 +13,7 @@
 #define __wf_worker_private__
 #include "config.h"
 #include <sys/types.h>
-#include "waveform/utils.h"
+#include "waveform/debug.h"
 #include "waveform/waveform.h"
 #include "waveform/worker.h"
 
@@ -45,7 +45,7 @@ wf_worker_init (WfWorker* worker)
 
 
 // note that without an idle fn, unreffing in the worker can cause a finalize in the worker thread
-static bool
+static gboolean
 worker_unref_waveform (gpointer _w)
 {
 	Waveform* waveform = _w;
@@ -63,7 +63,7 @@ typedef struct {
 /*
  *   Do clean-up and notifications in the main thread
  */
-static bool
+static gboolean
 worker_post (gpointer _wj)
 {
 	WorkerJob* wj = _wj;

@@ -1,18 +1,13 @@
-/*
-  copyright (C) 2012-2016 Tim Orford <tim@orford.org>
-
-  This program is free software; you can redistribute it and/or modify
-  it under the terms of the GNU General Public License version 3
-  as published by the Free Software Foundation.
-
-  This program is distributed in the hope that it will be useful,
-  but WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-  GNU General Public License for more details.
-
-  You should have received a copy of the GNU General Public License
-  along with this program; if not, write to the Free Software
-  Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+/**
+* +----------------------------------------------------------------------+
+* | This file is part of the Ayyi project. http://ayyi.org               |
+* | copyright (C) 2012-2020 Tim Orford <tim@orford.org>                  |
+* +----------------------------------------------------------------------+
+* | This program is free software; you can redistribute it and/or modify |
+* | it under the terms of the GNU General Public License version 3       |
+* | as published by the Free Software Foundation.                        |
+* +----------------------------------------------------------------------+
+*
 */
 #ifdef __cplusplus
 extern "C" {
@@ -22,10 +17,10 @@ extern "C" {
 #define __waveform_h__
 
 #include <stdint.h>
+#include <stdbool.h>
 #include <glib.h>
 #include <glib-object.h>
 #include <gdk-pixbuf/gdk-pixbuf.h>
-#include "stdint.h"
 #include "waveform/typedefs.h"
 #ifdef USE_GDK_PIXBUF
 #ifdef USE_GTK
@@ -130,8 +125,8 @@ void       waveform_load                 (Waveform*, WfCallback3, gpointer);
 gboolean   waveform_load_sync            (Waveform*);
 void       waveform_set_file             (Waveform*, const char*);
 
-gboolean   waveform_load_peak            (Waveform*, const char*, int ch_num);
-gboolean   waveform_peak_is_loaded       (Waveform*, int ch_num);
+bool       waveform_load_peak            (Waveform*, const char*, int ch_num);
+bool       waveform_peak_is_loaded       (Waveform*, int ch_num);
 RmsBuf*    waveform_load_rms_file        (Waveform*, int ch);
 
 void       waveform_load_audio           (Waveform*, int block_num, int n_tiers_needed, WfAudioCallback, gpointer);

@@ -27,11 +27,8 @@
 #ifdef USE_GTK
 #include <gtk/gtk.h>
 #endif
-#include <GL/gl.h>
-#include <pango/pangofc-font.h>
-#include <pango/pangofc-fontmap.h>
 #include "agl/ext.h"
-#include "agl/pango_render.h"
+#include "agl/debug.h"
 #include "transition/frameclock.h"
 #include "waveform/waveform.h"
 #include "waveform/alphabuf.h"
@@ -137,27 +134,29 @@ wf_context_instance_init(WaveformContext* self)
 }
 
 
-		static bool wf_canvas_try_drawable(gpointer _wfc)
-		{
-			WaveformContext* wfc = _wfc;
-			AGlScene* scene = wfc->root->root;
+static gboolean
+__wf_canvas_try_drawable (gpointer _wfc)
+{
+	WaveformContext* wfc = _wfc;
+	AGlScene* scene = wfc->root->root;
 
 #ifdef USE_GTK
-			if((scene->type == CONTEXT_TYPE_GTK) && !wfc->root->root->gl.gdk.drawable){
-				return G_SOURCE_CONTINUE;
-			}
+	if((scene->type == CONTEXT_TYPE_GTK) && !wfc->root->root->gl.gdk.drawable){
+		return G_SOURCE_CONTINUE;
+	}
 #endif
 
-			wf_context_init_gl(wfc);
+	wf_context_init_gl(wfc);
 
-			if(scene->draw) wf_canvas_queue_redraw(wfc);
-			wfc->use_1d_textures = agl->use_shaders;
+	if(scene->draw) wf_canvas_queue_redraw(wfc);
+	wfc->use_1d_textures = agl->use_shaders;
 
 #ifdef USE_FRAME_CLOCK
-			frame_clock_connect(G_CALLBACK(wf_context_on_paint_update), wfc);
+	frame_clock_connect(G_CALLBACK(wf_context_on_paint_update), wfc);
 #endif
-			return wfc->priv->pending_init = G_SOURCE_REMOVE;
-		}
+	return (wfc->priv->pending_init = G_SOURCE_REMOVE);
+}
+
 
 static void
 wf_context_init (WaveformContext* wfc, AGlActor* root)
@@ -192,7 +191,7 @@ wf_context_init (WaveformContext* wfc, AGlActor* root)
 	wfc->shaders.ruler = &ruler;
 
 	if(wfc->root){
-		if(wf_canvas_try_drawable(wfc)) wfc->priv->pending_init = g_idle_add(wf_canvas_try_drawable, wfc);
+		if(__wf_canvas_try_drawable(wfc)) wfc->priv->pending_init = g_idle_add(__wf_canvas_try_drawable, wfc);
 	}
 }
 
@@ -263,13 +262,11 @@ wf_context_free (WaveformContext* wfc)
 	_g_source_remove0(c->pending_init);
 	_g_source_remove0(c->_queued);
 	wf_context_finalize((GObject*)wfc);
-
-	pango_gl_render_clear_caches();
 }
 
 
 static void
-wf_context_init_gl(WaveformContext* wfc)
+wf_context_init_gl (WaveformContext* wfc)
 {
 	PF;
 #if 0
@@ -541,7 +538,7 @@ wf_context_set_zoom (WaveformContext* wfc, float zoom)
 	dbg(1, "zoom=%f spp=%.2f", zoom, wfc->samples_per_pixel);
 	dbg(1, "zoom=%.2f-->%.2f spp=%.2f", wfc->zoom, zoom, wfc->samples_per_pixel);
 
-	AGL_DEBUG if(wfc->samples_per_pixel < 0.001) gwarn("spp too low: %f", wfc->samples_per_pixel);
+	AGL_DEBUG if(wfc->samples_per_pixel < 0.001) pwarn("spp too low: %f", wfc->samples_per_pixel);
 
 	zoom = CLAMP(zoom, WF_CONTEXT_MIN_ZOOM, WF_CONTEXT_MAX_ZOOM);
 

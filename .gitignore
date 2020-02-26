@@ -5,6 +5,7 @@ Makefile.in
 aclocal.m4
 agl/Makefile
 agl/Makefile.in
+agl/resources.c
 agl/shaders/Makefile
 agl/shaders/Makefile.in
 agl/shaders/shaders.c
@@ -35,6 +36,7 @@ sdl/Makefile.in
 shaders/Makefile
 shaders/Makefile.in
 shaders/shaders.c
+test-driver
 test/Makefile
 test/Makefile.in
 test/data/
@@ -63,7 +65,10 @@ test/view_plus_test
 test/view_test
 test/viewport
 test/waveform_test
+test/text
 test/gen/write_piano
+test/*.log
+test/*.trs
 transition/Makefile
 transition/Makefile.in
 waveform/Makefile
@@ -78,3 +83,4 @@ gtkglext-1.0/m4macros
 *.xz
 *.orig
 *~
+*.trace

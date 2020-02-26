@@ -76,8 +76,5 @@ pkgconfig_DATA = libwaveform.pc
 
 .PHONY: dummy
 
-test: dummy
-	cd test && make test
-
 CLEANFILES = libwaveform.pc \
 	shaders/shaders.c

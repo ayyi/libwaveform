@@ -88,7 +88,7 @@ main (int argc, char *argv[])
 
 	gtk_init(&argc, &argv);
 	if(!(glconfig = gdk_gl_config_new_by_mode(GDK_GL_MODE_RGBA | GDK_GL_MODE_DEPTH | GDK_GL_MODE_DOUBLE))){
-		gerr ("Cannot initialise gtkglext."); return EXIT_FAILURE;
+		perr ("Cannot initialise gtkglext."); return EXIT_FAILURE;
 	}
 
 	GtkWidget* window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
@@ -141,7 +141,7 @@ create_files ()
 }
 
 
-static bool
+static gboolean
 __test_shown (gpointer _c)
 {
 	WfTest* c = _c;
@@ -172,7 +172,7 @@ test_shown ()
 
 #define REGION_LEN 2048
 
-static bool
+static gboolean
 __check_zoom (gpointer _c)
 {
 	WfTest* c = _c;
@@ -422,7 +422,7 @@ typedef struct {
 } C;
 
 
-static bool
+static gboolean
 _check_scroll (gpointer _c)
 {
 	C* c = _c;
@@ -530,7 +530,7 @@ typedef struct {
 	void (*next)();
 } C3;
 
-		bool _hi_check_scroll(gpointer data)
+		gboolean _hi_check_scroll(gpointer data)
 		{
 			C3* c = data;
 
@@ -633,7 +633,7 @@ test_hi_double()
 
 		static WaveformBlock wb;
 
-		gboolean check_not_in_cache(gpointer _c)
+		gboolean check_not_in_cache (gpointer _c)
 		{
 			WfTest* c = _c;
 
@@ -645,7 +645,7 @@ test_hi_double()
 			WF_TEST_FINISH_TIMER_STOP;
 		}
 
-		static bool check_in_cache(gpointer _c)
+		static gboolean check_in_cache (gpointer _c)
 		{
 			WfTest* c = _c;
 
@@ -709,7 +709,7 @@ __on_ready (gpointer user_data, gpointer _)
 	assert(!agl_get_instance()->use_shaders, "shaders must be disabled for this test");
 #else
 	if(agl_get_instance()->use_shaders){
-		gwarn("test only suports GL 1");
+		pwarn("test only suports GL 1");
 		WF_TEST_FINISH;
 	}
 #endif
@@ -754,7 +754,8 @@ test_add_remove ()
 }
 
 
-static bool __finish (gpointer _c)
+static gboolean
+__finish (gpointer _c)
 {
 	WfTest* c = _c;
 	//assert_and_stop(!g_unlink(WAV1), "file delete failed");
@@ -790,11 +791,11 @@ gl_init ()
 }
 
 
-static bool
+static gboolean
 __on_canvas_realise (gpointer user_data)
 {
 	if(!files_created){
-		return TIMER_CONTINUE;
+		return G_SOURCE_CONTINUE;
 	}
 
 	gl_init();

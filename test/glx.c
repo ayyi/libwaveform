@@ -2,17 +2,14 @@
 * +----------------------------------------------------------------------+
 * | This file is part of libwaveform                                     |
 * | https://github.com/ayyi/libwaveform                                  |
-* | copyright (C) 2012-2019 Tim Orford <tim@orford.org>                  |
+* | copyright (C) 2012-2020 Tim Orford <tim@orford.org>                  |
 * +----------------------------------------------------------------------+
 * | This program is free software; you can redistribute it and/or modify |
 * | it under the terms of the GNU General Public License version 3       |
 * | as published by the Free Software Foundation.                        |
 * +----------------------------------------------------------------------+
 */
-#include <math.h>
-#include <stdlib.h>
-#include <stdio.h>
-#include <string.h>
+#include "config.h"
 #include <getopt.h>
 #include <X11/Xlib.h>
 #include <X11/keysym.h>
@@ -21,8 +18,9 @@
 #include "gdk/gdk.h"
 #include "agl/ext.h"
 #define __wf_private__
-#include "waveform/waveform.h"
 #include "agl/actor.h"
+#include "waveform/debug.h"
+#include "waveform/waveform.h"
 #include "waveform/actors/background.h"
 #define __glx_test__
 #include "test/common2.h"

@@ -1,35 +1,25 @@
-/*
-  copyright (C) 2012-2019 Tim Orford <tim@orford.org>
-
-  This program is free software; you can redistribute it and/or modify
-  it under the terms of the GNU General Public License version 3
-  as published by the Free Software Foundation.
-
-  This program is distributed in the hope that it will be useful,
-  but WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-  GNU General Public License for more details.
-
-  You should have received a copy of the GNU General Public License
-  along with this program; if not, write to the Free Software
-  Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
-
-  ---------------------------------------------------------------
-
-  WaveformView is a Gtk widget based on GtkDrawingArea.
-  It displays an audio waveform represented by a Waveform object.
-
+/**
+* +----------------------------------------------------------------------+
+* | This file is part of the Ayyi project. http://ayyi.org               |
+* | copyright (C) 2012-2020 Tim Orford <tim@orford.org>                  |
+* +----------------------------------------------------------------------+
+* | This program is free software; you can redistribute it and/or modify |
+* | it under the terms of the GNU General Public License version 3       |
+* | as published by the Free Software Foundation.                        |
+* +----------------------------------------------------------------------+
+* |                                                                      |
+* | WaveformView is a Gtk widget based on GtkDrawingArea.                |
+* | It displays an audio waveform represented by a Waveform object.      |
+* +----------------------------------------------------------------------+
+*
 */
 #define __wf_private__
 #define __waveform_view_private__
 #include "config.h"
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <math.h>
 #include <gtk/gtk.h>
 #include <GL/gl.h>
 #include "agl/utils.h"
+#include "waveform/debug.h"
 #include "waveform/waveform.h"
 #include "waveform/view.h"
 
@@ -97,7 +87,7 @@ __init ()
 	}
 
 	glconfig = gdk_gl_config_new_by_mode( GDK_GL_MODE_RGBA | GDK_GL_MODE_DEPTH | GDK_GL_MODE_DOUBLE );
-	if (!glconfig) { gerr ("Cannot initialise gtkglext."); return false; }
+	if (!glconfig) { perr ("Cannot initialise gtkglext."); return false; }
 
 	return true;
 }
@@ -121,7 +111,7 @@ construct ()
 
 	gtk_widget_add_events ((GtkWidget*) self, (gint) ((GDK_BUTTON_PRESS_MASK | GDK_BUTTON_RELEASE_MASK) | GDK_POINTER_MOTION_MASK));
 	if(!gtk_widget_set_gl_capability((GtkWidget*)self, glconfig, gl_context ? gl_context : agl_get_gl_context(), DIRECT, GDK_GL_RGBA_TYPE)){
-		gwarn("failed to set gl capability");
+		pwarn("failed to set gl capability");
 	}
 
 	return self;

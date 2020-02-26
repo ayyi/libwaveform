@@ -1,7 +1,7 @@
 /**
 * +----------------------------------------------------------------------+
 * | This file is part of libwaveform https://github.com/ayyi/libwaveform |
-* | copyright (C) 2013-2018 Tim Orford <tim@orford.org>                  |
+* | copyright (C) 2013-2020 Tim Orford <tim@orford.org>                  |
 * +----------------------------------------------------------------------+
 * | This program is free software; you can redistribute it and/or modify |
 * | it under the terms of the GNU General Public License version 3       |
@@ -12,16 +12,7 @@
 #define __wf_private__
 #define __wf_canvas_priv__
 #include "config.h"
-#include <stdlib.h>
-#include <stdint.h>
-#include <string.h>
-#include <math.h>
 #include <getopt.h>
-#include <sys/time.h>
-#include <GL/gl.h>
-#include <GL/glext.h>
-#include <GL/glx.h>
-#include <GL/glxext.h>
 #include "SDL2/SDL.h"
 #define USE_SDL_GFX // measures well but is it any smoother subjectively ?
 #ifdef USE_SDL_GFX
@@ -145,6 +136,7 @@ main (int argc, char **argv)
 	setup_projection();
 
 	agl_get_extensions(); // TODO what is the SDL way?
+	agl_gl_init();
 
 #ifdef USE_SDL_GFX
 	FPSmanager fpsManager;
@@ -253,7 +245,7 @@ main (int argc, char **argv)
 
 
 static void
-on_event(SDL_Event* event)
+on_event (SDL_Event* event)
 {
 	switch(event->type) {
 		case SDL_KEYDOWN:

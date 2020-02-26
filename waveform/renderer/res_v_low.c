@@ -1,5 +1,5 @@
 /*
-  copyright (C) 2014-2015 Tim Orford <tim@orford.org>
+  copyright (C) 2014-2020 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -17,7 +17,7 @@
 
 
 static void
-v_lo_new_gl2(WaveformActor* actor)
+v_lo_new_gl2 (WaveformActor* actor)
 {
 	Waveform* waveform = actor->waveform;
 	WaveformPrivate* w = waveform->priv;
@@ -47,7 +47,7 @@ v_lo_new_gl2(WaveformActor* actor)
 
 
 static void
-v_lo_new_gl1(WaveformActor* actor)
+v_lo_new_gl1 (WaveformActor* actor)
 {
 	WaveformPrivate* w = actor->waveform->priv;
 
@@ -62,7 +62,7 @@ v_lo_new_gl1(WaveformActor* actor)
 
 
 static void
-v_lo_buf_to_tex(Renderer* renderer, WaveformActor* actor, int b)
+v_lo_buf_to_tex (Renderer* renderer, WaveformActor* actor, int b)
 {
 	Waveform* waveform = actor->waveform;
 	WaveformPrivate* w = waveform->priv;
@@ -123,7 +123,7 @@ v_lo_buf_to_tex(Renderer* renderer, WaveformActor* actor, int b)
 
 #ifdef USE_TEST
 static bool
-v_lo_is_not_blank(Renderer* renderer, WaveformActor* actor)
+v_lo_is_not_blank (Renderer* renderer, WaveformActor* actor)
 {
 	return true;
 }
@@ -141,7 +141,7 @@ Renderer v_lo_renderer;
 
 
 static Renderer*
-v_lo_renderer_new()
+v_lo_renderer_new ()
 {
 	static Renderer* v_lo_renderer = (Renderer*)&v_lo_renderer_gl2;
 

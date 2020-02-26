@@ -25,12 +25,11 @@
 #define __wf_private__
 #include "config.h"
 #include <getopt.h>
-#include <time.h>
-#include <sys/time.h>
 #include <glib.h>
 #include <glib/gstdio.h>
 #include <sndfile.h>
 #include <agl/utils.h>
+#include "waveform/debug.h"
 #include "waveform/audio.h"
 #include "waveform/peakgen.h"
 #include "test/common.h"
@@ -50,7 +49,7 @@ gpointer tests[] = {
 int
 main (int argc, char *argv[])
 {
-	if(sizeof(off_t) != 8){ gerr("sizeof(off_t)=%zu\n", sizeof(off_t)); exit(1); }
+	if(sizeof(off_t) != 8){ perr("sizeof(off_t)=%zu\n", sizeof(off_t)); exit(1); }
 
 	wf_debug = 1;
 
@@ -187,7 +186,7 @@ test_audiodata ()
 			assert(buf, "no data in buffer! %i", block);
 			assert(buf->buf[WF_LEFT], "no data in buffer (L)! %i", block);
 			assert(buf->buf[WF_RIGHT], "no data in buffer (R)! %i", block);
-		} else gwarn("no data!");
+		} else pwarn("no data!");
 
 		printf("\n");
 		n++;

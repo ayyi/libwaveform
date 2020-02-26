@@ -30,7 +30,7 @@
 
   --------------------------------------------------------------
 
-  Copyright (C) 2012-2019 Tim Orford <tim@orford.org>
+  Copyright (C) 2012-2020 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -48,10 +48,10 @@
 #define __wf_private__
 #include "config.h"
 #include <getopt.h>
-#include <sys/types.h>
 #include <gtk/gtk.h>
 #include <gdk/gdkkeysyms.h>
 #include "agl/actor.h"
+#include "waveform/debug.h"
 #include "waveform/view_plus.h"
 #include "common.h"
 
@@ -127,15 +127,10 @@ void  format_time     (char* str, int64_t t_ms);
 void  on_allocate     (GtkWidget*, GtkAllocation*, gpointer);
 
 
-	static bool window_on_delete(GtkWidget* widget, GdkEvent* event, gpointer user_data){
-		gtk_main_quit();
-		return false;
-	}
-
 int
 main (int argc, char* argv[])
 {
-	if(sizeof(off_t) != 8){ gerr("sizeof(off_t)=%zu\n", sizeof(off_t)); return EXIT_FAILURE; }
+	if(sizeof(off_t) != 8){ perr("sizeof(off_t)=%zu\n", sizeof(off_t)); return EXIT_FAILURE; }
 
 	set_log_handlers();
 
@@ -147,9 +142,13 @@ main (int argc, char* argv[])
 	while((opt = getopt_long (argc, argv, short_options, long_options, NULL)) != -1) {
 		switch(opt) {
 			case 'n':
-				g_timeout_add(3000, (gpointer)window_on_delete, NULL);
+				g_timeout_add(3000, (gpointer)gtk_main_quit, NULL);
 				break;
 		}
+	}
+
+	if(g_getenv("NON_INTERACTIVE")){
+		g_timeout_add(3000, (gpointer)gtk_main_quit, NULL);
 	}
 
 	GtkWidget* window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
@@ -198,8 +197,7 @@ main (int argc, char* argv[])
 
 	add_key_handlers_gtk((GtkWindow*)window, (WaveformView*)waveform, (Key*)&keys);
 
-	g_signal_connect(window, "delete-event", G_CALLBACK(window_on_delete), NULL);
-
+	g_signal_connect(window, "delete-event", G_CALLBACK(gtk_main_quit), NULL);
 	g_signal_connect(window, "size-allocate", G_CALLBACK(on_allocate), waveform);
 
 	gtk_main();
@@ -234,7 +232,7 @@ quit (gpointer waveform)
 		float             zoom;
 	} C;
 
-	void on_loaded_(Waveform* w, GError* error, gpointer _view)
+	void on_loaded_ (Waveform* w, GError* error, gpointer _view)
 	{
 		WaveformViewPlus* view = _view;
 
@@ -248,7 +246,7 @@ quit (gpointer waveform)
 		}
 	}
 
-	bool on_loaded(gpointer _c)
+	static gboolean on_loaded (gpointer _c)
 	{
 		C* c = _c;
 #ifndef USE_CANVAS_SCALING
@@ -263,18 +261,16 @@ show_wav (WaveformViewPlus* view, const char* filename)
 {
 	g_assert(filename);
 
-	C* c = AGL_NEW(C,
-		.view = view,
-#ifndef USE_CANVAS_SCALING
-		.zoom = view->zoom
-#endif
-	);
-
 	wf_spinner_start((WfSpinner*)layers.spinner);
 
 	waveform_view_plus_load_file(view, filename, on_loaded_, view);
 
-	g_idle_add(on_loaded, c);
+	g_idle_add(on_loaded, AGL_NEW(C,
+		.view = view,
+#ifndef USE_CANVAS_SCALING
+		.zoom = view->zoom
+#endif
+	));
 
 	g_assert(view->waveform);
 
@@ -284,7 +280,7 @@ show_wav (WaveformViewPlus* view, const char* filename)
 		Waveform* w = view->waveform;
 		if(w->n_channels){
 			char* ch_str = format_channels(w->n_channels);
-			char length[32]; format_time(length, (w->n_frames * 1000)/w->samplerate);
+			char length[32]; format_time(length, (w->n_frames * 1000) / w->samplerate);
 			char fs_str[32] = {'\0'}; //samplerate_format(fs_str, sample->sample_rate); strcpy(fs_str + strlen(fs_str), " kHz");
 
 			text = g_strdup_printf("%s  %s  %s", length, ch_str, fs_str);
@@ -353,7 +349,7 @@ toggle_grid (gpointer view)
 }
 
 
-	static bool reattach (gpointer _view)
+	static gboolean reattach (gpointer _view)
 	{
 		gtk_table_attach(GTK_TABLE(table), (GtkWidget*)_view, 0, 1, 1, 2, GTK_FILL | GTK_EXPAND, GTK_FILL, 0, 0);
 		g_object_unref(_view);
@@ -393,7 +389,7 @@ test_delete ()
 	g_object_weak_ref((GObject*)view->waveform, finalize_notify, NULL);
 
 	if(dt.finalize_done){
-		gwarn("waveform should not be free'd");
+		pwarn("waveform should not be free'd");
 		return false;
 	}
 
@@ -401,7 +397,7 @@ test_delete ()
 	view = NULL;
 
 	if(!dt.finalize_done){
-		gwarn("waveform was not free'd");
+		pwarn("waveform was not free'd");
 		return false;
 	}
 
@@ -430,7 +426,7 @@ stop(gpointer view)
 }
 
 
-	static bool tick(gpointer view)
+	static gboolean tick(gpointer view)
 	{
 		wf_spp_actor_set_time((SppActor*)layers.spp, (_time += 50, _time));
 		return true;

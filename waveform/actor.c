@@ -1,9 +1,9 @@
 /**
 * +----------------------------------------------------------------------+
 * | This file is part of the Ayyi project. http://ayyi.org               |
-* | copyright (C) 2012-2019 Tim Orford <tim@orford.org>                  |
+* | copyright (C) 2012-2020 Tim Orford <tim@orford.org>                  |
 * +----------------------------------------------------------------------+
-* | This program is free software; you can redistribute it and/or modify |
+* | This program is free s20tware; you can redistribute it and/or modify |
 * | it under the terms of the GNU General Public License version 3       |
 * | as published by the Free Software Foundation.                        |
 * +----------------------------------------------------------------------+
@@ -43,14 +43,14 @@
 #define __wf_private__
 #define __wf_canvas_priv__
 #include "config.h"
-#include <stdio.h>
-#include <stdlib.h>
+#include <math.h>
 #include <sys/time.h>
 #ifdef USE_GTK
 #include <gtk/gtk.h>
 #endif
 #include <GL/gl.h>
 #include "agl/ext.h"
+#include "agl/debug.h"
 #include "transition/transition.h"
 #include "waveform/waveform.h"
 #include "waveform/audio.h"
@@ -410,7 +410,7 @@ wf_actor_new (Waveform* w, WaveformContext* wfc)
 		if(!w->renderable) return NULL;
 	}
 
-	WaveformActor* a = WF_NEW(WaveformActor,
+	WaveformActor* a = agl_actor__new(WaveformActor,
 		.actor = {
 			.class = (AGlActorClass*)&actor_class,
 			.name = "Waveform",
@@ -745,7 +745,7 @@ wf_actor_set_region (WaveformActor* a, WfSampleRegion* region)
 	AGlActor* actor = (AGlActor*)a;
 	WfActorPriv* _a = a->priv;
 	AGlScene* scene = actor->root;
-	dbg(1, "region_start=%"PRIi64" region_end=%"PRIi64" wave_end=%Lu", region->start, region->start + region->len, waveform_get_n_frames(a->waveform));
+	AGL_DEBUG dbg(1, "region_start=%"PRIi64" (%"PRIi64"%%) region_end=%"PRIi64" wave_end=%"PRIi64, region->start, (waveform_get_n_frames(a->waveform) ? (100 * region->start / a->waveform->n_frames) : 0), region->start + region->len, waveform_get_n_frames(a->waveform));
 	if(!region->len && a->waveform->n_channels){ gwarn("invalid region: len not set"); return; }
 	if(region->start > waveform_get_n_frames(a->waveform)){ gwarn("invalid region: start out of range: %"PRIi64" > %"PRIi64"", region->start, waveform_get_n_frames(a->waveform)); return; }
 	if(region->start + region->len > waveform_get_n_frames(a->waveform)){ gwarn("invalid region: too long: %"PRIi64" len=%"PRIi64" n_frames=%"PRIi64, region->start, region->len, waveform_get_n_frames(a->waveform)); return; }
@@ -859,7 +859,7 @@ wf_actor_set_full (WaveformActor* a, WfSampleRegion* region, WfRectangle* rect, 
 	bool animate = scene->draw && scene->enable_animations && !is_new;
 
 	if(region){
-		dbg(1, "region_start=%Lu region_end=%Lu wave_end=%Lu", region->start, (uint64_t)(region->start + region->len), waveform_get_n_frames(a->waveform));
+		dbg(1, "region_start=%"PRIi64" region_end=%"PRIi64" wave_end=%"PRIu64, region->start, (uint64_t)(region->start + region->len), waveform_get_n_frames(a->waveform));
 		if(!region->len){ gwarn("invalid region: len not set"); return; }
 		if(region->start + region->len > waveform_get_n_frames(a->waveform)){ gwarn("invalid region: too long: %"PRIi64" len=%"PRIi64" n_frames=%"PRIi64, region->start, region->len, waveform_get_n_frames(a->waveform)); return; }
 
@@ -1057,7 +1057,7 @@ wf_actor_get_visible_block_range (WfSampleRegion* region, WfRectangle* rect, dou
 	#if 0
 			if(rect.len > 0.0)
 			if(file_start_px + (b) * block_wid > rect.left + rect.len){
-				gerr("block too high: block_start=%.2f rect.len=%.2f", file_start_px + (b) * block_wid, rect.len);
+				perr("block too high: block_start=%.2f rect.len=%.2f", file_start_px + (b) * block_wid, rect.len);
 				return b - 1;
 			}
 	#endif
@@ -1401,30 +1401,31 @@ _wf_actor_allocate_hi (WaveformActor* a)
 }
 
 
-	static bool load_render_data(gpointer _a)
-	{
-		WaveformActor* a = _a;
-		AGlScene* scene = ((AGlActor*)a)->root;
+static gboolean
+__load_render_data (gpointer _a)
+{
+	WaveformActor* a = _a;
+	AGlScene* scene = ((AGlActor*)a)->root;
 
-		if(!a->waveform->priv->num_peaks) return G_SOURCE_CONTINUE; // TODO use peakdata-ready instead
+	if(!a->waveform->priv->num_peaks) return G_SOURCE_CONTINUE; // TODO use peakdata-ready instead
 
-		_wf_actor_load_missing_blocks(a); // this loads _current_ values, future values are loaded by the animator preview
+	_wf_actor_load_missing_blocks(a); // this loads _current_ values, future values are loaded by the animator preview
 
-		// because this is asynchronous, any caches may consist of an empty render.
-		agl_actor__invalidate((AGlActor*)a);
+	// because this is asynchronous, any caches may consist of an empty render.
+	agl_actor__invalidate((AGlActor*)a);
 
-		if(scene && scene->draw) wf_canvas_queue_redraw(a->canvas);
-		a->priv->load_render_data_queue = 0;
+	if(scene && scene->draw) wf_canvas_queue_redraw(a->canvas);
+	a->priv->load_render_data_queue = 0;
 
-		return G_SOURCE_REMOVE;
-	}
+	return G_SOURCE_REMOVE;
+}
 
 static void
 wf_actor_queue_load_render_data(WaveformActor* a)
 {
 	WfActorPriv* _a = a->priv;
 
-	if(!_a->load_render_data_queue) _a->load_render_data_queue = g_timeout_add(10, load_render_data, a);
+	if(!_a->load_render_data_queue) _a->load_render_data_queue = g_timeout_add(10, __load_render_data, a);
 }
 
 
@@ -1612,7 +1613,7 @@ wf_actor_set_rect (WaveformActor* a, WfRectangle* rect)
 		AGL_ACTOR__SET_REGION_FROM_RECT(actor, rect);
 	}
 
-	dbg(2, "rect: %i --> %i", actor->region.x1, actor->region.x2);
+	dbg(2, "rect: %.0f --> %0.f", actor->region.x1, actor->region.x2);
 
 	if(a->region.len && !have_full_render && a->waveform->priv->num_peaks) wf_actor_queue_load_render_data(a);
 
@@ -1823,7 +1824,7 @@ calc_render_info (WaveformActor* actor)
 
 	if(r->region.start + r->region.len > w->n_frames){
 		// happens during transitions
-		dbg(1, "bad region adjusted: %Lu / %Lu", r->region.start + r->region.len, w->n_frames);
+		dbg(1, "bad region adjusted: %"PRIi64" / %"PRIu64, r->region.start + r->region.len, w->n_frames);
 		r->region.len = w->n_frames - r->region.start;
 	}
 
@@ -1919,14 +1920,14 @@ wf_actor_paint (AGlActor* _actor)
 
 		WfSampleRegion region = (WfSampleRegion){_a->animatable.start.val.b, _a->animatable.len.val.b};
 		double zoom = rect.len / region.len;
-		if(zoom != r->zoom) gerr("valid should not be set: zoom %.3f %.3f", zoom, r->zoom);
+		if(zoom != r->zoom) perr("valid should not be set: zoom %.3f %.3f", zoom, r->zoom);
 
 		Mode mode = get_mode(r->zoom);
-		if(mode != r->mode) gerr("valid should not be set: zoom %i %i", mode, r->mode);
+		if(mode != r->mode) perr("valid should not be set: zoom %i %i", mode, r->mode);
 
 		int samples_per_texture = WF_SAMPLES_PER_TEXTURE * (mode == MODE_LOW ? WF_PEAK_STD_TO_LO : 1);
 		int first_offset = region.start % samples_per_texture;
-		if(first_offset != r->first_offset) gerr("valid should not be set: zoom %i %i", first_offset, r->first_offset);
+		if(first_offset != r->first_offset) perr("valid should not be set: zoom %i %i", first_offset, r->first_offset);
 #endif
 	}
 
@@ -1983,7 +1984,7 @@ wf_actor_paint (AGlActor* _actor)
 		// but only when changing mode. Once we have fallen through
 		// to a lower mode, it seems like we will not go back to a higher mode.
 		while((m < N_MODES) && !render_block(modes[m].renderer, actor, b, is_first, is_last, x, m, &m_active)){
-			dbg(1, "%i: %sfalling through...%s %s-->%s", b, "\x1b[1;33m", wf_white, modes[m].name, modes[m - 1].name);
+			dbg(1, "%i: %sfalling through...%s %s-->%s", b, "\x1b[1;33m", ayyi_white, modes[m].name, modes[m - 1].name);
 			// TODO pre_render not being set propery for MODE_HI due to use_shader settings.
 			// TODO render_info not correct when falling through. Is set for the higher mode.
 			m--;
@@ -2381,5 +2382,4 @@ wf_actor_test_is_not_blank(WaveformActor* a)
 
 	return true;
 }
-
 #endif

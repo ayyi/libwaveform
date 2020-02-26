@@ -1,7 +1,7 @@
 /**
 * +----------------------------------------------------------------------+
 * | This file is part of the Ayyi project. http://ayyi.org               |
-* | copyright (C) 2012-2019 Tim Orford <tim@orford.org>                  |
+* | copyright (C) 2012-2020 Tim Orford <tim@orford.org>                  |
 * +----------------------------------------------------------------------+
 * | This program is free software; you can redistribute it and/or modify |
 * | it under the terms of the GNU General Public License version 3       |
@@ -101,7 +101,7 @@ ng_gl2_load_block (Renderer* renderer, WaveformActor* actor, int b)
 		return section;
 	}
 
-	bool section_is_complete(WaveformActor* actor, Section* section)
+	bool section_is_complete (WaveformActor* actor, Section* section)
 	{
 		int max = MIN(waveform_get_n_audio_blocks(waveform), MAX_BLOCKS_PER_TEXTURE);
 		int i;for(i=0;i<max;i++){
@@ -111,7 +111,7 @@ ng_gl2_load_block (Renderer* renderer, WaveformActor* actor, int b)
 		return section->completed = true;
 	}
 
-	void other_lods(Renderer* renderer, Section* section, int dest)
+	void other_lods (Renderer* renderer, Section* section, int dest)
 	{
 		int* lod_max = ((NGRenderer*)renderer)->mmidx_max;
 		int* lod_min = ((NGRenderer*)renderer)->mmidx_min;
@@ -254,10 +254,10 @@ ng_gl2_load_block (Renderer* renderer, WaveformActor* actor, int b)
 				}
 
 				bool ok = ng_gl2_set(section, B + ((NGRenderer*)renderer)->mmidx_max[mm_level] + ((int)TEX_BORDER_HI) + i, short_to_char(max[c]));
-				if(!ok) gerr("max b=%i i=%i p=%i %i size=%i", _b, i, p, B + ((NGRenderer*)renderer)->mmidx_max[mm_level] + i, section->buffer_size);
+				if(!ok) perr("max b=%i i=%i p=%i %i size=%i", _b, i, p, B + ((NGRenderer*)renderer)->mmidx_max[mm_level] + i, section->buffer_size);
 				g_return_if_fail(ok);
 				ok = ng_gl2_set(section, B + ((NGRenderer*)renderer)->mmidx_min[mm_level] + ((int)TEX_BORDER_HI) + i, short_to_char(-min[c]));
-				if(!ok) gerr("min b=%i i=%i p=%i %i size=%i mm=%i", _b, i, p, b * block_size + ((NGRenderer*)renderer)->mmidx_min[mm_level] + i, section->buffer_size, ((NGRenderer*)renderer)->mmidx_min[mm_level]);
+				if(!ok) perr("min b=%i i=%i p=%i %i size=%i mm=%i", _b, i, p, b * block_size + ((NGRenderer*)renderer)->mmidx_min[mm_level] + i, section->buffer_size, ((NGRenderer*)renderer)->mmidx_min[mm_level]);
 				g_return_if_fail(ok);
 			}
 
@@ -272,7 +272,7 @@ ng_gl2_load_block (Renderer* renderer, WaveformActor* actor, int b)
 #ifdef WF_DEBUG
 	{
 		HiResNGWaveform* data1 = g_hash_table_lookup(((NGRenderer*)renderer)->ng_data, waveform);
-		if((*data) != data1) gwarn("%i: wav=%p hash=%p %s", b, *data, data1, modes[renderer->mode].name);
+		if((*data) != data1) pwarn("%i: wav=%p hash=%p %s", b, *data, data1, modes[renderer->mode].name);
 		g_return_if_fail((*data) == data1);
 	}
 #endif
@@ -410,7 +410,7 @@ ng_gl2_pre_render (Renderer* renderer, WaveformActor* actor)
 
 
 static bool
-ng_gl2_render_block (Renderer* renderer, WaveformActor* actor, int b, gboolean is_first, gboolean is_last, double x)
+ng_gl2_render_block (Renderer* renderer, WaveformActor* actor, int b, bool is_first, bool is_last, double x)
 {
 	gl_warn("pre");
 
@@ -530,37 +530,39 @@ ng_gl2_free_waveform (Renderer* renderer, Waveform* waveform)
 			}
 		}
 
-	static bool clean(gpointer user_data)
-	{
-		Renderer* renderer = user_data;
+static gboolean
+__clean (gpointer user_data)
+{
+	Renderer* renderer = user_data;
 
 #ifdef NG_HASHTABLE
-		GHashTable* table = ((NGRenderer*)renderer)->ng_data;
+	GHashTable* table = ((NGRenderer*)renderer)->ng_data;
 #endif
 
-		dbg(1, "size=%i", g_hash_table_size(table));
+	dbg(1, "size=%i", g_hash_table_size(table));
 
-		if(g_hash_table_size(table) > MAX_SECTIONS){
-			int n_to_remove = g_hash_table_size(table) - MAX_SECTIONS;
-			int i; for(i=0;i<n_to_remove;i++){
-				oldest = (struct _oldest){NULL, 0, INT_MAX};
-				g_hash_table_foreach(table, __hi_find_oldest, NULL);
+	if(g_hash_table_size(table) > MAX_SECTIONS){
+		int n_to_remove = g_hash_table_size(table) - MAX_SECTIONS;
+		int i; for(i=0;i<n_to_remove;i++){
+			oldest = (struct _oldest){NULL, 0, INT_MAX};
+			g_hash_table_foreach(table, __hi_find_oldest, NULL);
 
-				if(oldest.data){
-					dbg(0, "removing: section=%i", oldest.section);
-					ng_gl2_free_section(renderer, oldest.waveform, &oldest.data->section[oldest.section], oldest.section);
-				}
+			if(oldest.data){
+				dbg(0, "removing: section=%i", oldest.section);
+				ng_gl2_free_section(renderer, oldest.waveform, &oldest.data->section[oldest.section], oldest.section);
 			}
 		}
-
-		idle_id = 0;
-		return G_SOURCE_REMOVE;
 	}
+
+	idle_id = 0;
+	return G_SOURCE_REMOVE;
+}
+
 
 static void
 ng_gl2_queue_clean (Renderer* renderer)
 {
-	if(!idle_id) idle_id = g_idle_add_full(G_PRIORITY_LOW, clean, renderer, NULL);
+	if(!idle_id) idle_id = g_idle_add_full(G_PRIORITY_LOW, __clean, renderer, NULL);
 }
 
 

@@ -31,6 +31,9 @@ typedef struct {float x, y, w, h;}     AGlRect;
 typedef struct {float x0, y0, x1, y1;} AGlQuad;
 typedef struct {float r, g, b;}        AGlColourFloat;
 
+typedef int AGlTextureId;
+typedef int AGlFboId;
+
 typedef enum
 {
   AGL_ORIENTATION_HORIZONTAL,

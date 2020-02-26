@@ -1,31 +1,19 @@
-/*
-  copyright (C) 2012-2019 Tim Orford <tim@orford.org>
-
-  This program is free software; you can redistribute it and/or modify
-  it under the terms of the GNU General Public License version 3
-  as published by the Free Software Foundation.
-
-  This program is distributed in the hope that it will be useful,
-  but WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-  GNU General Public License for more details.
-
-  You should have received a copy of the GNU General Public License
-  along with this program; if not, write to the Free Software
-  Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+/**
+* +----------------------------------------------------------------------+
+* | This file is part of the Ayyi project. http://ayyi.org               |
+* | copyright (C) 2012-2020 Tim Orford <tim@orford.org>                  |
+* +----------------------------------------------------------------------+
+* | This program is free software; you can redistribute it and/or modify |
+* | it under the terms of the GNU General Public License version 3       |
+* | as published by the Free Software Foundation.                        |
+* +----------------------------------------------------------------------+
+*
 */
 #define __waveform_peak_c__
 #define __wf_private__
 #include "config.h"
-#include <unistd.h>
-#include <stdlib.h>
 #include <fcntl.h>
-#include <sys/types.h>
-#include <string.h>
 #include <sys/stat.h>
-#include <math.h>
-#include <stdint.h>
-#include <sys/time.h>
 #include <sndfile.h>
 #include <glib.h>
 #ifdef USE_OPENGL
@@ -34,6 +22,7 @@
 #include "inttypes.h"
 #endif
 #include "decoder/ad.h"
+#include "waveform/debug.h"
 #include "waveform/waveform.h"
 #include "waveform/loaders/ardour.h"
 #include "waveform/loaders/riff.h"
@@ -120,7 +109,7 @@ waveform_set_file (Waveform* w, const char* filename)
 	if(w->filename){
 		if(filename && !strcmp(filename, w->filename)){
 			// must bail otherwise peak job will not complete
-			if(wf_debug) gwarn("ignoring request to set same filename");
+			if(wf_debug) pwarn("ignoring request to set same filename");
 			return;
 		}
 		g_free(w->filename);
@@ -164,7 +153,7 @@ waveform_finalize (GObject* obj)
 #endif
 
 	// the warning below occurs when the waveform is created and destroyed very quickly.
-	if(g_hash_table_size(wf->peak_cache) && !g_hash_table_remove(wf->peak_cache, w) && wf_debug) gwarn("failed to remove waveform from peak_cache");
+	if(g_hash_table_size(wf->peak_cache) && !g_hash_table_remove(wf->peak_cache, w) && wf_debug) pwarn("failed to remove waveform from peak_cache");
 
 	int c; for(c=0;c<WF_MAX_CH;c++){
 		if(_w->peak.buf[c]) g_free(_w->peak.buf[c]);
@@ -183,13 +172,13 @@ waveform_finalize (GObject* obj)
 #ifdef DEBUG
 	extern int texture_cache_count_by_waveform(Waveform*);
 	if(texture_cache_count_by_waveform(w)){
-		gerr("textures not cleared");
+		perr("textures not cleared");
 	}
 #endif
 #endif
 
 	int m; for(m=MODE_V_LOW;m<=MODE_HI;m++){
-		if(_w->render_data[m]) gwarn("actor data not cleared");
+		if(_w->render_data[m]) pwarn("actor data not cleared");
 	}
 
 #ifdef USE_OPENGL
@@ -320,7 +309,7 @@ waveform_get_sf_data(Waveform* w)
 		w->offline = true;
 
 		if(!g_file_test(w->filename, G_FILE_TEST_EXISTS)){
-			if(wf_debug) gwarn("file open failure. no such file: %s", w->filename);
+			if(wf_debug) pwarn("file open failure. no such file: %s", w->filename);
 		}else{
 			if(wf_debug) g_warning("file open failure (%s) \"%s\"\n", sf_strerror(NULL), w->filename);
 
@@ -337,7 +326,7 @@ waveform_get_sf_data(Waveform* w)
 	if(_w->num_peaks && !CHECKS_DONE(w)){
 		if(w->n_frames > _w->num_peaks * WF_PEAK_RATIO){
 			char* peakfile = waveform_ensure_peakfile__sync(w);
-			gwarn("peakfile is too short. maybe corrupted. len=%i expected=%"PRIi64" '%s'", _w->num_peaks, w->n_frames / WF_PEAK_RATIO, peakfile);
+			pwarn("peakfile is too short. maybe corrupted. len=%i expected=%"PRIi64" '%s'", _w->num_peaks, w->n_frames / WF_PEAK_RATIO, peakfile);
 			w->renderable = false;
 			g_free(peakfile);
 		}
@@ -418,7 +407,7 @@ waveform_load_peak (Waveform* w, const char* peak_file, int ch_num)
 		if(wf_debug > -1 && w->n_frames){
 			uint64_t a = _w->num_peaks;
 			uint64_t b = w->n_frames / WF_PEAK_RATIO + (w->n_frames % WF_PEAK_RATIO ? 1 : 0);
-			if(a != b) gwarn("got %"PRIi64" peaks, expected %"PRIi64, a, b);
+			if(a != b) pwarn("got %"PRIi64" peaks, expected %"PRIi64, a, b);
 		}
 	}
 #endif
@@ -509,7 +498,7 @@ static void
 line_write(Line* line, int index, guchar val)
 {
 #ifdef DEBUG
-	if(index < 0 || index >= MAX_PART_HEIGHT){ gerr ("y=%i", index); return; }
+	if(index < 0 || index >= MAX_PART_HEIGHT){ perr ("y=%i", index); return; }
 #endif
 	line->a[index] = val;
 }
@@ -666,7 +655,7 @@ waveform_peak_to_alphabuf(Waveform* w, AlphaBuf* a, int scale, int* start, int* 
 	dbg (2, "start=%i end=%i", px_start, px_stop);
 	//dbg (1, "width=%i height=%i", width, height);
 
-	if(width < px_stop - px_start){ gwarn("alphabuf too small? %i < %i", width, px_stop - px_start); return; }
+	if(width < px_stop - px_start){ pwarn("alphabuf too small? %i < %i", width, px_stop - px_start); return; }
 
 //int last_src = 0;
 
@@ -780,7 +769,7 @@ waveform_peak_to_alphabuf(Waveform* w, AlphaBuf* a, int scale, int* start, int* 
 				int blur = 6; //bigger value gives less blurring.
 				for(y=0;y<ch_height;y++){
 					int p = ch*ch_height*rowstride + (ch_height - y -1)*rowstride + (px - px_start)/* + border*/;
-					if(p > rowstride*height || p < 0){ gerr ("p! %i > %i px=%i y=%i row=%i rowstride=%i=%i", p, 3*width*height, px, y, height-y-1, rowstride, 3*width); return; }
+					if(p > rowstride*height || p < 0){ perr ("p! %i > %i px=%i y=%i row=%i rowstride=%i=%i", p, 3*width*height, px, y, height-y-1, rowstride, 3*width); return; }
 
 					a = MIN((current_line->a[y] * 3)/4 + previous_line->a[y]/blur + next_line->a[y]/blur, 0xff);
 					pixels[p] = (int)(0xff * a) >> 8;
@@ -791,7 +780,7 @@ waveform_peak_to_alphabuf(Waveform* w, AlphaBuf* a, int scale, int* start, int* 
 				//gdk_draw_line(GDK_DRAWABLE(pixmap), gc, px, 0, px, height);//x1, y1, x2, y2
 				WfDRect pts = {px, 0, px, ch_height};
 				alphabuf_draw_line(a, &pts, 1.0, colour);
-//gwarn("!");
+//pwarn("!");
 			}
 			//next = srcidx + 1;
 			//xf += WF_PEAK_RATIO * WF_PEAK_VALUES_PER_SAMPLE / samples_per_px;
@@ -836,7 +825,7 @@ waveform_peak_to_alphabuf_hi(Waveform* w, AlphaBuf* a, int block, WfSampleRegion
 
 		int y; for(y=y1;y<y2;y++){
 			int p = ch*ch_height*rowstride + (ch_height - y -1)*rowstride + x/* + border*/;
-			if(p > rowstride*ab->height || p < 0){ gerr ("p! %i > %i px=%i y=%i row=%i rowstride=%i=%i", p, 3*ab->width*ab->height, x, y, ab->height-y-1, rowstride, 3*ab->width); return; }
+			if(p > rowstride*ab->height || p < 0){ perr ("p! %i > %i px=%i y=%i row=%i rowstride=%i=%i", p, 3*ab->width*ab->height, x, y, ab->height-y-1, rowstride, 3*ab->width); return; }
 
 			ab->buf[p] = (int)(0xff * a) >> 8;
 		}
@@ -867,7 +856,7 @@ io_ratio = 1;
 	//dbg(0, "x: %.2f --> %.2f", (((double)0) / region_len) * rect.len, (((double)4095) / region_len) * rect.len);
 	g_return_if_fail(region_end / io_ratio <= peakbuf->size / WF_PEAK_VALUES_PER_SAMPLE);
 	while (p < a->width){
-									if(2 * p_ >= peakbuf->size) gwarn("s_=%i size=%i", p_, peakbuf->size);
+									if(2 * p_ >= peakbuf->size) pwarn("s_=%i size=%i", p_, peakbuf->size);
 									g_return_if_fail(2 * p_ < peakbuf->size);
 		//x = rect.left + (((double)p) / region_len) * rect.len * io_ratio;
 //x = rect.left + (((double)p) / region_len) * rect.len * io_ratio;
@@ -891,7 +880,7 @@ io_ratio = 1;
 		//int y; for(y=0;y<ch_height;y++){
 		int y; for(y=y1_;y<y2_;y++){
 			int p = chan*ch_height*rowstride + (ch_height - y -1)*rowstride + x/* + border*/;
-			if(p > rowstride*a->height || p < 0){ gerr ("p! %i > %i px=%i y=%i row=%i rowstride=%i=%i", p, 3*a->width*a->height, x, y, a->height-y-1, rowstride, 3*a->width); return; }
+			if(p > rowstride*a->height || p < 0){ perr ("p! %i > %i px=%i y=%i row=%i rowstride=%i=%i", p, 3*a->width*a->height, x, y, a->height-y-1, rowstride, 3*a->width); return; }
 
 			a->buf[p] = (int)(0xff * alpha);
 //if(pp < 10) printf("              y=%i \n", y);
@@ -930,7 +919,7 @@ waveform_rms_to_alphabuf(Waveform* waveform, AlphaBuf* pixbuf, int* start, int* 
 	gettimeofday(&time_start, NULL);
 #endif
 
-	if(samples_per_px < 0.001) gerr ("samples_per_pix=%f", samples_per_px);
+	if(samples_per_px < 0.001) perr ("samples_per_pix=%f", samples_per_px);
 	WfPeakSample sample;
 	short min;                //negative peak value for each pixel.
 	short max;                //positive peak value for each pixel.
@@ -939,14 +928,14 @@ waveform_rms_to_alphabuf(Waveform* waveform, AlphaBuf* pixbuf, int* start, int* 
 	dbg(3, "peak_gain=%.2f", gain);
 
 	int n_chans      = waveform_get_n_channels(waveform);
-if(!n_chans){ gerr("n_chans"); n_chans = 1; }
+if(!n_chans){ perr("n_chans"); n_chans = 1; }
 
 	int width        = pixbuf->width;
 	int height       = pixbuf->height;
 	guchar* pixels   = pixbuf->buf;
 	int rowstride    = pixbuf->width;
 	int n_channels   = 1;
-	if (height > MAX_PART_HEIGHT) gerr ("part too tall. not enough memory allocated.");
+	if (height > MAX_PART_HEIGHT) perr ("part too tall. not enough memory allocated.");
 	int ch_height = height / n_chans;
 	int vscale = (256*128*2) / ch_height;
 
@@ -980,7 +969,7 @@ if(!n_chans){ gerr("n_chans"); n_chans = 1; }
 		int src_start=0;             // frames. multiply by 2 to get the index into the source buffer for each sample pt.
 		int src_stop =0;   
 
-		if(b.len > 10000000){ gerr ("buflen too big"); return; }
+		if(b.len > 10000000){ perr ("buflen too big"); return; }
 
 		line_clear(&line[0]);
 		int line_index = 0;
@@ -1126,7 +1115,7 @@ if(!n_chans){ gerr("n_chans"); n_chans = 1; }
 #endif
 				for(y=0;y<ch_height;y++){
 					int p = ch*ch_height*rowstride + (ch_height - y -1)*rowstride + n_channels*(px-px_start);
-					if(p > rowstride*height || p < 0){ gerr ("p! %i > %i px=%i y=%i row=%i rowstride=%i=%i", p, 3*width*ch_height, px, y, ch_height-y-1, rowstride,3*width); return; }
+					if(p > rowstride*height || p < 0){ perr ("p! %i > %i px=%i y=%i row=%i rowstride=%i=%i", p, 3*width*ch_height, px, y, ch_height-y-1, rowstride,3*width); return; }
 
 #ifdef PEAK_ANTIALIAS
 					a = MIN((current_line->a[y] * 2)/3 + previous_line->a[y]/blur + next_line->a[y]/blur, 0xff);
@@ -1191,18 +1180,18 @@ waveform_load_rms_file(Waveform* waveform, int ch_num)
 	struct stat buf;
 	//create the file
 	if ((fd = open(argv[1], O_CREAT | O_RDWR, 0666)) < 0) {
-		gerr("file open");
+		perr("file open");
 		return 3;
 	}
 	write(fd, starting_string, strlen(starting_string));
 	//get size of file
 	if (fstat(fd, &buf) < 0) {
-		gerr("fstat error");
+		perr("fstat error");
 		return 4;
 	}
 	//create a buffer mapped to the file:
 	if ((mmap_file = (char*) mmap(0, (size_t) buf.st_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0)) == (void*)-1) {
-		gerr("mmap failure.");
+		perr("mmap failure.");
 		return;
 	}
 #endif
@@ -1230,7 +1219,7 @@ waveform_load_rms_file(Waveform* waveform, int ch_num)
 #endif
 									break;
 								default:
-									gwarn("bad channel number: %i", ch_num);
+									pwarn("bad channel number: %i", ch_num);
 									return NULL;
 							}
 
@@ -1259,17 +1248,17 @@ fullpath = g_strdup(src); //TODO
 	_get_rms_filename(rms_file, fullpath, ch_num);
 
 	int fp = 0;
-	if(!(fp = open(rms_file, O_RDONLY))){ gwarn ("file open failure."); goto out; }
+	if(!(fp = open(rms_file, O_RDONLY))){ pwarn ("file open failure."); goto out; }
 
 	struct stat sinfo;
-	if(stat(rms_file, &sinfo)){ gwarn ("rms file stat error. '%s'", rms_file); close(fp); goto out; }
+	if(stat(rms_file, &sinfo)){ pwarn ("rms file stat error. '%s'", rms_file); close(fp); goto out; }
 	off_t fsize = sinfo.st_size;
 	rb = g_new0(RmsBuf, 1);
 	rb->size = fsize;
 	rb->buf = g_new(char, fsize);
 
 	//read the whole peak file into memory:
-	if(read(fp, rb->buf, fsize) != fsize) gerr ("read error. couldnt read %"PRIi64" bytes from %s", fsize, rms_file);
+	if(read(fp, rb->buf, fsize) != fsize) perr ("read error. couldnt read %"PRIi64" bytes from %s", fsize, rms_file);
   
 	close(fp);
 	//dbg (2, "done. %s: %isamples (%li beats / %.3f secs).", filename, pool_item->priv->peak.size, samples2beats(pool_item->priv->peak.size), samples2secs(pool_item->priv->peak.size*WF_PEAK_RATIO));
@@ -1418,7 +1407,7 @@ warn_no_src_data(Waveform* waveform, int buflen, int src_stop)
 {
 	static int count = 0;
 	if(count++ > 20) return;
-	gwarn ("no src data in peak buffer! buflen=%i src_stop=%i", buflen, src_stop);
+	pwarn ("no src data in peak buffer! buflen=%i src_stop=%i", buflen, src_stop);
 }
 
 
@@ -1569,7 +1558,7 @@ waveform_peak_to_pixbuf_full(Waveform* waveform, GdkPixbuf* pixbuf, uint32_t reg
 	gettimeofday(&time_start, NULL);
 #endif
 
-	if(samples_per_px < 0.001) gerr ("samples_per_pix=%f", samples_per_px);
+	if(samples_per_px < 0.001) perr ("samples_per_pix=%f", samples_per_px);
 	WfPeakSample sample[WF_MAX_CH];
 	WfPeakSample peak[WF_MAX_CH];
 
@@ -1589,7 +1578,7 @@ waveform_peak_to_pixbuf_full(Waveform* waveform, GdkPixbuf* pixbuf, uint32_t reg
 	cairo_t* cairo = cairo_create(surface);
 #endif
 
-	if (height > MAX_PART_HEIGHT) gerr ("part too tall. not enough memory allocated.");
+	if (height > MAX_PART_HEIGHT) perr ("part too tall. not enough memory allocated.");
 	int ch_height = height / n_chans_out;
 	int vscale = (256 * 128 * 2) / ch_height;
 
@@ -1768,7 +1757,7 @@ waveform_peak_to_pixbuf_full(Waveform* waveform, GdkPixbuf* pixbuf, uint32_t reg
 			for(ch=0;ch<n_chans_out;ch++){
 				for(y=0;y<ch_height;y++){
 					int p = rowstride*(ch*ch_height + (ch_height - y -1)) + 3*px;
-					if(p > rowstride*height || p < 0){ gerr ("p! %i > %i px=%i y=%i row=%i rowstride=%i=%i", p, 3*width*ch_height, px, y, ch_height-y-1, rowstride,3*width); return; }
+					if(p > rowstride*height || p < 0){ perr ("p! %i > %i px=%i y=%i row=%i rowstride=%i=%i", p, 3*width*ch_height, px, y, ch_height-y-1, rowstride,3*width); return; }
 
 					int a = 0;
 					int c; for(c=0;c<n;c++){
@@ -1875,12 +1864,12 @@ waveform_rms_to_pixbuf(Waveform* w, GdkPixbuf* pixbuf, uint32_t src_inset, int* 
 	gettimeofday(&time_start, NULL);
 #endif
 
-	if(samples_per_px < 0.001) gerr ("samples_per_pix=%f", samples_per_px);
+	if(samples_per_px < 0.001) perr ("samples_per_pix=%f", samples_per_px);
 	WfPeakSample sample;
 	short min;                //negative peak value for each pixel.
 	short max;                //positive peak value for each pixel.
 	//if(!pool_item->valid) return;
-	//if(!pool_item->source_id){ gerr ("bad core source id: %Lu.", pool_item->source_id[0]); return; }
+	//if(!pool_item->source_id){ perr ("bad core source id: %Lu.", pool_item->source_id[0]); return; }
 
 	int n_chans      = waveform_get_n_channels(w);
 
@@ -1892,7 +1881,7 @@ waveform_rms_to_pixbuf(Waveform* w, GdkPixbuf* pixbuf, uint32_t src_inset, int* 
 	cairo_surface_t* surface = cairo_image_surface_create_for_data(pixels, CAIRO_FORMAT_RGB24, width, height, rowstride);
 	cairo_t* cairo = cairo_create(surface);
 
-	//if (height > MAX_PART_HEIGHT) gerr ("part too tall. not enough memory allocated.");
+	//if (height > MAX_PART_HEIGHT) perr ("part too tall. not enough memory allocated.");
 	int ch_height = height / n_chans;
 	int vscale = (256 * 128 * 2) / ch_height;
 
@@ -1965,7 +1954,7 @@ waveform_rms_to_pixbuf(Waveform* w, GdkPixbuf* pixbuf, uint32_t src_inset, int* 
 		int src_start=0;             // frames. multiply by 2 to get the index into the source buffer for each sample pt.
 		int src_stop =0;   
 
-		if(b.len > 10000000){ gerr ("buflen too big"); return; }
+		if(b.len > 10000000){ perr ("buflen too big"); return; }
 
 		line_clear(&line[0]);
 		int line_index = 0;
@@ -2127,7 +2116,7 @@ waveform_rms_to_pixbuf(Waveform* w, GdkPixbuf* pixbuf, uint32_t src_inset, int* 
 #endif
         for(y=0;y<ch_height;y++){
           int p = ch*ch_height*rowstride + (ch_height - y -1)*rowstride + 3*px;
-          if(p > rowstride*height || p < 0){ gerr ("p! %i > %i px=%i y=%i row=%i rowstride=%i=%i", p, 3*width*ch_height, px, y, ch_height-y-1, rowstride,3*width); return; }
+          if(p > rowstride*height || p < 0){ perr ("p! %i > %i px=%i y=%i row=%i rowstride=%i=%i", p, 3*width*ch_height, px, y, ch_height-y-1, rowstride,3*width); return; }
 
 #ifdef PEAK_ANTIALIAS
 					a = MIN((current_line->a[y] * 2)/3 + previous_line->a[y]/blur + next_line->a[y]/blur, 0xff);

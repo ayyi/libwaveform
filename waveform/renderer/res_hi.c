@@ -1,7 +1,7 @@
 /**
 * +----------------------------------------------------------------------+
 * | This file is part of the Ayyi project. http://ayyi.org               |
-* | copyright (C) 2012-2019 Tim Orford <tim@orford.org>                  |
+* | copyright (C) 2012-2020 Tim Orford <tim@orford.org>                  |
 * +----------------------------------------------------------------------+
 * | This program is free software; you can redistribute it and/or modify |
 * | it under the terms of the GNU General Public License version 3       |
@@ -13,9 +13,6 @@
 #define __wf_private__
 #define __wf_canvas_priv__
 #include "config.h"
-#include <unistd.h>
-#include <stdlib.h>
-#include <string.h>
 #include <fcntl.h>
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -429,7 +426,7 @@ draw_wave_buffer_hi_gl1 (Renderer* renderer, WaveformActor* actor, int b, bool i
 			}else{
 				hr->block_region.len = (r->region.start + r->region.len) % WF_SAMPLES_PER_TEXTURE;
 			}
-			dbg(2, "REGIONLAST: %i/%i region.len=%i ratio=%.2f rect=%.2f %.2f", b, r->region_end_block, hr->block_region.len, ((float)hr->block_region.len) / WF_PEAK_BLOCK_SIZE, block_rect.left, block_rect.len);
+			dbg(2, "REGIONLAST: %i/%i region.len=%"PRIi64" ratio=%.2f rect=%.2f %.2f", b, r->region_end_block, hr->block_region.len, ((float)hr->block_region.len) / WF_PEAK_BLOCK_SIZE, block_rect.left, block_rect.len);
 		}
 	}
 	block_rect.len = hr->block_region.len * r->zoom; // always
@@ -491,7 +488,7 @@ wf_actor_get_quad_dimensions (WaveformActor* actor, int b, bool is_first, bool i
 
 		block_wid = (r->block_wid / multiplier) * _tex_pct;
 		tex_start = 1.0 - border_pct - tex_pct;
-		dbg(2, "rect.left=%.2f region->start=%Lu first_offset=%i", r->rect.left, r->region.start, r->first_offset);
+		dbg(2, "rect.left=%.2f region->start=%"PRIi64" first_offset=%i", r->rect.left, r->region.start, r->first_offset);
 	}
 	if (is_last){
 		//if(x + r->block_wid < x0 + rect->len){

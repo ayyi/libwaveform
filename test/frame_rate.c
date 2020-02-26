@@ -34,17 +34,10 @@
 */
 #define __wf_private__
 #include "config.h"
-#include <stdlib.h>
-#include <stdint.h>
-#include <string.h>
 #include <getopt.h>
 #include <time.h>
-#include <unistd.h>
-#include <signal.h>
 #include <sys/time.h>
 #include <sys/types.h>
-#include <sys/ipc.h>
-#include <sys/shm.h>
 #include <signal.h>
 #include <gtk/gtk.h>
 #include <gdk/gdkkeysyms.h>
@@ -66,7 +59,7 @@ static const char* const short_options = "n";
 int
 main (int argc, char* argv[])
 {
-	if(sizeof(off_t) != 8){ gerr("sizeof(off_t)=%zu\n", sizeof(off_t)); return EXIT_FAILURE; }
+	if(sizeof(off_t) != 8){ perr("sizeof(off_t)=%zu\n", sizeof(off_t)); return EXIT_FAILURE; }
 
 	set_log_handlers();
 

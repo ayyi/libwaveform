@@ -8,31 +8,7 @@
    <insert_a_suppression_name_here>
    Memcheck:Leak
    ...
-   fun:_mesa_Translatef
-}
-{
-   <insert_a_suppression_name_here>
-   Memcheck:Addr4
-   ...
-   fun:_mesa_Translatef
-}
-{
-   <insert_a_suppression_name_here>
-   Memcheck:Addr8
-   ...
-   fun:_mesa_Translatef
-}
-{
-   <insert_a_suppression_name_here>
-   Memcheck:Leak
-   ...
-   fun:_mesa_glsl_link_shader
-}
-{
-   <insert_a_suppression_name_here>
-   Memcheck:Leak
-   ...
-   fun:brw_clear
+   fun:_mesa_AttachShader
 }
 {
    <insert_a_suppression_name_here>
@@ -50,13 +26,55 @@
    <insert_a_suppression_name_here>
    Memcheck:Leak
    ...
-   fun:_mesa_AttachShader
+   fun:_mesa_DrawArrays
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Addr8
+   ...
+   fun:_mesa_DrawArrays
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Addr4
+   ...
+   fun:_mesa_DrawArrays
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Addr2
+   ...
+   fun:_mesa_DrawArrays
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Addr8
+   ...
+   fun:_mesa_exec_Rectf
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Addr4
+   ...
+   fun:_mesa_exec_Rectf
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Addr2
+   ...
+   fun:_mesa_exec_Rectf
 }
 {
    <insert_a_suppression_name_here>
    Memcheck:Leak
    ...
-   fun:_mesa_ShaderSource
+   fun:_mesa_glsl_link_shader
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   ...
+   fun:_mesa_hash_table_rehash
 }
 {
    <insert_a_suppression_name_here>
@@ -84,6 +102,145 @@
 }
 {
    <insert_a_suppression_name_here>
+   Memcheck:Addr8
+   ...
+   fun:_mesa_Rotatef
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Addr4
+   ...
+   fun:_mesa_Rotatef
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Addr2
+   ...
+   fun:_mesa_Rotatef
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   ...
+   fun:_mesa_ShaderSource
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   match-leak-kinds: possible
+   ...
+   fun:_mesa_TexImage2D
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Addr8
+   ...
+   fun:_mesa_TexImage2D
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Addr4
+   ...
+   fun:_mesa_TexImage2D
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Addr2
+   ...
+   fun:_mesa_TexImage2D
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   ...
+   fun:_mesa_Translatef
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Addr4
+   ...
+   fun:_mesa_Translatef
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Addr8
+   ...
+   fun:_mesa_Translatef
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Addr8
+   ...
+   fun:_mesa_Uniform1f
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Addr4
+   ...
+   fun:_mesa_Uniform1f
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Addr8
+   ...
+   fun:_mesa_Uniform4fv
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Addr4
+   ...
+   fun:_mesa_Uniform4fv
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Addr2
+   ...
+   fun:_mesa_Uniform4fv
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Addr8
+   ...
+   fun:blend_func_separate
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Addr4
+   ...
+   fun:blend_func_separate
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Addr2
+   ...
+   fun:blend_func_separate
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Addr1
+   ...
+   fun:blend_func_separate
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   ...
+   fun:brw_blorp_clear_color
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   ...
+   fun:brw_clear
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   ...
+   fun:dri3_create_screen
+}
+{
+   <insert_a_suppression_name_here>
    Memcheck:Leak
    ...
    fun:glXSwapBuffers
@@ -92,20 +249,7 @@
    <insert_a_suppression_name_here>
    Memcheck:Leak
    ...
-   fun:_mesa_hash_table_rehash
-}
-{
-   <insert_a_suppression_name_here>
-   Memcheck:Leak
-   ...
    fun:intelNewTextureObject
-}
-{
-   <insert_a_suppression_name_here>
-   Memcheck:Leak
-   match-leak-kinds: possible
-   ...
-   fun:_mesa_TexImage2D
 }
 {
    <insert_a_suppression_name_here>
@@ -165,37 +309,25 @@
    <insert_a_suppression_name_here>
    Memcheck:Addr8
    ...
-   fun:_mesa_TexImage2D
+   fun:_mesa_TexSubImage2D
 }
 {
    <insert_a_suppression_name_here>
    Memcheck:Addr4
    ...
-   fun:_mesa_TexImage2D
+   fun:_mesa_TexSubImage2D
 }
 {
    <insert_a_suppression_name_here>
    Memcheck:Addr2
    ...
-   fun:_mesa_TexImage2D
+   fun:_mesa_TexSubImage2D
 }
 {
    <insert_a_suppression_name_here>
-   Memcheck:Addr8
+   Memcheck:Addr1
    ...
-   fun:_mesa_DrawArrays
-}
-{
-   <insert_a_suppression_name_here>
-   Memcheck:Addr4
-   ...
-   fun:_mesa_DrawArrays
-}
-{
-   <insert_a_suppression_name_here>
-   Memcheck:Addr2
-   ...
-   fun:_mesa_DrawArrays
+   fun:_mesa_TexSubImage2D
 }
 {
    <insert_a_suppression_name_here>
@@ -204,36 +336,36 @@
 }
 {
    <insert_a_suppression_name_here>
-   Memcheck:Leak
-   ...
-   fun:dri3_create_screen
-}
-{
-   <insert_a_suppression_name_here>
-   Memcheck:Leak
-   ...
-   fun:_mesa_DrawArrays
-}
-{
-   <insert_a_suppression_name_here>
-   Memcheck:Leak
-   ...
-   fun:brw_blorp_clear_color
-}
-{
-   <insert_a_suppression_name_here>
    Memcheck:Addr8
    ...
-   fun:_mesa_Uniform1f
+   fun:vbo_exec_FlushVertices
 }
 {
    <insert_a_suppression_name_here>
    Memcheck:Addr4
    ...
-   fun:_mesa_Uniform1f
+   fun:vbo_exec_FlushVertices
 }
 {
-   Temporary
+   <insert_a_suppression_name_here>
+   Memcheck:Addr2
+   ...
+   fun:vbo_exec_FlushVertices
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   ...
+   fun:_mesa_exec_Rectf
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   ...
+   fun:MakeContextCurrent
+}
+{
+   <insert_a_suppression_name_here>
    Memcheck:Leak
    ...
    fun:glXCreateContext

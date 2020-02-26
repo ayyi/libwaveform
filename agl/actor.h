@@ -1,7 +1,7 @@
 /**
 * +----------------------------------------------------------------------+
 * | This file is part of the Ayyi project. http://www.ayyi.org           |
-* | copyright (C) 2013-2019 Tim Orford <tim@orford.org>                  |
+* | copyright (C) 2013-2020 Tim Orford <tim@orford.org>                  |
 * +----------------------------------------------------------------------+
 * | This program is free software; you can redistribute it and/or modify |
 * | it under the terms of the GNU General Public License version 3       |
@@ -12,6 +12,7 @@
 
 #ifndef __agl_actor_h__
 #define __agl_actor_h__
+
 #include <X11/Xlib.h>
 #if defined(USE_GTK) || defined(__GTK_H__)
 #include <gdk/gdkgl.h>
@@ -23,7 +24,7 @@
 #include <GL/glx.h>
 #include "transition/transition.h"
 #include "agl/utils.h"
-#include "agl/behaviour.h"
+#include "agl/fbo.h"
 #if defined(USE_GTK) || defined(__GTK_H__)
 #include "gtk/gtk.h"
 #else
@@ -33,13 +34,15 @@ typedef void GtkWidget;
 
 #undef AGL_DEBUG_ACTOR
 #define AGL_ACTOR_RENDER_CACHE
-#define AGL_ACTOR_N_BEHAVIOURS 4
+#define AGL_ACTOR_N_BEHAVIOURS 5
 
 typedef AGlActor* (AGlActorNew)       (GtkWidget*);
 typedef void      (*AGlActorSetState) (AGlActor*);
 typedef bool      (*AGlActorPaint)    (AGlActor*);
 typedef bool      (*AGlActorOnEvent)  (AGlActor*, GdkEvent*, AGliPt xy);
 typedef void      (*AGlActorFn)       (AGlActor*);
+
+#include "agl/behaviour.h"
 
 typedef struct _AGlActorContext AGlActorContext;
 typedef int AGlActorType;
@@ -235,7 +238,7 @@ extern int __draw_depth;
 
 #if defined(USE_GTK) || defined(__GTK_H__)
 #define AGL_ACTOR_START_DRAW(A) \
-	if(__wf_drawing){ gwarn("AGL_ACTOR_START_DRAW: already drawing"); } \
+	if(__wf_drawing){ pwarn("AGL_ACTOR_START_DRAW: already drawing"); } \
 	__draw_depth++; \
 	__wf_drawing = TRUE; \
 	if (actor_is_sdl(((AGlRootActor*)A)) || (__draw_depth > 1) || gdk_gl_drawable_make_current (((AGlRootActor*)A)->gl.gdk.drawable, ((AGlRootActor*)A)->gl.gdk.context)) {
@@ -244,7 +247,7 @@ extern int __draw_depth;
 	__draw_depth--; \
 	if(actor_is_sdl(((AGlRootActor*)A))){ \
 		if(!__draw_depth) ; \
-		else { gwarn("!! gl_begin fail"); } \
+		else { pwarn("gl_begin fail"); } \
 	} \
 	} \
 	(__wf_drawing = FALSE);

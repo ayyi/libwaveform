@@ -2,7 +2,7 @@
 /**
 * +----------------------------------------------------------------------+
 * | This file is part of the Ayyi project. http://ayyi.org               |
-* | copyright (C) 2013-2019 Tim Orford <tim@orford.org>                  |
+* | copyright (C) 2013-2020 Tim Orford <tim@orford.org>                  |
 * +----------------------------------------------------------------------+
 * | This program is free software; you can redistribute it and/or modify |
 * | it under the terms of the GNU General Public License version 3       |
@@ -10,6 +10,9 @@
 * +----------------------------------------------------------------------+
 *
 */
+
+#define __wf_private__
+#include "waveform/debug.h"
 
 /*
  *  Common code for all tests
@@ -106,7 +109,7 @@ void       show_refresh_rate  (Display*);
 
 void add_key_handlers         (Key keys[]);
 #ifdef __GTK_H__
-void add_key_handlers_gtk     (GtkWindow*, WaveformView*, Key keys[]);
+void add_key_handlers_gtk     (GtkWindow*, gpointer, Key keys[]);
 
 #ifdef __GDK_GL_CONFIG_H__
 typedef void (*WindowFn)      (GtkWindow*, GdkGLConfig*);

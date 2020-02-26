@@ -33,9 +33,14 @@ AC_ARG_ENABLE(debug,
 if test "$debug" = "yes"; then
   CFLAGS="$CFLAGS -g -DDEBUG -Wall"
   CXXFLAGS="$CFLAGS"
+  PKG_CHECK_MODULES(SYSPROF, sysprof-2, [AC_DEFINE(HAVE_PROFILER, 1, [Have sysprof]) enable_profiler="yes"],[enable_profiler="no"])
+  AC_SUBST(SYSPROF_CFLAGS)
+  AC_SUBST(SYSPROF_LIBS)
+  AM_CONDITIONAL(ENABLE_PROFILER, test $enable_profiler = "yes")
 else
   CFLAGS="$CFLAGS -DNDEBUG"
   CXXFLAGS="$CXXFLAGS -DNDEBUG"
+  enable_profiler="no"
 fi
 
 # Check for strict flag
@@ -66,6 +71,13 @@ AC_SUBST(X11_LDFLAGS)
 
 GMODULE_LDFLAGS=`pkg-config gmodule-2.0 --libs`
 AC_SUBST(GMODULE_LDFLAGS)
+
+dnl -----------------------------------------------------
+
+GRAPHENE_CFLAGS=`pkg-config --cflags graphene-1.0`
+AC_SUBST(GRAPHENE_CFLAGS)
+GRAPHENE_LDFLAGS=`pkg-config --libs graphene-1.0`
+AC_SUBST(GRAPHENE_LDFLAGS)
 
 dnl -----------------------------------------------------
 
@@ -100,6 +112,12 @@ if `pkg-config glib-2.0 --atleast-version=2.36`; then
   AC_DEFINE(HAVE_GLIB_2_36, 1, [We have at least glib version 2.36])
 else
   HAVE_GLIB_2_36="no"
+fi;
+if `pkg-config glib-2.0 --atleast-version=2.58`; then
+  HAVE_GLIB_2_58="yes"
+  AC_DEFINE(HAVE_GLIB_2_58, 1, [We have at least glib version 2.58])
+else
+  HAVE_GLIB_2_58="no"
 fi;
 
 if `pkg-config pango --atleast-version=1.44`; then
@@ -262,6 +280,7 @@ AC_CONFIG_FILES([
 	agl/Makefile
 	agl/shaders/Makefile
 	agl/behaviours/Makefile
+	agl/text/Makefile
 	transition/Makefile
 	sdl/Makefile
 	gtkglext-1.0/Makefile
@@ -283,7 +302,7 @@ AC_MSG_RESULT([Building sdl:             $enable_sdl])
 AC_MSG_RESULT([Building libass:          $enable_libass])
 AC_MSG_RESULT([Building ffmpeg:          $enable_ffmpeg])
 AC_MSG_RESULT([Building tests:           $enable_test])
+AC_MSG_RESULT([Building profiler:        $enable_profiler])
 AC_MSG_RESULT([Use system GtkGL:         $enable_system_gtkglext])
-dnl AC_MSG_RESULT([Building lv2:             $enable_lv2 (TODO)])
 AC_MSG_RESULT([])
 
