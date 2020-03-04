@@ -24,8 +24,6 @@ source_c = \
 	$(PROFILER_SRC) \
 	$(NULL)
 
-source_h =
-
 source_h_priv = \
 	$(NULL)
 
@@ -37,7 +35,8 @@ endif
 
 noinst_LTLIBRARIES = libtext.la
 
-libtext_la_SOURCES = $(source_c) $(source_h) $(source_h_priv)
+libtext_la_SOURCES = $(source_c) $(source_h_priv)
+
 libtext_la_CFLAGS = \
 	-DG_LOG_DOMAIN=\"AGltext\" \
 	-I$(top_srcdir)/agl \
@@ -47,7 +46,7 @@ libtext_la_CFLAGS = \
 	$(GRAPHENE_CFLAGS) \
 	$(SYSPROF_CFLAGS) \
 	$(MAINTAINER_CFLAGS)
-libtext_la_LIBADD = $(COGL_DEP_LIBS) $(COGL_PANGO_DEP_LIBS) $(COGL_EXTRA_LDFLAGS)
+
 libtext_la_LDFLAGS = \
 	-export-dynamic \
 	-no-undefined

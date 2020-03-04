@@ -23,12 +23,8 @@
 */
 #define __wf_private__
 #include "config.h"
-#include <stdlib.h>
-#include <stdint.h>
-#include <string.h>
 #include <getopt.h>
 #include <time.h>
-#include <unistd.h>
 #include <sys/time.h>
 #include "agl/utils.h"
 #include <gtk/gtk.h>

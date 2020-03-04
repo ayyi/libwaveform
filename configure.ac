@@ -119,6 +119,7 @@ if `pkg-config glib-2.0 --atleast-version=2.58`; then
 else
   HAVE_GLIB_2_58="no"
 fi;
+AM_CONDITIONAL(ENABLE_GLIB_2_58_POLYFILL, test "$HAVE_GLIB_2_58" = "no")
 
 if `pkg-config pango --atleast-version=1.44`; then
   AC_DEFINE(HAVE_PANGO_1_44, 1, [We have at least pango version 1.44])
@@ -284,6 +285,7 @@ AC_CONFIG_FILES([
 	transition/Makefile
 	sdl/Makefile
 	gtkglext-1.0/Makefile
+	glib/Makefile
 	decoder/Makefile
 	waveform/Makefile
 	waveform/actors/Makefile

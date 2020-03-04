@@ -7,7 +7,11 @@ endif
 if ENABLE_GTK
 GTK_SUBDIRS = gtkglext-1.0
 endif
-SUBDIRS = $(OPENGL_SUBDIRS) $(SDL_SUBDIRS) $(GTK_SUBDIRS) waveform transition decoder . test
+if ENABLE_GLIB_2_58_POLYFILL
+GLIB_SUBDIRS = glib
+GLIB_LIBADD = glib/libglib.la
+endif
+SUBDIRS = $(OPENGL_SUBDIRS) $(SDL_SUBDIRS) $(GTK_SUBDIRS) $(GLIB_SUBDIRS) waveform transition decoder . test
 
 if ENABLE_OPENGL
 OPENGL_LIBADD = \
@@ -21,6 +25,7 @@ libwaveform_la_LIBADD = \
 	waveform/libwf.la \
 	decoder/libdecoder.la \
 	transition/libtransition.la \
+	$(GLIB_LIBADD) \
 	$(OPENGL_LIBADD)
 
 AM_CFLAGS = \

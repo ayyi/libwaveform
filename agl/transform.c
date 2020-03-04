@@ -35,6 +35,9 @@
 
 #include "config.h"
 #include "transform.h"
+#ifndef HAVE_GLIB_2_58
+#include "text/grcbox.h"
+#endif
 
 typedef struct _AGlTransformClass AGlTransformClass;
 
@@ -113,17 +116,11 @@ agl_transform_has_class (AGlTransform* self, const AGlTransformClass* transform_
  * Returns: (transfer full): the newly created #AGlTransform
  */
 static gpointer
-agl_transform_alloc (const AGlTransformClass *transform_class,
-                     AGlTransformCategory     category,
-                     AGlTransform            *next)
+agl_transform_alloc (const AGlTransformClass* transform_class, AGlTransformCategory category, AGlTransform* next)
 {
 	g_return_val_if_fail (transform_class, NULL);
 
-#ifdef HAVE_GLIB_2_58
 	AGlTransform* self = g_atomic_rc_box_alloc0 (transform_class->struct_size);
-#else
-	AGlTransform* self = g_malloc0 (transform_class->struct_size);
-#endif
 
 	self->transform_class = transform_class;
 	self->category = next ? MIN (category, next->category) : category;
@@ -131,6 +128,7 @@ agl_transform_alloc (const AGlTransformClass *transform_class,
 
 	return self;
 }
+
 
 /*** IDENTITY ***/
 
@@ -1275,6 +1273,7 @@ static const AGlTransformClass AGL_PERSPECTIVE_TRANSFORM_CLASS = {
 	agl_perspective_transform_equal,
 };
 
+
 /**
  * agl_transform_perspective:
  * @next: (allow-none) (transfer full): the next transform
@@ -1290,13 +1289,11 @@ static const AGlTransformClass AGL_PERSPECTIVE_TRANSFORM_CLASS = {
  *
  * Returns: The new matrix
  **/
-AGlTransform *
+AGlTransform*
 agl_transform_perspective (AGlTransform* next, float depth)
 {
-	AGlPerspectiveTransform *result;
-
 	if (agl_transform_has_class (next, &AGL_PERSPECTIVE_TRANSFORM_CLASS)) {
-		AGlTransform *r = agl_transform_perspective(
+		AGlTransform* r = agl_transform_perspective(
 			agl_transform_ref (next->next),
 			((AGlPerspectiveTransform *) next)->depth + depth
 		);
@@ -1304,7 +1301,7 @@ agl_transform_perspective (AGlTransform* next, float depth)
 		return r;
 	}
 
-	result = agl_transform_alloc (&AGL_PERSPECTIVE_TRANSFORM_CLASS, AGL_TRANSFORM_CATEGORY_ANY, next);
+	AGlPerspectiveTransform* result = agl_transform_alloc (&AGL_PERSPECTIVE_TRANSFORM_CLASS, AGL_TRANSFORM_CATEGORY_ANY, next);
 
 	result->depth = depth;
 
@@ -1338,11 +1335,7 @@ agl_transform_ref (AGlTransform *self)
 	if (self == NULL)
 		return NULL;
 
-#ifdef HAVE_GLIB_2_58
 	return g_atomic_rc_box_acquire (self);
-#else
-	return self;
-#endif
 }
 
 
@@ -1361,12 +1354,7 @@ agl_transform_unref (AGlTransform *self)
 	if (self == NULL)
 		return;
 
-#ifdef HAVE_GLIB_2_58
 	g_atomic_rc_box_release_full (self, (GDestroyNotify) agl_transform_finalize);
-#else
-	agl_transform_finalize(self);
-	g_free(self);
-#endif
 }
 
 
@@ -1396,6 +1384,7 @@ agl_transform_print (AGlTransform* self, GString* string)
 	self->transform_class->print (self, string);
 }
 
+
 /**
  * agl_transform_to_string:
  * @self: (allow-none): a #AGlTransform
@@ -1408,16 +1397,16 @@ agl_transform_print (AGlTransform* self, GString* string)
  *
  * Returns: A new string for @self
  **/
-char *
-agl_transform_to_string (AGlTransform *self)
+char*
+agl_transform_to_string (AGlTransform* self)
 {
-  GString *string;
+	GString *string;
 
-  string = g_string_new ("");
+	string = g_string_new ("");
 
-  agl_transform_print (self, string);
+	agl_transform_print (self, string);
 
-  return g_string_free (string, FALSE);
+	return g_string_free (string, FALSE);
 }
 
 
@@ -1430,19 +1419,18 @@ agl_transform_to_string (AGlTransform *self)
  * The previous value of @out_matrix will be ignored.
  **/
 void
-agl_transform_to_matrix (AGlTransform      *self, graphene_matrix_t *out_matrix)
+agl_transform_to_matrix (AGlTransform* self, graphene_matrix_t* out_matrix)
 {
-  graphene_matrix_t m;
+	graphene_matrix_t m;
 
-  if (self == NULL)
-    {
-      graphene_matrix_init_identity (out_matrix);
-      return;
-    }
+	if (self == NULL) {
+		graphene_matrix_init_identity (out_matrix);
+		return;
+	}
 
-  agl_transform_to_matrix (self->next, out_matrix);
-  self->transform_class->to_matrix (self, &m);
-  graphene_matrix_multiply (&m, out_matrix, out_matrix);
+	agl_transform_to_matrix (self->next, out_matrix);
+	self->transform_class->to_matrix (self, &m);
+	graphene_matrix_multiply (&m, out_matrix, out_matrix);
 }
 
 
