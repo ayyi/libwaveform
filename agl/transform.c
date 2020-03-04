@@ -36,7 +36,7 @@
 #include "config.h"
 #include "transform.h"
 #ifndef HAVE_GLIB_2_58
-#include "text/grcbox.h"
+#include "glib/grcbox.h"
 #endif
 
 typedef struct _AGlTransformClass AGlTransformClass;
