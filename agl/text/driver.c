@@ -14,7 +14,6 @@
 #include "agl/debug.h"
 #include "agl/ext.h"
 #include "text/driver.h"
-#include "text/gdktexture.h"
 
 typedef struct {
    GLuint fbo_id;
@@ -28,7 +27,6 @@ typedef struct {
    GLuint min_filter;
    GLuint mag_filter;
    Fbo fbo;
-   GdkTexture* user;
    guint in_use : 1;
    guint permanent : 1;
 
@@ -91,11 +89,6 @@ texture_free (gpointer data)
 {
 	Texture* t = data;
 	guint i;
-
-#if 0 // --- TODO
-	if (t->user)
-		gdk_texture_clear_render_data (t->user);
-#endif
 
 #if 0
 	if (t->fbo.fbo_id != 0)
@@ -236,7 +229,7 @@ driver_collect_textures ()
 	while (g_hash_table_iter_next (&iter, NULL, &value_p)) {
 		Texture *t = value_p;
 
-		if (t->user || t->permanent)
+		if (t->permanent)
 			continue;
 
 		if (t->in_use) {

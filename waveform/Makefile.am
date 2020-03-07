@@ -49,7 +49,8 @@ libwf_la_SOURCES = \
 	worker.c worker.h \
 	promise.c promise.h \
 	transition_behaviour.c transition_behaviour.h \
-	utils.c utils.h
+	utils.c utils.h \
+	debug.h
 
 libwf_la_LIBADD = \
 	loaders/libloaders.la \

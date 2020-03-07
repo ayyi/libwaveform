@@ -70,5 +70,12 @@ EXTRA_DIST = \
 	debug.h \
 	$(SHADERS) \
 	shaders/Makefile \
-	shaders/make_shaders
+	shaders/make_shaders \
+	gresource.xml \
+	resources/shaders/color.glsl \
+	resources/shaders/coloring.glsl \
+	resources/shaders/blend.glsl \
+	resources/shaders/preamble.glsl \
+	resources/shaders/preamble.vs.glsl \
+	resources/shaders/preamble.fs.glsl
 

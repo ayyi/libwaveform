@@ -5,7 +5,8 @@ if ENABLE_GLIB_2_58_POLYFILL
 GLIB_SRC = \
 	grcbox.c grcbox.h \
 	garcbox.c \
-	grefcount.c grefcount.h
+	grefcount.c grefcount.h \
+	grcboxprivate.h
 endif
 
 noinst_LTLIBRARIES = libglib.la

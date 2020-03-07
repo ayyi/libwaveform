@@ -9,6 +9,7 @@ PROFILER_SRC = \
 endif
 
 source_c = \
+	types.h \
 	text_node.c text_node.h \
 	pango.c pango.h \
 	glyphcache.c glyphcache.h \
