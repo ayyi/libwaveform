@@ -110,7 +110,7 @@ renderer_clear_tree (RenderOpBuilder* builder)
 static inline void
 apply_viewport_op (const Program* program, const OpViewport* op)
 {
-	OP_PRINT (" -> New Viewport: %f, %f, %f, %f",
+	OP_PRINT (" -> New Viewport: %.0f, %.0f, %.0f, %.0f",
 		op->viewport.origin.x, op->viewport.origin.y,
 		op->viewport.size.width, op->viewport.size.height
 	);

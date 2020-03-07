@@ -18,9 +18,9 @@
 #include "agl/behaviour.h"
 
 typedef struct {
-   AGlBehaviour   behaviour;
-   Observable*    observable;
-   ObservableFn   on_select;
+   AGlBehaviour    behaviour;
+   AGlObservable*  observable;
+   AGlObservableFn on_select;
 } SelectBehaviour;
 
 AGlBehaviour* selectable      ();

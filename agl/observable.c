@@ -16,22 +16,22 @@
 #define _NEW(T, ...) ({T* obj = g_new0(T, 1); *obj = (T){__VA_ARGS__}; obj;})
 
 typedef struct {
-   ObservableFn fn;
-   gpointer     user;
+   AGlObservableFn fn;
+   gpointer        user;
 } Subscription;
 
 
-Observable*
+AGlObservable*
 agl_observable_new ()
 {
-	return AGL_NEW(Observable,
+	return AGL_NEW(AGlObservable,
 		.max = INT_MAX
 	);
 }
 
 
 void
-agl_observable_free (Observable* observable)
+agl_observable_free (AGlObservable* observable)
 {
 	g_list_free_full(observable->subscriptions, g_free);
 	g_free(observable);
@@ -39,7 +39,7 @@ agl_observable_free (Observable* observable)
 
 
 void
-agl_observable_set (Observable* observable, int value)
+agl_observable_set (AGlObservable* observable, int value)
 {
 	if(value >= observable->min && value <= observable->max){
 
@@ -55,7 +55,7 @@ agl_observable_set (Observable* observable, int value)
 
 
 void
-agl_observable_subscribe (Observable* observable, ObservableFn fn, gpointer user)
+agl_observable_subscribe (AGlObservable* observable, AGlObservableFn fn, gpointer user)
 {
 	observable->subscriptions = g_list_append(observable->subscriptions, _NEW(Subscription,
 		.fn = fn,
