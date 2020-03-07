@@ -44,8 +44,8 @@ static AGlActorClass root_actor_class = {0, "ROOT"};
 #define IS_DRAWABLE(A) (!(!agl_actor__is_onscreen(A) || ((agl_actor__width(A) < 1 || agl_actor__height(A) < 1))))
 
 bool         _agl_actor__paint        (AGlActor*);
+bool          agl_actor__is_onscreen  (AGlActor*);
 
-static bool   agl_actor__is_onscreen  (AGlActor*);
 static bool  _agl_actor__on_event     (AGlActor*, GdkEvent*, AGliPt);
 static void   agl_actor__init         (AGlActor*);        // called once when gl context is available. and again if gl context changes, eg after re-realize.
 #ifdef USE_FRAME_CLOCK
@@ -358,7 +358,7 @@ agl_actor__init (AGlActor* actor)
 }
 
 
-static bool
+bool
 agl_actor__is_onscreen(AGlActor* a)
 {
 	int h = ((AGlActor*)a->root)->scrollable.y2 - ((AGlActor*)a->root)->scrollable.y1;
