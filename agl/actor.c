@@ -51,12 +51,8 @@ static void   agl_actor__init         (AGlActor*);        // called once when gl
 #ifdef USE_FRAME_CLOCK
 static bool   agl_actor__is_animating (AGlActor*);
 #endif
-#ifdef DEBUG
-#ifdef AGL_DEBUG_ACTOR
 #ifdef AGL_ACTOR_RENDER_CACHE
-static bool   agl_actor__is_cached    (AGlActor*);
-#endif
-#endif
+bool          agl_actor__is_cached    (AGlActor*);
 #endif
 static AGliPt _agl_actor__find_offset (AGlActor*);
 
@@ -1513,9 +1509,11 @@ agl_actor__is_animating(AGlActor* a)
 #endif
 
 
-#ifdef DEBUG
+/*
+ *  Used externally but not published
+ */
 #ifdef AGL_ACTOR_RENDER_CACHE
-static bool
+bool
 agl_actor__is_cached(AGlActor* a)
 {
 	do {
@@ -1524,7 +1522,6 @@ agl_actor__is_cached(AGlActor* a)
 
 	return false;
 }
-#endif
 #endif
 
 
