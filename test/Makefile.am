@@ -9,7 +9,7 @@ if ENABLE_SDL
 SDLPROGRAMS = sdl
 endif
 if ENABLE_GTK
-GTKPROGRAMS = view_plus_test actor_test actor_plus actor_no_scene list group hires multi_scene $(ASSPROGRAMS) frame_rate resources cache viewport pixbuf text
+GTKPROGRAMS = view_plus_test actor_test actor_plus actor_no_scene list group hires multi_scene $(ASSPROGRAMS) frame_rate resources cache viewport pixbuf
 endif
 
 if ENABLE_OPENGL
@@ -24,7 +24,7 @@ endif
 endif
 
 if ENABLE_OPENGL
-noinst_PROGRAMS = waveform_test $(GTKPROGRAMS) large_files promise 32bit glx scenegraph $(SDLPROGRAMS)
+noinst_PROGRAMS = waveform_test large_files promise 32bit glx scenegraph text input $(GTKPROGRAMS) $(SDLPROGRAMS)
 else
 noinst_PROGRAMS = waveform_test
 endif
@@ -37,6 +37,7 @@ AM_CFLAGS = \
 	$(OPENGL_CFLAGS) \
 	$(GTK_CFLAGS) \
 	$(SDL_CFLAGS) \
+	$(GRAPHENE_CFLAGS) \
 	$(LIBASS_CFLAGS)
 
 # be careful before changing the order here
@@ -141,6 +142,10 @@ text_SOURCES = \
 	$(COMMON2_SOURCES) \
 	text.c
 
+input_SOURCES = \
+	$(COMMON2_SOURCES) \
+	input.c
+
 scenegraph_SOURCES = \
 	$(COMMON2_SOURCES) \
 	scenegraph.c
@@ -187,6 +192,10 @@ glx_LDADD = \
 	$(TEST_LDFLAGS)
 
 text_LDADD = \
+	$(OPENGL_LDFLAGS) \
+	$(TEST_LDFLAGS)
+
+input_LDADD = \
 	$(OPENGL_LDFLAGS) \
 	$(TEST_LDFLAGS)
 

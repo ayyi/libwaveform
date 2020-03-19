@@ -53,6 +53,7 @@ test/frame_rate
 test/glx
 test/group
 test/hires
+test/input
 test/large_files
 test/list
 test/multi_scene

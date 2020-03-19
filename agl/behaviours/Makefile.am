@@ -4,6 +4,7 @@ noinst_LTLIBRARIES = libbehaviours.la
 libbehaviours_la_SOURCES = \
 	clip.c clip.h \
 	border.c border.h \
+	key.c key.h \
 	selectable.c selectable.h
 
 AM_CFLAGS = \

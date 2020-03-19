@@ -16,8 +16,8 @@
 #include "gdk/gdk.h"
 #include "agl/ext.h"
 #include "agl/debug.h"
-#include "agl/text/text_node.h"
-#include "waveform/actors/debug.h"
+#include "agl/behaviours/key.h"
+#include "agl/text/text_input.h"
 #define __glx_test__
 #include "test/common2.h"
 
@@ -26,25 +26,15 @@ extern void on_window_resize (Display*, AGlWindow*, int, int);
 static AGlRootActor* scene = NULL;
 
 struct {
-	AGlActor* text1;
-	AGlActor* text2;
+	AGlActor* input;
 } layers = {0,};
 
-static KeyHandler
-	nav_up,
-	nav_down,
-	zoom_in,
-	zoom_out;
+static ActorKeyHandler
+	quit;
 
-Key keys[] = {
-	{XK_Up,          nav_up},
-	{XK_Down,        nav_down},
-	{XK_equal,       zoom_in},
-	{XK_KP_Add,      zoom_in},
-	{XK_minus,       zoom_out},
-	{XK_KP_Subtract, zoom_out},
-	{XK_Escape,      (KeyHandler*)exit},
-	{XK_q,           (KeyHandler*)exit},
+ActorKey keys[] = {
+	{XK_q,          quit},
+	{XK_Escape,     quit},
 };
 
 static const struct option long_options[] = {
@@ -55,9 +45,9 @@ static const char* const short_options = "n";
 
 
 int
-main (int argc, char* argv[])
+main (int argc, char *argv[])
 {
-	wf_debug = 1;
+	wf_debug = 0;
 
 	const int width = 400, height = 200;
 
@@ -83,39 +73,20 @@ main (int argc, char* argv[])
 
 	g_main_loop_new(NULL, true);
 
-	agl_actor__add_child((AGlActor*)scene, layers.text1 = text_node(NULL));
-	text_node_set_text((TextNode*)layers.text1, g_strdup("H"));
-	((TextNode*)layers.text1)->font.size = 12;
-	layers.text1->colour = 0xff9900ff;
+	agl_actor__add_child((AGlActor*)scene, layers.input = text_input(NULL));
+	layers.input->region = (AGlfRegion){15, 15, .x2 = 380, .y2 = 120};
+	text_input_set_text((TextInput*)layers.input, g_strdup("Hello world"));
+	agl_observable_set(((TextInput*)layers.input)->font, 32);
 
-	agl_actor__add_child((AGlActor*)scene, layers.text2 = text_node(NULL));
-	text_node_set_text((TextNode*)layers.text2, g_strdup("XeXe"));
-	((TextNode*)layers.text2)->font.size = 120;
-	layers.text2->colour = 0xff0000ff;
+	scene->selected = layers.input;
 
-	AGlActor* debug_actor = wf_debug_actor (NULL);
-	debug_actor->region = (AGlfRegion){145., 5., 195., 65.};
-	((DebugActor*)debug_actor)->target = layers.text1;
-	agl_actor__add_child((AGlActor*)scene, debug_actor);
+	#define KEYS(A) ((KeyBehaviour*)((AGlActor*)A)->behaviours[0])
 
-	debug_actor = wf_debug_actor (NULL);
-	debug_actor->region = (AGlfRegion){200., 5., 250., 65.};
-	((DebugActor*)debug_actor)->target = layers.text2;
-	agl_actor__add_child((AGlActor*)scene, debug_actor);
-
-	void set_size (AGlActor* actor)
-	{
-		layers.text1->region = (AGlfRegion){.x2 = 60, .y2 = 30};
-
-		// set a small size to demonstrate clipping
-		layers.text2->region = (AGlfRegion){20, 40, .x2 = 120, .y2 = 180};
-	}
-
-	layers.text1->set_size = set_size;
+	((AGlActor*)scene)->behaviours[0] = key_behaviour();
+	KEYS(scene)->keys = &keys;
+	key_behaviour_init(((AGlActor*)scene)->behaviours[0], (AGlActor*)scene);
 
 	on_window_resize(NULL, window, width, height);
-
-	add_key_handlers(keys);
 
 	event_loop(dpy);
 
@@ -126,25 +97,10 @@ main (int argc, char* argv[])
 }
 
 
-static void
-nav_up (gpointer user_data)
+static bool
+quit (AGlActor* user_data, GdkModifierType modifiers)
 {
-}
-
-
-static void
-nav_down (gpointer user_data)
-{
-}
-
-
-static void
-zoom_in (gpointer user_data)
-{
-}
-
-
-static void
-zoom_out (gpointer user_data)
-{
+	extern bool running;
+	running = false;
+	return AGL_HANDLED;
 }

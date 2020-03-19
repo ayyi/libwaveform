@@ -30,7 +30,10 @@ void main() {
 	float y = (u_viewport.y + u_viewport.w) - gl_FragCoord.y;
 
 	// TODO if we are always clipping, what is the point of the viewport?
-	if(gl_FragCoord.x < u_clip_rect[0][2] && y < u_clip_rect[0][3])
+	if(
+		gl_FragCoord.x > u_clip_rect[0][0] && gl_FragCoord.x < u_clip_rect[0][0] + u_clip_rect[0][2] &&
+		y > u_clip_rect[0][1] && y < u_clip_rect[0][1] + u_clip_rect[0][3]
+	)
 		gl_FragColor = final_color * diffuse.a;
 	else
 		gl_FragColor = vec4(0.0);

@@ -830,6 +830,11 @@ _agl_actor__on_event(AGlActor* a, GdkEvent* event, AGliPt xy)
 		int i = 0;
 		while(a && i++ < 256){
 			if(a->on_event) return a;
+
+			behaviour_foreach(a)
+				if(behaviour->klass->event) return a;
+			}
+
 			xy->x += a->region.x1;
 			xy->y += a->region.y1;
 			a = a->parent;
@@ -839,16 +844,22 @@ _agl_actor__on_event(AGlActor* a, GdkEvent* event, AGliPt xy)
 
 	AGlActor* h = find_handler_actor(a, &xy);
 	if(h){
-		if(h->on_event(h, event, xy)){
-			return AGL_HANDLED;
-		}
+		do {
+			bool handled = false;
+			behaviour_foreach(a)
+				if(behaviour->klass->event)
+					if(agl_behaviour_event(behaviour, a, event)){
+						handled = true;
+						break;
+					}
+			}
+			if(handled) break;
 
-		while(h->parent){
+			if(h->on_event && (handled = h->on_event(h, event, xy))) break;
+
 			xy.x += h->region.x1;
 			xy.y += h->region.y1;
-			h = h->parent;
-			if(h->on_event && (handled = h->on_event(h, event, xy))) break;
-		}
+		} while((h = h->parent));
 	}
 
 	return handled;
@@ -875,13 +886,13 @@ child_region_hit (AGlActor* actor, AGliPt xy)
 	for(;l;l=l->prev){
 		AGlActor* child = l->data;
 		if(!child->disabled && region_match(&child->region, xy.x, xy.y)){
-			AGlActor* sub = child_region_hit(child, (AGliPt){xy.x - child->region.x1 - child->scrollable.x1, xy.y - child->region.y1});
-			if(sub) return sub;
-			//printf("  match. y=%i y=%i-->%i x=%i-->%i type=%s\n", xy.y, child->region.y1, child->region.y2, child->region.x1, child->region.x2, child->name);
-			return child;
+			return child_region_hit(child, (AGliPt){
+				xy.x - child->region.x1 - child->scrollable.x1,
+				xy.y - child->region.y1
+			});
 		}
 	}
-	return NULL;
+	return actor;
 }
 
 
@@ -901,12 +912,10 @@ agl_actor__on_event (AGlScene* root, GdkEvent* event)
 		case GDK_KEY_RELEASE:
 		case GDK_FOCUS_CHANGE:
 			AGL_DEBUG printf("%s: keypress: key=%i\n", __func__, ((GdkEventKey*)event)->keyval);
-			AGlActor* selected = root->selected;
-			if(selected && selected->on_event){
-				return _agl_actor__on_event(selected, event, (AGliPt){});
+			if(root->selected){
+				return _agl_actor__on_event(root->selected, event, (AGliPt){});
 			}
 			return AGL_NOT_HANDLED;
-		// TODO perhaps clients should unregister for these events instead?
 		case GDK_EXPOSE:
 		case GDK_VISIBILITY_NOTIFY:
 			return AGL_NOT_HANDLED;
@@ -949,7 +958,6 @@ agl_actor__on_event (AGlScene* root, GdkEvent* event)
 	AGlActor* hovered = root->hovered;
 
 	AGlActor* a = child_region_hit(actor, xy);
-	if(!a && actor->on_event) a = actor;  // TODO move into region_hit?
 
 	switch(event->type){
 		case GDK_MOTION_NOTIFY:
@@ -1024,36 +1032,44 @@ agl_actor__on_event (AGlScene* root, GdkEvent* event)
 bool
 agl_actor__xevent (AGlRootActor* scene, XEvent* xevent)
 {
+	static Time previous1 = 0;
+	static Time previous2 = 0;
+
 	switch (xevent->type) {
 		case ButtonPress:
 			{
 				GdkEvent event = {
-					.type = GDK_BUTTON_PRESS, // why gets overwritten?
 					.button = {
+						.type = GDK_BUTTON_PRESS,
 						.x = (double)xevent->xbutton.x,
 						.y = (double)xevent->xbutton.y,
 						.button = xevent->xbutton.button,
 					},
 				};
-				event.type = GDK_BUTTON_PRESS;
+
+				if(xevent->xbutton.time - previous1 < 250){
+					if(xevent->xbutton.time - previous2 < 400)
+						event.button.type = GDK_3BUTTON_PRESS;
+					else
+						event.button.type = GDK_2BUTTON_PRESS;
+				}
 
 				agl_actor__on_event(scene, &event);
+
+				previous2 = previous1;
+				previous1 = xevent->xbutton.time;
 			}
 			break;
 		case ButtonRelease:
-			{
-				GdkEvent event = {
-					.button = {
-						.type = GDK_BUTTON_RELEASE,
-						.x = (double)xevent->xbutton.x,
-						.y = (double)xevent->xbutton.y,
-						.button = xevent->xbutton.button,
-						.state = xevent->xbutton.state,
-					},
-				};
-
-				agl_actor__on_event(scene, &event);
-			}
+			agl_actor__on_event(scene, &(GdkEvent){
+				.button = {
+					.type = GDK_BUTTON_RELEASE,
+					.x = (double)xevent->xbutton.x,
+					.y = (double)xevent->xbutton.y,
+					.button = xevent->xbutton.button,
+					.state = xevent->xbutton.state,
+				},
+			});
 			break;
 		case MotionNotify:
 			{
@@ -1070,22 +1086,19 @@ agl_actor__xevent (AGlRootActor* scene, XEvent* xevent)
 		case KeyPress:
 		case KeyRelease:
 			{
-				GdkEventKey event = {
-					.type = xevent->type == KeyPress ? GDK_KEY_PRESS : GDK_KEY_RELEASE,
-					.state = ((XKeyEvent*)xevent)->state
-				};
 				int code = XLookupKeysym(&xevent->xkey, 0);
-				event.keyval = code;
-				agl_actor__on_event(scene, (GdkEvent*)&event);
+				if(!(code >= 0xffe1 && code <= 0xffee)){ // ignore modifier keys
+					GdkEventKey event = {
+						.type = xevent->type == KeyPress ? GDK_KEY_PRESS : GDK_KEY_RELEASE,
+						.state = ((XKeyEvent*)xevent)->state,
+						.keyval = code
+					};
+					agl_actor__on_event(scene, (GdkEvent*)&event);
+				}
 			}
 			break;
 		case FocusOut:
-			{
-				GdkEvent event = {
-					.type = GDK_FOCUS_CHANGE,
-				};
-				agl_actor__on_event(scene, (GdkEvent*)&event);
-			}
+			agl_actor__on_event(scene, &(GdkEvent){.type = GDK_FOCUS_CHANGE});
 			break;
 	}
 	return AGL_NOT_HANDLED;
@@ -1205,8 +1218,7 @@ agl_actor__pick (AGlActor* actor, AGliPt _pt)
 		pt = (AGlfPt){(float)pt.x + region.x1, y};
 		bool match = region_match(&parent->region, pt.x, pt.y);
 		if(match){
-			AGlActor* child = child_region_hit(parent, (AGliPt){pt.x, pt.y});
-			return child ? child : parent;
+			return child_region_hit(parent, (AGliPt){pt.x, pt.y});
 		}
 		region = parent->region;
 	}

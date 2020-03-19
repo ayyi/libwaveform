@@ -11,6 +11,8 @@ endif
 source_c = \
 	types.h \
 	text_node.c text_node.h \
+	text_input.c text_input.h \
+	text_buffer.c text_buffer.h \
 	pango.c pango.h \
 	glyphcache.c glyphcache.h \
 	textureatlas.c textureatlas.h \

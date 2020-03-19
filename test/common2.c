@@ -14,8 +14,6 @@
 #include "config.h"
 #include <getopt.h>
 #include <time.h>
-#include <unistd.h>
-#include <signal.h>
 #include <sys/time.h>
 #include <sys/types.h>
 #define XLIB_ILLEGAL_ACCESS // needed to access Display internals
@@ -64,7 +62,7 @@ static int  current_time           ();
 	}
 
 void
-set_log_handlers()
+set_log_handlers ()
 {
 	g_log_set_handler (NULL, G_LOG_LEVEL_WARNING | G_LOG_LEVEL_CRITICAL | G_LOG_FLAG_FATAL | G_LOG_FLAG_RECURSION, log_handler, NULL);
 
@@ -359,7 +357,7 @@ agl_make_window (Display* dpy, const char* name, int width, int height, AGlScene
 		.background_pixel = 0,
 		.border_pixel = 0,
 		.colormap = XCreateColormap(dpy, root, agl->xvinfo->visual, AllocNone),
-		.event_mask = StructureNotifyMask | ExposureMask | KeyPressMask
+		.event_mask = StructureNotifyMask | ExposureMask | KeyPressMask | ButtonPressMask | PointerMotionMask | ButtonReleaseMask | FocusChangeMask | EnterWindowMask | LeaveWindowMask
 	};
 	unsigned long mask = CWBackPixel | CWBorderPixel | CWColormap | CWEventMask;
 
@@ -382,8 +380,7 @@ agl_make_window (Display* dpy, const char* name, int width, int height, AGlScene
 
 	if(!windows){
 		GLXContext sharelist = NULL;
-		ctx = glXCreateContext(dpy, agl->xvinfo, sharelist, True);
-		if (!ctx) {
+		if(!(ctx = glXCreateContext(dpy, agl->xvinfo, sharelist, True))){
 			printf("Error: glXCreateContext failed\n");
 			exit(1);
 		}
@@ -489,13 +486,24 @@ draw (Display* dpy, AGlWindow* window)
 }
 
 
+static GHashTable* key_handlers = NULL;
+
+KeyHandler*
+key_lookup (int keycode)
+{
+	return key_handlers ? g_hash_table_lookup(key_handlers, &keycode) : NULL;
+}
+
+
+bool running = 1;
+
 void
 event_loop (Display* dpy)
 {
 	float frame_usage = 0.0;
 	fd_set rfds;
 
-	while (1) {
+	while (running) {
 		FD_ZERO(&rfds);
 		FD_SET(dpy->fd, &rfds);
 		select(dpy->fd + 1, &rfds, NULL, NULL, &(struct timeval){.tv_usec = 50000});
@@ -513,20 +521,26 @@ event_loop (Display* dpy)
 						on_window_resize(dpy, window, event.xconfigure.width, event.xconfigure.height);
 						window->scene->gl.glx.needs_draw = True;
 						break;
+					case ButtonRelease:
+					case ButtonPress:
+					case MotionNotify:
+					case FocusOut:
+						agl_actor__xevent(window->scene, &event);
+						break;
 					case KeyPress: {
 						int code = XLookupKeysym(&event.xkey, 0);
 
-						extern KeyHandler* key_lookup  (int keycode);
 						KeyHandler* handler = key_lookup(code);
 						if(handler){
 							handler(NULL);
 						}else{
-							char buffer[10];
-							XLookupString(&event.xkey, buffer, sizeof(buffer), NULL, NULL);
-							if (buffer[0] == 27 || buffer[0] == 'q') {
-								/* escape */
-								return;
+							if(((XKeyEvent*)&event)->state & GDK_CONTROL_MASK){
+								if (code == 'q') {
+									/* quit */
+									return;
+								}
 							}
+							agl_actor__xevent(window->scene, &event);
 						}
 					}
 				}
@@ -674,7 +688,6 @@ gtk_window (Key keys[], WindowFn content)
 
 	static KeyHold key_hold = {0, NULL};
 	static bool key_down = false;
-	static GHashTable* key_handlers = NULL;
 
 	static gboolean key_hold_on_timeout(gpointer user_data)
 	{
@@ -748,10 +761,4 @@ add_key_handlers (Key keys[])
 	}
 }
 
-
-KeyHandler*
-key_lookup (int keycode)
-{
-	return g_hash_table_lookup(key_handlers, &keycode);
-}
 

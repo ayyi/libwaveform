@@ -353,7 +353,7 @@ ops_push_clip (RenderOpBuilder* self, const AGlRoundedRect* clip)
 	self->clip.current = &g_array_index (self->clip.stack, AGlRoundedRect, self->clip.stack->len - 1);
 	ops_set_clip (self, clip);
 
-	dbg(2, "%i-->%i w=%.0f h=%.0f", len, self->clip.stack->len, self->clip.current->bounds.size.width, self->clip.current->bounds.size.height);
+	dbg(2, "%i-->%i %.0f,%0.f w=%.0f h=%.0f", len, self->clip.stack->len, self->clip.current->bounds.origin.x, self->clip.current->bounds.origin.y, self->clip.current->bounds.size.width, self->clip.current->bounds.size.height);
 }
 
 

@@ -20,6 +20,7 @@ typedef struct _AGlBehaviour AGlBehaviour;
 typedef AGlBehaviour* (*AGlBehaviourNew)   ();
 typedef void          (*AGlBehaviourFn)    (AGlBehaviour*);
 typedef void          (*AGlBehaviourInit)  (AGlBehaviour*, AGlActor*);
+typedef bool          (*AGlBehaviourEvent) (AGlBehaviour*, AGlActor*, GdkEvent*);
 typedef bool          (*AGlBehaviourDraw)  (AGlBehaviour*, AGlActor*, AGlActorPaint);
 
 typedef struct
@@ -27,6 +28,7 @@ typedef struct
     AGlBehaviourNew      new;
     AGlBehaviourFn       free;
     AGlBehaviourInit     init;
+    AGlBehaviourEvent    event;
     AGlBehaviourDraw     draw;
 } AGlBehaviourClass;
 
@@ -36,5 +38,12 @@ struct _AGlBehaviour
 };
 
 #define agl_behaviour_init(B, A) ((B)->klass->init((B), A))
+#define agl_behaviour_event(B, A, E) ((B)->klass->event((B), A, E))
+
+#define behaviour_foreach(A) \
+			for(int i = 0; i < AGL_ACTOR_N_BEHAVIOURS; i++){ \
+				AGlBehaviour* behaviour = A->behaviours[i]; \
+				if(!behaviour) \
+					break;
 
 #endif
