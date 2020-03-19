@@ -75,7 +75,11 @@ main (int argc, char *argv[])
 
 	agl_actor__add_child((AGlActor*)scene, layers.input = text_input(NULL));
 	layers.input->region = (AGlfRegion){15, 15, .x2 = 380, .y2 = 120};
+#if 0
 	text_input_set_text((TextInput*)layers.input, g_strdup("Hello world"));
+#else
+	text_input_set_placeholder((TextInput*)layers.input, "Search");
+#endif
 	agl_observable_set(((TextInput*)layers.input)->font, 32);
 
 	scene->selected = layers.input;

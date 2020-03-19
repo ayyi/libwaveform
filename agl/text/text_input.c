@@ -87,12 +87,13 @@ static PangoLayout* text_input_create_layout_no_cache (TextInput*, gint width, g
 static inline void  text_input_ensure_cursor_position (TextInput*);
 static void         selection_paint                   (TextInput*);
 static TextBuffer*  get_buffer                        (TextInput*);
-static void         text_input_dirty_cache          (TextInput*);
-static void         text_input_get_preferred_width  (TextInput*, gfloat for_height, gfloat* min_width_p, gfloat* natural_width_p);
-static void         text_input_get_preferred_height (TextInput*, gfloat for_height, gfloat* min_width_p, gfloat* natural_width_p);
-static void         text_input_allocate             (TextInput*);
-static void         text_input_real_insert_text     (TextInput*, guint start_pos, const gchar*, guint n_chars);
-static void         text_input_key_focus_change     (TextInput*);
+static void         text_input_dirty_cache            (TextInput*);
+static void         text_input_get_preferred_width    (TextInput*, gfloat for_height, gfloat* min_width_p, gfloat* natural_width_p);
+static void         text_input_get_preferred_height   (TextInput*, gfloat for_height, gfloat* min_width_p, gfloat* natural_width_p);
+static void         text_input_allocate               (TextInput*);
+static void         text_input_real_insert_text       (TextInput*, guint start_pos, const gchar*, guint n_chars);
+static void         text_input_key_focus_change       (TextInput*);
+static bool         text_input_is_empty               (TextInput*);
 
 
 static TextInputActorClass actor_class = {{0, "Text", (AGlActorNew*)text_input, text_input_free}};
@@ -201,6 +202,8 @@ struct _TextInputPrivate
 
 	guint preedit_cursor_pos;
 	gint preedit_n_chars;
+
+	gchar* placeholder;
 
 	uint32_t selection_color;
 
@@ -377,6 +380,9 @@ text_input_free (AGlActor* actor)
 	if (priv->preedit_attrs)
 		pango_attr_list_unref (priv->preedit_attrs);
 
+	if(priv->placeholder)
+		g_free(priv->placeholder);
+
 	text_input_set_buffer (self, NULL);
 	g_free (priv->font_name);
 
@@ -392,7 +398,7 @@ text_input_draw (AGlActor* actor)
 
 	PangoLayout* layout = text_input_create_layout_no_cache (input, agl_actor__width(actor), agl_actor__height(actor), PANGO_ELLIPSIZE_NONE);
 
-	agl_pango_show_layout (layout, 0, 0, 0., priv->text_color);
+	agl_pango_show_layout (layout, 0, 0, 0., text_input_is_empty(input) ? 0x777777ff : priv->text_color);
 
 	if (priv->editable && priv->cursor_visible)
 		text_input_ensure_cursor_position (input);
@@ -493,12 +499,12 @@ static bool
 text_input_is_empty (TextInput* self)
 {
 	if (self->priv->buffer == NULL)
-		return TRUE;
+		return true;
 
 	if (agl_text_buffer_get_length (self->priv->buffer) == 0)
-		return TRUE;
+		return true;
 
-	return FALSE;
+	return false;
 }
 
 
@@ -512,7 +518,7 @@ text_input_get_display_text (TextInput* self)
 	 * notifications with it
 	 */
 	if (text_input_is_empty (self))
-		return g_strdup ("");
+		return g_strdup(priv->placeholder ? priv->placeholder : "");
 
 	TextBuffer* buffer = get_buffer (self);
 	const gchar* text = agl_text_buffer_get_text (buffer);
@@ -3605,6 +3611,18 @@ text_input_set_preedit_string (TextInput* self, const gchar* preedit_str, PangoA
 	}
 
 	text_input_dirty_cache (self);
+	agl_actor__invalidate ((AGlActor*)self);
+}
+
+
+void
+text_input_set_placeholder (TextInput* self, const gchar* placeholder)
+{
+	TextInputPrivate* priv = self->priv;
+
+	g_free(priv->placeholder);
+	priv->placeholder = g_strdup(placeholder);
+
 	agl_actor__invalidate ((AGlActor*)self);
 }
 

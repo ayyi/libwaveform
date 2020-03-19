@@ -126,6 +126,7 @@ gint                  text_input_coords_to_position      (TextInput*, gfloat x, 
 bool                  text_input_position_to_coords      (TextInput*, gint position, gfloat* x, gfloat* y, gfloat* line_height);
 
 void                  text_input_set_preedit_string      (TextInput*, const gchar* preedit_str, PangoAttrList* preedit_attrs, guint cursor_pos);
+void                  text_input_set_placeholder         (TextInput*, const gchar*);
 
 void                  text_input_get_layout_offsets      (TextInput*, gint* x, gint* y);
 

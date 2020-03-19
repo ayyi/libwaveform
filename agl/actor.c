@@ -1086,12 +1086,14 @@ agl_actor__xevent (AGlRootActor* scene, XEvent* xevent)
 		case KeyPress:
 		case KeyRelease:
 			{
-				int code = XLookupKeysym(&xevent->xkey, 0);
-				if(!(code >= 0xffe1 && code <= 0xffee)){ // ignore modifier keys
+				KeySym key;
+				XLookupString(&xevent->xkey, NULL, 0, &key, NULL);
+
+				if(!(key >= 0xffe1 && key <= 0xffee)){ // ignore modifier keys
 					GdkEventKey event = {
 						.type = xevent->type == KeyPress ? GDK_KEY_PRESS : GDK_KEY_RELEASE,
 						.state = ((XKeyEvent*)xevent)->state,
-						.keyval = code
+						.keyval = key
 					};
 					agl_actor__on_event(scene, (GdkEvent*)&event);
 				}
