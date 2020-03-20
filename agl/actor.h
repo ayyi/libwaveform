@@ -155,6 +155,8 @@ AGlActorClass*
 
 void      agl_actor_class__add_behaviour
                                      (AGlActorClass*, AGlBehaviourClass*);
+AGlBehaviour*
+          agl_actor__get_behaviour   (AGlActor*, AGlBehaviourClass*);
 
 #ifdef DEBUG
 void      agl_actor__print_tree      (AGlActor*);

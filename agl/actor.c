@@ -845,13 +845,13 @@ _agl_actor__on_event(AGlActor* a, GdkEvent* event, AGliPt xy)
 	AGlActor* h = find_handler_actor(a, &xy);
 	if(h){
 		do {
-			bool handled = false;
-			behaviour_foreach(a)
-				if(behaviour->klass->event)
-					if(agl_behaviour_event(behaviour, a, event)){
+			behaviour_foreach(h)
+				if(behaviour->klass->event){
+					if(agl_behaviour_event(behaviour, h, event)){
 						handled = true;
 						break;
 					}
+				}
 			}
 			if(handled) break;
 
@@ -1549,6 +1549,20 @@ agl_actor_class__add_behaviour (AGlActorClass* K, AGlBehaviourClass* B)
 			break;
 		}
 	}
+}
+
+
+AGlBehaviour*
+agl_actor__get_behaviour (AGlActor* actor, AGlBehaviourClass* klass)
+{
+	for(int i = 0; i < AGL_ACTOR_N_BEHAVIOURS; i++){
+		AGlBehaviour* behaviour = actor->behaviours[i];
+		if(!behaviour)
+			break;
+		if(behaviour->klass == klass)
+			return behaviour;
+	}
+	return NULL;
 }
 
 
