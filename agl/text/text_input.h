@@ -130,6 +130,8 @@ void                  text_input_set_placeholder         (TextInput*, const gcha
 
 void                  text_input_get_layout_offsets      (TextInput*, gint* x, gint* y);
 
+gfloat                text_input_get_height              (TextInput*);
+
 G_END_DECLS
 
 #endif

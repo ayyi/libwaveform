@@ -1528,6 +1528,10 @@ text_input_key_press (TextInput* self, GdkEvent* event)
 	if(e->keyval == XK_Escape)
 		return AGL_NOT_HANDLED;
 
+	if(e->keyval == 65293 && priv->single_line_mode){
+		return AGL_NOT_HANDLED;
+	}
+
 	if ((e->state & GDK_CONTROL_MASK) == 0) {
 		/* truncate the eventual selection so that the
 		 * new character can replace it
@@ -1535,17 +1539,19 @@ text_input_key_press (TextInput* self, GdkEvent* event)
 		text_input_delete_selection (self);
 
 		char buffer[8] = {e->keyval,};
-		text_input_real_insert_text (self, priv->position, buffer, 1);
+		if(g_utf8_validate(buffer, 1, NULL)){
+			text_input_real_insert_text (self, priv->position, buffer, 1);
 
-		if (priv->show_password_hint) {
-			if (priv->password_hint_id != 0)
-				g_source_remove (priv->password_hint_id);
+			if (priv->show_password_hint) {
+				if (priv->password_hint_id != 0)
+					g_source_remove (priv->password_hint_id);
 
-			priv->password_hint_visible = true;
-			priv->password_hint_id = g_timeout_add (priv->password_hint_timeout, text_input_remove_password_hint, self);
+				priv->password_hint_visible = true;
+				priv->password_hint_id = g_timeout_add (priv->password_hint_timeout, text_input_remove_password_hint, self);
+			}
+
+			return AGL_HANDLED;
 		}
-
-		return AGL_HANDLED;
 	}
 
 	return AGL_NOT_HANDLED;
@@ -1598,17 +1604,12 @@ text_input_get_preferred_height (TextInput* self, gfloat for_width, gfloat* min_
 		if (natural_height_p)
 			*natural_height_p = 0;
 	} else {
-		PangoLayout* layout;
-		PangoRectangle logical_rect = {
-		    0,
-		};
-		gint logical_height;
-		gfloat layout_height;
+		PangoRectangle logical_rect = {0,};
 
 		if (priv->single_line_mode)
 			for_width = -1;
 
-		layout = text_input_create_layout (self, for_width, -1);
+		PangoLayout* layout = text_input_create_layout (self, for_width, -1);
 
 		pango_layout_get_extents (layout, NULL, &logical_rect);
 
@@ -1616,8 +1617,8 @@ text_input_get_preferred_height (TextInput* self, gfloat for_width, gfloat* min_
 		 * according to the Pango documentation; hence, we need to offset
 		 * the height accordingly
 		 */
-		logical_height = logical_rect.y + logical_rect.height;
-		layout_height = ceilf (logical_height / 1024.0f);
+		gint logical_height = logical_rect.y + logical_rect.height;
+		gfloat layout_height = ceilf (logical_height / 1024.0f);
 
 		if (min_height_p) {
 			/* if we wrap and ellipsize then the minimum height is
@@ -1641,6 +1642,20 @@ text_input_get_preferred_height (TextInput* self, gfloat for_width, gfloat* min_
 		if (natural_height_p)
 			*natural_height_p = layout_height;
 	}
+}
+
+
+gfloat
+text_input_get_height (TextInput* self)
+{
+	PangoRectangle logical_rect = {0,};
+
+	pango_layout_get_extents (text_input_get_layout (self), NULL, &logical_rect);
+
+	gint logical_height = logical_rect.y + logical_rect.height;
+	gfloat layout_height = ceilf (logical_height / 1024.0f);
+
+	return layout_height;
 }
 
 
