@@ -18,6 +18,7 @@ extern int wf_debug;
 #ifndef __ayyi_debug_h__
 #define __ayyi_debug_h__
 
+#include <stdio.h>
 #include <inttypes.h>
 #include <sys/time.h>
 

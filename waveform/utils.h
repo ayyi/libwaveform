@@ -33,7 +33,9 @@
 #define g_free0(var) ((var == NULL) ? NULL : (var = (g_free(var), NULL)))
 #endif
 
+#ifndef call
 #define call(FN, A, ...) if(FN) (FN)(A, ##__VA_ARGS__)
+#endif
 #define WF_NEW(T, ...) ({T* obj = g_new0(T, 1); *obj = (T){__VA_ARGS__}; obj;})
 
 #include "waveform/typedefs.h"

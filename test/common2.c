@@ -636,7 +636,7 @@ current_time(void)
  * extension.
  */
 void
-show_refresh_rate(Display* dpy)
+show_refresh_rate (Display* dpy)
 {
 #if defined(GLX_OML_sync_control) && defined(__STDC_VERSION__) && (__STDC_VERSION__ >= 199901L)
 	int32_t  n;

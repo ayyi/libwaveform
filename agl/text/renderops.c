@@ -690,10 +690,10 @@ ops_draw (RenderOpBuilder* builder, const GskQuadVertex vertex_data[GL_N_VERTICE
 {
 	OpDraw* op;
 
-	if ((op = op_buffer_peek_tail_checked (&builder->render_ops, OP_DRAW))) {
+	if ((op = op_buffer_peek_tail_checked (&builder->render_ops, AGL_OP_DRAW))) {
 		op->vao_size += GL_N_VERTICES;
 	} else {
-		op = op_buffer_add (&builder->render_ops, OP_DRAW);
+		op = op_buffer_add (&builder->render_ops, AGL_OP_DRAW);
 		op->vao_offset = builder->vertices->len;
 		op->vao_size = GL_N_VERTICES;
 	}

@@ -390,7 +390,7 @@ renderer_render_ops (RenderOpBuilder* builder)
 	op_buffer_iter_init (&iter, ops_get_buffer (builder));
 	gpointer ptr;
 	while ((ptr = op_buffer_iter_next (&iter, &kind))) {
-		if (kind == OP_NONE)
+		if (kind == AGL_OP_NONE)
 			continue;
 
 		if (program == NULL &&
@@ -501,7 +501,7 @@ renderer_render_ops (RenderOpBuilder* builder)
 				break;
 			#endif
 
-			case OP_DRAW: {
+			case AGL_OP_DRAW: {
 				const OpDraw* op = ptr;
 
 				OP_PRINT (" -> draw %ld, size %ld and program %d", op->vao_offset, op->vao_size, program->index);
@@ -528,7 +528,7 @@ renderer_render_ops (RenderOpBuilder* builder)
 				//gdk_gl_context_pop_debug_group (self->gl_context);
 				break;
 
-			case OP_NONE:
+			case AGL_OP_NONE:
 			case OP_LAST:
 			default:
 				g_warn_if_reached ();

@@ -135,8 +135,7 @@ wf_transition_add_member (WfAnimation* animation, GList* animatables)
 #endif
 
 	//TODO do this in animation_start instead.
-	l = animatables;
-	for(;l;l=l->next){
+	for(l=animatables;l;l=l->next){
 		WfAnimatable* a = l->data;
 		a->start_val.f = *a->val.f;
 	}
@@ -195,8 +194,7 @@ wf_animation_list_animatables (WfAnimation* animation)
 void
 wf_animation_remove (WfAnimation* animation)
 {
-	GList* l = animation->members;
-	for(;l;l=l->next){
+	for(GList* l=animation->members;l;l=l->next){
 		WfAnimActor* aa = l->data;
 		if(animation->on_finish) animation->on_finish(animation, animation->user_data); //arg2 is unnecesary
 		transitions = g_list_remove(transitions, animation);
@@ -224,11 +222,15 @@ wf_animation_remove (WfAnimation* animation)
 }
 
 
-gboolean
+/*
+ *  Remove the animatable from the animation.
+ *  If this causes the animation to become empty, the animation will be freed.
+ *
+ *  Return true if the animation is freed.
+ */
+bool
 wf_animation_remove_animatable (WfAnimation* animation, WfAnimatable* animatable)
 {
-	// returns true if the whole animation is removed.
-
 #ifdef WF_DEBUG_ANIMATOR
 	if(/*wf_debug &&*/ !g_list_find(animations, animation)){
 		dbg(0, "*** animation not found %p ***", animation);
@@ -236,6 +238,7 @@ wf_animation_remove_animatable (WfAnimation* animation, WfAnimatable* animatable
 		return false;
 	}
 #endif
+
 	GList* m = animation->members;
 	dbg(2, "animation=%p n_members=%i", animation, g_list_length(m));
 	for(;m;m=m->next){

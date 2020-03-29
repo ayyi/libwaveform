@@ -201,8 +201,10 @@ agl_actor__new_root_(ContextType type)
 
 
 void
-agl_actor__free(AGlActor* actor)
+agl_actor__free (AGlActor* actor)
 {
+	g_return_if_fail(actor);
+
 	GList* l = actor->children;
 	for(;l;l=l->next){
 		AGlActor* child = l->data;
@@ -1460,6 +1462,7 @@ agl_actor__start_transition (AGlActor* actor, GList* animatables, AnimationFn do
 		wf_transition_add_member(animation, animatables);
 		wf_animation_start(animation);
 		agl_actor__enable_cache(actor, false);
+
 		return animation;
 	}
 
@@ -1471,7 +1474,7 @@ agl_actor__start_transition (AGlActor* actor, GList* animatables, AnimationFn do
  *  Will be removed - use agl_actor__find_offset instead
  */
 static AGliPt
-_agl_actor__find_offset(AGlActor* a)
+_agl_actor__find_offset (AGlActor* a)
 {
 	AGliPt of = {0, 0};
 	do {
@@ -1486,7 +1489,7 @@ _agl_actor__find_offset(AGlActor* a)
  *  Return the distance from the actor top left to the root top left
  */
 AGliPt
-agl_actor__find_offset(AGlActor* a)
+agl_actor__find_offset (AGlActor* a)
 {
 	AGliPt of = {0, 0};
 	do {

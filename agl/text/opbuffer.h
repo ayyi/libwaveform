@@ -23,7 +23,7 @@ typedef struct _Program Program;
 
 typedef enum
 {
-  OP_NONE                              =  0,
+  AGL_OP_NONE                          =  0,
   OP_CHANGE_OPACITY                    =  1,
   OP_CHANGE_COLOR                      =  2,
   OP_CHANGE_PROJECTION                 =  3,
@@ -47,7 +47,7 @@ typedef enum
   OP_CHANGE_CROSS_FADE                 = 19,
   OP_CHANGE_UNBLURRED_OUTSET_SHADOW    = 20,
   OP_CLEAR                             = 21,
-  OP_DRAW                              = 22,
+  AGL_OP_DRAW                          = 22,
   OP_DUMP_FRAMEBUFFER                  = 23,
   OP_PUSH_DEBUG_GROUP                  = 24,
   OP_POP_DEBUG_GROUP                   = 25,
@@ -211,7 +211,7 @@ op_buffer_iter_init (OpBufferIter* iter, OpBuffer* buffer)
 {
 	iter->index = buffer->index;
 	iter->buffer = buffer;
-	iter->pos = 1; /* Skip first OP_NONE */
+	iter->pos = 1; /* Skip first AGL_OP_NONE */
 }
 
 
@@ -233,7 +233,7 @@ op_buffer_iter_next (OpBufferIter* iter, OpKind* kind)
 static inline void
 op_buffer_pop_tail (OpBuffer* buffer)
 {
-	/* Never truncate the first OP_NONE */
+	/* Never truncate the first AGL_OP_NONE */
 	if G_LIKELY (buffer->index->len > 0)
 		buffer->index->len--;
 }

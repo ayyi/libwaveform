@@ -27,11 +27,13 @@ void main() {
 	//setOutputColor(final_color * diffuse.a);
 
 	// TODO fix projection so y origin is not the bottom of window
-	float y = (u_viewport.y + u_viewport.w) - gl_FragCoord.y;
+	float x = u_viewport.x + gl_FragCoord.x;
+	float y = u_viewport.y + u_viewport.w - gl_FragCoord.y;
 
 	// TODO if we are always clipping, what is the point of the viewport?
+	// -fragcoord is relative to viewport?
 	if(
-		gl_FragCoord.x > u_clip_rect[0][0] && gl_FragCoord.x < u_clip_rect[0][0] + u_clip_rect[0][2] &&
+		x > u_clip_rect[0][0] && x < u_clip_rect[0][0] + u_clip_rect[0][2] &&
 		y > u_clip_rect[0][1] && y < u_clip_rect[0][1] + u_clip_rect[0][3]
 	)
 		gl_FragColor = final_color * diffuse.a;

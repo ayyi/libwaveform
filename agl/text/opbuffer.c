@@ -91,7 +91,7 @@ op_buffer_init (OpBuffer* buffer)
 	};
 
 	/* Add dummy entry to guarantee non-empty index */
-	op_buffer_add (buffer, OP_NONE);
+	op_buffer_add (buffer, AGL_OP_NONE);
 }
 
 
