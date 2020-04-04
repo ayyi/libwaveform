@@ -890,7 +890,7 @@ child_region_hit (AGlActor* actor, AGliPt xy)
 		if(!child->disabled && region_match(&child->region, xy.x, xy.y)){
 			return child_region_hit(child, (AGliPt){
 				xy.x - child->region.x1 - child->scrollable.x1,
-				xy.y - child->region.y1
+				xy.y - child->region.y1 - child->scrollable.y1
 			});
 		}
 	}

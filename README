@@ -2,7 +2,7 @@ Overview
 --------
 
 Libwaveform attempts to provide versatile easy-to-use interactive display
-of audio waveforms for Gtk+-2 applications. Suitable for anything from simple
+of audio waveforms for Gtk+-2 and X11 applications. Suitable for anything from simple
 display, up to a full digital audio workstation.
 
 Efficiency:
