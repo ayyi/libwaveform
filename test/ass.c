@@ -27,8 +27,7 @@
 #include <gdk/gdkkeysyms.h>
 #include <ass/ass.h>
 #include "agl/utils.h"
-#include "waveform/debug.h"
-#include "waveform/waveform.h"
+#include "waveform/actor.h"
 #define __wf_private__
 #include "test/common2.h"
 

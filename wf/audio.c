@@ -26,14 +26,14 @@
 */
 #define __waveform_peak_c__
 #include "config.h"
-#include <gtk/gtk.h>
+#include <glib.h>
 #define __wf_private__
 #include "decoder/ad.h"
-#include "waveform/debug.h"
-#include "waveform/waveform.h"
+#include "wf/debug.h"
+#include "wf/waveform.h"
 #define __wf_worker_private__
-#include "waveform/worker.h"
-#include "waveform/audio.h"
+#include "wf/worker.h"
+#include "wf/audio.h"
 
 																											int n_loads[4096];
 

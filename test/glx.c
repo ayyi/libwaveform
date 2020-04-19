@@ -18,9 +18,8 @@
 #include "gdk/gdk.h"
 #include "agl/ext.h"
 #define __wf_private__
-#include "agl/actor.h"
-#include "waveform/debug.h"
-#include "waveform/waveform.h"
+#include "wf/waveform.h"
+#include "waveform/actor.h"
 #include "waveform/actors/background.h"
 #define __glx_test__
 #include "test/common2.h"
@@ -175,7 +174,7 @@ static void
 zoom_in (gpointer user_data)
 {
 	PF0;
-	WaveformContext* wfc = layers.wa->canvas;
+	WaveformContext* wfc = layers.wa->context;
 	wf_context_set_zoom(wfc, (wfc->scaled ? wf_context_get_zoom(wfc) : 1.0) * 1.5);
 }
 
@@ -184,7 +183,7 @@ static void
 zoom_out (gpointer user_data)
 {
 	PF0;
-	WaveformContext* wfc = layers.wa->canvas;
+	WaveformContext* wfc = layers.wa->context;
 	wf_context_set_zoom(wfc, (wfc->scaled ? wf_context_get_zoom(wfc) : 1.0) / 1.5);
 }
 

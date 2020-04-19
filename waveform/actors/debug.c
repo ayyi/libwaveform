@@ -17,7 +17,7 @@
 #include "config.h"
 #include "agl/actor.h"
 #include "agl/behaviours/border.h"
-#include "waveform/debug.h"
+#include "wf/debug.h"
 #include "waveform/shader.h"
 #include "waveform/actors/debug.h"
 

@@ -82,7 +82,7 @@ hi_free_gl1 (Renderer* renderer, Waveform* w)
 			modes[MODE_HI].renderer->load_block(modes[MODE_HI].renderer, a, b);
 
 			//TODO check this block is within current viewport
-			if(((AGlActor*)a)->root && ((AGlActor*)a)->root->draw) wf_canvas_queue_redraw(a->canvas);
+			if(((AGlActor*)a)->root && ((AGlActor*)a)->root->draw) wf_canvas_queue_redraw(a->context);
 		}
 	}
 
@@ -185,7 +185,7 @@ hi_gl1_load_block (Renderer* renderer, WaveformActor* a, int block)
 		if(wf_debug > 1) _wf_actor_print_hires_textures(a);
 
 		//TODO check this block is within current viewport
-		if(((AGlActor*)a)->root->draw) wf_canvas_queue_redraw(a->canvas);
+		if(((AGlActor*)a)->root->draw) wf_canvas_queue_redraw(a->context);
 	}
 }
 
@@ -388,7 +388,7 @@ draw_wave_buffer_hi_gl1 (Renderer* renderer, WaveformActor* actor, int b, bool i
 
 	Waveform* w = actor->waveform;
 	WfActorPriv* _a = actor->priv;
-	WaveformContext* wfc = actor->canvas;
+	WaveformContext* wfc = actor->context;
 	RenderInfo* r  = &_a->render_info;
 	HiRenderer* hr = (HiRenderer*)renderer;
 	WfRectangle* rect = &r->rect;
@@ -550,7 +550,7 @@ hi_gl1_render_block (Renderer* renderer, WaveformActor* actor, int b, gboolean i
 	//if we dont subdivide the blocks, size will be 256 x 16 = 4096. TODO intel 945 has max size of 2048
 	//-it works but is the large texture size causing performance issues?
 
-	WaveformContext* wfc = actor->canvas;
+	WaveformContext* wfc = actor->context;
 	RenderInfo* r  = &actor->priv->render_info;
 	WfRectangle* rect = &r->rect;
 

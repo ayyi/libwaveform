@@ -12,8 +12,8 @@
 /**
  *  common code for automated tests - move stuff for non-automated tests to common2.h
  */
-#include "waveform/debug.h"
-#include "waveform/waveform.h"
+#include "wf/debug.h"
+#include "wf/waveform.h"
 #include "test/common2.h"
 
 #define TIMER_CONTINUE TRUE

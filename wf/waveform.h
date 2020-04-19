@@ -20,17 +20,9 @@ extern "C" {
 #include <stdbool.h>
 #include <glib.h>
 #include <glib-object.h>
-#include <gdk-pixbuf/gdk-pixbuf.h>
-#include "waveform/typedefs.h"
-#ifdef USE_GDK_PIXBUF
-#ifdef USE_GTK
-#include <gtk/gtk.h>
-#else
-#include <gdk/gdk.h>
-#endif
-#endif
-#include "waveform/utils.h"
-#include "waveform/promise.h"
+#include "wf/typedefs.h"
+#include "wf/utils.h"
+#include "wf/promise.h"
 
 G_BEGIN_DECLS
 
@@ -81,11 +73,13 @@ struct _Waveform
 	char*              filename;          // either full path, or relative to cwd.
 	uint64_t           n_frames;          // audio file size
 	int                n_channels;
-	gboolean           is_split;          // true for split stereo files
+	bool               is_split;          // true for split stereo files
 	int                samplerate;
 
-	gboolean           offline;
-	gboolean           renderable;
+	bool               offline;
+	bool               renderable;
+
+	WfCallback4        free_render_data;
 
 	WaveformPrivate*   priv;
 };
@@ -133,23 +127,12 @@ void       waveform_load_audio           (Waveform*, int block_num, int n_tiers_
 void       waveform_load_audio_sync      (Waveform*, int block_num, int n_tiers_needed);
 short      waveform_find_max_audio_level (Waveform*);
 
-typedef void (WfPixbufCallback)(Waveform*, GdkPixbuf*, gpointer);
-
-void       waveform_peak_to_pixbuf       (Waveform*, GdkPixbuf*, WfSampleRegion*, uint32_t colour, uint32_t bg_colour, bool single);
-void       waveform_peak_to_pixbuf_async (Waveform*, GdkPixbuf*, WfSampleRegion*, uint32_t colour, uint32_t bg_colour, WfPixbufCallback, gpointer);
-void       waveform_peak_to_pixbuf_full  (Waveform*, GdkPixbuf*, uint32_t src_inset, int* start, int* end, double samples_per_px, uint32_t colour, uint32_t bg_colour, float gain, bool single);
-void       waveform_rms_to_pixbuf        (Waveform*, GdkPixbuf*, uint32_t src_inset, int* start, int* end, double samples_per_px, uint32_t colour, uint32_t bg_colour, float gain);
-
 int32_t    wf_get_peakbuf_len_frames     ();
 
 #ifdef __wf_private__
 typedef struct { WfCallback3 callback; gpointer user_data; } WfClosure;
 
-#include "wf_private.h"
-#endif
-
-#ifdef __gl_h_
-#include "waveform/actor.h"
+#include "wf/private.h"
 #endif
 
 #ifndef __waveform_peak_c__

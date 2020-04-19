@@ -1,7 +1,7 @@
 /**
 * +----------------------------------------------------------------------+
 * | This file is part of the Ayyi project. http://ayyi.org               |
-* | copyright (C) 2013-2019 Tim Orford <tim@orford.org>                  |
+* | copyright (C) 2013-2020 Tim Orford <tim@orford.org>                  |
 * +----------------------------------------------------------------------+
 * | This program is free software; you can redistribute it and/or modify |
 * | it under the terms of the GNU General Public License version 3       |
@@ -23,7 +23,7 @@
 #include <math.h>
 #include <sys/time.h>
 #include <GL/gl.h>
-#include "waveform/waveform.h"
+#include "waveform/actor.h"
 #include "waveform/actors/grid.h"
 
 typedef struct {
@@ -34,18 +34,18 @@ typedef struct {
 
 static AGl* agl = NULL;
 
-static bool grid_actor_paint(AGlActor*);
+static bool grid_actor_paint (AGlActor*);
 
 
 static void
-grid_actor_size(AGlActor* actor)
+grid_actor_size (AGlActor* actor)
 {
 	actor->region = actor->parent->region;
 }
 
 
 static void
-grid_actor_init(AGlActor* actor)
+grid_actor_init (AGlActor* actor)
 {
 	if(agl->use_shaders){
 		agl_create_program(&((GridActor*)actor)->context->shaders.ruler->shader);
@@ -57,7 +57,7 @@ grid_actor_init(AGlActor* actor)
 
 
 AGlActor*
-grid_actor(WaveformActor* wf_actor)
+grid_actor (WaveformActor* wf_actor)
 {
 	g_return_val_if_fail(wf_actor, NULL);
 
@@ -71,7 +71,7 @@ grid_actor(WaveformActor* wf_actor)
 			.set_size = grid_actor_size,
 		},
 		.wf_actor = wf_actor,
-		.context = wf_actor->canvas,
+		.context = wf_actor->context,
 	);
 
 	return (AGlActor*)grid;
@@ -79,7 +79,7 @@ grid_actor(WaveformActor* wf_actor)
 
 
 static bool
-grid_actor_paint(AGlActor* actor)
+grid_actor_paint (AGlActor* actor)
 {
 	// Draw a vertical line every 1 second.
 

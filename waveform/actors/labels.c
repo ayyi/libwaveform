@@ -17,8 +17,7 @@
 #include <string.h>
 #include <math.h>
 #include <sys/time.h>
-#include <GL/gl.h>
-#include "waveform/waveform.h"
+#include "waveform/actor.h"
 #include "waveform/actors/labels.h"
 
 typedef struct {

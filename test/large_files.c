@@ -29,9 +29,8 @@
 #include <glib/gstdio.h>
 #include <sndfile.h>
 #include <agl/utils.h>
-#include "waveform/debug.h"
-#include "waveform/audio.h"
-#include "waveform/peakgen.h"
+#include "wf/audio.h"
+#include "wf/peakgen.h"
 #include "test/common.h"
 
 TestFn create_large_files, test_audiodata, test_load, delete_large_files;

@@ -13,21 +13,13 @@
 #define __wf_private_h__
 
 #include <math.h>
-#ifndef __GTK_H__
 #ifdef USE_GDK_PIXBUF
 #include "limits.h"
-#ifdef USE_GTK
-#include <gtk/gtk.h>
-#else
-#include <gdk/gdk.h>
-#endif
 #else
 #define GdkColor void
 #endif
-#endif
 
-#include "agl/fbo.h"
-#include "waveform/waveform.h"
+#include "wf/waveform.h"
 
 #define WF_PEAK_BLOCK_SIZE (256 * 256) // the number of audio frames per block (64k)
 #define WF_CACHE_BUF_SIZE (1 << 15)
@@ -150,23 +142,6 @@ struct _wf
 	WfWorker        audio_worker;
 };
 
-//TODO refactor based on _texture_hi (eg reverse order of indirection)
-struct _wf_texture_list                   // WfGlBlock - used at MED and LOW resolutions in gl1 mode.
-{
-	int             size;
-	struct {
-		unsigned*   main;                 // array of texture id
-		unsigned*   neg;                  // array of texture id - only used in shader mode.
-	}               peak_texture[WF_MAX_CH];
-	AGlFBO**        fbo;
-#ifdef USE_FX
-	AGlFBO**        fx_fbo;
-#endif
-#ifdef WF_SHOW_RMS
-	unsigned*       rms_texture;
-#endif
-};
-
 /*
  *  Textures
  *
@@ -236,19 +211,9 @@ void           waveform_peakbuf_free       (Peakbuf*);
 int            waveform_get_n_audio_blocks (Waveform*);
 void           waveform_print_blocks       (Waveform*);
 
-void           waveform_peak_to_alphabuf   (Waveform*, AlphaBuf*, int scale, int* start, int* end, GdkColor*);
-void           waveform_peak_to_alphabuf_hi(Waveform*, AlphaBuf*, int block, WfSampleRegion, GdkColor*);
-void           waveform_rms_to_alphabuf    (Waveform*, AlphaBuf*, int* start, int* end, double samples_per_px, GdkColor* colour, uint32_t colour_bg);
-
-void           waveform_free_render_data   (Waveform*);
-
 void           waveform_audio_free         (Waveform*);
 
 WfTextureHi*   waveform_texture_hi_new     ();
 void           waveform_texture_hi_free    (WfTextureHi*);
-
-WaveformActor* wf_actor_new                (Waveform*, WaveformContext*);
-
-float          wf_canvas_gl_to_px          (WaveformContext*, float x);
 
 #endif

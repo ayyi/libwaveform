@@ -13,9 +13,10 @@
 #define __wf_private__
 #include "config.h"
 #include <sys/time.h>
-#include <GL/gl.h>
-#include "waveform/debug.h"
-#include "waveform/waveform.h"
+#include "agl/actor.h"
+#include "agl/shader.h"
+#include "wf/debug.h"
+#include "wf/waveform.h"
 #include "waveform/actors/background.h"
 
 static AGl* agl = NULL;

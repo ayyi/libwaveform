@@ -1,7 +1,7 @@
 /**
 * +----------------------------------------------------------------------+
 * | This file is part of the Ayyi project. http://ayyi.org               |
-* | copyright (C) 2013-2019 Tim Orford <tim@orford.org>                  |
+* | copyright (C) 2013-2020 Tim Orford <tim@orford.org>                  |
 * +----------------------------------------------------------------------+
 * | This program is free software; you can redistribute it and/or modify |
 * | it under the terms of the GNU General Public License version 3       |
@@ -20,6 +20,7 @@
 #include "waveform/typedefs.h"
 #include "waveform/shader.h"
 #include "waveform/utils.h"
+#include "transition/transition.h"
 
 #define USE_CANVAS_SCALING 1
 #define WF_CONTEXT_MIN_ZOOM 0.1

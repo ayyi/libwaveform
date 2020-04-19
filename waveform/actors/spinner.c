@@ -23,8 +23,8 @@
 #include "transition/frameclock.h"
 #include "agl/actor.h"
 #include "agl/ext.h"
-#include "waveform/waveform.h"
 #include "waveform/shader.h"
+#include "waveform/actors/spinner.h"
 
 #define RADIUS 16
 

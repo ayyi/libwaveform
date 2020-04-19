@@ -1,6 +1,6 @@
 AC_PREREQ(2.59)
 AC_INIT([Libwaveform],[0.1.0],[tim@orford.org])
-AC_CONFIG_SRCDIR([waveform/waveform.c])
+AC_CONFIG_SRCDIR([wf/waveform.c])
 AC_CONFIG_HEADER([config.h])
 AM_INIT_AUTOMAKE
 AM_PROG_AR
@@ -251,6 +251,9 @@ fi
 dnl AM_CONDITIONAL(ENABLE_GDK_PIXBUF, test "yes" != "no")
 AC_DEFINE(USE_GDK_PIXBUF, 1, [enable support for Gdk Pixbuf])
 
+GDKPIXBUF_CFLAGS=`pkg-config --cflags-only-I gdk-pixbuf-2.0`
+AC_SUBST(GDKPIXBUF_CFLAGS)
+
 dnl ------------------ test progs ------------------------
 
 AC_ARG_ENABLE(test, AS_HELP_STRING([--enable-test],[ compile the test programs]), enable_test=yes, enable_test=no)
@@ -278,6 +281,8 @@ AM_CFLAGS="$CFLAGS -pipe -fmessage-length=139 -fdiagnostics-show-location=every-
 AC_CONFIG_FILES([
 	libwaveform.pc
 	Makefile
+	wf/Makefile
+	wf/loaders/Makefile
 	agl/Makefile
 	agl/shaders/Makefile
 	agl/behaviours/Makefile
@@ -289,7 +294,6 @@ AC_CONFIG_FILES([
 	decoder/Makefile
 	waveform/Makefile
 	waveform/actors/Makefile
-	waveform/loaders/Makefile
 	shaders/Makefile
 	test/Makefile
 	test/gen/Makefile

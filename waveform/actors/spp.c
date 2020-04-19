@@ -20,14 +20,16 @@
 #include <gdk/gdkkeysyms.h>
 #include <GL/gl.h>
 #include "agl/actor.h"
-#include "waveform/waveform.h"
+#include "waveform/actor.h"
 #include "waveform/shader.h"
 
 static AGl* agl = NULL;
 
+static void spp_actor__set_size (AGlActor*);
+
 
 #ifdef USE_GTK
-		static bool on_middle_click(GtkWidget* widget, GdkEventButton* event, gpointer _spp)
+		static bool on_middle_click (GtkWidget* widget, GdkEventButton* event, gpointer _spp)
 		{
 			SppActor* spp = (SppActor*)_spp;
 			WaveformActor* wf_actor = spp->wf_actor;
@@ -35,18 +37,18 @@ static AGl* agl = NULL;
 			if(event->button == 2){
 				AGliPt p = agl_actor__find_offset((AGlActor*)_spp);
 				int x = (int)event->x - p.x;
-				int64_t samples = x * (wf_actor->canvas->scaled
-					? wf_actor->canvas->samples_per_pixel
+				int64_t samples = x * (wf_actor->context->scaled
+					? wf_actor->context->samples_per_pixel
 					: wf_actor->region.len / agl_actor__width((AGlActor*)wf_actor)
 				);
-				wf_spp_actor_set_time((SppActor*)_spp, (1000 * samples) / wf_actor->canvas->sample_rate);
+				wf_spp_actor_set_time((SppActor*)_spp, (1000 * samples) / wf_actor->context->sample_rate);
 				return true;
 			}
 			return false;
 		}
 #endif
 
-	static void spp_actor__init(AGlActor* actor)
+	static void spp_actor__init (AGlActor* actor)
 	{
 #ifdef USE_GTK
 		if(!((SppActor*)actor)->text_colour) ((SppActor*)actor)->text_colour = wf_get_gtk_base_color(actor->root->gl.gdk.widget, GTK_STATE_NORMAL, 0xaa);
@@ -57,17 +59,17 @@ static AGl* agl = NULL;
 #endif
 	}
 
-	static void spp_actor__set_state(AGlActor* actor)
+	static void spp_actor__set_state (AGlActor* actor)
 	{
 		SppActor* spp = (SppActor*)actor;
 		WaveformActor* a = spp->wf_actor;
-		if(!a->canvas) return;
+		if(!a->context) return;
 
 		if(spp->time != WF_SPP_TIME_NONE){
 			if(agl->use_shaders){
 				cursor.uniform.colour = 0x00ff00ff;
 				cursor.uniform.width = spp->play_timeout
-					? MAX(2.0, (WF_ACTOR_PX_PER_FRAME(a) / a->canvas->sample_rate) * (1 << 24) * 4)
+					? MAX(2.0, (WF_ACTOR_PX_PER_FRAME(a) / a->context->sample_rate) * (1 << 24) * 4)
 					: 2.0;
 			}else{
 				glColor4f(0.0, 1.0, 0.0, 1.0);
@@ -76,11 +78,11 @@ static AGl* agl = NULL;
 		}
 	}
 
-	static bool spp_actor__paint(AGlActor* actor)
+	static bool spp_actor__paint (AGlActor* actor)
 	{
 		SppActor* spp = (SppActor*)actor;
 		WaveformActor* a = spp->wf_actor;
-		if(!a || !a->canvas) return false;
+		if(!a || !a->context) return false;
 
 		if(spp->time != WF_SPP_TIME_NONE){
 #if 0
@@ -91,7 +93,7 @@ static AGl* agl = NULL;
 				width = cursor.uniform.width;
 			}
 
-			int64_t frame = ((int64_t)spp->time) * a->canvas->sample_rate / 1000;
+			int64_t frame = ((int64_t)spp->time) * a->context->sample_rate / 1000;
 			float x = floorf(wf_actor_frame_to_x(a, frame) - (width - 1.0));
 			glTranslatef(x, 0, 0); // TODO should be done using actor position instead.
 			agl_rect(
@@ -110,20 +112,8 @@ static AGl* agl = NULL;
 		return true;
 	}
 
-	static void spp_actor__set_size(AGlActor* actor)
-	{
-		#define V_BORDER 0
-
-		actor->region = (AGlfRegion){
-			.x1 = 0,
-			.y1 = V_BORDER,
-			.x2 = actor->parent->region.x2,
-			.y2 = actor->parent->region.y2 - V_BORDER,
-		};
-	}
-
 AGlActor*
-wf_spp_actor(WaveformActor* wf_actor)
+wf_spp_actor (WaveformActor* wf_actor)
 {
 	g_return_val_if_fail(wf_actor, NULL);
 
@@ -148,7 +138,20 @@ wf_spp_actor(WaveformActor* wf_actor)
 }
 
 
-	static gboolean check_playback(gpointer _spp)
+static void
+spp_actor__set_size (AGlActor* actor)
+{
+	#define V_BORDER 0
+
+	actor->region = (AGlfRegion){
+		.x1 = 0,
+		.y1 = V_BORDER,
+		.x2 = actor->parent->region.x2,
+		.y2 = actor->parent->region.y2 - V_BORDER,
+	};
+}
+
+	static gboolean check_playback (gpointer _spp)
 	{
 		SppActor* spp = _spp;
 

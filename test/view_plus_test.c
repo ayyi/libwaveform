@@ -51,7 +51,6 @@
 #include <gtk/gtk.h>
 #include <gdk/gdkkeysyms.h>
 #include "agl/actor.h"
-#include "waveform/debug.h"
 #include "waveform/view_plus.h"
 #include "common.h"
 

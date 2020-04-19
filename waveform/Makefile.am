@@ -1,4 +1,4 @@
-SUBDIRS = loaders actors
+SUBDIRS = actors
 
 if ENABLE_SYSTEM_GTKGLEXT
 else
@@ -39,21 +39,14 @@ OPENGL_LIBADD = \
 endif
 
 libwf_la_SOURCES = \
-	typedefs.h waveform.h wf_private.h \
-	global.c global.h \
-	waveform.c waveform.h \
+	typedefs.h \
+	private.h \
 	$(OPENGL_SOURCES) \
-	alphabuf.c alphabuf.h \
-	peakgen.c peakgen.h \
-	audio.c audio.h \
-	worker.c worker.h \
-	promise.c promise.h \
+	pixbuf.c pixbuf.h \
 	transition_behaviour.c transition_behaviour.h \
-	utils.c utils.h \
-	debug.h
+	utils.c utils.h
 
 libwf_la_LIBADD = \
-	loaders/libloaders.la \
 	$(OPENGL_LIBADD)
 
 EXTRA_DIST = \
@@ -67,9 +60,7 @@ EXTRA_DIST = \
 
 pkgincludedir=$(includedir)/waveform
 pkginclude_HEADERS = \
-	waveform.h \
 	typedefs.h \
-	peakgen.h \
 	view.h \
 	view_plus.h \
 	actor.h \
@@ -77,10 +68,8 @@ pkginclude_HEADERS = \
 	shader.h \
 	fbo.h \
 	texture_cache.h \
-	alphabuf.h \
-	promise.h \
 	utils.h \
-	wf_private.h
+	private.h
 
 CLEANFILES =
 

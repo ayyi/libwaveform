@@ -11,7 +11,7 @@
 */
 #define __wf_private__
 #include "transition/transition.h"
-#include "waveform/debug.h"
+#include "wf/debug.h"
 #include "waveform/actor.h"
 #include "waveform/transition_behaviour.h"
 

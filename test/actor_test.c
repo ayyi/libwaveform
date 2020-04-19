@@ -33,7 +33,7 @@
 #include <getopt.h>
 #include <gdk/gdkkeysyms.h>
 #include "agl/utils.h"
-#include "waveform/waveform.h"
+#include "waveform/actor.h"
 #include "test/common.h"
 
 static const struct option long_options[] = {

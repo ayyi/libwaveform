@@ -39,7 +39,7 @@
 #include <GL/gl.h>
 #include "agl/debug.h"
 #include "agl/utils.h"
-#include "waveform/waveform.h"
+#include "waveform/actor.h"
 #include "view_plus.h"
 
 #define DIRECT 1
@@ -315,7 +315,7 @@ _waveform_view_plus__show_waveform (gpointer _view, gpointer _c)
 	{
 		WfClosure* c = (WfClosure*)_c;
 		if(agl_actor__width(((AGlActor*)a))){
-			a->canvas->samples_per_pixel = waveform_get_n_frames(a->waveform) / agl_actor__width(((AGlActor*)a));
+			a->context->samples_per_pixel = waveform_get_n_frames(a->waveform) / agl_actor__width(((AGlActor*)a));
 
 			if(((AGlActor*)a)->parent) agl_actor__invalidate(((AGlActor*)a)->parent); // we dont seem to track the layers, so have to invalidate everything.
 		}
@@ -1030,7 +1030,7 @@ static void
 zoom_up (WaveformViewPlus* view)
 {
 	WaveformActor* actor = view->priv->actor;
-	wf_actor_set_vzoom(actor, actor->canvas->v_gain * 1.3);
+	wf_actor_set_vzoom(actor, actor->context->v_gain * 1.3);
 }
 
 
@@ -1038,7 +1038,7 @@ static void
 zoom_down (WaveformViewPlus* view)
 {
 	WaveformActor* actor = view->priv->actor;
-	wf_actor_set_vzoom(actor, actor->canvas->v_gain / 1.3);
+	wf_actor_set_vzoom(actor, actor->context->v_gain / 1.3);
 }
 
 
@@ -1078,7 +1078,7 @@ waveform_view_plus_gl_on_allocate (WaveformViewPlus* view)
 		WaveformActor* wf_actor = (WaveformActor*)actor;
 		uint64_t n_frames = waveform_get_n_frames(wf_actor->waveform);
 		if(n_frames){
-			((WaveformActor*)actor)->canvas->samples_per_pixel = n_frames / agl_actor__width(actor);
+			((WaveformActor*)actor)->context->samples_per_pixel = n_frames / agl_actor__width(actor);
 		}
 	}
 

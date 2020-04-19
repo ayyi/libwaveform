@@ -28,7 +28,7 @@
 #include <sys/types.h>
 #include <gtk/gtk.h>
 #include <gdk/gdkkeysyms.h>
-#include "waveform/waveform.h"
+#include "waveform/actor.h"
 #include "waveform/view.h"
 #include "test/common2.h"
 

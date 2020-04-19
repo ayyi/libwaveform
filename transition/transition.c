@@ -65,8 +65,8 @@
 #define __wf_transition_c__
 #include "config.h"
 #include <math.h>
-#include "waveform/debug.h"
-#include "waveform/utils.h"
+#include "wf/debug.h"
+#include "wf/utils.h"
 #include "transition/transition.h"
 #include "transition/frameclock.h"
 

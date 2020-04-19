@@ -20,10 +20,12 @@
 #include "agl/ext.h"
 #include "agl/actor.h"
 #include "test/common2.h"
-#include "waveform/waveform.h"
+#include "wf/waveform.h"
 #include "waveform/utils.h"
+#include "waveform/shader.h"
 #include "waveform/actors/background.h"
 #include "waveform/actors/plain.h"
+#include "waveform/actors/group.h"
 
 #undef SHOW_2ND_CHILD
 #define SHOW_2ND_CHILD

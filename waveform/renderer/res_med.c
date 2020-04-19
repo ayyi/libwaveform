@@ -92,9 +92,9 @@ med_allocate_block_gl1(Renderer* renderer, WaveformActor* a, int b)
 		return;
 	}
 
-	int texture_id = blocks->peak_texture[c].main[b] = texture_cache_assign_new(a->canvas->use_1d_textures ? GL_TEXTURE_1D : GL_TEXTURE_2D, wb);
+	int texture_id = blocks->peak_texture[c].main[b] = texture_cache_assign_new(a->context->use_1d_textures ? GL_TEXTURE_1D : GL_TEXTURE_2D, wb);
 
-	if(a->canvas->use_1d_textures){
+	if(a->context->use_1d_textures){
 		g_assert("NEVER GET HERE");
 #if 0
 		guint* peak_texture[4] = {
@@ -168,7 +168,7 @@ low_allocate_block_gl1(Renderer* renderer, WaveformActor* a, int b)
 
 	dbg(1, "* %i: texture=%i", b, texture_id);
 	AlphaBuf* alphabuf = wf_alphabuf_new(w, b, (renderer->mode == MODE_LOW ? WF_PEAK_STD_TO_LO : WF_MED_TO_V_LOW), false, TEX_BORDER);
-	wf_canvas_load_texture_from_alphabuf(a->canvas, texture_id, alphabuf);
+	wf_canvas_load_texture_from_alphabuf(a->context, texture_id, alphabuf);
 	wf_alphabuf_free(alphabuf);
 }
 
@@ -313,7 +313,7 @@ med_lo_render_gl1(Renderer* renderer, WaveformActor* actor, int b, bool is_first
 {
 	Waveform* w = actor->waveform; 
 	WfActorPriv* _a = actor->priv;
-	WaveformContext* wfc = actor->canvas;
+	WaveformContext* wfc = actor->context;
 	RenderInfo* r  = &_a->render_info;
 
 	TextureRange tex;

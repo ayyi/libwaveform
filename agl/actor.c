@@ -11,6 +11,7 @@
 */
 #define __agl_actor_c__
 #define __gl_canvas_priv__
+#define __wf_private__
 #include "config.h"
 #include <GL/gl.h>
 #ifdef USE_GTK

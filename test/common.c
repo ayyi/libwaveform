@@ -20,9 +20,8 @@
 #include <glib-object.h>
 #include <sndfile.h>
 #include "agl/actor.h"
-#include "waveform/debug.h"
+#include "wf/private.h"
 #include "waveform/utils.h"
-#include "waveform/wf_private.h"
 #include "test/common.h"
 
 int  n_failed      = 0;

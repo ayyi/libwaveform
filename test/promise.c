@@ -23,8 +23,7 @@
 #include "config.h"
 #include <glib.h>
 #include "decoder/ad.h"
-#include "waveform/debug.h"
-#include "waveform/waveform.h"
+#include "wf/waveform.h"
 #include "test/common.h"
 
 TestFn test_1, test_2_when, test_3, test_4_many;

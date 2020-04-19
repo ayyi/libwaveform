@@ -12,7 +12,8 @@
 */
 
 #define __wf_private__
-#include "waveform/debug.h"
+#include "wf/debug.h"
+#include "agl/actor.h"
 
 /*
  *  Common code for all tests

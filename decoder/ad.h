@@ -15,7 +15,7 @@
 #include <unistd.h>
 #include <stdint.h>
 #include <glib.h>
-#include "waveform/typedefs.h"
+#include "wf/typedefs.h"
 
 typedef struct
 {

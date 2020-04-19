@@ -21,10 +21,9 @@
 #include <gtk/gtk.h>
 #include <glib-object.h>
 #include "agl/actor.h"
-#include "waveform/debug.h"
 #include "waveform/utils.h"
 #include "test/common2.h"
-#include "waveform/wf_private.h"
+#include "wf/private.h"
 
 #define BENCHMARK
 #define NUL '\0'

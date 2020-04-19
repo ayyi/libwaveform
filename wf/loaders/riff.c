@@ -21,7 +21,7 @@
 #include <glib.h>
 #include <sndfile.h>
 #include "agl/debug.h"
-#include "waveform/waveform.h"
+#include "wf/waveform.h"
 
 #define peak_byte_depth 2 // value are stored in the peak file as int16.
 #define WF_MAX_FRAMES 116121600000LL // 192kHz 7 days

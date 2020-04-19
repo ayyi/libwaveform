@@ -19,7 +19,7 @@
 #include "sdl/SDL2_framerate.h"
 #endif
 #include "agl/ext.h"
-#include "waveform/waveform.h"
+#include "waveform/actor.h"
 #include "common.h"
 
 #include "transition/frameclockidle.h"

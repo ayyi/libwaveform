@@ -1,25 +1,21 @@
-/*
-  copyright (C) 2012-2018 Tim Orford <tim@orford.org>
-
-  This program is free software; you can redistribute it and/or modify
-  it under the terms of the GNU General Public License version 3
-  as published by the Free Software Foundation.
-
-  This program is distributed in the hope that it will be useful,
-  but WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-  GNU General Public License for more details.
-
-  You should have received a copy of the GNU General Public License
-  along with this program; if not, write to the Free Software
-  Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+/**
+* +----------------------------------------------------------------------+
+* | This file is part of the Ayyi project. http://ayyi.org               |
+* | copyright (C) 2012-2020 Tim Orford <tim@orford.org>                  |
+* +----------------------------------------------------------------------+
+* | This program is free software; you can redistribute it and/or modify |
+* | it under the terms of the GNU General Public License version 3       |
+* | as published by the Free Software Foundation.                        |
+* +----------------------------------------------------------------------+
+*
 */
 #define __wf_private__
+
 #include "config.h"
 #include <stdio.h>
 #include "glib.h"
-#include "waveform/utils.h"
-#include "waveform/promise.h"
+#include "wf/utils.h"
+#include "wf/promise.h"
 
 typedef struct {
     WfPromiseCallback callback;
@@ -28,7 +24,7 @@ typedef struct {
 
 
 AMPromise*
-am_promise_new(gpointer user_data)
+am_promise_new (gpointer user_data)
 {
 	return WF_NEW(AMPromise,
 		.user_data = user_data,
@@ -38,7 +34,7 @@ am_promise_new(gpointer user_data)
 
 
 void
-am_promise_unref(AMPromise* p)
+am_promise_unref (AMPromise* p)
 {
 	if(!--p->refcount){
 		g_list_free_full(p->callbacks, g_free);
@@ -49,7 +45,7 @@ am_promise_unref(AMPromise* p)
 
 
 void
-_am_promise_callback(AMPromise* p)
+_am_promise_callback (AMPromise* p)
 {
 	if(p->callbacks){
 		p->refcount++; // allows promise to be unreffed in a user callback.
@@ -70,7 +66,7 @@ _am_promise_callback(AMPromise* p)
 
 
 void
-_add_callback(AMPromise* p, WfPromiseCallback callback, gpointer user_data)
+_add_callback (AMPromise* p, WfPromiseCallback callback, gpointer user_data)
 {
 	Item* item = WF_NEW(Item,
 		.callback = callback,
@@ -81,7 +77,7 @@ _add_callback(AMPromise* p, WfPromiseCallback callback, gpointer user_data)
 
 
 void
-am_promise_add_callback(AMPromise* p, WfPromiseCallback callback, gpointer user_data)
+am_promise_add_callback (AMPromise* p, WfPromiseCallback callback, gpointer user_data)
 {
 	_add_callback(p, callback, user_data);
 	if(p->is_resolved) _am_promise_callback(p);
@@ -89,7 +85,7 @@ am_promise_add_callback(AMPromise* p, WfPromiseCallback callback, gpointer user_
 
 
 void
-am_promise_resolve(AMPromise* p, PromiseVal* value)
+am_promise_resolve (AMPromise* p, PromiseVal* value)
 {
 	if(value) p->value = *value;
 	p->is_resolved = true;
@@ -102,14 +98,14 @@ am_promise_resolve(AMPromise* p, PromiseVal* value)
  *  The client needs to check the error property to see if the promise has failed.
  */
 void
-am_promise_fail(AMPromise* p, GError* error)
+am_promise_fail (AMPromise* p, GError* error)
 {
 	p->error = error;
 	am_promise_resolve(p, NULL);
 }
 
 
-	static void then(gpointer _, gpointer _parent)
+	static void then (gpointer _, gpointer _parent)
 	{
 		AMPromise* parent = _parent;
 		g_return_if_fail(parent);
@@ -126,7 +122,7 @@ am_promise_fail(AMPromise* p, GError* error)
 		if(complete) am_promise_resolve(parent, &(PromiseVal){.i=-1});
 	}
 
-	static void add_child(AMPromise* promise, AMPromise* child)
+	static void add_child (AMPromise* promise, AMPromise* child)
 	{
 		g_return_if_fail(child);
 		promise->children = g_list_append(promise->children, child);
@@ -136,7 +132,7 @@ am_promise_fail(AMPromise* p, GError* error)
  *  The promise will be resolved when all the child promises are resolved.
  */
 void
-am_promise_when(AMPromise* promise, AMPromise* p, ...)
+am_promise_when (AMPromise* promise, AMPromise* p, ...)
 {
 	if(!p) return;
 

@@ -13,6 +13,8 @@
 #ifndef __spinner_actor_h__
 #define __spinner_actor_h__
 
+#include "waveform/actor.h"
+
 typedef struct {
     AGlActor       actor;
 	bool           spinning;

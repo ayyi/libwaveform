@@ -10,19 +10,44 @@
 *
 */
 #define __wf_private__
-#include "config.h"
-#include "agl/actor.h"
-#include "waveform/actor.h"
-#include "group.h"
 
-static AGlActorClass actor_class = {0, "Group", (AGlActorNew*)group_actor};
+#include <glib.h>
+#include "wf/debug.h"
+#include "wf/utils.h"
 
-AGlActor*
-group_actor (WaveformActor* wf_actor)
+
+bool
+wf_get_filename_for_other_channel (const char* filename, char* other, int n_chars)
 {
-	AGlActor* actor = agl_actor__new(AGlActor);
-	actor->name = actor_class.name;
+	//return the filename of the other half of a split stereo pair.
 
-	return actor;
+	g_strlcpy(other, filename, n_chars);
+
+	gchar* p = g_strrstr(other, "%L.");
+	if(p){
+		*(p+1) = 'R';
+		dbg (3, "pair=%s", other);
+		return TRUE;
+	}
+
+	p = g_strrstr(other, "%R.");
+	if(p){
+		*(p+1) = 'L';
+		return TRUE;
+	}
+
+	p = g_strrstr(other, "-L.");
+	if(p){
+		*(p+1) = 'R';
+		return TRUE;
+	}
+
+	p = g_strrstr(other, "-R.");
+	if(p){
+		*(p+1) = 'L';
+		return TRUE;
+	}
+
+    other[0] = '\0';
+	return FALSE;
 }
-

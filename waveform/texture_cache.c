@@ -12,10 +12,11 @@
 #define __wf_private__
 #include "config.h"
 #include <glib.h>
-#include <gdk-pixbuf/gdk-pixdata.h>
 #include "agl/ext.h"
-#include "waveform/debug.h"
-#include "waveform/waveform.h"
+#include "agl/utils.h"
+#include "wf/debug.h"
+#include "wf/waveform.h"
+#include "waveform/private.h"
 #include "waveform/texture_cache.h"
 
 #define WF_TEXTURE_ALLOCATION_INCREMENT 20
@@ -53,7 +54,7 @@ static int  texture_cache_count_used       (TextureCache*);
 
 
 void
-texture_cache_init()
+texture_cache_init ()
 {
 	if(c1) return;
 
@@ -68,18 +69,19 @@ texture_cache_init()
 
 
 void
-texture_cache_set_on_steal(AGlOnSteal fn)
+texture_cache_set_on_steal(WfOnSteal fn)
 {
 	c1->on_steal = fn;
 	c2->on_steal = fn;
 }
 
 
+/*
+ *  Create an additional set of available textures.
+ */
 static void
-texture_cache_gen(TextureCache* c)
+texture_cache_gen (TextureCache* c)
 {
-	//create an additional set of available textures.
-
 	if(!c1) texture_cache_init();
 
 	static bool error_shown = false;
@@ -126,7 +128,7 @@ texture_cache_gen(TextureCache* c)
 
 
 static void
-texture_cache_shrink(TextureCache* c, int idx)
+texture_cache_shrink (TextureCache* c, int idx)
 {
 	dbg(1, "*** %i-->%i", c->t->len, idx);
 	g_return_if_fail(!(idx % WF_TEXTURE_ALLOCATION_INCREMENT));
@@ -155,23 +157,26 @@ texture_cache_assign_new (int tex_type, WaveformBlock wfb)
 	int t = texture_cache_get_new(cache);
 	int texture_id = texture_cache_get(cache, t);
 	texture_cache_assign(cache, t, wfb);
+
 	return texture_id;
 }
 
 
 #ifdef DEBUG
-	static guint timeout = 0;
+static guint timeout = 0;
 
-		static gboolean _texture_cache_print(gpointer data)
-		{
-			texture_cache_print();
-			timeout = 0;
-			return G_SOURCE_REMOVE;
-		}
+static gboolean
+_texture_cache_print (gpointer data)
+{
+	texture_cache_print();
+	timeout = 0;
+	return G_SOURCE_REMOVE;
+}
 #endif
 
+
 static void
-texture_cache_assign(TextureCache* c, int t, WaveformBlock wb)
+texture_cache_assign (TextureCache* c, int t, WaveformBlock wb)
 {
 	g_return_if_fail(t >= 0);
 	g_return_if_fail(t < c->t->len);
@@ -207,11 +212,11 @@ texture_cache_freshen(int tex_type, WaveformBlock wb)
 
 	static gboolean texture_cache_clean(gpointer user_data)
 	{
-		gboolean last_block_is_empty(TextureCache* c)
+		bool last_block_is_empty (TextureCache* c)
 		{
 			int m = c->t->len - 1;
 			if(m == -1) return false;
-			gboolean empty = true;
+			bool empty = true;
 			int i; for(i=0;i<WF_TEXTURE_ALLOCATION_INCREMENT;i++){
 				WfTexture* tx = &g_array_index(c->t, WfTexture, m);
 				if(tx->wb.waveform){
@@ -222,6 +227,7 @@ texture_cache_freshen(int tex_type, WaveformBlock wb)
 			}
 			return empty;
 		}
+
 		int i = 0;
 		int j; for(j=0;j<2;j++){
 			TextureCache* c = j ? c2 : c1;
@@ -272,9 +278,11 @@ texture_cache_unassign(TextureCache* c, WaveformBlock wb)
 static guint
 texture_cache_get(TextureCache* c, int t)
 {
+	g_return_val_if_fail(t > -1, -1);
 	g_return_val_if_fail(t < c->t->len, -1);
 
 	WfTexture* tx = &g_array_index(c->t, WfTexture, t);
+
 	return tx ? tx->id : 0;
 }
 

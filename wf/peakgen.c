@@ -37,15 +37,12 @@
 #include <glib/gstdio.h>
 #include <sndfile.h>
 #include "decoder/ad.h"
-#ifdef USE_OPENGL
-#include "agl/utils.h"
-#endif
-#include "waveform/debug.h"
-#include "waveform/waveform.h"
-#include "waveform/audio.h"
-#include "waveform/worker.h"
-#include "waveform/loaders/ardour.h"
-#include "waveform/peakgen.h"
+#include "wf/debug.h"
+#include "wf/waveform.h"
+#include "wf/audio.h"
+#include "wf/worker.h"
+#include "wf/loaders/ardour.h"
+#include "wf/peakgen.h"
 
 #define BUFFER_LEN 256 // length of the buffer to hold audio during processing. currently must be same as WF_PEAK_RATIO
 #define MAX_CHANNELS 2

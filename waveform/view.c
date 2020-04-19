@@ -17,10 +17,9 @@
 #define __waveform_view_private__
 #include "config.h"
 #include <gtk/gtk.h>
-#include <GL/gl.h>
-#include "agl/utils.h"
-#include "waveform/debug.h"
-#include "waveform/waveform.h"
+#include "agl/actor.h"
+#include "wf/debug.h"
+#include "waveform/actor.h"
 #include "waveform/view.h"
 
 #pragma GCC diagnostic ignored "-Wdeprecated-declarations"

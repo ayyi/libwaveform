@@ -29,6 +29,7 @@
 #include "agl/utils.h"
 #include <gtk/gtk.h>
 #include <gdk/gdkkeysyms.h>
+#include "waveform/actor.h"
 #include "test/common.h"
 
 #define WAV "mono_0:10.wav"

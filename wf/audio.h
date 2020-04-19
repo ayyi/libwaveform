@@ -1,7 +1,6 @@
 /**
 * +----------------------------------------------------------------------+
-* | This file is part of libwaveform                                     |
-* | https://github.com/ayyi/libwaveform                                  |
+* | This file is part of the Ayyi project. http://ayyi.org               |
 * | copyright (C) 2012-2020 Tim Orford <tim@orford.org>                  |
 * +----------------------------------------------------------------------+
 * | This program is free software; you can redistribute it and/or modify |
@@ -10,11 +9,15 @@
 * +----------------------------------------------------------------------+
 *
 */
-#ifndef __wf_background_actor_h__
-#define __wf_background_actor_h__
+#ifndef __wf_audio_h__
+#define __wf_audio_h__
 
-#include "waveform/typedefs.h"
+#include "wf/waveform.h"
 
-AGlActor* background_actor (WaveformActor*);
+#define MAX_TIERS 8 //this is related to WF_PEAK_RATIO: WF_PEAK_RATIO = 2 ^ MAX_TIERS.
+
+#ifdef __wf_private__
+int wf_audio_cache_get_size();
+#endif
 
 #endif

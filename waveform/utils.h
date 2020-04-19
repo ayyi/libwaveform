@@ -12,37 +12,24 @@
 #ifndef __waveform_utils_h__
 #define __waveform_utils_h__
 
-#include <stdint.h>
-#include <stdbool.h>
+#include "wf/utils.h"
 
 #ifndef true
 #define true TRUE
 #define false FALSE
 #endif
-#ifndef g_list_free0
-#define g_list_free0(var) ((var == NULL) ? NULL : (var = (g_list_free (var), NULL)))
-#endif
-#ifndef g_error_free0
-#define g_error_free0(var) ((var == NULL) ? NULL : (var = (g_error_free (var), NULL)))
-#endif
 
 #ifdef __wf_private__
+
 #define TIMER_STOP FALSE
 #define TIMER_CONTINUE TRUE
-#ifndef g_free0
-#define g_free0(var) ((var == NULL) ? NULL : (var = (g_free(var), NULL)))
-#endif
-
-#ifndef call
-#define call(FN, A, ...) if(FN) (FN)(A, ##__VA_ARGS__)
-#endif
-#define WF_NEW(T, ...) ({T* obj = g_new0(T, 1); *obj = (T){__VA_ARGS__}; obj;})
 
 #include "waveform/typedefs.h"
 
 void       wf_deinterleave            (float* src, float** dest, uint64_t n_frames);
 void       wf_deinterleave16          (short* src, short** dest, uint64_t n_frames);
-#endif //__ayyi_utils_h__
+#endif
+
 float      wf_int2db                  (short);
 
 #ifndef __ayyi_utils_h__
@@ -56,7 +43,6 @@ uint32_t   wf_color_gdk_to_rgba       (GdkColor*);
 void       wf_colour_rgba_to_float    (AGlColourFloat*, uint32_t rgba);
 bool       wf_colour_is_dark_rgba     (uint32_t);
 
-bool       wf_get_filename_for_other_channel(const char* filename, char* other, int n_chars);
 guint64    wf_get_time                ();
 #endif
 

@@ -41,7 +41,7 @@
 #include <gtk/gtk.h>
 #include <gdk/gdkkeysyms.h>
 #include "agl/utils.h"
-#include "waveform/waveform.h"
+#include "waveform/actor.h"
 #include "test/common.h"
 
 #define GL_WIDTH 256.0

@@ -25,11 +25,10 @@
 #include <glib.h>
 #include "decoder/ad.h"
 #include "transition/transition.h"
-#include "waveform/debug.h"
-#include "waveform/waveform.h"
-#include "waveform/peakgen.h"
-#include "waveform/alphabuf.h"
-#include "waveform/worker.h"
+#include "wf/waveform.h"
+#include "wf/peakgen.h"
+#include "wf/worker.h"
+#include "waveform/pixbuf.h"
 #include "test/common.h"
 
 TestFn test_peakgen, test_bad_wav, test_audio_file, test_audiodata, test_audio_cache, test_alphabuf, test_transition, test_worker;

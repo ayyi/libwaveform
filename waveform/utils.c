@@ -1,24 +1,13 @@
-/*
-  copyright (C) 2013-2018 Tim Orford <tim@orford.org>
-
-  This program is free software; you can redistribute it and/or modify
-  it under the terms of the GNU General Public License version 3
-  as published by the Free Software Foundation.
-
-  This program is distributed in the hope that it will be useful,
-  but WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-  GNU General Public License for more details.
-
-  You should have received a copy of the GNU General Public License
-  along with this program; if not, write to the Free Software
-  Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
-
-  ---------------------------------------------------------------
-
-  WaveformView is a Gtk widget based on GtkDrawingArea.
-  It displays an audio waveform represented by a Waveform object.
-
+/**
+* +----------------------------------------------------------------------+
+* | This file is part of the Ayyi project. http://ayyi.org               |
+* | copyright (C) 2012-2020 Tim Orford <tim@orford.org>                  |
+* +----------------------------------------------------------------------+
+* | This program is free software; you can redistribute it and/or modify |
+* | it under the terms of the GNU General Public License version 3       |
+* | as published by the Free Software Foundation.                        |
+* +----------------------------------------------------------------------+
+*
 */
 #define __wf_utils_c__
 #define __wf_private__
@@ -26,8 +15,12 @@
 #include <math.h>
 #include <sys/ioctl.h>
 #include <glib.h>
-#include "waveform/debug.h"
-#include "waveform/waveform.h"
+#ifdef USE_GTK
+#include <gtk/gtk.h>
+#endif
+#include "wf/debug.h"
+#include "wf/waveform.h"
+#include "waveform/utils.h"
 
 int wf_debug = 0;
 
@@ -104,6 +97,7 @@ wf_int2db (short x)
 
 //perhaps make all gtk stuff private to the widgets
 #ifdef USE_GTK
+
 uint32_t
 wf_get_gtk_fg_color (GtkWidget* widget, GtkStateType state)
 {
@@ -165,43 +159,6 @@ wf_colour_is_dark_rgba (uint32_t colour)
 
 	int average = (r + g + b ) / 3;
 	return (average < 0x80);
-}
-
-
-bool
-wf_get_filename_for_other_channel (const char* filename, char* other, int n_chars)
-{
-	//return the filename of the other half of a split stereo pair.
-
-	g_strlcpy(other, filename, n_chars);
-
-	gchar* p = g_strrstr(other, "%L.");
-	if(p){
-		*(p+1) = 'R';
-		dbg (3, "pair=%s", other);
-		return TRUE;
-	}
-
-	p = g_strrstr(other, "%R.");
-	if(p){
-		*(p+1) = 'L';
-		return TRUE;
-	}
-
-	p = g_strrstr(other, "-L.");
-	if(p){
-		*(p+1) = 'R';
-		return TRUE;
-	}
-
-	p = g_strrstr(other, "-R.");
-	if(p){
-		*(p+1) = 'L';
-		return TRUE;
-	}
-
-    other[0] = '\0';
-	return FALSE;
 }
 
 

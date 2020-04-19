@@ -42,6 +42,7 @@
 #define __actor_c__
 #define __wf_private__
 #define __wf_canvas_priv__
+
 #include "config.h"
 #include <math.h>
 #include <sys/time.h>
@@ -52,13 +53,14 @@
 #include "agl/ext.h"
 #include "agl/debug.h"
 #include "transition/transition.h"
-#include "waveform/waveform.h"
-#include "waveform/audio.h"
+#include "wf/waveform.h"
+#include "wf/audio.h"
 #include "waveform/texture_cache.h"
-#include "waveform/alphabuf.h"
+#include "waveform/pixbuf.h"
 #include "waveform/fbo.h"
-#include "waveform/transition_behaviour.h"
 #include "waveform/actor.h"
+#include "waveform/private.h"
+#include "waveform/transition_behaviour.h"
 
 #define _g_signal_handler_disconnect0(A, H) (H = (g_signal_handler_disconnect((gpointer)A, H), 0))
 
@@ -71,19 +73,6 @@ static AGl* agl = NULL;
 #define HIRES_NONSHADER_TEXTURES // work in progress
                                  // because of the issue with missing peaks with reduced size textures without shaders, this option is possibly unwanted.
 #undef HIRES_NONSHADER_TEXTURES
-
-/*
-	TODO LOD / Mipmapping
-
-	For the non-shader case, it would be useful to have
-	mipmapping to have proper visibility of short term peaks and/or to reduce
-	the number of expensive (oversampled) texture lookups. Unfortunately
-	Opengl mipmaps cannot be used as we only want detail to be reduced on
-	the x axis and not the y, so a custom solution is needed.
-
- */
-#define USE_MIPMAPPING
-#undef USE_MIPMAPPING
 
 #undef RECT_ROUNDING
 
@@ -265,6 +254,9 @@ static int    wf_actor_get_n_blocks          (Waveform*, Mode);
 static void   wf_actor_connect_waveform      (WaveformActor*);
 static void   wf_actor_disconnect_waveform   (WaveformActor*);
 
+static void   waveform_free_render_data      (Waveform*);
+
+
 #include "waveform/renderer/ng.c"
 #include "waveform/renderer/res_med.c"
 #include "waveform/renderer/res_lo.c"
@@ -320,7 +312,7 @@ wf_actor_class_init()
 	{
 		WaveformActor* a = (WaveformActor*)actor;
 		a->priv->render_info.valid = false; //strictly should only be invalidated when animating region and rect.
-		wf_canvas_queue_redraw(a->canvas);
+		wf_canvas_queue_redraw(a->context);
 	}
 
 	static void wf_actor_on_dimensions_changed(WaveformContext* wfc, gpointer _actor)
@@ -340,13 +332,13 @@ wf_actor_class_init()
 			AGlActor* actor = _actor;
 			WaveformActor* a = _actor;
 
-			a->canvas->sample_rate = a->waveform->samplerate;
+			a->context->sample_rate = a->waveform->samplerate;
 
 			if(agl_actor__width(actor) > 0.0){
 				_wf_actor_load_missing_blocks(a);
 				agl_actor__invalidate((AGlActor*)a);
 			}
-			if(((AGlActor*)a)->root->draw) wf_canvas_queue_redraw(a->canvas);
+			if(((AGlActor*)a)->root->draw) wf_canvas_queue_redraw(a->context);
 		}
 
 	static void wf_actor_on_init(AGlActor* actor)
@@ -355,7 +347,7 @@ wf_actor_class_init()
 
 		a->priv->render_info.valid = false;
 
-		a->canvas->use_1d_textures = agl->use_shaders;
+		a->context->use_1d_textures = agl->use_shaders;
 
 		wf_actor_on_use_shaders_change();
 
@@ -393,6 +385,14 @@ wf_actor_set_size (AGlActor* actor)
 }
 
 
+Waveform*
+_add_waveform (WaveformActor* actor, Waveform* w)
+{
+	w->free_render_data = waveform_free_render_data;
+	return g_object_ref(w);
+}
+
+
 /*
  *  Normally called by wf_context_add_new_actor.
  */
@@ -413,16 +413,16 @@ wf_actor_new (Waveform* w, WaveformContext* wfc)
 	WaveformActor* a = agl_actor__new(WaveformActor,
 		.actor = {
 			.class = (AGlActorClass*)&actor_class,
-			.name = "Waveform",
+			.name = actor_class.parent.name,
 			.init = wf_actor_on_init,
 			.paint = wf_actor_paint,
 			.invalidate = _wf_actor_invalidate,
 			.set_size = wf_actor_set_size,
 		},
-		.canvas = wfc,
+		.context = wfc,
 		.priv = g_new0(WfActorPriv, 1),
 		.vzoom = 1.0,
-		.waveform = w ? g_object_ref(w) : NULL,
+		.waveform = w ? _add_waveform(a, w) : NULL,
 	);
 
 	WfActorPriv* _a = a->priv;
@@ -546,8 +546,8 @@ wf_actor_new (Waveform* w, WaveformContext* wfc)
 
 	if(w) wf_actor_connect_waveform(a);
 
-	_a->handlers.dimensions_changed = g_signal_connect((gpointer)a->canvas, "dimensions-changed", (GCallback)wf_actor_on_dimensions_changed, a);
-	_a->handlers.zoom_changed = g_signal_connect((gpointer)a->canvas, "zoom-changed", (GCallback)wf_actor_on_zoom_changed, a);
+	_a->handlers.dimensions_changed = g_signal_connect((gpointer)a->context, "dimensions-changed", (GCallback)wf_actor_on_dimensions_changed, a);
+	_a->handlers.zoom_changed = g_signal_connect((gpointer)a->context, "zoom-changed", (GCallback)wf_actor_on_zoom_changed, a);
 
 	return a;
 }
@@ -577,7 +577,7 @@ _wf_actor_on_peakdata_available (Waveform* waveform, int block, gpointer _actor)
 		Renderer* renderer = modes[m].renderer;
 		call(renderer->load_block, renderer, a, m == MODE_LOW ? (block / WF_PEAK_STD_TO_LO) : block);
 	}
-	if(((AGlActor*)a)->root && ((AGlActor*)a)->root->draw) wf_canvas_queue_redraw(a->canvas);
+	if(((AGlActor*)a)->root && ((AGlActor*)a)->root->draw) wf_canvas_queue_redraw(a->context);
 }
 
 
@@ -628,8 +628,8 @@ wf_actor_free (AGlActor* actor)
 
 	if(a->waveform){
 		wf_actor_disconnect_waveform(a);
-		_g_signal_handler_disconnect0(a->canvas, _a->handlers.dimensions_changed);
-		_g_signal_handler_disconnect0(a->canvas, _a->handlers.zoom_changed);
+		_g_signal_handler_disconnect0(a->context, _a->handlers.dimensions_changed);
+		_g_signal_handler_disconnect0(a->context, _a->handlers.zoom_changed);
 
 		// if the waveform has no more users, the finalise notify will run which will clear the render data
 		waveform_unref0(a->waveform);
@@ -643,9 +643,18 @@ wf_actor_free (AGlActor* actor)
 }
 
 
-void
-waveform_free_render_data(Waveform* waveform)
+static void
+waveform_free_render_data (Waveform* waveform)
 {
+#ifdef USE_OPENGL
+#ifdef DEBUG
+	extern int texture_cache_count_by_waveform(Waveform*);
+	if(texture_cache_count_by_waveform(waveform)){
+		perr("textures not cleared");
+	}
+#endif
+#endif
+
 	int m; for(m=0;m<N_MODES;m++){
 		if(waveform->priv->render_data[m]){
 			call(modes[m].renderer->free, modes[m].renderer, waveform);
@@ -670,7 +679,7 @@ wf_actor_waveform_finalize_notify (gpointer _actor, GObject* was)
 		PF;
 
 		if(waveform_get_n_frames(w)){
-			c->actor->canvas->sample_rate = c->actor->waveform->samplerate;
+			c->actor->context->sample_rate = c->actor->waveform->samplerate;
 			wf_actor_queue_load_render_data(c->actor);
 		}
 
@@ -695,7 +704,7 @@ wf_actor_set_waveform (WaveformActor* a, Waveform* waveform, WaveformActorFn cal
 		wf_actor_disconnect_waveform(a);
 		g_object_unref(a->waveform);
 	}
-	a->waveform = g_object_ref(waveform);
+	a->waveform = _add_waveform(a, waveform);
 	wf_actor_set_region(a, &(WfSampleRegion){0, waveform->n_frames});
 
 	wf_actor_connect_waveform(a);
@@ -723,13 +732,13 @@ wf_actor_set_waveform_sync (WaveformActor* a, Waveform* waveform)
 		wf_actor_disconnect_waveform(a);
 		g_object_unref(a->waveform);
 	}
-	a->waveform = g_object_ref(waveform);
+	a->waveform = _add_waveform(a, waveform);
 	wf_actor_connect_waveform(a);
 
 	waveform_load_sync(a->waveform);
 
 	if(waveform_get_n_frames(a->waveform)){
-		a->canvas->sample_rate = a->waveform->samplerate;
+		a->context->sample_rate = a->waveform->samplerate;
 		wf_actor_queue_load_render_data(a);
 		wf_actor_set_region(a, &(WfSampleRegion){0, waveform_get_n_frames(a->waveform)});
 	}
@@ -771,7 +780,7 @@ wf_actor_set_region (WaveformActor* a, WfSampleRegion* region)
 		LEN(actor).target_val.b = region->len;
 
 		_a->render_info.valid = false;
-		if(scene && scene->draw) wf_canvas_queue_redraw(a->canvas);
+		if(scene && scene->draw) wf_canvas_queue_redraw(a->context);
 		return; // no animations
 	}
 
@@ -884,7 +893,7 @@ wf_actor_set_full (WaveformActor* a, WfSampleRegion* region, WfRectangle* rect, 
 				a->region = *region;
 
 				_a->render_info.valid = false;
-				if(scene->draw) wf_canvas_queue_redraw(a->canvas);
+				if(scene->draw) wf_canvas_queue_redraw(a->context);
 
 			}else{
 				animatables = start ? g_list_append(NULL, a1) : NULL;
@@ -917,7 +926,7 @@ wf_actor_set_full (WaveformActor* a, WfSampleRegion* region, WfRectangle* rect, 
 			*a4->val.f = agl_actor__width(actor);
 			a4->start_val.f = a4->target_val.f = agl_actor__width(actor);
 
-			if(scene->draw) wf_canvas_queue_redraw(a->canvas);
+			if(scene->draw) wf_canvas_queue_redraw(a->context);
 		}
 
 		if(!a->waveform->offline) _wf_actor_load_missing_blocks(a);
@@ -1089,11 +1098,11 @@ block_to_fbo(WaveformActor* a, int b, WfGlBlock* blocks, int resolution)
 	g_return_if_fail(!blocks->fbo[b]);
 	blocks->fbo[b] = agl_fbo_new(256, 256, 0, 0);
 	{
-		WaveformContext* wfc = a->canvas;
+		WaveformContext* wfc = a->context;
 		WaveformActor* actor = a;
 		WfGlBlock* textures = blocks;
 
-		if(a->canvas->use_1d_textures){
+		if(a->context->use_1d_textures){
 			AGlFBO* fbo = blocks->fbo[b];
 			if(fbo){
 				agl_draw_to_fbo(fbo) {
@@ -1114,8 +1123,8 @@ block_to_fbo(WaveformActor* a, int b, WfGlBlock* blocks, int resolution)
 					agl_texture_unit_use_texture(wfc->texture_unit[1], textures->peak_texture[c].neg[b]);
 					if(a->waveform->priv->peak.buf[WF_RIGHT]){
 						c = 1;
-						agl_texture_unit_use_texture(a->canvas->texture_unit[2], textures->peak_texture[c].main[b]);
-						agl_texture_unit_use_texture(a->canvas->texture_unit[3], textures->peak_texture[c].neg[b]);
+						agl_texture_unit_use_texture(a->context->texture_unit[2], textures->peak_texture[c].main[b]);
+						agl_texture_unit_use_texture(a->context->texture_unit[3], textures->peak_texture[c].neg[b]);
 					}
 
 					//must introduce the overlap as early as possible in the pipeline. It is introduced during the copy from peakbuf to 1d texture.
@@ -1187,7 +1196,7 @@ wf_actor_get_viewport(WaveformActor* a, WfViewPort* viewport)
 	AGlActor* actor = (AGlActor*)a;
 #if 0
 	WfActorPriv* _a = a->priv;
-	WaveformContext* canvas = a->canvas;
+	WaveformContext* canvas = a->context;
 
 	if(canvas->viewport) *viewport = *canvas->viewport;
 	else {
@@ -1329,7 +1338,7 @@ _wf_actor_allocate_hi (WaveformActor* a)
 	WfViewPort viewport; _wf_actor_get_viewport_max(a, &viewport);
 #ifdef USE_CANVAS_SCALING
 	// currently only blocks for the final target zoom are loaded, not for any transitions
-	double zoom = a->canvas->scaled ? a->canvas->zoom / a->canvas->samples_per_pixel : ((float)agl_actor__width(((AGlActor*)a))) / a->region.len;
+	double zoom = a->context->scaled ? a->context->zoom / a->context->samples_per_pixel : ((float)agl_actor__width(((AGlActor*)a))) / a->region.len;
 #else
 	double zoom = ((float)agl_actor__width(((AGlActor*)a))) / a->region.len;
 #endif
@@ -1367,7 +1376,7 @@ _wf_actor_allocate_hi (WaveformActor* a)
 
 #if 0 // audio requests are currently done in start_transition() but needs testing.
 	bool is_new = a->rect.len == 0.0;
-	bool animate = a->canvas->draw && scene->enable_animations && !is_new;
+	bool animate = a->context->draw && scene->enable_animations && !is_new;
 	if(animate){
 		// add blocks for transition
 		// note that the animation doesnt run exactly on time so the position when redrawing cannot be precisely predicted.
@@ -1414,7 +1423,7 @@ __load_render_data (gpointer _a)
 	// because this is asynchronous, any caches may consist of an empty render.
 	agl_actor__invalidate((AGlActor*)a);
 
-	if(scene && scene->draw) wf_canvas_queue_redraw(a->canvas);
+	if(scene && scene->draw) wf_canvas_queue_redraw(a->context);
 	a->priv->load_render_data_queue = 0;
 
 	return G_SOURCE_REMOVE;
@@ -1461,9 +1470,9 @@ _wf_actor_load_missing_blocks (WaveformActor* a)
 
 	WfdRange _zoom =
 #ifdef USE_CANVAS_SCALING
-		a->canvas->scaled ? (WfdRange){
-			.start = a->canvas->zoom / a->canvas->samples_per_pixel,
-			.end = a->canvas->priv->zoom.target_val.f / a->canvas->samples_per_pixel,
+		a->context->scaled ? (WfdRange){
+			.start = a->context->zoom / a->context->samples_per_pixel,
+			.end = a->context->priv->zoom.target_val.f / a->context->samples_per_pixel,
 		} :
 #endif
 		(WfdRange){
@@ -1635,7 +1644,7 @@ wf_actor_set_rect (WaveformActor* a, WfRectangle* rect)
 		*a1->val.f = a1->target_val.f = a1->start_val.f = rect->left;
 		*a2->val.f = a2->target_val.f = a2->start_val.f = rect->left + rect->len;
 
-		if(scene && scene->draw) wf_canvas_queue_redraw(a->canvas);
+		if(scene && scene->draw) wf_canvas_queue_redraw(a->context);
 	}
 }
 
@@ -1734,7 +1743,7 @@ wf_actor_set_vzoom (WaveformActor* a, float vzoom)
 	#define MAX_VZOOM 100.0
 	a->vzoom = CLAMP(vzoom, 1.0, MAX_VZOOM);
 
-	wf_context_set_gain(a->canvas, a->vzoom);
+	wf_context_set_gain(a->context, a->vzoom);
 
 	agl_actor__invalidate((AGlActor*)a);
 }
@@ -1807,7 +1816,7 @@ static inline bool
 calc_render_info (WaveformActor* actor)
 {
 	AGlActor* a = (AGlActor*)actor;
-	WaveformContext* wfc = actor->canvas;
+	WaveformContext* wfc = actor->context;
 	Waveform* w = actor->waveform; 
 	WaveformPrivate* _w = w->priv;
 	RenderInfo* r  = &actor->priv->render_info;
@@ -1891,7 +1900,7 @@ wf_actor_paint (AGlActor* _actor)
 
 	WaveformActor* actor = (WaveformActor*)_actor;
 	g_return_val_if_fail(actor, false);
-	WaveformContext* wfc = actor->canvas;
+	WaveformContext* wfc = actor->context;
 	g_return_val_if_fail(wfc, false);
 	WfActorPriv* _a = actor->priv;
 	Waveform* w = actor->waveform; 
@@ -2218,12 +2227,12 @@ wf_actor_load_texture2d(WaveformActor* a, Mode mode, int texture_id, int blocknu
 	dbg(1, "* %i: texture=%i", blocknum, texture_id);
 	if(mode == MODE_MED){
 		AlphaBuf* alphabuf = wf_alphabuf_new(w, blocknum, 1, false, TEX_BORDER);
-		wf_canvas_load_texture_from_alphabuf(a->canvas, texture_id, alphabuf);
+		wf_canvas_load_texture_from_alphabuf(a->context, texture_id, alphabuf);
 		wf_alphabuf_free(alphabuf);
 	}
 	else if(mode == MODE_HI){
 		AlphaBuf* alphabuf = wf_alphabuf_new_hi(w, blocknum, 1, false, TEX_BORDER);
-		wf_canvas_load_texture_from_alphabuf(a->canvas, texture_id, alphabuf);
+		wf_canvas_load_texture_from_alphabuf(a->context, texture_id, alphabuf);
 		wf_alphabuf_free(alphabuf);
 	}
 }
@@ -2256,7 +2265,7 @@ wf_actor_load_texture2d(WaveformActor* a, Mode mode, int texture_id, int blocknu
 					}
 
 #ifdef USE_CANVAS_SCALING
-					double zoom = a->canvas->scaled ? wf_context_get_zoom(a->canvas) : agl_actor__width(actor) / region.len;
+					double zoom = a->context->scaled ? wf_context_get_zoom(a->context) : agl_actor__width(actor) / region.len;
 #else
 					double zoom = _a->rect.len / region.len;
 #endif

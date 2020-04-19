@@ -25,7 +25,7 @@
 #include <GL/gl.h>
 #include "agl/ext.h"
 #include "agl/utils.h"
-#include "waveform/waveform.h"
+#include "wf/waveform.h"
 #include "waveform/shader.h"
 
 #include "shaders/shaders.c"

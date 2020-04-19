@@ -11,7 +11,7 @@ if ENABLE_GLIB_2_58_POLYFILL
 GLIB_SUBDIRS = glib
 GLIB_LIBADD = glib/libglib.la
 endif
-SUBDIRS = $(OPENGL_SUBDIRS) $(SDL_SUBDIRS) $(GTK_SUBDIRS) $(GLIB_SUBDIRS) waveform transition decoder . test
+SUBDIRS = $(OPENGL_SUBDIRS) $(SDL_SUBDIRS) $(GTK_SUBDIRS) $(GLIB_SUBDIRS) wf waveform transition decoder . test
 
 if ENABLE_OPENGL
 OPENGL_LIBADD = \
@@ -19,13 +19,18 @@ OPENGL_LIBADD = \
 	agl/behaviours/libbehaviours.la
 endif
 
-lib_LTLIBRARIES = libwaveform.la
+lib_LTLIBRARIES = libwaveform.la libwaveformcore.la
+
+libwaveformcore_la_SOURCES =
+libwaveformcore_la_LIBADD = \
+	decoder/libdecoder.la \
+	wf/libwfcore.la
+
 libwaveform_la_SOURCES =
 libwaveform_la_LIBADD = \
-	waveform/libwf.la \
-	decoder/libdecoder.la \
 	transition/libtransition.la \
 	$(GLIB_LIBADD) \
+	waveform/libwf.la \
 	$(OPENGL_LIBADD)
 
 AM_CFLAGS = \

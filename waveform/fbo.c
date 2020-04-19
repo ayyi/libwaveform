@@ -12,8 +12,9 @@
 #define __wf_private__
 #include "config.h"
 #include <GL/gl.h>
-#include "waveform/debug.h"
-#include "waveform/waveform.h"
+#include "wf/debug.h"
+#include "wf/waveform.h"
+#include "waveform/shader.h"
 #include "waveform/fbo.h"
 
 extern BloomShader vertical;

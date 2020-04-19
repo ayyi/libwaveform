@@ -1,22 +1,18 @@
-/*
-  copyright (C) 2012-2019 Tim Orford <tim@orford.org>
-
-  This program is free software; you can redistribute it and/or modify
-  it under the terms of the GNU General Public License version 3
-  as published by the Free Software Foundation.
-
-  This program is distributed in the hope that it will be useful,
-  but WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-  GNU General Public License for more details.
-
-  You should have received a copy of the GNU General Public License
-  along with this program; if not, write to the Free Software
-  Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+/**
+* +----------------------------------------------------------------------+
+* | This file is part of libwaveform https://github.com/ayyi/libwaveform |
+* | copyright (C) 2012-2020 Tim Orford <tim@orford.org>                  |
+* +----------------------------------------------------------------------+
+* | This program is free software; you can redistribute it and/or modify |
+* | it under the terms of the GNU General Public License version 3       |
+* | as published by the Free Software Foundation.                        |
+* +----------------------------------------------------------------------+
+*
 */
 #ifndef __waveform_texture_cache_h__
 #define __waveform_texture_cache_h__
-#include "waveform/waveform.h"
+
+#include "wf/waveform.h"
 
 #ifdef WF_USE_TEXTURE_CACHE
 #ifdef __wf_private__
@@ -26,16 +22,16 @@
 #define WF_TEXTURE_CACHE_HIRES_NG_MASK (1 << 21)
 #define WF_TEXTURE_CACHE_V_LORES_MASK (1 << 20)
 
-typedef void  (*AGlOnSteal) (WfTexture*);
+typedef void  (*WfOnSteal) (WfTexture*);
 
 struct _texture_cache
 {
 	GArray*     t;             // type WfTexture
-	AGlOnSteal  on_steal;
+	WfOnSteal   on_steal;
 };
 
 void  texture_cache_init            ();
-void  texture_cache_set_on_steal    (AGlOnSteal);
+void  texture_cache_set_on_steal    (WfOnSteal);
 int   texture_cache_lookup          (int tex_type, WaveformBlock);
 guint texture_cache_assign_new      (int tex_type, WaveformBlock);
 void  texture_cache_freshen         (int tex_type, WaveformBlock);

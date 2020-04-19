@@ -13,7 +13,7 @@
 #define __waveform_actor_h__
 #include "transition/transition.h"
 #include "agl/actor.h"
-#include "waveform/waveform.h"
+#include "wf/waveform.h"
 #include "waveform/context.h"
 #include "waveform/actors/group.h"
 #include "waveform/actors/background.h"
@@ -30,15 +30,15 @@ typedef struct _actor_priv WfActorPriv;
 typedef void    (*WaveformActorFn) (WaveformActor*, gpointer);
 
 struct _WaveformActor {
-	AGlActor        actor;
-	WaveformContext* canvas;
-	Waveform*       waveform;
-	WfSampleRegion  region;
-	uint32_t        fg_colour;
-	float           vzoom;     // vertical zoom. default 1.0
-	float           z;         // render position on z-axis.
+	AGlActor         actor;
+	WaveformContext* context;
+	Waveform*        waveform;
+	WfSampleRegion   region;
+	uint32_t         fg_colour;
+	float            vzoom;     // vertical zoom. default 1.0
+	float            z;         // render position on z-axis.
 
-	WfActorPriv*    priv;
+	WfActorPriv*     priv;
 };
 
 AGlActorClass* wf_actor_get_class            ();

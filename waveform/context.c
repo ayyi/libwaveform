@@ -1,38 +1,32 @@
+/**
+* +----------------------------------------------------------------------+
+* | This file is part of the Ayyi project. http://ayyi.org               |
+* | copyright (C) 2012-2020 Tim Orford <tim@orford.org>                  |
+* +----------------------------------------------------------------------+
+* | This program is free software; you can redistribute it and/or modify |
+* | it under the terms of the GNU General Public License version 3       |
+* | as published by the Free Software Foundation.                        |
+* +----------------------------------------------------------------------+
+*
+*/
 /*
-  copyright (C) 2012-2020 Tim Orford <tim@orford.org>
 
-  This program is free software; you can redistribute it and/or modify
-  it under the terms of the GNU General Public License version 3
-  as published by the Free Software Foundation.
-
-  This program is distributed in the hope that it will be useful,
-  but WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-  GNU General Public License for more details.
-
-  You should have received a copy of the GNU General Public License
-  along with this program; if not, write to the Free Software
-  Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
-
-  ---------------------------------------------------------------
-
-  WaveformContext acts as a shared context for drawing multiple related Waveform Actors.
+  WaveformContext acts as a shared context for drawing multiple related
+  Waveform Actors.
 
 */
 #define __wf_private__
 #define __wf_canvas_priv__
 #include "config.h"
-#include <string.h>
-#include <math.h>
-#ifdef USE_GTK
-#include <gtk/gtk.h>
-#endif
 #include "agl/ext.h"
+#include "agl/actor.h"
 #include "agl/debug.h"
 #include "transition/frameclock.h"
-#include "waveform/waveform.h"
-#include "waveform/alphabuf.h"
+#include "wf/waveform.h"
+#include "waveform/pixbuf.h"
 #include "waveform/shader.h"
+#include "waveform/texture_cache.h"
+#include "waveform/private.h"
 #include "waveform/context.h"
 
 static AGl* agl = NULL;
@@ -99,7 +93,7 @@ static gpointer waveform_context_parent_class = NULL;
 
 
 GType
-waveform_context_get_type()
+waveform_context_get_type ()
 {
 	static volatile gsize waveform_context_type_id__volatile = 0;
 	if (g_once_init_enter (&waveform_context_type_id__volatile)) {
@@ -112,8 +106,25 @@ waveform_context_get_type()
 }
 
 
+#if defined (WF_USE_TEXTURE_CACHE) && defined (USE_OPENGL)
 static void
-wf_context_class_init(WaveformContextClass* klass)
+on_steal (WfTexture* tex)
+{
+	WaveformBlock* wb = &tex->wb;
+
+	if(wb->block & WF_TEXTURE_CACHE_HIRES_NG_MASK){
+		extern void hi_gl2_on_steal(WaveformBlock*, guint);
+		hi_gl2_on_steal(wb, tex->id);
+	}else{
+		extern void med_lo_on_steal(WaveformBlock*, guint);
+		med_lo_on_steal(wb, tex->id);
+	}
+}
+#endif
+
+
+static void
+wf_context_class_init (WaveformContextClass* klass)
 {
 	waveform_context_parent_class = g_type_class_peek_parent (klass);
 	//g_type_class_add_private (klass, sizeof (WaveformContextPrivate));
@@ -123,13 +134,18 @@ wf_context_class_init(WaveformContextClass* klass)
 
 	agl = agl_get_instance();
 
+#if defined (WF_USE_TEXTURE_CACHE) && defined (USE_OPENGL)
+		texture_cache_init();
+		texture_cache_set_on_steal(on_steal);
+#endif
+
 	// testing...
 	g_signal_new ("ready", TYPE_WAVEFORM_CONTEXT, G_SIGNAL_RUN_LAST, 0, NULL, NULL, g_cclosure_marshal_VOID__VOID, G_TYPE_NONE, 0);
 }
 
 
 static void
-wf_context_instance_init(WaveformContext* self)
+wf_context_instance_init (WaveformContext* self)
 {
 }
 

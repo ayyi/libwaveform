@@ -22,9 +22,6 @@
 */
 #define __wf_private__
 #include "config.h"
-#include <stdlib.h>
-#include <stdint.h>
-#include <string.h>
 #include <getopt.h>
 #include <unistd.h>
 #include <signal.h>
@@ -33,7 +30,7 @@
 #include <gtk/gtk.h>
 #include <gdk/gdkkeysyms.h>
 #include "agl/utils.h"
-#include "waveform/waveform.h"
+#include "waveform/actor.h"
 #include "test/common2.h"
 
 struct

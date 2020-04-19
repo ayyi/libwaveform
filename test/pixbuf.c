@@ -21,9 +21,6 @@
 */
 #define __wf_private__
 #include "config.h"
-#include <stdlib.h>
-#include <stdint.h>
-#include <string.h>
 #include <getopt.h>
 #include <time.h>
 #include <unistd.h>
@@ -38,6 +35,7 @@
 #include "agl/utils.h"
 #include "agl/actor.h"
 #include "waveform/view_plus.h"
+#include "waveform/pixbuf.h"
 #include "waveform/actors/text.h"
 #include "waveform/actors/spp.h"
 #include "common.h"

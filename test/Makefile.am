@@ -43,6 +43,7 @@ AM_CFLAGS = \
 # be careful before changing the order here
 TEST_LDFLAGS = \
 	$(top_srcdir)/.libs/libwaveform.a \
+	$(top_srcdir)/.libs/libwaveformcore.a \
 	$(OPENGL_LDFLAGS) \
 	$(LIBASS_LDFLAGS) \
 	$(GTK_LDFLAGS) \

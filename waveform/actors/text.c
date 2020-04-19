@@ -20,9 +20,10 @@
 #include "agl/ext.h"
 #include "agl/utils.h"
 #include "agl/actor.h"
-#include "waveform/debug.h"
-#include "waveform/waveform.h"
-#include "waveform/peakgen.h"
+#include "wf/debug.h"
+#include "wf/waveform.h"
+#include "wf/peakgen.h"
+#include "waveform/utils.h"
 #include "waveform/shader.h"
 #include "waveform/actors/text.h"
 

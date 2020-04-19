@@ -37,10 +37,11 @@
 #include <gdk/gdkkeysyms.h>
 #include <glib/gstdio.h>
 #include "agl/utils.h"
-#include "waveform/waveform.h"
-#include "waveform/audio.h"
+#include "wf/audio.h"
+#include "wf/worker.h"
+#include "waveform/actor.h"
 #include "waveform/texture_cache.h"
-#include "waveform/worker.h"
+#include "waveform/private.h"
 #include "test/common.h"
 
 extern void texture_cache_print ();

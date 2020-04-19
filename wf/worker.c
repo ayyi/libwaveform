@@ -13,9 +13,9 @@
 #define __wf_worker_private__
 #include "config.h"
 #include <sys/types.h>
-#include "waveform/debug.h"
-#include "waveform/waveform.h"
-#include "waveform/worker.h"
+#include "wf/debug.h"
+#include "wf/waveform.h"
+#include "wf/worker.h"
 
 #define ENABLE_THREADS
 

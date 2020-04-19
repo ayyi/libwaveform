@@ -22,7 +22,7 @@
 #include <sys/time.h>
 #include <glib.h>
 #include "agl/debug.h"
-#include "waveform/waveform.h"
+#include "wf/waveform.h"
 
 static int peak_byte_depth = 4; //ardour peak files use floats.
 

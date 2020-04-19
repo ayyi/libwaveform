@@ -70,7 +70,7 @@ static void
 _v_hi_set_gl_state (WaveformActor* actor)
 {
 	AGl* agl = agl_get_instance();
-	const WaveformContext* wfc = actor->canvas;
+	const WaveformContext* wfc = actor->context;
 
 #if defined (MULTILINE_SHADER)
 							glEnable(GL_BLEND);
@@ -113,7 +113,7 @@ draw_wave_buffer_v_hi (Renderer* renderer, WaveformActor* actor, int block, bool
 	// variable names: variables prefixed with x_ relate to screen coordinates (pixels), variables prefixed with s_ related to sample frames.
 
 	const Waveform* w = actor->waveform;
-	const WaveformContext* wfc = actor->canvas;
+	const WaveformContext* wfc = actor->context;
 	const WfActorPriv* _a = actor->priv;
 	const RenderInfo* ri  = &_a->render_info;
 	VHiRenderer* vhr = (VHiRenderer*)renderer;
@@ -400,7 +400,7 @@ draw_wave_buffer_v_hi (Renderer* renderer, WaveformActor* actor, int block, bool
 static void
 v_hi_load_block (Renderer* renderer, WaveformActor* a, int b)
 {
-	if(((AGlActor*)a)->root->draw) wf_canvas_queue_redraw(a->canvas);
+	if(((AGlActor*)a)->root->draw) wf_canvas_queue_redraw(a->context);
 }
 
 
