@@ -109,32 +109,48 @@ void      agl_rgba_to_float       (uint32_t rgba, float* r, float* g, float* b);
 
 typedef enum
 {
-	AGL_HAVE_NPOT_TEXTURES = 1,
-	AGL_HAVE_STENCIL       = 2,
-	AGL_HAVE_3_0           = 4,
-	AGL_HAVE_3_2           = 8,
+    AGL_HAVE_NPOT_TEXTURES = 1,
+    AGL_HAVE_STENCIL       = 2,
+    AGL_HAVE_3_0           = 4,
+    AGL_HAVE_3_2           = 8,
 } AGlHave;
+
+typedef enum
+{
+    AGL_TEXTURE_SHADER = 0,
+    AGL_ALPHAMAP_SHADER,
+    AGL_PLAIN_SHADER,
+    AGL_APPLICATION_SHADER_1,
+    AGL_APPLICATION_SHADER_2,
+    AGL_APPLICATION_SHADER_3,
+    AGL_APPLICATION_SHADER_4,
+    AGL_APPLICATION_SHADER_5,
+    AGL_N_SHADERS
+} AGlShaders;
 
 struct _agl
 {
-	bool            pref_use_shaders;
+    bool            pref_use_shaders;
 
-	XVisualInfo*    xvinfo;
-	Display*        xdisplay;
+    XVisualInfo*    xvinfo;
+    Display*        xdisplay;
 
-	bool            use_shaders;
-	AGlHave         have;
+    bool            use_shaders;
+    AGlHave         have;
 
-	struct {
-		AlphaMapShader* texture;
-		AlphaMapShader* alphamap;
-		PlainShader*    plain;
-		AlphaMapShader* text;
-	}               shaders;
-	AGlMaterial*    aaline;
+    union {
+       AGlShader* programs[AGL_N_SHADERS];
+       struct {
+          AlphaMapShader* texture;
+          AlphaMapShader* alphamap;
+          PlainShader*    plain;
+       }            shaders;
+    };
 
-	int             debug;
-	int             debug_flags;
+    AGlMaterial*    aaline;
+
+    int             debug;
+    int             debug_flags;
 };
 
 #define END_OF_UNIFORMS   { NULL, 0, GL_NONE, { 0, 0, 0, 0 }, -1 }

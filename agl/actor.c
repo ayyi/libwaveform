@@ -60,7 +60,7 @@ static AGliPt _agl_actor__find_offset (AGlActor*);
 
 #ifdef USE_GTK
 static void
-agl_actor__have_drawable(AGlRootActor* a, GdkGLDrawable* drawable)
+agl_actor__have_drawable (AGlRootActor* a, GdkGLDrawable* drawable)
 {
 	g_return_if_fail(!a->gl.gdk.drawable);
 	g_return_if_fail(!a->gl.gdk.context);
@@ -336,10 +336,8 @@ agl_actor__replace_child(AGlActor* actor, AGlActor* child, AGlActor* new_child)
 
 
 static void
-agl_actor__init (AGlActor* actor)
+_agl_actor__init (AGlActor* actor)
 {
-	// note that this may be called more than once, eg on settings change.
-
 	if(agl->use_shaders && actor->program && !actor->program->program) agl_create_program(actor->program);
 
 	call(actor->init, actor);
@@ -352,13 +350,28 @@ agl_actor__init (AGlActor* actor)
 		if(behaviour->klass->init) agl_behaviour_init(behaviour, actor);
 	}
 
-	GList* l = actor->children;
-	for(;l;l=l->next) agl_actor__init((AGlActor*)l->data);
+	for(GList* l=actor->children;l;l=l->next)
+		_agl_actor__init((AGlActor*)l->data);
+}
+
+
+/*
+ *  Note that agl_actor__init may be called more than once, eg on settings change.
+ */
+static void
+agl_actor__init (AGlActor* actor)
+{
+	// agl_create_programs can sometimes end up being called multiple
+	// times too allow for actors to add global shaders
+	extern void agl_create_programs ();
+	agl_create_programs ();
+
+	_agl_actor__init (actor);
 }
 
 
 bool
-agl_actor__is_onscreen(AGlActor* a)
+agl_actor__is_onscreen (AGlActor* a)
 {
 	int h = ((AGlActor*)a->root)->scrollable.y2 - ((AGlActor*)a->root)->scrollable.y1;
 	int w = ((AGlActor*)a->root)->scrollable.x2 - ((AGlActor*)a->root)->scrollable.x1;

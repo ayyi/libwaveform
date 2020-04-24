@@ -52,7 +52,7 @@ agl_create_line_texture()
 
 	agl = agl_get_instance();
 
-	aaline_class.shader = (AGlShader*)agl->shaders.text; // alpha shader
+	aaline_class.shader = (AGlShader*)agl->shaders.alphamap;
 
 	glEnable(GL_TEXTURE_2D);
 

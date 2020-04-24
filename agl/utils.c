@@ -65,7 +65,7 @@ _tex_set_uniforms ()
 }
 
 // plain colour shader
-static void _plain_set_uniforms();
+static void _plain_set_uniforms ();
 PlainShader plain = {{NULL, NULL, 0, NULL, _plain_set_uniforms, &plain_colour_text}, {0xff000077}};
 static void
 _plain_set_uniforms ()
@@ -79,20 +79,25 @@ _plain_set_uniforms ()
 }
 
 
+AGl _agl = {
+	.pref_use_shaders = TRUE,
+	.use_shaders = FALSE,    // not set until we an have active gl context based on the value of pref_use_shaders.
+	.shaders = {
+		.alphamap = &alphamap,
+		.texture = &tex2d,
+		.plain = &plain,
+	},
+	.debug_flags = AGL_DEBUG_ALL
+};
+
+
 static AGl* agl = NULL;
 
 AGl*
 agl_get_instance ()
 {
 	if(!agl){
-		agl = AGL_NEW(AGl,
-			.pref_use_shaders = TRUE,
-			.use_shaders = FALSE,    // not set until we an have active gl context based on the value of pref_use_shaders.
-		);
-		agl->shaders.alphamap = &alphamap;
-		agl->shaders.texture = &tex2d;
-		agl->shaders.plain = &plain;
-		agl->debug_flags = AGL_DEBUG_ALL;
+		agl = &_agl;
 
 		driver_init();
 	}
@@ -247,6 +252,18 @@ agl_shaders_supported ()
 
 
 void
+agl_create_programs ()
+{
+	for(int i=0;i<AGL_N_SHADERS;i++){
+		AGlShader* shader = agl->programs[i];
+		if(shader && !shader->program){
+			agl_create_program(shader);
+		}
+	}
+}
+
+
+void
 agl_gl_init ()
 {
 	static gboolean done = FALSE;
@@ -316,14 +333,6 @@ agl_gl_init ()
 		fprintf(stderr, "vertex arrays not available!\n");
 	}
 #endif
-
-	if(agl->use_shaders){
-		agl_create_program(&alphamap.shader);
-		agl_create_program(&tex2d.shader);
-		agl_create_program(&plain.shader);
-
-		agl->shaders.text = &alphamap;
-	}
 
 	renderer_init();
 }
@@ -420,11 +429,10 @@ agl_compile_shader_file (GLenum shaderType, const char* filename)
 void
 agl_uniforms_init (GLuint program, AGlUniformInfo uniforms[])
 {
-	GLuint i;
 	dbg(1, "program=%u", program);
 	if(!uniforms) return;
 
-	for (i = 0; uniforms[i].name; i++) {
+	for (GLuint i = 0; uniforms[i].name; i++) {
 		uniforms[i].location = glGetUniformLocation(program, uniforms[i].name);
 		// note zero is a valid location number.
 		if(uniforms[i].location < 0) gwarn("%s: location=%i", uniforms[i].name, uniforms[i].location);

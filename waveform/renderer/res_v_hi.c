@@ -82,7 +82,7 @@ _v_hi_set_gl_state (WaveformActor* actor)
 							}
 #elif defined(ANTIALIASED_LINES)
 	if(wfc->use_1d_textures){
-		agl->shaders.text->uniform.fg_colour = actor->fg_colour;
+		agl->shaders.alphamap->uniform.fg_colour = actor->fg_colour;
 		agl_use_material(agl->aaline);
 		agl_enable(AGL_ENABLE_BLEND | AGL_ENABLE_TEXTURE_2D);
 		glBindTexture(GL_TEXTURE_2D, aaline_class.texture);

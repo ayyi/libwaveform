@@ -50,7 +50,7 @@ struct
 GdkGLConfig*    glconfig       = NULL;
 static bool     gl_initialised = false;
 GtkWidget*      canvas         = NULL;
-WaveformContext* wfc            = NULL;
+WaveformContext*wfc            = NULL;
 Waveform*       w1             = NULL;
 Waveform*       w2             = NULL;
 WaveformActor*  actor          = NULL;
@@ -79,9 +79,6 @@ typedef struct
     unsigned char* buf;      // 8 bit alphamap
 } image_t;
 
-static void setup_projection   (GtkWidget*);
-static void draw               (GtkWidget*);
-static gboolean on_expose      (GtkWidget*, GdkEventExpose*, gpointer);
 static void on_canvas_realise  (GtkWidget*, gpointer);
 static void on_allocate        (GtkWidget*, GtkAllocation*, gpointer);
 static void start_zoom         (float target_zoom);
@@ -98,6 +95,40 @@ static const struct option long_options[] = {
 };
 
 static const char* const short_options = "n";
+
+
+static bool
+ass_node_paint (AGlActor* actor)
+{
+	if(agl_get_instance()->use_shaders){
+		glEnable(GL_TEXTURE_2D);
+		glActiveTexture(GL_TEXTURE0);
+		if(!glIsTexture(ass_textures[0])) pwarn("not texture");
+
+		ass.uniform.colour1 = 0xffffffff;
+		ass.uniform.colour2 = 0xff0000ff;
+
+		agl_use_program((AGlShader*)&ass);
+
+		agl_textured_rect(ass_textures[0], 0., 0., GL_WIDTH, frame_h, NULL);
+	}
+
+	agl_print(0, 0, 0, 0x66ff66ff, "Regular text");
+
+	return true;
+}
+
+
+AGlActor*
+ass_node ()
+{
+	agl_get_instance()->programs[AGL_APPLICATION_SHADER_1] = &ass.shader;
+
+	return agl_actor__new(AGlActor,
+		.paint = ass_node_paint,
+		.region = {0, GL_HEIGHT - frame_h, GL_WIDTH, GL_HEIGHT}
+	);
+}
 
 
 void
@@ -164,13 +195,16 @@ main (int argc, char *argv[])
 	gtk_widget_add_events        (canvas, GDK_POINTER_MOTION_MASK | GDK_BUTTON_PRESS_MASK | GDK_BUTTON_RELEASE_MASK);
 	gtk_container_add((GtkContainer*)window, (GtkWidget*)canvas);
 
+	scene = (AGlRootActor*)agl_actor__new_root(canvas);
+	wfc = wf_context_new((AGlActor*)scene);
+
 	g_signal_connect((gpointer)canvas, "realize",       G_CALLBACK(on_canvas_realise), NULL);
 	g_signal_connect((gpointer)canvas, "size-allocate", G_CALLBACK(on_allocate), NULL);
-	g_signal_connect((gpointer)canvas, "expose_event",  G_CALLBACK(on_expose), NULL);
+	g_signal_connect((gpointer)canvas, "expose_event",  G_CALLBACK(agl_actor__on_expose), scene);
 
 	gtk_widget_show_all(window);
 
-	gboolean key_press(GtkWidget* widget, GdkEventKey* event, gpointer user_data)
+	gboolean key_press (GtkWidget* widget, GdkEventKey* event, gpointer user_data)
 	{
 		switch(event->keyval){
 			case 61:
@@ -221,7 +255,7 @@ main (int argc, char *argv[])
 
 
 static void
-render_text()
+render_text ()
 {
 	init(frame_w, frame_h);
 	ASS_Track* track = ass_read_memory(ass_library, g_strdup(script), strlen(script), NULL);
@@ -282,109 +316,6 @@ render_text()
 }
 
 
-static void
-setup_projection (GtkWidget* widget)
-{
-	int vx = 0;
-	int vy = 0;
-	int vw = widget->allocation.width;
-	int vh = widget->allocation.height;
-	glViewport(vx, vy, vw, vh);
-	dbg (0, "viewport: %i %i %i %i", vx, vy, vw, vh);
-	glMatrixMode(GL_PROJECTION);
-	glLoadIdentity();
-
-	double hborder = GL_WIDTH / 32;
-
-	double left = -hborder;
-	double right = GL_WIDTH + hborder;
-	double bottom = GL_HEIGHT + VBORDER;
-	double top = -VBORDER;
-	glOrtho (left, right, bottom, top, 512.0, -512.0);
-}
-
-
-static void
-draw (GtkWidget* widget)
-{
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-	glEnable(GL_BLEND);
-	glEnable(GL_DEPTH_TEST);
-	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-
-	agl_actor__paint((AGlActor*)scene);
-
-	agl_print(0, 0, 0, 0x66ff66ff, "Regular text");
-
-	// text:
-	if(agl_get_instance()->use_shaders){
-		glEnable(GL_TEXTURE_2D);
-		glActiveTexture(GL_TEXTURE0);
-		glBindTexture(GL_TEXTURE_2D, ass_textures[0]);
-		if(!glIsTexture(ass_textures[0])) pwarn("not texture");
-
-		ass.uniform.colour1 = 0xffffffff;
-		ass.uniform.colour2 = 0xff0000ff;
-
-		agl_use_program((AGlShader*)&ass);
-
-		float w = GL_WIDTH;
-		float h = frame_h;
-		float x1 = 0.0f;
-		float y1 = GL_HEIGHT - h;
-		float x2 = x1 + w;
-		float y2 = y1 + h;
-		glBegin(GL_QUADS);
-		glTexCoord2d(0.0, 0.0); glVertex3d(x1, y1, -1);
-		glTexCoord2d(1.0, 0.0); glVertex3d(x2, y1, -1);
-		glTexCoord2d(1.0, 1.0); glVertex3d(x2, y2, -1);
-		glTexCoord2d(0.0, 1.0); glVertex3d(x1, y2, -1);
-		glEnd();
-	}
-
-#undef SHOW_BOUNDING_BOX
-#ifdef SHOW_BOUNDING_BOX
-	glPushMatrix(); /* modelview matrix */
-		glTranslatef(0.0, 0.0, 0.0);
-		glNormal3f(0, 0, 1);
-		glDisable(GL_TEXTURE_2D);
-		glLineWidth(1);
-
-		int w = GL_WIDTH;
-		int h = GL_HEIGHT/2;
-		glBegin(GL_QUADS);
-		glVertex3f(-0.2, -0.2, 1); glVertex3f(w, -0.2, 1);
-		glVertex3f(w, h, 1);       glVertex3f(-0.2, h, 1);
-		glEnd();
-		glEnable(GL_TEXTURE_2D);
-	glPopMatrix();
-#endif
-}
-
-
-static gboolean
-on_expose (GtkWidget* widget, GdkEventExpose* event, gpointer user_data)
-{
-	if(!GTK_WIDGET_REALIZED(widget)) return TRUE;
-	if(!gl_initialised) return TRUE;
-
-	AGL_ACTOR_START_DRAW(scene) {
-		glClearColor(0.0, 0.0, 0.0, 1.0);
-		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-		draw(widget);
-
-#if USE_SYSTEM_GTKGLEXT
-		gdk_gl_drawable_swap_buffers(scene->gl.gdk.drawable);
-#else
-		gdk_gl_window_swap_buffers(scene->gl.gdk.drawable);
-#endif
-	} AGL_ACTOR_END_DRAW(scene)
-	return TRUE;
-}
-
-
 static gboolean canvas_init_done = false;
 static void
 on_canvas_realise (GtkWidget* _canvas, gpointer user_data)
@@ -393,10 +324,7 @@ on_canvas_realise (GtkWidget* _canvas, gpointer user_data)
 	if(canvas_init_done) return;
 	if(!GTK_WIDGET_REALIZED (canvas)) return;
 
-	scene = (AGlRootActor*)agl_actor__new_root(canvas);
-	wfc = wf_context_new((AGlActor*)scene);
-
-	if(!ass.shader.program) agl_create_program(&ass.shader);
+	agl_actor__add_child((AGlActor*)scene, ass_node());
 
 	gl_initialised = true;
 	canvas_init_done = true;
@@ -433,7 +361,7 @@ on_allocate (GtkWidget* widget, GtkAllocation* allocation, gpointer user_data)
 {
 	if(!gl_initialised) return;
 
-	setup_projection(widget);
+	((AGlActor*)scene)->region = (AGlfRegion){0, 0, GL_WIDTH, GL_HEIGHT};
 
 	//optimise drawing by telling the canvas which area is visible
 	wf_context_set_viewport(wfc, &(WfViewPort){0, 0, GL_WIDTH, GL_HEIGHT});

@@ -105,9 +105,4 @@ extern CursorShader cursor;
 
 #endif
 
-struct _wf_shaders {
-	//AssShader* ass;
-} wf_shaders;
-
-
-#endif //__wf_shader_h__
+#endif
