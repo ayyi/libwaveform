@@ -13,7 +13,7 @@
 #define __wf_private_h__
 
 #include <math.h>
-#ifdef USE_GDK_PIXBUF
+#if defined(USE_GDK_PIXBUF) || defined(__GTK_H__)
 #include "limits.h"
 #else
 #define GdkColor void
