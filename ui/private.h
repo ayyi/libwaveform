@@ -13,7 +13,7 @@
 #define __waveform_private_h__
 
 #include "agl/fbo.h"
-#include "waveform/typedefs.h"
+#include "waveform/ui-typedefs.h"
 
 //TODO refactor based on _texture_hi (eg reverse order of indirection)
 struct _wf_texture_list                   // WfGlBlock - used at MED and LOW resolutions in gl1 mode.

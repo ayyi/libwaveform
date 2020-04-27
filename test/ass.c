@@ -23,7 +23,9 @@
 #define __wf_canvas_priv__
 #include "config.h"
 #include <getopt.h>
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 #include <gtk/gtk.h>
+#pragma GCC diagnostic warning "-Wdeprecated-declarations"
 #include <gdk/gdkkeysyms.h>
 #include <ass/ass.h>
 #include "agl/utils.h"

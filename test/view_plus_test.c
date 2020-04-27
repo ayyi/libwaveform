@@ -48,7 +48,9 @@
 #define __wf_private__
 #include "config.h"
 #include <getopt.h>
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 #include <gtk/gtk.h>
+#pragma GCC diagnostic warning "-Wdeprecated-declarations"
 #include <gdk/gdkkeysyms.h>
 #include "agl/actor.h"
 #include "waveform/view_plus.h"
@@ -194,7 +196,7 @@ main (int argc, char* argv[])
 
 	gtk_widget_show_all(window);
 
-	add_key_handlers_gtk((GtkWindow*)window, (WaveformView*)waveform, (Key*)&keys);
+	add_key_handlers_gtk((GtkWindow*)window, waveform, (Key*)&keys);
 
 	g_signal_connect(window, "delete-event", G_CALLBACK(gtk_main_quit), NULL);
 	g_signal_connect(window, "size-allocate", G_CALLBACK(on_allocate), waveform);

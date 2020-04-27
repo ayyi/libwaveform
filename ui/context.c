@@ -26,7 +26,7 @@
 #include "waveform/pixbuf.h"
 #include "waveform/shader.h"
 #include "waveform/texture_cache.h"
-#include "waveform/private.h"
+#include "waveform/ui-private.h"
 #include "waveform/context.h"
 
 static AGl* agl = NULL;

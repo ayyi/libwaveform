@@ -272,7 +272,7 @@ on_event (SDL_Event* event)
 
 
 static void
-setup_projection()
+setup_projection ()
 {
 	int vx = 0;
 	int vy = 0;
@@ -292,7 +292,7 @@ setup_projection()
 
 
 static void
-start_zoom(float target_zoom)
+start_zoom (float target_zoom)
 {
 	PF;
 	window.zoom = MAX(0.1, target_zoom);
@@ -308,21 +308,21 @@ start_zoom(float target_zoom)
 
 
 void
-zoom_in(gpointer waveform)
+zoom_in (gpointer waveform)
 {
 	start_zoom(window.zoom * 1.3);
 }
 
 
 void
-zoom_out(gpointer waveform)
+zoom_out (gpointer waveform)
 {
 	start_zoom(window.zoom / 1.3);
 }
 
 
 void
-scroll(WaveformView* waveform, int dx)
+scroll (WaveformViewPlus* waveform, int dx)
 {
 	window.dirty = true;
 

@@ -17,7 +17,7 @@
 #include "agl/shader.h"
 #include "wf/debug.h"
 #include "wf/waveform.h"
-#include "waveform/actors/background.h"
+#include "waveform/background.h"
 
 static AGl* agl = NULL;
 

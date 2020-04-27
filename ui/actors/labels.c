@@ -18,7 +18,7 @@
 #include <math.h>
 #include <sys/time.h>
 #include "waveform/actor.h"
-#include "waveform/actors/labels.h"
+#include "waveform/labels.h"
 
 typedef struct {
     AGlActor         actor;

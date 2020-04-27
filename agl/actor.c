@@ -15,14 +15,16 @@
 #include "config.h"
 #include <GL/gl.h>
 #ifdef USE_GTK
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 #include <gtk/gtk.h>
+#pragma GCC diagnostic warning "-Wdeprecated-declarations"
 #else
 #include <gdk/gdk.h>
 #endif
 #include "agl/utils.h"
 #include "agl/debug.h"
 #include "agl/ext.h"
-#include "waveform/utils.h"
+#include "wf/utils.h"
 #include "agl/shader.h"
 #include "agl/transform.h"
 #include "text/renderops.h"

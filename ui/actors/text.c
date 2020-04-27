@@ -13,7 +13,6 @@
 #define __wf_private__
 #include "config.h"
 #include <gdk/gdkkeysyms.h>
-#include <GL/gl.h>
 #ifdef USE_LIBASS
 #include <ass/ass.h>
 #endif
@@ -25,7 +24,7 @@
 #include "wf/peakgen.h"
 #include "waveform/utils.h"
 #include "waveform/shader.h"
-#include "waveform/actors/text.h"
+#include "waveform/text.h"
 
 #define FONT \
 	"Droid Sans"

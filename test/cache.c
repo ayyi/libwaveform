@@ -33,7 +33,9 @@
 #include <time.h>
 #include <sys/time.h>
 #include <math.h>
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 #include <gtk/gtk.h>
+#pragma GCC diagnostic warning "-Wdeprecated-declarations"
 #include <gdk/gdkkeysyms.h>
 #include <glib/gstdio.h>
 #include "agl/utils.h"
@@ -41,7 +43,7 @@
 #include "wf/worker.h"
 #include "waveform/actor.h"
 #include "waveform/texture_cache.h"
-#include "waveform/private.h"
+#include "waveform/ui-private.h"
 #include "test/common.h"
 
 extern void texture_cache_print ();

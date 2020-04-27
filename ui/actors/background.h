@@ -13,7 +13,7 @@
 #ifndef __wf_background_actor_h__
 #define __wf_background_actor_h__
 
-#include "waveform/typedefs.h"
+#include "waveform/ui-typedefs.h"
 
 AGlActor* background_actor (WaveformActor*);
 

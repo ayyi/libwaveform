@@ -17,7 +17,7 @@
 #include "agl/ext.h"
 #include "agl/debug.h"
 #include "agl/text/text_node.h"
-#include "waveform/actors/debug.h"
+#include "waveform/debug.h"
 #define __glx_test__
 #include "test/common2.h"
 

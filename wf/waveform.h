@@ -71,15 +71,16 @@ struct _Waveform
 	GObject            parent_instance;
 
 	char*              filename;          // either full path, or relative to cwd.
+
 	uint64_t           n_frames;          // audio file size
 	int                n_channels;
 	bool               is_split;          // true for split stereo files
 	int                samplerate;
 
-	bool               offline;
-	bool               renderable;
+	bool               offline : 1;       // file is not currently accessible
+	bool               renderable : 1;    // there is a problem with the file
 
-	WfCallback4        free_render_data;
+	WfCallback4        free_render_data;  // finalize callback
 
 	WaveformPrivate*   priv;
 };
@@ -116,7 +117,7 @@ Waveform*  waveform_new                  (const char* filename);
 Waveform*  waveform_construct            (GType);
 #define    waveform_unref0(w)            (g_object_unref(w), w = NULL)
 void       waveform_load                 (Waveform*, WfCallback3, gpointer);
-gboolean   waveform_load_sync            (Waveform*);
+bool       waveform_load_sync            (Waveform*);
 void       waveform_set_file             (Waveform*, const char*);
 
 bool       waveform_load_peak            (Waveform*, const char*, int ch_num);

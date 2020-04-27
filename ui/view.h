@@ -27,8 +27,8 @@
 #include <GL/gl.h>
 #include <gtk/gtk.h>
 #include <gtk/gtkgl.h>
-#include "waveform/typedefs.h"
 #include "wf/waveform.h"
+#include "waveform/ui-typedefs.h"
 
 G_BEGIN_DECLS
 

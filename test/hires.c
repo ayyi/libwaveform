@@ -12,7 +12,7 @@
 
   --------------------------------------------------------------
 
-  Copyright (C) 2012-2018 Tim Orford <tim@orford.org>
+  Copyright (C) 2012-2020 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -30,17 +30,17 @@
 #define __wf_private__
 #include "config.h"
 #include <stdlib.h>
-#include <stdint.h>
 #include <string.h>
 #include <getopt.h>
 #include <time.h>
 #include <unistd.h>
 #include <sys/time.h>
 #include <sys/types.h>
-#include <GL/gl.h>
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 #include <gtk/gtk.h>
+#pragma GCC diagnostic warning "-Wdeprecated-declarations"
 #include <gdk/gdkkeysyms.h>
-#include "waveform/view.h"
+#include "waveform/view_plus.h"
 #include "test/common.h"
 
 static const struct option long_options[] = {
@@ -78,8 +78,7 @@ main (int argc, char *argv[])
 	gtk_init(&argc, &argv);
 	GtkWidget* window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
 
-	WaveformView* waveform = waveform_view_new(NULL);
-	waveform_view_set_show_rms(waveform, false);
+	WaveformViewPlus* waveform = waveform_view_plus_new(NULL);
 	#if 0
 	waveform_view_set_show_grid(waveform, true);
 	#endif
@@ -88,30 +87,30 @@ main (int argc, char *argv[])
 	gtk_widget_show_all(window);
 
 	char* filename = find_wav(WAV);
-	waveform_view_load_file(waveform, filename);
+	waveform_view_plus_load_file(waveform, filename, NULL, NULL);
 	g_free(filename);
 
-	gboolean key_press(GtkWidget* widget, GdkEventKey* event, gpointer user_data)
+	gboolean key_press (GtkWidget* widget, GdkEventKey* event, gpointer user_data)
 	{
-		WaveformView* waveform = user_data;
-		int n_visible_frames = ((float)waveform->waveform->n_frames) / waveform->zoom;
+		WaveformViewPlus* waveform = user_data;
+		int n_visible_frames = ((float)waveform->waveform->n_frames) / waveform_view_plus_get_zoom(waveform);
 
 		switch(event->keyval){
 			case 61:
-				waveform_view_set_zoom(waveform, waveform->zoom * 1.5);
+				waveform_view_plus_set_zoom(waveform, waveform_view_plus_get_zoom(waveform) * 1.5);
 				break;
 			case 45:
-				waveform_view_set_zoom(waveform, waveform->zoom / 1.5);
+				waveform_view_plus_set_zoom(waveform, waveform_view_plus_get_zoom(waveform) / 1.5);
 				break;
 			case KEY_Left:
 			case KEY_KP_Left:
 				dbg(1, "left");
-				waveform_view_set_start(waveform, waveform->start_frame - n_visible_frames / 10);
+				waveform_view_plus_set_start(waveform, waveform->start_frame - n_visible_frames / 10);
 				break;
 			case KEY_Right:
 			case KEY_KP_Right:
 				dbg(1, "right");
-				waveform_view_set_start(waveform, waveform->start_frame + n_visible_frames / 10);
+				waveform_view_plus_set_start(waveform, waveform->start_frame + n_visible_frames / 10);
 				break;
 			case GDK_KP_Enter:
 				break;

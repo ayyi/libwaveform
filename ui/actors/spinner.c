@@ -16,15 +16,11 @@
 #define __wf_private__
 #include "config.h"
 #include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <math.h>
-#include <GL/gl.h>
 #include "transition/frameclock.h"
 #include "agl/actor.h"
 #include "agl/ext.h"
 #include "waveform/shader.h"
-#include "waveform/actors/spinner.h"
+#include "waveform/spinner.h"
 
 #define RADIUS 16
 

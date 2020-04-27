@@ -26,7 +26,9 @@
 #include "config.h"
 #include <getopt.h>
 #include <sys/time.h>
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 #include <gtk/gtk.h>
+#pragma GCC diagnostic warning "-Wdeprecated-declarations"
 #include <gdk/gdkkeysyms.h>
 #include "agl/utils.h"
 #include "waveform/actor.h"

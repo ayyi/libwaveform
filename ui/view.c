@@ -15,14 +15,15 @@
 */
 #define __wf_private__
 #define __waveform_view_private__
+
 #include "config.h"
+
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 #include <gtk/gtk.h>
 #include "agl/actor.h"
 #include "wf/debug.h"
 #include "waveform/actor.h"
 #include "waveform/view.h"
-
-#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 
 #define DIRECT 1
 #define DEFAULT_HEIGHT 64

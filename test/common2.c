@@ -18,7 +18,9 @@
 #include <sys/types.h>
 #define XLIB_ILLEGAL_ACCESS // needed to access Display internals
 #include <X11/Xlib.h>
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 #include <gtk/gtk.h>
+#pragma GCC diagnostic warning "-Wdeprecated-declarations"
 #include <glib-object.h>
 #include "agl/actor.h"
 #include "waveform/utils.h"
@@ -688,14 +690,14 @@ gtk_window (Key keys[], WindowFn content)
 	static KeyHold key_hold = {0, NULL};
 	static bool key_down = false;
 
-	static gboolean key_hold_on_timeout(gpointer user_data)
+	static gboolean key_hold_on_timeout (gpointer user_data)
 	{
-		WaveformView* waveform = user_data;
+		WaveformViewPlus* waveform = user_data;
 		if(key_hold.handler) key_hold.handler(waveform);
 		return TIMER_CONTINUE;
 	}
 
-	static gboolean key_press(GtkWidget* widget, GdkEventKey* event, gpointer user_data)
+	static gboolean key_press (GtkWidget* widget, GdkEventKey* event, gpointer user_data)
 	{
 		if(key_down){
 			// key repeat

@@ -233,7 +233,7 @@ waveform_load(Waveform* w, WfCallback3 callback, gpointer user_data)
 }
 
 
-gboolean
+bool
 waveform_load_sync(Waveform* w)
 {
 	g_return_val_if_fail(w, false);
@@ -246,7 +246,7 @@ waveform_load_sync(Waveform* w)
 
 	char* peakfile = waveform_ensure_peakfile__sync(w);
 	if(peakfile){
-		gboolean loaded = waveform_load_peak(w, peakfile, 0);
+		bool loaded = waveform_load_peak(w, peakfile, 0);
 		g_free(peakfile);
 		return loaded;
 	}

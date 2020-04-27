@@ -22,7 +22,6 @@ noinst_LTLIBRARIES = libwf.la
 
 if ENABLE_GTK
 GTK_SOURCES = \
-	view.c view.h \
 	view_plus.c view_plus.h
 endif
 
@@ -61,7 +60,6 @@ EXTRA_DIST = \
 pkgincludedir=$(includedir)/waveform
 pkginclude_HEADERS = \
 	typedefs.h \
-	view.h \
 	view_plus.h \
 	actor.h \
 	context.h \

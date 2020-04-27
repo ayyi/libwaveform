@@ -34,7 +34,9 @@
 #define __wf_canvas_priv__
 #include "config.h"
 #include <math.h>
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 #include <gtk/gtk.h>
+#pragma GCC diagnostic warning "-Wdeprecated-declarations"
 #include <gdk/gdkkeysyms.h>
 #include <GL/gl.h>
 #include "agl/debug.h"
@@ -517,7 +519,7 @@ waveform_view_plus_set_colour (WaveformViewPlus* view, uint32_t fg, uint32_t bg/
 	}
 
 void
-waveform_view_plus_set_show_rms (WaveformViewPlus* view, gboolean _show)
+waveform_view_plus_set_show_rms (WaveformViewPlus* view, bool _show)
 {
 	//FIXME this idle hack is because wa is not created until realise.
 	//      (still true?)

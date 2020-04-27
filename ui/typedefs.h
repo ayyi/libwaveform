@@ -22,7 +22,6 @@ typedef struct _WaveformContextClass WaveformContextClass;
 typedef struct _WaveformActor       WaveformActor;
 typedef struct _textures_hi         WfTexturesHi;
 typedef struct _WfViewPort          WfViewPort; 
-typedef struct _WaveformView        WaveformView;
 typedef struct _WaveformViewPlus    WaveformViewPlus;
 typedef struct _wf_shaders          WfShaders;
 typedef struct _ass_shader          AssShader;

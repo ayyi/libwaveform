@@ -47,7 +47,9 @@
 #include <math.h>
 #include <sys/time.h>
 #ifdef USE_GTK
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 #include <gtk/gtk.h>
+#pragma GCC diagnostic warning "-Wdeprecated-declarations"
 #endif
 #include <GL/gl.h>
 #include "agl/ext.h"
@@ -59,7 +61,7 @@
 #include "waveform/pixbuf.h"
 #include "waveform/fbo.h"
 #include "waveform/actor.h"
-#include "waveform/private.h"
+#include "waveform/ui-private.h"
 #include "waveform/transition_behaviour.h"
 
 #define _g_signal_handler_disconnect0(A, H) (H = (g_signal_handler_disconnect((gpointer)A, H), 0))
@@ -257,13 +259,13 @@ static void   wf_actor_disconnect_waveform   (WaveformActor*);
 static void   waveform_free_render_data      (Waveform*);
 
 
-#include "waveform/renderer/ng.c"
-#include "waveform/renderer/res_med.c"
-#include "waveform/renderer/res_lo.c"
-#include "waveform/renderer/res_hi_gl2.c"
-#include "waveform/renderer/res_hi.c"
-#include "waveform/renderer/res_v_hi.c"
-#include "waveform/renderer/res_v_low.c"
+#include "ui/renderer/ng.c"
+#include "ui/renderer/res_med.c"
+#include "ui/renderer/res_lo.c"
+#include "ui/renderer/res_hi_gl2.c"
+#include "ui/renderer/res_hi.c"
+#include "ui/renderer/res_v_hi.c"
+#include "ui/renderer/res_v_low.c"
 
 static void  wf_actor_waveform_finalize_notify (gpointer, GObject*);
 static void  wf_actor_on_size_transition_start (WaveformActor*, WfAnimatable*);

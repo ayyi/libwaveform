@@ -23,9 +23,9 @@
 #include "wf/waveform.h"
 #include "waveform/utils.h"
 #include "waveform/shader.h"
-#include "waveform/actors/background.h"
-#include "waveform/actors/plain.h"
-#include "waveform/actors/group.h"
+#include "waveform/background.h"
+#include "waveform/plain.h"
+#include "waveform/group.h"
 
 #undef SHOW_2ND_CHILD
 #define SHOW_2ND_CHILD

@@ -20,7 +20,7 @@
 #include "wf/waveform.h"
 #include "agl/actor.h"
 #include "agl/shader.h"
-#include "waveform/actors/plain.h"
+#include "waveform/plain.h"
 
 static AGl* agl = NULL;
 

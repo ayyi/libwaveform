@@ -16,7 +16,7 @@
 #include "agl/utils.h"
 #include "wf/debug.h"
 #include "wf/waveform.h"
-#include "waveform/private.h"
+#include "waveform/ui-private.h"
 #include "waveform/texture_cache.h"
 
 #define WF_TEXTURE_ALLOCATION_INCREMENT 20

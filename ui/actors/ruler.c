@@ -19,7 +19,7 @@
 #include "wf/waveform.h"
 #include "waveform/actor.h"
 #include "waveform/context.h"
-#include "waveform/actors/grid.h"
+#include "waveform/grid.h"
 
 typedef struct {
     AGlActor         actor;

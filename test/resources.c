@@ -26,10 +26,12 @@
 #include <time.h>
 #include <sys/time.h>
 #include <sys/types.h>
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 #include <gtk/gtk.h>
+#pragma GCC diagnostic warning "-Wdeprecated-declarations"
 #include <gdk/gdkkeysyms.h>
 #include "waveform/actor.h"
-#include "waveform/view.h"
+#include "waveform/view_plus.h"
 #include "test/common2.h"
 
 #define WAV1 "mono_0:10.wav"
@@ -63,8 +65,7 @@ main (int argc, char *argv[])
 	gtk_init(&argc, &argv);
 	GtkWidget* window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
 
-	static WaveformView* waveform; waveform = waveform_view_new(NULL);
-	waveform_view_set_show_rms(waveform, false);
+	static WaveformViewPlus* waveform; waveform = waveform_view_plus_new(NULL);
 	gtk_container_add((GtkContainer*)window, (GtkWidget*)waveform);
 
 	gtk_widget_show_all(window);
@@ -73,31 +74,31 @@ main (int argc, char *argv[])
 	{
 		PF;
 		char* filename = find_wav(wav);
-		waveform_view_load_file(waveform, filename);
+		waveform_view_plus_load_file(waveform, filename, NULL, NULL);
 		g_free(filename);
 	}
 	load_wave(WAV1);
 
 	gboolean key_press(GtkWidget* widget, GdkEventKey* event, gpointer user_data)
 	{
-		WaveformView* waveform = user_data;
+		WaveformViewPlus* waveform = user_data;
 
 		switch(event->keyval){
 			case 61:
-				waveform_view_set_zoom(waveform, waveform->zoom * 1.5);
+				waveform_view_plus_set_zoom(waveform, waveform_view_plus_get_zoom(waveform) * 1.5);
 				break;
 			case 45:
-				waveform_view_set_zoom(waveform, waveform->zoom / 1.5);
+				waveform_view_plus_set_zoom(waveform, waveform_view_plus_get_zoom(waveform) / 1.5);
 				break;
 			case KEY_Left:
 			case KEY_KP_Left:
 				dbg(0, "left");
-				waveform_view_set_start(waveform, waveform->start_frame - 8192 / waveform->zoom);
+				waveform_view_plus_set_start(waveform, waveform->start_frame - 8192 / waveform_view_plus_get_zoom(waveform));
 				break;
 			case KEY_Right:
 			case KEY_KP_Right:
 				dbg(0, "right");
-				waveform_view_set_start(waveform, waveform->start_frame + 8192 / waveform->zoom);
+				waveform_view_plus_set_start(waveform, waveform->start_frame + 8192 / waveform_view_plus_get_zoom(waveform));
 				break;
 			case GDK_KP_Enter:
 				break;

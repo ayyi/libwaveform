@@ -20,7 +20,7 @@
 #define __wf_private__
 #include "wf/waveform.h"
 #include "waveform/actor.h"
-#include "waveform/actors/background.h"
+#include "waveform/background.h"
 #define __glx_test__
 #include "test/common2.h"
 

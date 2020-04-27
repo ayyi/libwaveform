@@ -19,7 +19,7 @@
 #include "agl/behaviours/border.h"
 #include "wf/debug.h"
 #include "waveform/shader.h"
-#include "waveform/actors/debug.h"
+#include "waveform/debug.h"
 
 static AGl* agl = NULL;
 

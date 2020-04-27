@@ -16,7 +16,9 @@
 #include <sys/ioctl.h>
 #include <glib.h>
 #ifdef USE_GTK
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 #include <gtk/gtk.h>
+#pragma GCC diagnostic warning "-Wdeprecated-declarations"
 #endif
 #include "wf/debug.h"
 #include "wf/waveform.h"

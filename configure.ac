@@ -292,8 +292,8 @@ AC_CONFIG_FILES([
 	gtkglext-1.0/Makefile
 	glib/Makefile
 	decoder/Makefile
-	waveform/Makefile
-	waveform/actors/Makefile
+	ui/Makefile
+	ui/actors/Makefile
 	shaders/Makefile
 	test/Makefile
 	test/gen/Makefile
