@@ -58,11 +58,17 @@ key_behaviour_handle_event (AGlBehaviour* behaviour, AGlActor* actor, GdkEvent* 
 {
 	KeyBehaviour* kb = (KeyBehaviour*)behaviour;
 
-	GdkEventKey* e = (GdkEventKey*)event;
-	int keyval = e->keyval;
+	switch(event->type){
+		case GDK_KEY_PRESS:
+			;GdkEventKey* e = (GdkEventKey*)event;
+			int keyval = e->keyval;
 
-	ActorKeyHandler* handler = g_hash_table_lookup(kb->handlers, &keyval);
-	return handler
-		? handler(actor, e->state)
-		: AGL_NOT_HANDLED;
+			ActorKeyHandler* handler = g_hash_table_lookup(kb->handlers, &keyval);
+			if(handler)
+				return handler(actor, e->state);
+			break;
+		default:
+			break;
+	}
+	return AGL_NOT_HANDLED;
 }
