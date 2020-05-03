@@ -9,7 +9,6 @@
 * +----------------------------------------------------------------------+
 *
 */
-#define __wf_utils_c__
 #define __wf_private__
 #include "config.h"
 #include <math.h>
@@ -24,8 +23,6 @@
 #include "wf/waveform.h"
 #include "waveform/utils.h"
 
-int wf_debug = 0;
-
 
 #undef SHOW_TIME
 #ifdef SHOW_TIME
@@ -36,25 +33,6 @@ static uint64_t _get_time ()
 	return start.tv_sec * 1000 + start.tv_usec / 1000;
 }
 #endif
-
-
-void
-wf_debug_printf (const char* func, int level, const char* format, ...)
-{
-    va_list args;
-
-    va_start(args, format);
-    if (level <= wf_debug) {
-#ifdef SHOW_TIME
-		fprintf(stderr, "%Lu %s(): ", _get_time(), func);
-#else
-		fprintf(stderr, "%s(): ", func);
-#endif
-        vfprintf(stderr, format, args);
-        fprintf(stderr, "\n");
-    }
-    va_end(args);
-}
 
 
 void
