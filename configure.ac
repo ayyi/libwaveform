@@ -297,6 +297,7 @@ AC_CONFIG_FILES([
 	shaders/Makefile
 	test/Makefile
 	test/gen/Makefile
+	waveform/Makefile
 ])
 AC_OUTPUT
 

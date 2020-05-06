@@ -11,7 +11,7 @@ if ENABLE_GLIB_2_58_POLYFILL
 GLIB_SUBDIRS = glib
 GLIB_LIBADD = glib/libglib.la
 endif
-SUBDIRS = $(GTK_SUBDIRS) $(OPENGL_SUBDIRS) $(SDL_SUBDIRS) $(GLIB_SUBDIRS) wf ui transition decoder . test
+SUBDIRS = $(GTK_SUBDIRS) $(OPENGL_SUBDIRS) $(SDL_SUBDIRS) $(GLIB_SUBDIRS) wf ui transition decoder . test waveform
 
 if ENABLE_OPENGL
 OPENGL_LIBADD = \
