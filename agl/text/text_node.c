@@ -11,7 +11,6 @@
 */
 #include "config.h"
 #include <stdbool.h>
-#include <GL/gl.h>
 #include "agl/debug.h"
 #include "agl/shader.h"
 #include "text/pango.h"

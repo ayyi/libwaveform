@@ -24,6 +24,9 @@
 #include <glib-object.h>
 #include "agl/actor.h"
 #include "waveform/utils.h"
+#ifdef USE_EPOXY
+# define __glx_test__
+#endif
 #include "test/common2.h"
 #include "wf/private.h"
 
@@ -326,12 +329,10 @@ scene_needs_redraw (AGlScene* scene, gpointer _){
  * Return the window and context handles.
  */
 AGlWindow*
-agl_make_window (Display* dpy, const char* name, int width, int height, AGlScene* scene)
+agl_make_window (Display* dpy, const char* name, int width, int height)
 {
 	AGl* agl = agl_get_instance();
 	agl->xdisplay = dpy;
-
-	scene->draw = scene_needs_redraw;
 
 	int attrib[] = {
 		GLX_RGBA,
@@ -389,14 +390,17 @@ agl_make_window (Display* dpy, const char* name, int width, int height, AGlScene
 
 	XMapWindow(dpy, win);
 
-	scene->gl.glx.window = win;
-	scene->gl.glx.context = ctx;
-
 	if(!windows){
 		glXMakeCurrent(dpy, win, ctx);
 		glx_init(dpy);
 		agl_gl_init();
 	}
+
+	AGlScene* scene = (AGlRootActor*)agl_actor__new_root_(CONTEXT_TYPE_GLX);
+
+	scene->draw = scene_needs_redraw;
+	scene->gl.glx.window = win;
+	scene->gl.glx.context = ctx;
 
 	AGlWindow* agl_window = AGL_NEW(AGlWindow,
 		.window = win,

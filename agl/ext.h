@@ -1,9 +1,13 @@
 /**
  * Utility for getting OpenGL extension function pointers
  */
-#include <GL/glx.h>
+#ifdef USE_EPOXY
+# include <epoxy/gl.h>
+# include <epoxy/glx.h>
+#else
+# include <GL/glx.h>
 
-void agl_get_extensions();
+void agl_get_extensions ();
 
 #ifndef APIENTRYP
 	#define APIENTRYP APIENTRY *
@@ -176,3 +180,5 @@ PFNGLENDQUERYPROC glEndQuery;
 PFNGLGETQUERYOBJECTIVPROC glGetQueryObjectiv;
 PFNGLGETQUERYOBJECTUI64VPROC glGetQueryObjectui64v;
 #endif
+
+#endif // USE_EPOXY

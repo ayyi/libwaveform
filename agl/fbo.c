@@ -22,11 +22,8 @@
 #include <math.h>
 #include <sys/time.h>
 #include <glib.h>
-#include <GL/gl.h>
-#include <GL/glx.h>
-#include <GL/glxext.h>
-#include "agl/utils.h"
 #include "agl/ext.h"
+#include "agl/utils.h"
 #include "agl/fbo.h"
 
 #define NON_SQUARE

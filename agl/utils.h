@@ -13,7 +13,7 @@
 #define __agl_utils_h__
 
 #include <stdbool.h>
-#include <GL/glx.h>
+#include "agl/ext.h"
 #if defined(USE_GTK) || defined(__GTK_H__)
 #include <gdk/gdkgl.h>
 #include <gtk/gtkgl.h>

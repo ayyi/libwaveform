@@ -12,7 +12,6 @@
 #define __wf_private__
 #include "config.h"
 #include <glib.h>
-#include "agl/ext.h"
 #include "agl/utils.h"
 #include "wf/debug.h"
 #include "wf/waveform.h"

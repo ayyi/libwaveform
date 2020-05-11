@@ -16,8 +16,6 @@
 #ifdef USE_LIBASS
 #include <ass/ass.h>
 #endif
-#include "agl/ext.h"
-#include "agl/utils.h"
 #include "agl/actor.h"
 #include "wf/debug.h"
 #include "wf/waveform.h"

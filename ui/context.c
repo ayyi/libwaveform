@@ -18,7 +18,6 @@
 #define __wf_private__
 #define __wf_canvas_priv__
 #include "config.h"
-#include "agl/ext.h"
 #include "agl/actor.h"
 #include "agl/debug.h"
 #include "transition/frameclock.h"

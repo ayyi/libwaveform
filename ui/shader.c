@@ -18,11 +18,6 @@
 #define __wf_private__
 #define __wf_canvas_priv__
 #include "config.h"
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <math.h>
-#include <GL/gl.h>
 #include "agl/ext.h"
 #include "agl/utils.h"
 #include "wf/waveform.h"

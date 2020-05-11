@@ -15,7 +15,9 @@
 #include <getopt.h>
 #include <X11/Xlib.h>
 #include <X11/keysym.h>
+#ifndef USE_EPOXY
 # define GLX_GLXEXT_PROTOTYPES
+#endif
 #include "gdk/gdk.h"
 #include "agl/ext.h"
 #include "agl/actor.h"
@@ -47,8 +49,6 @@ static AGlActor* cached_group  (void*);
 #ifdef SHOW_2ND_CHILD
 AGlActor* plain2_actor         (void*);
 #endif
-
-static void scene_needs_redraw (AGlScene* scene, gpointer _){ scene->gl.glx.needs_draw = True; }
 
 static AGlScene* scene = NULL;
 struct {AGlActor *bg, *grp, *l1, *l2, *g2, *ga2, *gb2, *text; } layers = {0,};
@@ -130,10 +130,8 @@ main (int argc, char *argv[])
 		return -1;
 	}
 
-	scene = (AGlScene*)agl_actor__new_root_(CONTEXT_TYPE_GLX);
-	scene->draw = scene_needs_redraw;
-
-	AGlWindow* window = agl_make_window(dpy, "waveformscenegraphtest", width, height, scene);
+	AGlWindow* window = agl_make_window(dpy, "waveformscenegraphtest", width, height);
+	scene = window->scene;
 
 	g_main_loop_new(NULL, true);
 

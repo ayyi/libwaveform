@@ -2,14 +2,16 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include "agl/ext.h"
+#ifndef USE_EPOXY
 #include <GL/gl.h>
 #include <GL/glx.h>
 #include <GL/glxext.h>
-#include "agl/ext.h"
 
 #define getProcAddress(x) (*glXGetProcAddressARB)((const GLubyte*)x)
+
 void
-agl_get_extensions()
+agl_get_extensions ()
 {
    glBlendFuncSeparate = (PFNGLBLENDFUNCSEPARATEPROC) getProcAddress("glBlendFuncSeparate");
 
@@ -180,3 +182,4 @@ agl_get_extensions()
 #endif
 }
 
+#endif // USE_EPOXY

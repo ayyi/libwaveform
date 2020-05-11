@@ -14,7 +14,6 @@
 #include <assert.h>
 #include <glib.h>
 #include "agl/debug.h"
-#include "agl/ext.h"
 #include "agl/shader.h"
 #include "agl/utils.h"
 #include "agl/transform.h"
@@ -270,7 +269,9 @@ agl_gl_init ()
 	if(done++) return;
 
 	agl_get_instance();
+#ifndef USE_EPOXY
 	agl_get_extensions();
+#endif
 
 	if(agl->pref_use_shaders && !agl_shaders_supported()){
 		printf("gl shaders not supported. expect reduced functionality.\n");

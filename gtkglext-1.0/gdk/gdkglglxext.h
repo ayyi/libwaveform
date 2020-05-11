@@ -16,10 +16,6 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307  USA.
  */
 
-/*
- * This is a generated file.  Please modify "gen-gdkglglxext-h.pl".
- */
-
 #ifndef __GDK_GL_GLXEXT_H__
 #define __GDK_GL_GLXEXT_H__
 

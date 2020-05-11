@@ -9,6 +9,8 @@
 * +----------------------------------------------------------------------+
 *
 */
+#include "config.h"
+#undef USE_GTK
 #include "key.h"
 
 static AGlBehaviourClass klass = {

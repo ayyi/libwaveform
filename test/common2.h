@@ -102,7 +102,7 @@ extern char fail     [];
 #endif
 
 #ifdef GLX_H
-AGlWindow* agl_make_window    (Display*, const char*, int width, int height, AGlScene*);
+AGlWindow* agl_make_window    (Display*, const char*, int width, int height);
 void       agl_window_destroy (Display*, AGlWindow**);
 void       event_loop         (Display*);
 void       show_refresh_rate  (Display*);

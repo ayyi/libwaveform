@@ -53,9 +53,6 @@ if test "$strict" = "yes"; then
   CXXFLAGS="$CXXFLAGS -Wall -Wextra -Wno-unused-parameter -Wconversion -Winit-self -Woverloaded-virtual -Wsign-promo"
 fi
 
-JACK_LIBS=`pkg-config jack --cflags --libs`
-AC_SUBST(JACK_LIBS)
-
 SNDFILE_LIBS=`pkg-config --cflags --libs sndfile`
 AC_SUBST(SNDFILE_LIBS)
 
@@ -185,6 +182,22 @@ AC_SUBST(OPENGL_LDFLAGS)
 
 dnl -----------------------------------------------------
 
+have_epoxy=yes
+PKG_CHECK_MODULES(EPOXY, [epoxy],
+	[EPOXY_LDFLAGS=`pkg-config --libs epoxy`],
+	[enable_epoxy=no, have_epoxy=no],
+	[have_epoxy=yes]
+)
+
+AC_ARG_ENABLE(epoxy, AC_HELP_STRING([--enable-epoxy], [enable use of epoxy GL dispatch library]), enable_epoxy=$enableval, enable_epoxy="no")
+AC_SUBST(EPOXY_LDFLAGS)
+AM_CONDITIONAL(ENABLE_EPOXY, test "$enable_epoxy" = "yes")
+if test "$enable_epoxy" = "yes"; then
+	AC_DEFINE(USE_EPOXY, 1, Use Epoxy for GL extensions)
+fi
+
+dnl -----------------------------------------------------
+
 AC_ARG_ENABLE(ffmpeg,   AC_HELP_STRING([--disable-ffmpeg], [disable use of FFMPEG]), enable_ffmpeg=$enableval, enable_ffmpeg="auto")
 
 AS_IF([test "$enable_ffmpeg" != "no"], [
@@ -310,5 +323,6 @@ AC_MSG_RESULT([Building ffmpeg:          $enable_ffmpeg])
 AC_MSG_RESULT([Building tests:           $enable_test])
 AC_MSG_RESULT([Building profiler:        $enable_profiler])
 AC_MSG_RESULT([Use system GtkGL:         $enable_system_gtkglext])
+AC_MSG_RESULT([Use epoxy:                $enable_epoxy])
 AC_MSG_RESULT([])
 

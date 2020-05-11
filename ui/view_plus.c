@@ -38,7 +38,6 @@
 #include <gtk/gtk.h>
 #pragma GCC diagnostic warning "-Wdeprecated-declarations"
 #include <gdk/gdkkeysyms.h>
-#include <GL/gl.h>
 #include "agl/debug.h"
 #include "agl/utils.h"
 #include "waveform/actor.h"

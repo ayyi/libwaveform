@@ -13,7 +13,6 @@
 #define __gl_canvas_priv__
 #define __wf_private__
 #include "config.h"
-#include <GL/gl.h>
 #ifdef USE_GTK
 #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 #include <gtk/gtk.h>
@@ -21,9 +20,9 @@
 #else
 #include <gdk/gdk.h>
 #endif
+#include "agl/ext.h"
 #include "agl/utils.h"
 #include "agl/debug.h"
-#include "agl/ext.h"
 #include "wf/utils.h"
 #include "agl/shader.h"
 #include "agl/transform.h"
@@ -364,7 +363,7 @@ static void
 agl_actor__init (AGlActor* actor)
 {
 	// agl_create_programs can sometimes end up being called multiple
-	// times too allow for actors to add global shaders
+	// times to allow for actors to add global shaders
 	extern void agl_create_programs ();
 	agl_create_programs ();
 

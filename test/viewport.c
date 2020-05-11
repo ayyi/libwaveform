@@ -17,7 +17,6 @@
 #include "config.h"
 #include <getopt.h>
 #include <sys/time.h>
-#include <GL/gl.h>
 #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 #include <gtk/gtk.h>
 #pragma GCC diagnostic warning "-Wdeprecated-declarations"

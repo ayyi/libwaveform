@@ -11,8 +11,9 @@
 */
 #include "config.h"
 #include <getopt.h>
+#ifndef USE_EPOXY
 # define GLX_GLXEXT_PROTOTYPES
-#include <GL/glx.h>
+#endif
 #include "gdk/gdk.h"
 #include "agl/ext.h"
 #include "agl/debug.h"
@@ -76,9 +77,8 @@ main (int argc, char* argv[])
 		return -1;
 	}
 
-	scene = (AGlRootActor*)agl_actor__new_root_(CONTEXT_TYPE_GLX);
-
-	AGlWindow* window = agl_make_window(dpy, "Text test", width, height, scene);
+	AGlWindow* window = agl_make_window(dpy, "Text test", width, height);
+	scene = window->scene;
 	XMapWindow(dpy, window->window);
 
 	g_main_loop_new(NULL, true);

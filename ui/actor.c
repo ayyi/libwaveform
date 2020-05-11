@@ -44,14 +44,12 @@
 #define __wf_canvas_priv__
 
 #include "config.h"
-#include <math.h>
 #include <sys/time.h>
 #ifdef USE_GTK
 #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 #include <gtk/gtk.h>
 #pragma GCC diagnostic warning "-Wdeprecated-declarations"
 #endif
-#include <GL/gl.h>
 #include "agl/ext.h"
 #include "agl/debug.h"
 #include "transition/transition.h"

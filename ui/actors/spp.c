@@ -18,7 +18,6 @@
 #include "config.h"
 #include <math.h>
 #include <gdk/gdkkeysyms.h>
-#include <GL/gl.h>
 #include "agl/actor.h"
 #include "waveform/actor.h"
 #include "waveform/shader.h"

@@ -135,7 +135,9 @@ main (int argc, char **argv)
 
 	setup_projection();
 
+#ifndef USE_EPOXY
 	agl_get_extensions(); // TODO what is the SDL way?
+#endif
 	agl_gl_init();
 
 #ifdef USE_SDL_GFX

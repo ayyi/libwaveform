@@ -14,6 +14,7 @@
 #define __agl_actor_h__
 
 #include <X11/Xlib.h>
+#include "agl/ext.h"
 #if defined(USE_GTK) || defined(__GTK_H__)
 #include <gdk/gdkgl.h>
 #include <gtk/gtkgl.h>
@@ -21,7 +22,6 @@
 #ifdef USE_SDL
 #  include "SDL2/SDL.h"
 #endif
-#include <GL/glx.h>
 #include "transition/transition.h"
 #include "agl/utils.h"
 #include "agl/fbo.h"

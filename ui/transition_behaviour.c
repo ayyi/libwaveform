@@ -10,6 +10,7 @@
 *
 */
 #define __wf_private__
+#include "config.h"
 #include "transition/transition.h"
 #include "wf/debug.h"
 #include "waveform/actor.h"

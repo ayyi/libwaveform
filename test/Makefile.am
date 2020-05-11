@@ -29,6 +29,10 @@ else
 noinst_PROGRAMS = waveform_test
 endif
 
+if ENABLE_EPOXY
+GL_LOADER_LDFLAGS = $(EPOXY_LDFLAGS)
+endif
+
 AM_CFLAGS = \
 	-D_FILE_OFFSET_BITS=64 \
 	-I$(top_srcdir) \
@@ -45,6 +49,7 @@ TEST_LDFLAGS = \
 	$(top_srcdir)/.libs/libwaveformui.a \
 	$(top_srcdir)/.libs/libwaveformcore.a \
 	$(OPENGL_LDFLAGS) \
+	$(GL_LOADER_LDFLAGS) \
 	$(LIBASS_LDFLAGS) \
 	$(GTK_LDFLAGS) \
 	$(X11_LDFLAGS) \

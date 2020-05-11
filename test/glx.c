@@ -13,8 +13,9 @@
 #include <getopt.h>
 #include <X11/Xlib.h>
 #include <X11/keysym.h>
+#ifndef USE_EPOXY
 # define GLX_GLXEXT_PROTOTYPES
-#include <GL/glx.h>
+#endif
 #include "gdk/gdk.h"
 #include "agl/ext.h"
 #define __wf_private__
@@ -33,7 +34,6 @@ extern void on_window_resize (Display*, AGlWindow*, int, int);
 
 extern PFNGLXGETFRAMEUSAGEMESAPROC get_frame_usage;
 
-static AGlRootActor* scene = NULL;
 struct {
 	AGlActor*      bg;
 	WaveformActor* wa;
@@ -109,16 +109,14 @@ main (int argc, char *argv[])
 		return -1;
 	}
 
-	scene = (AGlRootActor*)agl_actor__new_root_(CONTEXT_TYPE_GLX);
-
-	AGlWindow* window = agl_make_window(dpy, "waveformglxtest", width, height, scene);
+	AGlWindow* window = agl_make_window(dpy, "waveformglxtest", width, height);
 	XMapWindow(dpy, window->window);
 
 	// -----------------------------------------------------------
 
 	g_main_loop_new(NULL, true);
 
-	agl_actor__add_child((AGlActor*)scene, layers.bg = background_actor(NULL));
+	agl_actor__add_child((AGlActor*)window->scene, layers.bg = background_actor(NULL));
 
 	void set_size(AGlActor* actor)
 	{
@@ -134,10 +132,10 @@ main (int argc, char *argv[])
 	Waveform* w = waveform_load_new(filename);
 	g_free(filename);
 
-	WaveformContext* wfc = wf_context_new((AGlActor*)scene);
+	WaveformContext* wfc = wf_context_new((AGlActor*)window->scene);
 	wfc->samples_per_pixel = waveform_get_n_frames(w) / 400.0;
 
-	agl_actor__add_child((AGlActor*)scene, (AGlActor*)(layers.wa = wf_canvas_add_new_actor(wfc, w)));
+	agl_actor__add_child((AGlActor*)window->scene, (AGlActor*)(layers.wa = wf_canvas_add_new_actor(wfc, w)));
 
 	wf_actor_set_region(layers.wa, &(WfSampleRegion){0, 441000});
 

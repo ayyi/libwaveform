@@ -11,7 +11,7 @@
 */
 #define __wf_private__
 #include "config.h"
-#include <GL/gl.h>
+#include "agl/ext.h"
 #include "wf/debug.h"
 #include "wf/waveform.h"
 #include "waveform/shader.h"

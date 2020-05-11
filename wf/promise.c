@@ -130,6 +130,8 @@ am_promise_fail (AMPromise* p, GError* error)
 	}
 /*
  *  The promise will be resolved when all the child promises are resolved.
+ *
+ *  The last parameter must be NULL
  */
 void
 am_promise_when (AMPromise* promise, AMPromise* p, ...)
