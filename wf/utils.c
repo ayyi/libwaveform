@@ -9,18 +9,22 @@
 * +----------------------------------------------------------------------+
 *
 */
+#define __wf_utils_c__
 #define __wf_private__
 
 #include <glib.h>
 #include "wf/debug.h"
 #include "wf/utils.h"
 
+int wf_debug = 0;
 
+
+/*
+ *  Return the filename of the other half of a split stereo pair.
+ */
 bool
 wf_get_filename_for_other_channel (const char* filename, char* other, int n_chars)
 {
-	//return the filename of the other half of a split stereo pair.
-
 	g_strlcpy(other, filename, n_chars);
 
 	gchar* p = g_strrstr(other, "%L.");
@@ -51,3 +55,24 @@ wf_get_filename_for_other_channel (const char* filename, char* other, int n_char
     other[0] = '\0';
 	return FALSE;
 }
+
+
+void
+wf_debug_printf (const char* func, int level, const char* format, ...)
+{
+    va_list args;
+
+    va_start(args, format);
+    if (level <= wf_debug) {
+#ifdef SHOW_TIME
+		fprintf(stderr, "%Lu %s(): ", _get_time(), func);
+#else
+		fprintf(stderr, "%s(): ", func);
+#endif
+        vfprintf(stderr, format, args);
+        fprintf(stderr, "\n");
+    }
+    va_end(args);
+}
+
+
