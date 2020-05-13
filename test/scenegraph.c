@@ -51,7 +51,7 @@ AGlActor* plain2_actor         (void*);
 
 static void scene_needs_redraw (AGlScene* scene, gpointer _){ scene->gl.glx.needs_draw = True; }
 
-static AGlRootActor* scene = NULL;
+static AGlScene* scene = NULL;
 struct {AGlActor *bg, *grp, *l1, *l2, *g2, *ga2, *gb2, *text; } layers = {0,};
 
 static KeyHandler
@@ -131,7 +131,7 @@ main (int argc, char *argv[])
 		return -1;
 	}
 
-	scene = (AGlRootActor*)agl_actor__new_root_(CONTEXT_TYPE_GLX);
+	scene = (AGlScene*)agl_actor__new_root_(CONTEXT_TYPE_GLX);
 	scene->draw = scene_needs_redraw;
 
 	AGlWindow* window = agl_make_window(dpy, "waveformscenegraphtest", width, height, scene);
@@ -140,16 +140,16 @@ main (int argc, char *argv[])
 
 	{
 		agl_actor__add_child((AGlActor*)scene, layers.grp = group(NULL));
-		layers.grp->region = (AGliRegion){10, 22, 60, 72};
+		layers.grp->region = (AGlfRegion){10, 22, 60, 72};
 
 		agl_actor__add_child((AGlActor*)scene, layers.l2 = plain_actor(NULL));
 		layers.l2->colour = 0x9999ff99;
-		layers.l2->region = (AGliRegion){40, 52, 90, 102};
+		layers.l2->region = (AGlfRegion){40, 52, 90, 102};
 
 		// now show the same 2 squares again, but wrapped in a caching actor
 
 		agl_actor__add_child((AGlActor*)scene, layers.g2 = cached_group(NULL));
-		layers.g2->region = (AGliRegion){10, 72, 60, 122};
+		layers.g2->region = (AGlfRegion){10, 72, 60, 122};
 
 		//------------------------------
 
@@ -158,18 +158,18 @@ main (int argc, char *argv[])
 		//agl_actor__add_child((AGlActor*)scene, layers.bg = background_actor(NULL));
 		agl_actor__add_child((AGlActor*)scene, layers.bg = plain_actor(NULL));
 		layers.bg->colour = colour0;
-		layers.bg->region = (AGliRegion){100, 0, 300, 300};
+		layers.bg->region = (AGlfRegion){100, 0, 300, 300};
 
 		agl_actor__add_child((AGlActor*)scene, layers.ga2 = group(NULL));
-		layers.ga2->region = (AGliRegion){110, 22, 160, 72};
+		layers.ga2->region = (AGlfRegion){110, 22, 160, 72};
 
 		agl_actor__add_child((AGlActor*)scene, layers.gb2 = cached_group(NULL));
-		layers.gb2->region = (AGliRegion){110, 72, 160, 122};
+		layers.gb2->region = (AGlfRegion){110, 72, 160, 122};
 
 		//------------------------------
 
 		agl_actor__add_child((AGlActor*)scene, layers.text = text_actor(NULL));
-		layers.text->region = (AGliRegion){0, 0, 90, 218};
+		layers.text->region = (AGlfRegion){0, 0, 90, 218};
 	}
 
 	add_key_handlers(keys);
@@ -369,14 +369,14 @@ group (void* _)
 	agl_actor__add_child(g, a = plain_actor(NULL));
 	a->colour = colour1;
 	//layers.l1->region = (AGliRegion){10, 22, 60, 72};
-	a->region = (AGliRegion){0, 0, 50, 50};
+	a->region = (AGlfRegion){0, 0, 50, 50};
 
 #ifdef SHOW_2ND_CHILD
 	AGlActor* b;
 	agl_actor__add_child(g, b = plain_actor(NULL));
 	b->colour = colour2;
 	//layers.l1b->region = (AGliRegion){10, 22, 60, 72};
-	b->region = (AGliRegion){0, 0, 50, 50};
+	b->region = (AGlfRegion){0, 0, 50, 50};
 #endif
 
 	return g;
@@ -387,18 +387,18 @@ AGlActor*
 cached_group (void* _)
 {
 	AGlActor* g = cache_actor(NULL);
-	g->region = (AGliRegion){10, 72, 60, 122};
+	g->region = (AGlfRegion){10, 72, 60, 122};
 
 	AGlActor* a = plain_actor(NULL);
 	agl_actor__add_child(g, a);
 	a->colour = colour1;
-	a->region = (AGliRegion){0, 0, 50, 50};
+	a->region = (AGlfRegion){0, 0, 50, 50};
 
 #ifdef SHOW_2ND_CHILD
 	AGlActor* b = plain2_actor(NULL);
 	agl_actor__add_child(g, b);
 	b->colour = colour2;
-	b->region = (AGliRegion){0, 0, 50, 50};
+	b->region = (AGlfRegion){0, 0, 50, 50};
 #endif
 
 #if 0

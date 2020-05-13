@@ -269,7 +269,7 @@ ng_gl2_load_block (Renderer* renderer, WaveformActor* actor, int b)
 
 	HiResNGWaveform** data = (HiResNGWaveform**)&w->render_data[renderer->mode];
 #ifdef NG_HASHTABLE
-#if WF_DEBUG
+#ifdef WF_DEBUG
 	{
 		HiResNGWaveform* data1 = g_hash_table_lookup(((NGRenderer*)renderer)->ng_data, waveform);
 		if((*data) != data1) gwarn("%i: wav=%p hash=%p %s", b, *data, data1, modes[renderer->mode].name);
@@ -375,7 +375,7 @@ ng_gl2_pre_render (Renderer* renderer, WaveformActor* actor)
 	HiResNGShader* shader = (HiResNGShader*)((NGRenderer*)renderer)->shader;
 	if(!data || !shader) return false; // this can happen when we fall through from v hi res.
 
-	shader->uniform.fg_colour = (actor->fg_colour & 0xffffff00) + (unsigned)(0x100 * _a->animatable.opacity.val.f);
+	shader->uniform.fg_colour = (actor->fg_colour & 0xffffff00) + (unsigned)((actor->fg_colour & 0xff) * _a->opacity);
 	shader->uniform.top = r->rect.top;
 	shader->uniform.bottom = r->rect.top + r->rect.height;
 	shader->uniform.n_channels = waveform_get_n_channels(w);

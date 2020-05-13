@@ -1,21 +1,18 @@
-/*
-  copyright (C) 2012-2018 Tim Orford <tim@orford.org>
-
-  This program is free software; you can redistribute it and/or modify
-  it under the terms of the GNU General Public License version 3
-  as published by the Free Software Foundation.
-
-  This program is distributed in the hope that it will be useful,
-  but WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-  GNU General Public License for more details.
-
-  You should have received a copy of the GNU General Public License
-  along with this program; if not, write to the Free Software
-  Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+/**
+* +----------------------------------------------------------------------+
+* | This file is part of the Ayyi project. http://ayyi.org               |
+* | copyright (C) 2012-2019 Tim Orford <tim@orford.org>                  |
+* +----------------------------------------------------------------------+
+* | This program is free software; you can redistribute it and/or modify |
+* | it under the terms of the GNU General Public License version 3       |
+* | as published by the Free Software Foundation.                        |
+* +----------------------------------------------------------------------+
+*
 */
+
 #ifndef __wf_animator_h__
 #define __wf_animator_h__
+
 #include "stdint.h"
 #include "glib.h"
 
@@ -47,11 +44,11 @@ typedef union {
    float*    f;
 } UValp;
 
-typedef struct _animatable_property
+typedef struct _AnimatableProperty
 {
-	UVal  val;
-	UVal  start_val;
-	UValp model_val; // target (end) value
+	UValp      val;        // instantaneous value, lives elsewhere
+	UVal       start_val;
+	UVal       target_val;
 	WfPropType type;
 #ifdef WF_DEBUG
 	char       name[16];
@@ -99,4 +96,4 @@ gboolean     wf_animation_remove_animatable (WfAnimation*, WfAnimatable*);
 void         wf_animation_start             (WfAnimation*);
 void         wf_animation_preview           (WfAnimation*, AnimationValueFn, gpointer);
 
-#endif //__wf_animator_h__
+#endif

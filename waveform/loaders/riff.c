@@ -106,6 +106,12 @@ wf_load_riff_peak (Waveform* wv, const char* peak_file)
 	const int64_t max_frames = wv->n_frames
 		? (wv->n_frames / WF_PEAK_RATIO + (wv->n_frames % WF_PEAK_RATIO ? 1 : 0))
 		: WF_MAX_PEAK_FRAMES;
+
+	if(!n_frames){
+		wv->renderable = false;
+		goto out_close;
+	}
+
 #ifdef DEBUG
 #ifdef USE_SNDFILE
 	if(sfinfo.frames / WF_PEAK_VALUES_PER_SAMPLE > max_frames) gwarn("peakfile is too long: %"PRIi64", expected %"PRIi64, sfinfo.frames / WF_PEAK_VALUES_PER_SAMPLE, max_frames);

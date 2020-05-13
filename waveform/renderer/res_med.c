@@ -207,7 +207,7 @@ med_lo_pre_render_gl1(Renderer* renderer, WaveformActor* actor)
 
 	AGlColourFloat fg; wf_colour_rgba_to_float(&fg, actor->fg_colour);
 
-	glColor4f(fg.r, fg.g, fg.b, _a->animatable.opacity.val.f);
+	glColor4f(fg.r, fg.g, fg.b, _a->opacity);
 
 	return true;
 }
@@ -323,7 +323,7 @@ med_lo_render_gl1(Renderer* renderer, WaveformActor* actor, int b, bool is_first
 	_med_lo_set_gl_state_for_block(wfc, w, (WfGlBlock*)w->priv->render_data[r->mode], b);
 
 	glPushMatrix();
-	glTranslatef(0, 0, _a->animatable.z.val.f);
+	glTranslatef(0, 0, actor->z);
 	glBegin(GL_QUADS);
 	_draw_block(tex.start, tex.end - tex.start, block.start, r->rect.top, block.wid, r->rect.height, wfc->v_gain);
 	glEnd();

@@ -153,7 +153,7 @@ main (int argc, char **argv)
 #endif
 	{
 		window.wfc = wf_context_new_sdl(window.gl_context);
-		window.scene = window.wfc->root;
+		window.scene = window.wfc->root->root;
 
 		char* filename = find_wav(WAV);
 		window.w1 = waveform_load_new(filename);

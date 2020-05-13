@@ -4,7 +4,7 @@
 
   ---------------------------------------------------------------
 
-  Copyright (C) 2012-2018 Tim Orford <tim@orford.org>
+  Copyright (C) 2012-2019 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -111,7 +111,7 @@ main (int argc, char *argv[])
 
 	scene = (AGlScene*)agl_actor__new_root(canvas);
 
-	wfc = wf_context_new(scene);
+	wfc = wf_context_new((AGlActor*)scene);
 
 	char* filename = find_wav(WAV);
 	g_assert(filename);
@@ -191,9 +191,9 @@ _paint (AGlActor* actor)
 {
 	WfAnimatable* z = wf_actor_get_z((WaveformActor*)actor);
 
-	glTranslatef(0, 0, z->val.f);
+	glTranslatef(0, 0, *z->val.f);
 	wrapped(actor);
-	glTranslatef(0, 0, -z->val.f);
+	glTranslatef(0, 0, -*z->val.f);
 
 	return true;
 }
@@ -239,7 +239,7 @@ on_canvas_realise (GtkWidget* _canvas, gpointer user_data)
 
 		wf_actor_set_region (a[i], &region[i]);
 		wf_actor_set_colour (a[i], colours[i][0]);
-		wf_actor_set_z      (a[i], -i * dz);
+		wf_actor_set_z      (a[i], -i * dz, NULL, NULL);
 	}
 
 	on_allocate(canvas, &canvas->allocation, user_data);
@@ -251,6 +251,9 @@ on_allocate (GtkWidget* widget, GtkAllocation* allocation, gpointer user_data)
 {
 	((AGlActor*)scene)->region.x2 = allocation->width;
 	((AGlActor*)scene)->region.y2 = allocation->height;
+
+	AGlActor* rotator = ((AGlActor*)scene)->children->data;
+	rotator->region = (AGlfRegion){0, 0, allocation->width, allocation->height};
 
 	if(!gl_initialised) return;
 
@@ -270,10 +273,8 @@ rotator (WaveformActor* wf_actor)
 		glScalef(1.0f, 1.0f, -1.0f);
 	}
 
-	AGlActor* actor = agl_actor__new();
-#ifdef AGL_DEBUG_ACTOR
+	AGlActor* actor = agl_actor__new(AGlActor);
 	actor->name = "Rotator";
-#endif
 	actor->set_state = rotator_set_state;
 
 	return actor;
@@ -321,7 +322,7 @@ forward ()
 			AGlActor* rotator = ((AGlActor*)scene)->children->data;
 
 			scene->enable_animations = false;
-			wf_actor_set_z(actor, - 3 * dz);
+			wf_actor_set_z(actor, - 3 * dz, NULL, NULL);
 			scene->enable_animations = true;
 
 			// move front element to back (becomes first element)
@@ -331,7 +332,7 @@ forward ()
 			rotator->children ->prev = front;
 			rotator->children = front;
 
-			wf_actor_fade_in(actor, NULL, 1.0f, NULL, NULL);
+			wf_actor_fade_in(actor, 1.0f, NULL, NULL);
 
 			return G_SOURCE_REMOVE;
 		}
@@ -342,7 +343,7 @@ forward ()
 	float z = - 2 * dz; // actors have to be drawn from back to front
 	for(GList* l=rotator->children;l;l=l->next){
 		WaveformActor* a = l->data;
-		wf_actor_set_z(a, z);
+		wf_actor_set_z(a, z, NULL, NULL);
 		z += dz;
 	}
 
@@ -365,7 +366,7 @@ backward ()
 			AGlActor* rotator = ((AGlActor*)scene)->children->data;
 
 			scene->enable_animations = false;
-			wf_actor_set_z(actor, 0);
+			wf_actor_set_z(actor, 0, NULL, NULL);
 			scene->enable_animations = true;
 
 			GList* first = rotator->children;
@@ -375,7 +376,7 @@ backward ()
 			last->next = first;
 			first->prev = last;
 
-			wf_actor_fade_in(actor, NULL, 1.0f, NULL, NULL);
+			wf_actor_fade_in(actor, 1.0f, NULL, NULL);
 
 			return G_SOURCE_REMOVE;
 		}
@@ -386,7 +387,7 @@ backward ()
 	float z = - 4 * dz; // actors have to be drawn from back to front
 	for(GList* l=rotator->children;l;l=l->next){
 		WaveformActor* a = l->data;
-		wf_actor_set_z(a, z);
+		wf_actor_set_z(a, z, NULL, NULL);
 		z += dz;
 	}
 	wf_actor_fade_out(rotator->children->data, fade_out_done, NULL);

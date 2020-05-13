@@ -132,7 +132,7 @@ construct ()
 	{
 		WaveformView* view = (WaveformView*)((AGlRootActor*)a)->gl.gdk.widget;
 		WaveformViewPrivate* v = view->priv;
-		v->context = wf_context_new((AGlRootActor*)v->root);
+		v->context = wf_context_new(v->root);
 
 		waveform_view_set_projection(((AGlRootActor*)a)->gl.gdk.widget);
 
@@ -488,7 +488,7 @@ waveform_view_allocate (GtkWidget* widget, GdkRectangle* allocation)
 
 	widget->allocation = (GtkAllocation)(*allocation);
 
-	v->root->region = (AGliRegion){
+	v->root->region = (AGlfRegion){
 		.x1 = 0,
 		.y1 = 0,
 		.x2 = allocation->width,

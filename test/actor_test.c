@@ -133,7 +133,7 @@ window_content (GtkWindow* window, GdkGLConfig* glconfig)
 	};
 
 	int i; for(i=0;i<G_N_ELEMENTS(a);i++){
-		wfc[i] = wf_context_new(scene); // each waveform has its own context so as to have a different zoom
+		wfc[i] = wf_context_new((AGlActor*)scene); // each waveform has its own context so as to have a different zoom
 
 		a[i] = wf_canvas_add_new_actor(wfc[i], w1);
 		agl_actor__add_child((AGlActor*)scene, (AGlActor*)a[i]);

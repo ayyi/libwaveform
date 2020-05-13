@@ -1,7 +1,7 @@
 /**
 * +----------------------------------------------------------------------+
 * | This file is part of the Ayyi project. http://ayyi.org               |
-* | copyright (C) 2013-2018 Tim Orford <tim@orford.org>                  |
+* | copyright (C) 2013-2019 Tim Orford <tim@orford.org>                  |
 * +----------------------------------------------------------------------+
 * | This program is free software; you can redistribute it and/or modify |
 * | it under the terms of the GNU General Public License version 3       |
@@ -23,7 +23,6 @@
 #include <math.h>
 #include <sys/time.h>
 #include <GL/gl.h>
-#define __wf_canvas_priv__
 #include "waveform/waveform.h"
 #include "waveform/actors/grid.h"
 
@@ -94,7 +93,7 @@ grid_actor_paint(AGlActor* actor)
 #ifdef USE_CANVAS_SCALING
 	float _zoom = wf_context_get_zoom(context);
 	if(_zoom > 0.0){
-		zoom = _zoom / context->priv->samples_per_pixel.val.f;
+		zoom = _zoom / context->samples_per_pixel;
 	}else{
 #endif
 		WfViewPort viewport; wf_actor_get_viewport(grid->wf_actor, &viewport);
@@ -105,7 +104,7 @@ grid_actor_paint(AGlActor* actor)
 
 	int interval = context->sample_rate * (zoom > 0.0002 ? 1 : zoom > 0.0001 ? 5 : zoom > 0.00001 ? 48 : 480);
 	const int64_t region_end = context->scaled
-		? context->start_time + agl_actor__width(actor) * context->priv->samples_per_pixel.val.f * context->zoom
+		? context->start_time + agl_actor__width(actor) * context->samples_per_pixel * context->zoom
 		: grid->wf_actor->region.start + grid->wf_actor->region.len;
 
 	int i = 0;

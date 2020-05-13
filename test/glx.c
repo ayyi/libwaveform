@@ -8,8 +8,6 @@
 * | it under the terms of the GNU General Public License version 3       |
 * | as published by the Free Software Foundation.                        |
 * +----------------------------------------------------------------------+
-*
-* *********** TODO only redraw if something has changed (currently redrawing at 60fps) **********
 */
 #include <math.h>
 #include <stdlib.h>
@@ -31,8 +29,7 @@
 
 static GLboolean print_info = GL_FALSE;
 
-static void on_window_resize       (int, int);
-static void _add_key_handlers      ();
+extern void on_window_resize (Display*, AGlWindow*, int, int);
 
 #define BENCHMARK
 #define NUL '\0'
@@ -44,8 +41,6 @@ struct {
 	AGlActor*      bg;
 	WaveformActor* wa;
 } layers = {0,};
-
-static GHashTable* key_handlers = NULL;
 
 static KeyHandler
 	nav_up,
@@ -70,9 +65,9 @@ static const char* const short_options = "n";
 
 
 int
-main(int argc, char *argv[])
+main (int argc, char *argv[])
 {
-	int width = 300, height = 300;
+	int width = 400, height = 160;
 
 	int i; for (i = 1; i < argc; i++) {
 		if (strcmp(argv[i], "-info") == 0) {
@@ -128,28 +123,32 @@ main(int argc, char *argv[])
 
 	agl_actor__add_child((AGlActor*)scene, layers.bg = background_actor(NULL));
 
+	void set_size(AGlActor* actor)
+	{
+		int width = agl_actor__width(actor->parent);
+		int height = agl_actor__height(actor->parent);
+
+		((AGlActor*)layers.wa)->region = (AGlfRegion){.x2 = width, .y2 = height};
+	}
+
+	layers.bg->set_size = set_size;
+
 	char* filename = find_wav("mono_0:10.wav");
 	Waveform* w = waveform_load_new(filename);
 	g_free(filename);
 
-	WaveformContext* wfc = wf_context_new(scene);
+	WaveformContext* wfc = wf_context_new((AGlActor*)scene);
+	wfc->samples_per_pixel = waveform_get_n_frames(w) / 400.0;
 
 	agl_actor__add_child((AGlActor*)scene, (AGlActor*)(layers.wa = wf_canvas_add_new_actor(wfc, w)));
 
-	wf_actor_set_region(layers.wa, &(WfSampleRegion){0, 44100});
-
-	wf_actor_set_rect(layers.wa, &(WfRectangle){
-		0.0,
-		0.0,
-		width,
-		height
-	});
+	wf_actor_set_region(layers.wa, &(WfSampleRegion){0, 441000});
 
 	// -----------------------------------------------------------
 
-	on_window_resize(width, height);
+	on_window_resize(NULL, window, width, height);
 
-	_add_key_handlers();
+	add_key_handlers(keys);
 
 	event_loop(dpy);
 
@@ -157,51 +156,6 @@ main(int argc, char *argv[])
 	XCloseDisplay(dpy);
 
 	return 0;
-}
-
-
-static void
-on_window_resize (int width, int height)
-{
-	#define HBORDER 0
-	#define VBORDER 0
-	int vx = 0;
-	int vy = 0;
-	glViewport(vx, vy, width, height);
-	dbg (2, "viewport: %i %i %i %i", vx, vy, width, height);
-	glMatrixMode(GL_PROJECTION);
-	glLoadIdentity();
-
-	double left   = -HBORDER;
-	double right  = width + HBORDER;
-	double bottom = height + VBORDER;
-	double top    = -VBORDER;
-	glOrtho (left, right, bottom, top, 1.0, -1.0);
-
-	((AGlActor*)scene)->region = (AGliRegion){
-		.x2 = width,
-		.y2 = height,
-	};
-
-	layers.wa->canvas->samples_per_pixel = 0.1 * ((float)waveform_get_n_frames(layers.wa->waveform)) / width;
-	WaveformContext* wfc = layers.wa->canvas;
-	wf_context_set_zoom(wfc, wf_context_get_zoom(wfc) ? wf_context_get_zoom(wfc) : 1.0);
-}
-
-
-static void
-_add_key_handlers ()
-{
-	if(!key_handlers){
-		key_handlers = g_hash_table_new(g_int_hash, g_int_equal);
-
-		int i = 0; while(true){
-			Key* key = &keys[i];
-			if(i > 100 || !key->key) break;
-			g_hash_table_insert(key_handlers, &key->key, key->handler);
-			i++;
-		}
-	}
 }
 
 
@@ -224,7 +178,7 @@ zoom_in (gpointer user_data)
 {
 	PF0;
 	WaveformContext* wfc = layers.wa->canvas;
-	wf_context_set_zoom(wfc, wf_context_get_zoom(wfc) * 1.5);
+	wf_context_set_zoom(wfc, (wfc->scaled ? wf_context_get_zoom(wfc) : 1.0) * 1.5);
 }
 
 
@@ -233,7 +187,7 @@ zoom_out (gpointer user_data)
 {
 	PF0;
 	WaveformContext* wfc = layers.wa->canvas;
-	wf_context_set_zoom(wfc, wf_context_get_zoom(wfc) / 1.5);
+	wf_context_set_zoom(wfc, (wfc->scaled ? wf_context_get_zoom(wfc) : 1.0) / 1.5);
 }
 
 

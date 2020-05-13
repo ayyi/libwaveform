@@ -48,6 +48,7 @@ libwf_la_SOURCES = \
 	audio.c audio.h \
 	worker.c worker.h \
 	promise.c promise.h \
+	transition_behaviour.c transition_behaviour.h \
 	utils.c utils.h
 
 libwf_la_LIBADD = \

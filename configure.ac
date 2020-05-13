@@ -8,6 +8,7 @@ AM_PROG_AR
 # LT_REVISION=1
 
 AC_PROG_CXX
+AC_PROG_CC_C99
 AC_C_CONST
 AC_C_INLINE
 AC_HEADER_STDBOOL
@@ -59,6 +60,9 @@ AC_SUBST(GTHREAD_LIBS)
 
 X11_LDFLAGS=`pkg-config --libs x11`
 AC_SUBST(X11_LDFLAGS)
+
+GMODULE_LDFLAGS=`pkg-config gmodule-2.0 --libs`
+AC_SUBST(GMODULE_LDFLAGS)
 
 dnl -----------------------------------------------------
 
@@ -265,6 +269,7 @@ AC_CONFIG_FILES([
 	Makefile
 	agl/Makefile
 	agl/shaders/Makefile
+	agl/behaviours/Makefile
 	transition/Makefile
 	sdl/Makefile
 	gtkglext-1.0/Makefile

@@ -5,7 +5,7 @@
 
   ---------------------------------------------------------------
 
-  copyright (C) 2012-2018 Tim Orford <tim@orford.org>
+  copyright (C) 2012-2019 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -22,7 +22,6 @@
 
 */
 #include "config.h"
-#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
@@ -39,6 +38,7 @@ print_help ()
 {
 	printf("Usage: " PACKAGE_STRING " [OPTIONS] <output_filename>\n"
 	     "  -c, --channels                   number of audio channels. 1 or 2 expected. default 1\n"
+	     "  -l, --length                     length in milliseconds. default 150\n"
 	     "  -v, --version                    Show version information\n"
 	     "  -h, --help                       Print this message\n"
 	     "  -d, --debug     level            Output debug info to stdout\n"
@@ -50,11 +50,13 @@ print_help ()
 int main(int argc, char* argv[])
 {
 	int n_channels = MONO;
+	double duration = 150; // milliseconds
 
-	const char* optstring = "c:hvd:";
+	const char* optstring = "c:l:hvd:";
 
 	const struct option longopts[] = {
 		{ "channels", 1, 0, 'c' },
+		{ "length", 1, 0, 'l' },
 		{ "version", 0, 0, 'v' },
 		{ "help", 0, 0, 'h' },
 		{ "debug", 1, 0, 'd' },
@@ -77,6 +79,10 @@ int main(int argc, char* argv[])
 
 		case 'c':
 			n_channels = atoi(optarg);
+			break;
+
+		case 'l':
+			duration = atof(optarg);
 			break;
 
 		case 'v':
@@ -106,9 +112,8 @@ int main(int argc, char* argv[])
 		fprintf(stderr, "No output filename specified\n");
 		return print_help();
 	}
-	printf("Generating 150ms test wav\n");
+	printf("Generating %.0fms test wav\n", duration);
 
-	double duration    = 150;   // milliseconds
 	int    sample_rate = 44100; // frames / second
 
 	long n_frames = (duration * sample_rate) / 1000;
