@@ -5,6 +5,7 @@ libbehaviours_la_SOURCES = \
 	clip.c clip.h \
 	border.c border.h \
 	key.c key.h \
+	hover.c hover.h \
 	selectable.c selectable.h
 
 AM_CFLAGS = \
