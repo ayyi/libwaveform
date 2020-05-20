@@ -23,16 +23,13 @@
 */
 #define __wf_private__
 #include "config.h"
-#include <stdlib.h>
-#include <stdint.h>
-#include <string.h>
 #include <getopt.h>
 #include <time.h>
-#include <unistd.h>
 #include <sys/time.h>
 #include "agl/utils.h"
 #include <gtk/gtk.h>
 #include <gdk/gdkkeysyms.h>
+#include "waveform/actor.h"
 #include "test/common.h"
 
 #define WAV "mono_0:10.wav"
@@ -234,27 +231,30 @@ start_zoom (float target_zoom)
 }
 
 
-	bool on_idle (gpointer _)
-	{
-		static uint64_t frame = 0;
-		static uint64_t t0    = 0;
+static gboolean
+on_idle (gpointer _)
+{
+	static uint64_t frame = 0;
+	static uint64_t t0    = 0;
 
-		if(!frame)
-			t0 = get_time();
-		else{
-			uint64_t time = get_time();
-			if(!(frame % 1000))
-				dbg(0, "rate=%.2f fps", ((float)frame) / ((float)(time - t0)) / 1000.0);
+	if(!frame)
+		t0 = get_time();
+	else{
+		uint64_t time = get_time();
+		if(!(frame % 1000))
+			dbg(0, "rate=%.2f fps", ((float)frame) / ((float)(time - t0)) / 1000.0);
 
-			if(!(frame % 8)){
-				float v = (frame % 16) ? 2.0 : 1.0/2.0;
-				if(v > 16.0) v = 1.0;
-				start_zoom(v);
-			}
+		if(!(frame % 8)){
+			float v = (frame % 16) ? 2.0 : 1.0/2.0;
+			if(v > 16.0) v = 1.0;
+			start_zoom(v);
 		}
-		frame++;
-		return G_SOURCE_CONTINUE;
 	}
+	frame++;
+
+	return G_SOURCE_CONTINUE;
+}
+
 
 void
 toggle_animate (gpointer _)

@@ -1,7 +1,7 @@
 /**
 * +----------------------------------------------------------------------+
 * | This file is part of the Ayyi project. http://ayyi.org               |
-* | copyright (C) 2011-2019 Tim Orford <tim@orford.org>                  |
+* | copyright (C) 2011-2020 Tim Orford <tim@orford.org>                  |
 * | copyright (C) 2011 Robin Gareus <robin@gareus.org>                   |
 * +----------------------------------------------------------------------+
 * | This program is free software; you can redistribute it and/or modify |
@@ -13,9 +13,7 @@
 #define __ad_plugin_c__
 #include "config.h"
 #include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
-#include <inttypes.h>
 #include <math.h>
 #include "decoder/debug.h"
 #include "decoder/ad.h"

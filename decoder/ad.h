@@ -14,8 +14,9 @@
 #define __ad_h__
 #include <unistd.h>
 #include <stdint.h>
+#include <stdbool.h>
 #include <glib.h>
-#include "waveform/typedefs.h"
+#include "wf/typedefs.h"
 
 typedef struct
 {
@@ -40,7 +41,7 @@ typedef struct
 struct _AdPlugin
 {
     int      (*eval)       (const char*);
-    gboolean (*open)       (WfDecoder*, const char*);
+    bool     (*open)       (WfDecoder*, const char*);
     int      (*close)      (WfDecoder*);
     int      (*info)       (WfDecoder*);
     int64_t  (*seek)       (WfDecoder*, int64_t);
@@ -58,7 +59,7 @@ typedef struct
 } AdPicture;
 
 /* low level API */
-gboolean ad_open          (WfDecoder*, const char*);
+bool     ad_open          (WfDecoder*, const char*);
 int      ad_close         (WfDecoder*);
 int64_t  ad_seek          (WfDecoder*, int64_t);
 ssize_t  ad_read          (WfDecoder*, float*, size_t);
@@ -73,7 +74,7 @@ void     ad_clear_nfo     (WfAudioInfo*);
 void     ad_free_nfo      (WfAudioInfo*);
 
 /* high level API - wrappers around low-level functions */
-gboolean ad_finfo         (const char*, WfAudioInfo*);
+bool     ad_finfo         (const char*, WfAudioInfo*);
 void     ad_print_nfo     (int dbglvl, WfAudioInfo*);
 ssize_t  ad_read_mono_dbl (WfDecoder*, double*, size_t);
 

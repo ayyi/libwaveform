@@ -1,9 +1,13 @@
 /**
  * Utility for getting OpenGL extension function pointers
  */
-#include <GL/glx.h>
+#ifdef USE_EPOXY
+# include <epoxy/gl.h>
+# include <epoxy/glx.h>
+#else
+# include <GL/glx.h>
 
-void agl_get_extensions();
+void agl_get_extensions ();
 
 #ifndef APIENTRYP
 	#define APIENTRYP APIENTRY *
@@ -19,6 +23,7 @@ PFNGLCREATEPROGRAMPROC glCreateProgram;
 PFNGLCREATESHADERPROC glCreateShader;
 PFNGLDELETEPROGRAMPROC glDeleteProgram;
 PFNGLDELETESHADERPROC glDeleteShader;
+PFNGLDETACHSHADERPROC glDetachShader;
 #if 0
 PFNGLGETACTIVEATTRIBPROC glGetActiveAttrib_func;
 PFNGLGETACTIVEUNIFORMPROC glGetActiveUniform_func;
@@ -29,8 +34,8 @@ PFNGLGETPROGRAMINFOLOGPROC glGetProgramInfoLog;
 PFNGLGETSHADERINFOLOGPROC glGetShaderInfoLog;
 PFNGLGETSHADERIVPROC glGetShaderiv;
 PFNGLGETPROGRAMIVPROC glGetProgramiv;
-#if 0
 PFNGLGETSHADERSOURCEPROC glGetShaderSource;
+#if 0
 PFNGLGETUNIFORMFVPROC glGetUniformfv;
 #endif
 PFNGLGETUNIFORMLOCATIONPROC glGetUniformLocation;
@@ -99,10 +104,10 @@ static PFNGLVERTEXATTRIB1FARBPROC glVertexAttrib1fARB_func = NULL;
 
 /* GL_APPLE_vertex_array_object */
 #endif
-PFNGLBINDVERTEXARRAYAPPLEPROC glBindVertexArrayAPPLE;
+PFNGLBINDVERTEXARRAYPROC glBindVertexArray;
+PFNGLDELETEVERTEXARRAYSPROC glDeleteVertexArrays;
+PFNGLGENVERTEXARRAYSPROC glGenVertexArrays;
 #if 0
-static PFNGLDELETEVERTEXARRAYSAPPLEPROC glDeleteVertexArraysAPPLE_func = NULL;
-static PFNGLGENVERTEXARRAYSAPPLEPROC glGenVertexArraysAPPLE_func = NULL;
 static PFNGLISVERTEXARRAYAPPLEPROC glIsVertexArrayAPPLE_func = NULL;
 
 /* GL_EXT_stencil_two_side */
@@ -110,10 +115,10 @@ static PFNGLACTIVESTENCILFACEEXTPROC glActiveStencilFaceEXT_func = NULL;
 
 /* GL_ARB_buffer_object */
 #endif
-PFNGLGENBUFFERSARBPROC glGenBuffersARB;
-PFNGLDELETEBUFFERSARBPROC glDeleteBuffersARB;
-PFNGLBINDBUFFERARBPROC glBindBufferARB;
-PFNGLBUFFERDATAARBPROC glBufferDataARB;
+PFNGLGENBUFFERSPROC glGenBuffers;
+PFNGLDELETEBUFFERSPROC glDeleteBuffers;
+PFNGLBINDBUFFERPROC glBindBuffer;
+PFNGLBUFFERDATAPROC glBufferData;
 #if 0
 static PFNGLBUFFERSUBDATAARBPROC glBufferSubDataARB_func = NULL;
 static PFNGLMAPBUFFERARBPROC glMapBufferARB_func = NULL;
@@ -167,3 +172,13 @@ static PFNGLFRAMEBUFFERTEXTURELAYERPROC glFramebufferTextureLayer_func;
 #endif
 PFNGLSTRINGMARKERGREMEDYPROC glStringMarkerGREMEDY;
 
+PFNGLBEGINQUERYPROC glBeginQuery;
+PFNGLENDQUERYPROC glEndQuery;
+
+/* GL_VERSION_3_3 */
+#if 0
+PFNGLGETQUERYOBJECTIVPROC glGetQueryObjectiv;
+PFNGLGETQUERYOBJECTUI64VPROC glGetQueryObjectui64v;
+#endif
+
+#endif // USE_EPOXY

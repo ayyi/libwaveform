@@ -37,7 +37,6 @@ gdkglext_public_h_sources = \
 	gdkglpixmap.h \
 	gdkglwindow.h \
 	gdkglx.h \
-	gdkglglext.h \
 	gdkglglxext.h
 
 gdkglext_private_h_sources = \
@@ -54,7 +53,6 @@ gdkglext_c_sources = \
 	gdkgldrawable.c \
 	gdkglpixmap.c \
 	gdkglwindow.c \
-	gdkglglext.c \
 	gdkglglxext.c
 
 gdkglext_built_c_sources = \
@@ -128,21 +126,12 @@ DISTCLEANFILES += gdkglext-config.h stamp-gdkglext-config-h
 EXTRA_DIST = \
 	glext/README			\
 	glext/glxext.h.patch		\
-	glext/list-ext.pl		\
-	glext/gen-gdkglglext-c.pl	\
-	glext/gen-gdkglglext-h.pl	\
-	glext/gen-gdkglglxext-c.pl	\
-	glext/gen-gdkglglxext-h.pl	\
-	glext/gen-gdkglwglext-c.pl	\
-	glext/gen-gdkglwglext-h.pl	\
 	glext/common-header.h \
 	gtkglenumtypes.h.template \
 	gtkglenumtypes.c.template
 
 gdkglext_glext_public_h_sources = \
-	glext/glext.h \
 	glext/glxext.h \
-	glext/wglext.h \
 	glext/glext-extra.h \
 	glext/glxext-extra.h \
 	glext/wglext-extra.h

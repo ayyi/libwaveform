@@ -1,5 +1,5 @@
 /*
-  copyright (C) 2012-2019 Tim Orford <tim@orford.org>
+  copyright (C) 2012-2020 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -64,15 +64,9 @@
 #define __wf_private__
 #define __wf_transition_c__
 #include "config.h"
-#include <stdio.h>
-#include <stdlib.h>
-#include <stdint.h>
-#include <inttypes.h>
-#include <string.h>
 #include <math.h>
-#include <sys/time.h>
-#include <gtk/gtk.h>
-#include "waveform/utils.h"
+#include "wf/debug.h"
+#include "wf/utils.h"
 #include "transition/transition.h"
 #include "transition/frameclock.h"
 
@@ -141,8 +135,7 @@ wf_transition_add_member (WfAnimation* animation, GList* animatables)
 #endif
 
 	//TODO do this in animation_start instead.
-	l = animatables;
-	for(;l;l=l->next){
+	for(l=animatables;l;l=l->next){
 		WfAnimatable* a = l->data;
 		a->start_val.f = *a->val.f;
 	}
@@ -201,8 +194,7 @@ wf_animation_list_animatables (WfAnimation* animation)
 void
 wf_animation_remove (WfAnimation* animation)
 {
-	GList* l = animation->members;
-	for(;l;l=l->next){
+	for(GList* l=animation->members;l;l=l->next){
 		WfAnimActor* aa = l->data;
 		if(animation->on_finish) animation->on_finish(animation, animation->user_data); //arg2 is unnecesary
 		transitions = g_list_remove(transitions, animation);
@@ -230,11 +222,15 @@ wf_animation_remove (WfAnimation* animation)
 }
 
 
-gboolean
+/*
+ *  Remove the animatable from the animation.
+ *  If this causes the animation to become empty, the animation will be freed.
+ *
+ *  Return true if the animation is freed.
+ */
+bool
 wf_animation_remove_animatable (WfAnimation* animation, WfAnimatable* animatable)
 {
-	// returns true if the whole animation is removed.
-
 #ifdef WF_DEBUG_ANIMATOR
 	if(/*wf_debug &&*/ !g_list_find(animations, animation)){
 		dbg(0, "*** animation not found %p ***", animation);
@@ -242,6 +238,7 @@ wf_animation_remove_animatable (WfAnimation* animation, WfAnimatable* animatable
 		return false;
 	}
 #endif
+
 	GList* m = animation->members;
 	dbg(2, "animation=%p n_members=%i", animation, g_list_length(m));
 	for(;m;m=m->next){
@@ -295,7 +292,7 @@ wf_animation_val_to_str2 (WfAnimatable* animatable)
 
 			GList* k = anim_actor->transitions;
 #ifdef DEBUG
-			if(!k) gwarn("AnimActor member has no transitions");
+			if(!k) pwarn("AnimActor member has no transitions");
 #endif
 			for(;k;k=k->next){
 				WfAnimatable* animatable = k->data;

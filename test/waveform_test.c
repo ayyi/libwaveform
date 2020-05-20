@@ -4,7 +4,7 @@
 
   --------------------------------------------------------------
 
-  Copyright (C) 2012-2019 Tim Orford <tim@orford.org>
+  Copyright (C) 2012-2020 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -22,16 +22,13 @@
 #define __wf_private__
 #include "config.h"
 #include <getopt.h>
-#include <time.h>
-#include <inttypes.h>
-#include <sys/time.h>
 #include <glib.h>
 #include "decoder/ad.h"
 #include "transition/transition.h"
-#include "waveform/waveform.h"
-#include "waveform/peakgen.h"
-#include "waveform/alphabuf.h"
-#include "waveform/worker.h"
+#include "wf/waveform.h"
+#include "wf/peakgen.h"
+#include "wf/worker.h"
+#include "waveform/pixbuf.h"
 #include "test/common.h"
 
 TestFn test_peakgen, test_bad_wav, test_audio_file, test_audiodata, test_audio_cache, test_alphabuf, test_transition, test_worker, test_thumbnail;
@@ -56,7 +53,7 @@ gpointer tests[] = {
 int
 main (int argc, char *argv[])
 {
-	if(sizeof(off_t) != 8){ gerr("sizeof(off_t)=%zu\n", sizeof(off_t)); exit(1); }
+	if(sizeof(off_t) != 8){ perr("sizeof(off_t)=%zu\n", sizeof(off_t)); exit(1); }
 
 	test_init(tests, G_N_ELEMENTS(tests));
 
@@ -188,7 +185,7 @@ test_audio_file ()
 }
 
 
-	static void _on_peakdata_ready(Waveform* waveform, int block, gpointer _c)
+	static void _on_peakdata_ready (Waveform* waveform, int block, gpointer _c)
 	{
 		WfTest* c = _c;
 		C1* c1 = _c;
@@ -239,7 +236,7 @@ test_audiodata ()
 	static int n_tiers_needed = 4;
 	static guint ready_handler = 0;
 
-	void _slow_on_peakdata_ready(Waveform* waveform, int block, gpointer _c)
+	void _slow_on_peakdata_ready (Waveform* waveform, int block, gpointer _c)
 	{
 		WfTest* c = _c;
 		C1* c1 = _c;
@@ -284,7 +281,7 @@ test_audiodata_slow ()
 }
 
 
-static bool
+static gboolean
 test_audio_cache__after_unref (gpointer _c)
 {
 	WfTest* c = _c;
@@ -417,7 +414,7 @@ test_transition ()
 
 
 void
-test_worker()
+test_worker ()
 {
 	// run jobs in two worker threads with activity in main thread.
 
@@ -464,13 +461,13 @@ test_worker()
 			}
 		}
 
-		void work_done(Waveform* waveform, GError* error, gpointer _c)
+		void work_done (Waveform* waveform, GError* error, gpointer _c)
 		{
 			C* c = _c;
 
 			dbg(0, "%i", c->ww->i_done + 1);
 			if(++c->ww->i_done == i_max || !w){
-				bool __finish(gpointer _)
+				gboolean __finish(gpointer _)
 				{
 					dbg(0, "all jobs done");
 					if(++n_workers_done == n_workers){
@@ -484,7 +481,7 @@ test_worker()
 			reset_timeout(10000);
 		}
 
-		void c_free(gpointer _c)
+		void c_free (gpointer _c)
 		{
 			C* c = _c;
 			if(c){
@@ -493,7 +490,7 @@ test_worker()
 			}
 		}
 
-		bool add_job(gpointer _ww)
+		gboolean add_job (gpointer _ww)
 		{
 			WW* ww = _ww;
 
@@ -511,7 +508,8 @@ test_worker()
 		}
 
 		static gpointer mem = NULL;
-		bool main_thread()
+
+		gboolean main_thread ()
 		{
 			if(__test_idx != current_test) return G_SOURCE_REMOVE;
 
@@ -522,7 +520,7 @@ test_worker()
 		g_timeout_add(250, main_thread, NULL);
 	}
 
-	bool add_worker(gpointer _)
+	gboolean add_worker (gpointer _)
 	{
 		_test_worker();
 		return G_SOURCE_REMOVE;
@@ -531,9 +529,9 @@ test_worker()
 
 	// eventually, unref the waveform, which will cause the jobs to be cancelled and the test to end
 
-	bool unref(gpointer _w)
+	gboolean unref (gpointer _w)
 	{
-		bool stop(gpointer _)
+		gboolean stop(gpointer _)
 		{
 			// in case the test has not already stopped.
 			FINISH_TEST_TIMER_STOP;

@@ -34,21 +34,16 @@
 */
 #define __wf_private__
 #include "config.h"
-#include <stdlib.h>
-#include <stdint.h>
-#include <string.h>
 #include <getopt.h>
 #include <time.h>
-#include <unistd.h>
-#include <signal.h>
 #include <sys/time.h>
 #include <sys/types.h>
-#include <sys/ipc.h>
-#include <sys/shm.h>
 #include <signal.h>
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 #include <gtk/gtk.h>
+#pragma GCC diagnostic warning "-Wdeprecated-declarations"
 #include <gdk/gdkkeysyms.h>
-#include "waveform/view.h"
+#include "waveform/view_plus.h"
 #include "test/common2.h"
 
 //#define WAV "mono_0:10.wav"
@@ -66,7 +61,7 @@ static const char* const short_options = "n";
 int
 main (int argc, char* argv[])
 {
-	if(sizeof(off_t) != 8){ gerr("sizeof(off_t)=%zu\n", sizeof(off_t)); return EXIT_FAILURE; }
+	if(sizeof(off_t) != 8){ perr("sizeof(off_t)=%zu\n", sizeof(off_t)); return EXIT_FAILURE; }
 
 	set_log_handlers();
 
@@ -85,44 +80,43 @@ main (int argc, char* argv[])
 	static GtkWidget* box; box = gtk_vbox_new(FALSE, 4);
 	gtk_container_add((GtkContainer*)window, box);
 
-	WaveformView* waveform[2] = {waveform_view_new(NULL),};
-	waveform_view_set_show_rms(waveform[0], false);
+	WaveformViewPlus* waveform[2] = {waveform_view_plus_new(NULL),};
 	gtk_box_pack_start((GtkBox*)box, (GtkWidget*)waveform[0], TRUE, TRUE, 0);
 
 	gtk_widget_show_all(window);
 
 	char* filename = find_wav(WAV);
-	waveform_view_load_file(waveform[0], filename);
+	waveform_view_plus_load_file(waveform[0], filename, NULL, NULL);
 	g_free(filename);
 
 	gboolean key_press(GtkWidget* widget, GdkEventKey* event, gpointer user_data)
 	{
-		WaveformView** waveform = user_data;
+		WaveformViewPlus** waveform = user_data;
 
 		switch(event->keyval){
 			case 61:
-				waveform_view_set_zoom(waveform[0], waveform[0]->zoom * 1.5);
+				waveform_view_plus_set_zoom(waveform[0], waveform_view_plus_get_zoom(waveform[0]) * 1.5);
 				break;
 			case 45:
-				waveform_view_set_zoom(waveform[0], waveform[0]->zoom / 1.5);
+				waveform_view_plus_set_zoom(waveform[0], waveform_view_plus_get_zoom(waveform[0]) / 1.5);
 				break;
 			case KEY_Left:
 			case KEY_KP_Left:
 				dbg(0, "left");
-				waveform_view_set_start(waveform[0], waveform[0]->start_frame - 8192 / waveform[0]->zoom);
+				waveform_view_plus_set_start(waveform[0], waveform[0]->start_frame - 8192 / waveform_view_plus_get_zoom(waveform[0]));
 				break;
 			case KEY_Right:
 			case KEY_KP_Right:
 				dbg(0, "right");
-				waveform_view_set_start(waveform[0], waveform[0]->start_frame + 8192 / waveform[0]->zoom);
+				waveform_view_plus_set_start(waveform[0], waveform[0]->start_frame + 8192 / waveform_view_plus_get_zoom(waveform[0]));
 				break;
 			case GDK_KEY_2:
 				if(!waveform[1]){
 					// TODO fix issues with 2 widgets sharing the same drawable ?
 
-					gtk_box_pack_start((GtkBox*)box, (GtkWidget*)(waveform[1] = waveform_view_new(NULL)), TRUE, TRUE, 0);
+					gtk_box_pack_start((GtkBox*)box, (GtkWidget*)(waveform[1] = waveform_view_plus_new(NULL)), TRUE, TRUE, 0);
 					char* filename = g_build_filename(g_get_current_dir(), WAV, NULL);
-					waveform_view_load_file(waveform[1], filename);
+					waveform_view_plus_load_file(waveform[1], filename, NULL, NULL);
 					g_free(filename);
 					gtk_widget_show((GtkWidget*)waveform[1]);
 				}
@@ -147,7 +141,7 @@ main (int argc, char* argv[])
 
 	gboolean on_timeout(gpointer _waveform)
 	{
-		WaveformView* waveform = _waveform;
+		WaveformViewPlus* waveform = _waveform;
 
 		static uint64_t frame = 0;
 		static uint64_t t0    = 0;
@@ -160,7 +154,7 @@ main (int argc, char* argv[])
 			if(!(frame % 8)){
 				float v = (frame % 16) ? 1.5 : 2.0/3.0;
 				if(v > 16.0) v = 1.0;
-				waveform_view_set_zoom(waveform, waveform->zoom * v);
+				waveform_view_plus_set_zoom(waveform, waveform_view_plus_get_zoom(waveform) * v);
 			}
 			gtk_widget_queue_draw((GtkWidget*)waveform);
 		}

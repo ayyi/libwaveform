@@ -1,12 +1,21 @@
 /**
 * +----------------------------------------------------------------------+
 * | This file is part of the Ayyi project. http://ayyi.org               |
-* | copyright (C) 2012-2019 Tim Orford <tim@orford.org>                  |
+* | copyright (C) 2012-2020 Tim Orford <tim@orford.org>                  |
 * +----------------------------------------------------------------------+
 * | This program is free software; you can redistribute it and/or modify |
 * | it under the terms of the GNU General Public License version 3       |
 * | as published by the Free Software Foundation.                        |
 * +----------------------------------------------------------------------+
+*
+* A transition animates one or more animatables.
+*
+* Create the transition with wf_animation_new(),
+* add an animatable using wf_transition_add_member(),
+* then call wf_animation_start().
+* The transition will free itself when complete.
+*
+* Use the callbacks on_frame() and on_finish()
 *
 */
 
@@ -14,6 +23,7 @@
 #define __wf_animator_h__
 
 #include "stdint.h"
+#include "stdbool.h"
 #include "glib.h"
 
 #ifndef USE_FRAME_CLOCK
@@ -29,6 +39,7 @@ WfTransitionGlobal;
 extern WfTransitionGlobal wf_transition;
 #endif
 
+typedef struct { float x, y; } WfPtf;
 typedef struct _WfAnimation WfAnimation;
 typedef enum {WF_INT=0, WF_INT64, WF_FLOAT, WF_TYPE_MAX} WfPropType;
 
@@ -36,12 +47,14 @@ typedef union {
    uint32_t  i;
    int64_t   b;
    float     f;
+   WfPtf     pt;
 } UVal;
 
 typedef union {
    uint32_t* i;
    int64_t*  b;
    float*    f;
+   WfPtf*    pt;
 } UValp;
 
 typedef struct _AnimatableProperty
@@ -92,7 +105,7 @@ struct _WfAnimation
 WfAnimation* wf_animation_new               (AnimationFn, gpointer);
 void         wf_transition_add_member       (WfAnimation*, GList* animatables);
 void         wf_animation_remove            (WfAnimation*);
-gboolean     wf_animation_remove_animatable (WfAnimation*, WfAnimatable*);
+bool         wf_animation_remove_animatable (WfAnimation*, WfAnimatable*);
 void         wf_animation_start             (WfAnimation*);
 void         wf_animation_preview           (WfAnimation*, AnimationValueFn, gpointer);
 

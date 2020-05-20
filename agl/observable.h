@@ -1,7 +1,7 @@
 /**
 * +----------------------------------------------------------------------+
 * | This file is part of the Ayyi project. http://www.ayyi.org           |
-* | copyright (C) 2018-2019 Tim Orford <tim@orford.org>                  |
+* | copyright (C) 2018-2020 Tim Orford <tim@orford.org>                  |
 * +----------------------------------------------------------------------+
 * | This program is free software; you can redistribute it and/or modify |
 * | it under the terms of the GNU General Public License version 3       |
@@ -17,13 +17,13 @@ typedef struct {
    int    min;
    int    max;
    GList* subscriptions;
-} Observable;
+} AGlObservable;
 
-typedef void (*ObservableFn) (Observable*, int value, gpointer);
+typedef void (*AGlObservableFn) (AGlObservable*, int value, gpointer);
 
-Observable* agl_observable_new       ();
-void        agl_observable_free      (Observable*);
-void        agl_observable_set       (Observable*, int);
-void        agl_observable_subscribe (Observable*, ObservableFn, gpointer);
+AGlObservable* agl_observable_new       ();
+void           agl_observable_free      (AGlObservable*);
+void           agl_observable_set       (AGlObservable*, int);
+void           agl_observable_subscribe (AGlObservable*, AGlObservableFn, gpointer);
 
 #endif

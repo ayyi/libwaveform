@@ -24,9 +24,13 @@ endif
 endif
 
 if ENABLE_OPENGL
-noinst_PROGRAMS = waveform_test $(GTKPROGRAMS) large_files promise 32bit glx scenegraph $(SDLPROGRAMS)
+noinst_PROGRAMS = waveform_test large_files promise 32bit glx scenegraph text input $(GTKPROGRAMS) $(SDLPROGRAMS)
 else
 noinst_PROGRAMS = waveform_test
+endif
+
+if ENABLE_EPOXY
+GL_LOADER_LDFLAGS = $(EPOXY_LDFLAGS)
 endif
 
 AM_CFLAGS = \
@@ -37,12 +41,15 @@ AM_CFLAGS = \
 	$(OPENGL_CFLAGS) \
 	$(GTK_CFLAGS) \
 	$(SDL_CFLAGS) \
+	$(GRAPHENE_CFLAGS) \
 	$(LIBASS_CFLAGS)
 
 # be careful before changing the order here
 TEST_LDFLAGS = \
-	$(top_srcdir)/.libs/libwaveform.a \
+	$(top_srcdir)/.libs/libwaveformui.a \
+	$(top_srcdir)/.libs/libwaveformcore.a \
 	$(OPENGL_LDFLAGS) \
+	$(GL_LOADER_LDFLAGS) \
 	$(LIBASS_LDFLAGS) \
 	$(GTK_LDFLAGS) \
 	$(X11_LDFLAGS) \
@@ -50,6 +57,8 @@ TEST_LDFLAGS = \
 	$(GMODULE_LDFLAGS) \
 	$(SNDFILE_LIBS) \
 	$(FFMPEG_LDFLAGS) \
+	$(SYSPROF_LIBS) \
+	$(GRAPHENE_LDFLAGS) \
 	-lm
 
 COMMON_SOURCES = \
@@ -135,6 +144,14 @@ glx_SOURCES = \
 	$(COMMON2_SOURCES) \
 	glx.c
 
+text_SOURCES = \
+	$(COMMON2_SOURCES) \
+	text.c
+
+input_SOURCES = \
+	$(COMMON2_SOURCES) \
+	input.c
+
 scenegraph_SOURCES = \
 	$(COMMON2_SOURCES) \
 	scenegraph.c
@@ -180,6 +197,14 @@ glx_LDADD = \
 	$(OPENGL_LDFLAGS) \
 	$(TEST_LDFLAGS)
 
+text_LDADD = \
+	$(OPENGL_LDFLAGS) \
+	$(TEST_LDFLAGS)
+
+input_LDADD = \
+	$(OPENGL_LDFLAGS) \
+	$(TEST_LDFLAGS)
+
 scenegraph_LDADD = \
 	$(TEST_LDFLAGS)
 
@@ -189,12 +214,38 @@ LDADD = \
 
 endif
 
+AM_TESTS_FD_REDIRECT = 9>&2 --non-interactive
+
+AM_TESTS_ENVIRONMENT = \
+	export NON_INTERACTIVE=1;
+
+# these tests will be run as part of make-check
+# TODO dont swallow stdout
+TESTS = \
+	waveform_test \
+	32bit \
+	cache \
+	view_plus_test \
+	actor_test \
+	actor_plus \
+	hires \
+	scenegraph \
+	viewport \
+	group \
+	actor_no_scene \
+	multi_scene \
+	frame_rate \
+	glx \
+	list \
+	sdl \
+	ass
+
 test:
 	@echo running tests...
-	cd .. && test/waveform_test
+	./waveform_test
 	cd .. && test/large_files
-	cd .. && test/32bit
-	cd .. && test/cache
+	./32bit
+	./cache
 	./view_plus_test -n
 	./actor_test -n
 	./actor_plus -n

@@ -1,7 +1,7 @@
 /**
 * +----------------------------------------------------------------------+
 * | This file is part of libwaveform https://github.com/ayyi/libwaveform |
-* | copyright (C) 2013-2019 Tim Orford <tim@orford.org>                  |
+* | copyright (C) 2013-2020 Tim Orford <tim@orford.org>                  |
 * +----------------------------------------------------------------------+
 * | This program is free software; you can redistribute it and/or modify |
 * | it under the terms of the GNU General Public License version 3       |
@@ -12,24 +12,23 @@
 #define __common2_c__
 #define __wf_private__
 #include "config.h"
-#include <stdio.h>
-#include <stdlib.h>
-#include <stdint.h>
-#include <string.h>
 #include <getopt.h>
 #include <time.h>
-#include <unistd.h>
-#include <signal.h>
 #include <sys/time.h>
 #include <sys/types.h>
 #define XLIB_ILLEGAL_ACCESS // needed to access Display internals
 #include <X11/Xlib.h>
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 #include <gtk/gtk.h>
+#pragma GCC diagnostic warning "-Wdeprecated-declarations"
 #include <glib-object.h>
 #include "agl/actor.h"
 #include "waveform/utils.h"
+#ifdef USE_EPOXY
+# define __glx_test__
+#endif
 #include "test/common2.h"
-#include "waveform/wf_private.h"
+#include "wf/private.h"
 
 #define BENCHMARK
 #define NUL '\0'
@@ -67,7 +66,7 @@ static int  current_time           ();
 	}
 
 void
-set_log_handlers()
+set_log_handlers ()
 {
 	g_log_set_handler (NULL, G_LOG_LEVEL_WARNING | G_LOG_LEVEL_CRITICAL | G_LOG_FLAG_FATAL | G_LOG_FLAG_RECURSION, log_handler, NULL);
 
@@ -330,12 +329,10 @@ scene_needs_redraw (AGlScene* scene, gpointer _){
  * Return the window and context handles.
  */
 AGlWindow*
-agl_make_window (Display* dpy, const char* name, int width, int height, AGlScene* scene)
+agl_make_window (Display* dpy, const char* name, int width, int height)
 {
 	AGl* agl = agl_get_instance();
 	agl->xdisplay = dpy;
-
-	scene->draw = scene_needs_redraw;
 
 	int attrib[] = {
 		GLX_RGBA,
@@ -362,7 +359,7 @@ agl_make_window (Display* dpy, const char* name, int width, int height, AGlScene
 		.background_pixel = 0,
 		.border_pixel = 0,
 		.colormap = XCreateColormap(dpy, root, agl->xvinfo->visual, AllocNone),
-		.event_mask = StructureNotifyMask | ExposureMask | KeyPressMask
+		.event_mask = StructureNotifyMask | ExposureMask | KeyPressMask | ButtonPressMask | PointerMotionMask | ButtonReleaseMask | FocusChangeMask | EnterWindowMask | LeaveWindowMask
 	};
 	unsigned long mask = CWBackPixel | CWBorderPixel | CWColormap | CWEventMask;
 
@@ -385,8 +382,7 @@ agl_make_window (Display* dpy, const char* name, int width, int height, AGlScene
 
 	if(!windows){
 		GLXContext sharelist = NULL;
-		ctx = glXCreateContext(dpy, agl->xvinfo, sharelist, True);
-		if (!ctx) {
+		if(!(ctx = glXCreateContext(dpy, agl->xvinfo, sharelist, True))){
 			printf("Error: glXCreateContext failed\n");
 			exit(1);
 		}
@@ -394,14 +390,17 @@ agl_make_window (Display* dpy, const char* name, int width, int height, AGlScene
 
 	XMapWindow(dpy, win);
 
-	scene->gl.glx.window = win;
-	scene->gl.glx.context = ctx;
-
 	if(!windows){
 		glXMakeCurrent(dpy, win, ctx);
 		glx_init(dpy);
 		agl_gl_init();
 	}
+
+	AGlScene* scene = (AGlRootActor*)agl_actor__new_root_(CONTEXT_TYPE_GLX);
+
+	scene->draw = scene_needs_redraw;
+	scene->gl.glx.window = win;
+	scene->gl.glx.context = ctx;
 
 	AGlWindow* agl_window = AGL_NEW(AGlWindow,
 		.window = win,
@@ -432,6 +431,10 @@ agl_window_destroy (Display* dpy, AGlWindow** window)
 	for(;l;l=l->next){
 		AGlWindow* w = l->data;
 		w->scene->gl.glx.needs_draw = true;
+	}
+
+	if(!windows){
+		agl_free();
 	}
 }
 
@@ -488,13 +491,24 @@ draw (Display* dpy, AGlWindow* window)
 }
 
 
+static GHashTable* key_handlers = NULL;
+
+KeyHandler*
+key_lookup (int keycode)
+{
+	return key_handlers ? g_hash_table_lookup(key_handlers, &keycode) : NULL;
+}
+
+
+bool running = 1;
+
 void
 event_loop (Display* dpy)
 {
 	float frame_usage = 0.0;
 	fd_set rfds;
 
-	while (1) {
+	while (running) {
 		FD_ZERO(&rfds);
 		FD_SET(dpy->fd, &rfds);
 		select(dpy->fd + 1, &rfds, NULL, NULL, &(struct timeval){.tv_usec = 50000});
@@ -512,20 +526,26 @@ event_loop (Display* dpy)
 						on_window_resize(dpy, window, event.xconfigure.width, event.xconfigure.height);
 						window->scene->gl.glx.needs_draw = True;
 						break;
+					case ButtonRelease:
+					case ButtonPress:
+					case MotionNotify:
+					case FocusOut:
+						agl_actor__xevent(window->scene, &event);
+						break;
 					case KeyPress: {
 						int code = XLookupKeysym(&event.xkey, 0);
 
-						extern KeyHandler* key_lookup  (int keycode);
 						KeyHandler* handler = key_lookup(code);
 						if(handler){
 							handler(NULL);
 						}else{
-							char buffer[10];
-							XLookupString(&event.xkey, buffer, sizeof(buffer), NULL, NULL);
-							if (buffer[0] == 27 || buffer[0] == 'q') {
-								/* escape */
-								return;
+							if(((XKeyEvent*)&event)->state & GDK_CONTROL_MASK){
+								if (code == 'q') {
+									/* quit */
+									return;
+								}
 							}
+							agl_actor__xevent(window->scene, &event);
 						}
 					}
 				}
@@ -621,7 +641,7 @@ current_time(void)
  * extension.
  */
 void
-show_refresh_rate(Display* dpy)
+show_refresh_rate (Display* dpy)
 {
 #if defined(GLX_OML_sync_control) && defined(__STDC_VERSION__) && (__STDC_VERSION__ >= 199901L)
 	int32_t  n;
@@ -652,7 +672,7 @@ gtk_window (Key keys[], WindowFn content)
 {
 	GdkGLConfig* glconfig;
 	if(!(glconfig = gdk_gl_config_new_by_mode(GDK_GL_MODE_RGBA | GDK_GL_MODE_DEPTH | GDK_GL_MODE_DOUBLE))){
-		gerr ("Cannot initialise gtkglext."); return EXIT_FAILURE;
+		perr ("Cannot initialise gtkglext."); return EXIT_FAILURE;
 	}
 
 	GtkWidget* window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
@@ -673,16 +693,15 @@ gtk_window (Key keys[], WindowFn content)
 
 	static KeyHold key_hold = {0, NULL};
 	static bool key_down = false;
-	static GHashTable* key_handlers = NULL;
 
-	static gboolean key_hold_on_timeout(gpointer user_data)
+	static gboolean key_hold_on_timeout (gpointer user_data)
 	{
-		WaveformView* waveform = user_data;
+		WaveformViewPlus* waveform = user_data;
 		if(key_hold.handler) key_hold.handler(waveform);
 		return TIMER_CONTINUE;
 	}
 
-	static gboolean key_press(GtkWidget* widget, GdkEventKey* event, gpointer user_data)
+	static gboolean key_press (GtkWidget* widget, GdkEventKey* event, gpointer user_data)
 	{
 		if(key_down){
 			// key repeat
@@ -692,7 +711,7 @@ gtk_window (Key keys[], WindowFn content)
 		KeyHandler* handler = g_hash_table_lookup(key_handlers, &event->keyval);
 		if(handler){
 			key_down = true;
-			if(key_hold.timer) gwarn("timer already started");
+			if(key_hold.timer) pwarn("timer already started");
 			key_hold.timer = g_timeout_add(100, key_hold_on_timeout, user_data);
 			key_hold.handler = handler;
 
@@ -715,7 +734,7 @@ gtk_window (Key keys[], WindowFn content)
 	}
 
 void
-add_key_handlers_gtk (GtkWindow* window, WaveformView* waveform, Key keys[])
+add_key_handlers_gtk (GtkWindow* window, gpointer user_data, Key keys[])
 {
 	//list of keys must be terminated with a key of value zero.
 
@@ -727,8 +746,8 @@ add_key_handlers_gtk (GtkWindow* window, WaveformView* waveform, Key keys[])
 		i++;
 	}
 
-	g_signal_connect(window, "key-press-event", G_CALLBACK(key_press), waveform);
-	g_signal_connect(window, "key-release-event", G_CALLBACK(key_release), waveform);
+	g_signal_connect(window, "key-press-event", G_CALLBACK(key_press), user_data);
+	g_signal_connect(window, "key-release-event", G_CALLBACK(key_release), user_data);
 }
 
 
@@ -747,10 +766,4 @@ add_key_handlers (Key keys[])
 	}
 }
 
-
-KeyHandler*
-key_lookup (int keycode)
-{
-	return g_hash_table_lookup(key_handlers, &keycode);
-}
 

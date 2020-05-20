@@ -7,7 +7,11 @@ endif
 if ENABLE_GTK
 GTK_SUBDIRS = gtkglext-1.0
 endif
-SUBDIRS = $(OPENGL_SUBDIRS) $(SDL_SUBDIRS) $(GTK_SUBDIRS) waveform transition decoder . test
+if ENABLE_GLIB_2_58_POLYFILL
+GLIB_SUBDIRS = glib
+GLIB_LIBADD = glib/libglib.la
+endif
+SUBDIRS = $(GTK_SUBDIRS) $(OPENGL_SUBDIRS) $(SDL_SUBDIRS) $(GLIB_SUBDIRS) wf ui transition decoder . test waveform
 
 if ENABLE_OPENGL
 OPENGL_LIBADD = \
@@ -15,12 +19,18 @@ OPENGL_LIBADD = \
 	agl/behaviours/libbehaviours.la
 endif
 
-lib_LTLIBRARIES = libwaveform.la
-libwaveform_la_SOURCES =
-libwaveform_la_LIBADD = \
-	waveform/libwf.la \
+lib_LTLIBRARIES = libwaveformui.la libwaveformcore.la
+
+libwaveformcore_la_SOURCES =
+libwaveformcore_la_LIBADD = \
 	decoder/libdecoder.la \
+	wf/libwfcore.la
+
+libwaveformui_la_SOURCES =
+libwaveformui_la_LIBADD = \
 	transition/libtransition.la \
+	$(GLIB_LIBADD) \
+	ui/libwf.la \
 	$(OPENGL_LIBADD)
 
 AM_CFLAGS = \
@@ -75,9 +85,6 @@ pkgconfigdir = $(libdir)/pkgconfig
 pkgconfig_DATA = libwaveform.pc
 
 .PHONY: dummy
-
-test: dummy
-	cd test && make test
 
 CLEANFILES = libwaveform.pc \
 	shaders/shaders.c

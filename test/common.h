@@ -1,7 +1,7 @@
 /**
 * +----------------------------------------------------------------------+
 * | This file is part of the Ayyi project. http://ayyi.org               |
-* | copyright (C) 2013-2018 Tim Orford <tim@orford.org>                  |
+* | copyright (C) 2013-2020 Tim Orford <tim@orford.org>                  |
 * +----------------------------------------------------------------------+
 * | This program is free software; you can redistribute it and/or modify |
 * | it under the terms of the GNU General Public License version 3       |
@@ -12,7 +12,8 @@
 /**
  *  common code for automated tests - move stuff for non-automated tests to common2.h
  */
-#include "waveform/waveform.h"
+#include "wf/debug.h"
+#include "wf/waveform.h"
 #include "test/common2.h"
 
 #define TIMER_CONTINUE TRUE
@@ -52,7 +53,7 @@ KeyHandler* key_lookup  (int keycode);
 	__test_idx = current_test; \
 	if(!step){ \
 		g_strlcpy(current_test_name, __func__, 64); \
-		printf("%srunning %i of %zu: %s%s ...\n", wf_bold, current_test + 1, G_N_ELEMENTS(tests), __func__, wf_white); \
+		printf("%srunning %i of %zu: %s%s ...\n", ayyi_bold, current_test + 1, G_N_ELEMENTS(tests), __func__, ayyi_white); \
 	} \
 	if(test_finished) return;
 
@@ -91,7 +92,7 @@ KeyHandler* key_lookup  (int keycode);
 #define FAIL_TEST_TIMER(msg) \
 	{test_finished = true; \
 	passed = false; \
-	printf("%s%s%s\n", red, msg, wf_white); \
+	printf("%s%s%s\n", red, msg, ayyi_white); \
 	test_finished_(); \
 	return G_SOURCE_REMOVE;}
 
@@ -104,7 +105,7 @@ WfTest* wf_test_new();
 #define NEW_TEST() \
 	({ \
 	g_strlcpy(current_test_name, __func__, 64); \
-	printf("%srunning %i of %zu: %s%s ...\n", wf_bold, current_test + 1, G_N_ELEMENTS(tests), __func__, wf_white); \
+	printf("%srunning %i of %zu: %s%s ...\n", ayyi_bold, current_test + 1, G_N_ELEMENTS(tests), __func__, ayyi_white); \
 	if(test_finished) return; \
 	wf_test_new(); \
 	})
@@ -128,12 +129,12 @@ WfTest* wf_test_new();
 
 #define assert(A, B, ...) \
 	{bool __ok_ = ((A) != 0); \
-	{if(!__ok_) gerr(B, ##__VA_ARGS__); } \
+	{if(!__ok_) perr(B, ##__VA_ARGS__); } \
 	{if(!__ok_) FAIL_TEST("assertion failed") }}
 
 #define assert_and_stop(A, B, ...) \
 	{bool __ok_ = ((A) != 0); \
-	{if(!__ok_) gerr(B, ##__VA_ARGS__); } \
+	{if(!__ok_) perr(B, ##__VA_ARGS__); } \
 	{if(!__ok_) FAIL_TEST_TIMER("assertion failed") }}
 
 #define FAIL_IF_ERROR \

@@ -1,7 +1,7 @@
 /**
 * +----------------------------------------------------------------------+
 * | This file is part of the Ayyi project. http://ayyi.org               |
-* | copyright (C) 2013-2019 Tim Orford <tim@orford.org>                  |
+* | copyright (C) 2013-2020 Tim Orford <tim@orford.org>                  |
 * +----------------------------------------------------------------------+
 * | This program is free software; you can redistribute it and/or modify |
 * | it under the terms of the GNU General Public License version 3       |
@@ -11,28 +11,32 @@
 */
 #define __agl_actor_c__
 #define __gl_canvas_priv__
+#define __wf_private__
 #include "config.h"
-#include <stdlib.h>
-#include <GL/gl.h>
 #ifdef USE_GTK
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 #include <gtk/gtk.h>
+#pragma GCC diagnostic warning "-Wdeprecated-declarations"
 #else
 #include <gdk/gdk.h>
 #endif
-#include "agl/utils.h"
 #include "agl/ext.h"
-#include "waveform/utils.h"
+#include "agl/utils.h"
+#include "agl/debug.h"
+#include "wf/utils.h"
 #include "agl/shader.h"
+#include "agl/transform.h"
+#include "text/renderops.h"
+#include "text/renderer.h"
+#include "text/roundedrect.h"
 #include "agl/actor.h"
 #ifdef AGL_ACTOR_RENDER_CACHE
 #include "agl/fbo.h"
 #endif
 
-extern void wf_debug_printf (const char* func, int level, const char* format, ...);
-#define gwarn(A, ...) g_warning("%s(): "A, __func__, ##__VA_ARGS__);
-#define dbg(A, B, ...) wf_debug_printf(__func__, A, B, ##__VA_ARGS__)
-
 #define CURSOR_NORMAL 0
+
+#define call(FN, A, ...) if(FN) (FN)(A, ##__VA_ARGS__)
 
 static AGl* agl = NULL;
 static AGlActorClass root_actor_class = {0, "ROOT"};
@@ -41,25 +45,23 @@ static AGlActorClass root_actor_class = {0, "ROOT"};
 
 #define IS_DRAWABLE(A) (!(!agl_actor__is_onscreen(A) || ((agl_actor__width(A) < 1 || agl_actor__height(A) < 1))))
 
-static bool   agl_actor__is_onscreen  (AGlActor*);
+bool         _agl_actor__paint        (AGlActor*);
+bool          agl_actor__is_onscreen  (AGlActor*);
+
 static bool  _agl_actor__on_event     (AGlActor*, GdkEvent*, AGliPt);
 static void   agl_actor__init         (AGlActor*);        // called once when gl context is available. and again if gl context changes, eg after re-realize.
 #ifdef USE_FRAME_CLOCK
 static bool   agl_actor__is_animating (AGlActor*);
 #endif
-#ifdef DEBUG
-#ifdef AGL_DEBUG_ACTOR
 #ifdef AGL_ACTOR_RENDER_CACHE
-static bool   agl_actor__is_cached    (AGlActor*);
-#endif
-#endif
+bool          agl_actor__is_cached    (AGlActor*);
 #endif
 static AGliPt _agl_actor__find_offset (AGlActor*);
 
 
 #ifdef USE_GTK
 static void
-agl_actor__have_drawable(AGlRootActor* a, GdkGLDrawable* drawable)
+agl_actor__have_drawable (AGlRootActor* a, GdkGLDrawable* drawable)
 {
 	g_return_if_fail(!a->gl.gdk.drawable);
 	g_return_if_fail(!a->gl.gdk.context);
@@ -106,7 +108,7 @@ agl_actor__have_drawable(AGlRootActor* a, GdkGLDrawable* drawable)
 
 
 #ifdef USE_GTK
-static bool
+static gboolean
 agl_actor__try_drawable(gpointer _actor)
 {
 	AGlRootActor* a = _actor;
@@ -201,8 +203,10 @@ agl_actor__new_root_(ContextType type)
 
 
 void
-agl_actor__free(AGlActor* actor)
+agl_actor__free (AGlActor* actor)
 {
+	g_return_if_fail(actor);
+
 	GList* l = actor->children;
 	for(;l;l=l->next){
 		AGlActor* child = l->data;
@@ -271,6 +275,8 @@ agl_actor__add_child(AGlActor* actor, AGlActor* child)
 		}
 		set_child_roots(child);
 
+		agl_actor__invalidate(actor);
+
 		if(READY_FOR_INIT(child)) agl_actor__init(child);
 	}
 
@@ -331,10 +337,8 @@ agl_actor__replace_child(AGlActor* actor, AGlActor* child, AGlActor* new_child)
 
 
 static void
-agl_actor__init (AGlActor* actor)
+_agl_actor__init (AGlActor* actor)
 {
-	// note that this may be called more than once, eg on settings change.
-
 	if(agl->use_shaders && actor->program && !actor->program->program) agl_create_program(actor->program);
 
 	call(actor->init, actor);
@@ -347,13 +351,28 @@ agl_actor__init (AGlActor* actor)
 		if(behaviour->klass->init) agl_behaviour_init(behaviour, actor);
 	}
 
-	GList* l = actor->children;
-	for(;l;l=l->next) agl_actor__init((AGlActor*)l->data);
+	for(GList* l=actor->children;l;l=l->next)
+		_agl_actor__init((AGlActor*)l->data);
 }
 
 
-static bool
-agl_actor__is_onscreen(AGlActor* a)
+/*
+ *  Note that agl_actor__init may be called more than once, eg on settings change.
+ */
+static void
+agl_actor__init (AGlActor* actor)
+{
+	// agl_create_programs can sometimes end up being called multiple
+	// times to allow for actors to add global shaders
+	extern void agl_create_programs ();
+	agl_create_programs ();
+
+	_agl_actor__init (actor);
+}
+
+
+bool
+agl_actor__is_onscreen (AGlActor* a)
 {
 	int h = ((AGlActor*)a->root)->scrollable.y2 - ((AGlActor*)a->root)->scrollable.y1;
 	int w = ((AGlActor*)a->root)->scrollable.x2 - ((AGlActor*)a->root)->scrollable.x1;
@@ -392,11 +411,12 @@ agl_actor__is_onscreen(AGlActor* a)
 
 
 #ifdef AGL_ACTOR_RENDER_CACHE
+/*
+ * Render the FBO to screen
+ */
 void
 agl_actor__render_from_fbo (AGlActor* a)
 {
-	// render the FBO to screen
-
 	AGlFBO* fbo = a->fbo;
 	g_return_if_fail(fbo);
 
@@ -462,39 +482,16 @@ agl_actor__render_from_fbo (AGlActor* a)
 #endif
 
 
-bool
-_agl_actor__paint(AGlActor* a)
+static bool
+__draw (AGlActor* a, bool use_fbo)
 {
-#ifdef AGL_ACTOR_RENDER_CACHE
-	bool use_fbo = a->fbo && a->cache.enabled && !(agl_actor__width(a) > AGL_MAX_FBO_WIDTH);
-#endif
-
-	AGliPt offset = {
-		.x = a->region.x1,
-		.y = a->region.y1,
-	};
-
-#ifdef AGL_ACTOR_RENDER_CACHE
-	if(!use_fbo){
-#else
-	if(true){
-#endif
-		// Offset so that actors can always draw objects at the same position,
-		// irrespective of scroll position
-		offset.x += a->scrollable.x1;
-		offset.y += a->scrollable.y1;
-	}
-	if(offset.x || offset.y){
-		glMatrixMode(GL_MODELVIEW);
-		glPushMatrix();
-		glTranslatef(offset.x, offset.y, 0.0);
-	}
-
 	bool good = true;
 #ifdef AGL_ACTOR_RENDER_CACHE
 	// TODO check case where actor is translated and is partially offscreen.
 	if(use_fbo){
 		if(!a->cache.valid){
+			g_return_val_if_fail(a->fbo->width > 0.5 && a->fbo->height > 0.5, false);
+
 			agl_draw_to_fbo(a->fbo) {
 				glTranslatef(- a->cache.position.x, 0.0, 0.0);
 				glClearColor(0.0, 0.0, 0.0, 0.0); // background colour must be same as foreground for correct antialiasing
@@ -503,6 +500,15 @@ _agl_actor__paint(AGlActor* a)
 				call(a->set_state, a);
 				if(agl->use_shaders && a->program) agl_use_program(a->program);
 				glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
+
+				renderer_push_builder();
+
+				ops_set_viewport (builder(), &(graphene_rect_t){
+					.size.width = a->fbo->width,
+					.size.height = a->fbo->height
+				});
+
+				ops_push_clip (builder(), &AGL_ROUNDED_RECT_INIT (0, 0, ((float)a->fbo->width) * 1.0, ((float)a->fbo->height) * 1.0));
 
 				good &= a->paint(a);
 
@@ -514,6 +520,13 @@ _agl_actor__paint(AGlActor* a)
 					}
 				}
 				glTranslatef(a->cache.position.x, 0.0, 0.0);
+
+				ops_pop_clip (builder());
+
+				builder()->target = a->fbo->id;
+				renderer_render (builder());
+
+				renderer_pop_builder();
 			} agl_end_draw_to_fbo;
 
 			a->cache.valid = good;
@@ -552,9 +565,72 @@ _agl_actor__paint(AGlActor* a)
 #ifdef AGL_ACTOR_RENDER_CACHE
 	}
 #endif
+	return good;
+}
+
+
+bool
+_agl_actor__paint (AGlActor* a)
+{
+#ifdef AGL_ACTOR_RENDER_CACHE
+	bool use_fbo = a->fbo && a->cache.enabled && !(agl_actor__width(a) > AGL_MAX_FBO_WIDTH);
+#else
+	#define use_fbo false;
+#endif
+
+	AGliPt offset = {
+		.x = a->region.x1,
+		.y = a->region.y1,
+	};
+
+#ifdef AGL_ACTOR_RENDER_CACHE
+	if(!use_fbo){
+#else
+	if(true){
+#endif
+		// Offset so that actors can always draw objects at the same position,
+		// irrespective of scroll position
+		offset.x += a->scrollable.x1;
+		offset.y += a->scrollable.y1;
+	}
+	if(offset.x || offset.y){
+		glMatrixMode(GL_MODELVIEW);
+		glPushMatrix();
+		glTranslatef(offset.x, offset.y, 0.0);
+
+		builder()->offset.x += offset.x;
+		builder()->offset.y += offset.y;
+	}
+
+	static int j; j = -1;
+	static bool f; f = use_fbo;
+
+	bool decorator_next (AGlActor* a)
+	{
+		AGlBehaviour* behaviour = a->behaviours[++j];
+		if(behaviour){
+			if(behaviour->klass->draw){
+				return behaviour->klass->draw(behaviour, a, decorator_next);
+			}else{
+				return decorator_next(a);
+			}
+		}
+		return __draw(a, f);
+	}
+
+#ifdef AGL_ACTOR_RENDER_CACHE
+	bool good = use_fbo && a->cache.valid
+#else
+	bool good = false
+#endif
+		? __draw(a, f)
+		: decorator_next(a);
 
 	if(offset.x || offset.y){
 		glPopMatrix();
+
+		builder()->offset.x -= offset.x;
+		builder()->offset.y -= offset.y;
 	}
 
 #ifdef DEBUG
@@ -567,7 +643,7 @@ _agl_actor__paint(AGlActor* a)
 	#define MAX_COLOURS 10
 	static uint32_t colours[MAX_COLOURS] = {0xff000088, 0xff990088, 0x00ff0088, 0x3333ff88, 0xff000088, 0xffff0088, 0x00ffff88};
 
-	int n_no_x_offset_parents(AGlActor* a)
+	int n_no_x_offset_parents (AGlActor* a)
 	{
 		int n = 0;
 		AGlActor* _a = a;
@@ -575,11 +651,31 @@ _agl_actor__paint(AGlActor* a)
 		return n;
 	}
 
-	int n_no_y_offset_parents(AGlActor* a)
+	int n_no_y_offset_parents (AGlActor* a)
 	{
 		int n = 0;
 		AGlActor* _a = a;
 		while(_a && !_a->region.y1) n++, _a = _a->parent;
+		return n;
+	}
+
+	int n_no_x_offset_parents2 (AGlActor* a)
+	{
+		int n = 0;
+		AGlActor* _a = a;
+		while(_a && _a->parent && _a->region.x2 == agl_actor__width(_a->parent))
+			n++,
+			_a = _a->parent;
+		return n;
+	}
+
+	int n_no_y_offset_parents2 (AGlActor* a)
+	{
+		int n = 0;
+		AGlActor* _a = a;
+		while(_a && _a->parent && _a->region.y2 == agl_actor__height(_a->parent))
+			n++,
+			_a = _a->parent;
 		return n;
 	}
 
@@ -591,9 +687,9 @@ _agl_actor__paint(AGlActor* a)
 		agl->shaders.plain->uniform.colour = colours[MIN(depth, MAX_COLOURS - 1)];
 		agl_use_program((AGlShader*)agl->shaders.plain);
 
-		float x = 1.0 * n_no_x_offset_parents(a);
-		float y = 1.0 * n_no_y_offset_parents(a);
-		agl_box(1, x, 0.0, agl_actor__width(a) - x, MAX(0, agl_actor__height(a)) -y);
+		float x = 0.5 * n_no_x_offset_parents(a);
+		float y1 = 0.5 * n_no_y_offset_parents(a);
+		agl_box(1, x, y1, agl_actor__width(a) - x - 0.5 * n_no_x_offset_parents2(a), MAX(0, agl_actor__height(a) - y1) - 0.5 * n_no_y_offset_parents2(a));
 
 		GList* l = a->children;
 		for(;l;l=l->next){
@@ -616,18 +712,40 @@ _agl_actor__paint(AGlActor* a)
 
 
 bool
-agl_actor__paint(AGlActor* a)
+agl_actor__paint (AGlActor* a)
 {
 	if(!a->root) return false;
 
 	if(!agl_actor__is_onscreen(a) || ((agl_actor__width(a) < 1 || agl_actor__height(a) < 1) && a->paint != agl_actor__null_painter)) return false;
 
-	return _agl_actor__paint(a);
+	if(a->root == (AGlScene*)a){
+		ops_push_clip (builder(), &AGL_ROUNDED_RECT_INIT (0, 0, a->region.x2, a->region.y2));
+		ops_set_program (builder(), &renderer.coloring_program);
+
+		AGlTransform* transform = agl_transform_new();
+		ops_set_modelview (builder(), transform);
+
+		if(!a->region.x2 || !a->region.y2){
+			return false;
+		}
+
+		ops_set_viewport (builder(), &(graphene_rect_t){.size.width = a->region.x2, .size.height = a->region.y2});
+	}
+
+	bool good =  _agl_actor__paint(a);
+
+	if(a->root == (AGlScene*)a && builder()->vertices->len){
+		renderer_render (builder());
+
+		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA); // restore normal blend function
+	}
+
+	return good;
 }
 
 
 void
-agl_actor__set_size(AGlActor* actor)
+agl_actor__set_size (AGlActor* actor)
 {
 	call(actor->set_size, actor); // actors need to update their own regions.
 
@@ -731,6 +849,11 @@ _agl_actor__on_event(AGlActor* a, GdkEvent* event, AGliPt xy)
 		int i = 0;
 		while(a && i++ < 256){
 			if(a->on_event) return a;
+
+			behaviour_foreach(a)
+				if(behaviour->klass->event) return a;
+			}
+
 			xy->x += a->region.x1;
 			xy->y += a->region.y1;
 			a = a->parent;
@@ -740,19 +863,55 @@ _agl_actor__on_event(AGlActor* a, GdkEvent* event, AGliPt xy)
 
 	AGlActor* h = find_handler_actor(a, &xy);
 	if(h){
-		if(h->on_event(h, event, xy)){
-			return AGL_HANDLED;
-		}
+		do {
+			behaviour_foreach(h)
+				if(behaviour->klass->event){
+					if(agl_behaviour_event(behaviour, h, event)){
+						handled = true;
+						break;
+					}
+				}
+			}
+			if(handled) break;
 
-		while(h->parent){
+			if(h->on_event && (handled = h->on_event(h, event, xy))) break;
+
 			xy.x += h->region.x1;
 			xy.y += h->region.y1;
-			h = h->parent;
-			if(h->on_event && (handled = h->on_event(h, event, xy))) break;
-		}
+		} while((h = h->parent));
 	}
 
 	return handled;
+}
+
+
+static bool
+region_match (AGlfRegion* r, float x, float y)
+{
+	bool match = x > r->x1 && x < r->x2 && y > r->y1 && y < r->y2;
+	//printf("     x=%.0f x2=%.0f  y=%.0f %.0f-->%.0f match=%i\n", x, r->x2, y, r->y1, r->y2, match);
+	return match;
+}
+
+
+/*
+ *  Find the child of the actor at the given coordinate.
+ *  The coordinate is relative to the actor, ie all position offsets have been applied.
+ */
+static AGlActor*
+child_region_hit (AGlActor* actor, AGliPt xy)
+{
+	GList* l = g_list_last(actor->children); // iterate backwards so that the 'top' actor get the events first.
+	for(;l;l=l->prev){
+		AGlActor* child = l->data;
+		if(!child->disabled && region_match(&child->region, xy.x, xy.y)){
+			return child_region_hit(child, (AGliPt){
+				xy.x - child->region.x1 - child->scrollable.x1,
+				xy.y - child->region.y1 - child->scrollable.y1
+			});
+		}
+	}
+	return actor;
 }
 
 
@@ -760,7 +919,7 @@ _agl_actor__on_event(AGlActor* a, GdkEvent* event, AGliPt xy)
  * agl_actor__on_event can be used by clients that handle their own events to forward them on to the AGlScene.
  */
 bool
-agl_actor__on_event(AGlScene* root, GdkEvent* event)
+agl_actor__on_event (AGlScene* root, GdkEvent* event)
 {
 	AGlActor* actor = (AGlActor*)root;
 #ifdef USE_GTK
@@ -772,12 +931,10 @@ agl_actor__on_event(AGlScene* root, GdkEvent* event)
 		case GDK_KEY_RELEASE:
 		case GDK_FOCUS_CHANGE:
 			AGL_DEBUG printf("%s: keypress: key=%i\n", __func__, ((GdkEventKey*)event)->keyval);
-			AGlActor* selected = root->selected;
-			if(selected && selected->on_event){
-				return _agl_actor__on_event(selected, event, (AGliPt){});
+			if(root->selected){
+				return _agl_actor__on_event(root->selected, event, (AGliPt){});
 			}
 			return AGL_NOT_HANDLED;
-		// TODO perhaps clients should unregister for these events instead?
 		case GDK_EXPOSE:
 		case GDK_VISIBILITY_NOTIFY:
 			return AGL_NOT_HANDLED;
@@ -797,31 +954,6 @@ agl_actor__on_event(AGlScene* root, GdkEvent* event)
 			root->hovered = NULL;
 		}
 		return AGL_HANDLED;
-	}
-
-	bool region_match (AGlfRegion* r, float x, float y)
-	{
-		bool match = x > r->x1 && x < r->x2 && y > r->y1 && y < r->y2;
-		//printf("     x=%i x2=%i  y=%i %i-->%i match=%i\n", x, r->x2, y, r->y1, r->y2, match);
-		return match;
-	}
-
-	AGlActor* child_region_hit (AGlActor* actor, AGliPt xy)
-	{
-		// Find the child of the actor at the given coordinate.
-		// The coordinate is relative to the actor, ie all position offsets have been applied.
-
-		GList* l = g_list_last(actor->children); // iterate backwards so that the 'top' actor get the events first.
-		for(;l;l=l->prev){
-			AGlActor* child = l->data;
-			if(!child->disabled && region_match(&child->region, xy.x, xy.y)){
-				AGlActor* sub = child_region_hit(child, (AGliPt){xy.x - child->region.x1 - child->scrollable.x1, xy.y - child->region.y1});
-				if(sub) return sub;
-				//printf("  match. y=%i y=%i-->%i x=%i-->%i type=%s\n", xy.y, child->region.y1, child->region.y2, child->region.x1, child->region.x2, child->name);
-				return child;
-			}
-		}
-		return NULL;
 	}
 
 	if(actor_context.grabbed){
@@ -845,7 +977,6 @@ agl_actor__on_event(AGlScene* root, GdkEvent* event)
 	AGlActor* hovered = root->hovered;
 
 	AGlActor* a = child_region_hit(actor, xy);
-	if(!a && actor->on_event) a = actor;  // TODO move into region_hit?
 
 	switch(event->type){
 		case GDK_MOTION_NOTIFY:
@@ -920,36 +1051,44 @@ agl_actor__on_event(AGlScene* root, GdkEvent* event)
 bool
 agl_actor__xevent (AGlRootActor* scene, XEvent* xevent)
 {
+	static Time previous1 = 0;
+	static Time previous2 = 0;
+
 	switch (xevent->type) {
 		case ButtonPress:
 			{
 				GdkEvent event = {
-					.type = GDK_BUTTON_PRESS, // why gets overwritten?
 					.button = {
+						.type = GDK_BUTTON_PRESS,
 						.x = (double)xevent->xbutton.x,
 						.y = (double)xevent->xbutton.y,
 						.button = xevent->xbutton.button,
 					},
 				};
-				event.type = GDK_BUTTON_PRESS;
+
+				if(xevent->xbutton.time - previous1 < 250){
+					if(xevent->xbutton.time - previous2 < 400)
+						event.button.type = GDK_3BUTTON_PRESS;
+					else
+						event.button.type = GDK_2BUTTON_PRESS;
+				}
 
 				agl_actor__on_event(scene, &event);
+
+				previous2 = previous1;
+				previous1 = xevent->xbutton.time;
 			}
 			break;
 		case ButtonRelease:
-			{
-				GdkEvent event = {
-					.button = {
-						.type = GDK_BUTTON_RELEASE,
-						.x = (double)xevent->xbutton.x,
-						.y = (double)xevent->xbutton.y,
-						.button = xevent->xbutton.button,
-						.state = xevent->xbutton.state,
-					},
-				};
-
-				agl_actor__on_event(scene, &event);
-			}
+			agl_actor__on_event(scene, &(GdkEvent){
+				.button = {
+					.type = GDK_BUTTON_RELEASE,
+					.x = (double)xevent->xbutton.x,
+					.y = (double)xevent->xbutton.y,
+					.button = xevent->xbutton.button,
+					.state = xevent->xbutton.state,
+				},
+			});
 			break;
 		case MotionNotify:
 			{
@@ -966,22 +1105,21 @@ agl_actor__xevent (AGlRootActor* scene, XEvent* xevent)
 		case KeyPress:
 		case KeyRelease:
 			{
-				GdkEventKey event = {
-					.type = xevent->type == KeyPress ? GDK_KEY_PRESS : GDK_KEY_RELEASE,
-					.state = ((XKeyEvent*)xevent)->state
-				};
-				int code = XLookupKeysym(&xevent->xkey, 0);
-				event.keyval = code;
-				agl_actor__on_event(scene, (GdkEvent*)&event);
+				KeySym key;
+				XLookupString(&xevent->xkey, NULL, 0, &key, NULL);
+
+				if(!(key >= 0xffe1 && key <= 0xffee)){ // ignore modifier keys
+					GdkEventKey event = {
+						.type = xevent->type == KeyPress ? GDK_KEY_PRESS : GDK_KEY_RELEASE,
+						.state = ((XKeyEvent*)xevent)->state,
+						.keyval = key
+					};
+					agl_actor__on_event(scene, (GdkEvent*)&event);
+				}
 			}
 			break;
 		case FocusOut:
-			{
-				GdkEvent event = {
-					.type = GDK_FOCUS_CHANGE,
-				};
-				agl_actor__on_event(scene, (GdkEvent*)&event);
-			}
+			agl_actor__on_event(scene, &(GdkEvent){.type = GDK_FOCUS_CHANGE});
 			break;
 	}
 	return AGL_NOT_HANDLED;
@@ -1010,7 +1148,7 @@ agl_actor__on_expose (GtkWidget* widget, GdkEventExpose* event, gpointer user_da
 		glOrtho (actor->scrollable.x1, actor->scrollable.x2, actor->scrollable.y2, actor->scrollable.y1, 256.0, -256.0);
 	}
 
-	AGlRootActor* root = user_data;
+	AGlScene* root = user_data;
 	g_return_val_if_fail(root, false);
 
 	if(!GTK_WIDGET_REALIZED(widget)) return true;
@@ -1020,7 +1158,7 @@ agl_actor__on_expose (GtkWidget* widget, GdkEventExpose* event, gpointer user_da
 		agl_bg_colour_rbga(root->bg_colour);
 		glClear(GL_COLOR_BUFFER_BIT);
 
-		_agl_actor__paint((AGlActor*)root);
+		agl_actor__paint((AGlActor*)root);
 
 #undef SHOW_BOUNDING_BOX
 #ifdef SHOW_BOUNDING_BOX
@@ -1083,6 +1221,33 @@ agl_actor__find_by_z (AGlActor* actor, int z)
 }
 
 
+/*
+ *  Searches up then down
+ *
+ *  This can be more efficient than starting at the root,
+ *  but could conceivably return a concealled actor
+ *  To avoid this, pass the root actor as the argument.
+ */
+AGlActor*
+agl_actor__pick (AGlActor* actor, AGliPt _pt)
+{
+	AGlfPt pt = (AGlfPt){_pt.x, _pt.y};
+	AGlfRegion region = actor->region;
+	AGlActor* parent = actor;
+	while((parent = parent->parent)){
+		float y = (float)pt.y + region.y1;
+		pt = (AGlfPt){(float)pt.x + region.x1, y};
+		bool match = region_match(&parent->region, pt.x, pt.y);
+		if(match){
+			return child_region_hit(parent, (AGliPt){pt.x, pt.y});
+		}
+		region = parent->region;
+	}
+
+	return NULL;
+}
+
+
 AGlBehaviour*
 agl_actor__find_behaviour (AGlActor* actor, AGlBehaviourClass* klass)
 {
@@ -1099,14 +1264,14 @@ agl_actor__find_behaviour (AGlActor* actor, AGlBehaviourClass* klass)
 
 
 bool
-agl_actor__null_painter(AGlActor* actor)
+agl_actor__null_painter (AGlActor* actor)
 {
 	return true;
 }
 
 
 bool
-agl_actor__solid_painter(AGlActor* actor)
+agl_actor__solid_painter (AGlActor* actor)
 {
 	agl->shaders.plain->uniform.colour = 0xff000055;
 	agl_use_program((AGlShader*)agl->shaders.plain);
@@ -1118,7 +1283,7 @@ agl_actor__solid_painter(AGlActor* actor)
 
 
 void
-agl_actor__grab(AGlActor* actor)
+agl_actor__grab (AGlActor* actor)
 {
 	actor_context.grabbed = actor;
 }
@@ -1128,11 +1293,11 @@ agl_actor__grab(AGlActor* actor)
  *  Remove render caches for the actor and all parents
  */
 void
-agl_actor__invalidate(AGlActor* actor)
+agl_actor__invalidate (AGlActor* actor)
 {
 	g_return_if_fail(actor);
 
-	void _agl_actor__invalidate(AGlActor* actor)
+	void _agl_actor__invalidate (AGlActor* actor)
 	{
 #ifdef AGL_ACTOR_RENDER_CACHE
 		actor->cache.valid = false;
@@ -1188,6 +1353,7 @@ agl_actor__invalidate_down (AGlActor* actor)
 			_agl_actor__invalidate_down((AGlActor*)l->data);
 		}
 	}
+
 	_agl_actor__invalidate_down(actor);
 }
 
@@ -1313,6 +1479,7 @@ agl_actor__start_transition (AGlActor* actor, GList* animatables, AnimationFn do
 		wf_transition_add_member(animation, animatables);
 		wf_animation_start(animation);
 		agl_actor__enable_cache(actor, false);
+
 		return animation;
 	}
 
@@ -1324,7 +1491,7 @@ agl_actor__start_transition (AGlActor* actor, GList* animatables, AnimationFn do
  *  Will be removed - use agl_actor__find_offset instead
  */
 static AGliPt
-_agl_actor__find_offset(AGlActor* a)
+_agl_actor__find_offset (AGlActor* a)
 {
 	AGliPt of = {0, 0};
 	do {
@@ -1339,7 +1506,7 @@ _agl_actor__find_offset(AGlActor* a)
  *  Return the distance from the actor top left to the root top left
  */
 AGliPt
-agl_actor__find_offset(AGlActor* a)
+agl_actor__find_offset (AGlActor* a)
 {
 	AGliPt of = {0, 0};
 	do {
@@ -1376,9 +1543,11 @@ agl_actor__is_animating(AGlActor* a)
 #endif
 
 
-#ifdef DEBUG
+/*
+ *  Used externally but not published
+ */
 #ifdef AGL_ACTOR_RENDER_CACHE
-static bool
+bool
 agl_actor__is_cached(AGlActor* a)
 {
 	do {
@@ -1387,7 +1556,6 @@ agl_actor__is_cached(AGlActor* a)
 
 	return false;
 }
-#endif
 #endif
 
 
@@ -1401,6 +1569,20 @@ agl_actor_class__add_behaviour (AGlActorClass* K, AGlBehaviourClass* B)
 			break;
 		}
 	}
+}
+
+
+AGlBehaviour*
+agl_actor__get_behaviour (AGlActor* actor, AGlBehaviourClass* klass)
+{
+	for(int i = 0; i < AGL_ACTOR_N_BEHAVIOURS; i++){
+		AGlBehaviour* behaviour = actor->behaviours[i];
+		if(!behaviour)
+			break;
+		if(behaviour->klass == klass)
+			return behaviour;
+	}
+	return NULL;
 }
 
 

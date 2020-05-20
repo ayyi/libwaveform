@@ -1,7 +1,7 @@
 /**
 * +----------------------------------------------------------------------+
-* | This file is part of Samplecat. http://ayyi.github.io/samplecat/     |
-* | copyright (C) 2016-2019 Tim Orford <tim@orford.org>                  |
+* | This file is part of the Ayyi project. http://www.ayyi.org           |
+* | copyright (C) 2016-2020 Tim Orford <tim@orford.org>                  |
 * +----------------------------------------------------------------------+
 * | This program is free software; you can redistribute it and/or modify |
 * | it under the terms of the GNU General Public License version 3       |
@@ -18,9 +18,9 @@
 #include "agl/behaviour.h"
 
 typedef struct {
-   AGlBehaviour   behaviour;
-   Observable*    observable;
-   ObservableFn   on_select;
+   AGlBehaviour    behaviour;
+   AGlObservable*  observable;
+   AGlObservableFn on_select;
 } SelectBehaviour;
 
 AGlBehaviour* selectable      ();

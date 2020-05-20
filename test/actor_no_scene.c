@@ -38,10 +38,12 @@
 #include <string.h>
 #include <getopt.h>
 #include <sys/time.h>
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 #include <gtk/gtk.h>
+#pragma GCC diagnostic warning "-Wdeprecated-declarations"
 #include <gdk/gdkkeysyms.h>
 #include "agl/utils.h"
-#include "waveform/waveform.h"
+#include "waveform/actor.h"
 #include "test/common.h"
 
 #define GL_WIDTH 256.0
@@ -58,13 +60,13 @@ float           zoom           = 1.0;
 float           vzoom          = 1.0;
 gpointer        tests[]        = {};
 
-static void init               (AGlActor*);
-static void setup_projection   (GtkWidget*);
-static void draw               (GtkWidget*);
-static bool on_expose          (GtkWidget*, GdkEventExpose*, gpointer);
-static void on_canvas_realise  (GtkWidget*, gpointer);
-static void on_allocate        (GtkWidget*, GtkAllocation*, gpointer);
-static void start_zoom         (float target_zoom);
+static void     init              (AGlActor*);
+static void     setup_projection  (GtkWidget*);
+static void     draw              (GtkWidget*);
+static gboolean on_expose         (GtkWidget*, GdkEventExpose*, gpointer);
+static void     on_canvas_realise (GtkWidget*, gpointer);
+static void     on_allocate       (GtkWidget*, GtkAllocation*, gpointer);
+static void     start_zoom        (float target_zoom);
 
 KeyHandler
 	zoom_in,
@@ -147,7 +149,7 @@ main (int argc, char *argv[])
 }
 
 
-bool
+gboolean
 _zoom (gpointer _)
 {
 	start_zoom(zoom);

@@ -1,6 +1,6 @@
 AC_PREREQ(2.59)
 AC_INIT([Libwaveform],[0.1.0],[tim@orford.org])
-AC_CONFIG_SRCDIR([waveform/waveform.c])
+AC_CONFIG_SRCDIR([wf/waveform.c])
 AC_CONFIG_HEADER([config.h])
 AM_INIT_AUTOMAKE
 AM_PROG_AR
@@ -33,9 +33,14 @@ AC_ARG_ENABLE(debug,
 if test "$debug" = "yes"; then
   CFLAGS="$CFLAGS -g -DDEBUG -Wall"
   CXXFLAGS="$CFLAGS"
+  PKG_CHECK_MODULES(SYSPROF, sysprof-2, [AC_DEFINE(HAVE_PROFILER, 1, [Have sysprof]) enable_profiler="yes"],[enable_profiler="no"])
+  AC_SUBST(SYSPROF_CFLAGS)
+  AC_SUBST(SYSPROF_LIBS)
+  AM_CONDITIONAL(ENABLE_PROFILER, test $enable_profiler = "yes")
 else
   CFLAGS="$CFLAGS -DNDEBUG"
   CXXFLAGS="$CXXFLAGS -DNDEBUG"
+  enable_profiler="no"
 fi
 
 # Check for strict flag
@@ -47,9 +52,6 @@ if test "$strict" = "yes"; then
   CFLAGS="$CFLAGS -Wall -Wextra -Wno-unused-parameter -Wconversion -Winit-self"
   CXXFLAGS="$CXXFLAGS -Wall -Wextra -Wno-unused-parameter -Wconversion -Winit-self -Woverloaded-virtual -Wsign-promo"
 fi
-
-JACK_LIBS=`pkg-config jack --cflags --libs`
-AC_SUBST(JACK_LIBS)
 
 AYYI_CFLAGS="-I./ayyi"
 AC_SUBST(AYYI_CFLAGS)
@@ -63,6 +65,13 @@ AC_SUBST(X11_LDFLAGS)
 
 GMODULE_LDFLAGS=`pkg-config gmodule-2.0 --libs`
 AC_SUBST(GMODULE_LDFLAGS)
+
+dnl -----------------------------------------------------
+
+GRAPHENE_CFLAGS=`pkg-config --cflags graphene-1.0`
+AC_SUBST(GRAPHENE_CFLAGS)
+GRAPHENE_LDFLAGS=`pkg-config --libs graphene-1.0`
+AC_SUBST(GRAPHENE_LDFLAGS)
 
 dnl -----------------------------------------------------
 
@@ -97,6 +106,17 @@ if `pkg-config glib-2.0 --atleast-version=2.36`; then
   AC_DEFINE(HAVE_GLIB_2_36, 1, [We have at least glib version 2.36])
 else
   HAVE_GLIB_2_36="no"
+fi;
+if `pkg-config glib-2.0 --atleast-version=2.58`; then
+  HAVE_GLIB_2_58="yes"
+  AC_DEFINE(HAVE_GLIB_2_58, 1, [We have at least glib version 2.58])
+else
+  HAVE_GLIB_2_58="no"
+fi;
+AM_CONDITIONAL(ENABLE_GLIB_2_58_POLYFILL, test "$HAVE_GLIB_2_58" = "no")
+
+if `pkg-config pango --atleast-version=1.44`; then
+  AC_DEFINE(HAVE_PANGO_1_44, 1, [We have at least pango version 1.44])
 fi;
 
 dnl GTK can be disabled if required
@@ -174,6 +194,22 @@ AC_SUBST(SNDFILE_LDFLAGS)
 
 dnl -----------------------------------------------------
 
+have_epoxy=yes
+PKG_CHECK_MODULES(EPOXY, [epoxy],
+	[EPOXY_LDFLAGS=`pkg-config --libs epoxy`],
+	[enable_epoxy=no, have_epoxy=no],
+	[have_epoxy=yes]
+)
+
+AC_ARG_ENABLE(epoxy, AC_HELP_STRING([--enable-epoxy], [enable use of epoxy GL dispatch library]), enable_epoxy=$enableval, enable_epoxy="no")
+AC_SUBST(EPOXY_LDFLAGS)
+AM_CONDITIONAL(ENABLE_EPOXY, test "$enable_epoxy" = "yes")
+if test "$enable_epoxy" = "yes"; then
+	AC_DEFINE(USE_EPOXY, 1, Use Epoxy for GL extensions)
+fi
+
+dnl -----------------------------------------------------
+
 AC_ARG_ENABLE(ffmpeg, AC_HELP_STRING([--disable-ffmpeg], [disable use of FFMPEG]), enable_ffmpeg=$enableval, enable_ffmpeg="auto")
 
 AS_IF([test "$enable_ffmpeg" != "no"], [
@@ -240,6 +276,9 @@ fi
 dnl AM_CONDITIONAL(ENABLE_GDK_PIXBUF, test "yes" != "no")
 AC_DEFINE(USE_GDK_PIXBUF, 1, [enable support for Gdk Pixbuf])
 
+GDKPIXBUF_CFLAGS=`pkg-config --cflags-only-I gdk-pixbuf-2.0`
+AC_SUBST(GDKPIXBUF_CFLAGS)
+
 dnl ------------------ test progs ------------------------
 
 AC_ARG_ENABLE(test, AS_HELP_STRING([--enable-test],[ compile the test programs]), enable_test=yes, enable_test=no)
@@ -267,19 +306,23 @@ AM_CFLAGS="$CFLAGS -pipe -fmessage-length=139 -fdiagnostics-show-location=every-
 AC_CONFIG_FILES([
 	libwaveform.pc
 	Makefile
+	wf/Makefile
+	wf/loaders/Makefile
 	agl/Makefile
 	agl/shaders/Makefile
 	agl/behaviours/Makefile
+	agl/text/Makefile
 	transition/Makefile
 	sdl/Makefile
 	gtkglext-1.0/Makefile
+	glib/Makefile
 	decoder/Makefile
-	waveform/Makefile
-	waveform/actors/Makefile
-	waveform/loaders/Makefile
+	ui/Makefile
+	ui/actors/Makefile
 	shaders/Makefile
 	test/Makefile
 	test/gen/Makefile
+	waveform/Makefile
 ])
 AC_OUTPUT
 
@@ -292,7 +335,8 @@ AC_MSG_RESULT([Building libass:          $enable_libass])
 AC_MSG_RESULT([Building sndfile:         $enable_sndfile])
 AC_MSG_RESULT([Building ffmpeg:          $enable_ffmpeg])
 AC_MSG_RESULT([Building tests:           $enable_test])
+AC_MSG_RESULT([Building profiler:        $enable_profiler])
 AC_MSG_RESULT([Use system GtkGL:         $enable_system_gtkglext])
-dnl AC_MSG_RESULT([Building lv2:             $enable_lv2 (TODO)])
+AC_MSG_RESULT([Use epoxy:                $enable_epoxy])
 AC_MSG_RESULT([])
 

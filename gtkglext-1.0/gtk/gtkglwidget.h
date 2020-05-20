@@ -21,7 +21,9 @@
 
 #include <gdk/gdk.h>
 #include <gdk/gdkgl.h>
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 #include <gtk/gtk.h>
+#pragma GCC diagnostic warning "-Wdeprecated-declarations"
 
 G_BEGIN_DECLS
 

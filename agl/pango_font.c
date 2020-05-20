@@ -21,14 +21,13 @@
  * Boston, MA 02111-1307, USA.
  */
 
-#define PANGO_ENABLE_BACKEND
-
+#include "config.h"
 #include <string.h>
-#include <stdlib.h>
 #include <math.h>
 #include <glib.h>
 #include <glib/gprintf.h>
 
+#define PANGO_ENABLE_BACKEND
 #include <pango/pango.h>
 #include <pango/pangofc-font.h>
 #include <pango/pangofc-fontmap.h>
@@ -37,61 +36,61 @@
 #include "agl/pango_font.h"
 #include "agl/pango_render.h"
 
-typedef struct _PangoGlFontClass   PangoGlFontClass;
+typedef struct _PangoGlFontClass PangoGlFontClass;
 
 struct _PangoGlFontClass
 {
   PangoFcFontClass parent_class;
 };
 
-static void    pango_gl_font_finalize         (GObject *object);
-static void    pango_gl_font_get_glyph_extents(PangoFont *font, PangoGlyph glyph, PangoRectangle *ink_rect, PangoRectangle *logical_rect);
-static FT_Face pango_gl_font_real_lock_face   (PangoFcFont *font);
-static void    pango_gl_font_real_unlock_face (PangoFcFont *font);
+static void    pango_gl_font_finalize          (GObject*);
+static void    pango_gl_font_get_glyph_extents (PangoFont*, PangoGlyph, PangoRectangle* ink, PangoRectangle* logical);
+static FT_Face pango_gl_font_real_lock_face    (PangoFcFont*);
+static void    pango_gl_font_real_unlock_face  (PangoFcFont*);
 
-PangoGlFont *
-_pango_gl_font_new (PangoGlFontMap *fontmap_, FcPattern *pattern)
+
+PangoGlFont*
+_pango_gl_font_new (PangoGlFontMap* fontmap_, FcPattern* pattern)
 {
-  PangoFontMap *fontmap = PANGO_FONT_MAP (fontmap_);
-  
-  g_return_val_if_fail (fontmap != NULL, NULL);
-  g_return_val_if_fail (pattern != NULL, NULL);
+	PangoFontMap *fontmap = PANGO_FONT_MAP (fontmap_);
 
-  PangoGlFont *font = (PangoGlFont*)g_object_new (PANGO_TYPE_GL_FONT, "pattern", pattern, NULL);
+	g_return_val_if_fail (fontmap != NULL, NULL);
+	g_return_val_if_fail (pattern != NULL, NULL);
 
-  double d;
-  if (FcPatternGetDouble (pattern, FC_PIXEL_SIZE, 0, &d) == FcResultMatch)
-  {
-    /* Cannot use 16.16 fixed here, because multiplying by PANGO_SCALE
-     * could easily take us out of range, but we do not need the 16 bit
-     * precission for the fraction, so we use 20.12 fixed point here
-     */
-    int f = double_to_fixed (d) >> 4;
-    font->size = (f * PANGO_SCALE) >> 12;
-  }
-  
-  return font;
+	PangoGlFont *font = (PangoGlFont*)g_object_new (PANGO_TYPE_GL_FONT, "pattern", pattern, NULL);
+
+	double d;
+	if (FcPatternGetDouble (pattern, FC_PIXEL_SIZE, 0, &d) == FcResultMatch) {
+		/* Cannot use 16.16 fixed here, because multiplying by PANGO_SCALE
+		 * could easily take us out of range, but we do not need the 16 bit
+		 * precission for the fraction, so we use 20.12 fixed point here
+		 */
+		int f = double_to_fixed (d) >> 4;
+		font->size = (f * PANGO_SCALE) >> 12;
+	}
+
+	return font;
 }
 
+
 static void
-load_fallback_face (PangoGlFont *font, const char *original_file)
+load_fallback_face (PangoGlFont* font, const char* original_file)
 {
-  PangoFcFont *fcfont = PANGO_FC_FONT (font);
-  FcPattern *sans;
-  FcPattern *matched;
-  FcResult result;
-  FT_Error error;
-  FcChar8 *filename2 = NULL;
-  gchar *name;
-  int id;
+	PangoFcFont *fcfont = PANGO_FC_FONT (font);
+	FcPattern *matched;
+	FcResult result;
+	FcChar8 *filename2 = NULL;
+	gchar *name;
+	int id;
+
+	FcPattern* sans = FcPatternBuild(
+		NULL,
+		FC_FAMILY, FcTypeString, "sans",
+		FC_PIXEL_SIZE, FcTypeDouble, (double)font->size / PANGO_SCALE,
+		NULL
+	);
   
-  sans = FcPatternBuild 
-            (NULL,
-	     FC_FAMILY, FcTypeString, "sans",
-	     FC_PIXEL_SIZE, FcTypeDouble, (double)font->size / PANGO_SCALE,
-	     NULL);
-  
-  matched = FcFontMatch (NULL, sans, &result);
+	matched = FcFontMatch (NULL, sans, &result);
   
   if (FcPatternGetString (matched, FC_FILE, 0, &filename2) != FcResultMatch)
     goto bail1;
@@ -99,8 +98,8 @@ load_fallback_face (PangoGlFont *font, const char *original_file)
   if (FcPatternGetInteger (matched, FC_INDEX, 0, &id) != FcResultMatch)
     goto bail1;
   
-  error = FT_New_Face (_pango_gl_font_map_get_library (fcfont->fontmap),
-		       (char *) filename2, id, &font->face);
+	FT_Error error;
+  error = FT_New_Face (_pango_gl_font_map_get_library (fcfont->fontmap), (char *) filename2, id, &font->face);
   
   if (error)
     {
@@ -120,6 +119,7 @@ load_fallback_face (PangoGlFont *font, const char *original_file)
   FcPatternDestroy (sans);
   FcPatternDestroy (matched);
 }
+
 
 static void
 set_transform (PangoGlFont *font)
@@ -143,9 +143,12 @@ set_transform (PangoGlFont *font)
     }
 }
 
+
 FT_Face
-pango_gl_font_get_face (PangoFont *font)
+pango_gl_font_get_face (PangoFont* font)
 {
+	g_return_val_if_fail(font, NULL);
+
   PangoGlFont *glfont = (PangoGlFont *)font;
   PangoFcFont *fcfont = (PangoFcFont *)font;
   FcPattern   *pattern;
@@ -214,7 +217,9 @@ pango_gl_font_get_face (PangoFont *font)
   return glfont->face;
 }
 
+
 G_DEFINE_TYPE (PangoGlFont, pango_gl_font, PANGO_TYPE_FC_FONT)
+
 
 static void 
 pango_gl_font_init (PangoGlFont *font)
@@ -223,6 +228,7 @@ pango_gl_font_init (PangoGlFont *font)
   font->size = 0;
   font->glyph_info = g_hash_table_new (NULL, NULL);
 }
+
 
 static void
 pango_gl_font_class_init (PangoGlFontClass *class)
@@ -238,6 +244,7 @@ pango_gl_font_class_init (PangoGlFontClass *class)
   fc_font_class->lock_face      = pango_gl_font_real_lock_face;
   fc_font_class->unlock_face    = pango_gl_font_real_unlock_face;
 }
+
 
 static PangoClutterGlyphInfo *
 pango_clutter_font_get_glyph_info (PangoFont *font_, PangoGlyph glyph, gboolean   create)
@@ -263,6 +270,7 @@ pango_clutter_font_get_glyph_info (PangoFont *font_, PangoGlyph glyph, gboolean 
   return info;
 }
 
+
 PangoGlyph
 pango_gl_get_unknown_glyph (PangoFont *font)
 {
@@ -275,11 +283,9 @@ pango_gl_get_unknown_glyph (PangoFont *font)
     return PANGO_GLYPH_EMPTY;
 }
 
+
 static void
-pango_gl_font_get_glyph_extents (PangoFont      *font,
-				     PangoGlyph      glyph,
-				     PangoRectangle *ink_rect,
-				     PangoRectangle *logical_rect)
+pango_gl_font_get_glyph_extents (PangoFont* font, PangoGlyph glyph, PangoRectangle* ink_rect, PangoRectangle* logical_rect)
 {
   PangoClutterGlyphInfo *info;
 
@@ -340,6 +346,7 @@ pango_gl_font_get_glyph_extents (PangoFont      *font,
     *logical_rect = info->logical_rect;
 }
 
+
 int
 pango_gl_font_get_kerning (PangoFont *font, PangoGlyph left, PangoGlyph right)
 {
@@ -369,16 +376,19 @@ pango_gl_font_get_kerning (PangoFont *font, PangoGlyph left, PangoGlyph right)
   return PANGO_UNITS_26_6 (kerning.x);
 }
 
+
 static FT_Face
 pango_gl_font_real_lock_face (PangoFcFont *font)
 {
   return pango_gl_font_get_face ((PangoFont *)font);
 }
 
+
 static void
 pango_gl_font_real_unlock_face (PangoFcFont *font)
 {
 }
+
 
 static gboolean
 pango_clutter_free_glyph_info_callback (gpointer key, gpointer value, gpointer data)
@@ -392,6 +402,7 @@ pango_clutter_free_glyph_info_callback (gpointer key, gpointer value, gpointer d
   g_slice_free (PangoClutterGlyphInfo, info);
   return TRUE;
 }
+
 
 static void
 pango_gl_font_finalize (GObject *object)
@@ -410,21 +421,24 @@ pango_gl_font_finalize (GObject *object)
   G_OBJECT_CLASS (pango_gl_font_parent_class)->finalize (object);
 }
 
+
 PangoCoverage*
-pango_clutter_font_get_coverage (PangoFont *font, PangoLanguage *language)
+pango_clutter_font_get_coverage (PangoFont* font, PangoLanguage* language)
 {
-  return pango_font_get_coverage (font, language);
+	g_return_val_if_fail(font, NULL);
+
+	return pango_font_get_coverage (font, language);
 }
 
-void*
-_pango_gl_font_get_cache_glyph_data (PangoFont *font, int glyph_index)
-{
-  PangoClutterGlyphInfo *info;
 
-  info = pango_clutter_font_get_glyph_info (font, glyph_index, FALSE);
+void*
+_pango_gl_font_get_cache_glyph_data (PangoFont* font, int glyph_index)
+{
+  PangoClutterGlyphInfo* info = pango_clutter_font_get_glyph_info (font, glyph_index, FALSE);
 
   return info ? info->cached_glyph : 0;
 }
+
 
 void
 _pango_gl_font_set_cache_glyph_data (PangoFont *font, int glyph_index, void *cached_glyph)
@@ -433,6 +447,7 @@ _pango_gl_font_set_cache_glyph_data (PangoFont *font, int glyph_index, void *cac
 
   info->cached_glyph = cached_glyph;
 }
+
 
 void
 _pango_gl_font_set_glyph_cache_destroy (PangoFont *font, GDestroyNotify destroy_notify)

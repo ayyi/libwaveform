@@ -19,7 +19,7 @@ GTKGLEXT_LDFLAGS = \
 endif
 
 TEST_LDFLAGS = \
-	$(top_srcdir)/.libs/libwaveform.a \
+	$(top_srcdir)/.libs/libwaveformcore.a \
 	-lm \
 	$(GTK_LDFLAGS) \
 	$(X11_LDFLAGS) \

@@ -21,25 +21,17 @@
 */
 #define __wf_private__
 #include "config.h"
-#include <stdlib.h>
-#include <stdint.h>
-#include <string.h>
 #include <getopt.h>
-#include <time.h>
-#include <unistd.h>
-#include <signal.h>
-#include <sys/time.h>
-#include <sys/types.h>
-#include <sys/ipc.h>
-#include <sys/shm.h>
-#include <signal.h>
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 #include <gtk/gtk.h>
+#pragma GCC diagnostic warning "-Wdeprecated-declarations"
 #include <gdk/gdkkeysyms.h>
 #include "agl/utils.h"
 #include "agl/actor.h"
 #include "waveform/view_plus.h"
-#include "waveform/actors/text.h"
-#include "waveform/actors/spp.h"
+#include "waveform/pixbuf.h"
+#include "waveform/text.h"
+#include "waveform/spp.h"
 #include "common.h"
 
 const char* wavs[] = {

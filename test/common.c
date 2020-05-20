@@ -1,42 +1,29 @@
-/*
-  This file is part of the Ayyi Project. http://ayyi.org
-  copyright (C) 2004-2018 Tim Orford <tim@orford.org>
-
-  This program is free software; you can redistribute it and/or modify
-  it under the terms of the GNU General Public License version 3
-  as published by the Free Software Foundation.
-
-  This program is distributed in the hope that it will be useful,
-  but WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-  GNU General Public License for more details.
-
-  You should have received a copy of the GNU General Public License
-  along with this program; if not, write to the Free Software
-  Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+/**
+* +----------------------------------------------------------------------+
+* | This file is part of libwaveform https://github.com/ayyi/libwaveform |
+* | copyright (C) 2012-2020 Tim Orford <tim@orford.org>                  |
+* +----------------------------------------------------------------------+
+* | This program is free software; you can redistribute it and/or modify |
+* | it under the terms of the GNU General Public License version 3       |
+* | as published by the Free Software Foundation.                        |
+* +----------------------------------------------------------------------+
+*
 */
 #define __common_c__
 #define __wf_private__
 #include "config.h"
-#include <stdio.h>
-#include <stdlib.h>
-#include <stdint.h>
-#include <string.h>
 #include <getopt.h>
 #include <time.h>
-#include <unistd.h>
-#include <signal.h>
 #include <sys/time.h>
-#include <sys/types.h>
-#include <sys/ipc.h>
-#include <sys/shm.h>
 #include <math.h>
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 #include <gtk/gtk.h>
+#pragma GCC diagnostic warning "-Wdeprecated-declarations"
 #include <glib-object.h>
 #include <sndfile.h>
 #include "agl/actor.h"
+#include "wf/private.h"
 #include "waveform/utils.h"
-#include "waveform/wf_private.h"
 #include "test/common.h"
 
 int  n_failed      = 0;
@@ -52,14 +39,14 @@ extern gpointer tests[];
 static int __n_tests = 0;
 
 
-	static gboolean fn(gpointer user_data) { next_test(); return G_SOURCE_REMOVE; }
+static gboolean fn(gpointer user_data) { next_test(); return G_SOURCE_REMOVE; }
+
+
 void
-test_init(gpointer tests[], int n_tests)
+test_init (gpointer tests[], int n_tests)
 {
 	__n_tests = n_tests;
 	dbg(2, "n_tests=%i", __n_tests);
-
-	memset(&app, 0, sizeof(struct _app));
 
 	set_log_handlers();
 
@@ -67,26 +54,32 @@ test_init(gpointer tests[], int n_tests)
 }
 
 
-	static bool
-	run_test(gpointer test)
-	{
-		((Test)test)();
-		return G_SOURCE_REMOVE;
-	}
+static gboolean
+run_test (gpointer test)
+{
+	((Test)test)();
+	return G_SOURCE_REMOVE;
+}
 
-	static bool __exit()
-	{
-		exit(n_failed ? EXIT_FAILURE : EXIT_SUCCESS);
-		return G_SOURCE_REMOVE;
-	}
 
-		static bool on_test_timeout(gpointer _user_data)
-		{
-			FAIL_TEST_TIMER("TEST TIMEOUT\n");
-			return G_SOURCE_REMOVE;
-		}
+static gboolean
+__exit ()
+{
+	exit(n_failed ? EXIT_FAILURE : EXIT_SUCCESS);
+	return G_SOURCE_REMOVE;
+}
+
+
+static gboolean
+on_test_timeout (gpointer _user_data)
+{
+	FAIL_TEST_TIMER("TEST TIMEOUT\n");
+	return G_SOURCE_REMOVE;
+}
+
+
 void
-next_test()
+next_test ()
 {
 	printf("\n");
 	current_test++;
@@ -99,12 +92,12 @@ next_test()
 
 		app.timeout = g_timeout_add(20000, on_test_timeout, NULL);
 	}
-	else{ printf("finished all. passed=%s%i%s failed=%s%i%s\n", green, app.n_passed, wf_white, (n_failed ? red : wf_white), n_failed, wf_white); g_timeout_add(1000, __exit, NULL); }
+	else{ printf("finished all. passed=%s %i %s failed=%s %i %s\n", green, app.n_passed, ayyi_white, (n_failed ? red : ayyi_white), n_failed, ayyi_white); g_timeout_add(1000, __exit, NULL); }
 }
 
 
 void
-test_finished_()
+test_finished_ ()
 {
 	dbg(2, "... passed=%i", passed);
 	if(passed) app.n_passed++; else n_failed++;
@@ -115,21 +108,25 @@ test_finished_()
 
 
 WfTest*
-wf_test_new()
+wf_test_new ()
 {
-	WfTest* t = WF_NEW(WfTest, .test_idx = current_test);
+	static WfTest* t = NULL;
+	//if(t) g_free0(t); // valgrind says 'invalid free'
 
-	return t;
+	return t = WF_NEW(WfTest, .test_idx = current_test);
 }
 
 
-	static bool on_test_timeout_(gpointer _user_data)
-	{
-		FAIL_TEST_TIMER("TEST TIMEOUT\n");
-		return G_SOURCE_REMOVE;
-	}
+static gboolean
+on_test_timeout_ (gpointer _user_data)
+{
+	FAIL_TEST_TIMER("TEST TIMEOUT\n");
+	return G_SOURCE_REMOVE;
+}
+
+
 void
-reset_timeout(int ms)
+reset_timeout (int ms)
 {
 	if(app.timeout) g_source_remove (app.timeout);
 
@@ -137,8 +134,8 @@ reset_timeout(int ms)
 }
 
 
-gboolean
-get_random_boolean()
+bool
+get_random_boolean ()
 {
 	int r = rand();
 	int s = RAND_MAX / 2;
@@ -148,9 +145,9 @@ get_random_boolean()
 
 
 int
-get_random_int(int max)
+get_random_int (int max)
 {
-	if(max > RAND_MAX) gwarn("too high");
+	if(max > RAND_MAX) pwarn("too high");
 	int r = rand();
 	int s = RAND_MAX / max;
 	int t = r / s;
@@ -159,7 +156,7 @@ get_random_int(int max)
 
 
 void
-errprintf4(char* format, ...)
+errprintf4 (char* format, ...)
 {
 	char str[256];
 
@@ -168,12 +165,12 @@ errprintf4(char* format, ...)
 	vsprintf(str, format, argp);
 	va_end(argp);           //clean up
 
-	printf("%s%s%s\n", red, str, wf_white);
+	printf("%s%s%s\n", red, str, ayyi_white);
 }
 
 
 void
-create_large_file(char* filename)
+create_large_file (char* filename)
 {
 	printf("  %s\n", filename);
 
@@ -212,5 +209,4 @@ create_large_file(char* filename)
 	sf_close(sndfile);
 	g_free(buffer);
 }
-
 

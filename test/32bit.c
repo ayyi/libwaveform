@@ -6,7 +6,7 @@
 
   --------------------------------------------------------------
 
-  Copyright (C) 2013-2018 Tim Orford <tim@orford.org>
+  Copyright (C) 2013-2020 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -27,8 +27,9 @@
 #include <glib/gstdio.h>
 #include <sndfile.h>
 #include <agl/utils.h>
-#include "waveform/audio.h"
-#include "waveform/peakgen.h"
+#include "wf/audio.h"
+#include "wf/peakgen.h"
+#include "waveform/pixbuf.h"
 #include "test/common.h"
 
 TestFn create_files, test_audiodata, test_load, delete_files;
@@ -49,7 +50,7 @@ float first_peak[WF_PEAK_VALUES_PER_SAMPLE] = {0,};
 int
 main (int argc, char *argv[])
 {
-	if(sizeof(off_t) != 8){ gerr("sizeof(off_t)=%zu\n", sizeof(off_t)); exit(1); }
+	if(sizeof(off_t) != 8){ perr("sizeof(off_t)=%zu\n", sizeof(off_t)); exit(1); }
 
 	wf_debug = 1;
 
@@ -292,7 +293,7 @@ test_audiodata()
 			assert(buf, "no data in buffer! %i", block);
 			assert(buf->buf[WF_LEFT], "no data in buffer (L)! %i", block);
 			assert(buf->buf[WF_RIGHT], "no data in buffer (R)! %i", block);
-		} else gwarn("no data!");
+		} else pwarn("no data!");
 
 		printf("\n");
 		n++;

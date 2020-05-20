@@ -7,7 +7,7 @@
 
   --------------------------------------------------------------
 
-  Copyright (C) 2012-2018 Tim Orford <tim@orford.org>
+  Copyright (C) 2012-2020 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -24,25 +24,13 @@
 */
 #define __wf_private__
 #include "config.h"
-#include <stdio.h>
-#include <stdlib.h>
-#include <stdint.h>
-#include <string.h>
 #include <getopt.h>
-#include <time.h>
-#include <unistd.h>
-#include <signal.h>
-#include <sys/time.h>
-#include <sys/types.h>
-#include <sys/ipc.h>
-#include <sys/shm.h>
-#include <signal.h>
 #include <glib.h>
 #include <glib/gstdio.h>
 #include <sndfile.h>
 #include <agl/utils.h>
-#include "waveform/audio.h"
-#include "waveform/peakgen.h"
+#include "wf/audio.h"
+#include "wf/peakgen.h"
 #include "test/common.h"
 
 TestFn create_large_files, test_audiodata, test_load, delete_large_files;
@@ -60,7 +48,7 @@ gpointer tests[] = {
 int
 main (int argc, char *argv[])
 {
-	if(sizeof(off_t) != 8){ gerr("sizeof(off_t)=%zu\n", sizeof(off_t)); exit(1); }
+	if(sizeof(off_t) != 8){ perr("sizeof(off_t)=%zu\n", sizeof(off_t)); exit(1); }
 
 	wf_debug = 1;
 
@@ -73,7 +61,7 @@ main (int argc, char *argv[])
 
 
 void
-create_large_files()
+create_large_files ()
 {
 	START_TEST;
 	reset_timeout(60000);
@@ -86,7 +74,7 @@ create_large_files()
 
 
 void
-delete_large_files()
+delete_large_files ()
 {
 	START_TEST;
 
@@ -100,7 +88,7 @@ delete_large_files()
 
 
 void
-test_load()
+test_load ()
 {
 	//test that the large files are loaded and unloaded properly.
 
@@ -159,7 +147,7 @@ test_load()
 
 
 void
-test_audiodata()
+test_audiodata ()
 {
 	//instantiate a Waveform and check that all the hires-ready signals are emitted.
 
@@ -197,7 +185,7 @@ test_audiodata()
 			assert(buf, "no data in buffer! %i", block);
 			assert(buf->buf[WF_LEFT], "no data in buffer (L)! %i", block);
 			assert(buf->buf[WF_RIGHT], "no data in buffer (R)! %i", block);
-		} else gwarn("no data!");
+		} else pwarn("no data!");
 
 		printf("\n");
 		n++;
@@ -209,7 +197,7 @@ test_audiodata()
 		}
 	}
 
-	void next_wav(C* c)
+	void next_wav (C* c)
 	{
 		if(wi >= G_N_ELEMENTS(wavs)){
 			g_free(c);
@@ -236,5 +224,3 @@ test_audiodata()
 	c->next = next_wav;
 	next_wav(c);
 }
-
-

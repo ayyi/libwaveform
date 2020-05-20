@@ -19,6 +19,11 @@
 #ifndef __GDK_GL_H__
 #define __GDK_GL_H__
 
+#ifdef USE_EPOXY
+#include <epoxy/gl.h>
+#include <epoxy/glx.h>
+#endif
+
 #include <gdk/gdkgltokens.h>
 #include <gdk/gdkgltypes.h>
 #include <gdk/gdkglenumtypes.h>

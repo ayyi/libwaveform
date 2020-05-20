@@ -1,7 +1,7 @@
 /**
 * +----------------------------------------------------------------------+
 * | This file is part of libwaveform https://github.com/ayyi/libwaveform |
-* | copyright (C) 2013-2018 Tim Orford <tim@orford.org>                  |
+* | copyright (C) 2013-2020 Tim Orford <tim@orford.org>                  |
 * +----------------------------------------------------------------------+
 * | This program is free software; you can redistribute it and/or modify |
 * | it under the terms of the GNU General Public License version 3       |
@@ -12,23 +12,14 @@
 #define __wf_private__
 #define __wf_canvas_priv__
 #include "config.h"
-#include <stdlib.h>
-#include <stdint.h>
-#include <string.h>
-#include <math.h>
 #include <getopt.h>
-#include <sys/time.h>
-#include <GL/gl.h>
-#include <GL/glext.h>
-#include <GL/glx.h>
-#include <GL/glxext.h>
 #include "SDL2/SDL.h"
 #define USE_SDL_GFX // measures well but is it any smoother subjectively ?
 #ifdef USE_SDL_GFX
 #include "sdl/SDL2_framerate.h"
 #endif
 #include "agl/ext.h"
-#include "waveform/waveform.h"
+#include "waveform/actor.h"
 #include "common.h"
 
 #include "transition/frameclockidle.h"
@@ -144,7 +135,10 @@ main (int argc, char **argv)
 
 	setup_projection();
 
+#ifndef USE_EPOXY
 	agl_get_extensions(); // TODO what is the SDL way?
+#endif
+	agl_gl_init();
 
 #ifdef USE_SDL_GFX
 	FPSmanager fpsManager;
@@ -253,7 +247,7 @@ main (int argc, char **argv)
 
 
 static void
-on_event(SDL_Event* event)
+on_event (SDL_Event* event)
 {
 	switch(event->type) {
 		case SDL_KEYDOWN:
@@ -280,7 +274,7 @@ on_event(SDL_Event* event)
 
 
 static void
-setup_projection()
+setup_projection ()
 {
 	int vx = 0;
 	int vy = 0;
@@ -300,7 +294,7 @@ setup_projection()
 
 
 static void
-start_zoom(float target_zoom)
+start_zoom (float target_zoom)
 {
 	PF;
 	window.zoom = MAX(0.1, target_zoom);
@@ -316,21 +310,21 @@ start_zoom(float target_zoom)
 
 
 void
-zoom_in(gpointer waveform)
+zoom_in (gpointer waveform)
 {
 	start_zoom(window.zoom * 1.3);
 }
 
 
 void
-zoom_out(gpointer waveform)
+zoom_out (gpointer waveform)
 {
 	start_zoom(window.zoom / 1.3);
 }
 
 
 void
-scroll(WaveformView* waveform, int dx)
+scroll (WaveformViewPlus* waveform, int dx)
 {
 	window.dirty = true;
 

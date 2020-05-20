@@ -20,6 +20,9 @@ struct _plain_shader {
 	struct {
 		uint32_t colour;
 	}            uniform;
+	struct {
+		uint32_t colour;
+	}            state;
 };
 
 struct _alphamap_shader {

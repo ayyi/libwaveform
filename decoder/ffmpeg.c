@@ -1239,7 +1239,7 @@ ff_read_peak (WfDecoder* d, WfBuf16* buf)
 	// File is read in 1024 frame chunks
 	while(!av_read_frame(f->format_context, &f->packet)){
 		g_return_val_if_fail(f->packet.stream_index == f->audio_stream, 0);
-		bool got_frame = false;
+		int got_frame = false;
 		if(f->frame_iter && f->frame_iter < f->frame.nb_samples){
 			dbg(0, "------------- NEVER GET HERE ----------------");
 			got_frame = true;
