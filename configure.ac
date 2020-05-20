@@ -248,6 +248,8 @@ AC_SUBST(LV2_CFLAGS)
 
 dnl -----------------------------------------------------
 
+AC_ARG_ENABLE(libass, AC_HELP_STRING([--disable-libass], [disable use of libass text rendering]), enable_libass=$enableval, enable_libass="auto")
+
 AS_IF([test "$enable_libass" != "no"], [
 	PKG_CHECK_MODULES(LIBASS, libass, [AC_DEFINE(USE_LIBASS, 1, Use libass for text display) enable_libass="yes"],[
 	enable_libass="no"])
