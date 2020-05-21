@@ -1,7 +1,7 @@
 /**
 * +----------------------------------------------------------------------+
 * | This file is part of the Ayyi project. http://ayyi.org               |
-* | copyright (C) 2011-2019 Tim Orford <tim@orford.org>                  |
+* | copyright (C) 2011-2020 Tim Orford <tim@orford.org>                  |
 * | copyright (C) 2011 Robin Gareus <robin@gareus.org>                   |
 * +----------------------------------------------------------------------+
 * | This program is free software; you can redistribute it and/or modify |
@@ -112,7 +112,7 @@ static ssize_t ff_read_default_interleaved                  (WfDecoder*, float*,
 static bool    ad_metadata_array_set_tag_postion            (GPtrArray* tags, const char* tag_name, int pos);
 
 static bool    ff_decode_video_frame                        (FFmpegAudioDecoder*);
-static void    ff_filters_init                              (FFmpegAudioDecoder*);
+static void    ff_filters_init                              (FFmpegAudioDecoder*, int size);
 
 #define U8_TO_SHORT(V) ((V - 128) * 128)
 #define INT32_TO_SHORT(V) (V >> 16)
@@ -179,7 +179,7 @@ get_scaled_thumbnail (WfDecoder* d, int size, AdPicture* picture)
 	if(!f->thumbnail.codec_context)
 		return;
 
-	ff_filters_init(f);
+	ff_filters_init(f, size);
 
 	AVFrame* frame = f->thumbnail.frame = av_frame_alloc();
 
@@ -1378,7 +1378,7 @@ ad_metadata_array_set_tag_postion (GPtrArray* tags, const char* tag_name, int po
 
 
 static void
-ff_filters_init (FFmpegAudioDecoder* f)
+ff_filters_init (FFmpegAudioDecoder* f, int size)
 {
 	if(!f->thumbnail.codec_context)
 		return;
@@ -1412,7 +1412,10 @@ ff_filters_init (FFmpegAudioDecoder* f)
 		gwarn("Failed to create filter sink");
 	}
 	AVFilterContext* scale_filter = NULL;
-	if(avfilter_graph_create_filter(&scale_filter, avfilter_get_by_name("scale"), "thumb_scale", "w=200:h=200", NULL, graph)){
+	float scale_ratio = (float)size / (float)f->thumbnail.codec_context->height;
+	char scale[64] = {0,};
+	sprintf(scale, "w=%i:h=%i", (int)((float)f->thumbnail.codec_context->width * scale_ratio), size);
+	if(avfilter_graph_create_filter(&scale_filter, avfilter_get_by_name("scale"), "thumb_scale", scale, NULL, graph)){
 		gwarn("Failed to create scale filter");
 	}
 
