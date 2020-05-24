@@ -21,9 +21,11 @@
 
 extern int current_test;
 
+#ifdef __common_c__
+extern
+#endif
 struct _app
 {
-	gboolean       dbus;
 	int            timeout;
 	int            n_passed;
 #ifdef __common_c__
