@@ -663,6 +663,7 @@ renderer_push_builder ()
 void
 renderer_pop_builder ()
 {
+	ops_free(builder());
 	g_array_remove_index (builders(), builders()->len - 1);
 	builder() = &g_array_index (builders(), RenderOpBuilder, builders()->len - 1);
 }

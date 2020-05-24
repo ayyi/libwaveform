@@ -98,8 +98,9 @@ op_buffer_init (OpBuffer* buffer)
 void
 op_buffer_destroy (OpBuffer* buffer)
 {
-	g_free (buffer->buf);
+	g_clear_pointer (&buffer->buf, g_free);
 	g_array_unref (buffer->index);
+	buffer->index = NULL;
 }
 
 
