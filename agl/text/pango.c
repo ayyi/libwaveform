@@ -496,6 +496,7 @@ agl_pango_show_layout (PangoLayout* layout, int x, int y, float z, uint32_t _fg_
 	};
 
 	AGlTransform* transform = agl_transform_new();
+	AGlTransform* next = transform;
 	transform = agl_transform_translate_3d(transform, &(const graphene_point3d_t){
 		(x + builder()->offset.x) / (builder()->current_viewport.size.width / 2.0),
 		-(y + builder()->offset.y) / (builder()->current_viewport.size.height / 2.0),
@@ -512,6 +513,10 @@ agl_pango_show_layout (PangoLayout* layout, int x, int y, float z, uint32_t _fg_
 	ops_pop_modelview (renderer.current_builder);
 
 	release_renderer (crenderer);
+
+	// FIX for errors reported by valgrind TODO revisit
+	agl_transform_unref(transform);
+	agl_transform_unref(next);
 
 	// TODO because of delayed rendering, this is unlikely to have the intended effect.
 	glPixelStorei (GL_UNPACK_ROW_LENGTH, 0); //reset back to the default value

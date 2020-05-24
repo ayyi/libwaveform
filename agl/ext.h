@@ -1,6 +1,9 @@
 /**
  * Utility for getting OpenGL extension function pointers
  */
+#ifndef __agl_ext_h__
+#define __agl_ext_h__
+
 #ifdef USE_EPOXY
 # include <epoxy/gl.h>
 # include <epoxy/glx.h>
@@ -182,3 +185,4 @@ PFNGLGETQUERYOBJECTUI64VPROC glGetQueryObjectui64v;
 #endif
 
 #endif // USE_EPOXY
+#endif

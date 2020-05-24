@@ -1310,8 +1310,6 @@ agl_transform_perspective (AGlTransform* next, float depth)
 #endif
 
 
-/*** PUBLIC API ***/
-
 static void
 agl_transform_finalize (AGlTransform* self)
 {
@@ -1320,6 +1318,8 @@ agl_transform_finalize (AGlTransform* self)
 	agl_transform_unref (self->next);
 }
 
+
+/*** PUBLIC API ***/
 
 /**
  * agl_transform_ref:
