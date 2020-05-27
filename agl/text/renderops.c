@@ -252,6 +252,9 @@ ops_init (RenderOpBuilder* builder)
 }
 
 
+/*
+ *  ops_free is only called when a builder is destroyed
+ */
 void
 ops_free (RenderOpBuilder* builder)
 {
@@ -261,7 +264,19 @@ ops_free (RenderOpBuilder* builder)
 		agl_transform_unref (builder->programs.state[i].modelview);
 	}
 
-	g_array_unref (builder->vertices);
+	g_clear_pointer(&builder->vertices, g_array_unref);
+
+	if(builder->modelview.stack){
+		dbg(1, "matrixstack: TODO why not freed in ops_finish? len=%i", builder->modelview.stack->len);
+		for(int i=0;i<builder->modelview.stack->len;i++){
+			MatrixStackEntry* entry = &g_array_index (builder->modelview.stack, MatrixStackEntry, i);
+			if(entry->transform){
+				agl_transform_unref(entry->transform);
+			}
+		}
+		g_array_free (builder->modelview.stack, TRUE);
+		builder->modelview.stack = NULL;
+	}
 
 	op_buffer_destroy (&builder->render_ops);
 }

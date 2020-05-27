@@ -19,6 +19,8 @@ AC_CONFIG_MACRO_DIRS([m4])
 AC_PROG_RANLIB
 AC_PROG_LIBTOOL
 
+PKG_PROG_PKG_CONFIG
+
 AX_SUBDIRS_CONFIGURE([gtkglext-1.0], [[--enable-test=false]], [], [])
 
 # At least level 2 optimisation is needed to allow GCC to
@@ -36,12 +38,12 @@ if test "$debug" = "yes"; then
   PKG_CHECK_MODULES(SYSPROF, sysprof-2, [AC_DEFINE(HAVE_PROFILER, 1, [Have sysprof]) enable_profiler="yes"],[enable_profiler="no"])
   AC_SUBST(SYSPROF_CFLAGS)
   AC_SUBST(SYSPROF_LIBS)
-  AM_CONDITIONAL(ENABLE_PROFILER, test $enable_profiler = "yes")
 else
   CFLAGS="$CFLAGS -DNDEBUG"
   CXXFLAGS="$CXXFLAGS -DNDEBUG"
   enable_profiler="no"
 fi
+AM_CONDITIONAL(ENABLE_PROFILER, test $enable_profiler = "yes")
 
 # Check for strict flag
 strict="no"

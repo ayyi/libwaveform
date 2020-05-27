@@ -219,7 +219,7 @@ agl_shaders_supported ()
 	const char* version = (const char*)glGetString(GL_VERSION);
 
 	if(!version){
-		gwarn("cannot get gl version. incorrect mode?");
+		pwarn("cannot get gl version. incorrect mode?");
 		goto no_shaders;
 	}
 
@@ -287,7 +287,7 @@ agl_gl_init ()
 		GLint major, minor;
 		int scanf_count = sscanf(_version, "%i.%i", &major, &minor);
 		if (scanf_count != 2) {
-			gwarn("failed to parse gl version");
+			pwarn("failed to parse gl version");
 		}
 		dbg(1, "gl_version=%i.%i", major, minor);
 		int factor = minor >= 10 ? 100 : 10;
@@ -408,7 +408,7 @@ agl_compile_shader_file (GLenum shaderType, const char* filename)
       g_free(path);
 
       if (!f) {
-         gwarn("unable to open shader file %s", filename);
+         pwarn("unable to open shader file %s", filename);
          return 0;
       }
    }
@@ -436,7 +436,7 @@ agl_uniforms_init (GLuint program, AGlUniformInfo uniforms[])
 	for (GLuint i = 0; uniforms[i].name; i++) {
 		uniforms[i].location = glGetUniformLocation(program, uniforms[i].name);
 		// note zero is a valid location number.
-		if(uniforms[i].location < 0) gwarn("%s: location=%i", uniforms[i].name, uniforms[i].location);
+		if(uniforms[i].location < 0) pwarn("%s: location=%i", uniforms[i].name, uniforms[i].location);
 
 		switch (uniforms[i].size) {
 			case 1:
@@ -931,7 +931,9 @@ agl_power_of_two (guint a)
 	// return the next power of two up from the given value.
 
 	int i = 0;
+#ifdef DEBUG
 	int orig = a;
+#endif
 	a = MAX(1, a - 1);
 	while(a){
 		a = a >> 1;
