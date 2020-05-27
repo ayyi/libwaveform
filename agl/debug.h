@@ -27,7 +27,11 @@ extern int wf_debug;
 #define PF {if(wf_debug) printf("%s()...\n", __func__);}
 #define PF0 printf("%s...\n", __func__)
 #define PF2 {if(wf_debug > 1) printf("%s...\n", __func__);}
+#ifdef DEBUG
 #define dbg(A, STR, ...) ({if(A <= wf_debug){ fputs(__func__, stdout); printf(": "STR"\n", ##__VA_ARGS__);}})
+#else
+#define dbg(A, STR, ...) ({})
+#endif
 #define dbg2(FLAG, A, STR, ...) ({if(A <= wf_debug && (AGL_DEBUG_ ## FLAG & agl_get_instance()->debug_flags)){ fputs(__func__, stdout); printf(": "STR"\n", ##__VA_ARGS__);}})
 #define pwarn(A, ...) g_warning("%s(): "A, __func__, ##__VA_ARGS__)
 #define gwarn(A, ...) g_warning("%s(): "A, __func__, ##__VA_ARGS__);
