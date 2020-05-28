@@ -20,16 +20,18 @@ typedef struct _AGlBehaviour AGlBehaviour;
 typedef AGlBehaviour* (*AGlBehaviourNew)   ();
 typedef void          (*AGlBehaviourFn)    (AGlBehaviour*);
 typedef void          (*AGlBehaviourInit)  (AGlBehaviour*, AGlActor*);
-typedef bool          (*AGlBehaviourEvent) (AGlBehaviour*, AGlActor*, GdkEvent*);
+typedef void          (*AGlBehaviourLayout)(AGlBehaviour*, AGlActor*);
 typedef bool          (*AGlBehaviourDraw)  (AGlBehaviour*, AGlActor*, AGlActorPaint);
+typedef bool          (*AGlBehaviourEvent) (AGlBehaviour*, AGlActor*, GdkEvent*);
 
 typedef struct
 {
     AGlBehaviourNew      new;
     AGlBehaviourFn       free;
     AGlBehaviourInit     init;
-    AGlBehaviourEvent    event;
+    AGlBehaviourLayout   layout;
     AGlBehaviourDraw     draw;
+    AGlBehaviourEvent    event;
 } AGlBehaviourClass;
 
 struct _AGlBehaviour

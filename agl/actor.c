@@ -745,6 +745,13 @@ agl_actor__paint (AGlActor* a)
 void
 agl_actor__set_size (AGlActor* actor)
 {
+	for(int i = 0; i < AGL_ACTOR_N_BEHAVIOURS; i++){
+		AGlBehaviour* behaviour = actor->behaviours[i];
+		if(!behaviour)
+			break;
+		if(behaviour->klass->layout) behaviour->klass->layout(behaviour, actor);
+	}
+
 	call(actor->set_size, actor); // actors need to update their own regions.
 
 #ifdef AGL_ACTOR_RENDER_CACHE
@@ -1398,7 +1405,7 @@ agl_actor__enable_cache (AGlActor* actor, bool enable)
 #endif
 		a->transitions = g_list_remove(a->transitions, animation);
 #ifdef DEBUG
-		if(g_list_length(a->transitions) != l - 1) gwarn("animation not removed. len=%i-->%i", l, g_list_length(a->transitions));
+		if(g_list_length(a->transitions) != l - 1) pwarn("animation not removed. len=%i-->%i", l, g_list_length(a->transitions));
 #endif
 #ifdef USE_FRAME_CLOCK
 		if(a->root) a->root->is_animating = agl_actor__is_animating((AGlActor*)a->root);
