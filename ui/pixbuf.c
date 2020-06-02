@@ -368,10 +368,12 @@ waveform_peak_to_pixbuf_full(Waveform* waveform, GdkPixbuf* pixbuf, uint32_t reg
 		src.stop  = border + ((int)((px+1) * xmag)) + region_inset_ - block_offset;
 		if(src.start == src.stop){ printf("^"); fflush(stdout); } // src data not hi enough resolution
 		if(hires_mode){
+#ifdef DEBUG
 			if(wf_debug && (px == px_start)){
 				double percent = 2 * 100 * (((int)(px * xmag)) + region_inset - (wf_peakbuf_get_max_size(b.n_tiers) * hires_block) / WF_PEAK_VALUES_PER_SAMPLE) / b.len;
 				dbg(2, "reading from buf=%i=%.2f%% stop=%i buflen=%i blocklen=%i", src.start, percent, src.stop, b.len, wf_peakbuf_get_max_size(b.n_tiers));
 			}
+#endif
 			if(src.stop > b.len_frames - border/2){
 				dbg(1, "**** block change needed!");
 				hires_block++;
@@ -637,12 +639,13 @@ waveform_rms_to_pixbuf(Waveform* w, GdkPixbuf* pixbuf, uint32_t src_inset, int* 
 	}
 */
 	int hires_block = -1;
-	int src_px_start = 0;
 	if(hires_mode){
 		uint64_t start_frame = px_start * samples_per_px;
 		hires_block = start_frame / WF_PEAK_BLOCK_SIZE;
-		src_px_start = (hires_block * wf_get_peakbuf_len_frames()) / samples_per_px; //if not 1st block, the src buffer address is smaller.
+#ifdef DEBUG
+		int src_px_start = (hires_block * wf_get_peakbuf_len_frames()) / samples_per_px; //if not 1st block, the src buffer address is smaller.
 		dbg(2, "hires: offset=%i", src_px_start);
+#endif
 	}
 
 	int n_tiers = hires_mode ? /*peakbuf->n_tiers*/4 : 0; //TODO
@@ -715,12 +718,12 @@ waveform_rms_to_pixbuf(Waveform* w, GdkPixbuf* pixbuf, uint32_t src_inset, int* 
 			//subtract block using buffer index:
 			src_start = ((int)((px  ) * xmag_)) + src_inset - block_offset;
 			src_stop  = ((int)((px+1) * xmag_)) + src_inset - block_offset;
-			//if(src_start == src_stop){ printf("^"); fflush(stdout); }
-			//else { printf("_"); fflush(stdout); }
-			if((px==px_start) && hires_mode){
+#ifdef DEBUG
+			if((px == px_start) && hires_mode){
 				double percent = 2 * 100 * (((int)(px * xmag_)) + src_inset - (wf_peakbuf_get_max_size(n_tiers) * hires_block) / WF_PEAK_VALUES_PER_SAMPLE) / b.len;
 				dbg(2, "reading from buf=%i=%.2f%% stop=%i buflen=%i blocklen=%i", src_start, percent, src_stop, b.len, wf_peakbuf_get_max_size(n_tiers));
 			}
+#endif
 			if(src_stop > b.len_frames && hires_mode){
         dbg(2, "**** block change needed!");
         Peakbuf* peakbuf = waveform_get_peakbuf_n(w, hires_block + 1);
@@ -1437,8 +1440,10 @@ waveform_rms_to_alphabuf(Waveform* waveform, AlphaBuf* pixbuf, int* start, int* 
 	short min;                //negative peak value for each pixel.
 	short max;                //positive peak value for each pixel.
 
+#ifdef DEBUG
 	float gain       = 1.0;
 	dbg(3, "peak_gain=%.2f", gain);
+#endif
 
 	int n_chans      = waveform_get_n_channels(waveform);
 if(!n_chans){ perr("n_chans"); n_chans = 1; }

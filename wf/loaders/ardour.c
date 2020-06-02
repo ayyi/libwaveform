@@ -38,7 +38,7 @@ wf_load_ardour_peak (Waveform* wv, const char* peak_file)
 	g_return_val_if_fail(wv, 0);
 
 	int fp = open(peak_file, O_RDONLY);
-	if(!fp){ gwarn ("file open failure."); goto out; }
+	if(!fp){ pwarn ("file open failure."); goto out; }
 	dbg(2, "%s", peak_file);
 
 	size_t n_frames = get_n_words(wv, peak_file);
@@ -65,8 +65,8 @@ wf_load_ardour_peak (Waveform* wv, const char* peak_file)
 
 #ifdef ENABLE_CHECKS
 	int k; for(k=0;k<n_frames;k++){
-		if(wv->priv->peak.buf[0][2*k + 0] < 0.0){ gwarn("positive peak not positive"); break; }
-		if(wv->priv->peak.buf[0][2*k + 1] > 0.0){ gwarn("negative peak not negative"); break; }
+		if(wv->priv->peak.buf[0][2*k + 0] < 0.0){ pwarn("positive peak not positive"); break; }
+		if(wv->priv->peak.buf[0][2*k + 1] > 0.0){ pwarn("negative peak not negative"); break; }
 	}
 #endif
   out:

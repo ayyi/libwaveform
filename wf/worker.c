@@ -202,8 +202,11 @@ wf_worker_cancel_jobs(WfWorker* w, Waveform* waveform)
 			}
 		}
 	}
+
+#ifdef DEBUG
 	int n_jobs = g_list_length(w->jobs);
 	dbg(n_jobs ? 1 : 2, "n_jobs=%i", n_jobs);
+#endif
 }
 
 

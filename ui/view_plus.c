@@ -184,7 +184,7 @@ construct ()
 	WaveformViewPlus* self = (WaveformViewPlus*) g_object_new (TYPE_WAVEFORM_VIEW_PLUS, NULL);
 	gtk_widget_add_events ((GtkWidget*) self, (gint) ((GDK_BUTTON_PRESS_MASK | GDK_BUTTON_RELEASE_MASK) | GDK_POINTER_MOTION_MASK | GDK_LEAVE_NOTIFY_MASK));
 	if(!gtk_widget_set_gl_capability((GtkWidget*)self, glconfig, gl_context ? gl_context : agl_get_gl_context(), DIRECT, GDK_GL_RGBA_TYPE)){
-		gwarn("failed to set gl capability");
+		pwarn("failed to set gl capability");
 	}
 
 	return self;
@@ -919,7 +919,7 @@ waveform_view_plus_get_height (WaveformViewPlus* view)
 		KeyHandler* handler = g_hash_table_lookup(key_handlers, &event->keyval);
 		if(handler){
 			key_down = true;
-			if(key_hold.timer) gwarn("timer already started");
+			if(key_hold.timer) pwarn("timer already started");
 			key_hold.timer = g_timeout_add(100, key_hold_on_timeout, waveform);
 			key_hold.handler = handler;
 	

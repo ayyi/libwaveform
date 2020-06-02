@@ -41,7 +41,7 @@ static AGl* agl = NULL;
 
 #ifdef USE_GTK
 #define WAVEFORM_START_DRAW(wfc) \
-	if(wfc->_draw_depth) gwarn("START_DRAW: already drawing"); \
+	if(wfc->_draw_depth) pwarn("START_DRAW: already drawing"); \
 	wfc->_draw_depth++; \
 	if (actor_not_is_gtk(wfc->root->root) || \
 		(wfc->_draw_depth > 1) || gdk_gl_drawable_make_current (wfc->root->root->gl.gdk.drawable, wfc->root->root->gl.gdk.context) \
@@ -57,7 +57,7 @@ static AGl* agl = NULL;
 	if(wa->root->root->type == CONTEXT_TYPE_GTK){ \
 		if(!wa->_draw_depth) ; \
 	} \
-	} else gwarn("!! gl_begin fail")
+	} else pwarn("!! gl_begin fail")
 #else
 #define WAVEFORM_END_DRAW(wa) \
 	;
@@ -496,7 +496,7 @@ wf_canvas_load_texture_from_alphabuf(WaveformContext* wfc, int texture_name, Alp
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP); //prevent wrapping
 
 		glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
-		if(!glIsTexture(texture_name)) gwarn("texture not loaded! %i", texture_name);
+		if(!glIsTexture(texture_name)) pwarn("texture not loaded! %i", texture_name);
 	} WAVEFORM_END_DRAW(wfc);
 
 	gl_warn("copy to texture");
@@ -518,13 +518,12 @@ wf_context_get_zoom(WaveformContext* wfc)
 }
 
 
-	static void set_zoom_on_animation_finished(WfAnimation* animation, gpointer _wfc)
+	static void set_zoom_on_animation_finished (WfAnimation* animation, gpointer _wfc)
 	{
-		WaveformContext* wfc = _wfc;
-		dbg(1, "wfc=%p", wfc);
+		dbg(1, "wfc=%p", _wfc);
 	}
 
-	static void wf_context_set_zoom_on_frame(WfAnimation* animation, int time)
+	static void wf_context_set_zoom_on_frame (WfAnimation* animation, int time)
 	{
 		WaveformContext* wfc = animation->user_data;
 

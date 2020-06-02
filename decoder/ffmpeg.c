@@ -11,10 +11,6 @@
 *
 */
 #include "config.h"
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <math.h>
 #include <glib.h>
 #include <libavcodec/avcodec.h>
 #include <libavformat/avformat.h>
@@ -119,6 +115,9 @@ static void    ff_filters_init                              (FFmpegAudioDecoder*
 #define SHORT_TO_FLOAT(A) (((float)A) / 32768.0)
 
 
+/*
+ *  Metadata must be freed with ad_free_nfo
+ */
 int
 ad_info_ffmpeg (WfDecoder* d)
 {
@@ -129,6 +128,10 @@ ad_info_ffmpeg (WfDecoder* d)
 
 	int64_t len = f->format_context->duration - f->format_context->start_time;
 	int64_t n_frames  = (int64_t)(len * f->codec_parameters->sample_rate / AV_TIME_BASE);
+
+	if(d->info.meta_data){
+		g_clear_pointer(&d->info.meta_data, g_ptr_array_unref);
+	}
 
 	d->info = (WfAudioInfo){
 		.sample_rate = f->codec_parameters->sample_rate,
@@ -331,8 +334,8 @@ ad_open_ffmpeg (WfDecoder* decoder, const char* filename)
 	}
 
 	WfAudioInfo* nfo = &decoder->info;
-	dbg(2, "ffmpeg - %s", filename);
-	dbg(2, "ffmpeg - sr:%i c:%i d:%"PRIi64" f:%"PRIi64" %s", nfo->sample_rate, nfo->channels, nfo->length, nfo->frames, av_get_sample_fmt_name(f->codec_parameters->format));
+	dbg(2, "%s", filename);
+	dbg(2, "sr:%i c:%i d:%"PRIi64" f:%"PRIi64" %s", nfo->sample_rate, nfo->channels, nfo->length, nfo->frames, av_get_sample_fmt_name(f->codec_parameters->format));
 
 #if 0 // TODO why prints nothing?
 	av_dump_format(f->format_context, f->audio_stream, filename, 0);
@@ -384,6 +387,7 @@ f:
 }
 
 
+#if 0
 bool
 ad_open_ffmpeg_new (WfDecoder* decoder, const char* filename)
 {
@@ -433,21 +437,23 @@ f:
 	g_free0(decoder->d);
 	return FALSE;
 }
+#endif
 
 
 int
 ad_close_ffmpeg (WfDecoder* d)
 {
-	FFmpegAudioDecoder* priv = (FFmpegAudioDecoder*)d->d;
-	if (!priv) return -1;
+	FFmpegAudioDecoder* f = (FFmpegAudioDecoder*)d->d;
+	if (!f) return -1;
 
+	av_frame_unref(&f->frame);
 #if 1
-	avcodec_close(priv->codec_context);
+	avcodec_close(f->codec_context);
 #else
 	// TODO the docs say dont use avcodec_close. try this instead
 	avcodec_free_context(&priv->codec_context);
 #endif
-	avformat_close_input(&priv->format_context);
+	avformat_close_input(&f->format_context);
 	g_free0(d->d);
 
 	return 0;
@@ -958,18 +964,14 @@ ff_read_float_planar_to_planar (WfDecoder* d, WfBuf16* buf)
 				av_frame_unref(&f->frame);
 				f->frame_iter = 0;
 
-				int error = avcodec_receive_frame(f->codec_context, &f->frame);
-				if (!error) {
-					got_frame = true;
-					error = avcodec_send_packet(f->codec_context, &f->packet);
-					if (error == AVERROR(EAGAIN))
-						error = 0;
-				} else if (error == AVERROR(EAGAIN))
-					error = 0; // try again next iteration
-
-				if (error) {
+				int ret = avcodec_receive_frame(f->codec_context, &f->frame);
+				if (ret == 0) got_frame = true;
+				if (ret == AVERROR(EAGAIN)) ret = 0;
+				if (ret == 0) ret = avcodec_send_packet(f->codec_context, &f->packet);
+				if (ret == AVERROR(EAGAIN)) ret = 0;
+				if (ret < 0){
 					char errbuff[64] = {0,};
-					gwarn("error decoding audio: %s", av_make_error_string(errbuff, 64, error));
+					gwarn("error decoding audio: %s", av_make_error_string(errbuff, 64, ret));
 				}
 			}
 			if(got_frame){
@@ -1232,8 +1234,8 @@ ff_read_peak (WfDecoder* d, WfBuf16* buf)
 	int data_size = av_get_bytes_per_sample(f->codec_parameters->format);
 	g_return_val_if_fail(data_size == 2, 0);
 
-	if(!(f->frame.nb_samples/* && f->frame_iter < f->frame.nb_samples*/)){
-//		return 0;
+	if(!(f->frame.nb_samples && f->frame_iter < f->frame.nb_samples)){
+		return 0;
 	}
 
 	// File is read in 1024 frame chunks
@@ -1241,7 +1243,6 @@ ff_read_peak (WfDecoder* d, WfBuf16* buf)
 		g_return_val_if_fail(f->packet.stream_index == f->audio_stream, 0);
 		int got_frame = false;
 		if(f->frame_iter && f->frame_iter < f->frame.nb_samples){
-			dbg(0, "------------- NEVER GET HERE ----------------");
 			got_frame = true;
 		}else{
 			av_frame_unref(&f->frame);
@@ -1342,7 +1343,7 @@ ad_eval_ffmpeg (const char* f)
 {
 	char* ext = strrchr(f, '.');
 	if (!ext) return 10;
-	// libavformat.. guess_format.. 
+
 	return 40;
 }
 
@@ -1531,9 +1532,6 @@ const static AdPlugin ad_ffmpeg = {
 	&ad_read_ffmpeg,
 	&ff_read_short
 };
-
-
-extern int wf_debug; // TODO
 
 
 /* dlopen handler */

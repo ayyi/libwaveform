@@ -61,14 +61,21 @@ ad_open(WfDecoder* d, const char* fname)
 {
 	ad_clear_nfo(&d->info);
 
+#ifdef USE_FFMPEG
+	d->b = choose_backend(fname);
+#else
 	if(!(d->b = choose_backend(fname))){
 		return g_warning("no decoder available for filetype: '%s'", strrchr(fname, '.')), FALSE;
 	}
+#endif
 
 	return d->b->open(d, fname);
 }
 
 
+/*
+ *  Metadata must be freed with ad_free_nfo
+ */
 int
 ad_info(WfDecoder* d)
 {
@@ -155,6 +162,9 @@ ad_read_mono_dbl(WfDecoder* d, double* data, size_t len)
 }
 
 
+/*
+ *  Metadata must be freed with ad_free_nfo
+ */
 bool
 ad_finfo (const char* f, WfAudioInfo* nfo)
 {
@@ -174,6 +184,7 @@ ad_thumbnail (WfDecoder* d, AdPicture* picture)
 {
 #ifdef USE_FFMPEG
 	extern void get_scaled_thumbnail (WfDecoder*, int size, AdPicture*);
+
 	if(d->b == get_ffmpeg()){
 		get_scaled_thumbnail (d, 200, picture);
 	}
@@ -199,8 +210,7 @@ void
 ad_free_nfo(WfAudioInfo* nfo)
 {
 	if (nfo->meta_data){
-		g_ptr_array_unref(nfo->meta_data);
-		nfo->meta_data = NULL;
+		g_clear_pointer(&nfo->meta_data, g_ptr_array_unref);
 	}
 }
 

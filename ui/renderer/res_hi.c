@@ -157,7 +157,7 @@ hi_gl1_load_block (Renderer* renderer, WaveformActor* a, int block)
 		int c = WF_LEFT;
 
 		if(glIsTexture(texture->t[c].main)){
-			gwarn("already assigned");
+			pwarn("already assigned");
 			return;
 		}
 
@@ -356,11 +356,11 @@ draw_wave_buffer_hi_gl1 (Renderer* renderer, WaveformActor* actor, int b, bool i
 
 		/*
 		if(!(region_end / io_ratio <= peakbuf->size / WF_PEAK_VALUES_PER_SAMPLE))
-			gwarn("end/ratio=%i size=%i - region.end should never exceed %i", ((int)region_end / io_ratio), peakbuf->size / WF_PEAK_VALUES_PER_SAMPLE, io_ratio * peakbuf->size / WF_PEAK_VALUES_PER_SAMPLE);
+			pwarn("end/ratio=%i size=%i - region.end should never exceed %i", ((int)region_end / io_ratio), peakbuf->size / WF_PEAK_VALUES_PER_SAMPLE, io_ratio * peakbuf->size / WF_PEAK_VALUES_PER_SAMPLE);
 		*/
 		g_return_if_fail(region_end / io_ratio <= peakbuf->size / WF_PEAK_VALUES_PER_SAMPLE);
 		while (p < region.len / io_ratio){
-										if(2 * p_ >= peakbuf->size) gwarn("s_=%i size=%i", p_, peakbuf->size);
+										if(2 * p_ >= peakbuf->size) pwarn("s_=%i size=%i", p_, peakbuf->size);
 										g_return_if_fail(2 * p_ < peakbuf->size);
 			x = rect->left + (((double)p) / ((double)region.len)) * rect->len * io_ratio;
 			if (x - rect->left >= rect->len) break;
@@ -505,7 +505,7 @@ wf_actor_get_quad_dimensions (WaveformActor* actor, int b, bool is_first, bool i
 			double distance_from_file_start_to_region_end = region_px.start + MIN(r->rect.len, region_px.len);
 			block_wid = distance_from_file_start_to_region_end - b * r->block_wid;
 			dbg(2, " %i: inset=%.2f s->e=%.2f i*b=%.2f", b, region_px.start, distance_from_file_start_to_region_end, b * r->block_wid);
-			if(b * r->block_wid > distance_from_file_start_to_region_end){ gwarn("!!"); return false; }
+			if(b * r->block_wid > distance_from_file_start_to_region_end){ pwarn("!!"); return false; }
 			block_wid = MIN(r->rect.len, block_wid);
 #else
 			WfdRange block_px = {
@@ -531,7 +531,7 @@ wf_actor_get_quad_dimensions (WaveformActor* actor, int b, bool is_first, bool i
 if(tex_pct > usable_pct || tex_pct < 0.0){
 dbg (0, "%i: is_first=%i is_last=%i x=%.2f wid=%.2f/%.2f tex_pct=%.3f tex_start=%.3f", b, is_first, is_last, x, block_wid, r->block_wid, tex_pct, tex_start);
 }
-	if(tex_pct - 0.0001 > usable_pct || tex_pct < 0.0) gwarn("tex_pct > %.3f! %.3f (b=%i) %.3f --> %.3f", usable_pct, tex_pct, b, tex_start, tex_start + tex_pct);
+	if(tex_pct - 0.0001 > usable_pct || tex_pct < 0.0) pwarn("tex_pct > %.3f! %.3f (b=%i) %.3f --> %.3f", usable_pct, tex_pct, b, tex_start, tex_start + tex_pct);
 	tex_x = x + ((is_first && r->first_offset) ? r->first_offset_px : 0);
 
 	*tex = (TextureRange){tex_start, tex_start + tex_pct};

@@ -13,9 +13,10 @@
 #ifndef __agl_behaviour_h__
 #define __agl_behaviour_h__
 
-#include "agl/actor.h"
+typedef struct _AGlBehaviour      AGlBehaviour;
+typedef struct _AGlBehaviourClass AGlBehaviourClass;
 
-typedef struct _AGlBehaviour AGlBehaviour;
+#include "agl/actor.h"
 
 typedef AGlBehaviour* (*AGlBehaviourNew)   ();
 typedef void          (*AGlBehaviourFn)    (AGlBehaviour*);
@@ -24,7 +25,7 @@ typedef void          (*AGlBehaviourLayout)(AGlBehaviour*, AGlActor*);
 typedef bool          (*AGlBehaviourDraw)  (AGlBehaviour*, AGlActor*, AGlActorPaint);
 typedef bool          (*AGlBehaviourEvent) (AGlBehaviour*, AGlActor*, GdkEvent*);
 
-typedef struct
+struct _AGlBehaviourClass
 {
     AGlBehaviourNew      new;
     AGlBehaviourFn       free;
@@ -32,7 +33,7 @@ typedef struct
     AGlBehaviourLayout   layout;
     AGlBehaviourDraw     draw;
     AGlBehaviourEvent    event;
-} AGlBehaviourClass;
+};
 
 struct _AGlBehaviour
 {

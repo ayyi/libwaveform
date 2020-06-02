@@ -41,7 +41,8 @@ libagl_la_SOURCES = \
 	transform.c transform.h \
 	behaviour.h \
 	observable.c observable.h \
-	typedefs.h shader.h \
+	typedefs.h \
+	shader.h \
 	resources.c
 
 libagl_la_LIBADD = \

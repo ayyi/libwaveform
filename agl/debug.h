@@ -34,7 +34,6 @@ extern int wf_debug;
 #endif
 #define dbg2(FLAG, A, STR, ...) ({if(A <= wf_debug && (AGL_DEBUG_ ## FLAG & agl_get_instance()->debug_flags)){ fputs(__func__, stdout); printf(": "STR"\n", ##__VA_ARGS__);}})
 #define pwarn(A, ...) g_warning("%s(): "A, __func__, ##__VA_ARGS__)
-#define gwarn(A, ...) g_warning("%s(): "A, __func__, ##__VA_ARGS__);
 #define perr(A, ...) g_critical("%s(): "A, __func__, ##__VA_ARGS__)
 
 typedef enum

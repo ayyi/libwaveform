@@ -428,7 +428,7 @@ wf_ff_peakgen (const char* infilename, const char* peak_filename)
 
 			avio_write(format_context->pb, (unsigned char*)w, WF_PEAK_VALUES_PER_SAMPLE * f.info.channels * sizeof(short));
 
-			total_frames_written += 2 * f.info.channels; // TODO get real value from writer
+			total_frames_written += WF_PEAK_VALUES_PER_SAMPLE;
 		}
 	}
 
@@ -442,11 +442,20 @@ wf_ff_peakgen (const char* infilename, const char* peak_filename)
 		dbg(1, "mp3");
 		f.info.frames = total_readcount; // update the estimate with the real frame count.
 	}
-#else
-	if(total_frames_written / WF_PEAK_VALUES_PER_SAMPLE != f.info.frames / WF_PEAK_RATIO){
-		gwarn("unexpected number of frames written: %i != %"PRIu64, total_frames_written / WF_PEAK_VALUES_PER_SAMPLE, f.info.frames / WF_PEAK_RATIO);
-	}
 #endif
+
+	if(total_frames_written / WF_PEAK_VALUES_PER_SAMPLE != f.info.frames / WF_PEAK_RATIO){
+		pwarn("unexpected number of frames written: wrote %i, expected %"PRIu64,
+			total_frames_written / WF_PEAK_VALUES_PER_SAMPLE,
+			f.info.frames / WF_PEAK_RATIO
+		);
+
+		unsigned char w[WF_PEAK_VALUES_PER_SAMPLE * WF_STEREO * sizeof(short)] = {0,};
+		while(total_frames_written / WF_PEAK_VALUES_PER_SAMPLE < f.info.frames / WF_PEAK_RATIO){
+			avio_write(format_context->pb, w, WF_PEAK_VALUES_PER_SAMPLE * f.info.channels * sizeof(short));
+			total_frames_written += WF_PEAK_VALUES_PER_SAMPLE * f.info.channels * sizeof(short);
+		}
+	}
 
 	//avio_flush(format_context->pb); // probably not needed
 
@@ -457,11 +466,28 @@ wf_ff_peakgen (const char* infilename, const char* peak_filename)
 	avio_close(format_context->pb);
 	avformat_free_context(format_context);
 
-	int renamed = !rename(tmp_path, peak_filename);
-	g_free(tmp_path);
-	if(!renamed) return false;
+	if(total_readcount){
+		int renamed = !rename(tmp_path, peak_filename);
+		g_free(tmp_path);
+		if(!renamed) return false;
+	}else{
+		pwarn("failed to read from file %s", infilename);
+		if(!g_unlink(tmp_path)){
+			pwarn("delete failed");
+		}
+		goto f1;
+	}
+
+	ad_close(&f);
+	ad_free_nfo(&f.info);
 
 	return true;
+
+f1:
+	g_free(tmp_path);
+	ad_close(&f);
+	ad_free_nfo(&f.info);
+	return false;
 }
 
 

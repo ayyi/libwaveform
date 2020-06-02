@@ -13,6 +13,7 @@
 #define __wf_private__
 #define ENABLE_CHECKS
 #include "config.h"
+#include <libgen.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <glib.h>
@@ -105,6 +106,7 @@ wf_load_riff_peak (Waveform* wv, const char* peak_file)
 		: WF_MAX_PEAK_FRAMES;
 
 	if(!n_frames){
+		pwarn("no frames (%s)", basename(wv->filename));
 		wv->renderable = false;
 		goto out_close;
 	}
@@ -113,9 +115,13 @@ wf_load_riff_peak (Waveform* wv, const char* peak_file)
 #ifdef USE_SNDFILE
 	if(sfinfo.frames / WF_PEAK_VALUES_PER_SAMPLE > max_frames) pwarn("peakfile is too long: %"PRIi64", expected %"PRIi64, sfinfo.frames / WF_PEAK_VALUES_PER_SAMPLE, max_frames);
 #else
-	if(decoder.info.frames % WF_PEAK_VALUES_PER_SAMPLE) pwarn("peakfile not even length: %"PRIi64, decoder.info.frames);
-	if(n_frames > max_frames) pwarn("peakfile is too long: %"PRIi64", expected %"PRIi64, decoder.info.frames / WF_PEAK_VALUES_PER_SAMPLE, max_frames);
-	if(n_frames < max_frames && max_frames != WF_MAX_PEAK_FRAMES) pwarn("peakfile is too short: %"PRIi64", expected %"PRIi64, n_frames, max_frames);
+	// we haven't loaded any data yet, and with ffmpeg, any frames counts are only estimates
+	if(decoder.info.frames % WF_PEAK_VALUES_PER_SAMPLE)
+		pwarn("peakfile not even length: %"PRIi64, decoder.info.frames);
+	if(n_frames > max_frames)
+		pwarn("peakfile might be too long: %"PRIi64", expected %"PRIi64, decoder.info.frames / WF_PEAK_VALUES_PER_SAMPLE, max_frames);
+	if(n_frames < max_frames && max_frames != WF_MAX_PEAK_FRAMES && (max_frames - n_frames > 32))
+		pwarn("peakfile might be too short: %"PRIi64", expected %"PRIi64, n_frames, max_frames);
 #endif
 #endif
 #ifdef USE_SNDFILE
@@ -150,11 +156,12 @@ wf_load_riff_peak (Waveform* wv, const char* peak_file)
 		};
 	if((readcount_frames = ad_read_peak(&decoder, &buf)) < r_frames){
 #endif
-		int shortfall = n_frames * 2 - readcount_frames;
+		g_return_val_if_fail(readcount_frames <= n_frames * WF_PEAK_VALUES_PER_SAMPLE, 0);
+		int shortfall = MIN(n_frames, max_frames) * WF_PEAK_VALUES_PER_SAMPLE - readcount_frames;
 #ifndef USE_SNDFILE
 		if(shortfall){
-			memset(buf.buf[0] + readcount_frames, 0, shortfall);
-			memset(buf.buf[1] + readcount_frames, 0, shortfall);
+			memset(buf.buf[0] + readcount_frames, 0, shortfall * sizeof(short));
+			memset(buf.buf[1] + readcount_frames, 0, shortfall * sizeof(short));
 		}
 #endif
 		if(shortfall < 48){
@@ -207,6 +214,7 @@ wf_load_riff_peak (Waveform* wv, const char* peak_file)
 	sf_close(sndfile);
 #else
 	ad_close(&decoder);
+	ad_free_nfo(&decoder.info);
 #endif
 
   out:

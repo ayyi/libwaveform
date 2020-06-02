@@ -8,5 +8,8 @@ extern int wf_debug;
 #ifndef gwarn
 #define gwarn(A, ...) g_warning("%s(): "A, __func__, ##__VA_ARGS__)
 #endif
+#ifndef pwarn
+#define pwarn(A, ...) g_warning("%s(): "A, __func__, ##__VA_ARGS__)
+#endif
 
 #endif
