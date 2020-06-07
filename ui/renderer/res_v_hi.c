@@ -77,12 +77,12 @@ _v_hi_set_gl_state (WaveformActor* actor)
 							glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 							if(wfc->use_1d_textures){
 								glDisable(GL_TEXTURE_1D);
-								_c->shaders.lines->uniform.colour = actor->fg_colour;
+								_c->shaders.lines->uniform.colour = ((AGlActor*)actor)->colour;
 								_c->shaders.lines->uniform.n_channels = w->n_channels;
 							}
 #elif defined(ANTIALIASED_LINES)
 	if(wfc->use_1d_textures){
-		agl->shaders.alphamap->uniform.fg_colour = actor->fg_colour;
+		agl->shaders.alphamap->uniform.fg_colour = ((AGlActor*)actor)->colour;
 		agl_use_material(agl->aaline);
 		agl_enable(AGL_ENABLE_BLEND | AGL_ENABLE_TEXTURE_2D);
 		glBindTexture(GL_TEXTURE_2D, aaline_class.texture);
@@ -94,7 +94,7 @@ _v_hi_set_gl_state (WaveformActor* actor)
 							glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 							if(wfc->use_1d_textures){
 								glDisable(GL_TEXTURE_1D);
-								agl->shaders.plain->uniform.colour = actor->fg_colour;
+								agl->shaders.plain->uniform.colour = ((AGlActor*)actor)->colour;
 								agl_use_program((AGlShader*)agl->shaders.plain);
 							}
 							glDisable(GL_TEXTURE_2D);
@@ -177,7 +177,7 @@ draw_wave_buffer_v_hi (Renderer* renderer, WaveformActor* actor, int block, bool
 #endif
 
 #ifndef MULTILINE_SHADER
-	uint32_t rgba = actor->fg_colour;
+	uint32_t rgba = ((AGlActor*)actor)->colour;
 	const float r = ((float)((rgba >> 24)       ))/0x100;
 	const float g = ((float)((rgba >> 16) & 0xff))/0x100;
 	const float b = ((float)((rgba >>  8) & 0xff))/0x100;

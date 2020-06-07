@@ -309,7 +309,7 @@ hi_gl1_pre_render (Renderer* renderer, WaveformActor* actor)
 	glLineWidth(1);
 #endif
 	{
-		uint32_t rgba = actor->fg_colour;
+		uint32_t rgba = ((AGlActor*)actor)->colour;
 		float r = ((float)((rgba >> 24)       ))/0x100;
 		float g = ((float)((rgba >> 16) & 0xff))/0x100;
 		float b = ((float)((rgba >>  8) & 0xff))/0x100;
@@ -437,7 +437,7 @@ draw_wave_buffer_hi_gl1 (Renderer* renderer, WaveformActor* actor, int b, bool i
 
 			block_rect.top = rect->top + c * rect->height/2;
 
-			_draw_wave_buffer_hi_gl1(w, hr->block_region, &block_rect, peakbuf, c, wfc->v_gain, actor->fg_colour);
+			_draw_wave_buffer_hi_gl1(w, hr->block_region, &block_rect, peakbuf, c, wfc->v_gain, ((AGlActor*)actor)->colour);
 		}
 		else dbg(1, "buf not ready: %i", c);
 	}

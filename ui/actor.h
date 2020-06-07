@@ -11,6 +11,7 @@
 */
 #ifndef __waveform_actor_h__
 #define __waveform_actor_h__
+
 #include "transition/transition.h"
 #include "agl/actor.h"
 #include "wf/waveform.h"
@@ -34,7 +35,6 @@ struct _WaveformActor {
 	WaveformContext* context;
 	Waveform*        waveform;
 	WfSampleRegion   region;
-	uint32_t         fg_colour;
 	float            vzoom;     // vertical zoom. default 1.0
 	float            z;         // render position on z-axis.
 

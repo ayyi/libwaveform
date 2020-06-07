@@ -54,7 +54,6 @@ struct _WaveformViewPlus {
 #endif
 	int64_t                  start_frame;
 
-	uint32_t                 fg_colour;
 	uint32_t                 bg_colour;
 
 	WaveformViewPlusPrivate* priv;

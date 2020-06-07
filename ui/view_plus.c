@@ -301,7 +301,6 @@ _waveform_view_plus__show_waveform (gpointer _view, gpointer _c)
 				if(!v->actor->region.len){
 					wf_actor_set_region(v->actor, &(WfSampleRegion){0, n_frames});
 				}
-				wf_actor_set_colour(v->actor, view->fg_colour);
 
 				g_signal_connect (view->waveform, "peakdata-ready", (GCallback)_waveform_view_plus__show_waveform_done, view);
 			}
@@ -312,17 +311,19 @@ _waveform_view_plus__show_waveform (gpointer _view, gpointer _c)
 }
 
 
-	static void waveform_view_plus_load_file_done (WaveformActor* a, gpointer _c)
-	{
-		WfClosure* c = (WfClosure*)_c;
-		if(agl_actor__width(((AGlActor*)a))){
-			a->context->samples_per_pixel = waveform_get_n_frames(a->waveform) / agl_actor__width(((AGlActor*)a));
+static void
+waveform_view_plus_load_file_done (WaveformActor* a, gpointer _c)
+{
+	WfClosure* c = (WfClosure*)_c;
+	if(agl_actor__width(((AGlActor*)a))){
+		a->context->samples_per_pixel = waveform_get_n_frames(a->waveform) / agl_actor__width(((AGlActor*)a));
 
-			if(((AGlActor*)a)->parent) agl_actor__invalidate(((AGlActor*)a)->parent); // we dont seem to track the layers, so have to invalidate everything.
-		}
-		call(c->callback, a->waveform, a->waveform->priv->peaks->error, c->user_data);
-		g_free(c);
+		if(((AGlActor*)a)->parent) agl_actor__invalidate(((AGlActor*)a)->parent); // we dont seem to track the layers, so have to invalidate everything.
 	}
+	call(c->callback, a->waveform, a->waveform->priv->peaks->error, c->user_data);
+	g_free(c);
+}
+
 
 void
 waveform_view_plus_load_file (WaveformViewPlus* view, const char* filename, WfCallback3 callback, gpointer user_data)
@@ -492,11 +493,10 @@ waveform_view_plus_set_region (WaveformViewPlus* view, int64_t start_frame, int6
 
 
 void
-waveform_view_plus_set_colour (WaveformViewPlus* view, uint32_t fg, uint32_t bg/*, uint32_t text1, uint32_t text2*/)
+waveform_view_plus_set_colour (WaveformViewPlus* view, uint32_t fg, uint32_t bg)
 {
 	WaveformViewPlusPrivate* v = view->priv;
 
-	view->fg_colour = fg;
 	view->bg_colour = bg;
 	if(view->priv->actor) wf_actor_set_colour(v->actor, fg);
 
@@ -504,7 +504,7 @@ waveform_view_plus_set_colour (WaveformViewPlus* view, uint32_t fg, uint32_t bg/
 	}
 }
 
-	static gboolean show;
+	static bool show;
 
 	static gboolean _on_idle(gpointer _view)
 	{
@@ -564,6 +564,8 @@ waveform_view_plus_realize (GtkWidget* widget)
 {
 	PF2;
 	WaveformViewPlus* view = (WaveformViewPlus*)widget;
+	AGlActor* actor = (AGlActor*)view->priv->actor;
+
 	GTK_WIDGET_SET_FLAGS (widget, GTK_REALIZED);
 
 	GdkWindowAttr attrs = {
@@ -579,12 +581,14 @@ waveform_view_plus_realize (GtkWidget* widget)
 	gtk_style_set_background (gtk_widget_get_style (widget), widget->window, GTK_STATE_NORMAL);
 	gdk_window_move_resize (widget->window, widget->allocation.x, widget->allocation.y, widget->allocation.width, widget->allocation.height);
 
-	if(!view->fg_colour){
+	if(!actor->colour){
 		// currently the waveform background is always dark, so a light colour is needed for the foreground
 		uint32_t base_colour = wf_get_gtk_base_color(widget, GTK_STATE_NORMAL, 0xaa);
-		view->fg_colour = wf_colour_is_dark_rgba(base_colour)
-			? wf_get_gtk_fg_color(widget, GTK_STATE_NORMAL)
-			: base_colour;
+		wf_actor_set_colour(view->priv->actor,
+			wf_colour_is_dark_rgba(base_colour)
+				? wf_get_gtk_fg_color(widget, GTK_STATE_NORMAL)
+				: base_colour
+		);
 	}
 
 	if(!promise(PROMISE_DISP_READY)->is_resolved) waveform_view_plus_init_drawable(view);
@@ -1109,9 +1113,10 @@ static AGlActor*
 waveform_actor (WaveformViewPlus* view)
 {
 	AGlActor* actor = (AGlActor*)wf_canvas_add_new_actor(view->priv->context, view->waveform);
-	actor->colour = view->fg_colour;
+
 	set_size = actor->set_size;
 	actor->set_size = waveform_actor_size0;
+
 	return actor;
 }
 

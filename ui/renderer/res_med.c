@@ -205,7 +205,7 @@ med_lo_pre_render_gl1(Renderer* renderer, WaveformActor* actor)
 	agl_enable(AGL_ENABLE_BLEND); // TODO find out why GL_TEXTURE_2D needs to be flipped here.
 	agl_enable(AGL_ENABLE_TEXTURE_2D | AGL_ENABLE_BLEND);
 
-	AGlColourFloat fg; wf_colour_rgba_to_float(&fg, actor->fg_colour);
+	AGlColourFloat fg; wf_colour_rgba_to_float(&fg, ((AGlActor*)actor)->colour);
 
 	glColor4f(fg.r, fg.g, fg.b, _a->opacity);
 

@@ -101,6 +101,8 @@ static bool   wf_actor_paint (AGlActor*);
 
 static WfActorClass actor_class = {{0, "Waveform", (AGlActorNew*)wf_actor_new, wf_actor_free}};
 
+#define OPACITY_FROM_FG_COLOUR(A) (((float)((((AGlActor*)A)->colour) & 0xff)) / 0x100)
+
 typedef enum
 {
 	REGION = 0,
@@ -399,6 +401,9 @@ _add_waveform (WaveformActor* actor, Waveform* w)
 WaveformActor*
 wf_actor_new (Waveform* w, WaveformContext* wfc)
 {
+	// Note that the colour cannot be set here because it
+	// interferes with the ability to set based on the system theme.
+
 	dbg(2, "%s-------------------------%s", "\x1b[1;33m", "\x1b[0;39m");
 
 	g_return_val_if_fail(wfc, NULL);
@@ -427,8 +432,6 @@ wf_actor_new (Waveform* w, WaveformContext* wfc)
 
 	WfActorPriv* _a = a->priv;
 	AGlActor* actor = (AGlActor*)a;
-
-	wf_actor_set_colour(a, 0xffffffff);
 
 	// implement flex array with size 2 (used only for allocation)
 	typedef struct
@@ -691,13 +694,21 @@ wf_actor_waveform_finalize_notify (gpointer _actor, GObject* was)
 void
 wf_actor_set_waveform (WaveformActor* a, Waveform* waveform, WaveformActorFn callback, gpointer user_data)
 {
+	AGlActor* actor = (AGlActor*)a;
 	g_return_if_fail(a);
 	PF;
 
 	waveform_get_n_frames(waveform);
 	if(!waveform->renderable) return;
 
-	agl_actor__invalidate((AGlActor*)a);
+	if(actor->root){
+		TransitionBehaviour* behaviour = (TransitionBehaviour*)actor->behaviours[OPACITY];
+		*behaviour->animatables[0].val.f = 0.f;
+		behaviour->animatables[0].target_val.f = 0.f;
+		transition_behaviour_set_f(behaviour, actor, OPACITY_FROM_FG_COLOUR(a), NULL, NULL);
+	}
+
+	agl_actor__invalidate(actor);
 
 	if(a->waveform){
 		wf_actor_clear(a);
@@ -803,9 +814,9 @@ wf_actor_set_colour (WaveformActor* a, uint32_t fg_colour)
 	WfActorPriv* _a = a->priv;
 
 	dbg(2, "0x%08x", fg_colour);
-	a->fg_colour = fg_colour;
+	((AGlActor*)a)->colour = fg_colour;
 
-	_a->opacity = ((float)(fg_colour & 0xff)) / 0x100;
+	_a->opacity = OPACITY_FROM_FG_COLOUR(a);
 
 	agl_actor__invalidate((AGlActor*)a);
 }

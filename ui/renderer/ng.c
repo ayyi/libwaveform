@@ -375,7 +375,7 @@ ng_gl2_pre_render (Renderer* renderer, WaveformActor* actor)
 	HiResNGShader* shader = (HiResNGShader*)((NGRenderer*)renderer)->shader;
 	if(!data || !shader) return false; // this can happen when we fall through from v hi res.
 
-	shader->uniform.fg_colour = (actor->fg_colour & 0xffffff00) + (unsigned)((actor->fg_colour & 0xff) * _a->opacity);
+	shader->uniform.fg_colour = (((AGlActor*)actor)->colour & 0xffffff00) + (unsigned)(0xff * _a->opacity);
 	shader->uniform.top = r->rect.top;
 	shader->uniform.bottom = r->rect.top + r->rect.height;
 	shader->uniform.n_channels = waveform_get_n_channels(w);
