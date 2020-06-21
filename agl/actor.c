@@ -305,9 +305,8 @@ agl_actor__remove_child (AGlActor* actor, AGlActor* child)
 
 	actor->children = g_list_remove(actor->children, child);
 
-	GList* l = child->children;
-	for(;l;l=l->next){
-		agl_actor__remove_child(child, (AGlActor*)l->data);
+	while(child->children){
+		agl_actor__remove_child(child, child->children->data);
 	}
 
 	agl_actor__free(child);

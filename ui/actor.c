@@ -649,6 +649,8 @@ wf_actor_free (AGlActor* actor)
 static void
 waveform_free_render_data (Waveform* waveform)
 {
+	if(!waveform) return;
+
 #ifdef USE_OPENGL
 #ifdef DEBUG
 	extern int texture_cache_count_by_waveform(Waveform*);
@@ -1251,18 +1253,7 @@ wf_actor_clear (WaveformActor* actor)
 		a->load_render_data_queue = 0;
 	}
 
-	int m; for(m=0;m<N_MODES;m++){
-		WaveformModeRender** r = &w->priv->render_data[m];
-		if(*r){
-			if(modes[m].renderer->free){
-				modes[m].renderer->free(modes[m].renderer, w);
-			}
-#ifdef DEBUG
-			else gwarn("cannot free render data. mode=%s", modes[m].name);
-#endif
-			*r = 0;
-		}
-	}
+	waveform_free_render_data(w);
 }
 
 
@@ -1597,12 +1588,16 @@ _wf_actor_load_missing_blocks (WaveformActor* a)
 											AnimationFn    done;
 											gpointer       user_data;
 										} C4;
+/*
+ *  Similar to agl_actor__set_size, but animates the change in size
+ */
 void
 wf_actor_set_rect (WaveformActor* a, WfRectangle* rect)
 {
 	g_return_if_fail(a);
 	g_return_if_fail(rect);
 	rect->len = MAX(1.0, rect->len);
+
 	WfActorPriv* _a = a->priv;
 	AGlActor* actor = (AGlActor*)a;
 	AGlScene* scene = actor->root;

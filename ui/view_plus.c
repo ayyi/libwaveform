@@ -824,16 +824,17 @@ waveform_view_plus_finalize (GObject* obj)
 	// these should really be done in dispose
 	if(v->actor){
 		wf_actor_clear(v->actor);
-		v->actor = (agl_actor__remove_child((AGlActor*)((AGlActor*)v->actor)->root, (AGlActor*)v->actor), NULL);
+
+		AGlActor* parent = (AGlActor*)((AGlActor*)v->actor)->root;
+		if(parent){
+			agl_actor__remove_child(parent, (AGlActor*)v->actor);
+		}
+		v->actor = NULL;
 	}
 
 	if(v->context) wf_context_free0(v->context);
 
-	if(view->waveform){
-		g_object_unref(view->waveform);
-		g_assert(!G_IS_OBJECT(view->waveform));
-		view->waveform = NULL;
-	}
+	g_clear_object(&view->waveform);
 
 	G_OBJECT_CLASS (waveform_view_plus_parent_class)->finalize(obj);
 }
