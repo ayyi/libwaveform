@@ -120,10 +120,12 @@ wf_transition_add_member (WfAnimation* animation, GList* animatables)
 	// so any Animatables specified here are removed from existing animations.
 	// All other animations are left to finish normally.
 	GList* l = transitions;
-	for(;l;l=l->next){
+	while(l){
+		WfAnimation* animation = l->data;
+		l = l->next;
 		GList* k = animatables;
 		for(;k;k=k->next){
-			if(wf_animation_remove_animatable((WfAnimation*)l->data, (WfAnimatable*)k->data)) break;
+			if(wf_animation_remove_animatable(animation, (WfAnimatable*)k->data)) break;
 		}
 	}
 
