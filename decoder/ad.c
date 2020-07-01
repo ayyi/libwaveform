@@ -122,7 +122,7 @@ ad_read_peak (WfDecoder* d, WfBuf16* out)
 #ifdef USE_FFMPEG
 	if (!d) return -1;
 
-	ssize_t ff_read_peak(WfDecoder* d, WfBuf16* buf);
+	extern ssize_t ff_read_peak(WfDecoder* d, WfBuf16* buf);
 
 	return ff_read_peak(d, out);
 #else

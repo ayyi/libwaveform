@@ -212,6 +212,11 @@ get_scaled_thumbnail (WfDecoder* d, int size, AdPicture* picture)
 		rc = av_buffersink_get_frame(f->thumbnail.filter_sink, frame);
 	}
 
+	av_frame_unref(f->thumbnail.frame);
+
+	av_packet_unref(f->thumbnail.packet);
+	f->thumbnail.packet = NULL;
+
 	if(rc < 0){
 		switch(rc){
 			case AVERROR(EAGAIN):
@@ -1234,10 +1239,6 @@ ff_read_peak (WfDecoder* d, WfBuf16* buf)
 	int data_size = av_get_bytes_per_sample(f->codec_parameters->format);
 	g_return_val_if_fail(data_size == 2, 0);
 
-	if(!(f->frame.nb_samples && f->frame_iter < f->frame.nb_samples)){
-		return 0;
-	}
-
 	// File is read in 1024 frame chunks
 	while(!av_read_frame(f->format_context, &f->packet)){
 		g_return_val_if_fail(f->packet.stream_index == f->audio_stream, 0);
@@ -1443,6 +1444,7 @@ ff_filters_init (FFmpegAudioDecoder* f, int size)
 		gwarn("Failed to configure filter graph");
 	}
 
+	av_free(params);
 	g_free(str);
 }
 
@@ -1461,10 +1463,13 @@ decode_video_packet (FFmpegAudioDecoder* f)
 #ifdef USE_DEPRECATED
 	#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 	int bytes_decoded = avcodec_decode_video2(f->thumbnail.codec_context, f->thumbnail.frame, &frame_finished, f->thumbnail.packet);
-	#pragma GCC diagnostic warning "-Wdeprecated-declarations"
 	if (bytes_decoded < 0) {
 		perr("Failed to decode video frame: nothing decoded");
 	}
+	if(frame_finished){
+		av_free_packet(f->thumbnail.packet);
+	}
+	#pragma GCC diagnostic warning "-Wdeprecated-declarations"
 #else
 	int ret = avcodec_receive_frame(f->thumbnail.codec_context, f->thumbnail.frame);
 	if (ret == 0) frame_finished = 1;
