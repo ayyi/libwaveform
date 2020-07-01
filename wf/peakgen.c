@@ -226,7 +226,6 @@ waveform_ensure_peakfile__sync (Waveform* w)
 
 #include "libavformat/avformat.h"
 #include "libavformat/avio.h"
-#include "libavresample/avresample.h"
 
 typedef struct
 {
@@ -237,7 +236,6 @@ typedef struct
 	AVFrame* frame;
 
 	struct SwsContext* sws_ctx;
-	AVAudioResampleContext* avr;
 } OutputStream;
 
 
