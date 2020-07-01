@@ -693,13 +693,16 @@ wf_actor_waveform_finalize_notify (gpointer _actor, GObject* was)
 		C2* c = _c;
 		PF;
 
-		if(waveform_get_n_frames(w)){
-			c->actor->context->sample_rate = c->actor->waveform->samplerate;
-			wf_actor_queue_load_render_data(c->actor);
+		if(c->actor->waveform == w){
+			if(waveform_get_n_frames(w)){
+				c->actor->context->sample_rate = c->actor->waveform->samplerate;
+				wf_actor_queue_load_render_data(c->actor);
+			}
+
+			if(c->callback) c->callback(c->actor, c->user_data);
 		}
 
-		if(c->callback) c->callback(c->actor, c->user_data);
-
+		g_object_unref(w);
 		g_free(c);
 	}
 
@@ -728,7 +731,7 @@ wf_actor_set_waveform (WaveformActor* a, Waveform* waveform, WaveformActorFn cal
 		wf_actor_connect_waveform(a);
 
 		waveform_load(
-			a->waveform,
+			g_object_ref(a->waveform),
 			wf_actor_set_waveform_done,
 			WF_NEW(C2, .actor = a, .callback = callback, .user_data = user_data)
 		);

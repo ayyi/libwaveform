@@ -14,7 +14,9 @@
 #include "config.h"
 #include <fcntl.h>
 #include <sys/stat.h>
+#ifdef USE_SNDFILE
 #include <sndfile.h>
+#endif
 #include <glib.h>
 #include "inttypes.h"
 #include "decoder/ad.h"
