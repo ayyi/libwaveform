@@ -30,8 +30,8 @@ libwaveformui_la_SOURCES =
 libwaveformui_la_LIBADD = \
 	transition/libtransition.la \
 	$(GLIB_LIBADD) \
-	ui/libwf.la \
-	$(OPENGL_LIBADD)
+	$(OPENGL_LIBADD) \
+	ui/libwf.la
 
 AM_CFLAGS = \
 	-DG_LOG_DOMAIN=\"Waveform\" \

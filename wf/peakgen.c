@@ -60,7 +60,9 @@
 #define DEFAULT_USER_CACHE_DIR ".cache/peak"
 
 static int           peak_mem_size = 0;
+#ifdef USE_FFMPEG
 static bool          need_file_cache_check = true;
+#endif
 
 static inline void   process_data        (short* data, int count, int channels, short max[], short min[]);
 #ifdef UNUSED
@@ -69,7 +71,9 @@ static unsigned long sample2time         (SF_INFO, long samplenum);
 static bool          wf_file_is_newer    (const char*, const char*);
 static bool          wf_create_cache_dir ();
 static char*         get_cache_dir       ();
+#ifdef USE_FFMPEG
 static void          maintain_file_cache ();
+#endif
 
 static WfWorker peakgen = {0,};
 
@@ -224,6 +228,7 @@ waveform_ensure_peakfile__sync (Waveform* w)
 }
 
 
+#ifdef USE_FFMPEG
 #include "libavformat/avformat.h"
 #include "libavformat/avio.h"
 
@@ -264,8 +269,10 @@ alloc_audio_frame (enum AVSampleFormat sample_fmt, uint64_t channel_layout, int 
 
 	return frame;
 }
+#endif
 
 
+#ifdef USE_FFMPEG
 static void
 open_audio2 (AVCodecContext* c, AVStream* stream, OutputStream *ost)
 {
@@ -290,6 +297,7 @@ open_audio2 (AVCodecContext* c, AVStream* stream, OutputStream *ost)
 		return;
 	}
 }
+#endif
 
 
 #define FAIL(A, ...) { \
@@ -300,6 +308,7 @@ open_audio2 (AVCodecContext* c, AVStream* stream, OutputStream *ost)
 	}
 
 
+#ifdef USE_FFMPEG
 static bool
 wf_ff_peakgen (const char* infilename, const char* peak_filename)
 {
@@ -487,6 +496,7 @@ f1:
 	ad_free_nfo(&f.info);
 	return false;
 }
+#endif
 
 
 typedef struct {
@@ -565,6 +575,7 @@ wf_peakgen__sync(const char* infilename, const char* peak_filename, GError** err
 	g_return_val_if_fail(infilename, false);
 	PF;
 
+#ifdef USE_FFMPEG
 	if(!wf_ff_peakgen(infilename, peak_filename)){
 		if(wf_debug){
 #ifdef USE_SNDFILE
@@ -588,6 +599,7 @@ wf_peakgen__sync(const char* infilename, const char* peak_filename, GError** err
 		maintain_file_cache();
 		need_file_cache_check = false;
 	}
+#endif // USE_FFMPEG
 
 	return true;
 }
@@ -831,6 +843,7 @@ get_cache_dir()
 
 #define CACHE_EXPIRY_DAYS 90
 
+#ifdef USE_FFMPEG
 static gboolean
 _maintain_file_cache()
 {
@@ -871,11 +884,12 @@ _maintain_file_cache()
 
 
 static void
-maintain_file_cache()
+maintain_file_cache ()
 {
 	// http://people.freedesktop.org/~vuntz/thumbnail-spec-cache/delete.html
 
 	g_idle_add(_maintain_file_cache, NULL);
 }
+#endif
 
 

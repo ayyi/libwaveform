@@ -485,14 +485,14 @@ static bool
 __draw (AGlActor* a, bool use_fbo)
 {
 	bool good = true;
+
 #ifdef AGL_ACTOR_RENDER_CACHE
-	// TODO check case where actor is translated and is partially offscreen.
 	if(use_fbo){
 		if(!a->cache.valid){
 			g_return_val_if_fail(a->fbo->width > 0.5 && a->fbo->height > 0.5, false);
 
 			agl_draw_to_fbo(a->fbo) {
-				glTranslatef(- a->cache.position.x, 0.0, 0.0);
+				glTranslatef(a->scrollable.x1 - a->cache.position.x, a->scrollable.y1 - a->cache.position.y, 0.0);
 				glClearColor(0.0, 0.0, 0.0, 0.0); // background colour must be same as foreground for correct antialiasing
 				glClear(GL_COLOR_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 
@@ -509,6 +509,7 @@ __draw (AGlActor* a, bool use_fbo)
 
 				ops_push_clip (builder(), &AGL_ROUNDED_RECT_INIT (0, 0, ((float)a->fbo->width) * 1.0, ((float)a->fbo->height) * 1.0));
 
+
 				good &= a->paint(a);
 
 				GList* l = a->children;
@@ -518,7 +519,7 @@ __draw (AGlActor* a, bool use_fbo)
 						good &= _agl_actor__paint(a);
 					}
 				}
-				glTranslatef(a->cache.position.x, 0.0, 0.0);
+				glTranslatef(a->cache.position.x, a->cache.position.y, 0.0);
 
 				ops_pop_clip (builder());
 
@@ -550,7 +551,12 @@ __draw (AGlActor* a, bool use_fbo)
 		call(a->set_state, a);
 		if(agl->use_shaders && a->program) agl_use_program(a->program);
 
+		// clear any clipping from previous render
+		ops_push_clip (builder(), &AGL_ROUNDED_RECT_INIT (0, 0, 10000., 10000.));
+
 		good &= a->paint(a);
+
+		ops_pop_clip (builder());
 	}
 
 #ifdef AGL_ACTOR_RENDER_CACHE
@@ -582,11 +588,7 @@ _agl_actor__paint (AGlActor* a)
 		.y = a->region.y1,
 	};
 
-#ifdef AGL_ACTOR_RENDER_CACHE
 	if(!use_fbo){
-#else
-	if(true){
-#endif
 		// Offset so that actors can always draw objects at the same position,
 		// irrespective of scroll position
 		offset.x += a->scrollable.x1;
@@ -678,7 +680,7 @@ _agl_actor__paint (AGlActor* a)
 		return n;
 	}
 
-	void paint_border(AGlActor* a)
+	void paint_border (AGlActor* a)
 	{
 		depth++;
 		glPushMatrix();
@@ -1441,6 +1443,7 @@ WfAnimation*
 agl_actor__start_transition (AGlActor* actor, GList* animatables, AnimationFn done, gpointer user_data)
 {
 	g_return_val_if_fail(actor, NULL);
+	g_return_val_if_fail(actor->root, NULL);
 
 	if(!actor->root->enable_animations/* || !actor->root->draw*/){ //if we cannot initiate painting we cannot animate.
 		GList* l = animatables;

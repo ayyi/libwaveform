@@ -158,6 +158,7 @@ scenegraph_SOURCES = \
 
 viewport_SOURCES = \
 	$(COMMON2_SOURCES) \
+	_cache_behaviour.c _cache_behaviour.h \
 	viewport.c
 
 promise_SOURCES = \
