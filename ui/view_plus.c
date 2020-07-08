@@ -1088,12 +1088,13 @@ waveform_view_plus_gl_on_allocate (WaveformViewPlus* view)
 	static void waveform_actor_size0 (AGlActor* actor)
 	{
 		waveform_actor_size(actor);
-#ifdef AGL_ACTOR_RENDER_CACHE
-		actor->fbo = agl_fbo_new(actor->region.x2 - actor->region.x1, actor->region.y2 - actor->region.y1, 0, 0);
-		actor->cache.enabled = true;
-#endif
+
 		float width = agl_actor__width(actor->parent);
 		if(width > 0.0){
+#ifdef AGL_ACTOR_RENDER_CACHE
+			actor->fbo = agl_fbo_new(agl_actor__width(actor), agl_actor__height(actor), 0, 0);
+			actor->cache.enabled = true;
+#endif
 			actor->region = (AGlfRegion){
 				0,
 				V_BORDER,
