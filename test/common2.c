@@ -18,9 +18,11 @@
 #include <sys/types.h>
 #define XLIB_ILLEGAL_ACCESS // needed to access Display internals
 #include <X11/Xlib.h>
+#if defined(USE_GTK) || defined(__GTK_H__)
 #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 #include <gtk/gtk.h>
 #pragma GCC diagnostic warning "-Wdeprecated-declarations"
+#endif
 #include <glib-object.h>
 #include "agl/actor.h"
 #include "waveform/utils.h"
@@ -658,6 +660,7 @@ show_refresh_rate (Display* dpy)
 }
 
 
+#if defined(USE_GTK) || defined(__GTK_H__)
 static bool
 on_window_delete (GtkWidget* widget, GdkEvent* event, gpointer user_data)
 {
@@ -749,6 +752,7 @@ add_key_handlers_gtk (GtkWindow* window, gpointer user_data, Key keys[])
 	g_signal_connect(window, "key-press-event", G_CALLBACK(key_press), user_data);
 	g_signal_connect(window, "key-release-event", G_CALLBACK(key_release), user_data);
 }
+#endif
 
 
 void

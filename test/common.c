@@ -16,9 +16,11 @@
 #include <time.h>
 #include <sys/time.h>
 #include <math.h>
+#if defined(USE_GTK) || defined(__GTK_H__)
 #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 #include <gtk/gtk.h>
 #pragma GCC diagnostic warning "-Wdeprecated-declarations"
+#endif
 #include <glib-object.h>
 #include <sndfile.h>
 #include "agl/actor.h"

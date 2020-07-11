@@ -10,16 +10,20 @@ SDLPROGRAMS = sdl
 endif
 if ENABLE_GTK
 GTKPROGRAMS = view_plus_test actor_test actor_plus actor_no_scene list group hires multi_scene $(ASSPROGRAMS) frame_rate resources cache viewport pixbuf
+else
+GTK_LDFLAGS =
 endif
 
 if ENABLE_OPENGL
 if !ENABLE_SYSTEM_GTKGLEXT
+if ENABLE_GTK
 LOCAL_GTKGLEXT_CFLAGS = \
 	-I$(top_srcdir)/gtkglext-1.0
 GTKGLEXT_LDFLAGS = \
 	-lgmodule-2.0 \
 	$(top_srcdir)/gtkglext-1.0/.libs/libgtkglext.a
 GTKGLEXT_LIBS =
+endif
 endif
 endif
 
