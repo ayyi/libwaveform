@@ -77,6 +77,7 @@ WfTransitionGlobal wf_transition = {250};
 static void transition_linear    (WfAnimation*, WfAnimatable*, uint64_t time);
 static void transition_linear_64 (WfAnimation*, WfAnimatable*, uint64_t time);
 static void transition_linear_f  (WfAnimation*, WfAnimatable*, uint64_t time);
+static void transition_linear_pt (WfAnimation*, WfAnimatable*, uint64_t time);
 
 #ifdef WF_DEBUG_ANIMATOR
 GList* animations = NULL;
@@ -85,7 +86,7 @@ guint idx = 0;
 
 GList* transitions = NULL; // list of currently running transitions (type WfAnimation*).
 
-static WfEasing linear = {transition_linear, transition_linear_64, transition_linear_f};
+static WfEasing linear = {transition_linear, transition_linear_64, transition_linear_f, transition_linear_pt};
 
 
 WfAnimation*
@@ -465,6 +466,23 @@ transition_linear_f (WfAnimation* animation, WfAnimatable* animatable, uint64_t 
 	dbg(2, "%.2f orig=%.2f target=%.2f", time_fraction, orig_val, target_val);
 #endif
 	*animatable->val.f = (1.0 - time_fraction) * orig_val + time_fraction * target_val;
+}
+
+
+static void
+transition_linear_pt (WfAnimation* animation, WfAnimatable* animatable, uint64_t time)
+{
+	uint64_t len = animation->end - animation->start;
+	uint64_t t = time - animation->start;
+
+	float time_fraction = MIN(1.0f, ((float)t) / ((float)len));
+	WfPtf orig_val   = animatable->start_val.pt;
+	WfPtf target_val = animatable->target_val.pt;
+
+	*animatable->val.pt = (WfPtf){
+		(1.0 - time_fraction) * orig_val.x + time_fraction * target_val.x,
+		(1.0 - time_fraction) * orig_val.y + time_fraction * target_val.y
+	};
 }
 
 

@@ -41,7 +41,7 @@ extern WfTransitionGlobal wf_transition;
 
 typedef struct { float x, y; } WfPtf;
 typedef struct _WfAnimation WfAnimation;
-typedef enum {WF_INT=0, WF_INT64, WF_FLOAT, WF_TYPE_MAX} WfPropType;
+typedef enum {WF_INT=0, WF_INT64, WF_FLOAT, WF_PT, WF_TYPE_MAX} WfPropType;
 
 typedef union {
    uint32_t  i;
