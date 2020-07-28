@@ -1,24 +1,18 @@
-/*
-  copyright (C) 2012-2017 Tim Orford <tim@orford.org>
-
-  This program is free software; you can redistribute it and/or modify
-  it under the terms of the GNU General Public License version 3
-  as published by the Free Software Foundation.
-
-  This program is distributed in the hope that it will be useful,
-  but WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-  GNU General Public License for more details.
-
-  You should have received a copy of the GNU General Public License
-  along with this program; if not, write to the Free Software
-  Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+/**
+* +----------------------------------------------------------------------+
+* | This file is part of the Ayyi project. http://www.ayyi.org           |
+* | copyright (C) 2012-2020 Tim Orford <tim@orford.org>                  |
+* +----------------------------------------------------------------------+
+* | This program is free software; you can redistribute it and/or modify |
+* | it under the terms of the GNU General Public License version 3       |
+* | as published by the Free Software Foundation.                        |
+* +----------------------------------------------------------------------+
+*
 */
 #define __agl_fbo_c__
 #include "config.h"
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
 #include <math.h>
 #include <sys/time.h>
 #include <glib.h>
@@ -67,10 +61,12 @@ static GLuint make_fb(AGlFBO*);
 	}
 
 AGlFBO*
-agl_fbo_new(int width, int height, GLuint texture, AGlFBOFlags flags)
+agl_fbo_new (int width, int height, GLuint texture, AGlFBOFlags flags)
 {
 	// - if texture is zero, a new texture will be created.
 	// - width and height can be zero for newly created objects that dont yet have a size.
+
+	g_return_val_if_fail(width > -1 && height > -1, NULL);
 
 	AGlFBO* fbo = AGL_NEW(AGlFBO,
 		.flags = flags,

@@ -1,6 +1,6 @@
 /**
 * +----------------------------------------------------------------------+
-* | This file is part of the Ayyi project. http://ayyi.org               |
+* | This file is part of the Ayyi project. http://www.ayyi.org           |
 * | copyright (C) 2013-2020 Tim Orford <tim@orford.org>                  |
 * +----------------------------------------------------------------------+
 * | This program is free software; you can redistribute it and/or modify |
@@ -486,6 +486,8 @@ __draw (AGlActor* a, bool use_fbo)
 {
 	bool good = true;
 
+	if(agl_actor__height(a) < .5 || agl_actor__width(a) < .5) return good;
+
 #ifdef AGL_ACTOR_RENDER_CACHE
 	if(use_fbo){
 		if(!a->cache.valid){
@@ -760,27 +762,30 @@ agl_actor__set_size (AGlActor* actor)
 #ifdef AGL_ACTOR_RENDER_CACHE
 	if(actor->fbo){
 		AGliPt size = actor->cache.size_request.x ? actor->cache.size_request : (AGliPt){agl_actor__width(actor), agl_actor__height(actor)};
-		if(size.x != actor->fbo->width || size.y != actor->fbo->height){
+		if(size.x > 0. && size.y > 0.){
+			if(size.x != actor->fbo->width || size.y != actor->fbo->height){
 #if 0
-			// Although resizing of fbos should work, it is not reliable
-			// and people often advice against it.
-			agl_fbo_set_size (actor->fbo, size.x, size.y);
-#else
-			if(agl_power_of_two(size.x) != agl_power_of_two(actor->fbo->width) || agl_power_of_two(size.y) != agl_power_of_two(actor->fbo->height)){
-				AGlFBOFlags flags = actor->fbo->flags;
-				agl_fbo_free(actor->fbo);
-				actor->fbo = agl_fbo_new(size.x, size.y, 0, flags);
-			}else{
+				// Although resizing of fbos should work, it is not reliable
+				// and people often advice against it.
 				agl_fbo_set_size (actor->fbo, size.x, size.y);
-			}
+#else
+				if(agl_power_of_two(size.x) != agl_power_of_two(actor->fbo->width) || agl_power_of_two(size.y) != agl_power_of_two(actor->fbo->height)){
+					AGlFBOFlags flags = actor->fbo->flags;
+					agl_fbo_free(actor->fbo);
+					actor->fbo = agl_fbo_new(size.x, size.y, 0, flags);
+				}else{
+					agl_fbo_set_size (actor->fbo, size.x, size.y);
+				}
 #endif
+				actor->cache.valid = false;
+			}
+		}else{
 			actor->cache.valid = false;
 		}
 	}
 #endif
 
-	GList* l = actor->children;
-	for(;l;l=l->next){
+	for(GList* l = actor->children; l; l = l->next){
 		AGlActor* a = l->data;
 		agl_actor__set_size(a);
 	}

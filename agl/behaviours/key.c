@@ -46,6 +46,9 @@ key_behaviour_init (AGlBehaviour* behaviour, AGlActor* actor)
 	KeyBehaviour* kb = (KeyBehaviour*)behaviour;
 
 	kb->handlers = g_hash_table_new(g_int_hash, g_int_equal);
+
+	g_return_if_fail(kb->keys);
+
 	int i = 0; while(true){
 		ActorKey* key = &(*kb->keys)[i];
 		if(i > 100 || !key->key) break;
