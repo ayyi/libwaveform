@@ -1,5 +1,8 @@
 #!/bin/bash
 
+set -e
+set -o pipefail
+
 shaders=(plain_colour alpha_map texture_2d);
 out=shaders.c
 

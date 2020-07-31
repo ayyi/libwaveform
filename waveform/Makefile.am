@@ -12,6 +12,7 @@ EXTRA_DIST = \
 	pixbuf.h \
 	plain.h \
 	private.h \
+	promise.h \
 	ruler.h \
 	shader.h \
 	spinner.h \
@@ -24,4 +25,5 @@ EXTRA_DIST = \
 	ui-typedefs.h \
 	utils.h \
 	view_plus.h \
-	waveform.h
+	waveform.h \
+	worker.h
