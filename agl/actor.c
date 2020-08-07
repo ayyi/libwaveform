@@ -1302,6 +1302,37 @@ agl_actor__grab (AGlActor* actor)
 }
 
 
+static inline void
+idle_queue (AGlScene* scene)
+{
+	gboolean on_idle (gpointer _scene)
+	{
+		AGlScene* scene = _scene;
+
+		if(scene->draw) scene->draw(scene);
+		scene->gl.glx.draw_idle = 0;
+
+		return G_SOURCE_REMOVE;
+	}
+
+	if(!scene->gl.glx.draw_idle){
+		scene->gl.glx.draw_idle = g_idle_add(on_idle, scene);
+	}
+}
+
+
+void
+agl_scene_queue_draw (AGlScene* scene)
+{
+#ifdef USE_GTK
+	if(actor->root->type == CONTEXT_TYPE_GTK) gtk_widget_queue_draw(actor->root->gl.gdk.widget);
+#else
+	if(false);
+#endif
+	else idle_queue(scene);
+}
+
+
 /*
  *  Remove render caches for the actor and all parents
  */
@@ -1336,12 +1367,7 @@ agl_actor__invalidate (AGlActor* actor)
 	_agl_actor__invalidate(actor);
 
 	if(actor->root){
-#ifdef USE_GTK
-		if(actor->root->type == CONTEXT_TYPE_GTK) gtk_widget_queue_draw(actor->root->gl.gdk.widget);
-#else
-		if(false);
-#endif
-		else call(actor->root->draw, actor->root, actor->root->user_data);
+		agl_scene_queue_draw(actor->root);
 	}
 }
 

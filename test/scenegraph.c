@@ -20,6 +20,7 @@
 #endif
 #include "gdk/gdk.h"
 #include "agl/ext.h"
+#include "agl/x11.h"
 #include "agl/actor.h"
 #include "test/common2.h"
 #include "wf/waveform.h"
@@ -124,16 +125,8 @@ main (int argc, char *argv[])
 		}
 	}
 
-	Display* dpy = XOpenDisplay(NULL);
-	if (!dpy) {
-		printf("Error: couldn't open display %s\n", XDisplayName(NULL));
-		return -1;
-	}
-
-	AGlWindow* window = agl_make_window(dpy, "waveformscenegraphtest", width, height);
+	AGlWindow* window = agl_window("waveformscenegraphtest", 0, 0, width, height, false);
 	scene = window->scene;
-
-	g_main_loop_new(NULL, true);
 
 	{
 		agl_actor__add_child((AGlActor*)scene, layers.grp = group(NULL));
@@ -171,9 +164,9 @@ main (int argc, char *argv[])
 
 	add_key_handlers(keys);
 
-	event_loop(dpy);
+	g_main_loop_run(agl_main_loop_new());
 
-	agl_window_destroy(dpy, &window);
+	agl_window_destroy(&window);
 	XCloseDisplay(dpy);
 
 	return 0;

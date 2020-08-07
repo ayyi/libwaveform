@@ -10,11 +10,11 @@
 *
 */
 /*
-
-  WaveformContext acts as a shared context for drawing multiple related
-  Waveform Actors.
-
-*/
+ *
+ *  WaveformContext acts as a shared context for drawing multiple related
+ *  Waveform Actors.
+ *
+ */
 #define __wf_private__
 #define __wf_canvas_priv__
 #include "config.h"
@@ -321,7 +321,7 @@ wf_context_on_paint_update(GdkFrameClock* clock, void* _canvas)
 {
 	WaveformContext* wfc = _canvas;
 
-	if(wfc->root->root->draw) wfc->root->root->draw(wfc->root->root, wfc->root->root->user_data);
+	if(wfc->root->root->draw) wfc->root->root->draw(wfc->root->root);
 	wfc->priv->_last_redraw_time = wf_get_time();
 }
 #endif

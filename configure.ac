@@ -132,6 +132,18 @@ else
 fi
 AM_CONDITIONAL(ENABLE_GTK, test "$enable_gtk" = "yes")
 
+have_xrandr=yes
+PKG_CHECK_MODULES(XRANDR, [xrandr],
+	[],
+	[have_xrandr=no],
+	[have_xrandr=yes]
+)
+if test "$have_xrandr" = "yes"; then
+	AC_DEFINE(USE_XRANDR, 1, [Use Xrandr])
+fi
+XRANDR_LDFLAGS=`pkg-config --libs xrandr`
+AC_SUBST(XRANDR_LDFLAGS)
+
 dnl -opengl----------------------------------------------
 
 AC_ARG_ENABLE(system-gtkglext, AC_HELP_STRING([--enable-system-gtkglext], [disable local opengl extension for gtk]), enable_system_gtkglext=$enableval, enable_system_gtkglext="no")
@@ -338,6 +350,7 @@ AC_MSG_RESULT([Building sdl:             $enable_sdl])
 AC_MSG_RESULT([Building libass:          $enable_libass])
 AC_MSG_RESULT([Building sndfile:         $enable_sndfile])
 AC_MSG_RESULT([Building ffmpeg:          $enable_ffmpeg])
+AC_MSG_RESULT([Building xrandr:          $have_xrandr])
 AC_MSG_RESULT([Building tests:           $enable_test])
 AC_MSG_RESULT([Building profiler:        $enable_profiler])
 AC_MSG_RESULT([Use system GtkGL:         $enable_system_gtkglext])

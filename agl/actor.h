@@ -150,6 +150,8 @@ void      agl_actor__set_use_shaders (AGlRootActor*, gboolean);
 bool      agl_actor__on_event        (AGlRootActor*, GdkEvent*);
 bool      agl_actor__xevent          (AGlRootActor*, XEvent*);
 
+void      agl_scene_queue_draw       (AGlScene*);
+
 AGlActorClass*
           agl_scene_get_class        ();
 
@@ -170,7 +172,7 @@ struct _AGlRootActor {
    AGlActor*         selected;
    AGlActor*         hovered;
 
-   void              (*draw)(AGlScene*, gpointer); // application callback - called when the application needs to initiate a redraw.
+   void              (*draw)(AGlScene*); // application callback - called when the application needs to initiate a redraw.
 
    gpointer          user_data;
 
@@ -180,17 +182,18 @@ struct _AGlRootActor {
 			GtkWidget*     widget;
 			GdkGLContext*  context;
 			GdkGLDrawable* drawable;
-		}          gdk;
+		}            gdk;
 #endif
 #ifdef USE_SDL
 		struct {
-			SDL_GLContext context;
-		}          sdl;
+			guint          draw_idle;
+			SDL_GLContext  context;
+		}            sdl;
 #endif
 		struct {
-			Window     window;
-			GLXContext context;
-			bool       needs_draw;
+			guint          draw_idle;
+			Window         window;
+			GLXContext     context;
 		}            glx;
    }                 gl;
    ContextType       type;
