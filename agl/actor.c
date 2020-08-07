@@ -1325,7 +1325,7 @@ void
 agl_scene_queue_draw (AGlScene* scene)
 {
 #ifdef USE_GTK
-	if(actor->root->type == CONTEXT_TYPE_GTK) gtk_widget_queue_draw(actor->root->gl.gdk.widget);
+	if(scene->type == CONTEXT_TYPE_GTK) gtk_widget_queue_draw(scene->gl.gdk.widget);
 #else
 	if(false);
 #endif

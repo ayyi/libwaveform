@@ -466,6 +466,7 @@ find_window_instance_number (AGlWindow* window)
 }
 
 
+#if 0
 static int
 find_window_instance_number_by_scene (AGlScene* scene)
 {
@@ -477,6 +478,7 @@ find_window_instance_number_by_scene (AGlScene* scene)
 	}
 	return -1;
 }
+#endif
 
 
 static void
