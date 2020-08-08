@@ -60,9 +60,7 @@
 #define DEFAULT_USER_CACHE_DIR ".cache/peak"
 
 static int           peak_mem_size = 0;
-#ifdef USE_FFMPEG
 static bool          need_file_cache_check = true;
-#endif
 
 static inline void   process_data        (short* data, int count, int channels, short max[], short min[]);
 #ifdef UNUSED
@@ -71,15 +69,13 @@ static unsigned long sample2time         (SF_INFO, long samplenum);
 static bool          wf_file_is_newer    (const char*, const char*);
 static bool          wf_create_cache_dir ();
 static char*         get_cache_dir       ();
-#ifdef USE_FFMPEG
 static void          maintain_file_cache ();
-#endif
 
 static WfWorker peakgen = {0,};
 
 
 static char*
-waveform_get_peak_filename(const char* filename)
+waveform_get_peak_filename (const char* filename)
 {
 	// filename should be absolute.
 	// caller must g_free the returned value.
@@ -309,9 +305,15 @@ open_audio2 (AVCodecContext* c, AVStream* stream, OutputStream *ost)
 
 
 #ifdef USE_FFMPEG
+#define N_CHANNELS f.info.channels
+#else
+#define N_CHANNELS sfinfo.channels
+#endif
+
 static bool
 wf_ff_peakgen (const char* infilename, const char* peak_filename)
 {
+#if defined(USE_FFMPEG) || defined(USE_SNDFILE)
 	WfDecoder f = {{0,}};
 
 	if(!ad_open(&f, infilename)) return false;
@@ -320,6 +322,7 @@ wf_ff_peakgen (const char* infilename, const char* peak_filename)
 	gchar* tmp_path = g_build_filename("/tmp", basename, NULL);
 	g_free(basename);
 
+#ifdef USE_FFMPEG
 	OutputStream output_stream = {0,};
 
 	AVFormatContext* format_context;
@@ -369,9 +372,27 @@ wf_ff_peakgen (const char* infilename, const char* peak_filename)
 		pwarn("could not write header");
 		return false;
 	}
+#else
+	SNDFILE* outfile;
+	SF_INFO sfinfo = {
+		.format = SF_FORMAT_WAV | SF_FORMAT_PCM_16,
+		.channels = f.info.channels,
+		.samplerate = f.info.sample_rate,
+	};
+
+	if(!(outfile = sf_open(tmp_path, SFM_WRITE, &sfinfo))){
+		printf ("Not able to open output file %s.\n", tmp_path);
+		puts(sf_strerror(NULL));
+		return false;
+	}
+#endif
 
 	int total_frames_written = 0;
+#ifdef USE_FFMPEG
 	WfPeakSample total[WF_STEREO] = {0,};
+#else
+	WfPeakSample total[sfinfo.channels]; memset(total, 0, sizeof(WfPeakSample) * sfinfo.channels);
+#endif
 
 	#define n_blocks 8
 	int read_len = WF_PEAK_RATIO * n_blocks;
@@ -390,16 +411,16 @@ wf_ff_peakgen (const char* infilename, const char* peak_filename)
 		total_readcount += readcount;
 		int remaining = readcount;
 
-		WfPeakSample peak[f.info.channels];
+		WfPeakSample peak[N_CHANNELS];
 
 		int n = MIN(n_blocks, readcount / WF_PEAK_RATIO + (readcount % WF_PEAK_RATIO ? 1 : 0));
 		int j = 0; for(;j<n;j++){
-			WfPeakSample w[f.info.channels];
+			WfPeakSample w[N_CHANNELS];
 
-			memset(peak, 0, sizeof(WfPeakSample) * f.info.channels);
+			memset(peak, 0, sizeof(WfPeakSample) * N_CHANNELS);
 
-			int k; for (k = 0; k < MIN(remaining, WF_PEAK_RATIO); k += f.info.channels){
-				int c; for(c=0;c<f.info.channels;c++){
+			int k; for (k = 0; k < MIN(remaining, WF_PEAK_RATIO); k += N_CHANNELS){
+				int c; for(c=0;c<N_CHANNELS;c++){
 					int16_t val = buf.buf[c][WF_PEAK_RATIO * j + k];
 					peak[c] = (WfPeakSample){
 						MAX(peak[c].positive, val),
@@ -408,14 +429,15 @@ wf_ff_peakgen (const char* infilename, const char* peak_filename)
 				}
 			};
 			remaining -= WF_PEAK_RATIO;
-			int c; for(c=0;c<f.info.channels;c++){
+			int c; for(c=0;c<N_CHANNELS;c++){
 				w[c] = peak[c];
 				total[c] = (WfPeakSample){
 					MAX(total[c].positive, w[c].positive),
 					MIN(total[c].negative, w[c].negative),
 				};
 			}
-			//-------------
+
+#ifdef USE_FFMPEG
 			/*
 			if(av_frame_make_writable(frame) < 0){
 				fprintf(stderr, "Could not make frame writable\n");
@@ -432,10 +454,14 @@ wf_ff_peakgen (const char* infilename, const char* peak_filename)
 			// flush the encoder
 			wf_ff_encode(cx, NULL, pkt, fp);
 			*/
+#endif
 
+#ifdef USE_FFMPEG
 			avio_write(format_context->pb, (unsigned char*)w, WF_PEAK_VALUES_PER_SAMPLE * f.info.channels * sizeof(short));
-
 			total_frames_written += WF_PEAK_VALUES_PER_SAMPLE;
+#else
+			total_frames_written += sf_writef_short (outfile, (short*)w, WF_PEAK_VALUES_PER_SAMPLE);
+#endif
 		}
 	}
 
@@ -457,13 +483,18 @@ wf_ff_peakgen (const char* infilename, const char* peak_filename)
 			f.info.frames / WF_PEAK_RATIO
 		);
 
+#ifdef USE_FFMPEG
 		unsigned char w[WF_PEAK_VALUES_PER_SAMPLE * WF_STEREO * sizeof(short)] = {0,};
 		while(total_frames_written / WF_PEAK_VALUES_PER_SAMPLE < f.info.frames / WF_PEAK_RATIO){
 			avio_write(format_context->pb, w, WF_PEAK_VALUES_PER_SAMPLE * f.info.channels * sizeof(short));
 			total_frames_written += WF_PEAK_VALUES_PER_SAMPLE * f.info.channels * sizeof(short);
 		}
+#endif
 	}
 
+	ad_close(&f);
+
+#ifdef USE_FFMPEG
 	//avio_flush(format_context->pb); // probably not needed
 
 	av_write_trailer(format_context);
@@ -472,6 +503,11 @@ wf_ff_peakgen (const char* infilename, const char* peak_filename)
 	av_frame_free(&output_stream.frame);
 	avio_close(format_context->pb);
 	avformat_free_context(format_context);
+
+	ad_free_nfo(&f.info);
+#else
+	sf_close (outfile);
+#endif
 
 	if(total_readcount){
 		int renamed = !rename(tmp_path, peak_filename);
@@ -482,21 +518,22 @@ wf_ff_peakgen (const char* infilename, const char* peak_filename)
 		if(!g_unlink(tmp_path)){
 			pwarn("delete failed");
 		}
+#ifdef USE_FFMPEG
 		goto f1;
+#endif
 	}
-
-	ad_close(&f);
-	ad_free_nfo(&f.info);
 
 	return true;
 
+#ifdef USE_FFMPEG
 f1:
 	g_free(tmp_path);
 	ad_close(&f);
 	ad_free_nfo(&f.info);
 	return false;
-}
 #endif
+#endif
+}
 
 
 typedef struct {
@@ -570,12 +607,11 @@ waveform_peakgen_cancel(Waveform* w)
  *  If error arg is not NULL, the caller must free any GError created.
  */
 bool
-wf_peakgen__sync(const char* infilename, const char* peak_filename, GError** error)
+wf_peakgen__sync (const char* infilename, const char* peak_filename, GError** error)
 {
 	g_return_val_if_fail(infilename, false);
 	PF;
 
-#ifdef USE_FFMPEG
 	if(!wf_ff_peakgen(infilename, peak_filename)){
 		if(wf_debug){
 #ifdef USE_SNDFILE
@@ -599,7 +635,6 @@ wf_peakgen__sync(const char* infilename, const char* peak_filename, GError** err
 		maintain_file_cache();
 		need_file_cache_check = false;
 	}
-#endif // USE_FFMPEG
 
 	return true;
 }
@@ -843,9 +878,8 @@ get_cache_dir()
 
 #define CACHE_EXPIRY_DAYS 90
 
-#ifdef USE_FFMPEG
 static gboolean
-_maintain_file_cache()
+_maintain_file_cache ()
 {
 	char* dir_name = get_cache_dir();
 	dbg(2, "dir=%s", dir_name);
@@ -890,6 +924,5 @@ maintain_file_cache ()
 
 	g_idle_add(_maintain_file_cache, NULL);
 }
-#endif
 
 
