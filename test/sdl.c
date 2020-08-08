@@ -167,7 +167,7 @@ main (int argc, char **argv)
 			wf_actor_set_region(window.a[i], &window.region[i]);
 		}
 
-		void _on_scene_requests_redraw (AGlScene* scene)
+		void _on_scene_requests_redraw (AGlScene* scene, gpointer _)
 		{
 			window.dirty = true;
 		}
