@@ -2,8 +2,7 @@
 noinst_LTLIBRARIES = libdecoder.la
 
 AM_CFLAGS = \
-	-DG_LOG_DOMAIN=\"AGl\" \
-	-DPACKAGE_DATA_DIR=\""$(datadir)"\" \
+	-DG_LOG_DOMAIN=\"Decoder\" \
 	-I$(includedir) \
 	$(GLIB_CFLAGS)
 
