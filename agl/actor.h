@@ -172,7 +172,7 @@ struct _AGlRootActor {
    AGlActor*         selected;
    AGlActor*         hovered;
 
-   void              (*draw)(AGlScene*); // application callback - called when the application needs to initiate a redraw.
+   void              (*draw)(AGlScene*, gpointer); // application callback - called when the application needs to initiate a redraw.
 
    gpointer          user_data;
 

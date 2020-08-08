@@ -54,7 +54,7 @@ static GLboolean has_MESA_swap_frame_usage = false;
 
 static void set_fullscreen              (Window);
 static void no_border                   (Display*, Window);
-static void draw                        (AGlScene*);
+static void draw                        (AGlScene*, gpointer);
 static int  find_window_instance_number (AGlWindow*);
 static void on_window_resize            (AGlWindow*, int width, int height);
 static void show_refresh_rate           ();
@@ -482,7 +482,7 @@ find_window_instance_number_by_scene (AGlScene* scene)
 
 
 static void
-draw (AGlScene* scene)
+draw (AGlScene* scene, gpointer _)
 {
 	AGlActor* actor = (AGlActor*)scene;
 

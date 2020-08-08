@@ -1010,7 +1010,11 @@ agl_actor__on_event (AGlScene* root, GdkEvent* event)
 			break;
 		case GDK_BUTTON_PRESS:
 #ifdef USE_GTK
-			if(SCENE_IS_GTK(actor)) gtk_window_set_focus((GtkWindow*)gtk_widget_get_toplevel(root->gl.gdk.widget), root->gl.gdk.widget);
+			if(SCENE_IS_GTK(actor)){
+				if(gtk_widget_get_can_focus(root->gl.gdk.widget)){
+					gtk_window_set_focus((GtkWindow*)gtk_widget_get_toplevel(root->gl.gdk.widget), root->gl.gdk.widget);
+				}
+			}
 #endif
 		case GDK_BUTTON_RELEASE:
 			if(root->selected != a){
@@ -1309,7 +1313,7 @@ idle_queue (AGlScene* scene)
 	{
 		AGlScene* scene = _scene;
 
-		if(scene->draw) scene->draw(scene);
+		if(scene->draw) scene->draw(scene, scene->user_data);
 		scene->gl.glx.draw_idle = 0;
 
 		return G_SOURCE_REMOVE;

@@ -321,7 +321,7 @@ wf_context_on_paint_update(GdkFrameClock* clock, void* _canvas)
 {
 	WaveformContext* wfc = _canvas;
 
-	if(wfc->root->root->draw) wfc->root->root->draw(wfc->root->root);
+	if(wfc->root->root->draw) wfc->root->root->draw(wfc->root->root, wfc->root->root->user_data);
 	wfc->priv->_last_redraw_time = wf_get_time();
 }
 #endif
