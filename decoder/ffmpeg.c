@@ -212,11 +212,6 @@ get_scaled_thumbnail (WfDecoder* d, int size, AdPicture* picture)
 		rc = av_buffersink_get_frame(f->thumbnail.filter_sink, frame);
 	}
 
-	av_frame_unref(f->thumbnail.frame);
-
-	av_packet_unref(f->thumbnail.packet);
-	f->thumbnail.packet = NULL;
-
 	if(rc < 0){
 		switch(rc){
 			case AVERROR(EAGAIN):
@@ -242,14 +237,12 @@ get_scaled_thumbnail (WfDecoder* d, int size, AdPicture* picture)
 
 		// causes segfault in avformat_close_input
 		//avcodec_free_context(&f->thumbnail.codec_context);
-// TODO ensure other stuff is freed
-/*
-avcodec_free_context(&dec_ctx);
-avformat_close_input(&fmt_ctx);
-av_frame_free(&frame);
-*/
-		av_frame_free(&f->thumbnail.frame);
 	}
+
+	av_frame_unref(f->thumbnail.frame);
+
+	av_packet_unref(f->thumbnail.packet);
+	f->thumbnail.packet = NULL;
 
 	*picture = (AdPicture){
 		.data = frame_data,
