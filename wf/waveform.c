@@ -137,6 +137,12 @@ waveform_finalize (GObject* obj)
 		if(_w->peak.buf[c]) g_free(_w->peak.buf[c]);
 	}
 
+	if(!_w->peaks->is_resolved){
+		// allow subscribers to free closure data
+		am_promise_fail(_w->peaks, NULL);
+	}
+	am_promise_unref0(_w->peaks);
+
 	if(_w->hires_peaks){
 		void** data = _w->hires_peaks->pdata;
 		int i; for(i=0;i<_w->hires_peaks->len;i++){
