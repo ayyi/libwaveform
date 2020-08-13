@@ -341,6 +341,94 @@ agl_window_destroy (AGlWindow** window)
 }
 
 
+/**
+ * agl_window_set_icons:
+ * @window: The Window for which to set the icon.
+ * @pixbufs: (transfer full) (element-type GdkPixbuf):
+ *     A list of pixbufs, of different sizes.
+ *
+ * Sets a list of icons for the window. One of these will be used
+ * to represent the window when it has been iconified. The icon is
+ * usually shown in an icon box or some sort of task bar. Which icon
+ * size is shown depends on the window manager. The window manager
+ * can scale the icon  but setting several size icons can give better
+ * image quality since the window manager may only need to scale the
+ * icon by a small amount or not at all.
+ *
+ **/
+void
+agl_window_set_icons (Window window, GList* pixbufs)
+{
+	GList* l = pixbufs;
+	int size = 0;
+	int n = 0;
+	while (l) {
+		GdkPixbuf* pixbuf = l->data;
+		g_return_if_fail (GDK_IS_PIXBUF (pixbuf));
+
+		int width = gdk_pixbuf_get_width (pixbuf);
+		int height = gdk_pixbuf_get_height (pixbuf);
+
+		/* silently ignore overlarge icons */
+#if 0
+		if (size + 2 + width * height > GDK_SELECTION_MAX_SIZE(display)) {
+			g_warning ("gdk_window_set_icon_list: icons too large");
+			break;
+		}
+#endif
+
+		n++;
+		size += 2 + width * height;
+
+		l = g_list_next (l);
+	}
+
+	gulong* data = g_malloc (size * sizeof (gulong));
+
+	l = pixbufs;
+	gulong* p = data;
+	while (l && n > 0) {
+		GdkPixbuf* pixbuf = l->data;
+
+		int width = gdk_pixbuf_get_width (pixbuf);
+		int height = gdk_pixbuf_get_height (pixbuf);
+		int stride = gdk_pixbuf_get_rowstride (pixbuf);
+		int n_channels = gdk_pixbuf_get_n_channels (pixbuf);
+
+		*p++ = width;
+		*p++ = height;
+
+		guchar* pixels= gdk_pixbuf_get_pixels (pixbuf);
+
+		for (int y = 0; y < height; y++) {
+			for (int x = 0; x < width; x++) {
+				guchar r = pixels[y*stride + x*n_channels + 0];
+				guchar g = pixels[y*stride + x*n_channels + 1];
+				guchar b = pixels[y*stride + x*n_channels + 2];
+				guchar a = (n_channels >= 4)
+					? pixels[y*stride + x*n_channels + 3]
+					: 255;
+
+				*p++ = a << 24 | r << 16 | g << 8 | b ;
+			}
+		}
+
+		g_object_unref(pixbuf);
+
+		l = g_list_next (l);
+		n--;
+	}
+
+	if (size > 0) {
+		XChangeProperty (dpy, window, XInternAtom(dpy, "_NET_WM_ICON", False), XA_CARDINAL, 32, PropModeReplace, (guchar*) data, size);
+	} else {
+		XDeleteProperty (dpy, window, XInternAtom(dpy, "_NET_WM_ICON", False));
+	}
+
+	g_free (data);
+	g_list_free(pixbufs);
+}
+
 static void
 on_window_resize (AGlWindow* window, int width, int height)
 {
@@ -734,7 +822,7 @@ show_refresh_rate ()
 /**
  * Determine if an extension is supported. The extension string table
  * must have already be initialized by calling \c make_extension_table.
- * 
+ *
  * \param ext  Extension to be tested.
  * \return GL_TRUE of the extension is supported, GL_FALSE otherwise.
  * \sa make_extension_table

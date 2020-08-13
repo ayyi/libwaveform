@@ -25,6 +25,7 @@ typedef struct {
 AGlWindow* agl_window            (const char* name, int x, int y, int width, int height, bool fullscreen);
 void       agl_window_destroy    (AGlWindow**);
 
+void       agl_window_set_icons  (Window, GList* pixbufs);
 bool       agl_is_fullscreen     (Window);
 void       agl_toggle_fullscreen (Window);
 
