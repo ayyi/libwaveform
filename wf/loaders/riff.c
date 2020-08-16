@@ -116,7 +116,7 @@ wf_load_riff_peak (Waveform* wv, const char* peak_file)
 	if(sfinfo.frames / WF_PEAK_VALUES_PER_SAMPLE > max_frames) pwarn("peakfile is too long: %"PRIi64", expected %"PRIi64, sfinfo.frames / WF_PEAK_VALUES_PER_SAMPLE, max_frames);
 #else
 	// we haven't loaded any data yet, and with ffmpeg, any frames counts are only estimates
-	if(decoder.info.frames % WF_PEAK_VALUES_PER_SAMPLE)
+	if(wf_debug && decoder.info.frames % WF_PEAK_VALUES_PER_SAMPLE)
 		pwarn("peakfile not even length: %"PRIi64, decoder.info.frames);
 	if(n_frames > max_frames)
 		pwarn("peakfile might be too long: %"PRIi64", expected %"PRIi64, decoder.info.frames / WF_PEAK_VALUES_PER_SAMPLE, max_frames);

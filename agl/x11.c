@@ -574,6 +574,10 @@ draw (AGlScene* scene, gpointer _)
 {
 	AGlActor* actor = (AGlActor*)scene;
 
+	if(actor->region.x2 < 0.1 || actor->region.y2 < 0.1){
+		return;
+	}
+
 	if(scene->gl.glx.window != current){
 		glXMakeCurrent(dpy, scene->gl.glx.window, scene->gl.glx.context);
 
@@ -714,7 +718,6 @@ x11_fd_dispatch (GSource* source, GSourceFunc callback, gpointer user_data)
 				case ConfigureNotify:
 					// There was a change to size, position, border, or stacking order.
 					dbg(1, "Configure %i: %ix%i (scene=%.0fx%.0f)", g_list_index(windows, window), event.xconfigure.width, event.xconfigure.height, agl_actor__width((AGlActor*)window->scene), agl_actor__height((AGlActor*)window->scene));
-															dbg(0, "Configure %i: %ix%i (scene=%.0fx%.0f)", g_list_index(windows, window), event.xconfigure.width, event.xconfigure.height, agl_actor__width((AGlActor*)window->scene), agl_actor__height((AGlActor*)window->scene));
 					on_window_resize(window, event.xconfigure.width, event.xconfigure.height);
 					break;
 				case MotionNotify:
