@@ -40,11 +40,13 @@
 #ifdef USE_SNDFILE
 #include <sndfile.h>
 #else
+#ifdef USE_FFMPEG
 #include <libavcodec/avcodec.h>
 #include <libavutil/channel_layout.h>
 #include <libavutil/common.h>
 #include <libavutil/frame.h>
 #include <libavutil/samplefmt.h>
+#endif
 #endif
 #include "decoder/ad.h"
 #include "wf/debug.h"
