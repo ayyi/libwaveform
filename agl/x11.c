@@ -488,6 +488,7 @@ agl_is_fullscreen (Window win)
 				break;
 			}
 		}
+		XFree(data);
 	}
 
 	return fs;

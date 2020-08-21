@@ -11,7 +11,9 @@
 *
 */
 #define __wf_private__
+#ifdef DEBUG
 #define ENABLE_CHECKS
+#endif
 #include "config.h"
 #include <libgen.h>
 #include <sys/types.h>
@@ -204,9 +206,11 @@ wf_load_riff_peak (Waveform* wv, const char* peak_file)
 	}
 #endif
 #ifdef ENABLE_CHECKS
-	int k; for(k=0;k<10;k++){
-		if(_w->peak.buf[0][2*k + 0] < 0.0 || _w->peak.buf[1][2*k + 0] < 0.0){ pwarn("positive peak not positive"); break; }
-		if(_w->peak.buf[0][2*k + 1] > 0.0 || _w->peak.buf[1][2*k + 1] > 0.0){ pwarn("negative peak not negative"); break; }
+	if(_w->peak.buf[0] && _w->peak.buf[1]){
+		for(int k=0;k<10;k++){
+			if(_w->peak.buf[0][2*k + 0] < 0.0 || _w->peak.buf[1][2*k + 0] < 0.0){ pwarn("positive peak not positive"); break; }
+			if(_w->peak.buf[0][2*k + 1] > 0.0 || _w->peak.buf[1][2*k + 1] > 0.0){ pwarn("negative peak not negative"); break; }
+		}
 	}
 #endif
   out_close:

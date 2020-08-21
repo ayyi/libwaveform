@@ -13,8 +13,11 @@
 #undef USE_GTK
 #include "key.h"
 
+static void key_behaviour_free (AGlBehaviour*);
+
 static AGlBehaviourClass klass = {
 	.new = key_behaviour,
+	.free = key_behaviour_free,
 	.init = key_behaviour_init,
 	.event = key_behaviour_handle_event,
 };
@@ -37,6 +40,17 @@ key_behaviour ()
 	);
 
 	return (AGlBehaviour*)a;
+}
+
+
+static void
+key_behaviour_free (AGlBehaviour* behaviour)
+{
+	KeyBehaviour* kb = (KeyBehaviour*)behaviour;
+
+	g_hash_table_destroy(kb->handlers);
+
+	g_free(kb);
 }
 
 
@@ -75,5 +89,6 @@ key_behaviour_handle_event (AGlBehaviour* behaviour, AGlActor* actor, GdkEvent* 
 		default:
 			break;
 	}
+
 	return AGL_NOT_HANDLED;
 }
