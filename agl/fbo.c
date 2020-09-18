@@ -18,6 +18,7 @@
 #include <glib.h>
 #include "agl/ext.h"
 #include "agl/utils.h"
+#include "agl/debug.h"
 #include "agl/fbo.h"
 
 #define NON_SQUARE
@@ -25,12 +26,7 @@
 
 typedef struct { int w, h; } iSize;
 
-//TODO, perhaps just remove custom debugging messages...
-extern void wf_debug_printf (const char* func, int level, const char* format, ...);
-#define gwarn(A, ...) g_warning("%s(): "A, __func__, ##__VA_ARGS__);
-#define dbg(A, B, ...) wf_debug_printf(__func__, A, B, ##__VA_ARGS__)
-
-static GLuint make_fb(AGlFBO*);
+static GLuint make_fb (AGlFBO*);
 
 
 #ifdef NON_SQUARE
@@ -261,7 +257,7 @@ make_fb(AGlFBO* fbo)
 	glFramebufferTexture2D(GL_FRAMEBUFFER_EXT, GL_COLOR_ATTACHMENT0_EXT, GL_TEXTURE_2D, fbo->texture, texture_level_0);
 
 	GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER_EXT);
-	if (status != GL_FRAMEBUFFER_COMPLETE_EXT) gwarn("framebuffer incomplete: 0x%04x", status);
+	if (status != GL_FRAMEBUFFER_COMPLETE_EXT) pwarn("framebuffer incomplete: 0x%04x", status);
 
 	// Setup depth and stencil buffers
 	GLuint DepthRB = 0, stencil_rb = 0;

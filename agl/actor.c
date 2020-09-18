@@ -914,6 +914,8 @@ region_match (AGlfRegion* r, float x, float y)
 static AGlActor*
 child_region_hit (AGlActor* actor, AGliPt xy)
 {
+	if(actor->disabled) return NULL;
+
 	GList* l = g_list_last(actor->children); // iterate backwards so that the 'top' actor get the events first.
 	for(;l;l=l->prev){
 		AGlActor* child = l->data;
@@ -1672,14 +1674,17 @@ agl_actor__print_tree (AGlActor* actor)
 				? lgrey
 				: "";
 		AGliPt offset = _agl_actor__find_offset(actor);
-		if(actor->name) printf("%s%s:%s%s%s%s cache(%i,%i) region(%0f,%0f,%0f,%0f) offset(%i,%i)%s%s%s\n", colour, actor->name, offscreen, zero_size, negative_size, disabled, actor->cache.enabled, actor->cache.valid, actor->region.x1, actor->region.y1, actor->region.x2, actor->region.y2, offset.x, offset.y, scrollablex, scrollabley, white);
+		char cache[64] = {0,};
+		if(actor->cache.position.x || actor->cache.position.y){
+			sprintf(cache, " cache(%i,%i)(%i,%i)", actor->cache.position.x, actor->cache.position.y, actor->cache.offset.x, actor->cache.offset.y);
+		}
+		if(actor->name) printf("%s%s:%s%s%s%s cache(%i,%i) region(%.0f,%.0f,%.0f,%.0f) offset(%i,%i)%s%s%s%s\n", colour, actor->name, offscreen, zero_size, negative_size, disabled, actor->cache.enabled, actor->cache.valid, actor->region.x1, actor->region.y1, actor->region.x2, actor->region.y2, offset.x, offset.y, scrollablex, scrollabley, cache, white);
 #else
 		if(actor->name) printf("%s\n", actor->name);
 #endif
 		if(!actor->name) printf("%s%s (%0f,%0f)\n", offscreen, zero_size, actor->region.x1, actor->region.y1);
 		indent++;
-		GList* l = actor->children;
-		for(;l;l=l->next){
+		for(GList* l = actor->children; l; l = l->next){
 			AGlActor* child = l->data;
 			_print(child);
 		}
