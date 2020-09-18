@@ -198,7 +198,9 @@ waveform_ensure_peakfile__sync (Waveform* w)
 {
 	if(!wf_create_cache_dir()) return NULL;
 
-	char* filename = g_path_is_absolute(w->filename) ? g_strdup(w->filename) : g_build_filename(g_get_current_dir(), w->filename, NULL);
+	char* cwd = g_get_current_dir();
+	char* filename = g_path_is_absolute(w->filename) ? g_strdup(w->filename) : g_build_filename(cwd, w->filename, NULL);
+	g_free(cwd);
 
 	gchar* peak_filename = waveform_get_peak_filename(filename);
 	if(!peak_filename) goto out;
@@ -212,7 +214,7 @@ waveform_ensure_peakfile__sync (Waveform* w)
 		The freedesktop thumbnailer spec identifies modifications by comparing with both url and mtime stored in the thumbnail.
 		This will mostly work, but strictly speaking still won't identify a changed file in all cases.
 		*/
-		if(w->offline || wf_file_is_newer(peak_filename, filename)) return peak_filename;
+		if(w->offline || wf_file_is_newer(peak_filename, filename)) goto out;
 
 		dbg(1, "peakfile is too old");
 	}

@@ -137,22 +137,24 @@ waveform_finalize (GObject* obj)
 		if(_w->peak.buf[c]) g_free(_w->peak.buf[c]);
 	}
 
-	if(!_w->peaks->is_resolved){
-		// allow subscribers to free closure data
-		am_promise_fail(_w->peaks, NULL);
+	if(_w->peaks){
+		if(!_w->peaks->is_resolved){
+			// allow subscribers to free closure data
+			am_promise_fail(_w->peaks, NULL);
+		}
+		am_promise_unref0(_w->peaks);
 	}
-	am_promise_unref0(_w->peaks);
 
 	if(_w->hires_peaks){
 		void** data = _w->hires_peaks->pdata;
-		int i; for(i=0;i<_w->hires_peaks->len;i++){
+		for(int i=0;i<_w->hires_peaks->len;i++){
 			Peakbuf* p = data[i];
 			waveform_peakbuf_free(p);
 		}
-		g_ptr_array_free (_w->hires_peaks, false);
+		g_ptr_array_free (_w->hires_peaks, true);
 	}
 
-	int m; for(m=MODE_V_LOW;m<=MODE_HI;m++){
+	for(int m=MODE_V_LOW;m<=MODE_HI;m++){
 		if(_w->render_data[m]) pwarn("actor data not cleared");
 	}
 
@@ -608,7 +610,7 @@ waveform_get_peakbuf_n(Waveform* w, int block_num)
 
 
 void
-waveform_peakbuf_assign(Waveform* w, int block_num, Peakbuf* peakbuf)
+waveform_peakbuf_assign (Waveform* w, int block_num, Peakbuf* peakbuf)
 {
 	g_return_if_fail(peakbuf);
 	g_return_if_fail(block_num >= 0);

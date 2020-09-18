@@ -646,6 +646,7 @@ wf_actor_free (AGlActor* actor)
 		waveform_unref0(a->waveform);
 	}
 
+	g_clear_pointer(&_a->peakdata_ready, am_promise_unref);
 	g_free0(a->priv);
 
 #if 0 // no, cannot call this because it calls the free function

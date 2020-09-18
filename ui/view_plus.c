@@ -158,7 +158,7 @@ __init ()
 		}
 	}
 
-	glconfig = gdk_gl_config_new_by_mode( GDK_GL_MODE_RGBA | GDK_GL_MODE_DEPTH | GDK_GL_MODE_DOUBLE );
+	glconfig = gdk_gl_config_new_by_mode(GDK_GL_MODE_RGBA | GDK_GL_MODE_DEPTH | GDK_GL_MODE_DOUBLE);
 	if (!glconfig) { perr ("Cannot initialise gtkglext."); return false; }
 
 	return true;
@@ -245,8 +245,8 @@ waveform_view_plus_new (Waveform* waveform)
 	// delay initialisation to allow for additional options to be set.
 	g_idle_add(waveform_view_plus_load_new_on_idle, view);
 
-	view->priv->ready = am_promise_new(view);
-	am_promise_when(view->priv->ready, am_promise_new(view), am_promise_new(view), NULL);
+	v->ready = am_promise_new(view);
+	am_promise_when(v->ready, am_promise_new(view), am_promise_new(view), NULL);
 
 	v->root = agl_actor__new_root(widget);
 	v->root->init = root_ready;
@@ -351,7 +351,7 @@ waveform_view_plus_load_file (WaveformViewPlus* view, const char* filename, WfCa
 
 
 #ifdef DEBUG
-	static void on_waveform_view_finalize (gpointer view, GObject* was)
+	static void waveform_view_on_wav_finalize (gpointer view, GObject* was)
 	{
 		dbg(0, "^^^");
 		((WaveformViewPlus*)view)->waveform = NULL;
@@ -365,13 +365,16 @@ waveform_view_plus_set_waveform (WaveformViewPlus* view, Waveform* waveform)
 	WaveformViewPlusPrivate* v = view->priv;
 
 	if(view->waveform){
+#ifdef DEBUG
+		g_object_weak_unref((GObject*)view->waveform, waveform_view_on_wav_finalize, view);
+#endif
 		g_object_unref(view->waveform);
 		v->actor->region.len = 0; // force it to be set once the wav is loaded
 	}
 	view->waveform = g_object_ref(waveform);
 
 #ifdef DEBUG
-	g_object_weak_ref((GObject*)view->waveform, on_waveform_view_finalize, view);
+	g_object_weak_ref((GObject*)view->waveform, waveform_view_on_wav_finalize, view);
 #endif
 
 	if(v->actor){
@@ -661,20 +664,11 @@ waveform_view_plus_on_expose (GtkWidget* widget, GdkEventExpose* event)
 static gboolean
 waveform_view_plus_button_press_event (GtkWidget* widget, GdkEventButton* event)
 {
-	g_return_val_if_fail (event != NULL, false);
-	gboolean handled = false;
+	g_return_val_if_fail (event, false);
 
-	switch (event->type){
-		case GDK_BUTTON_PRESS:
-			dbg(1, "GDK_BUTTON_PRESS");
-			gtk_widget_grab_focus(widget);
-			handled = true;
-			break;
-		default:
-			dbg(0, "unexpected event type");
-			break;
-	}
-	return handled;
+	gtk_widget_grab_focus(widget);
+
+	return AGL_NOT_HANDLED;
 }
 
 
@@ -830,7 +824,11 @@ waveform_view_plus_finalize (GObject* obj)
 
 	if(v->context) wf_context_free0(v->context);
 
+#ifdef DEBUG
+	g_object_weak_unref((GObject*)view->waveform, waveform_view_on_wav_finalize, view);
+#endif
 	g_clear_object(&view->waveform);
+	g_clear_pointer(&v->ready, am_promise_unref);
 
 	G_OBJECT_CLASS (waveform_view_plus_parent_class)->finalize(obj);
 }
