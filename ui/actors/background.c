@@ -31,29 +31,44 @@ agl_load_alphamap (char* buf, guint texture, int width, int height)
 	glBindTexture  (GL_TEXTURE_2D, texture);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_ALPHA, width, height, 0, pixel_format, GL_UNSIGNED_BYTE, buf);
 #ifdef DEBUG
 	gl_warn("binding bg texture");
 #endif
 }
 
+
+/*
+ *  Create an alpha-map gradient texture
+ */
 static void
 create_background (AGlActor* a)
 {
-	//create an alpha-map gradient texture
-
 	AGlTextureActor* ta = (AGlTextureActor*)a;
 
 	if(ta->texture[0]) return;
 
-	int width = 256;
-	int height = 256;
-	char* pbuf = g_new0(char, width * height);
+	int width = 8;
+	int height = 8;
+
+	guchar* pbuf = g_new0(guchar, width * height);
 #if 1
 	int y; for(y=0;y<height;y++){
 		int x; for(x=0;x<width;x++){
-			*(pbuf + y * width + x) = ((x+y) * 0xff) / (width * 2);
+			// with coefficient 2.5, gradient does not go fully transparent
+			*(pbuf + y * width + x) = ((x+y) * 0xff) / ((float)width * 2.5);
 		}
+	}
+	// darken the edges
+	y = 0;
+	int x; for(x=0;x<width;x++){
+		*(pbuf + y * width + x) = MIN(0xff, *(pbuf + y * width + x) + 0x1a);
+	}
+	y = height - 1;
+	for(x=0;x<width;x++){
+		*(pbuf + y * width + x) = MIN(0xff, *(pbuf + y * width + x) + 0x1a);
 	}
 #else
 	// this gradient is brighter in the middle. It only works for stereo.
@@ -79,7 +94,7 @@ create_background (AGlActor* a)
 	glGenTextures(1, ta->texture);
 	if(glGetError() != GL_NO_ERROR){ perr ("couldnt create bg_texture."); goto out; }
 
-	agl_load_alphamap(pbuf, ta->texture[0], width, height);
+	agl_load_alphamap((char*)pbuf, ta->texture[0], width, height);
 
   out:
 	g_free(pbuf);
@@ -93,7 +108,7 @@ bg_actor_set_state (AGlActor* actor)
 #if 0
 		((AlphaMapShader*)actor->program)->uniform.fg_colour = 0x4488ffff; // TODO use theme colour, or pass as argument.
 #else
-		((AlphaMapShader*)actor->program)->uniform.fg_colour = 0x666666ff;
+		((AlphaMapShader*)actor->program)->uniform.fg_colour = 0x333333ff;
 #endif
 	}else{
 		glColor4f(0.4, 0.4, 0.4, 1.0);
