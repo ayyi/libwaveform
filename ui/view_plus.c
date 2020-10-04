@@ -138,6 +138,7 @@ static void     add_key_handlers                        (GtkWindow*, WaveformVie
 static void     remove_key_handlers                     (GtkWindow*, WaveformViewPlus*);
 
 static AGlActor* waveform_actor                         (WaveformViewPlus*);
+static void      waveform_actor_size                    (AGlActor*);
 
 
 static gboolean
@@ -1060,6 +1061,8 @@ waveform_view_plus_gl_on_allocate (WaveformViewPlus* view)
 			wf_context_set_scale(v->context, v->context->priv->zoom.target_val.f * v->actor->region.len / w);
 		}
 		agl_actor__set_size(v->root);
+
+		waveform_actor_size((AGlActor*)v->actor);
 	}
 }
 

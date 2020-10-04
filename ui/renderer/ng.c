@@ -70,6 +70,13 @@ ng_gl2_set (Section* section, int pos, char val)
 	section->buffer[pos] = val;
 	return true;
 }
+static void
+ng_gl2_set_ (Section* section, int pos, char val)
+{
+	g_return_if_fail(section->buffer_size);
+	g_return_if_fail(pos < section->buffer_size);
+	section->buffer[pos] = val;
+}
 #else
 #define ng_gl2_set(section, pos, val) (section->buffer[pos] = val, true)
 #define ng_gl2_set_(section, pos, val) (section->buffer[pos] = val)
@@ -186,6 +193,9 @@ ng_gl2_load_block (Renderer* renderer, WaveformActor* actor, int b)
 	inline void med_peakbuf_to_texture(Renderer* renderer, WaveformActor* actor, int b, Section* section, int n_chans, int block_size)
 	{
 		// borders: source data is not blocked so borders are added here.
+
+		g_return_if_fail(n_chans > -1);
+		g_return_if_fail(n_chans <= 2);
 
 		Waveform* waveform = actor->waveform;
 		WaveformPrivate* w = waveform->priv;

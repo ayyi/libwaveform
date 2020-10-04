@@ -84,6 +84,8 @@ text_node_set_text (TextNode* node, const char* text)
 		g_free(node->text);
 
 	node->text = (char*)text;
+
+	agl_actor__invalidate((AGlActor*)node);
 }
 
 
@@ -104,7 +106,7 @@ text_node_draw (AGlActor* actor)
 
 	agl_set_font(text->font.name, text->font.size, PANGO_WEIGHT_NORMAL);
 
-	agl_print(0, 0, 0, actor->colour, ((TextNode*)actor)->text);
+	agl_print(0, 0, 0, actor->colour, "%s", ((TextNode*)actor)->text);
 
 	return true;
 }

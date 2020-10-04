@@ -219,9 +219,17 @@ _waveform_get_property (GObject* object, guint property_id, GValue* value, GPara
  *  Load the peakdata for a waveform, and create a cached peakfile if not already existing.
  */
 void
-waveform_load(Waveform* w, WfCallback3 callback, gpointer user_data)
+waveform_load (Waveform* w, WfCallback3 callback, gpointer user_data)
 {
 	WaveformPrivate* _w = w->priv;
+
+	if(g_strrstr(w->filename, "%L")){
+		char rhs[256] = {0};
+		waveform_get_rhs(w->filename, rhs);
+		if(g_file_test(rhs, G_FILE_TEST_EXISTS)){
+			w->n_channels = 2;
+		}
+	}
 
 	if(!_w->peaks){
 		_w->peaks = am_promise_new(w);
@@ -325,13 +333,14 @@ waveform_get_n_frames(Waveform* w)
 }
 
 
+/*
+ *  libwaveform can only handle mono or stereo files,
+ *  so this will never return > 2 even if the file is
+ *  multichannel.
+ */
 int
-waveform_get_n_channels(Waveform* w)
+waveform_get_n_channels (Waveform* w)
 {
-	// libwaveform can only handle mono or stereo files,
-	// so this will never return > 2 even if the file is
-	// multichannel.
-
 	g_return_val_if_fail(w, 0);
 
 	if(w->n_frames) return MIN(2, w->n_channels);
@@ -388,7 +397,14 @@ waveform_load_peak (Waveform* w, const char* peak_file, int ch_num)
 		if(wf_debug > -1 && w->n_frames){
 			uint64_t a = _w->num_peaks;
 			uint64_t b = w->n_frames / WF_PEAK_RATIO + (w->n_frames % WF_PEAK_RATIO ? 1 : 0);
-			if(a != b) pwarn("got %"PRIi64" peaks, expected %"PRIi64, a, b);
+			if(a != b){
+				pwarn("got %"PRIi64" peaks, expected %"PRIi64, a, b);
+				printf("\tn_frames=%i\n", (int)w->n_frames);
+				printf("\tn_frames/WF_PEAK_RATIO=%i\n", (int)(w->n_frames / WF_PEAK_RATIO));
+				printf("\tn_channels=%i\n", (int)w->n_channels);
+				printf("\tpeak_file=%s\n", peak_file);
+				printf("\texpected_peakfile_size=%i bytes\n", (int)((((int)w->n_frames) / WF_PEAK_RATIO) * w->n_channels * WF_PEAK_VALUES_PER_SAMPLE * sizeof(short)));
+			}
 		}
 	}
 #endif
@@ -527,9 +543,10 @@ fullpath = g_strdup(src); //TODO
 	struct stat sinfo;
 	if(stat(rms_file, &sinfo)){ pwarn ("rms file stat error. '%s'", rms_file); close(fp); goto out; }
 	off_t fsize = sinfo.st_size;
-	rb = g_new0(RmsBuf, 1);
-	rb->size = fsize;
-	rb->buf = g_new(char, fsize);
+	rb = WF_NEW(RmsBuf,
+		.size = fsize,
+		.buf = g_new(char, fsize)
+	);
 
 	//read the whole peak file into memory:
 	if(read(fp, rb->buf, fsize) != fsize) perr ("read error. couldnt read %"PRIi64" bytes from %s", fsize, rms_file);
@@ -660,6 +677,18 @@ waveform_find_max_audio_level(Waveform* w)
 	}
 
 	return w->priv->max_db = max_level;
+}
+
+
+/*
+ *  Given a filename containing "%L", put the corresponding RHS filename into arg 2
+ */
+void
+waveform_get_rhs (const char* left, char* rhs)
+{
+	g_strlcpy(rhs, left, 256);
+	char* pos = g_strrstr(rhs, "%L") + 1;
+	*pos = 'R';
 }
 
 

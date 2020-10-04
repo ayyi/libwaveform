@@ -1,37 +1,36 @@
+/**
+* +----------------------------------------------------------------------+
+* | This file is part of the Ayyi project. http://ayyi.org               |
+* | copyright (C) 2012-2020 Tim Orford <tim@orford.org>                  |
+* +----------------------------------------------------------------------+
+* | This program is free software; you can redistribute it and/or modify |
+* | it under the terms of the GNU General Public License version 3       |
+* | as published by the Free Software Foundation.                        |
+* +----------------------------------------------------------------------+
+*
+*/
+
 /*
-  copyright (C) 2012-2020 Tim Orford <tim@orford.org>
-
-  This program is free software; you can redistribute it and/or modify
-  it under the terms of the GNU General Public License version 3
-  as published by the Free Software Foundation.
-
-  This program is distributed in the hope that it will be useful,
-  but WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-  GNU General Public License for more details.
-
-  You should have received a copy of the GNU General Public License
-  along with this program; if not, write to the Free Software
-  Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
-
-  ---------------------------------------------------------
-
   peakgen
   -------
 
   description:
   - generates a peakfile from an audio file.
   - output is 16bit, alternating positive and negative peaks
-  - output has riff header so we know what type of peak file it is. Could possibly revert to headerless file.
-  - peak files are cached in ~/.cache/
+  - output has riff header so we know what type of peak file it is
+  - peak files are cached in XDG_CACHE_HOME - usually ~/.cache/
+  - caching loosely follows http://people.freedesktop.org/~vuntz/thumbnail-spec-cache/delete.html
   - peak files are expired after 90 days
   - there is no size limit to the cache directory
+  - split stereo files (denoted by %L and %R in the filename) will have a single peakfile
 
   todo:
   - what is maximum file size?
 
 */
+
 #define __wf_private__
+
 #include "config.h"
 #include <sys/stat.h>
 #include <glib.h>
@@ -359,9 +358,9 @@ wf_ff_peakgen (const char* infilename, const char* peak_filename)
 
 	c->sample_fmt     = codec->sample_fmts ? codec->sample_fmts[0] : AV_SAMPLE_FMT_S16;
 	c->sample_rate    = f.info.sample_rate;
-	c->channel_layout = codec->channel_layouts ? codec->channel_layouts[0] : AV_CH_LAYOUT_STEREO;
+	c->channel_layout = codec->channel_layouts ? codec->channel_layouts[0] : (f.info.channels == 2 ? AV_CH_LAYOUT_STEREO : AV_CH_LAYOUT_MONO);
 	c->channels       = av_get_channel_layout_nb_channels(c->channel_layout);
-	c->bit_rate       = f.info.sample_rate * 16 * f.info.channels; // TODO has any effect?
+	c->bit_rate       = f.info.sample_rate * 16 * f.info.channels;
 
 	stream->time_base = (AVRational){ 1, c->sample_rate };
 
@@ -481,10 +480,10 @@ wf_ff_peakgen (const char* infilename, const char* peak_filename)
 	}
 #endif
 
-	if(total_frames_written / WF_PEAK_VALUES_PER_SAMPLE != f.info.frames / WF_PEAK_RATIO){
+	if(total_frames_written / WF_PEAK_VALUES_PER_SAMPLE != f.info.frames / WF_PEAK_RATIO + (f.info.frames % WF_PEAK_RATIO ? 1 : 0)){
 		pwarn("unexpected number of frames written: wrote %i, expected %"PRIu64,
 			total_frames_written / WF_PEAK_VALUES_PER_SAMPLE,
-			f.info.frames / WF_PEAK_RATIO
+			f.info.frames / WF_PEAK_RATIO + (f.info.frames % WF_PEAK_RATIO ? 1 : 0)
 		);
 
 #ifdef USE_FFMPEG
@@ -499,8 +498,6 @@ wf_ff_peakgen (const char* infilename, const char* peak_filename)
 	ad_close(&f);
 
 #ifdef USE_FFMPEG
-	//avio_flush(format_context->pb); // probably not needed
-
 	av_write_trailer(format_context);
 
 	avcodec_free_context(&output_stream.encoder);
@@ -534,6 +531,263 @@ f1:
 	g_free(tmp_path);
 	ad_close(&f);
 	ad_free_nfo(&f.info);
+	return false;
+#endif
+#endif
+}
+
+
+static bool
+wf_ff_peakgen_split_stereo (const char* infilename, const char* peak_filename)
+{
+#if defined(USE_FFMPEG) || defined(USE_SNDFILE)
+	WfDecoder f = {{0,}};
+	WfDecoder f2 = {{0,}};
+
+	char infilename2[256] = {0,};
+	waveform_get_rhs(infilename, infilename2);
+
+	if(!ad_open(&f, infilename)) return false;
+	if(!ad_open(&f2, infilename2)) return false;
+
+	gchar* basename = g_path_get_basename(peak_filename);
+	gchar* tmp_path = g_build_filename("/tmp", basename, NULL);
+	g_free(basename);
+
+#ifdef USE_FFMPEG
+	OutputStream output_stream = {0,};
+
+	AVFormatContext* format_context;
+	avformat_alloc_output_context2(&format_context, av_guess_format("wav", NULL, "audio/x-wav"), NULL, NULL);
+
+	avio_open(&format_context->pb, tmp_path, AVIO_FLAG_READ_WRITE);
+	if(!format_context->pb) {
+		FAIL("could not open for writing");
+	}
+
+	AVCodec* codec = avcodec_find_encoder(AV_CODEC_ID_PCM_S16LE);
+	if(!codec){
+		pwarn("codec not found");
+		return false;
+	}
+
+	AVStream* stream = avformat_new_stream(format_context, NULL);
+	if(!stream){
+		pwarn("could not alloc stream");
+		return false;
+	}
+
+	//av_dump_format(format_context, 0, tmp_file, 1);
+
+	AVCodecContext* c = output_stream.encoder = avcodec_alloc_context3(codec);
+	if(!c){
+		pwarn("Could not alloc an encoding context");
+		return false;
+	}
+
+	c->sample_fmt     = codec->sample_fmts ? codec->sample_fmts[0] : AV_SAMPLE_FMT_S16;
+	c->sample_rate    = f.info.sample_rate;
+	c->channel_layout = AV_CH_LAYOUT_STEREO;
+	c->channels       = 2;
+	c->bit_rate       = f.info.sample_rate * 16 * f.info.channels;
+
+	stream->time_base = (AVRational){ 1, c->sample_rate };
+
+	// some formats want stream headers to be separate
+	if (format_context->oformat->flags & AVFMT_GLOBALHEADER)
+		c->flags |= AV_CODEC_FLAG_GLOBAL_HEADER;
+
+	open_audio2(c, stream, &output_stream);
+
+	AVDictionary** options = NULL;
+	if(avformat_write_header(format_context, options)){
+		pwarn("could not write header");
+		return false;
+	}
+#else
+	SNDFILE* outfile;
+	SF_INFO sfinfo = {
+		.format = SF_FORMAT_WAV | SF_FORMAT_PCM_16,
+		.channels = f.info.channels,
+		.samplerate = f.info.sample_rate,
+	};
+
+	if(!(outfile = sf_open(tmp_path, SFM_WRITE, &sfinfo))){
+		printf ("Not able to open output file %s.\n", tmp_path);
+		puts(sf_strerror(NULL));
+		return false;
+	}
+#endif
+
+	int total_frames_written = 0;
+#ifdef USE_FFMPEG
+	WfPeakSample total[WF_STEREO] = {0,};
+	WfPeakSample total2[WF_STEREO] = {0,};
+#else
+	WfPeakSample total[sfinfo.channels]; memset(total, 0, sizeof(WfPeakSample) * sfinfo.channels);
+#endif
+
+	#define n_blocks 8
+	int read_len = WF_PEAK_RATIO * n_blocks;
+
+	int16_t data[f.info.channels][read_len];
+	WfBuf16 buf = {
+		.buf = {
+			data[0], data[1]
+		},
+		.size = n_blocks * WF_PEAK_RATIO
+	};
+	int16_t data2[f2.info.channels][read_len];
+	WfBuf16 buf2 = {
+		.buf = {
+			data2[0], data2[1]
+		},
+		.size = n_blocks * WF_PEAK_RATIO
+	};
+
+	int readcount;
+	int total_readcount = 0;
+	while((readcount = ad_read_short(&f, &buf))){
+				ad_read_short(&f2, &buf2);
+		total_readcount += readcount;
+		int remaining = readcount;
+
+		WfPeakSample peak[N_CHANNELS];
+		WfPeakSample peak2[N_CHANNELS];
+
+		int n = MIN(n_blocks, readcount / WF_PEAK_RATIO + (readcount % WF_PEAK_RATIO ? 1 : 0));
+		int j = 0; for(;j<n;j++){
+			WfPeakSample w[N_CHANNELS];
+			WfPeakSample w2[N_CHANNELS];
+
+			memset(peak, 0, sizeof(WfPeakSample) * N_CHANNELS);
+			memset(peak2, 0, sizeof(WfPeakSample) * N_CHANNELS);
+
+			int k; for (k = 0; k < MIN(remaining, WF_PEAK_RATIO); k += N_CHANNELS){
+				int c; for(c=0;c<N_CHANNELS;c++){
+					int16_t val = buf.buf[c][WF_PEAK_RATIO * j + k];
+					int16_t val2= buf2.buf[c][WF_PEAK_RATIO * j + k];
+					peak[c] = (WfPeakSample){
+						MAX(peak[c].positive, val),
+						MIN(peak[c].negative, MAX(val, -32767)), // TODO value of SHRT_MAX messes up the rendering - why?
+					};
+					peak2[c] = (WfPeakSample){
+						MAX(peak2[c].positive, val2),
+						MIN(peak2[c].negative, MAX(val2, -32767)), // TODO value of SHRT_MAX messes up the rendering - why?
+					};
+				}
+			};
+			remaining -= WF_PEAK_RATIO;
+			int c; for(c=0;c<N_CHANNELS;c++){
+				w[c] = peak[c];
+				w2[c] = peak2[c];
+				total[c] = (WfPeakSample){
+					MAX(total[c].positive, w[c].positive),
+					MIN(total[c].negative, w[c].negative),
+				};
+				total2[c] = (WfPeakSample){
+					MAX(total2[c].positive, w2[c].positive),
+					MIN(total2[c].negative, w2[c].negative),
+				};
+			}
+
+#ifdef USE_FFMPEG
+			/*
+			if(av_frame_make_writable(frame) < 0){
+				fprintf(stderr, "Could not make frame writable\n");
+				return false;
+			}
+			short* data = (short*)frame->data[0];
+			for(int f=0; f<frame->nb_samples; f++){
+				;
+			}
+			c = 0;
+			data[0] = w[c].positive; //TODO
+			if(!wf_ff_encode(cx, frame, pkt, fp))
+				break;
+			// flush the encoder
+			wf_ff_encode(cx, NULL, pkt, fp);
+			*/
+#endif
+
+#ifdef USE_FFMPEG
+			avio_write(format_context->pb, (unsigned char*)w, WF_PEAK_VALUES_PER_SAMPLE * f.info.channels * sizeof(short));
+													// TODO check this
+			avio_write(format_context->pb, (unsigned char*)w2, WF_PEAK_VALUES_PER_SAMPLE * f.info.channels * sizeof(short));
+			total_frames_written += WF_PEAK_VALUES_PER_SAMPLE;
+#else
+			total_frames_written += sf_writef_short (outfile, (short*)w, WF_PEAK_VALUES_PER_SAMPLE);
+#endif
+		}
+	}
+
+#if 0
+	if(f.info.channels > 1) dbg(0, "max=%i,%i min=%i,%i", total[0].positive, total[1].positive, total[0].negative, total[1].negative);
+	else dbg(0, "max=%i min=%i", total[0].positive, total[0].negative);
+#endif
+
+#ifdef DEBUG
+	if(g_str_has_suffix(infilename, ".mp3")){
+		dbg(1, "mp3");
+		f.info.frames = total_readcount; // update the estimate with the real frame count.
+	}
+#endif
+
+	if(total_frames_written / WF_PEAK_VALUES_PER_SAMPLE != f.info.frames / WF_PEAK_RATIO + (f.info.frames % WF_PEAK_RATIO ? 1 : 0)){
+		pwarn("unexpected number of frames written: wrote %i, expected %"PRIu64,
+			total_frames_written / WF_PEAK_VALUES_PER_SAMPLE,
+			f.info.frames / WF_PEAK_RATIO + (f.info.frames % WF_PEAK_RATIO ? 1 : 0)
+		);
+
+#ifdef USE_FFMPEG
+		unsigned char w[WF_PEAK_VALUES_PER_SAMPLE * WF_STEREO * sizeof(short)] = {0,};
+		while(total_frames_written / WF_PEAK_VALUES_PER_SAMPLE < f.info.frames / WF_PEAK_RATIO){
+			avio_write(format_context->pb, w, WF_PEAK_VALUES_PER_SAMPLE * f.info.channels * sizeof(short));
+			total_frames_written += WF_PEAK_VALUES_PER_SAMPLE * f.info.channels * sizeof(short);
+		}
+#endif
+	}
+
+	ad_close(&f);
+	ad_close(&f2);
+
+#ifdef USE_FFMPEG
+	av_write_trailer(format_context);
+
+	avcodec_free_context(&output_stream.encoder);
+	av_frame_free(&output_stream.frame);
+	avio_close(format_context->pb);
+	avformat_free_context(format_context);
+
+	ad_free_nfo(&f.info);
+	ad_free_nfo(&f2.info);
+#else
+	sf_close (outfile);
+#endif
+
+	if(total_readcount){
+		int renamed = !rename(tmp_path, peak_filename);
+		g_free(tmp_path);
+		if(!renamed) return false;
+	}else{
+		pwarn("failed to read from file %s", infilename);
+		if(!g_unlink(tmp_path)){
+			pwarn("delete failed");
+		}
+#ifdef USE_FFMPEG
+		goto f1;
+#endif
+	}
+
+	return true;
+
+#ifdef USE_FFMPEG
+f1:
+	g_free(tmp_path);
+	ad_close(&f);
+	ad_close(&f2);
+	ad_free_nfo(&f.info);
+	ad_free_nfo(&f2.info);
 	return false;
 #endif
 #endif
@@ -616,7 +870,9 @@ wf_peakgen__sync (const char* infilename, const char* peak_filename, GError** er
 	g_return_val_if_fail(infilename, false);
 	PF;
 
-	if(!wf_ff_peakgen(infilename, peak_filename)){
+	bool (*fn) (const char* infilename, const char* peak_filename) = wf_ff_peakgen;
+	if(g_strrstr(infilename, "%L")) fn = wf_ff_peakgen_split_stereo;
+	if(!fn(infilename, peak_filename)){
 		if(wf_debug){
 #ifdef USE_SNDFILE
 			printf("peakgen: not able to open input file %s: %s\n", infilename, sf_strerror(NULL));

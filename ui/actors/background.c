@@ -64,11 +64,11 @@ create_background (AGlActor* a)
 	// darken the edges
 	y = 0;
 	int x; for(x=0;x<width;x++){
-		*(pbuf + y * width + x) = MIN(0xff, *(pbuf + y * width + x) + 0x1a);
+		*(pbuf + y * width + x) = MIN(0xff, *(pbuf + y * width + x) + 0x13);
 	}
 	y = height - 1;
 	for(x=0;x<width;x++){
-		*(pbuf + y * width + x) = MIN(0xff, *(pbuf + y * width + x) + 0x1a);
+		*(pbuf + y * width + x) = MIN(0xff, *(pbuf + y * width + x) + 0x13);
 	}
 #else
 	// this gradient is brighter in the middle. It only works for stereo.

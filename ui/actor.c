@@ -665,7 +665,7 @@ waveform_free_render_data (Waveform* waveform)
 #ifdef USE_OPENGL
 #ifdef DEBUG
 	extern int texture_cache_count_by_waveform(Waveform*);
-	if(texture_cache_count_by_waveform(waveform)){
+	if(wf_debug && texture_cache_count_by_waveform(waveform)){
 		perr("textures not cleared");
 	}
 #endif
