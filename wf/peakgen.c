@@ -625,6 +625,7 @@ wf_ff_peakgen_split_stereo (const char* infilename, const char* peak_filename)
 	WfPeakSample total2[WF_STEREO] = {0,};
 #else
 	WfPeakSample total[sfinfo.channels]; memset(total, 0, sizeof(WfPeakSample) * sfinfo.channels);
+	WfPeakSample total2[sfinfo.channels]; memset(total2, 0, sizeof(WfPeakSample) * sfinfo.channels);
 #endif
 
 	#define n_blocks 8
