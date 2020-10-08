@@ -44,7 +44,9 @@ gpointer tests[] = {
 	test_alphabuf,
 	test_transition,
 	test_worker,
+#ifdef USE_FFMPEG
 	test_thumbnail,
+#endif
 };
 
 #define WAV "mono_0:10.wav"
@@ -140,7 +142,15 @@ test_audio_file ()
 {
 	START_TEST;
 
-	char* filenames[] = {"mono_0:10.wav", "stereo_0:10.wav", "mono_0:10.mp3", "stereo_0:10.mp3", "mono_0:10.m4a", "stereo_0:10.m4a", "mono_0:10.opus", "stereo_0:10.opus", "mono_24b_0:10.wav", "stereo_24b_0:10.wav"};
+	char* filenames[] = {
+		"mono_0:10.wav", "stereo_0:10.wav",
+#ifdef USE_FFMPEG
+		"mono_0:10.mp3", "stereo_0:10.mp3",
+		"mono_0:10.m4a", "stereo_0:10.m4a",
+		"mono_0:10.opus", "stereo_0:10.opus",
+#endif
+		"mono_24b_0:10.wav", "stereo_24b_0:10.wav"
+	};
 
 	int i; for(i=0;i<G_N_ELEMENTS(filenames);i++){
 		WfDecoder f = {{0,}};
