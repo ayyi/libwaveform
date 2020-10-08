@@ -1070,6 +1070,7 @@ waveform_view_plus_gl_on_allocate (WaveformViewPlus* view)
 	static void waveform_actor_size (AGlActor* actor)
 	{
 		#define V_BORDER 4
+		if(!actor->parent) return;
 
 		wf_actor_set_rect((WaveformActor*)actor, &(WfRectangle){
 			0,
