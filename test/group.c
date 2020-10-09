@@ -1,31 +1,25 @@
+/**
+* +----------------------------------------------------------------------+
+* | This file is part of the Ayyi project. http://ayyi.org               |
+* | copyright (C) 2012-2020 Tim Orford <tim@orford.org>                  |
+* +----------------------------------------------------------------------+
+* | This program is free software; you can redistribute it and/or modify |
+* | it under the terms of the GNU General Public License version 3       |
+* | as published by the Free Software Foundation.                        |
+* +----------------------------------------------------------------------+
+*
+*/
 /*
-  Demonstration of the libwaveform WaveformActor interface
-  showing a 3d presentation of a list of waveforms.
 
-  ---------------------------------------------------------------
-
-  Copyright (C) 2012-2019 Tim Orford <tim@orford.org>
-
-  This program is free software; you can redistribute it and/or modify
-  it under the terms of the GNU General Public License version 3
-  as published by the Free Software Foundation.
-
-  This program is distributed in the hope that it will be useful,
-  but WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-  GNU General Public License for more details.
-
-  You should have received a copy of the GNU General Public License
-  along with this program; if not, write to the Free Software
-  Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+    Demonstration of the libwaveform WaveformActor interface
+    showing a 3d presentation of a list of waveforms.
 
 */
+
 #define __wf_private__
+
 #include "config.h"
 #include <getopt.h>
-#include <unistd.h>
-#include <signal.h>
-#include <sys/time.h>
 #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 #include <gtk/gtk.h>
 #pragma GCC diagnostic warning "-Wdeprecated-declarations"
@@ -33,11 +27,6 @@
 #include "agl/utils.h"
 #include "waveform/actor.h"
 #include "test/common2.h"
-
-struct
-{
-	int timeout;
-} app;
 
 #define WAV "mono_0:10.wav"
 

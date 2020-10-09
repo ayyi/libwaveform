@@ -38,6 +38,7 @@ GL_LOADER_LDFLAGS = $(EPOXY_LDFLAGS)
 endif
 
 AM_CFLAGS = \
+	-fno-common \
 	-D_FILE_OFFSET_BITS=64 \
 	-I$(top_srcdir) \
 	$(LOCAL_GTKGLEXT_CFLAGS) \

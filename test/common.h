@@ -21,15 +21,18 @@
 
 extern int current_test;
 
+#ifndef __common_c__
+extern
+#endif
 struct _app
 {
 	gboolean       dbus;
 	int            timeout;
 	int            n_passed;
 #ifdef __common_c__
-} app;
-#else
 } app = {0,};
+#else
+} app;
 #endif
 
 typedef void (*Test)    ();

@@ -34,11 +34,6 @@
 #include "waveform/actor.h"
 #include "test/common2.h"
 
-struct _app
-{
-	int timeout;
-} app;
-
 #define WAV "mono_0:10.wav"
 
 #define GL_WIDTH 480.0

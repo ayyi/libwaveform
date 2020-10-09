@@ -1,3 +1,5 @@
+#define __agl_ext_c__
+
 #include "config.h"
 #include <stdio.h>
 #include <stdlib.h>
