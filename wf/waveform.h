@@ -78,7 +78,7 @@ struct _Waveform
 	int                samplerate;
 
 	bool               offline : 1;       // file is not currently accessible
-	bool               renderable : 1;    // there is a problem with the file
+	bool               renderable : 1;    // false if there is a problem with the file. Note that there may be a peakfile for a file which does not exist
 
 	WfCallback4        free_render_data;  // finalize callback
 

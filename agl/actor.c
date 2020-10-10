@@ -503,6 +503,7 @@ __draw (AGlActor* a, bool use_fbo)
 				glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
 
 				renderer_push_builder();
+				builder()->target = a->fbo->id;
 
 				ops_set_viewport (builder(), &(graphene_rect_t){
 					.size.width = a->fbo->width,
@@ -525,7 +526,6 @@ __draw (AGlActor* a, bool use_fbo)
 
 				ops_pop_clip (builder());
 
-				builder()->target = a->fbo->id;
 				renderer_render (builder());
 
 				renderer_pop_builder();

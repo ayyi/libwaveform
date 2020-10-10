@@ -191,6 +191,8 @@ waveform_ensure_peakfile (Waveform* w, WfPeakfileCallback callback, gpointer use
 
 /*
  *  Caller must g_free the returned filename.
+ *
+ *  If the waveform is offline the peakfile name will be returned only if the peakfile already exists
  */
 char*
 waveform_ensure_peakfile__sync (Waveform* w)
@@ -216,6 +218,11 @@ waveform_ensure_peakfile__sync (Waveform* w)
 		if(w->offline || wf_file_is_newer(peak_filename, filename)) goto out;
 
 		dbg(1, "peakfile is too old");
+	}else{
+		if(w->offline){
+			g_clear_pointer(&peak_filename, g_free);
+			goto out;
+		}
 	}
 
 	if(!wf_peakgen__sync(filename, peak_filename, NULL)){ g_free0(peak_filename); goto out; }

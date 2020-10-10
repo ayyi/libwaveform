@@ -1844,7 +1844,12 @@ calc_render_info (WaveformActor* actor)
 
 	// This check was added because it appears to prevent corruption
 	// but it is not clear why we are trying to render a waveform that has not been loaded
-	if(!waveform_get_n_frames(w)) return false;
+	if(!waveform_get_n_frames(w)){
+#ifdef DEBUG
+		actor->render_result = RENDER_RESULT_BAD;
+#endif
+		return false;
+	}
 
 	wf_actor_get_viewport(actor, &r->viewport);
 
@@ -1866,7 +1871,12 @@ calc_render_info (WaveformActor* actor)
 		: r->rect.len / r->region.len;
 	r->mode = get_mode(r->zoom);
 
-	if(!_w->render_data[r->mode]) return false;
+	if(!_w->render_data[r->mode]){
+#ifdef DEBUG
+		actor->render_result = RENDER_RESULT_LOADING;
+#endif
+		return false;
+	}
 	r->n_blocks = _w->render_data[r->mode]->n_blocks;
 	r->samples_per_texture = WF_SAMPLES_PER_TEXTURE * (r->mode == MODE_V_LOW ? WF_MED_TO_V_LOW : r->mode == MODE_LOW ? WF_PEAK_STD_TO_LO : 1);
 
@@ -1879,6 +1889,9 @@ calc_render_info (WaveformActor* actor)
 
 	if(r->viewport_blocks.last == LAST_NOT_VISIBLE && r->viewport_blocks.first == FIRST_NOT_VISIBLE){
 		r->valid = true; // this prevents unnecessary recalculation but the RenderInfo is not really valid so _must_ be invalidated again before use.
+#ifdef DEBUG
+		actor->render_result = RENDER_RESULT_BLOCK_RANGE;
+#endif
 		return false;
 	}
 	// ideally conditions which trigger this should be detected before rendering.
@@ -1911,6 +1924,11 @@ calc_render_info (WaveformActor* actor)
 }
 
 
+/*
+ *   Return true if rendering is successful.
+ *   Returning false indicates that there is a temporary problem and the result should not be cached.
+ *   If there is a permanent problem with the waveform, the function will return true.
+ */
 static bool
 wf_actor_paint (AGlActor* _actor)
 {
@@ -1926,7 +1944,18 @@ wf_actor_paint (AGlActor* _actor)
 	WfActorPriv* _a = actor->priv;
 	Waveform* w = actor->waveform; 
 	RenderInfo* r  = &_a->render_info;
-	if(!w || !w->priv->num_peaks) return false;
+
+#ifdef DEBUG
+	actor->render_result = RENDER_RESULT_OK;
+#endif
+
+	if(!w || w->offline || !w->renderable) return true;
+	if(!w->priv->num_peaks){
+#ifdef DEBUG
+		actor->render_result = RENDER_RESULT_LOADING;
+#endif
+		return false;
+	}
 
 	g_return_val_if_fail(actor->region.start < actor->waveform->n_frames, false);
 
