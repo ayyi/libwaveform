@@ -121,6 +121,9 @@ ad_seek_sndfile (WfDecoder* d, int64_t pos)
 }
 
 
+/*
+ *  Output is interleaved float
+ */
 ssize_t
 ad_read_sndfile (WfDecoder* d, float* out, size_t len)
 {
@@ -137,9 +140,11 @@ ad_read_sndfile (WfDecoder* d, float* out, size_t len)
 				g_free(d16);
 				return r;
 			}
+		case 24:
+			return sf_read_float(priv->sffile, out, len);
 #ifdef DEBUG
 		default:
-			gwarn("unhandled bit depth: %i", d->info.bit_depth);
+			pwarn("unhandled bit depth: %i", d->info.bit_depth);
 #endif
 	}
 
@@ -174,7 +179,7 @@ ad_read_sndfile_short (WfDecoder* d, WfBuf16* buf)
 			ssize_t r = sf_read_int(sf->sffile, data, d->info.channels * buf->size);
 			int i, f; for(i=0,f=0;i<r;i+=d->info.channels,f++){
 				int c; for(c=0;c<d->info.channels;c++){
-					buf->buf[c][f] = data[i] >> 16;
+					buf->buf[c][f] = data[i + c] >> 16;
 				}
 			}
 			g_free(data);

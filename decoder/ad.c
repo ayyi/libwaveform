@@ -240,7 +240,7 @@ ad_print_nfo(int dbglvl, WfAudioInfo* nfo)
 
 
 /*
- *  Input and output is both interleaved
+ *  Input and output are both interleaved
  */
 void
 int16_to_float(float* out, int16_t* in, int n_channels, int n_frames, int out_offset)

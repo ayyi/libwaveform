@@ -84,10 +84,10 @@ wf_load_riff_peak (Waveform* wv, const char* peak_file)
 #endif
 #ifdef USE_SNDFILE
 	if(sfinfo.channels != wv->n_channels){
+		pwarn("unexpected %i channels (expected %i)", sfinfo.channels, wv->n_channels);
 #else
 	if(decoder.info.channels > 2){
 #endif
-		pwarn("unexpected %i channels (expected %i)", sfinfo.channels, wv->n_channels);
   		goto out_close;
 	}
 

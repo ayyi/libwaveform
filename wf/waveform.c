@@ -615,11 +615,10 @@ waveform_get_peakbuf_n(Waveform* w, int block_num)
 
 	GPtrArray* peaks = w->priv->hires_peaks;
 	g_return_val_if_fail(peaks, NULL);
-	Peakbuf* peakbuf = NULL;
-	if(block_num >= peaks->len){
-	}else{
-		peakbuf = g_ptr_array_index(peaks, block_num);
-	}
+	g_return_val_if_fail(block_num < peaks->len, NULL);
+
+	Peakbuf* peakbuf = g_ptr_array_index(peaks, block_num);
+
 	dbg(2, "block_num=%i peaks->len=%i", block_num, peaks->len);
 
 	return peakbuf;
