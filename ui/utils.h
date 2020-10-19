@@ -12,7 +12,7 @@
 #ifndef __waveform_utils_h__
 #define __waveform_utils_h__
 
-#include "wf/utils.h"
+#include "waveform/utils.h"
 
 #ifndef true
 #define true TRUE

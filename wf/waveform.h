@@ -20,9 +20,9 @@ extern "C" {
 #include <stdbool.h>
 #include <glib.h>
 #include <glib-object.h>
-#include "wf/typedefs.h"
-#include "wf/utils.h"
-#include "wf/promise.h"
+#include "waveform/typedefs.h"
+#include "waveform/utils.h"
+#include "waveform/promise.h"
 
 G_BEGIN_DECLS
 
@@ -133,7 +133,7 @@ int32_t    wf_get_peakbuf_len_frames     ();
 #ifdef __wf_private__
 typedef struct { WfCallback3 callback; gpointer user_data; } WfClosure;
 
-#include "wf/private.h"
+#include "waveform/private.h"
 #endif
 
 #ifndef __waveform_peak_c__

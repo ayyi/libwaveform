@@ -12,6 +12,7 @@ AM_CFLAGS = \
 	-DPACKAGE_DATA_DIR=\""$(datadir)"\" \
 	-I$(includedir) \
 	-I$(top_srcdir) \
+	-I../lib/agl \
 	$(GTK_CFLAGS) \
 	$(LIBASS_CFLAGS) \
 	$(SDL_CFLAGS) \
@@ -56,18 +57,6 @@ EXTRA_DIST = \
 	renderer/res_v_hi.c \
 	renderer/res_lo.c \
 	renderer/res_v_low.c
-
-pkgincludedir=$(includedir)/waveform
-pkginclude_HEADERS = \
-	typedefs.h \
-	view_plus.h \
-	actor.h \
-	context.h \
-	shader.h \
-	fbo.h \
-	texture_cache.h \
-	utils.h \
-	private.h
 
 CLEANFILES =
 

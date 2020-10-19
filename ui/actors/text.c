@@ -20,7 +20,7 @@
 #include "wf/debug.h"
 #include "wf/waveform.h"
 #include "wf/peakgen.h"
-#include "waveform/utils.h"
+#include "waveform/ui-utils.h"
 #include "waveform/shader.h"
 #include "waveform/text.h"
 

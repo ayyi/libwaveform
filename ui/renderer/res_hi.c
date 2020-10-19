@@ -24,7 +24,6 @@
 #include <GL/gl.h>
 #include "waveform/waveform.h"
 
-extern int wf_debug;
 #endif // __actor_c__
 
 // needed for v_hi res. TODO check whether visual effect is good for gl1 hi_res.
@@ -182,7 +181,9 @@ hi_gl1_load_block (Renderer* renderer, WaveformActor* a, int block)
 			wf_actor_allocate_block_hi(a, block);
 		}
 		else dbg(1, "b=%i: already have texture. t=%i", block, texture->t[WF_LEFT].main);
-		if(wf_debug > 1) _wf_actor_print_hires_textures(a);
+#ifdef DEBUG
+		if(_debug_ > 1) _wf_actor_print_hires_textures(a);
+#endif
 
 		//TODO check this block is within current viewport
 		if(((AGlActor*)a)->root->draw) wf_canvas_queue_redraw(a->context);

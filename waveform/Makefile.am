@@ -1,4 +1,22 @@
 
+pkgincludedir=$(includedir)/waveform
+pkginclude_HEADERS = \
+	typedefs.h \
+	waveform.h \
+	peakgen.h \
+	promise.h \
+	utils.h \
+	ui-typedefs.h \
+	view_plus.h \
+	actor.h \
+	context.h \
+	shader.h \
+	fbo.h \
+	texture_cache.h \
+	private.h \
+	ui-private.h
+
+
 EXTRA_DIST = \
 	actor.h \
 	audio.h \

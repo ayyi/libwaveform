@@ -30,6 +30,9 @@
 #include <gtk/gtk.h>
 #include <gdk/gdkkeysyms.h>
 #include "waveform/actor.h"
+#include "waveform/actors/background.h"
+#include "waveform/actors/group.h"
+#include "waveform/actors/ruler.h"
 #include "test/common.h"
 
 #define WAV "mono_0:10.wav"

@@ -1,0 +1,4 @@
+[submodule "lib/agl"]
+	path = lib/agl
+	url = https://gitlab.com/ayyi.org/agl.git
+	ignore = dirty

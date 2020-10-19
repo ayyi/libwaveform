@@ -59,6 +59,7 @@
 #include "waveform/pixbuf.h"
 #include "waveform/fbo.h"
 #include "waveform/actor.h"
+#include "waveform/ui-utils.h"
 #include "waveform/ui-private.h"
 #include "waveform/transition_behaviour.h"
 

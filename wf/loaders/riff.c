@@ -24,7 +24,7 @@
 #else
 # include "decoder/ad.h"
 #endif
-#include "wf/debug.h"
+#include "debug/debug.h"
 #include "wf/waveform.h"
 
 #define peak_byte_depth 2 // value are stored in the peak file as int16.
@@ -60,7 +60,7 @@ wf_load_riff_peak (Waveform* wv, const char* peak_file)
 #endif
 		if(!g_file_test(peak_file, G_FILE_TEST_EXISTS)){
 #ifdef DEBUG
-			if(wf_debug) pwarn("file open failure. file doesnt exist: %s", peak_file);
+			if(_debug_) pwarn("file open failure. file doesnt exist: %s", peak_file);
 #endif
 		}else{
 			pwarn("file open failure (%s)", peak_file);
@@ -118,7 +118,7 @@ wf_load_riff_peak (Waveform* wv, const char* peak_file)
 	if(sfinfo.frames / WF_PEAK_VALUES_PER_SAMPLE > max_frames) pwarn("peakfile is too long: %"PRIi64", expected %"PRIi64, sfinfo.frames / WF_PEAK_VALUES_PER_SAMPLE, max_frames);
 #else
 	// we haven't loaded any data yet, and with ffmpeg, any frames counts are only estimates
-	if(wf_debug && decoder.info.frames % WF_PEAK_VALUES_PER_SAMPLE)
+	if(_debug_ && decoder.info.frames % WF_PEAK_VALUES_PER_SAMPLE)
 		pwarn("peakfile not even length: %"PRIi64, decoder.info.frames);
 	if(n_frames > max_frames)
 		pwarn("peakfile might be too long: %"PRIi64", expected %"PRIi64, decoder.info.frames / WF_PEAK_VALUES_PER_SAMPLE, max_frames);
@@ -131,7 +131,7 @@ wf_load_riff_peak (Waveform* wv, const char* peak_file)
 #else
 	int64_t r_frames = MIN(decoder.info.frames, max_frames * WF_PEAK_VALUES_PER_SAMPLE);
 #endif
-	if(wf_debug > -1 && r_frames > 1024 * 1024 * 100) pwarn("TODO large file");
+	if(_debug_ > -1 && r_frames > 1024 * 1024 * 100) pwarn("TODO large file");
 
 #ifdef USE_SNDFILE
 	short* read_buf = (sfinfo.channels == 1)
@@ -167,7 +167,9 @@ wf_load_riff_peak (Waveform* wv, const char* peak_file)
 		}
 #endif
 		if(shortfall < 48){
-			if(wf_debug) pwarn("shortfall");
+#ifdef DEBUG
+			if(_debug_) pwarn("shortfall");
+#endif
 		}else{
 			pwarn("unexpected EOF: read %i of %"PRIi64" (%"PRIi64") (short by %i) %s", readcount_frames, n_frames * 2, n_frames, shortfall, peak_file);
 		}

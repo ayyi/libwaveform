@@ -22,6 +22,7 @@
 #include "agl/debug.h"
 #include "transition/frameclock.h"
 #include "wf/waveform.h"
+#include "waveform/ui-utils.h"
 #include "waveform/pixbuf.h"
 #include "waveform/shader.h"
 #include "waveform/texture_cache.h"

@@ -21,7 +21,7 @@
 #endif
 #include "wf/debug.h"
 #include "wf/waveform.h"
-#include "waveform/utils.h"
+#include "ui/utils.h"
 
 
 #undef SHOW_TIME

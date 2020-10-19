@@ -29,7 +29,7 @@
 #include <glib.h>
 #define __wf_private__
 #include "decoder/ad.h"
-#include "wf/debug.h"
+#include "debug/debug.h"
 #include "wf/waveform.h"
 #define __wf_worker_private__
 #include "wf/worker.h"

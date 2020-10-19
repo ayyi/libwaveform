@@ -27,6 +27,7 @@ AM_CFLAGS = \
 	-DPACKAGE_DATA_DIR=\""$(datadir)"\" \
 	-I$(includedir) \
 	-I$(top_srcdir) \
+	-I../../lib/agl \
 	$(GTK_CFLAGS) \
 	$(LIBASS_CFLAGS) \
 	$(SDL_CFLAGS) \

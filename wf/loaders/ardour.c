@@ -20,9 +20,10 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <stdint.h>
+#include <inttypes.h>
 #include <sys/time.h>
 #include <glib.h>
-#include "agl/debug.h"
+#include "debug/debug.h"
 #include "wf/waveform.h"
 
 static int peak_byte_depth = 4; //ardour peak files use floats.

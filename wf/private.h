@@ -19,7 +19,7 @@
 #define GdkColor void
 #endif
 
-#include "wf/waveform.h"
+#include "waveform/waveform.h"
 
 #define WF_PEAK_BLOCK_SIZE (256 * 256) // the number of audio frames per block (64k)
 #define WF_CACHE_BUF_SIZE (1 << 15)

@@ -15,15 +15,8 @@
 
 #include "transition/transition.h"
 #include "agl/actor.h"
-#include "wf/waveform.h"
+#include "waveform/waveform.h"
 #include "waveform/context.h"
-#include "waveform/group.h"
-#include "waveform/background.h"
-#include "waveform/ruler.h"
-#include "waveform/grid.h"
-#include "waveform/labels.h"
-#include "waveform/spp.h"
-#include "waveform/spinner.h"
 
 #define MULTILINE_SHADER
 #undef MULTILINE_SHADER

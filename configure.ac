@@ -27,8 +27,7 @@ AX_SUBDIRS_CONFIGURE([gtkglext-1.0], [[--enable-test=false]], [], [])
 # determine that not all nested functions require trampolines.
 CFLAGS="$CFLAGS -O2"
 
-# Check for debugging flag
-debug="yes"
+debug="no"
 AC_ARG_ENABLE(debug,
 	[AS_HELP_STRING(--enable-debug, [Enable debugging (false)])],
 	[debug="$enableval"])
@@ -67,6 +66,24 @@ AC_SUBST(X11_LDFLAGS)
 
 GMODULE_LDFLAGS=`pkg-config gmodule-2.0 --libs`
 AC_SUBST(GMODULE_LDFLAGS)
+
+dnl -----------------------------------------------------
+
+AC_ARG_ENABLE(submodules, AC_HELP_STRING([--disable-submodules], [no git submodules]), enable_submodules=$enableval, enable_submodules="yes")
+
+AM_CONDITIONAL(ENABLE_SUBMODULES, test "$enable_submodules" = "yes")
+
+if test "$enable_submodules" = "yes"; then
+	if test ! -e lib/agl/autogen.sh
+	then
+		git submodule update --init --recursive
+	fi
+	touch lib/agl/libagl.pc
+	automake
+else
+	mkdir -p lib/agl/
+	echo "all:" > lib/agl/Makefile.am
+fi
 
 dnl -----------------------------------------------------
 
@@ -144,7 +161,20 @@ fi
 XRANDR_LDFLAGS=`pkg-config --libs xrandr`
 AC_SUBST(XRANDR_LDFLAGS)
 
+GDK_CFLAGS=`pkg-config --cflags gdk-2.0`
+GDK_LIBS=`pkg-config --libs gdk-2.0`
+AC_SUBST(GDK_CFLAGS)
+AC_SUBST(GDK_LIBS)
+
+PANGO_CFLAGS=`pkg-config --cflags pango`
+PANGO_LIBS=`pkg-config --libs pango`
+AC_SUBST(PANGO_CFLAGS)
+AC_SUBST(PANGO_LIBS)
+
 dnl -opengl----------------------------------------------
+
+AM_CONDITIONAL(AGL_ENABLE_GTKGLEXT, false)
+AM_CONDITIONAL(AGL_NO_INSTALL, true)
 
 AC_ARG_ENABLE(system-gtkglext, AC_HELP_STRING([--enable-system-gtkglext], [disable local opengl extension for gtk]), enable_system_gtkglext=$enableval, enable_system_gtkglext="no")
 
@@ -324,14 +354,10 @@ AC_CONFIG_FILES([
 	Makefile
 	wf/Makefile
 	wf/loaders/Makefile
-	agl/Makefile
-	agl/shaders/Makefile
-	agl/behaviours/Makefile
-	agl/text/Makefile
-	transition/Makefile
-	sdl/Makefile
+	lib/Makefile
 	gtkglext-1.0/Makefile
 	glib/Makefile
+	debug/Makefile
 	decoder/Makefile
 	ui/Makefile
 	ui/actors/Makefile
@@ -340,10 +366,26 @@ AC_CONFIG_FILES([
 	test/gen/Makefile
 	waveform/Makefile
 ])
+
+if test "$enable_submodules" = "yes"; then
+	AC_CONFIG_FILES([
+		lib/agl/Makefile
+		lib/agl/agl/Makefile
+		lib/agl/agl/shaders/Makefile
+		lib/agl/agl/behaviours/Makefile
+		lib/agl/agl/text/Makefile
+		lib/agl/debug/Makefile
+		lib/agl/sdl/Makefile
+		lib/agl/transition/Makefile
+		lib/agl/test/Makefile
+	])
+fi
+
 AC_OUTPUT
 
 AC_MSG_RESULT([])
 AC_MSG_RESULT([Libwaveform:])
+AC_MSG_RESULT([Building submodules:      $enable_submodules])
 AC_MSG_RESULT([Building opengl:          $enable_opengl])
 AC_MSG_RESULT([Building gtk:             $enable_gtk])
 AC_MSG_RESULT([Building sdl:             $enable_sdl])

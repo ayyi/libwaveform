@@ -10,8 +10,7 @@ SDLPROGRAMS = sdl
 endif
 if ENABLE_GTK
 GTKPROGRAMS = view_plus_test actor_test actor_plus actor_no_scene list group hires multi_scene $(ASSPROGRAMS) frame_rate resources cache viewport pixbuf
-else
-GTK_LDFLAGS =
+LOCAL_GTK_LDFLAGS = $(GTK_LDFLAGS)
 endif
 
 if ENABLE_OPENGL
@@ -19,19 +18,19 @@ if !ENABLE_SYSTEM_GTKGLEXT
 if ENABLE_GTK
 LOCAL_GTKGLEXT_CFLAGS = \
 	-I$(top_srcdir)/gtkglext-1.0
-GTKGLEXT_LDFLAGS = \
+TEST_GTKGLEXT_LDFLAGS = \
 	-lgmodule-2.0 \
 	$(top_srcdir)/gtkglext-1.0/.libs/libgtkglext.a
-GTKGLEXT_LIBS =
 endif
 endif
 endif
 
 if ENABLE_OPENGL
-noinst_PROGRAMS = waveform_test large_files promise 32bit glx scenegraph text input $(GTKPROGRAMS) $(SDLPROGRAMS)
+##noinst_PROGRAMS = waveform_test large_files promise 32bit glx scenegraph text input $(GTKPROGRAMS) $(SDLPROGRAMS)
 else
-noinst_PROGRAMS = waveform_test
+##noinst_PROGRAMS = waveform_test
 endif
+noinst_PROGRAMS = scenegraph $(GTKPROGRAMS)
 
 if ENABLE_EPOXY
 GL_LOADER_LDFLAGS = $(EPOXY_LDFLAGS)
@@ -41,8 +40,8 @@ AM_CFLAGS = \
 	-fno-common \
 	-D_FILE_OFFSET_BITS=64 \
 	-I$(top_srcdir) \
+	-I$(top_srcdir)/lib/agl \
 	$(LOCAL_GTKGLEXT_CFLAGS) \
-	$(GTKGLEXT_LIBS) \
 	$(OPENGL_CFLAGS) \
 	$(GTK_CFLAGS) \
 	$(SDL_CFLAGS) \
@@ -53,11 +52,13 @@ AM_CFLAGS = \
 TEST_LDFLAGS = \
 	$(top_srcdir)/.libs/libwaveformui.a \
 	$(top_srcdir)/.libs/libwaveformcore.a \
+	$(top_srcdir)/lib/agl/agl/.libs/libagl.a \
+	$(top_srcdir)/debug/libayyidebug.la \
 	$(OPENGL_LDFLAGS) \
 	$(GL_LOADER_LDFLAGS) \
 	$(LIBASS_LDFLAGS) \
-	$(GTK_LDFLAGS) \
-	$(GTKGLEXT_LDFLAGS) \
+	$(LOCAL_GTK_LDFLAGS) \
+	$(TEST_GTKGLEXT_LDFLAGS) \
 	$(GMODULE_LDFLAGS) \
 	$(SNDFILE_LIBS) \
 	$(FFMPEG_LDFLAGS) \

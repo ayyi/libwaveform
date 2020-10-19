@@ -23,7 +23,7 @@
 #include <gdk/gdkkeysyms.h>
 #include "agl/actor.h"
 #include "agl/shader.h"
-#include "waveform/utils.h"
+#include "waveform/actor.h"
 #include "test/common2.h"
 #include "test/_cache_behaviour.h"
 

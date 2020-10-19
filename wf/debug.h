@@ -15,11 +15,9 @@
 extern int wf_debug;
 #endif
 
-#ifndef __ayyi_debug_h__
-#define __ayyi_debug_h__
+#ifndef __wf_debug_h__
+#define __wf_debug_h__
 
-#include <stdio.h>
-#include <inttypes.h>
 #include <sys/time.h>
 
 #ifdef DEBUG
@@ -28,23 +26,7 @@ extern int wf_debug;
 #define IF_WF_DEBUG if(false)
 #endif
 
-void wf_debug_printf (const char* func, int level, const char* format, ...);
-
-#define PF {if(wf_debug) printf("%s()...\n", __func__);}
-#define PF0 printf("%s...\n", __func__)
-#define PF2 {if(wf_debug > 1) printf("%s...\n", __func__);}
-#ifdef DEBUG
-#define dbg(A, B, ...) wf_debug_printf(__func__, A, B, ##__VA_ARGS__)
-#else
-#define dbg(A, B, ...)
-#endif
-#define pwarn(A, ...) g_warning("%s(): "A, __func__, ##__VA_ARGS__)
-#define perr(A, ...) g_critical("%s(): "A, __func__, ##__VA_ARGS__)
-
-extern char ayyi_yellow[12];
-extern char ayyi_white [12];
-extern char ayyi_bold  [12];
-extern char ayyi_grey  [16];
+#include "debug/debug.h"
 
 #endif
 #endif

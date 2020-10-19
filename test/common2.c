@@ -30,6 +30,7 @@
 # define __glx_test__
 #endif
 #include "test/common2.h"
+#include "ui/view_plus.h"
 #include "wf/private.h"
 
 
@@ -182,7 +183,7 @@ gtk_window (Key keys[], WindowFn content)
 	{
 		WaveformViewPlus* waveform = user_data;
 		if(key_hold.handler) key_hold.handler(waveform);
-		return TIMER_CONTINUE;
+		return G_SOURCE_CONTINUE;
 	}
 
 	static gboolean key_press (GtkWidget* widget, GdkEventKey* event, gpointer user_data)

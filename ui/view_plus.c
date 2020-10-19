@@ -40,6 +40,7 @@
 #include <gdk/gdkkeysyms.h>
 #include "agl/debug.h"
 #include "agl/utils.h"
+#include "waveform/ui-utils.h"
 #include "waveform/actor.h"
 #include "view_plus.h"
 
@@ -148,7 +149,7 @@ __init ()
 
 	if(!gl_context){
 		gtk_gl_init(NULL, NULL);
-		if(wf_debug){
+		if(_debug_){
 			gint major, minor;
 #ifdef USE_SYSTEM_GTKGLEXT
 			gdk_gl_query_version (&major, &minor);
