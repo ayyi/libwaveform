@@ -5,6 +5,8 @@ Libwaveform attempts to provide versatile easy-to-use interactive display
 of audio waveforms for Gtk+-2 and X11 applications. Suitable for anything from simple
 display, up to a full digital audio workstation.
 
+![Screenshot](screenshot.webp "Screenshot")
+
 Efficiency:
 
 * audio and peak data is handled in blocks to get reasonable performance with large files.
@@ -41,20 +43,19 @@ Status
 ------
 
 Main functionality is now in place, but some areas are subject to improvement. There
-are no known serious bugs so please report any you find. Feedback is also needed
-on api, documentation, visuals etc.
+are no known serious bugs so please report any you find. Feedback is wanted on
+API, documentation, and visuals.
 
 An API review needs to be undertaken before a release is made.
 
-As well as GTK, support for other platforms is being added. Currently there is
-some support for SDL and GLX. Please note that there is no support for QT, though
-it would be simple to support if someone was interested.
+Adding support for other platfroms is relatively easy to do but there is currently no demand.
+Wayland support will be the next objective.
 
-Testing:
-Has been fully tested with Gallium 0.4 on Radeon RV530, RV620 and Cedar, and Intel 945 and HD3000.
-Other hardware is less well tested and wider testing is needed.
+GPU Testing:
+The GPU requirements are not heavy, and no issues have been reported. Most development
+is done on Intel HD3000.
 
-If you are able to help testing, please start with running test/view_test.
+If you are able to help testing, please start with running test/view_plus_test.
 To compile the test programs you need to run configure with '--enable-test'.
 
 
@@ -80,13 +81,11 @@ WaveformActor
 -------------
 
 The WaveformActor interface can be used to show a waveform on an
-existing GtkGLExt drawing area. It is designed for use in editors
+existing OpenGL context. It is designed for use in editors
 and audio production tools.
 
-OpenGl shaders will be used if available, otherwise it will fallback
-to using 8 bit textures.
-
-WaveformActor's share a common WfContext object.
+WaveformActor's share a common WfContext object to allow multiple
+waveforms to be positioned and scaled togeter.
 The context has the following directly settable properties:
 ```c
 	uint32_t sample_rate
