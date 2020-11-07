@@ -166,8 +166,8 @@ GDK_LIBS=`pkg-config --libs gdk-2.0`
 AC_SUBST(GDK_CFLAGS)
 AC_SUBST(GDK_LIBS)
 
-PANGO_CFLAGS=`pkg-config --cflags pango`
-PANGO_LIBS=`pkg-config --libs pango`
+PANGO_CFLAGS=`pkg-config --cflags pangocairo`
+PANGO_LIBS=`pkg-config --libs pangocairo`
 AC_SUBST(PANGO_CFLAGS)
 AC_SUBST(PANGO_LIBS)
 

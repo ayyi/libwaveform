@@ -26,11 +26,10 @@ endif
 endif
 
 if ENABLE_OPENGL
-##noinst_PROGRAMS = waveform_test large_files promise 32bit glx scenegraph text input $(GTKPROGRAMS) $(SDLPROGRAMS)
+noinst_PROGRAMS = waveform_test large_files promise 32bit glx scenegraph text input $(GTKPROGRAMS) $(SDLPROGRAMS)
 else
-##noinst_PROGRAMS = waveform_test
+noinst_PROGRAMS = waveform_test
 endif
-noinst_PROGRAMS = scenegraph $(GTKPROGRAMS)
 
 if ENABLE_EPOXY
 GL_LOADER_LDFLAGS = $(EPOXY_LDFLAGS)
@@ -198,7 +197,7 @@ ass_LDADD = \
 sdl_LDADD = \
 	$(OPENGL_LDFLAGS) \
 	$(SDL_LIBS) \
-	$(top_srcdir)/sdl/libsdlframerate.a \
+	../lib/agl/sdl/libsdlframerate.a \
 	$(TEST_LDFLAGS)
 
 glx_LDADD = \
