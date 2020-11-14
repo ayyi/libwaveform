@@ -1042,7 +1042,6 @@ wf_actor_get_visible_block_range (WfSampleRegion* region, WfRectangle* rect, dou
 	double block_wid = wf_actor_samples2gl(zoom, samples_per_texture);
 	BlockRange region_blocks = {region->start / samples_per_texture, -1};
 	{
-		//float _end_block = ((float)(region->start + region->len - 1)) / samples_per_texture;
 		float _end_block = ((float)(region->start + region->len)) / samples_per_texture;
 		dbg(2, "%s region=%"PRIi64"-->%"PRIi64" blocks=%i-->%.2f(%.i) n_peak_frames=%i tot_blocks=%i", modes[mode].name, region->start, region->start + region->len, region_blocks.first, _end_block, (int)ceil(_end_block), n_blocks * 256, n_blocks);
 
@@ -1062,7 +1061,7 @@ wf_actor_get_visible_block_range (WfSampleRegion* region, WfRectangle* rect, dou
 				goto next;
 			}
 		}
-		// check last block:
+		// check last block
 		double block_end_px = file_start_px + wf_actor_samples2gl(zoom, region->start + region->len);
 		if(block_end_px >= viewport_px->left){
 			range.first = b;
@@ -1079,12 +1078,11 @@ wf_actor_get_visible_block_range (WfSampleRegion* region, WfRectangle* rect, dou
 	if(rect->left <= viewport_px->right){
 		range.last = MIN(range.first + WF_MAX_BLOCK_RANGE, region_blocks.last);
 
-		g_return_val_if_fail(viewport_px->right - viewport_px->left > 0.01, range);
+		if(viewport_px->right - viewport_px->left < 0.01) return range;
 
-		//crop to viewport:
+		// crop to viewport
 		int b; for(b=region_blocks.first;b<=range.last-1;b++){ //note we dont check the last block which can be partially outside the viewport
 			float block_end_px = file_start_px + (b + 1) * block_wid;
-			//dbg(1, " %i: block_px: %.1f --> %.1f", b, block_end_px - (int)block_wid, block_end_px);
 			if(block_end_px > viewport_px->right) dbg(2, "end %i clipped by viewport at block %i. vp.right=%.2f block_end=%.1f", region_blocks.last, MAX(0, b/* - 1*/), viewport_px->right, block_end_px);
 			if(block_end_px > viewport_px->right){
 				range.last = MAX(0, b/* - 1*/);

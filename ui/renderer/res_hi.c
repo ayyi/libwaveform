@@ -35,7 +35,9 @@ static GLuint lines_texture[8] = {0};
 
 #define RENDER_DATA_HI(W) ((WfTexturesHi*)W->render_data[MODE_HI])
 
+#ifdef DEBUG
 static void  _wf_actor_print_hires_textures  (WaveformActor*);
+#endif
 
 
 void
@@ -626,6 +628,7 @@ hi_gl1_render_block (Renderer* renderer, WaveformActor* actor, int b, gboolean i
 #endif
 
 
+#ifdef DEBUG
 static void
 _wf_actor_print_hires_textures (WaveformActor* a)
 {
@@ -639,6 +642,7 @@ _wf_actor_print_hires_textures (WaveformActor* a)
 		printf("  b=%i t=%i\n", b, th->t[WF_LEFT].main);
 	}
 }
+#endif
 
 
 NGRenderer hi_renderer_gl2 = {{MODE_HI, hi_gl2_new, ng_gl2_load_block, ng_gl2_pre_render, ng_gl2_render_block, ng_gl2_free_waveform}};
