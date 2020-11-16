@@ -41,6 +41,7 @@ EXTRA_DIST = \
 	typedefs.h \
 	ui-private.h \
 	ui-typedefs.h \
+	ui-utils.h \
 	utils.h \
 	view_plus.h \
 	waveform.h \

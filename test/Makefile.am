@@ -51,7 +51,7 @@ AM_CFLAGS = \
 TEST_LDFLAGS = \
 	$(top_srcdir)/.libs/libwaveformui.a \
 	$(top_srcdir)/.libs/libwaveformcore.a \
-	$(top_srcdir)/lib/agl/agl/.libs/libagl.a \
+	$(top_srcdir)/lib/agl/.libs/libagl.a \
 	$(top_srcdir)/debug/libayyidebug.la \
 	$(OPENGL_LDFLAGS) \
 	$(GL_LOADER_LDFLAGS) \
@@ -64,6 +64,7 @@ TEST_LDFLAGS = \
 	$(SYSPROF_LIBS) \
 	$(GRAPHENE_LDFLAGS) \
 	$(XRANDR_LDFLAGS) \
+	$(GDK_LIBS) \
 	$(X11_LDFLAGS) \
 	-lm
 

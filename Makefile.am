@@ -4,11 +4,7 @@ endif
 if ENABLE_GTK
 GTK_SUBDIRS = gtkglext-1.0
 endif
-if ENABLE_GLIB_2_58_POLYFILL
-GLIB_SUBDIRS = glib
-GLIB_LIBADD = glib/libglib.la
-endif
-SUBDIRS = $(GTK_SUBDIRS) lib $(OPENGL_SUBDIRS) $(GLIB_SUBDIRS) wf ui decoder debug . test waveform
+SUBDIRS = $(GTK_SUBDIRS) lib $(OPENGL_SUBDIRS) wf ui decoder debug . test waveform
 
 lib_LTLIBRARIES = libwaveformui.la libwaveformcore.la
 
@@ -19,7 +15,6 @@ libwaveformcore_la_LIBADD = \
 
 libwaveformui_la_SOURCES =
 libwaveformui_la_LIBADD = \
-	$(GLIB_LIBADD) \
 	ui/libwf.la
 
 AM_CFLAGS = \
