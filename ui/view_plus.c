@@ -601,6 +601,7 @@ waveform_view_plus_unrealize (GtkWidget* widget)
 {
 	// view->waveform can not be unreffed here as it needs to be re-used if the widget is realized again.
 	// The gl context and actors are now preserved through an unrealize/realize cycle - the only thing that changes is the GlDrawable.
+
 	PF;
 	WaveformViewPlus* view = (WaveformViewPlus*)widget;
 	WaveformViewPlusPrivate* v = view->priv;
@@ -708,7 +709,7 @@ waveform_view_plus_focus_out_event(GtkWidget* widget, GdkEventFocus* event)
 {
 	WaveformViewPlus* view = (WaveformViewPlus*)widget;
 
-	remove_key_handlers((GtkWindow*)gtk_widget_get_toplevel(widget),  view);
+	remove_key_handlers((GtkWindow*)gtk_widget_get_toplevel(widget), view);
 
 	return false;
 }
@@ -817,10 +818,7 @@ waveform_view_plus_finalize (GObject* obj)
 	if(v->actor){
 		wf_actor_clear(v->actor);
 
-		AGlActor* parent = (AGlActor*)((AGlActor*)v->actor)->root;
-		if(parent){
-			agl_actor__remove_child(parent, (AGlActor*)v->actor);
-		}
+		agl_actor__remove_child(v->root, (AGlActor*)v->actor);
 		v->actor = NULL;
 	}
 
@@ -831,6 +829,8 @@ waveform_view_plus_finalize (GObject* obj)
 #endif
 	g_clear_object(&view->waveform);
 	g_clear_pointer(&v->ready, am_promise_unref);
+
+	agl_actor__free(v->root);
 
 	G_OBJECT_CLASS (waveform_view_plus_parent_class)->finalize(obj);
 }

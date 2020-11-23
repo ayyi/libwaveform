@@ -62,7 +62,7 @@ test/promise
 test/resources
 test/scenegraph
 test/sdl
-test/view_plus_test
+test/view_plus
 test/view_test
 test/viewport
 test/waveform_test

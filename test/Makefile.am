@@ -9,7 +9,7 @@ if ENABLE_SDL
 SDLPROGRAMS = sdl
 endif
 if ENABLE_GTK
-GTKPROGRAMS = view_plus_test actor_test actor_plus actor_no_scene list group hires multi_scene $(ASSPROGRAMS) frame_rate resources cache viewport pixbuf
+GTKPROGRAMS = view_plus actor_test actor_plus actor_no_scene list group hires multi_scene $(ASSPROGRAMS) frame_rate resources cache viewport pixbuf
 LOCAL_GTK_LDFLAGS = $(GTK_LDFLAGS)
 endif
 
@@ -79,9 +79,9 @@ waveform_test_SOURCES = \
 	$(COMMON_SOURCES) \
 	waveform_test.c
 
-view_plus_test_SOURCES = \
+view_plus_SOURCES = \
 	$(COMMON_SOURCES) \
-	view_plus_test.c
+	view_plus.c
 
 actor_test_SOURCES = \
 	$(COMMON_SOURCES) \
@@ -175,7 +175,7 @@ promise_SOURCES = \
 waveform_test_LDADD = \
 	$(TEST_LDFLAGS)
 
-view_plus_test_LDADD = \
+view_plus_LDADD = \
 	$(ass_LDADD)
 
 actor_test_LDADD = \
@@ -233,7 +233,7 @@ TESTS = \
 	waveform_test \
 	32bit \
 	cache \
-	view_plus_test \
+	view_plus \
 	actor_test \
 	actor_plus \
 	hires \
@@ -254,7 +254,7 @@ test:
 	cd .. && test/large_files
 	./32bit
 	./cache
-	./view_plus_test -n
+	./view_plus -n
 	./actor_test -n
 	./actor_plus -n
 	./hires -n
@@ -277,7 +277,7 @@ CLEANFILES = \
 	resources \
 	scenegraph \
 	sdl \
-	view_plus_test \
+	view_plus \
 	viewport \
 	waveform_test
 

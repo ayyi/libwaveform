@@ -45,7 +45,9 @@
   along with this program; if not, write to the Free Software
   Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 */
+
 #define __wf_private__
+
 #include "config.h"
 #include <getopt.h>
 #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
@@ -350,16 +352,16 @@ toggle_grid (gpointer view)
 }
 
 
-	static gboolean reattach (gpointer _view)
+void
+unrealise (gpointer view)
+{
+	gboolean reattach (gpointer _view)
 	{
 		gtk_table_attach(GTK_TABLE(table), (GtkWidget*)_view, 0, 1, 1, 2, GTK_FILL | GTK_EXPAND, GTK_FILL, 0, 0);
 		g_object_unref(_view);
 		return G_SOURCE_REMOVE;
 	}
 
-void
-unrealise (gpointer view)
-{
 	dbg(0, "-----------------------------");
 	g_object_ref((GObject*)view);
 	gtk_container_remove ((GtkContainer*)table, (GtkWidget*)view);
@@ -382,6 +384,9 @@ finalize_notify (gpointer data, GObject* was)
 }
 
 
+/*
+ *  Note that after the widget is destroyed the screen will not be updated, so the waveform will remain on the screen
+ */
 static bool
 test_delete ()
 {
@@ -416,7 +421,7 @@ delete (gpointer view)
 static guint play_timer = 0;
 
 void
-stop(gpointer view)
+stop (gpointer view)
 {
 	if(play_timer){
 		g_source_remove (play_timer);
@@ -427,28 +432,28 @@ stop(gpointer view)
 }
 
 
-	static gboolean tick(gpointer view)
+void
+play (gpointer view)
+{
+	gboolean tick (gpointer view)
 	{
 		wf_spp_actor_set_time((SppActor*)layers.spp, (_time += 50, _time));
 		return true;
 	}
 
-void
-play(gpointer view)
-{
 	if(!play_timer) play_timer = g_timeout_add(50, tick, view);
 }
 
 
 char*
-format_channels(int n_channels)
+format_channels (int n_channels)
 {
 	return g_strdup("mono");
 }
 
 
 void
-format_time(char* str, int64_t t_ms)
+format_time (char* str, int64_t t_ms)
 {
 	int64_t secs = t_ms / 1000;
 	int64_t mins = secs / 60;
