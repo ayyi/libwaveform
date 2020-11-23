@@ -24,7 +24,7 @@ typedef struct
    uint16_t   channels;
    int64_t    length;       // milliseconds
    int64_t    frames;       // total number of frames (eg a frame for 16bit stereo is 4 bytes).
-   int16_t    bit_rate;
+   int32_t    bit_rate;
    int16_t    bit_depth;
    GPtrArray* meta_data;
 } WfAudioInfo;
