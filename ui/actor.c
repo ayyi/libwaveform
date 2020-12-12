@@ -782,6 +782,7 @@ wf_actor_set_region (WaveformActor* a, WfSampleRegion* region)
 	AGlActor* actor = (AGlActor*)a;
 	WfActorPriv* _a = a->priv;
 	AGlScene* scene = actor->root;
+
 	IF_WF_DEBUG dbg(1, "region_start=%"PRIi64" (%"PRIi64"%%) region_end=%"PRIi64" wave_end=%"PRIi64, region->start, (waveform_get_n_frames(a->waveform) ? (100 * region->start / a->waveform->n_frames) : 0), region->start + region->len, waveform_get_n_frames(a->waveform));
 	if(!region->len && a->waveform->n_channels){ pwarn("invalid region: len not set"); return; }
 	if(region->start > waveform_get_n_frames(a->waveform)){ pwarn("invalid region: start out of range: %"PRIi64" > %"PRIi64"", region->start, waveform_get_n_frames(a->waveform)); return; }
@@ -792,10 +793,8 @@ wf_actor_set_region (WaveformActor* a, WfSampleRegion* region)
 	bool start = (region->start != a->region.start);
 	bool end   = (region->len   != a->region.len);
 
-	WfAnimatable* a1 = &START(actor);
-
 	if(a->region.len < 2){
-		a->region.len = a1->target_val.b = region->len; // dont animate on initial region set.
+		a->region.len = START(actor).target_val.b = region->len; // dont animate on initial region set.
 	}
 
 	if(!start && !end) return;
@@ -1853,8 +1852,11 @@ calc_render_info (WaveformActor* actor)
 	wf_actor_get_viewport(actor, &r->viewport);
 
 	r->region = (WfSampleRegion){actor->region.start, MIN(actor->region.len, w->n_frames)};
-	static bool region_len_warning_done = false;
-	if(!region_len_warning_done && !r->region.len){ region_len_warning_done = true; pwarn("zero region length"); }
+	if(!r->region.len){
+		static bool region_len_warning_done = false;
+		if(!region_len_warning_done){ region_len_warning_done = true; pwarn("zero region length"); }
+		return false;
+	}
 
 	if(r->region.start + r->region.len > w->n_frames){
 		// happens during transitions

@@ -98,6 +98,7 @@ static ssize_t ff_read_u8_interleaved_to_planar             (WfDecoder*, WfBuf16
 static ssize_t ff_read_int32_interleaved_to_planar          (WfDecoder*, WfBuf16*);
 
 static ssize_t ff_read_short_planar_to_interleaved          (WfDecoder*, float*, size_t);
+static ssize_t ff_read_float_interleaved_to_interleaved     (WfDecoder*, float*, size_t);
 static ssize_t ff_read_short_interleaved_to_interleaved     (WfDecoder*, float*, size_t);
 static ssize_t ff_read_float_planar_to_interleaved          (WfDecoder*, float*, size_t);
 
@@ -354,7 +355,7 @@ ad_open_ffmpeg (WfDecoder* decoder, const char* filename)
 			f->read_planar = ff_read_short_planar_to_planar;
 			break;
 		case AV_SAMPLE_FMT_FLT:
-			gwarn("no implementation of FLT to FLT");
+			f->read = ff_read_float_interleaved_to_interleaved;
 			f->read_planar = ff_read_float_interleaved_to_planar;
 			break;
 		case AV_SAMPLE_FMT_FLTP:
@@ -811,6 +812,14 @@ ff_read_short_planar_to_interleaved (WfDecoder* d, float* out, size_t len)
 
 
 static ssize_t
+ff_read_float_interleaved_to_interleaved (WfDecoder* d, float* out, size_t len)
+{
+	gwarn("no implementation of FLT to FLT");
+	return -1;
+}
+
+
+static ssize_t
 ff_read_float_interleaved_to_planar (WfDecoder* d, WfBuf16* buf)
 {
 	FFmpegAudioDecoder* f = d->d;
@@ -837,7 +846,8 @@ ff_read_float_interleaved_to_planar (WfDecoder* d, WfBuf16* buf)
 			if(got_frame){
 				int size = av_samples_get_buffer_size (NULL, f->codec_parameters->channels, frame.nb_samples, f->codec_parameters->format, 1);
 				if (size < 0)  {
-					dbg(0, "av_samples_get_buffer_size invalid value");
+					dbg(1, "av_samples_get_buffer_size invalid value");
+					goto stop;
 				}
 
 				int64_t fr = frame.best_effort_timestamp * d->info.sample_rate / f->format_context->streams[f->audio_stream]->time_base.den;

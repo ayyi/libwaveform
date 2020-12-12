@@ -135,9 +135,11 @@ draw_wave_buffer_v_hi (Renderer* renderer, WaveformActor* actor, int block, bool
 
 	g_return_val_if_fail(b_region.len <= buf->size, false);
 
+#ifdef DEBUG
 	if(rect->left + rect->len < ri->viewport.left){
 		perr("rect is outside viewport");
 	}
+#endif
 
 	_v_hi_set_gl_state(actor);
 
@@ -150,8 +152,12 @@ draw_wave_buffer_v_hi (Renderer* renderer, WaveformActor* actor, int block, bool
 	const double zoom = rect->len / (double)ri->region.len;
 
 	const float _block_wid = WF_SAMPLES_PER_TEXTURE * zoom;
-	float block_rect_start = is_first ? fmodf(rect->left, _block_wid) : x_block0; // TODO simplify. why 2 separate cases needed?  ** try just using the first case
-	WfRectangle b_rect = {block_rect_start, rect->top, b_region.len * zoom, rect->height};
+	WfRectangle b_rect = {
+		is_first ? fmodf(rect->left, _block_wid) : x_block0, // TODO simplify. why 2 separate cases needed?  ** try just using the first case
+		rect->top,
+		b_region.len * zoom,
+		rect->height
+	};
 
 	if(!(ri->viewport.right > b_rect.left)) pwarn("outside viewport: vp.r=%.2f b_rect.l=%.2f", ri->viewport.right, b_rect.left);
 	g_return_val_if_fail(ri->viewport.right > b_rect.left, false);

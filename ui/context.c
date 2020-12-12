@@ -213,7 +213,7 @@ wf_context_init (WaveformContext* wfc, AGlActor* root)
 
 
 WaveformContext*
-waveform_canvas_construct(GType object_type)
+waveform_canvas_construct (GType object_type)
 {
 	WaveformContext* wfc = (WaveformContext*)g_object_new(object_type, NULL);
 	return wfc;
@@ -221,7 +221,7 @@ waveform_canvas_construct(GType object_type)
 
 
 WaveformContext*
-wf_context_new(AGlActor* root)
+wf_context_new (AGlActor* root)
 {
 	PF;
 
@@ -235,7 +235,7 @@ wf_context_new(AGlActor* root)
 
 #ifdef USE_SDL
 WaveformContext*
-wf_context_new_sdl(SDL_GLContext* context)
+wf_context_new_sdl (SDL_GLContext* context)
 {
 	PF;
 
@@ -254,7 +254,7 @@ wf_context_new_sdl(SDL_GLContext* context)
 
 
 static void
-wf_context_finalize(GObject* obj)
+wf_context_finalize (GObject* obj)
 {
 	WaveformContext* wfc = WAVEFORM_CONTEXT (obj);
 
@@ -318,7 +318,7 @@ wf_context_init_gl (WaveformContext* wfc)
 
 #ifdef USE_FRAME_CLOCK
 static void
-wf_context_on_paint_update(GdkFrameClock* clock, void* _canvas)
+wf_context_on_paint_update (GdkFrameClock* clock, void* _canvas)
 {
 	WaveformContext* wfc = _canvas;
 
@@ -332,7 +332,7 @@ wf_context_on_paint_update(GdkFrameClock* clock, void* _canvas)
  *  This will likely be removed. Instead just set scene->scrollable
  */
 void
-wf_context_set_viewport(WaveformContext* wfc, WfViewPort* _viewport)
+wf_context_set_viewport (WaveformContext* wfc, WfViewPort* _viewport)
 {
 	//@param viewport - optional.
 	//                  Does not apply clipping.
@@ -386,7 +386,7 @@ wf_canvas_add_new_actor (WaveformContext* wfc, Waveform* w)
 #endif
 
 void
-wf_canvas_queue_redraw(WaveformContext* wfc)
+wf_canvas_queue_redraw (WaveformContext* wfc)
 {
 #ifdef USE_FRAME_CLOCK
 	if(wfc->root->root->is_animating){
@@ -410,7 +410,7 @@ wf_canvas_queue_redraw(WaveformContext* wfc)
 
 
 float
-wf_canvas_gl_to_px(WaveformContext* wfc, float x)
+wf_canvas_gl_to_px (WaveformContext* wfc, float x)
 {
 	//convert from gl coords to screen pixels
 
@@ -434,7 +434,7 @@ wf_canvas_gl_to_px(WaveformContext* wfc, float x)
 
 
 void
-wf_canvas_load_texture_from_alphabuf(WaveformContext* wfc, int texture_name, AlphaBuf* alphabuf)
+wf_canvas_load_texture_from_alphabuf (WaveformContext* wfc, int texture_name, AlphaBuf* alphabuf)
 {
 	//load the Alphabuf into the gl texture identified by texture_name.
 	//-the user can usually free the Alphabuf afterwards as it is unlikely to be needed again.
@@ -443,7 +443,7 @@ wf_canvas_load_texture_from_alphabuf(WaveformContext* wfc, int texture_name, Alp
 	g_return_if_fail(texture_name);
 
 #ifdef USE_MIPMAPPING
-	guchar* generate_mipmap(AlphaBuf* a, int level)
+	guchar* generate_mipmap (AlphaBuf* a, int level)
 	{
 		int r = 1 << level;
 		int height = MAX(1, a->height / r);
@@ -505,7 +505,7 @@ wf_canvas_load_texture_from_alphabuf(WaveformContext* wfc, int texture_name, Alp
 
 
 void
-wf_context_set_rotation(WaveformContext* wfc, float rotation)
+wf_context_set_rotation (WaveformContext* wfc, float rotation)
 {
 	dbg(0, "TODO");
 }
@@ -513,7 +513,7 @@ wf_context_set_rotation(WaveformContext* wfc, float rotation)
 
 #ifdef USE_CANVAS_SCALING
 float
-wf_context_get_zoom(WaveformContext* wfc)
+wf_context_get_zoom (WaveformContext* wfc)
 {
 	return wfc->scaled ? wfc->zoom : 0.0;
 }
@@ -595,6 +595,10 @@ wf_context_set_scale (WaveformContext* wfc, float samples_per_px)
 
 	samples_per_px = CLAMP(samples_per_px, 1.0, WF_CONTEXT_MAX_SAMPLES_PER_PIXEL);
 
+	if(samples_per_px == wfc->samples_per_pixel){
+		return;
+	}
+
 	if(!wfc->root->root->enable_animations){
 		wfc->samples_per_pixel = samples_per_px;
 		agl_actor__invalidate((AGlActor*)wfc->root);
@@ -613,7 +617,7 @@ wf_context_set_scale (WaveformContext* wfc, float samples_per_px)
 
 
 void
-wf_context_set_gain(WaveformContext* wfc, float gain)
+wf_context_set_gain (WaveformContext* wfc, float gain)
 {
 	wfc->v_gain = gain;
 	wf_canvas_queue_redraw(wfc);

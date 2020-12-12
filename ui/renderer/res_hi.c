@@ -26,7 +26,7 @@
 
 #endif // __actor_c__
 
-// needed for v_hi res. TODO check whether visual effect is good for gl1 hi_res.
+// needed for v_hi res
 #define ANTIALIASED_LINES
 
 #ifdef MULTILINE_SHADER

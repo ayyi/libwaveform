@@ -488,10 +488,12 @@ wf_ff_peakgen (const char* infilename, const char* peak_filename)
 #endif
 
 	if(total_frames_written / WF_PEAK_VALUES_PER_SAMPLE != f.info.frames / WF_PEAK_RATIO + (f.info.frames % WF_PEAK_RATIO ? 1 : 0)){
-		pwarn("unexpected number of frames written: wrote %i, expected %"PRIu64,
-			total_frames_written / WF_PEAK_VALUES_PER_SAMPLE,
-			f.info.frames / WF_PEAK_RATIO + (f.info.frames % WF_PEAK_RATIO ? 1 : 0)
-		);
+		if(total_frames_written){
+			pwarn("unexpected number of frames written: wrote %i, expected %"PRIu64,
+				total_frames_written / WF_PEAK_VALUES_PER_SAMPLE,
+				f.info.frames / WF_PEAK_RATIO + (f.info.frames % WF_PEAK_RATIO ? 1 : 0)
+			);
+		}
 
 #ifdef USE_FFMPEG
 		unsigned char w[WF_PEAK_VALUES_PER_SAMPLE * WF_STEREO * sizeof(short)] = {0,};
@@ -523,9 +525,7 @@ wf_ff_peakgen (const char* infilename, const char* peak_filename)
 		if(!renamed) return false;
 	}else{
 		pwarn("failed to read from file %s", infilename);
-		if(!g_unlink(tmp_path)){
-			pwarn("delete failed");
-		}
+		g_unlink(tmp_path);
 #ifdef USE_FFMPEG
 		goto f1;
 #endif

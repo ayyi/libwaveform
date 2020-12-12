@@ -71,6 +71,11 @@ waveform_load_new(const char* filename)
 }
 
 
+/**
+ *  waveform_new
+ *
+ *  Returns: waveform
+ */
 Waveform*
 waveform_new (const char* filename)
 {
