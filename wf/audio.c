@@ -29,13 +29,11 @@
 #include <glib.h>
 #define __wf_private__
 #include "decoder/ad.h"
-#include "wf/debug.h"
+#include "debug/debug.h"
 #include "wf/waveform.h"
 #define __wf_worker_private__
 #include "wf/worker.h"
 #include "wf/audio.h"
-
-																											int n_loads[4096];
 
 typedef struct {
 	int              block_num;
@@ -50,7 +48,6 @@ typedef struct {
 
 #define MAX_AUDIO_CACHE_SIZE (1 << 23) // words, NOT bytes.
 
-static short*      audio_cache_malloc (Waveform*, WfBuf16*, int);
 static void        audio_cache_insert (Waveform*, WfBuf16*, int);
 static void        audio_cache_free   (Waveform*, int block);
 #if 0
@@ -244,10 +241,11 @@ waveform_load_audio_run_job (Waveform* waveform, gpointer _pjob)
 	PeakbufQueueItem* pjob = _pjob;
 	if(!waveform) return;
 
-	pjob->out.buf16 = g_new0(WfBuf16, 1);
-	pjob->out.buf16->size = WF_PEAK_BLOCK_SIZE;
-	int c; for(c=0;c<waveform_get_n_channels(waveform);c++){
-		pjob->out.buf16->buf[c] = audio_cache_malloc(waveform, pjob->out.buf16, pjob->block_num);
+	pjob->out.buf16 = WF_NEW(WfBuf16,
+		.size = WF_PEAK_BLOCK_SIZE
+	);
+	for(int c=0;c<waveform_get_n_channels(waveform);c++){
+		pjob->out.buf16->buf[c] = g_malloc0(sizeof(short) * WF_PEAK_BLOCK_SIZE);
 		pjob->out.buf16->stamp = ++wf->audio.access_counter;
 	}
 	pjob->out.peakbuf = wf_peakbuf_new(pjob->block_num);
@@ -448,23 +446,8 @@ wf_block_lookup_by_audio_buf (Waveform* w, WfBuf16* buf)
 }
 
 
-static short*
-audio_cache_malloc (Waveform* w, WfBuf16* buf16, int b)
-{
-	int size = WF_PEAK_BLOCK_SIZE;
-
-	short* buf = g_malloc(sizeof(short) * size);
-	buf16->size = size;
-	dbg(2, "inserting b=%i", b);
-																						n_loads[b]++;
-	//audio_cache_print();
-
-	return buf;
-}
-
-
 static void
-audio_cache_insert(Waveform* w, WfBuf16* buf16, int b)
+audio_cache_insert (Waveform* w, WfBuf16* buf16, int b)
 {
 	if(wf->audio.mem_size + buf16->size > MAX_AUDIO_CACHE_SIZE){
 		dbg(2, "**** cache full. looking for audio block to delete...");
@@ -500,7 +483,7 @@ audio_cache_insert(Waveform* w, WfBuf16* buf16, int b)
 
 
 static void
-audio_cache_free(Waveform* w, int block)
+audio_cache_free (Waveform* w, int block)
 {
 	// this now frees both the audio data, and the structs that contain it.
 
@@ -527,7 +510,7 @@ audio_cache_free(Waveform* w, int block)
 
 
 int
-wf_audio_cache_get_size()
+wf_audio_cache_get_size ()
 {
 	// return the number of blocks that can be held by the cache.
 
@@ -537,7 +520,7 @@ wf_audio_cache_get_size()
 
 #if UNUSED
 static void
-audio_cache_print()
+audio_cache_print ()
 {
 	#define STRLEN 64 // this is not long enough to show the whole cache.
 	char str[STRLEN];

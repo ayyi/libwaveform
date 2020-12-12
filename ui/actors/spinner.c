@@ -13,7 +13,9 @@
 * +----------------------------------------------------------------------+
 *
 */
+
 #define __wf_private__
+
 #include "config.h"
 #include <stdio.h>
 #include "transition/frameclock.h"
@@ -29,27 +31,30 @@ static AGl* agl = NULL;
 AGlFBO* fbo = NULL;
 static float rotation = 0;
 
+static bool spinner__paint (AGlActor*);
 
-	static void spinner__init(AGlActor* actor)
-	{
-		if(!fbo){
-			fbo = agl_fbo_new(2 * RADIUS, 2 * RADIUS, 0, 0);
-			agl_draw_to_fbo(fbo) {
-				glClearColor(1.0, 1.0, 1.0, 0.0);
-				glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 
-				agl->shaders.plain->uniform.colour = 0x1133bbff;
-				agl_use_program((AGlShader*)agl->shaders.plain);
-				glTranslatef(RADIUS, RADIUS, 0);
-				int i; for(i=0;i<160;i++){
-					agl->shaders.plain->uniform.colour = 0x1133bb00 + i * 0xff / 160;
-					agl->shaders.plain->shader.set_uniforms_();
-					agl_rect(0, RADIUS * 3 / 4, 1, RADIUS / 4);
-					glRotatef(-2, 0, 0, 1);
-				}
-			} agl_end_draw_to_fbo;
-		}
+static void
+spinner__init (AGlActor* actor)
+{
+	if(!fbo){
+		fbo = agl_fbo_new(2 * RADIUS, 2 * RADIUS, 0, 0);
+		agl_draw_to_fbo(fbo) {
+			glClearColor(1.0, 1.0, 1.0, 0.0);
+			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+
+			agl->shaders.plain->uniform.colour = 0x1133bbff;
+			agl_use_program((AGlShader*)agl->shaders.plain);
+			glTranslatef(RADIUS, RADIUS, 0);
+			for(int i=0;i<160;i++){
+				agl->shaders.plain->uniform.colour = 0x1133bb00 + i * 0xff / 160;
+				agl->shaders.plain->shader.set_uniforms_();
+				agl_rect(0, RADIUS * 3 / 4, 1, RADIUS / 4);
+				glRotatef(-2, 0, 0, 1);
+			}
+		} agl_end_draw_to_fbo;
 	}
+}
 
 	static void spinner__set_state(AGlActor* actor)
 	{
@@ -58,49 +63,12 @@ static float rotation = 0;
 		}
 	}
 
-	static bool spinner__paint(AGlActor* actor)
-	{
-		WfSpinner* spinner = (WfSpinner*)actor;
-
-		if(!spinner->spinning) return true; // TODO
-
-		glPushMatrix();
-		glTranslatef(RADIUS, RADIUS, 0.0 - 0);
-		glRotatef(rotation, 0.0, 0.0, 1.0);
-		agl_textured_rect(fbo->texture,
-			-RADIUS,
-			-RADIUS,
-			2 * RADIUS,
-			2 * RADIUS,
-			NULL
-		);
-		glPopMatrix();
-
-		glPushMatrix();
-		glTranslatef(RADIUS, RADIUS, 0.0 - 0);
-		glRotatef(-2.5 * rotation, 0.0, 0.0, 1.0);
-		glScalef(-1.0, 1.0, 1.0);
-		agl_textured_rect(fbo->texture,
-			RADIUS,
-			RADIUS,
-			-2 * RADIUS,
-			-2 * RADIUS,
-			NULL
-		);
-		glPopMatrix();
-
-		rotation += 2.0;
-
-		return true;
-	}
-
 AGlActor*
-wf_spinner(WaveformActor* wf_actor)
+wf_spinner (WaveformActor* wf_actor)
 {
 	agl = agl_get_instance();
 
-	WfSpinner* spinner = g_new0(WfSpinner, 1);
-	*spinner = (WfSpinner){
+	return (AGlActor*)AGL_NEW(WfSpinner,
 		.actor = {
 			.name = "Spinner",
 			.program = (AGlShader*)agl->shaders.alphamap,
@@ -114,11 +82,46 @@ wf_spinner(WaveformActor* wf_actor)
 				.y2 = 28 + 2 * RADIUS,
 			}
 		}
-	};
-
-	return (AGlActor*)spinner;
+	);
 }
 
+
+static bool
+spinner__paint (AGlActor* actor)
+{
+	WfSpinner* spinner = (WfSpinner*)actor;
+
+	if(!spinner->spinning) return true; // TODO
+
+	glPushMatrix();
+	glTranslatef(RADIUS, RADIUS, 0.0 - 0);
+	glRotatef(rotation, 0.0, 0.0, 1.0);
+	agl_textured_rect(fbo->texture,
+		-RADIUS,
+		-RADIUS,
+		2 * RADIUS,
+		2 * RADIUS,
+		NULL
+	);
+	glPopMatrix();
+
+	glPushMatrix();
+	glTranslatef(RADIUS, RADIUS, 0.0 - 0);
+	glRotatef(-2.5 * rotation, 0.0, 0.0, 1.0);
+	glScalef(-1.0, 1.0, 1.0);
+	agl_textured_rect(fbo->texture,
+		RADIUS,
+		RADIUS,
+		-2 * RADIUS,
+		-2 * RADIUS,
+		NULL
+	);
+	glPopMatrix();
+
+	rotation += 2.0;
+
+	return true;
+}
 
 	static void on_update(GdkFrameClock* clock, void* spinner)
 	{

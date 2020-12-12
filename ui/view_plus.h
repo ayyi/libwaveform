@@ -25,7 +25,7 @@
 
 #include <glib.h>
 #include <gtk/gtk.h>
-#include "wf/waveform.h"
+#include "waveform/waveform.h"
 #include "waveform/background.h"
 #include "waveform/grid.h"
 #include "waveform/spp.h"

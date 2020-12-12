@@ -1,7 +1,7 @@
 /**
 * +----------------------------------------------------------------------+
 * | This file is part of the Ayyi project. http://ayyi.org               |
-* | copyright (C) 2011-2018 Tim Orford <tim@orford.org>                  |
+* | copyright (C) 2011-2020 Tim Orford <tim@orford.org>                  |
 * | copyright (C) 2011 Robin Gareus <robin@gareus.org>                   |
 * +----------------------------------------------------------------------+
 * | This program is free software; you can redistribute it and/or modify |
@@ -13,9 +13,7 @@
 #define __ad_plugin_c__
 #include "config.h"
 #include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
 #include <math.h>
 #include "decoder/debug.h"
 #include "decoder/ad.h"
@@ -29,13 +27,6 @@ int64_t  ad_seek_null  (void* sf, int64_t p)         { return -1; }
 ssize_t  ad_read_null  (void* sf, float*d, size_t s) { return -1; }
 #endif
 
-struct _WfDecoder
-{
-    WfAudioInfo       info;
-    const AdPlugin* b;      // backend
-    void*           d;      // data
-};
-
 
 static AdPlugin const*
 choose_backend(const char* filename)
@@ -44,10 +35,12 @@ choose_backend(const char* filename)
 	int max = 0;
 	int score;
 
+#ifdef USE_SNDFILE
 	if((score = get_sndfile()->eval(filename)) > max){
 		max = score;
 		b = get_sndfile();
 	}
+#endif
 
 #ifdef USE_FFMPEG
 	if((score = get_ffmpeg()->eval(filename)) > max){
@@ -61,27 +54,34 @@ choose_backend(const char* filename)
 
 
 /*
- *  Opening will fill WfDecoder.info which the caller must free using ad_free_info()
+ *  Opening will fill WfDecoder.info which the caller must free using ad_free_nfo()
  */
-gboolean
+bool
 ad_open(WfDecoder* d, const char* fname)
 {
 	ad_clear_nfo(&d->info);
 
+#ifdef USE_FFMPEG
 	d->b = choose_backend(fname);
-	if (!d->b) {
-		return g_warning("no decoder backend available for filetype: '%s'", strrchr(fname, '.')), FALSE;
+#else
+	if(!(d->b = choose_backend(fname))){
+		return g_warning("no decoder available for filetype: '%s'", strrchr(fname, '.')), FALSE;
 	}
+#endif
 
 	return d->b->open(d, fname);
 }
 
 
+/*
+ *  Metadata must be freed with ad_free_nfo
+ */
 int
 ad_info(WfDecoder* d)
 {
-	if (!d) return -1;
-	return d->b->info(d->d);
+	return d
+		? d->b->info(d->d)
+		: -1;
 }
 
 
@@ -116,6 +116,21 @@ ad_read_short(WfDecoder* d, WfBuf16* out)
 }
 
 
+ssize_t
+ad_read_peak (WfDecoder* d, WfBuf16* out)
+{
+#ifdef USE_FFMPEG
+	if (!d) return -1;
+
+	extern ssize_t ff_read_peak(WfDecoder* d, WfBuf16* buf);
+
+	return ff_read_peak(d, out);
+#else
+	return -1;
+#endif
+}
+
+
 /*
  *  For fftw clients that prefer data as double.
  *  side-effects: allocates buffer
@@ -147,7 +162,10 @@ ad_read_mono_dbl(WfDecoder* d, double* data, size_t len)
 }
 
 
-gboolean
+/*
+ *  Metadata must be freed with ad_free_nfo
+ */
+bool
 ad_finfo (const char* f, WfAudioInfo* nfo)
 {
 	ad_clear_nfo(nfo);
@@ -162,6 +180,26 @@ ad_finfo (const char* f, WfAudioInfo* nfo)
 
 
 void
+ad_thumbnail (WfDecoder* d, AdPicture* picture)
+{
+#ifdef USE_FFMPEG
+	extern void get_scaled_thumbnail (WfDecoder*, int size, AdPicture*);
+
+	if(d->b == get_ffmpeg()){
+		get_scaled_thumbnail (d, 200, picture);
+	}
+#endif
+}
+
+
+void
+ad_thumbnail_free (WfDecoder* d, AdPicture* picture)
+{
+	g_free0(picture->data);
+}
+
+
+void
 ad_clear_nfo(WfAudioInfo* nfo)
 {
 	memset(nfo, 0, sizeof(WfAudioInfo));
@@ -171,7 +209,9 @@ ad_clear_nfo(WfAudioInfo* nfo)
 void
 ad_free_nfo(WfAudioInfo* nfo)
 {
-	if (nfo->meta_data) g_ptr_array_unref(nfo->meta_data);
+	if (nfo->meta_data){
+		g_clear_pointer(&nfo->meta_data, g_ptr_array_unref);
+	}
 }
 
 
@@ -200,7 +240,7 @@ ad_print_nfo(int dbglvl, WfAudioInfo* nfo)
 
 
 /*
- *  Input and output is both interleaved
+ *  Input and output are both interleaved
  */
 void
 int16_to_float(float* out, int16_t* in, int n_channels, int n_frames, int out_offset)

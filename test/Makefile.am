@@ -9,17 +9,19 @@ if ENABLE_SDL
 SDLPROGRAMS = sdl
 endif
 if ENABLE_GTK
-GTKPROGRAMS = view_plus_test actor_test actor_plus actor_no_scene list group hires multi_scene $(ASSPROGRAMS) frame_rate resources cache viewport pixbuf
+GTKPROGRAMS = view_plus actor_test actor_plus actor_no_scene list group hires multi_scene $(ASSPROGRAMS) frame_rate resources cache viewport pixbuf
+LOCAL_GTK_LDFLAGS = $(GTK_LDFLAGS)
 endif
 
 if ENABLE_OPENGL
 if !ENABLE_SYSTEM_GTKGLEXT
+if ENABLE_GTK
 LOCAL_GTKGLEXT_CFLAGS = \
 	-I$(top_srcdir)/gtkglext-1.0
-GTKGLEXT_LDFLAGS = \
+TEST_GTKGLEXT_LDFLAGS = \
 	-lgmodule-2.0 \
 	$(top_srcdir)/gtkglext-1.0/.libs/libgtkglext.a
-GTKGLEXT_LIBS =
+endif
 endif
 endif
 
@@ -34,10 +36,11 @@ GL_LOADER_LDFLAGS = $(EPOXY_LDFLAGS)
 endif
 
 AM_CFLAGS = \
+	-fno-common \
 	-D_FILE_OFFSET_BITS=64 \
 	-I$(top_srcdir) \
+	-I$(top_srcdir)/lib/agl \
 	$(LOCAL_GTKGLEXT_CFLAGS) \
-	$(GTKGLEXT_LIBS) \
 	$(OPENGL_CFLAGS) \
 	$(GTK_CFLAGS) \
 	$(SDL_CFLAGS) \
@@ -48,17 +51,21 @@ AM_CFLAGS = \
 TEST_LDFLAGS = \
 	$(top_srcdir)/.libs/libwaveformui.a \
 	$(top_srcdir)/.libs/libwaveformcore.a \
+	$(top_srcdir)/lib/agl/.libs/libagl.a \
+	$(top_srcdir)/debug/libayyidebug.la \
 	$(OPENGL_LDFLAGS) \
 	$(GL_LOADER_LDFLAGS) \
 	$(LIBASS_LDFLAGS) \
-	$(GTK_LDFLAGS) \
-	$(X11_LDFLAGS) \
-	$(GTKGLEXT_LDFLAGS) \
+	$(LOCAL_GTK_LDFLAGS) \
+	$(TEST_GTKGLEXT_LDFLAGS) \
 	$(GMODULE_LDFLAGS) \
 	$(SNDFILE_LIBS) \
 	$(FFMPEG_LDFLAGS) \
 	$(SYSPROF_LIBS) \
 	$(GRAPHENE_LDFLAGS) \
+	$(XRANDR_LDFLAGS) \
+	$(GDK_LIBS) \
+	$(X11_LDFLAGS) \
 	-lm
 
 COMMON_SOURCES = \
@@ -72,9 +79,9 @@ waveform_test_SOURCES = \
 	$(COMMON_SOURCES) \
 	waveform_test.c
 
-view_plus_test_SOURCES = \
+view_plus_SOURCES = \
 	$(COMMON_SOURCES) \
-	view_plus_test.c
+	view_plus.c
 
 actor_test_SOURCES = \
 	$(COMMON_SOURCES) \
@@ -158,6 +165,7 @@ scenegraph_SOURCES = \
 
 viewport_SOURCES = \
 	$(COMMON2_SOURCES) \
+	_cache_behaviour.c _cache_behaviour.h \
 	viewport.c
 
 promise_SOURCES = \
@@ -167,7 +175,7 @@ promise_SOURCES = \
 waveform_test_LDADD = \
 	$(TEST_LDFLAGS)
 
-view_plus_test_LDADD = \
+view_plus_LDADD = \
 	$(ass_LDADD)
 
 actor_test_LDADD = \
@@ -190,7 +198,7 @@ ass_LDADD = \
 sdl_LDADD = \
 	$(OPENGL_LDFLAGS) \
 	$(SDL_LIBS) \
-	$(top_srcdir)/sdl/libsdlframerate.a \
+	../lib/agl/sdl/libsdlframerate.a \
 	$(TEST_LDFLAGS)
 
 glx_LDADD = \
@@ -225,7 +233,7 @@ TESTS = \
 	waveform_test \
 	32bit \
 	cache \
-	view_plus_test \
+	view_plus \
 	actor_test \
 	actor_plus \
 	hires \
@@ -246,7 +254,7 @@ test:
 	cd .. && test/large_files
 	./32bit
 	./cache
-	./view_plus_test -n
+	./view_plus -n
 	./actor_test -n
 	./actor_plus -n
 	./hires -n
@@ -269,7 +277,7 @@ CLEANFILES = \
 	resources \
 	scenegraph \
 	sdl \
-	view_plus_test \
+	view_plus \
 	viewport \
 	waveform_test
 

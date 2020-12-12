@@ -14,7 +14,7 @@
 
 #include "glib.h"
 #include "agl/typedefs.h"
-#include "wf/typedefs.h"
+#include "waveform/typedefs.h"
 
 typedef struct _alpha_buf           AlphaBuf;
 typedef struct _WaveformContext     WaveformContext;

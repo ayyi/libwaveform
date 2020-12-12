@@ -21,7 +21,7 @@
 
 extern int current_test;
 
-#ifdef __common_c__
+#ifndef __common_c__
 extern
 #endif
 struct _app
@@ -29,9 +29,9 @@ struct _app
 	int            timeout;
 	int            n_passed;
 #ifdef __common_c__
-} app;
-#else
 } app = {0,};
+#else
+} app;
 #endif
 
 typedef void (*Test)    ();

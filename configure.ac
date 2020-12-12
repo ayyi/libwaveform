@@ -27,8 +27,7 @@ AX_SUBDIRS_CONFIGURE([gtkglext-1.0], [[--enable-test=false]], [], [])
 # determine that not all nested functions require trampolines.
 CFLAGS="$CFLAGS -O2"
 
-# Check for debugging flag
-debug="yes"
+debug="no"
 AC_ARG_ENABLE(debug,
 	[AS_HELP_STRING(--enable-debug, [Enable debugging (false)])],
 	[debug="$enableval"])
@@ -55,9 +54,6 @@ if test "$strict" = "yes"; then
   CXXFLAGS="$CXXFLAGS -Wall -Wextra -Wno-unused-parameter -Wconversion -Winit-self -Woverloaded-virtual -Wsign-promo"
 fi
 
-SNDFILE_LIBS=`pkg-config --cflags --libs sndfile`
-AC_SUBST(SNDFILE_LIBS)
-
 AYYI_CFLAGS="-I./ayyi"
 AC_SUBST(AYYI_CFLAGS)
 GLIB_CFLAGS=`pkg-config --cflags glib-2.0`
@@ -70,6 +66,24 @@ AC_SUBST(X11_LDFLAGS)
 
 GMODULE_LDFLAGS=`pkg-config gmodule-2.0 --libs`
 AC_SUBST(GMODULE_LDFLAGS)
+
+dnl -----------------------------------------------------
+
+AC_ARG_ENABLE(submodules, AC_HELP_STRING([--disable-submodules], [no git submodules]), enable_submodules=$enableval, enable_submodules="yes")
+
+AM_CONDITIONAL(ENABLE_SUBMODULES, test "$enable_submodules" = "yes")
+
+if test "$enable_submodules" = "yes"; then
+	if test ! -e lib/agl/autogen.sh
+	then
+		git submodule update --init --recursive
+	fi
+	touch lib/agl/libagl.pc
+	automake
+else
+	mkdir -p lib/agl/
+	echo "all:" > lib/agl/Makefile.am
+fi
 
 dnl -----------------------------------------------------
 
@@ -135,7 +149,32 @@ else
 fi
 AM_CONDITIONAL(ENABLE_GTK, test "$enable_gtk" = "yes")
 
+have_xrandr=yes
+PKG_CHECK_MODULES(XRANDR, [xrandr],
+	[],
+	[have_xrandr=no],
+	[have_xrandr=yes]
+)
+if test "$have_xrandr" = "yes"; then
+	AC_DEFINE(USE_XRANDR, 1, [Use Xrandr])
+fi
+XRANDR_LDFLAGS=`pkg-config --libs xrandr`
+AC_SUBST(XRANDR_LDFLAGS)
+
+GDK_CFLAGS=`pkg-config --cflags gdk-2.0`
+GDK_LIBS=`pkg-config --libs gdk-2.0`
+AC_SUBST(GDK_CFLAGS)
+AC_SUBST(GDK_LIBS)
+
+PANGO_CFLAGS=`pkg-config --cflags pangocairo`
+PANGO_LIBS=`pkg-config --libs pangocairo`
+AC_SUBST(PANGO_CFLAGS)
+AC_SUBST(PANGO_LIBS)
+
 dnl -opengl----------------------------------------------
+
+AM_CONDITIONAL(AGL_ENABLE_GTKGLEXT, false)
+AM_CONDITIONAL(AGL_NO_INSTALL, true)
 
 AC_ARG_ENABLE(system-gtkglext, AC_HELP_STRING([--enable-system-gtkglext], [disable local opengl extension for gtk]), enable_system_gtkglext=$enableval, enable_system_gtkglext="no")
 
@@ -184,6 +223,21 @@ AC_SUBST(OPENGL_LDFLAGS)
 
 dnl -----------------------------------------------------
 
+AC_ARG_ENABLE(sndfile, AC_HELP_STRING([--disable-sndfile], [disable use of libsndfile]), enable_sndfile=$enableval, enable_sndfile="auto")
+
+AS_IF([test "$enable_sndfile" != "no"], [
+	PKG_CHECK_MODULES(SNDFILE, sndfile, enable_sndfile=yes, enable_sndfile=no)
+	])
+
+if test "$enable_sndfile" = "yes"; then
+	AC_DEFINE(USE_SNDFILE,1,[Use libsndfile audio decoder])
+fi
+AM_CONDITIONAL(ENABLE_SNDFILE, test "$enable_sndfile" = "yes")
+SNDFILE_LDFLAGS=${SNDFILE_LIBS}
+AC_SUBST(SNDFILE_LDFLAGS)
+
+dnl -----------------------------------------------------
+
 have_epoxy=yes
 PKG_CHECK_MODULES(EPOXY, [epoxy],
 	[EPOXY_LDFLAGS=`pkg-config --libs epoxy`],
@@ -200,10 +254,10 @@ fi
 
 dnl -----------------------------------------------------
 
-AC_ARG_ENABLE(ffmpeg,   AC_HELP_STRING([--disable-ffmpeg], [disable use of FFMPEG]), enable_ffmpeg=$enableval, enable_ffmpeg="auto")
+AC_ARG_ENABLE(ffmpeg, AC_HELP_STRING([--disable-ffmpeg], [disable use of FFMPEG]), enable_ffmpeg=$enableval, enable_ffmpeg="auto")
 
 AS_IF([test "$enable_ffmpeg" != "no"], [
-	PKG_CHECK_MODULES(FFMPEG, [libavformat >= 51.0.0 libavcodec >= 51.0.0 libavutil >= 50.0.0], enable_ffmpeg=yes, enable_ffmpeg=no)
+	PKG_CHECK_MODULES(FFMPEG, [libavformat >= 51.0.0 libavcodec >= 51.0.0 libavutil >= 50.0.0 libavfilter >= 7.0.0], enable_ffmpeg=yes, enable_ffmpeg=no)
 	])
 
 if test "$enable_ffmpeg" = "yes"; then
@@ -293,21 +347,16 @@ AC_DEFINE(USE_FRAME_CLOCK, 1, [Synchronise drawing to screen refresh])
 
 # extra CXXFLAGS that should always be used
 dnl CXXFLAGS="$CXXFLAGS -pipe -fmessage-length=139 -fdiagnostics-show-location=every-line"
-AM_CFLAGS="$CFLAGS -pipe -fmessage-length=139 -fdiagnostics-show-location=every-line"
+AM_CFLAGS="$CFLAGS -pipe -fmessage-length=139 -fdiagnostics-show-location=every-line -fno-common"
 
 AC_CONFIG_FILES([
 	libwaveform.pc
 	Makefile
 	wf/Makefile
 	wf/loaders/Makefile
-	agl/Makefile
-	agl/shaders/Makefile
-	agl/behaviours/Makefile
-	agl/text/Makefile
-	transition/Makefile
-	sdl/Makefile
+	lib/Makefile
 	gtkglext-1.0/Makefile
-	glib/Makefile
+	debug/Makefile
 	decoder/Makefile
 	ui/Makefile
 	ui/actors/Makefile
@@ -316,15 +365,34 @@ AC_CONFIG_FILES([
 	test/gen/Makefile
 	waveform/Makefile
 ])
+
+if test "$enable_submodules" = "yes"; then
+	AC_CONFIG_FILES([
+		lib/agl/Makefile
+		lib/agl/agl/Makefile
+		lib/agl/agl/shaders/Makefile
+		lib/agl/agl/behaviours/Makefile
+		lib/agl/agl/text/Makefile
+		lib/agl/debug/Makefile
+		lib/agl/glib/Makefile
+		lib/agl/sdl/Makefile
+		lib/agl/transition/Makefile
+		lib/agl/test/Makefile
+	])
+fi
+
 AC_OUTPUT
 
 AC_MSG_RESULT([])
 AC_MSG_RESULT([Libwaveform:])
+AC_MSG_RESULT([Building submodules:      $enable_submodules])
 AC_MSG_RESULT([Building opengl:          $enable_opengl])
 AC_MSG_RESULT([Building gtk:             $enable_gtk])
 AC_MSG_RESULT([Building sdl:             $enable_sdl])
 AC_MSG_RESULT([Building libass:          $enable_libass])
+AC_MSG_RESULT([Building sndfile:         $enable_sndfile])
 AC_MSG_RESULT([Building ffmpeg:          $enable_ffmpeg])
+AC_MSG_RESULT([Building xrandr:          $have_xrandr])
 AC_MSG_RESULT([Building tests:           $enable_test])
 AC_MSG_RESULT([Building profiler:        $enable_profiler])
 AC_MSG_RESULT([Use system GtkGL:         $enable_system_gtkglext])

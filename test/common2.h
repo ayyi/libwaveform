@@ -37,34 +37,6 @@ typedef struct
 	KeyHandler*    handler;
 } KeyHold;
 
-#ifdef __glx_test__
-
-#ifndef GLX_MESA_swap_control
-typedef GLint (*PFNGLXSWAPINTERVALMESAPROC)    (unsigned interval);
-typedef GLint (*PFNGLXGETSWAPINTERVALMESAPROC) (void);
-#endif
-
-#if !defined( GLX_OML_sync_control ) && defined( _STDINT_H )
-#define GLX_OML_sync_control 1
-typedef Bool (*PFNGLXGETMSCRATEOMLPROC) (Display*, GLXDrawable, int32_t* numerator, int32_t* denominator);
-#endif
-
-#ifndef GLX_MESA_swap_frame_usage
-#define GLX_MESA_swap_frame_usage 1
-typedef int (*PFNGLXGETFRAMEUSAGEMESAPROC) (Display*, GLXDrawable, float* usage);
-#endif
-
-#endif
-
-typedef struct {
-#ifdef __glx_test__
-    Window    window;
-#else
-	unsigned long window;
-#endif
-    AGlScene* scene;
-} AGlWindow;
-
 #ifdef __common2_c__
 char grey     [16] = "\x1b[2;39m"; // 2 = dim
 char yellow   [16] = "\x1b[1;33m";
@@ -99,13 +71,6 @@ extern char ayyi_err [32];
 extern char go_rhs   [32];
 extern char ok       [];
 extern char fail     [];
-#endif
-
-#ifdef GLX_H
-AGlWindow* agl_make_window    (Display*, const char*, int width, int height);
-void       agl_window_destroy (Display*, AGlWindow**);
-void       event_loop         (Display*);
-void       show_refresh_rate  (Display*);
 #endif
 
 void add_key_handlers         (Key keys[]);

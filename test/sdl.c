@@ -81,10 +81,6 @@ static const struct option long_options[] = {
 static const char* const short_options = "n";
 
 
-		static void _on_scene_requests_redraw(AGlScene* wfc, gpointer _)
-		{
-			window.dirty = true;
-		}
 int
 main (int argc, char **argv)
 {
@@ -136,7 +132,7 @@ main (int argc, char **argv)
 	setup_projection();
 
 #ifndef USE_EPOXY
-	agl_get_extensions(); // TODO what is the SDL way?
+	agl_get_extensions();
 #endif
 	agl_gl_init();
 
@@ -148,6 +144,7 @@ main (int argc, char **argv)
 	{
 		window.wfc = wf_context_new_sdl(window.gl_context);
 		window.scene = window.wfc->root->root;
+		((AGlActor*)window.scene)->region = (AGlfRegion){.x2 = window.width, .y2 = window.height};
 
 		char* filename = find_wav(WAV);
 		window.w1 = waveform_load_new(filename);
@@ -170,6 +167,10 @@ main (int argc, char **argv)
 			wf_actor_set_region(window.a[i], &window.region[i]);
 		}
 
+		void _on_scene_requests_redraw (AGlScene* scene, gpointer _)
+		{
+			window.dirty = true;
+		}
 		window.scene->draw = _on_scene_requests_redraw;
 	}
 

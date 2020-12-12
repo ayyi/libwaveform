@@ -43,7 +43,6 @@ typedef struct _rms_buf_info
 static inline bool get_rms_buf_info (const char* buf, guint len, RmsBusInfo*, int ch);
 
 
-
 #define MAX_PART_HEIGHT 1024 //FIXME
 
 typedef struct {
@@ -53,7 +52,7 @@ static Line line[3];
 
 
 static void
-line_write(Line* line, int index, guchar val)
+line_write (Line* line, int index, guchar val)
 {
 #ifdef DEBUG
 	if(index < 0 || index >= MAX_PART_HEIGHT){ perr ("y=%i", index); return; }
@@ -63,14 +62,14 @@ line_write(Line* line, int index, guchar val)
 
 
 static void
-line_clear(Line* line)
+line_clear (Line* line)
 {
 	memset(line->a, 0, sizeof(guchar) * MAX_PART_HEIGHT);
 }
 
 
 static void
-pixbuf_draw_line(cairo_t* cr, WfDRect* pts, double line_width, uint32_t colour)
+pixbuf_draw_line (cairo_t* cr, WfDRect* pts, double line_width, uint32_t colour)
 {
 	//TODO set colour, or remove arg
 	if(pts->y1 == pts->y2) return;
@@ -82,7 +81,7 @@ pixbuf_draw_line(cairo_t* cr, WfDRect* pts, double line_width, uint32_t colour)
 
 // deprecated
 static void
-sort_mono(short* dest, const short* src, int size)
+sort_mono (short* dest, const short* src, int size)
 {
 	//sort j into ascending order
 
@@ -112,21 +111,22 @@ sort_mono(short* dest, const short* src, int size)
 }
 
 
+/*
+ *  Sort j into ascending order
+ */
 static void
-sort_(int ch, short dest[WF_MAX_CH][4], short src[WF_MAX_CH][4], int size)
+sort_ (int ch, short dest[WF_MAX_CH][4], short src[WF_MAX_CH][4], int size)
 {
-	//sort j into ascending order
-
-	int i, j=0, min, new_min, top=size, p=0;
+	int i, top = size, p = 0;
 	guint16 n[WF_MAX_CH][4] = {{0,}, {0,}};
 
-	for(i=0;i<size;i++) n[ch][i] = src[ch][i]; // copy the source array
+	memcpy(n, src, sizeof(guint16) * WF_MAX_CH * 4);
 
 	for(i=0;i<size;i++){
-		min = n[ch][0];
-		p=0;
-		for(j=1;j<top;j++){
-			new_min = MIN(min, n[ch][j]);
+		int min = n[ch][0];
+		p = 0;
+		for(int j=1;j<top;j++){
+			int new_min = MIN(min, n[ch][j]);
 			if(new_min < min){
 				min = new_min;
 				p = j;
@@ -136,24 +136,28 @@ sort_(int ch, short dest[WF_MAX_CH][4], short src[WF_MAX_CH][4], int size)
 
 		dest[ch][i] = min;
 
-		int m; for(m=p;m<top;m++) n[ch][m] = n[ch][m+1]; // move remaining entries down.
+		for(int m=p;m<top;m++) n[ch][m] = n[ch][m+1]; // move remaining entries down.
 		top--;
 		n[ch][top] = 0;
 	}
 }
 
 
+#ifdef DEBUG
 static void
-warn_no_src_data(Waveform* waveform, int buflen, int src_stop)
+warn_no_src_data (Waveform* waveform, int buflen, int src_stop)
 {
-	static int count = 0;
-	if(count++ > 20) return;
-	pwarn ("no src data in peak buffer! buflen=%i src_stop=%i", buflen, src_stop);
+	if(_debug_ > 1) {
+		static int count = 0;
+		if(count++ > 20) return;
+		pwarn ("no src data in peak buffer! buflen=%i src_stop=%i", buflen, src_stop);
+	}
 }
+#endif
 
 
 void
-waveform_peak_to_pixbuf(Waveform* w, GdkPixbuf* pixbuf, WfSampleRegion* region, uint32_t colour, uint32_t bg_colour, bool single)
+waveform_peak_to_pixbuf (Waveform* w, GdkPixbuf* pixbuf, WfSampleRegion* region, uint32_t colour, uint32_t bg_colour, bool single)
 {
 	g_return_if_fail(w && pixbuf);
 
@@ -177,7 +181,7 @@ waveform_peak_to_pixbuf(Waveform* w, GdkPixbuf* pixbuf, WfSampleRegion* region, 
 		int               n_blocks_done;
 	} C2;
 
-	void _waveform_peak_to_pixbuf__load_done(C2* c)
+	void _waveform_peak_to_pixbuf__load_done (C2* c)
 	{
 		PF;
 		double samples_per_px = c->region.len / gdk_pixbuf_get_width(c->pixbuf);
@@ -188,22 +192,23 @@ waveform_peak_to_pixbuf(Waveform* w, GdkPixbuf* pixbuf, WfSampleRegion* region, 
 		g_free(c);
 	}
 
-	void waveform_load_audio_done(Waveform* w, int block, gpointer _c)
-	{
-		dbg(3, "block=%i", block);
-		C2* c = _c;
-		g_return_if_fail(c);
+static void
+_waveform_load_audio_done (Waveform* w, int block, gpointer _c)
+{
+	C2* c = _c;
+	g_return_if_fail(c);
 
-		c->n_blocks_done++;
+	c->n_blocks_done++;
 //TODO no, we cannot load the whole file at once!! render each block separately
-		// call waveform_peak_to_pixbuf_full here for the block
-		if(c->n_blocks_done >= c->n_blocks_total){
-			_waveform_peak_to_pixbuf__load_done(c);
-		}
+	// call waveform_peak_to_pixbuf_full here for the block
+	if(c->n_blocks_done >= c->n_blocks_total){
+		_waveform_peak_to_pixbuf__load_done(c);
 	}
+}
+
 
 void
-waveform_peak_to_pixbuf_async(Waveform* w, GdkPixbuf* pixbuf, WfSampleRegion* region, uint32_t colour, uint32_t bg_colour, WfPixbufCallback callback, gpointer user_data)
+waveform_peak_to_pixbuf_async (Waveform* w, GdkPixbuf* pixbuf, WfSampleRegion* region, uint32_t colour, uint32_t bg_colour, WfPixbufCallback callback, gpointer user_data)
 {
 	g_return_if_fail(w && pixbuf && region);
 
@@ -228,7 +233,7 @@ waveform_peak_to_pixbuf_async(Waveform* w, GdkPixbuf* pixbuf, WfSampleRegion* re
 		int b1 = (region->start + region->len) / WF_SAMPLES_PER_TEXTURE;
 		c->n_blocks_total = b1 - b0 + 1;
 		int b; for(b=b0;b<=b1;b++){
-			waveform_load_audio(w, b, N_TIERS_NEEDED, waveform_load_audio_done, c);
+			waveform_load_audio(w, b, N_TIERS_NEEDED, _waveform_load_audio_done, c);
 		}
 		return;
 	}
@@ -247,7 +252,7 @@ typedef struct {
 
 
 void
-waveform_peak_to_pixbuf_full(Waveform* waveform, GdkPixbuf* pixbuf, uint32_t region_inset, int* start, int* end, double samples_per_px, uint32_t colour, uint32_t colour_bg, float gain, bool single)
+waveform_peak_to_pixbuf_full (Waveform* waveform, GdkPixbuf* pixbuf, uint32_t region_inset, int* start, int* end, double samples_per_px, uint32_t colour, uint32_t colour_bg, float gain, bool single)
 {
 	/*
 		renders part of a peakfile (loaded into the buffer given by waveform->buf) onto the given pixbuf.
@@ -257,7 +262,7 @@ waveform_peak_to_pixbuf_full(Waveform* waveform, GdkPixbuf* pixbuf, uint32_t reg
 
 		-if the data is not imediately available it will not be waited for. For short samples or big pixbufs, caller should subscribe to the Waveform::peakdata_ready signal.
 
-		@param pixbuf         - pixbuf covers the whole Waveform. We only render to the bit between @start and @end. 
+		@param pixbuf         - pixbuf covers the whole Waveform. We only render to the bit between @start and @end.
 		                        The simplicity of one pixbuf per waveform imposes limitations on file size and zooming.
 
 		@param region_inset   - (sample frames)
@@ -283,7 +288,7 @@ waveform_peak_to_pixbuf_full(Waveform* waveform, GdkPixbuf* pixbuf, uint32_t reg
 	g_return_if_fail(pixbuf);
 	g_return_if_fail(waveform);
 
-	static Line line[WF_MAX_CH][3];
+	static Line line[WF_MAX_CH][3] = {0,};
 
 	gboolean hires_mode = ((samples_per_px / WF_PEAK_RATIO) < 1.0);
 
@@ -369,10 +374,12 @@ waveform_peak_to_pixbuf_full(Waveform* waveform, GdkPixbuf* pixbuf, uint32_t reg
 		src.stop  = border + ((int)((px+1) * xmag)) + region_inset_ - block_offset;
 		if(src.start == src.stop){ printf("^"); fflush(stdout); } // src data not hi enough resolution
 		if(hires_mode){
+#ifdef DEBUG
 			if(wf_debug && (px == px_start)){
 				double percent = 2 * 100 * (((int)(px * xmag)) + region_inset - (wf_peakbuf_get_max_size(b.n_tiers) * hires_block) / WF_PEAK_VALUES_PER_SAMPLE) / b.len;
 				dbg(2, "reading from buf=%i=%.2f%% stop=%i buflen=%i blocklen=%i", src.start, percent, src.stop, b.len, wf_peakbuf_get_max_size(b.n_tiers));
 			}
+#endif
 			if(src.stop > b.len_frames - border/2){
 				dbg(1, "**** block change needed!");
 				hires_block++;
@@ -425,8 +432,8 @@ waveform_peak_to_pixbuf_full(Waveform* waveform, GdkPixbuf* pixbuf, uint32_t reg
 
 					if(sub_px < 4){
 						//FIXME these supixels are not evenly distributed when > 4 available.
-						lmax[ch][sub_px] = (ch_height * sample[ch].positive) / (256*128*2);
-						lmin[ch][sub_px] =-(ch_height * sample[ch].negative) / (256*128*2); //lmin contains positive values.
+						lmax[ch][sub_px] = (ch_height * sample[ch].positive) / (256 * 128 * 2);
+						lmin[ch][sub_px] =-(ch_height * sample[ch].negative) / (256 * 128 * 2); //lmin contains positive values.
 					}
 					sub_px++;
 				}
@@ -454,18 +461,18 @@ waveform_peak_to_pixbuf_full(Waveform* waveform, GdkPixbuf* pixbuf, uint32_t reg
 				}
 			}
 
-			//scale the values to the pixbuf height:
-			for(ch=0;ch<n_chans;ch++){
-				peak[ch].negative = (ch_height * peak[ch].negative) / (256*128*2);
-				peak[ch].positive = (ch_height * peak[ch].positive) / (256*128*2);
 
+			// scale the values to the pixbuf height
+			for(ch=0;ch<n_chans;ch++){
+				peak[ch].negative = (ch_height * peak[ch].negative) / (256 * 128 * 2);
+				peak[ch].positive = (ch_height * peak[ch].positive) / (256 * 128 * 2);
 				sort_(ch, k, lmax, MIN(sub_px, 4));
 
-				//note that we write into line.next, not line.current. There is a visible delay of one line.
+				// note that we write into line.next, not line.current. There is a visible delay of one line.
 				int alpha = 0xff;
 				int v = 0;
 
-				//positive peak:
+				// positive peak
 				int s; for(s=0;s<MIN(sub_px, 4);s++){
 					for(y=v;y<k[ch][s];y++){
 						line_write(lines[ch].next, mid +y, alpha);
@@ -478,12 +485,13 @@ waveform_peak_to_pixbuf_full(Waveform* waveform, GdkPixbuf* pixbuf, uint32_t reg
 					lines[ch].next->a[mid + y] = 0;
 				}
 
-				//negative peak:
+				// negative peak
 				sort_(ch, k, lmin, MIN(sub_px, 4));
 				alpha = 0xff;
 				v = mid;
 				for(s=0;s<MIN(sub_px, 4);s++){
-					for(y=v;y>mid-k[ch][s];y--) line_write(lines[ch].next, y, alpha);
+					for(y=v;y>mid-k[ch][s];y--)
+						line_write(lines[ch].next, y, alpha);
 					v = mid - k[ch][s];
 					alpha = (alpha * 2) / 3;
 				}
@@ -512,6 +520,7 @@ waveform_peak_to_pixbuf_full(Waveform* waveform, GdkPixbuf* pixbuf, uint32_t reg
 				}
 			}
 		}else{
+#ifdef DEBUG
 			//no more source data available - as the pixmap is clear, we have nothing much to do.
 			//gdk_draw_line(GDK_DRAWABLE(pixmap), gc, px, 0, px, height);//x1, y1, x2, y2
 #if 0
@@ -519,7 +528,7 @@ waveform_peak_to_pixbuf_full(Waveform* waveform, GdkPixbuf* pixbuf, uint32_t reg
 			pixbuf_draw_line(cairo, &pts, 1.0, colour);
 #endif
 			warn_no_src_data(waveform, b.len, src.stop);
-			printf("*"); fflush(stdout);
+#endif
 		}
 
 		line_index++;
@@ -561,7 +570,7 @@ waveform_peak_to_pixbuf_full(Waveform* waveform, GdkPixbuf* pixbuf, uint32_t reg
 
 #undef PEAK_ANTIALIAS
 void
-waveform_rms_to_pixbuf(Waveform* w, GdkPixbuf* pixbuf, uint32_t src_inset, int* start, int* end, double samples_per_px, uint32_t colour, uint32_t colour_bg, float gain)
+waveform_rms_to_pixbuf (Waveform* w, GdkPixbuf* pixbuf, uint32_t src_inset, int* start, int* end, double samples_per_px, uint32_t colour, uint32_t colour_bg, float gain)
 {
 	/*
      this fn is copied from peak_render_to_pixbuf(). It differs in the size of the src data width, and
@@ -638,12 +647,13 @@ waveform_rms_to_pixbuf(Waveform* w, GdkPixbuf* pixbuf, uint32_t src_inset, int* 
 	}
 */
 	int hires_block = -1;
-	int src_px_start = 0;
 	if(hires_mode){
 		uint64_t start_frame = px_start * samples_per_px;
 		hires_block = start_frame / WF_PEAK_BLOCK_SIZE;
-		src_px_start = (hires_block * wf_get_peakbuf_len_frames()) / samples_per_px; //if not 1st block, the src buffer address is smaller.
+#ifdef DEBUG
+		int src_px_start = (hires_block * wf_get_peakbuf_len_frames()) / samples_per_px; //if not 1st block, the src buffer address is smaller.
 		dbg(2, "hires: offset=%i", src_px_start);
+#endif
 	}
 
 	int n_tiers = hires_mode ? /*peakbuf->n_tiers*/4 : 0; //TODO
@@ -716,12 +726,12 @@ waveform_rms_to_pixbuf(Waveform* w, GdkPixbuf* pixbuf, uint32_t src_inset, int* 
 			//subtract block using buffer index:
 			src_start = ((int)((px  ) * xmag_)) + src_inset - block_offset;
 			src_stop  = ((int)((px+1) * xmag_)) + src_inset - block_offset;
-			//if(src_start == src_stop){ printf("^"); fflush(stdout); }
-			//else { printf("_"); fflush(stdout); }
-			if((px==px_start) && hires_mode){
+#ifdef DEBUG
+			if((px == px_start) && hires_mode){
 				double percent = 2 * 100 * (((int)(px * xmag_)) + src_inset - (wf_peakbuf_get_max_size(n_tiers) * hires_block) / WF_PEAK_VALUES_PER_SAMPLE) / b.len;
 				dbg(2, "reading from buf=%i=%.2f%% stop=%i buflen=%i blocklen=%i", src_start, percent, src_stop, b.len, wf_peakbuf_get_max_size(n_tiers));
 			}
+#endif
 			if(src_stop > b.len_frames && hires_mode){
         dbg(2, "**** block change needed!");
         Peakbuf* peakbuf = waveform_get_peakbuf_n(w, hires_block + 1);
@@ -739,9 +749,9 @@ waveform_rms_to_pixbuf(Waveform* w, GdkPixbuf* pixbuf, uint32_t src_inset, int* 
       Line* next_line     = &line[(line_index+2) % 3];
 
       //arrays holding subpixel levels.
-      short lmax[4] = {0,0,0,0};
-      short lmin[4] = {0,0,0,0};
-      short k   [4] = {0,0,0,0}; //sorted copy of l.
+      short lmax[4] = {0,};
+      short lmin[4] = {0,};
+      short k   [4] = {0,}; //sorted copy of l.
 
       int mid = ch_height / 2;
 
@@ -871,12 +881,13 @@ waveform_rms_to_pixbuf(Waveform* w, GdkPixbuf* pixbuf, uint32_t src_inset, int* 
 				}
 
 			}else{
+#ifdef DEBUG
 				//no more source data available - as the pixmap is clear, we have nothing much to do.
 				//gdk_draw_line(GDK_DRAWABLE(pixmap), gc, px, 0, px, height);//x1, y1, x2, y2
 				WfDRect pts = {px, 0, px, ch_height};
 				pixbuf_draw_line(cairo, &pts, 1.0, 0xffff00ff);
 				warn_no_src_data(w, b.len, src_stop);
-				printf("*"); fflush(stdout);
+#endif
 			}
 			//next = srcidx + 1;
 			//xf += WF_PEAK_RATIO * WF_PEAK_VALUES_PER_SAMPLE / samples_per_px;
@@ -907,7 +918,7 @@ waveform_rms_to_pixbuf(Waveform* w, GdkPixbuf* pixbuf, uint32_t src_inset, int* 
 
 
 static AlphaBuf*
-_alphabuf_new(int width, int height)
+_alphabuf_new (int width, int height)
 {
 	AlphaBuf* a = g_new0(AlphaBuf, 1);
 	a->width = width;
@@ -1081,7 +1092,7 @@ wf_alphabuf_new_hi (Waveform* waveform, int blocknum, int Xscale, bool is_rms, i
 
 
 void
-wf_alphabuf_free(AlphaBuf* a)
+wf_alphabuf_free (AlphaBuf* a)
 {
 	if(a){
 		g_free(a->buf);
@@ -1091,7 +1102,7 @@ wf_alphabuf_free(AlphaBuf* a)
 
 
 GdkPixbuf*
-wf_alphabuf_to_pixbuf(AlphaBuf* a)
+wf_alphabuf_to_pixbuf (AlphaBuf* a)
 {
 	GdkPixbuf* pixbuf = gdk_pixbuf_new(GDK_COLORSPACE_RGB, FALSE, BITS_PER_PIXEL, a->width, a->height);
 	guchar* buf = gdk_pixbuf_get_pixels(pixbuf);
@@ -1111,13 +1122,13 @@ wf_alphabuf_to_pixbuf(AlphaBuf* a)
 
 
 static void
-alphabuf_draw_line(AlphaBuf* pixbuf, WfDRect* pts, double line_width, GdkColor* colour)
+alphabuf_draw_line (AlphaBuf* pixbuf, WfDRect* pts, double line_width, GdkColor* colour)
 {
 }
 
 
 void
-waveform_peak_to_alphabuf(Waveform* w, AlphaBuf* a, int scale, int* start, int* end, GdkColor* colour)
+waveform_peak_to_alphabuf (Waveform* w, AlphaBuf* a, int scale, int* start, int* end, GdkColor* colour)
 {
 	/*
 	 renders a peakfile (pre-loaded into WfPeakBuf* waveform->priv->peak) onto the given 8 bit alpha-map buffer.
@@ -1324,12 +1335,14 @@ waveform_peak_to_alphabuf(Waveform* w, AlphaBuf* a, int scale, int* start, int* 
 }
 
 
+/*
+ *  Copy from hi-res peakfile to hi-res alphabuf
+ *
+ *  @region: specifies the output range (not actually samples). TODO rename
+ */
 void
-waveform_peak_to_alphabuf_hi(Waveform* w, AlphaBuf* a, int block, WfSampleRegion region, GdkColor* colour)
+waveform_peak_to_alphabuf_hi (Waveform* w, AlphaBuf* a, int block, WfSampleRegion region, GdkColor* colour)
 {
-	//copy from hi-res peakfile to hi-res alphabuf
-	//-region specifies the output range (not actually samples). TODO rename
-
 	//TODO start is -2 so we probably need to load from 2 peakbufs?
 
 #if 0
@@ -1411,7 +1424,7 @@ io_ratio = 1;
 
 
 void
-waveform_rms_to_alphabuf(Waveform* waveform, AlphaBuf* pixbuf, int* start, int* end, double samples_per_px, GdkColor* colour, uint32_t colour_bg)
+waveform_rms_to_alphabuf (Waveform* waveform, AlphaBuf* pixbuf, int* start, int* end, double samples_per_px, GdkColor* colour, uint32_t colour_bg)
 {
 	/*
 
@@ -1438,8 +1451,10 @@ waveform_rms_to_alphabuf(Waveform* waveform, AlphaBuf* pixbuf, int* start, int* 
 	short min;                //negative peak value for each pixel.
 	short max;                //positive peak value for each pixel.
 
+#ifdef DEBUG
 	float gain       = 1.0;
 	dbg(3, "peak_gain=%.2f", gain);
+#endif
 
 	int n_chans      = waveform_get_n_channels(waveform);
 if(!n_chans){ perr("n_chans"); n_chans = 1; }
@@ -1644,12 +1659,13 @@ if(!n_chans){ perr("n_chans"); n_chans = 1; }
 				}
 
 			}else{
+#ifdef DEBUG
 				//no more source data available - as the pixmap is clear, we have nothing much to do.
 				//gdk_draw_line(GDK_DRAWABLE(pixmap), gc, px, 0, px, height);//x1, y1, x2, y2
 				WfDRect pts = {px, 0, px, ch_height};
 				alphabuf_draw_line(pixbuf, &pts, 1.0, colour);
-//				warn_no_src_data(waveform, b.len, src_stop);
-				printf("*"); fflush(stdout);
+				warn_no_src_data(waveform, b.len, src_stop);
+#endif
 			}
 			//next = srcidx + 1;
 			//xf += WF_PEAK_RATIO * WF_PEAK_VALUES_PER_SAMPLE / samples_per_px;
@@ -1677,7 +1693,7 @@ if(!n_chans){ perr("n_chans"); n_chans = 1; }
 
 
 static inline bool
-get_buf_info(const Waveform* w, int block_num, BufInfo* b)
+get_buf_info (const Waveform* w, int block_num, BufInfo* b)
 {
 	//buf_info is just a convenience. It is filled twice during a tile draw.
 
@@ -1694,7 +1710,6 @@ get_buf_info(const Waveform* w, int block_num, BufInfo* b)
 			.n_tiers = RESOLUTION_TO_TIERS(peakbuf->resolution)
 		};
 		g_return_val_if_fail(b->buf, false);
-		//dbg(2, "HI block=%i len=%i %i", block_num, b->len, b->len / WF_PEAK_VALUES_PER_SAMPLE);
 	}else{
 		dbg(2, "MED len=%i %i (x256=%i)", b->len, b->len / WF_PEAK_VALUES_PER_SAMPLE, (b->len * 256) / WF_PEAK_VALUES_PER_SAMPLE);
 
@@ -1717,14 +1732,13 @@ get_buf_info(const Waveform* w, int block_num, BufInfo* b)
 static inline bool
 get_rms_buf_info (const char* buf, guint len, struct _rms_buf_info* b, int ch)
 {
-	//buf_info is just a convenience. It is filled twice during a tile draw.
+	// buf_info is filled twice during a tile draw.
 
-	//gboolean hires_mode = (peakbuf != NULL);
-
-	b->buf        = (char*)buf; //source buffer.
+	b->buf        = (char*)buf; // source buffer
 	b->len        = len;
-	b->len_frames = b->len;// / WF_PEAK_VALUES_PER_SAMPLE;
-	return TRUE;
+	b->len_frames = b->len;
+
+	return true;
 }
 
 

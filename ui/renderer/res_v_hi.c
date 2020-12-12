@@ -135,9 +135,11 @@ draw_wave_buffer_v_hi (Renderer* renderer, WaveformActor* actor, int block, bool
 
 	g_return_val_if_fail(b_region.len <= buf->size, false);
 
+#ifdef DEBUG
 	if(rect->left + rect->len < ri->viewport.left){
 		perr("rect is outside viewport");
 	}
+#endif
 
 	_v_hi_set_gl_state(actor);
 
@@ -150,12 +152,16 @@ draw_wave_buffer_v_hi (Renderer* renderer, WaveformActor* actor, int block, bool
 	const double zoom = rect->len / (double)ri->region.len;
 
 	const float _block_wid = WF_SAMPLES_PER_TEXTURE * zoom;
-	float block_rect_start = is_first ? fmodf(rect->left, _block_wid) : x_block0; // TODO simplify. why 2 separate cases needed?  ** try just using the first case
-	WfRectangle b_rect = {block_rect_start, rect->top, b_region.len * zoom, rect->height};
+	WfRectangle b_rect = {
+		is_first ? fmodf(rect->left, _block_wid) : x_block0, // TODO simplify. why 2 separate cases needed?  ** try just using the first case
+		rect->top,
+		b_region.len * zoom,
+		rect->height
+	};
 
-	if(!(ri->viewport.right > b_rect.left)) gwarn("outside viewport: vp.r=%.2f b_rect.l=%.2f", ri->viewport.right, b_rect.left);
+	if(!(ri->viewport.right > b_rect.left)) pwarn("outside viewport: vp.r=%.2f b_rect.l=%.2f", ri->viewport.right, b_rect.left);
 	g_return_val_if_fail(ri->viewport.right > b_rect.left, false);
-	if(!(b_rect.left + b_rect.len > ri->viewport.left)) gwarn("outside viewport: vp.l=%.1f b_rect.l=%.1f b_rect.len=%.1f", ri->viewport.left, b_rect.left, b_rect.len);
+	if(!(b_rect.left + b_rect.len > ri->viewport.left)) pwarn("outside viewport: vp.l=%.1f b_rect.l=%.1f b_rect.len=%.1f", ri->viewport.left, b_rect.left, b_rect.len);
 	g_return_val_if_fail(b_rect.left + b_rect.len > ri->viewport.left, false);
 
 #ifdef MULTILINE_SHADER
@@ -235,7 +241,7 @@ draw_wave_buffer_v_hi (Renderer* renderer, WaveformActor* actor, int block, bool
 											// -if it is a defined Section, we must not go beyond it. As we do not know which case we have, we must honour the region limit)
 											//uint64_t b_region_end1 = (region.start + region.len) % buf->size; //TODO this should be the same as b_region_end2 ? but appears to be too short
 											uint64_t b_region_end2 = (!((b_region.start + b_region.len) % WF_SAMPLES_PER_TEXTURE)) ? WF_SAMPLES_PER_TEXTURE : (b_region.start + b_region.len) % WF_SAMPLES_PER_TEXTURE;//buf->size;
-											//if(s_max > b_region_end2) gwarn("limited by region length. region_end=%Lu %Lu", (uint64_t)((region.start + region.len) % buf->size), b_region_end2);
+											//if(s_max > b_region_end2) pwarn("limited by region length. region_end=%Lu %Lu", (uint64_t)((region.start + region.len) % buf->size), b_region_end2);
 											//s_max = MIN(s_max, (region.start + region.len) % buf->size);
 											s_max = MIN(s_max, b_region_end2);
 										}
@@ -243,7 +249,7 @@ draw_wave_buffer_v_hi (Renderer* renderer, WaveformActor* actor, int block, bool
 										//note that there is never any need to be separately limited by b_region - that should be taken care of by buffer limitation?
 
 	int c; for(c=0;c<w->n_channels;c++){
-																						if(!buf->buf[c]){ gwarn("audio buf not set. c=%i", c); continue; }
+																						if(!buf->buf[c]){ pwarn("audio buf not set. c=%i", c); continue; }
 		if(!buf->buf[c]) continue;
 #ifdef MULTILINE_SHADER
 		int val0 = ((2*c + 1) * 128) / w->n_channels;
@@ -266,7 +272,7 @@ draw_wave_buffer_v_hi (Renderer* renderer, WaveformActor* actor, int block, bool
 		double dist = s_ - s; // dist = distance in samples from one pixel to the next.
 //if(i < 5) dbg(0, "x=%i s_=%.3f dist=%.2f", x, s_, dist);
 		if (dist > 2.0) {
-			//			if(dist > 5.0) gwarn("dist %.2f", dist);
+			//			if(dist > 5.0) pwarn("dist %.2f", dist);
 			int ds = dist - 1;
 			dist -= ds;
 			s += ds;
@@ -278,10 +284,10 @@ draw_wave_buffer_v_hi (Renderer* renderer, WaveformActor* actor, int block, bool
 			continue;
 		}
 #endif
-		if (s0 + s >= (int)buf->size ) { gwarn("end of block reached: b_region.start=%i b_region.end=%"PRIi64" %i", s0, b_region.start + ((uint64_t)b_region.len), buf->size); break; }
+		if (s0 + s >= (int)buf->size ) { pwarn("end of block reached: b_region.start=%i b_region.end=%"PRIi64" %i", s0, b_region.start + ((uint64_t)b_region.len), buf->size); break; }
 		/*
 		if (s  + 3 >= b_region.len) {
-			gwarn("end of b_region reached: b_region.len=%i x=%i s0=%i s=%i", b_region.len, x, s0, s);
+			pwarn("end of b_region reached: b_region.len=%i x=%i s0=%i s=%i", b_region.len, x, s0, s);
 			break;
 		}
 		*/
@@ -310,10 +316,10 @@ draw_wave_buffer_v_hi (Renderer* renderer, WaveformActor* actor, int block, bool
 																				//if(i < 10) printf("  x=%i s=%i %i y=%i dist=%.2f s=%i %.2f\n", x, s0 + s, d[s0 + s], y, dist, s, floor((x / zoom) - 1));
 
 #if defined (MULTILINE_SHADER)
-		if(i >= mls_tex_w){ gwarn("tex index out of range %i %i", i, mls_tex_w); break; }
+		if(i >= mls_tex_w){ pwarn("tex index out of range %i %i", i, mls_tex_w); break; }
 		{
 																				//int val = ((2*c + 1) * 128 + y) / w->n_channels;
-																				//if(val < 0 || val > 256) gwarn("val out of range: %i", val); -- will be out of range when vgain is high.
+																				//if(val < 0 || val > 256) pwarn("val out of range: %i", val); -- will be out of range when vgain is high.
 			pbuf[c][i] = val0 + MIN(y, 63); // the 63 is to stop it wrapping - would be nice to remove this.
 																				//if(i >= 0 && i < 10) dbg(0, "  s=%i y2=%.4f y=%i val=%i", s + s0, y2, y, ((2*c + 1) * 128 + y) / w->n_channels);
 		}

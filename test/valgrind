@@ -2,15 +2,18 @@
 
 PROG=./cache
 PROG=./text
+PROG=./view_plus
 
 ls -l $PROG
 export G_SLICE=always-malloc
 export G_DEBUG=gc-friendly
+
 /usr/bin/valgrind \
 	--leak-check=full \
 	--suppressions=suppressions/pango.supp \
 	--suppressions=suppressions/glib.supp \
 	--suppressions=suppressions/mesa.supp \
+	--suppressions=suppressions/test.supp \
 	--gen-suppressions=yes \
 	--num-callers=20 \
 	$@ $PROG

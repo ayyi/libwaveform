@@ -23,8 +23,9 @@
 #include <gdk/gdkkeysyms.h>
 #include "agl/actor.h"
 #include "agl/shader.h"
-#include "waveform/utils.h"
+#include "waveform/actor.h"
 #include "test/common2.h"
+#include "test/_cache_behaviour.h"
 
 struct
 {
@@ -35,10 +36,9 @@ struct
 #define GL_HEIGHT 256.0
 #define VBORDER 8
 
-GdkGLConfig* glconfig       = NULL;
-GtkWidget*   canvas         = NULL;
-AGlScene*    scene          = NULL;
-gpointer     tests[]        = {};
+GtkWidget* canvas   = NULL;
+AGlScene*  scene    = NULL;
+gpointer   tests[]  = {};
 static AGl* agl = NULL;
 
 static AGlActor* container          (WaveformActor*);
@@ -71,6 +71,8 @@ main (int argc, char *argv[])
 	}
 
 	gtk_init(&argc, &argv);
+
+	GdkGLConfig* glconfig = NULL;
 	if(!(glconfig = gdk_gl_config_new_by_mode(GDK_GL_MODE_RGBA | GDK_GL_MODE_DEPTH | GDK_GL_MODE_DOUBLE))){
 		perr ("Cannot initialise gtkglext."); return EXIT_FAILURE;
 	}
@@ -94,6 +96,12 @@ main (int argc, char *argv[])
 	AGlActor* c = agl_actor__add_child((AGlActor*)_container, actor_with_viewport(NULL));
 	AGlActor* d = agl_actor__add_child((AGlActor*)_container, actor_with_viewport(NULL));
 
+	// repeat the above 4 but enable caching
+	AGlActor* e = agl_actor__add_child((AGlActor*)_container, actor_with_viewport(NULL));
+	e->behaviours[0] = cache_behaviour();
+	AGlActor* f = agl_actor__add_child((AGlActor*)_container, actor_with_viewport(NULL));
+	f->behaviours[0] = cache_behaviour();
+
 	int w = 50;
 	int h = 50;
 	int y = 25;
@@ -114,13 +122,29 @@ main (int argc, char *argv[])
 	d->region = (AGlfRegion){10, y, 10 + w, y + h};
 	d->scrollable = (AGliRegion){2 * w, 0, w, h}; // viewport does not overlap the region, so should be invisible
 
+	{
+		int y = 25;
+
+		y += h + 20;
+
+		// the leftmost part of the scrollable area is visible
+		e->region = (AGlfRegion){210, y, 210 + w, y + h};
+		e->scrollable = (AGliRegion){0, 0, w * 2, h};
+		y += h + 20;
+
+		// scroll one page to the right
+		f->region = (AGlfRegion){210, y, 210 + w, y + h};
+		f->scrollable = (AGliRegion){-w, 0, w, h};
+		y += h + 20;
+	}
+
 	g_signal_connect((gpointer)canvas, "realize",       G_CALLBACK(on_canvas_realise), NULL);
 	g_signal_connect((gpointer)canvas, "size-allocate", G_CALLBACK(on_allocate), NULL);
 	g_signal_connect((gpointer)canvas, "expose-event",  G_CALLBACK(agl_actor__on_expose), scene);
 
 	gtk_widget_show_all(window);
 
-	gboolean key_press(GtkWidget* widget, GdkEventKey* event, gpointer user_data)
+	gboolean key_press (GtkWidget* widget, GdkEventKey* event, gpointer user_data)
 	{
 		switch(event->keyval){
 			case 61:
@@ -161,7 +185,8 @@ main (int argc, char *argv[])
 
 	g_signal_connect(window, "key-press-event", G_CALLBACK(key_press), NULL);
 
-	gboolean window_on_delete(GtkWidget* widget, GdkEvent* event, gpointer user_data){
+	gboolean window_on_delete (GtkWidget* widget, GdkEvent* event, gpointer user_data)
+	{
 		gtk_main_quit();
 		return false;
 	}
@@ -173,42 +198,11 @@ main (int argc, char *argv[])
 }
 
 
-static gboolean canvas_init_done = false;
-
 static void
 on_canvas_realise (GtkWidget* _canvas, gpointer user_data)
 {
 	PF;
-	if(canvas_init_done) return;
 	if(!GTK_WIDGET_REALIZED (canvas)) return;
-
-	canvas_init_done = true;
-
-	/*
-	int n_frames = waveform_get_n_frames(w1);
-
-	WfSampleRegion region[] = {
-		{0,            n_frames    },
-		{0,            n_frames / 2},
-		{n_frames / 4, n_frames / 16},
-		{n_frames / 2, n_frames / 2},
-	};
-
-	uint32_t colours[4][2] = {
-		{0x66eeffff, 0x0000ffff}, // blue
-		{0xffffff77, 0x0000ffff}, // grey
-		{0xffdd66ff, 0x0000ffff}, // orange
-		{0x66ff66ff, 0x0000ffff}, // green
-	};
-
-	int i; for(i=0;i<G_N_ELEMENTS(a);i++){
-		agl_actor__add_child((AGlActor*)scene, (AGlActor*)(a[i] = wf_canvas_add_new_actor(wfc, w1)));
-
-		wf_actor_set_region (a[i], &region[i]);
-		wf_actor_set_colour (a[i], colours[i][0]);
-		wf_actor_set_z      (a[i], i * dz);
-	}
-	*/
 
 	on_allocate(canvas, &canvas->allocation, user_data);
 }
@@ -230,7 +224,9 @@ container (WaveformActor* wf_actor)
 		agl_print(10,  10, 0, 0xaaaaaaff, "No viewport");
 		agl_print(10,  80, 0, 0xaaaaaaff, "Viewport to right");
 		agl_print(10, 150, 0, 0xaaaaaaff, "Viewport to left");
-		agl_print(10, 220, 0, 0xaaaaaaff, "Outside viewport (invisible)");
+		agl_print(10, 220, 0, 0xaaaaaaff, "Contents outside viewport (invisible)");
+
+		agl_print(210, 10, 0, 0xaaaaaaff, "With caching");
 		return true;
 	}
 
@@ -259,7 +255,8 @@ actor_with_viewport (WaveformActor* wf_actor)
 
 	bool viewport_paint (AGlActor* actor)
 	{
-	agl_set_font_string("Sans 10");
+		agl_set_font_string("Sans 10");
+
 		// coords here are relative to the start of the world region
 		// -but we only want to draw inside the Region
 
@@ -268,13 +265,19 @@ actor_with_viewport (WaveformActor* wf_actor)
 		int ry = -actor->scrollable.y1;
 		agl_rect(rx, ry, agl_actor__width(actor), agl_actor__height(actor));
 
-		// viewport outline
+		// outline of whole scrollable region
 		((PlainShader*)actor->program)->uniform.colour = 0x6699ff99;
 		agl_use_program(actor->program);
 		agl_box(1, 0, 0, actor->scrollable.x2 - actor->scrollable.x1, actor->scrollable.y2 - actor->scrollable.y1);
 
 		// normal contents, cropped to viewable region
-		agl_push_clip(rx, ry, agl_actor__width(actor), agl_actor__height(actor));
+		if(actor->behaviours[0]){
+			agl_push_clip(rx * 0, ry * 0, agl_actor__width(actor), agl_actor__height(actor));
+		}else{
+			// temporary while glTranslatef is still being used
+			AGliPt offset = agl_actor__find_offset(actor);
+			agl_push_clip(offset.x + rx, offset.y + ry, agl_actor__width(actor), agl_actor__height(actor));
+		}
 		agl_print(2, 2, 0, 0xff9933ff, "A B C D E F G H I J K L M N O P Q R S T U V W X Y Z");
 		agl_pop_clip();
 

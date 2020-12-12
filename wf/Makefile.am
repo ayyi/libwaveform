@@ -25,12 +25,3 @@ libwfcore_la_SOURCES = \
 libwfcore_la_LIBADD = \
 	loaders/libloaders.la
 
-pkgincludedir=$(includedir)/waveform
-pkginclude_HEADERS = \
-	waveform.h \
-	typedefs.h \
-	peakgen.h \
-	promise.h \
-	utils.h \
-	private.h
-

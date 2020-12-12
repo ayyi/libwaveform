@@ -21,7 +21,7 @@
 #endif
 #include "wf/debug.h"
 #include "wf/waveform.h"
-#include "waveform/utils.h"
+#include "ui/utils.h"
 
 
 #undef SHOW_TIME
@@ -123,11 +123,13 @@ wf_colour_rgba_to_float (AGlColourFloat* colour, uint32_t rgba)
 }
 
 
+#ifdef USE_GTK
 uint32_t
 wf_color_gdk_to_rgba (GdkColor* color)
 {
 	return ((color->red / 0x100) << 24) + ((color->green / 0x100) << 16) + ((color->blue / 0x100) << 8) + 0xff;
 }
+#endif
 
 
 bool

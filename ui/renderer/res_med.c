@@ -159,7 +159,7 @@ low_allocate_block_gl1(Renderer* renderer, WaveformActor* a, int b)
 		&& glIsTexture(blocks->peak_texture[c].main[b])
 #endif
 	){
-		//gwarn("waveform low-res texture already assigned for block %i: %i", b, blocks->peak_texture[c].main[b]);
+		//pwarn("waveform low-res texture already assigned for block %i: %i", b, blocks->peak_texture[c].main[b]);
 		texture_cache_freshen(GL_TEXTURE_2D, wb);
 		return;
 	}
@@ -286,7 +286,7 @@ med_lo_get_quad_dimensions(WaveformActor* actor, int b, bool is_first, bool is_l
 			quad.wid = round(quad.wid);
 #else
 			dbg(3, " %i: inset=%.2f s->e=%.2f i*b=%.2f", b, part_inset_px, distance_from_file_start_to_region_end, b * r->block_wid);
-			if(b * r->block_wid > distance_from_file_start_to_region_end){ gwarn("end error! %.2f %.2f", b * r->block_wid, distance_from_file_start_to_region_end); return false; }
+			if(b * r->block_wid > distance_from_file_start_to_region_end){ pwarn("end error! %.2f %.2f", b * r->block_wid, distance_from_file_start_to_region_end); return false; }
 #endif
 		}
 
@@ -300,7 +300,7 @@ med_lo_get_quad_dimensions(WaveformActor* actor, int b, bool is_first, bool is_l
 #endif
 
 	dbg (3, "%i: is_last=%i x=%.2f wid=%.2f/%.2f tex_pct=%.3f tex.start=%.2f", b, is_last, x, quad.wid, r->block_wid, tex.wid, tex.start);
-	if(tex.wid < 0.0 || tex.start + tex.wid > 1.0000001) gwarn("tex_pct out of range: %f %.20f", tex.wid, tex.start + tex.wid);
+	if(tex.wid < 0.0 || tex.start + tex.wid > 1.0000001) pwarn("tex_pct out of range: %f %.20f", tex.wid, tex.start + tex.wid);
 
 	*tex_ = (TextureRange){tex.start, tex.start + tex.wid};
 	*qe_ = quad;
@@ -337,7 +337,7 @@ med_lo_render_gl1(Renderer* renderer, WaveformActor* actor, int b, bool is_first
 	if(wfc->show_rms && w->textures->rms_texture){
 		glBindTexture(GL_TEXTURE_2D, w->textures->rms_texture[b]);
 #if 0
-		if(!glIsTexture(w->textures->rms_texture[i])) gwarn ("texture not loaded. block=%i", i);
+		if(!glIsTexture(w->textures->rms_texture[i])) pwarn ("texture not loaded. block=%i", i);
 #endif
 		AglColourFloat bg;
 		wf_colour_rgba_to_float(&bg, actor->bg_colour);
@@ -424,7 +424,7 @@ med_lo_on_steal(WaveformBlock* wb, guint tex)
 
 	int p;
 	if((p = find_texture_in_block(tex, wb, peak_texture)) < 0){
-		gwarn("texture not found");
+		pwarn("texture not found");
 	}else{
 		dbg(1, "clearing texture for block=%i %i ...", wb->block, p);
 		*peak_texture[p] = 0;

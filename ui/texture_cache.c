@@ -44,12 +44,14 @@ static int  texture_cache_find_empty       (TextureCache*);
 static int  texture_cache_steal            (TextureCache*);
        void texture_cache_print            ();
 static int  texture_cache_lookup_idx       (TextureCache*, WaveformBlock);
+static void texture_cache_unassign         (TextureCache*, WaveformBlock);
+static void texture_cache_shrink           (TextureCache*, int);
 #ifdef WF_DEBUG
 static int  texture_cache_lookup_idx_by_id (TextureCache*, guint);
 #endif
-static void texture_cache_unassign         (TextureCache*, WaveformBlock);
-static void texture_cache_shrink           (TextureCache*, int);
+#ifdef DEBUG
 static int  texture_cache_count_used       (TextureCache*);
+#endif
 
 
 void
@@ -407,7 +409,9 @@ texture_cache_remove_waveform(Waveform* waveform) //tmp? should probably only be
 	int j; for(j=0;j<2;j++){
 		TextureCache* c = j ? c2 : c1;
 
+#ifdef DEBUG
 		int size0 = texture_cache_count_used(c);
+#endif
 
 		int m; for(m=0;m<G_N_ELEMENTS(modes);m++){
 			Mode mode = modes[m].mode;
@@ -441,6 +445,7 @@ texture_cache_count_by_waveform(Waveform* w)
 #endif
 
 
+#ifdef DEBUG
 static int
 texture_cache_count_used(TextureCache* c)
 {
@@ -453,6 +458,7 @@ texture_cache_count_used(TextureCache* c)
 	}
 	return n_used;
 }
+#endif
 
 
 void

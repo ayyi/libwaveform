@@ -1,4 +1,0 @@
-This library provides:
-	* shader utils for loading and detecting hardware support.
-	* simple glsl shader programs for plain colour, 2d texture, and an alpha map.
-	* pango font rendering via opengl textures.

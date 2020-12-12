@@ -31,7 +31,7 @@
 #include "waveform/pixbuf.h"
 #include "test/common.h"
 
-TestFn test_peakgen, test_bad_wav, test_audio_file, test_audiodata, test_audio_cache, test_alphabuf, test_transition, test_worker;
+TestFn test_peakgen, test_bad_wav, test_audio_file, test_audiodata, test_audio_cache, test_alphabuf, test_transition, test_worker, test_thumbnail;
 
 static void finalize_notify(gpointer, GObject*);
 
@@ -44,6 +44,9 @@ gpointer tests[] = {
 	test_alphabuf,
 	test_transition,
 	test_worker,
+#ifdef USE_FFMPEG
+	test_thumbnail,
+#endif
 };
 
 #define WAV "mono_0:10.wav"
@@ -139,7 +142,15 @@ test_audio_file ()
 {
 	START_TEST;
 
-	char* filenames[] = {"mono_0:10.wav", "stereo_0:10.wav", "mono_0:10.mp3", "stereo_0:10.mp3", "mono_0:10.m4a", "stereo_0:10.m4a", "mono_0:10.opus", "stereo_0:10.opus", "mono_24b_0:10.wav", "stereo_24b_0:10.wav"};
+	char* filenames[] = {
+		"mono_0:10.wav", "stereo_0:10.wav",
+#ifdef USE_FFMPEG
+		"mono_0:10.mp3", "stereo_0:10.mp3",
+		"mono_0:10.m4a", "stereo_0:10.m4a",
+		"mono_0:10.opus", "stereo_0:10.opus",
+#endif
+		"mono_24b_0:10.wav", "stereo_24b_0:10.wav"
+	};
 
 	int i; for(i=0;i<G_N_ELEMENTS(filenames);i++){
 		WfDecoder f = {{0,}};
@@ -173,7 +184,7 @@ test_audio_file ()
 			assert(!(total % 512) || !(total % 100), "%s: bad framecount: %zu", filenames[i], total); // test file sizes are always a round number
 		}else{
 			// for some file types, f.info.frames is only an estimate
-			assert(abs((int)total - (int)f.info.frames) < 2048, "%s: incorrect number of frames read: %"PRIi64, filenames[i], f.info.frames);
+			assert(abs((int)total - (int)f.info.frames) < 2048, "%s: incorrect number of frames read: %"PRIi64" (expected %"PRIi64")", filenames[i], total, f.info.frames);
 		}
 
 		ad_close(&f);
@@ -536,13 +547,40 @@ test_worker ()
 			FINISH_TEST_TIMER_STOP;
 		}
 
-		dbg(0, "");
 		waveform_unref0(w);
 		g_timeout_add(15000, stop, NULL);
 		return G_SOURCE_REMOVE;
 	}
 
 	g_timeout_add(30000, unref, w);
+}
+
+
+void
+test_thumbnail ()
+{
+	START_TEST;
+
+	char* filename = find_wav("thumbnail.mp3");
+
+	WfDecoder dec = {0,};
+	if(!ad_open(&dec, filename)){
+		FAIL_TEST("failed to open file");
+	}
+
+	AdPicture picture;
+	ad_thumbnail(&dec, &picture);
+
+	assert(picture.width, "width");
+	assert(picture.height, "height");
+	assert(picture.row_stride, "rowstride");
+	assert(picture.data, "data");
+
+	ad_close(&dec);
+	ad_thumbnail_free(NULL, &picture);
+
+	g_free(filename);
+	FINISH_TEST;
 }
 
 

@@ -35,11 +35,6 @@
 
 extern AssShader ass;
 
-struct
-{
-	int timeout;
-} app;
-
 #define GL_WIDTH 256.0
 #define GL_HEIGHT 128.0
 #define TEXT_WIDTH "512"

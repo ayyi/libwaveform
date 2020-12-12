@@ -18,9 +18,7 @@
 #include "decoder/debug.h"
 #include "decoder/ad.h"
 
-#define g_free0(var) ((var == NULL) ? NULL : (var = (g_free(var), NULL)))
-
-extern void int16_to_float(float* out, int16_t* in, int n_channels, int n_frames, int out_offset);
+extern void int16_to_float (float* out, int16_t* in, int n_channels, int n_frames, int out_offset);
 
 typedef struct {
     SF_INFO  sfinfo;
@@ -38,7 +36,7 @@ struct _WfBuf16 // also defined in waveform.h
 };
 
 
-int
+static int
 parse_bit_depth (int format)
 {
 	/* see http://www.mega-nerd.com/libsndfile/api.html */
@@ -82,7 +80,7 @@ ad_info_sndfile (WfDecoder* d)
 }
 
 
-static gboolean
+static bool
 ad_open_sndfile (WfDecoder* decoder, const char* filename)
 {
 	SndfileDecoder* priv = decoder->d = g_new0(SndfileDecoder, 1);
@@ -123,6 +121,9 @@ ad_seek_sndfile (WfDecoder* d, int64_t pos)
 }
 
 
+/*
+ *  Output is interleaved float
+ */
 ssize_t
 ad_read_sndfile (WfDecoder* d, float* out, size_t len)
 {
@@ -139,9 +140,11 @@ ad_read_sndfile (WfDecoder* d, float* out, size_t len)
 				g_free(d16);
 				return r;
 			}
+		case 24:
+			return sf_read_float(priv->sffile, out, len);
 #ifdef DEBUG
 		default:
-			gwarn("unhandled bit depth: %i", d->info.bit_depth);
+			pwarn("unhandled bit depth: %i", d->info.bit_depth);
 #endif
 	}
 
@@ -176,7 +179,7 @@ ad_read_sndfile_short (WfDecoder* d, WfBuf16* buf)
 			ssize_t r = sf_read_int(sf->sffile, data, d->info.channels * buf->size);
 			int i, f; for(i=0,f=0;i<r;i+=d->info.channels,f++){
 				int c; for(c=0;c<d->info.channels;c++){
-					buf->buf[c][f] = data[i] >> 16;
+					buf->buf[c][f] = data[i + c] >> 16;
 				}
 			}
 			g_free(data);

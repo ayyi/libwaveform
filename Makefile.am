@@ -1,23 +1,10 @@
 if ENABLE_OPENGL
-OPENGL_SUBDIRS = agl shaders
-endif
-if ENABLE_SDL
-SDL_SUBDIRS = sdl
+OPENGL_SUBDIRS = shaders
 endif
 if ENABLE_GTK
 GTK_SUBDIRS = gtkglext-1.0
 endif
-if ENABLE_GLIB_2_58_POLYFILL
-GLIB_SUBDIRS = glib
-GLIB_LIBADD = glib/libglib.la
-endif
-SUBDIRS = $(GTK_SUBDIRS) $(OPENGL_SUBDIRS) $(SDL_SUBDIRS) $(GLIB_SUBDIRS) wf ui transition decoder . test waveform
-
-if ENABLE_OPENGL
-OPENGL_LIBADD = \
-	agl/libagl.la \
-	agl/behaviours/libbehaviours.la
-endif
+SUBDIRS = $(GTK_SUBDIRS) lib $(OPENGL_SUBDIRS) wf ui decoder debug . test waveform
 
 lib_LTLIBRARIES = libwaveformui.la libwaveformcore.la
 
@@ -28,10 +15,7 @@ libwaveformcore_la_LIBADD = \
 
 libwaveformui_la_SOURCES =
 libwaveformui_la_LIBADD = \
-	transition/libtransition.la \
-	$(GLIB_LIBADD) \
-	ui/libwf.la \
-	$(OPENGL_LIBADD)
+	ui/libwf.la
 
 AM_CFLAGS = \
 	-DG_LOG_DOMAIN=\"Waveform\" \

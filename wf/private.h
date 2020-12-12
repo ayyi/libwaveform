@@ -19,7 +19,7 @@
 #define GdkColor void
 #endif
 
-#include "wf/waveform.h"
+#include "waveform/waveform.h"
 
 #define WF_PEAK_BLOCK_SIZE (256 * 256) // the number of audio frames per block (64k)
 #define WF_CACHE_BUF_SIZE (1 << 15)
@@ -117,7 +117,7 @@ struct _WaveformPrivate
 	                                // render_data is owned, managed, and shared by all the WfActor's using this waveform.
 	WaveformModeRender* render_data[N_MODES];
 
-	WaveformState   state;
+	WaveformState   state : 4;
 };
 
 struct _WfWorker {
@@ -212,6 +212,8 @@ int            waveform_get_n_audio_blocks (Waveform*);
 void           waveform_print_blocks       (Waveform*);
 
 void           waveform_audio_free         (Waveform*);
+
+void           waveform_get_rhs            (const char* left, char* right);
 
 WfTextureHi*   waveform_texture_hi_new     ();
 void           waveform_texture_hi_free    (WfTextureHi*);

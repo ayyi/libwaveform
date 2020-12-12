@@ -20,7 +20,7 @@
 #include "wf/debug.h"
 #include "wf/waveform.h"
 #include "wf/peakgen.h"
-#include "waveform/utils.h"
+#include "waveform/ui-utils.h"
 #include "waveform/shader.h"
 #include "waveform/text.h"
 
@@ -188,9 +188,8 @@ text_actor_free (AGlActor* actor)
 
 #ifdef USE_LIBASS
 	if(!--instance_count){
-		ass_renderer_done(ass_renderer);
+		g_clear_pointer(&ass_renderer, ass_renderer_done);
 		ass_library_done(ass_library);
-		ass_renderer = NULL;
 		ass_library = NULL;
 	}
 #endif
@@ -288,12 +287,13 @@ text_actor_set_size (AGlActor* actor)
 #define N_CHANNELS 2 // luminance + alpha
 
 #ifdef USE_LIBASS
+/*
+ *  Composite @img onto @frame
+ */
 static void
-blend_single(image_t* frame, ASS_Image* img)
+blend_single (image_t* frame, ASS_Image* img)
 {
-	// composite img onto frame
-
-	int x, y;
+	int x;
 	unsigned char opacity = 255 - _a(img->color);
 	unsigned char b = _b(img->color);
 	dbg(2, "  %ix%i stride=%i x=%i", img->w, img->h, img->stride, img->dst_x);
@@ -302,7 +302,7 @@ blend_single(image_t* frame, ASS_Image* img)
 	#define ALPHA_CHANNEL (x * N_CHANNELS + 1)
 	unsigned char* src = img->bitmap;
 	unsigned char* dst = frame->buf + img->dst_y * frame->stride + img->dst_x * N_CHANNELS;
-	for (y = 0; y < img->h; ++y) {
+	for (int y = 0; y < img->h; ++y) {
 		for (x = 0; x < img->w; ++x) {
 			unsigned k = ((unsigned) src[x]) * opacity / 255;
 			dst[LUMINANCE_CHANNEL] = (k * b + (255 - k) * dst[LUMINANCE_CHANNEL]) / 255;
@@ -335,7 +335,7 @@ text_actor_render_text (TextActor* ta)
 	int fw = ta->texture.width = agl_power_of_two(strlen(title) * 20);
 	ass_set_frame_size(ass_renderer, fw, fh);
 
-	void title_render(const char* text, image_t* out, Title* t)
+	void title_render (const char* text, image_t* out, Title* t)
 	{
 		char* script2 = g_strdup_printf(script, fw, fh, FONT_SIZE, text);
 
@@ -365,6 +365,8 @@ text_actor_render_text (TextActor* ta)
 		}
 
 		ass_free_track(track);
+
+#ifdef DEBUG
 		if(false){
 			char* buf = g_new0(char, out->width * out->height * 4);
 			int stride = out->width * 4;
@@ -381,7 +383,7 @@ text_actor_render_text (TextActor* ta)
 			g_object_unref(pixbuf);
 			g_free(buf);
 		}
-
+#endif
 	}
 
 	// do some test renders to find where the baseline is

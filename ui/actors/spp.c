@@ -18,9 +18,10 @@
 #include "config.h"
 #include <math.h>
 #include <gdk/gdkkeysyms.h>
-#include "agl/actor.h"
 #include "waveform/actor.h"
+#include "waveform/ui-utils.h"
 #include "waveform/shader.h"
+#include "ui/actors/spp.h"
 
 static AGl* agl = NULL;
 

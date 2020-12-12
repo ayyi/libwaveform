@@ -1,6 +1,6 @@
 #!/bin/sh
 
-echo 'Generating necessary files...'
+echo 'libwaveform: generating build files ...'
 libtoolize --automake
 aclocal
 autoheader -Wall

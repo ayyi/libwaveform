@@ -2,7 +2,7 @@ if BUILD_TESTS
 
 lib_LTLIBRARIES = libgen.la
 
-noinst_PROGRAMS = write_wav write_short write_block write_piano
+noinst_PROGRAMS = write_wav write_short write_block write_piano thumbnail
 
 DATA_DIR = ../data
 FFMPEG = ffmpeg -y -loglevel warning
@@ -55,6 +55,15 @@ write_piano_SOURCES = \
 write_piano_LDADD = \
 	$(SNDFILE_LIBS)
 
+thumbnail_SOURCES = \
+	thumbnail.c
+
+thumbnail_CFLAGS = \
+	$(GTK_CFLAGS)
+
+thumbnail_LDADD = \
+	$(GTK_LDFLAGS)
+
 libgen_la_SOURCES = \
 	cpgrs.cc cpgrs.h \
 	generator.cc generator.h
@@ -62,11 +71,9 @@ libgen_la_SOURCES = \
 BUILT_SOURCES = test_data
 
 # disable recompilation of write_block to prevent this running each time
-test_data: Makefile write_block.cc
-	@make libgen.la
-	@make write_wav
-	@make write_short
-	@make write_piano
+test_data: Makefile libgen.la test_data_1 test_data_thumbnail
+
+test_data_1: write_block.cc write_wav write_short write_piano
 	@if [ ! -e "write_block" ] || [ "write_block.cc" -nt "write_block" ] || [ "Makefile" -nt "write_block" ]; then \
 		make write_block; \
 	fi
@@ -109,6 +116,21 @@ test_data: Makefile write_block.cc
 	@if [ ! -e "$(DATA_DIR)/piano.wav" ] || [ "./write_piano" -nt "$(DATA_DIR)/piano.wav" ]; then \
 		./write_piano $(DATA_DIR)/piano.wav; \
 	fi;
+
+test_data_thumbnail: thumbnail
+	./thumbnail
+	ffmpeg -i $(DATA_DIR)/mono_0:10.mp3 -i thumbnail.png -map 0:0 -map 1:0 -codec copy -id3v2_version 3 \
+	    -metadata:s:v title="Thumbnail" -metadata:s:v comment="Thumbnail" -y $(DATA_DIR)/thumbnail.mp3
+	rm thumbnail.png
+
+clean-local:
+	if [ -f thumbnail.png ]; then rm thumbnail.png; fi
+	if [ -f $(DATA_DIR)/thumbnail.mp3 ]; then rm $(DATA_DIR)/thumbnail.mp3; fi
+	if [ -f $(DATA_DIR)/mono_0:10.mp3 ]; then rm $(DATA_DIR)/mono_0:10.mp3; fi
+	if [ -f $(DATA_DIR)/mono_10:00.wav ]; then rm $(DATA_DIR)/mono_10:00.wav; fi
+	if [ -f $(DATA_DIR)/large1.wav ]; then rm $(DATA_DIR)/large1.wav; fi
+	if [ -f $(DATA_DIR)/large2.wav ]; then rm $(DATA_DIR)/large2.wav; fi
+	if [ -f $(DATA_DIR)/stereo_24b_0:10.wav ]; then rm $(DATA_DIR)/stereo_24b_0:10.wav; fi
 
 endif
 

@@ -16,13 +16,12 @@
 #endif
 #include "gdk/gdk.h"
 #include "agl/ext.h"
+#include "agl/x11.h"
 #include "agl/debug.h"
 #include "agl/text/text_node.h"
 #include "waveform/debug.h"
 #define __glx_test__
 #include "test/common2.h"
-
-extern void on_window_resize (Display*, AGlWindow*, int, int);
 
 static AGlRootActor* scene = NULL;
 
@@ -71,17 +70,9 @@ main (int argc, char* argv[])
 		}
 	}
 
-	Display* dpy = XOpenDisplay(NULL);
-	if (!dpy) {
-		printf("Error: couldn't open display %s\n", XDisplayName(NULL));
-		return -1;
-	}
-
-	AGlWindow* window = agl_make_window(dpy, "Text test", width, height);
+	AGlWindow* window = agl_window("Text test", 0, 0, width, height, false);
 	scene = window->scene;
 	XMapWindow(dpy, window->window);
-
-	g_main_loop_new(NULL, true);
 
 	agl_actor__add_child((AGlActor*)scene, layers.text1 = text_node(NULL));
 	text_node_set_text((TextNode*)layers.text1, g_strdup("H"));
@@ -113,13 +104,11 @@ main (int argc, char* argv[])
 
 	layers.text1->set_size = set_size;
 
-	on_window_resize(NULL, window, width, height);
-
 	add_key_handlers(keys);
 
-	event_loop(dpy);
+	g_main_loop_run(agl_main_loop_new());
 
-	agl_window_destroy(dpy, &window);
+	agl_window_destroy(&window);
 	XCloseDisplay(dpy);
 
 	return 0;

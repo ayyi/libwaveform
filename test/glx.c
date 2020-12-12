@@ -18,6 +18,7 @@
 #endif
 #include "gdk/gdk.h"
 #include "agl/ext.h"
+#include "agl/x11.h"
 #define __wf_private__
 #include "wf/waveform.h"
 #include "waveform/actor.h"
@@ -26,8 +27,6 @@
 #include "test/common2.h"
 
 static GLboolean print_info = GL_FALSE;
-
-extern void on_window_resize (Display*, AGlWindow*, int, int);
 
 #define BENCHMARK
 #define NUL '\0'
@@ -103,18 +102,8 @@ main (int argc, char *argv[])
 		}
 	}
 
-	Display* dpy = XOpenDisplay(NULL);
-	if (!dpy) {
-		printf("Error: couldn't open display %s\n", XDisplayName(NULL));
-		return -1;
-	}
-
-	AGlWindow* window = agl_make_window(dpy, "waveformglxtest", width, height);
+	AGlWindow* window = agl_window("waveformglxtest", 0, 0, width, height, false);
 	XMapWindow(dpy, window->window);
-
-	// -----------------------------------------------------------
-
-	g_main_loop_new(NULL, true);
 
 	agl_actor__add_child((AGlActor*)window->scene, layers.bg = background_actor(NULL));
 
@@ -139,15 +128,12 @@ main (int argc, char *argv[])
 
 	wf_actor_set_region(layers.wa, &(WfSampleRegion){0, 441000});
 
-	// -----------------------------------------------------------
-
-	on_window_resize(NULL, window, width, height);
-
 	add_key_handlers(keys);
 
-	event_loop(dpy);
+	GMainLoop* mainloop = agl_main_loop_new();
+	g_main_loop_run(mainloop);
 
-	agl_window_destroy(dpy, &window);
+	agl_window_destroy(&window);
 	XCloseDisplay(dpy);
 
 	return 0;

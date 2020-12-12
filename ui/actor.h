@@ -9,26 +9,28 @@
 * +----------------------------------------------------------------------+
 *
 */
+
 #ifndef __waveform_actor_h__
 #define __waveform_actor_h__
 
 #include "transition/transition.h"
 #include "agl/actor.h"
-#include "wf/waveform.h"
+#include "waveform/waveform.h"
 #include "waveform/context.h"
-#include "waveform/group.h"
-#include "waveform/background.h"
-#include "waveform/ruler.h"
-#include "waveform/grid.h"
-#include "waveform/labels.h"
-#include "waveform/spp.h"
-#include "waveform/spinner.h"
 
 #define MULTILINE_SHADER
 #undef MULTILINE_SHADER
 
 typedef struct _actor_priv WfActorPriv;
 typedef void    (*WaveformActorFn) (WaveformActor*, gpointer);
+
+typedef enum {
+	RENDER_RESULT_OK = 0,
+	RENDER_RESULT_LOADING,
+	RENDER_RESULT_SIZE,
+	RENDER_RESULT_BLOCK_RANGE,
+	RENDER_RESULT_BAD
+} RenderResult;
 
 struct _WaveformActor {
 	AGlActor         actor;
@@ -39,6 +41,9 @@ struct _WaveformActor {
 	float            z;         // render position on z-axis.
 
 	WfActorPriv*     priv;
+#ifdef DEBUG
+	RenderResult     render_result;
+#endif
 };
 
 AGlActorClass* wf_actor_get_class            ();

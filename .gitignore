@@ -62,14 +62,13 @@ test/promise
 test/resources
 test/scenegraph
 test/sdl
-test/view_plus_test
+test/view_plus
 test/view_test
 test/viewport
 test/waveform_test
 test/text
 test/gen/write_piano
-test/*.log
-test/*.trs
+test/gen/thumbnail
 transition/Makefile
 transition/Makefile.in
 waveform/Makefile
@@ -85,3 +84,5 @@ gtkglext-1.0/m4macros
 *.orig
 *~
 *.trace
+*.log
+*.trs

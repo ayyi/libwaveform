@@ -21,7 +21,9 @@
   Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
 */
+
 #define __wf_private__
+
 #include "config.h"
 #include <getopt.h>
 #include <time.h>
@@ -30,6 +32,9 @@
 #include <gtk/gtk.h>
 #include <gdk/gdkkeysyms.h>
 #include "waveform/actor.h"
+#include "waveform/background.h"
+#include "waveform/group.h"
+#include "waveform/ruler.h"
 #include "test/common.h"
 
 #define WAV "mono_0:10.wav"
@@ -39,14 +44,14 @@
 #define HBORDER 16
 #define VBORDER 8
 
-AGl*            agl            = NULL;
-GtkWidget*      canvas         = NULL;
-AGlRootActor*   scene          = NULL;
-AGlActor*       group          = NULL;
-WaveformContext* wfc            = NULL;
-Waveform*       w1             = NULL;
-WaveformActor*  a[]            = {NULL};
-gpointer        tests[]        = {};
+AGl*             agl      = NULL;
+GtkWidget*       canvas   = NULL;
+AGlRootActor*    scene    = NULL;
+AGlActor*        group    = NULL;
+WaveformContext* wfc      = NULL;
+Waveform*        w1       = NULL;
+WaveformActor*   a[]      = {NULL};
+gpointer         tests[]  = {};
 
 KeyHandler
 	zoom_in,
