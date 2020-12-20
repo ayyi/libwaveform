@@ -395,7 +395,7 @@ waveform_view_plus_set_waveform (WaveformViewPlus* view, Waveform* waveform)
 float
 waveform_view_plus_get_zoom (WaveformViewPlus* view)
 {
-	return view->priv->context->zoom;
+	return view->priv->context->zoom->value.f;
 }
 
 
@@ -407,7 +407,7 @@ waveform_view_plus_set_zoom (WaveformViewPlus* view, float zoom)
 	dbg(1, "zoom=%.2f", zoom);
 
 #ifdef USE_CANVAS_SCALING
-	if((zoom = CLAMP(zoom, 1.0, WF_CONTEXT_MAX_ZOOM)) == v->context->zoom) return;
+	if((zoom = CLAMP(zoom, 1.0, WF_CONTEXT_MAX_ZOOM)) == v->context->zoom->value.f) return;
 
 	wf_context_set_zoom(v->context, zoom);
 
@@ -454,7 +454,7 @@ waveform_view_plus_set_start (WaveformViewPlus* view, int64_t start_frame)
 
 	// the number of visible frames reduces as the zoom increases.
 #ifdef USE_CANVAS_SCALING
-	int64_t n_frames_visible = agl_actor__width(((AGlActor*)v->actor)) * v->context->samples_per_pixel / v->context->zoom;
+	int64_t n_frames_visible = agl_actor__width(((AGlActor*)v->actor)) * v->context->samples_per_pixel / v->context->zoom->value.f;
 #else
 	int64_t n_frames_visible = waveform_get_n_frames(view->waveform) / view->zoom;
 #endif
@@ -988,7 +988,7 @@ scroll_left (WaveformViewPlus* view)
 	if(!view->waveform) return;
 
 #ifdef USE_CANVAS_SCALING
-	int64_t n_frames_visible = agl_actor__width(((AGlActor*)v->actor)) * v->context->samples_per_pixel / v->context->zoom;
+	int64_t n_frames_visible = agl_actor__width(((AGlActor*)v->actor)) * v->context->samples_per_pixel / v->context->zoom->value.f;
 #else
 	int n_frames_visible = ((float)view->waveform->n_frames) / view->zoom;
 #endif
@@ -1006,7 +1006,7 @@ scroll_right (WaveformViewPlus* view)
 	if(!view->waveform) return;
 
 #ifdef USE_CANVAS_SCALING
-	int64_t n_frames_visible = agl_actor__width(((AGlActor*)v->actor)) * v->context->samples_per_pixel / v->context->zoom;
+	int64_t n_frames_visible = agl_actor__width(((AGlActor*)v->actor)) * v->context->samples_per_pixel / v->context->zoom->value.f;
 #else
 	int n_frames_visible = ((float)view->waveform->n_frames) / view->zoom;
 #endif
@@ -1024,14 +1024,14 @@ home (WaveformViewPlus* view)
 static void
 zoom_in (WaveformViewPlus* view)
 {
-	waveform_view_plus_set_zoom(view, view->priv->context->zoom * 1.5);
+	waveform_view_plus_set_zoom(view, view->priv->context->zoom->value.f * 1.5);
 }
 
 
 static void
 zoom_out (WaveformViewPlus* view)
 {
-	waveform_view_plus_set_zoom(view, view->priv->context->zoom / 1.5);
+	waveform_view_plus_set_zoom(view, view->priv->context->zoom->value.f / 1.5);
 }
 
 

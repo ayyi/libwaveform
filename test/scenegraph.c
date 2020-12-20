@@ -125,7 +125,7 @@ main (int argc, char *argv[])
 		}
 	}
 
-	AGlWindow* window = agl_window("waveformscenegraphtest", 0, 0, width, height, false);
+	AGlWindow* window = agl_window("waveformscenegraphtest", 0, 0, width, height, 0);
 	scene = window->scene;
 
 	{

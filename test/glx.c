@@ -102,7 +102,7 @@ main (int argc, char *argv[])
 		}
 	}
 
-	AGlWindow* window = agl_window("waveformglxtest", 0, 0, width, height, false);
+	AGlWindow* window = agl_window("waveformglxtest", 0, 0, width, height, 0);
 	XMapWindow(dpy, window->window);
 
 	agl_actor__add_child((AGlActor*)window->scene, layers.bg = background_actor(NULL));

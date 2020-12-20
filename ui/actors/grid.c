@@ -102,7 +102,7 @@ grid_actor_paint (AGlActor* actor)
 
 	int interval = context->sample_rate * (zoom > 0.0002 ? 1 : zoom > 0.0001 ? 5 : zoom > 0.00001 ? 48 : 480);
 	const int64_t region_end = context->scaled
-		? context->start_time + agl_actor__width(actor) * context->samples_per_pixel * context->zoom
+		? context->start_time + agl_actor__width(actor) * context->samples_per_pixel * context->zoom->value.f
 		: grid->wf_actor->region.start + grid->wf_actor->region.len;
 
 	int i = 0;

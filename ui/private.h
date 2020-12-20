@@ -34,6 +34,4 @@ struct _wf_texture_list                   // WfGlBlock - used at MED and LOW res
 
 WaveformActor* wf_actor_new        (Waveform*, WaveformContext*);
 
-float          wf_canvas_gl_to_px  (WaveformContext*, float x);
-
 #endif

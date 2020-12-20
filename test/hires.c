@@ -27,18 +27,9 @@
   along with this program; if not, write to the Free Software
   Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 */
-#define __wf_private__
+
 #include "config.h"
-#include <stdlib.h>
-#include <string.h>
 #include <getopt.h>
-#include <time.h>
-#include <unistd.h>
-#include <sys/time.h>
-#include <sys/types.h>
-#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
-#include <gtk/gtk.h>
-#pragma GCC diagnostic warning "-Wdeprecated-declarations"
 #include <gdk/gdkkeysyms.h>
 #include "waveform/view_plus.h"
 #include "test/common.h"
@@ -59,8 +50,6 @@ gpointer tests[] = {};
 int
 main (int argc, char *argv[])
 {
-	if(sizeof(off_t) != 8){ perr("sizeof(off_t)=%zu\n", sizeof(off_t)); return EXIT_FAILURE; }
-
 	set_log_handlers();
 
 	wf_debug = 0;
@@ -78,17 +67,35 @@ main (int argc, char *argv[])
 	gtk_init(&argc, &argv);
 	GtkWidget* window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
 
+	GtkWidget* box = gtk_vbox_new(true, 0);
+	gtk_container_add((GtkContainer*)window, box);
+
 	WaveformViewPlus* waveform = waveform_view_plus_new(NULL);
-	#if 0
+#if 0
 	waveform_view_set_show_grid(waveform, true);
-	#endif
-	gtk_container_add((GtkContainer*)window, (GtkWidget*)waveform);
+#endif
+	gtk_box_pack_start((GtkBox*)box, (GtkWidget*)waveform, false, false, 0);
+
+	GtkWidget* hbox = gtk_hbox_new(true, 0);
+	gtk_box_pack_start((GtkBox*)box, hbox, false, false, 0);
+
+	// The 2nd row splits the same wav in two to test that the join is seamless
+	WaveformViewPlus* waveform2 = waveform_view_plus_new(NULL);
+	gtk_box_pack_start((GtkBox*)hbox, (GtkWidget*)waveform2, false, false, 0);
+	WaveformViewPlus* waveform3 = waveform_view_plus_new(NULL);
+	gtk_box_pack_start((GtkBox*)hbox, (GtkWidget*)waveform3, false, false, 0);
 
 	gtk_widget_show_all(window);
 
 	char* filename = find_wav(WAV);
 	waveform_view_plus_load_file(waveform, filename, NULL, NULL);
 	g_free(filename);
+
+	waveform_view_plus_set_waveform(waveform2, waveform->waveform);
+	waveform_view_plus_set_region(waveform2, 0, waveform_get_n_frames(waveform->waveform) / 2 - 1);
+
+	waveform_view_plus_set_waveform(waveform3, waveform->waveform);
+	waveform_view_plus_set_region(waveform3, waveform_get_n_frames(waveform->waveform) / 2, waveform_get_n_frames(waveform->waveform) - 1);
 
 	gboolean key_press (GtkWidget* widget, GdkEventKey* event, gpointer user_data)
 	{
@@ -131,7 +138,6 @@ main (int argc, char *argv[])
 	}
 
 	g_signal_connect(window, "key-press-event", G_CALLBACK(key_press), waveform);
-
 	g_signal_connect(window, "delete-event", G_CALLBACK(window_on_delete), NULL);
 
 	gtk_main();

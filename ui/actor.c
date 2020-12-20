@@ -315,7 +315,7 @@ wf_actor_class_init()
 	{
 		WaveformActor* a = (WaveformActor*)actor;
 		a->priv->render_info.valid = false; //strictly should only be invalidated when animating region and rect.
-		wf_canvas_queue_redraw(a->context);
+		wf_context_queue_redraw(a->context);
 	}
 
 	static void wf_actor_on_dimensions_changed(WaveformContext* wfc, gpointer _actor)
@@ -341,7 +341,7 @@ wf_actor_class_init()
 				_wf_actor_load_missing_blocks(a);
 				agl_actor__invalidate((AGlActor*)a);
 			}
-			if(((AGlActor*)a)->root->draw) wf_canvas_queue_redraw(a->context);
+			if(((AGlActor*)a)->root->draw) wf_context_queue_redraw(a->context);
 		}
 
 	static void wf_actor_on_init(AGlActor* actor)
@@ -592,7 +592,7 @@ _wf_actor_on_peakdata_available (Waveform* waveform, int block, gpointer _actor)
 		Renderer* renderer = modes[m].renderer;
 		call(renderer->load_block, renderer, a, m == MODE_LOW ? (block / WF_PEAK_STD_TO_LO) : block);
 	}
-	if(((AGlActor*)a)->root && ((AGlActor*)a)->root->draw) wf_canvas_queue_redraw(a->context);
+	if(((AGlActor*)a)->root && ((AGlActor*)a)->root->draw) wf_context_queue_redraw(a->context);
 }
 
 
@@ -818,7 +818,7 @@ wf_actor_set_region (WaveformActor* a, WfSampleRegion* region)
 		LEN(actor).target_val.b = region->len;
 
 		_a->render_info.valid = false;
-		if(scene && scene->draw) wf_canvas_queue_redraw(a->context);
+		if(scene && scene->draw) wf_context_queue_redraw(a->context);
 		return; // no animations
 	}
 
@@ -931,7 +931,7 @@ wf_actor_set_full (WaveformActor* a, WfSampleRegion* region, WfRectangle* rect, 
 				a->region = *region;
 
 				_a->render_info.valid = false;
-				if(scene->draw) wf_canvas_queue_redraw(a->context);
+				if(scene->draw) wf_context_queue_redraw(a->context);
 
 			}else{
 				animatables = start ? g_list_append(NULL, a1) : NULL;
@@ -964,7 +964,7 @@ wf_actor_set_full (WaveformActor* a, WfSampleRegion* region, WfRectangle* rect, 
 			*a4->val.f = agl_actor__width(actor);
 			a4->start_val.f = a4->target_val.f = agl_actor__width(actor);
 
-			if(scene->draw) wf_canvas_queue_redraw(a->context);
+			if(scene->draw) wf_context_queue_redraw(a->context);
 		}
 
 		if(!a->waveform->offline) _wf_actor_load_missing_blocks(a);
@@ -1363,7 +1363,9 @@ _wf_actor_allocate_hi (WaveformActor* a)
 	WfViewPort viewport; _wf_actor_get_viewport_max(a, &viewport);
 #ifdef USE_CANVAS_SCALING
 	// currently only blocks for the final target zoom are loaded, not for any transitions
-	double zoom = a->context->scaled ? a->context->zoom / a->context->samples_per_pixel : ((float)agl_actor__width(((AGlActor*)a))) / a->region.len;
+	double zoom = a->context->scaled
+		? a->context->zoom->value.f / a->context->samples_per_pixel
+		: ((float)agl_actor__width(((AGlActor*)a))) / a->region.len;
 #else
 	double zoom = ((float)agl_actor__width(((AGlActor*)a))) / a->region.len;
 #endif
@@ -1448,14 +1450,15 @@ __load_render_data (gpointer _a)
 	// because this is asynchronous, any caches may consist of an empty render.
 	agl_actor__invalidate((AGlActor*)a);
 
-	if(scene && scene->draw) wf_canvas_queue_redraw(a->context);
+	if(scene && scene->draw) wf_context_queue_redraw(a->context);
 	a->priv->load_render_data_queue = 0;
 
 	return G_SOURCE_REMOVE;
 }
 
+
 static void
-wf_actor_queue_load_render_data(WaveformActor* a)
+wf_actor_queue_load_render_data (WaveformActor* a)
 {
 	WfActorPriv* _a = a->priv;
 
@@ -1497,7 +1500,7 @@ _wf_actor_load_missing_blocks (WaveformActor* a)
 	WfdRange _zoom =
 #ifdef USE_CANVAS_SCALING
 		a->context->scaled ? (WfdRange){
-			.start = a->context->zoom / a->context->samples_per_pixel,
+			.start = a->context->zoom->value.f / a->context->samples_per_pixel,
 			.end = a->context->priv->zoom.target_val.f / a->context->samples_per_pixel,
 		} :
 #endif
@@ -1606,12 +1609,6 @@ _wf_actor_load_missing_blocks (WaveformActor* a)
 }
 
 
-										// private to AGlActor
-										typedef struct {
-											AGlActor*      actor;
-											AnimationFn    done;
-											gpointer       user_data;
-										} C4;
 /*
  *  Similar to agl_actor__set_size, but animates the change in size
  */
@@ -1674,7 +1671,7 @@ wf_actor_set_rect (WaveformActor* a, WfRectangle* rect)
 		*a1->val.f = a1->target_val.f = a1->start_val.f = rect->left;
 		*a2->val.f = a2->target_val.f = a2->start_val.f = rect->left + rect->len;
 
-		if(scene && scene->draw) wf_canvas_queue_redraw(a->context);
+		if(scene && scene->draw) wf_context_queue_redraw(a->context);
 	}
 }
 
@@ -1785,7 +1782,7 @@ get_peaks_per_pixel_i(WaveformContext* wfc, WfSampleRegion* region, WfRectangle*
 {
 	//eg: for 51200 frame sample 256pixels wide: n_peaks=51200/256=200, ppp=200/256=0.8
 
-	float region_width_px = wf_canvas_gl_to_px(wfc, rect->len);
+	float region_width_px = rect->len;
 	if(mode == MODE_HI) region_width_px /= 16; //this gives the correct result but dont know why.
 	float peaks_per_pixel = ceil(((float)region->len / WF_PEAK_TEXTURE_SIZE) / region_width_px);
 	dbg(2, "region_width_px=%.2f peaks_per_pixel=%.2f (%.2f)", region_width_px, peaks_per_pixel, ((float)region->len / WF_PEAK_TEXTURE_SIZE) / region_width_px);
@@ -1802,7 +1799,7 @@ get_peaks_per_pixel(WaveformContext* wfc, WfSampleRegion* region, WfRectangle* r
 {
 	//as above but not rounded to nearest integer value
 
-	float region_width_px = wf_canvas_gl_to_px(wfc, rect->len);
+	float region_width_px = rect->len;
 	if(mode == MODE_HI) region_width_px /= 16; //this gives the correct result but dont know why.
 	float peaks_per_pixel = ((float)region->len / WF_PEAK_TEXTURE_SIZE) / region_width_px;
 	if(mode == MODE_LOW) peaks_per_pixel /= 16;
@@ -1879,7 +1876,7 @@ calc_render_info (WaveformActor* actor)
 	g_return_val_if_fail(r->rect.len, false);
 
 	r->zoom = wfc->scaled
-		? wfc->zoom / (wfc->samples_per_pixel)
+		? wfc->zoom->value.f / (wfc->samples_per_pixel)
 		: r->rect.len / r->region.len;
 	r->mode = get_mode(r->zoom);
 

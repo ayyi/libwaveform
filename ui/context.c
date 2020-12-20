@@ -164,7 +164,7 @@ __wf_canvas_try_drawable (gpointer _wfc)
 
 	wf_context_init_gl(wfc);
 
-	if(scene->draw) wf_canvas_queue_redraw(wfc);
+	if(scene->draw) wf_context_queue_redraw(wfc);
 	wfc->use_1d_textures = agl->use_shaders;
 
 #ifdef USE_FRAME_CLOCK
@@ -177,8 +177,6 @@ __wf_canvas_try_drawable (gpointer _wfc)
 static void
 wf_context_init (WaveformContext* wfc, AGlActor* root)
 {
-	wfc->priv = g_new0(WfContextPriv, 1);
-
 	wfc->sample_rate = 44100;
 	wfc->v_gain = 1.0;
 	wfc->texture_unit[0] = agl_texture_unit_new(WF_TEXTURE0);
@@ -187,22 +185,27 @@ wf_context_init (WaveformContext* wfc, AGlActor* root)
 	wfc->texture_unit[3] = agl_texture_unit_new(WF_TEXTURE3);
 
 	wfc->samples_per_pixel = wfc->sample_rate / 32.0; // 32 pixels for 1 second
-	wfc->zoom = 1.0;
 	wfc->bpm = 120.0;
 
-	wfc->priv->zoom = (WfAnimatable){
-		.val.f        = &wfc->zoom,
-		.start_val.f  = wfc->zoom,
-		.target_val.f = wfc->zoom,
-		.type         = WF_FLOAT
-	};
+	wfc->zoom = agl_observable_new();
+	wfc->zoom->value.f = 1.0;
+	wfc->zoom->min.f = WF_CONTEXT_MIN_ZOOM;
+	wfc->zoom->max.f = WF_CONTEXT_MAX_ZOOM;
 
-	wfc->priv->samples_per_pixel = (WfAnimatable){
-		.val.f        = &wfc->samples_per_pixel,
-		.start_val.f  = wfc->samples_per_pixel,
-		.target_val.f = wfc->samples_per_pixel,
-		.type         = WF_FLOAT
-	};
+	wfc->priv = WF_NEW(WfContextPriv,
+		.zoom = {
+			.val.f        = &wfc->zoom->value.f,
+			.start_val.f  = wfc->zoom->value.f,
+			.target_val.f = wfc->zoom->value.f,
+			.type         = WF_FLOAT
+		},
+		.samples_per_pixel = {
+			.val.f        = &wfc->samples_per_pixel,
+			.start_val.f  = wfc->samples_per_pixel,
+			.target_val.f = wfc->samples_per_pixel,
+			.type         = WF_FLOAT
+		}
+	);
 
 	wfc->shaders.ruler = &ruler;
 
@@ -386,7 +389,7 @@ wf_canvas_add_new_actor (WaveformContext* wfc, Waveform* w)
 #endif
 
 void
-wf_canvas_queue_redraw (WaveformContext* wfc)
+wf_context_queue_redraw (WaveformContext* wfc)
 {
 #ifdef USE_FRAME_CLOCK
 	if(wfc->root->root->is_animating){
@@ -405,30 +408,6 @@ wf_canvas_queue_redraw (WaveformContext* wfc)
 	if(wfc->priv->_queued) return;
 
 	wfc->priv->_queued = g_timeout_add(CLAMP(WF_FRAME_INTERVAL - (wf_get_time() - wfc->priv->_last_redraw_time), 1, WF_FRAME_INTERVAL), wf_canvas_redraw, wfc);
-#endif
-}
-
-
-float
-wf_canvas_gl_to_px (WaveformContext* wfc, float x)
-{
-	//convert from gl coords to screen pixels
-
-	// TODO  _gl_to_px TODO where viewport not set.
-#if 0
-	if(!wfc->viewport) return x;
-
-	//TODO move to resize handler?
-	gint drawable_width_px, height;
-	gdk_gl_drawable_get_size(gdk_gl_context_get_gl_drawable(gdk_gl_context_get_current()), &drawable_width_px, &height);
-
-	float viewport_width = 256; //TODO
-	if(wfc->viewport) viewport_width = wfc->viewport->right - wfc->viewport->left;
-
-	float scale = drawable_width_px / viewport_width;
-	return x * scale;
-#else
-	return x;
 #endif
 }
 
@@ -484,8 +463,6 @@ wf_canvas_load_texture_from_alphabuf (WaveformContext* wfc, int texture_name, Al
 #endif
 
 #ifdef USE_MIPMAPPING
-		//glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-		//glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_NEAREST);
 		glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST_MIPMAP_NEAREST);
 #else
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
@@ -515,25 +492,31 @@ wf_context_set_rotation (WaveformContext* wfc, float rotation)
 float
 wf_context_get_zoom (WaveformContext* wfc)
 {
-	return wfc->scaled ? wfc->zoom : 0.0;
+	return wfc->scaled ? wfc->zoom->value.f : 0.0;
 }
 
 
-	static void set_zoom_on_animation_finished (WfAnimation* animation, gpointer _wfc)
-	{
-		dbg(1, "wfc=%p", _wfc);
-	}
+static void
+set_zoom_on_animation_finished (WfAnimation* animation, gpointer _wfc)
+{
+	dbg(1, "wfc=%p", _wfc);
+}
 
-	static void wf_context_set_zoom_on_frame (WfAnimation* animation, int time)
-	{
-		WaveformContext* wfc = animation->user_data;
 
-		// note that everything under the context root is invalidated.
-		// Any non-scalable items should be in a separate sub-graph
-		agl_actor__invalidate_down (wfc->root);
+static void
+wf_context_set_zoom_on_frame (WfAnimation* animation, int time)
+{
+	WaveformContext* wfc = animation->user_data;
 
-		agl_actor__set_size((AGlActor*)wfc->root);
-	}
+	agl_observable_set_float(wfc->zoom, wfc->zoom->value.f);
+
+	// note that everything under the context root is invalidated.
+	// Any non-scalable items should be in a separate sub-graph
+	agl_actor__invalidate_down (wfc->root);
+
+	agl_actor__set_size((AGlActor*)wfc->root);
+}
+
 
 /*
  *  Allows the whole scene to be scaled as a single transition
@@ -550,6 +533,7 @@ wf_context_set_zoom (WaveformContext* wfc, float zoom)
 	// TODO should probably call agl_actor__start_transition
 
 	wfc->scaled = true;
+
 	dbg(1, "zoom=%f spp=%.2f", zoom, wfc->samples_per_pixel);
 	dbg(1, "zoom=%.2f-->%.2f spp=%.2f", wfc->zoom, zoom, wfc->samples_per_pixel);
 
@@ -558,13 +542,13 @@ wf_context_set_zoom (WaveformContext* wfc, float zoom)
 	zoom = CLAMP(zoom, WF_CONTEXT_MIN_ZOOM, WF_CONTEXT_MAX_ZOOM);
 
 	if(!wfc->root->root->enable_animations){
-		wfc->zoom = zoom;
+		agl_observable_set_float(wfc->zoom, zoom);
 		agl_actor__invalidate(wfc->root);
 		return;
 	}
 
 	// TODO move this into the animator xx
-	if(zoom == wfc->zoom){
+	if(zoom == wfc->zoom->value.f){
 		return;
 	}
 
@@ -620,14 +604,14 @@ void
 wf_context_set_gain (WaveformContext* wfc, float gain)
 {
 	wfc->v_gain = gain;
-	wf_canvas_queue_redraw(wfc);
+	wf_context_queue_redraw(wfc);
 }
 
 
 float
 wf_context_frame_to_x (WaveformContext* context, uint64_t frame)
 {
-	float pixels_per_sample = context->zoom / context->samples_per_pixel;
+	float pixels_per_sample = context->zoom->value.f / context->samples_per_pixel;
 	return (frame - context->start_time) * pixels_per_sample;
 }
 

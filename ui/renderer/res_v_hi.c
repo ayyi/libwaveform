@@ -40,8 +40,9 @@ v_hi_renderer_new (WaveformActor* actor)
 
 	agl = agl_get_instance();
 
-	w->render_data[MODE_V_HI] = g_new0(WaveformModeRender, 1);
-	w->render_data[MODE_V_HI]->n_blocks = w->n_blocks;
+	w->render_data[MODE_V_HI] = WF_NEW(WaveformModeRender,
+		.n_blocks = w->n_blocks
+	);
 
 #if defined (MULTILINE_SHADER)
 	if(agl->use_shaders){
@@ -105,10 +106,7 @@ _v_hi_set_gl_state (WaveformActor* actor)
 bool
 draw_wave_buffer_v_hi (Renderer* renderer, WaveformActor* actor, int block, bool is_first, bool is_last, double x_block0)
 {
-	//for use at resolution 1, operates on audio data, NOT peak data.
-
-	// @b_region - sample range within the current block. b_region.start is relative to the Waveform, not the block.
-	// @rect     - the canvas area corresponding exactly to the WfSampleRegion.                                          XXX changed.
+	// For use at resolution 1, operates directly on audio data, NOT peak data.
 
 	// variable names: variables prefixed with x_ relate to screen coordinates (pixels), variables prefixed with s_ related to sample frames.
 
@@ -126,11 +124,11 @@ draw_wave_buffer_v_hi (Renderer* renderer, WaveformActor* actor, int block, bool
 
 	if(is_last) vhr->block_region_v_hi.len = (ri->region.start + ri->region.len) % WF_SAMPLES_PER_TEXTURE;
 
-	//alternative calculation of block_region_v_hi - does it give same results? NO
+	// Alternative calculation of block_region_v_hi - does it give same results? NO
 	uint64_t st = MAX((uint64_t)(ri->region.start),                  (uint64_t)((block)     * ri->samples_per_texture));
 	uint64_t e  = MIN((uint64_t)(ri->region.start + ri->region.len), (uint64_t)((block + 1) * ri->samples_per_texture));
 	WfSampleRegion block_region_v_hi2 = {st, e - st};
-	//dbg(0, "block_region_v_hi=%Lu(%Lu)-->%Lu len=%Lu (buf->size=%Lu r->region=%Lu-->%Lu)", st, (uint64_t)block_region_v_hi.start, e, (uint64_t)block_region_v_hi2.len, ((uint64_t)buf->size), ((uint64_t)region.start), ((uint64_t)region.start) + ((uint64_t)region.len));
+	//dbg(0, "block_region_v_hi=%Lu(%Lu)-->%Lu len=%Lu (buf->size=%Lu r->region=%Lu-->%Lu)", st, (uint64_t)vhr->block_region_v_hi.start, e, (uint64_t)block_region_v_hi2.len, ((uint64_t)buf->size), ((uint64_t)ri->region.start), ((uint64_t)ri->region.start) + ((uint64_t)ri->region.len));
 	WfSampleRegion b_region = block_region_v_hi2;
 
 	g_return_val_if_fail(b_region.len <= buf->size, false);
@@ -146,10 +144,9 @@ draw_wave_buffer_v_hi (Renderer* renderer, WaveformActor* actor, int block, bool
 	//#define BIG_NUMBER 4096
 	#define BIG_NUMBER 8192    // temporarily increased pending cropping to viewport-left
 
-	Range sr = {{0,0},{0,0}, 0}; //TODO check we are consistent in that these values are all *within the current block*
-	Range xr = {{0,0},{0,0}, 0};
-
-	const double zoom = rect->len / (double)ri->region.len;
+	const double zoom = wfc->scaled
+		? wfc->zoom->value.f * rect->len / (double)ri->region.len
+		: rect->len / (double)ri->region.len;
 
 	const float _block_wid = WF_SAMPLES_PER_TEXTURE * zoom;
 	WfRectangle b_rect = {
@@ -172,7 +169,7 @@ draw_wave_buffer_v_hi (Renderer* renderer, WaveformActor* actor, int block, bool
 	int n_lines = MIN(BIG_NUMBER, ri->viewport.right - b_rect.left); // TODO the arrays possibly can be smaller - dont use b_rect.left, use x0
 	Quad quads[n_lines];
 	Vertex texture_coords[n_lines * 4];
-	int j; for(j=0;j<n_lines;j++){
+	for(int j=0;j<n_lines;j++){
 		texture_coords[j * 4    ] = (Vertex){0.0, 0.0};
 		texture_coords[j * 4 + 1] = (Vertex){1.0, 0.0};
 		texture_coords[j * 4 + 2] = (Vertex){1.0, 1.0};
@@ -190,44 +187,54 @@ draw_wave_buffer_v_hi (Renderer* renderer, WaveformActor* actor, int block, bool
 	const float alpha = ((float)((rgba  ) & 0xff))/0x100;
 #endif
 
+	Range xr = {
+		{0,},
+		{0,},
 #ifdef MULTILINE_SHADER
-	xr.border = TEX_BORDER_HI;
+		.border = TEX_BORDER_HI
 #else
-	xr.border = 0;
+		.border = 0
 #endif
-	sr.border = xr.border / zoom;
-	sr.inner.l = b_region.start % WF_SAMPLES_PER_TEXTURE;
-	//const int x0 = MAX(0, floor(viewport->left - rect->left) - 3);
-	const int x0 = b_rect.left;
-	//const int x0 = MIN(b_rect.left, viewport->left - xr.border);         // no, x and s should not be calculated independently.
-	//						sr.inner.l = (x0 - x_block0) / zoom; //TODO crop to viewport-left
+	};
+
+	Range sr = {
+		.inner.l = b_region.start % WF_SAMPLES_PER_TEXTURE,
+		.border = xr.border / zoom
+	};                                       //TODO check we are consistent in that these values are all *within the current block*
+
+	//						sr.inner.l = (0 - x_block0) / zoom; //TODO crop to viewport-left
 	const int s0 = sr.outer.l = sr.inner.l - sr.border;
-	xr.inner.l = x0;
-	xr.outer.l = x0 - xr.border;
+	xr.outer.l = xr.border;
 	const int x_bregion_end = b_rect.left + (b_region.start + b_region.len) * zoom;
-	xr.inner.r = MIN(MIN(MIN(
-		x0 + BIG_NUMBER,
-		(int)(b_rect.left + b_rect.len)),
-		ri->viewport.right),
-		x_bregion_end);
-	const int x_stop = xr.inner.r + xr.border;
+
+	xr.inner.r = MIN(
+		MIN(
+			MIN(
+				BIG_NUMBER,
+				(int)(b_rect.left + b_rect.len)
+			),
+			ri->viewport.right
+		),
+		x_bregion_end
+	);
+	const int x_stop = xr.inner.r + xr.border - b_rect.left;
+
 	/*
 	if(x_stop < b_rect.left + b_rect.len){
-		dbg(0, "stopping early. x_bregion_end=%i x0+B=%i", x_bregion_end, x0 + BIG_NUMBER);
+		dbg(0, "stopping early. x_bregion_end=%i 0+B=%i", x_bregion_end, BIG_NUMBER);
 	}
 	*/
-	//dbg(0, "rect=%.2f-->%.2f b_region=%Lu-->%Lu viewport=%.1f-->%.1f zoom=%.3f", b_rect.left, b_rect.left + b_rect.len, b_region.start, b_region.start + ((uint64_t)b_region.len), viewport->left, viewport->right, zoom);
+	//dbg(0, "rect=%.2f-->%.2f b_region=%Lu-->%Lu viewport=%.1f-->%.1f zoom=%.3f", b_rect.left, b_rect.left + b_rect.len, b_region.start, b_region.start + ((uint64_t)b_region.len), ri->viewport.left, ri->viewport.right, zoom);
 
 #ifdef MULTILINE_SHADER
-	int mls_tex_w = x_stop - x0 + 2 * TEX_BORDER_HI;
+	int mls_tex_w = x_stop - 2 * TEX_BORDER_HI;
 	int mls_tex_h = 2; // TODO if we really are not going to add the indirection for x (for zoom > 1), use a 1d texture.
 	int t_width = agl_power_of_two(mls_tex_w);
 	guchar* _pbuf = g_new0(guchar, t_width * mls_tex_h);
 	guchar* pbuf[] = {_pbuf, _pbuf + t_width};
 #endif
 										sr.inner.r = s0 + (xr.inner.r - xr.inner.l) / zoom;
-										sr.outer.r = s0 /* TODO should include border? */+ ((double)x_stop - x0) / zoom;
-										//dbg(0, "x0=%i x_stop=%i s=%i,%i,%i,%i xre=%i", x0, x_stop, sr.outer.l, sr.inner.l, sr.inner.r, sr.outer.r, x_bregion_end);
+										sr.outer.r = s0 /* TODO should include border? */+ ((double)x_stop) / zoom;
 
 										// because we access adjacent samples, s_max is the absolute maximum index into the sample buffer (must be less than).
 										int s_max = /*s0 + */sr.outer.r + 4 + sr.border;
@@ -248,7 +255,7 @@ draw_wave_buffer_v_hi (Renderer* renderer, WaveformActor* actor, int block, bool
 										s_max = MIN(s_max, buf->size);
 										//note that there is never any need to be separately limited by b_region - that should be taken care of by buffer limitation?
 
-	int c; for(c=0;c<w->n_channels;c++){
+	for(int c=0;c<w->n_channels;c++){
 																						if(!buf->buf[c]){ pwarn("audio buf not set. c=%i", c); continue; }
 		if(!buf->buf[c]) continue;
 #ifdef MULTILINE_SHADER
@@ -260,12 +267,12 @@ draw_wave_buffer_v_hi (Renderer* renderer, WaveformActor* actor, int block, bool
 #endif
 
 #ifndef MULTILINE_SHADER
-		int oldx = x0 - 1;
+		int oldx = -1;
 		int oldy = 0;
 #endif
 	int s = 0;
 	int i = 0;
-	//int x; for(x = x0; x < x0 + BIG_NUMBER && /*rect->left +*/ x < viewport->right + border_right; x++, i++){
+	//int x; for(x = 0; x < BIG_NUMBER && /*rect->left +*/ x < viewport->right + border_right; x++, i++){
 	// note that when using texture borders, at the viewport left edge x is NOT zero, it is TEX_BORDER_HI.
 	int x; for(x = xr.inner.l; x < x_stop; x++, i++){
 		double s_ = ((double)x - xr.inner.l) / zoom;
@@ -357,7 +364,7 @@ draw_wave_buffer_v_hi (Renderer* renderer, WaveformActor* actor, int block, bool
 		oldy = y;
 #endif
 	}
-	dbg(2, "n_lines=%i x=%i-->%i", i, x0, x);
+	dbg(2, "n_lines=%i x=%i-->%i", i, 0, x);
 
 #if defined (MULTILINE_SHADER)
 #elif defined(VERTEX_ARRAYS)
@@ -377,7 +384,7 @@ draw_wave_buffer_v_hi (Renderer* renderer, WaveformActor* actor, int block, bool
 	AGlQuad t = {
 		((float)TEX_BORDER_HI)/((float)t_width),
 		0.0,
-		((float)((x_stop - x0) * TEXELS_PER_PIXEL)) / (float)t_width,
+		((float)((x_stop) * TEXELS_PER_PIXEL)) / (float)t_width,
 		1.0
 	};
 	wfc->priv->shaders.lines->uniform.texture_width = t_width;
@@ -406,14 +413,14 @@ draw_wave_buffer_v_hi (Renderer* renderer, WaveformActor* actor, int block, bool
 static void
 v_hi_load_block (Renderer* renderer, WaveformActor* a, int b)
 {
-	if(((AGlActor*)a)->root->draw) wf_canvas_queue_redraw(a->context);
+	if(((AGlActor*)a)->root->draw) wf_context_queue_redraw(a->context);
 }
 
 
 static void
 v_hi_free_waveform (Renderer* renderer, Waveform* w)
 {
-	if(w->priv->render_data[MODE_V_HI]) g_free0(w->priv->render_data[MODE_V_HI]);
+	g_clear_pointer(&w->priv->render_data[MODE_V_HI], g_free);
 }
 
 

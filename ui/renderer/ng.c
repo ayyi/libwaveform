@@ -428,7 +428,7 @@ ng_gl2_render_block (Renderer* renderer, WaveformActor* actor, int b, bool is_fi
 
 	Waveform* waveform = actor->waveform; 
 	WfActorPriv* _a = actor->priv;
-	RenderInfo* r  = &_a->render_info;
+	RenderInfo* r = &_a->render_info;
 
 	int  s = b / MAX_BLOCKS_PER_TEXTURE;
 	int _b = b % MAX_BLOCKS_PER_TEXTURE;

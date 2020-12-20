@@ -28,7 +28,6 @@
 */
 #define USE_SHADERS true
 
-#define __wf_private__
 #include "config.h"
 #include <getopt.h>
 #include <gdk/gdkkeysyms.h>
@@ -47,12 +46,10 @@ static const char* const short_options = "n";
 #define GL_WIDTH 256.0
 #define VBORDER 8
 
-GtkWidget*       canvas    = NULL;
 AGlScene*        scene     = NULL;
 WaveformContext* wfc[4]    = {NULL,}; // This test has 4 separate contexts. Normally you would use a single context.
 Waveform*        w1        = NULL;
 WaveformActor*   a[4]      = {NULL,};
-float            zoom      = 1.0;
 float            vzoom     = 1.0;
 gpointer         tests[]   = {};
 
@@ -94,7 +91,7 @@ static bool test_delete       ();
 static void
 window_content (GtkWindow* window, GdkGLConfig* glconfig)
 {
-	canvas = gtk_drawing_area_new();
+	GtkWidget* canvas = gtk_drawing_area_new();
 
 #ifdef HAVE_GTK_2_18
 	gtk_widget_set_can_focus     (canvas, true);
@@ -190,7 +187,7 @@ main (int argc, char* argv[])
 
 
 static void
-on_canvas_realise (GtkWidget* _canvas, gpointer user_data)
+on_canvas_realise (GtkWidget* canvas, gpointer user_data)
 {
 	if(!GTK_WIDGET_REALIZED (canvas)) return;
 
@@ -209,39 +206,36 @@ on_allocate (GtkWidget* widget, GtkAllocation* allocation, gpointer user_data)
 		if(a[i]) wf_actor_set_rect(a[i], &(WfRectangle){
 			0.0,
 			i * allocation->height / 4,
-			GL_WIDTH * zoom,
+			GL_WIDTH * wfc[0]->zoom->value.f,
 			allocation->height / 4 * 0.95
 		});
 	}
 
-	start_zoom(zoom);
+	start_zoom(wfc[0]->zoom->value.f);
 }
 
 
 static void
 start_zoom (float target_zoom)
 {
-	//when zooming in, the Region is preserved so the box gets bigger. Drawing is clipped by the Viewport.
+	// When zooming in, the Region is preserved so the box gets bigger. Drawing is clipped by the Viewport.
 
-	PF0;
-	zoom = MAX(0.1, target_zoom);
-
-	int i; for(i=0;i<G_N_ELEMENTS(a);i++)
-		wf_context_set_zoom(wfc[i], zoom);
+	for(int i=0;i<G_N_ELEMENTS(a);i++)
+		wf_context_set_zoom(wfc[i], target_zoom);
 }
 
 
 void
 zoom_in (gpointer _)
 {
-	start_zoom(zoom * 1.5);
+	start_zoom(wfc[0]->zoom->value.f * 1.5);
 }
 
 
 void
 zoom_out (gpointer _)
 {
-	start_zoom(zoom / 1.5);
+	start_zoom(wfc[0]->zoom->value.f / 1.5);
 }
 
 
@@ -249,7 +243,7 @@ void
 vzoom_up (gpointer _)
 {
 	vzoom *= 1.1;
-	zoom = MIN(vzoom, 100.0);
+	vzoom = MIN(vzoom, 100.0);
 	int i; for(i=0;i<G_N_ELEMENTS(a);i++)
 		if(a[i]) wf_actor_set_vzoom(a[i], vzoom);
 }
@@ -259,7 +253,7 @@ void
 vzoom_down (gpointer _)
 {
 	vzoom /= 1.1;
-	zoom = MAX(vzoom, 1.0);
+	vzoom = MAX(vzoom, 1.0);
 	int i; for(i=0;i<G_N_ELEMENTS(a);i++)
 		if(a[i]) wf_actor_set_vzoom(a[i], vzoom);
 }

@@ -59,7 +59,7 @@ static bool ruler_actor_paint(AGlActor*);
 		WaveformContext* context = ruler->context;
 
 		shader->uniform.fg_colour = 0xffffff7f;
-		shader->uniform.beats_per_pixel = context->samples_per_pixel / (samples_per_beat(context) * context->zoom);
+		shader->uniform.beats_per_pixel = context->samples_per_pixel / (samples_per_beat(context) * context->zoom->value.f);
 		shader->uniform.samples_per_pixel = context->samples_per_pixel;
 
 		agl_use_program((AGlShader*)shader);

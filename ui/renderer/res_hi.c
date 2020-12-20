@@ -83,7 +83,7 @@ hi_free_gl1 (Renderer* renderer, Waveform* w)
 			modes[MODE_HI].renderer->load_block(modes[MODE_HI].renderer, a, b);
 
 			//TODO check this block is within current viewport
-			if(((AGlActor*)a)->root && ((AGlActor*)a)->root->draw) wf_canvas_queue_redraw(a->context);
+			if(((AGlActor*)a)->root && ((AGlActor*)a)->root->draw) wf_context_queue_redraw(a->context);
 		}
 	}
 
@@ -188,7 +188,7 @@ hi_gl1_load_block (Renderer* renderer, WaveformActor* a, int block)
 #endif
 
 		//TODO check this block is within current viewport
-		if(((AGlActor*)a)->root->draw) wf_canvas_queue_redraw(a->context);
+		if(((AGlActor*)a)->root->draw) wf_context_queue_redraw(a->context);
 	}
 }
 

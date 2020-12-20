@@ -57,7 +57,7 @@ main (int argc, char *argv[])
 		}
 	}
 
-	AGlWindow* window = agl_window("Text test", 0, 0, width, height, false);
+	AGlWindow* window = agl_window("Text test", 0, 0, width, height, 0);
 	XMapWindow(dpy, window->window);
 	scene = window->scene;
 

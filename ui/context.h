@@ -17,6 +17,7 @@
 #ifdef USE_SDL
 #  include "SDL2/SDL.h"
 #endif
+#include "agl/observable.h"
 #include "waveform/ui-typedefs.h"
 #include "waveform/shader.h"
 #include "waveform/utils.h"
@@ -26,12 +27,12 @@
 #define WF_CONTEXT_MIN_ZOOM 0.1
 #define WF_CONTEXT_MAX_ZOOM 51200.0
 
-#define TYPE_WAVEFORM_CONTEXT (waveform_context_get_type ())
-#define WAVEFORM_CONTEXT(obj) (G_TYPE_CHECK_INSTANCE_CAST ((obj), TYPE_WAVEFORM_CONTEXT, WaveformContext))
-#define WAVEFORM_CONTEXT_CLASS(klass) (G_TYPE_CHECK_CLASS_CAST ((klass), TYPE_WAVEFORM_CONTEXT, WaveformContextClass))
-#define IS_WAVEFORM_CONTEXT(obj) (G_TYPE_CHECK_INSTANCE_TYPE ((obj), TYPE_WAVEFORM_CONTEXT))
+#define TYPE_WAVEFORM_CONTEXT            (waveform_context_get_type ())
+#define WAVEFORM_CONTEXT(obj)            (G_TYPE_CHECK_INSTANCE_CAST ((obj), TYPE_WAVEFORM_CONTEXT, WaveformContext))
+#define WAVEFORM_CONTEXT_CLASS(klass)    (G_TYPE_CHECK_CLASS_CAST ((klass), TYPE_WAVEFORM_CONTEXT, WaveformContextClass))
+#define IS_WAVEFORM_CONTEXT(obj)         (G_TYPE_CHECK_INSTANCE_TYPE ((obj), TYPE_WAVEFORM_CONTEXT))
 #define IS_WAVEFORM_CONTEXT_CLASS(klass) (G_TYPE_CHECK_CLASS_TYPE ((klass), TYPE_WAVEFORM_CONTEXT))
-#define WAVEFORM_CONTEXT_GET_CLASS(obj) (G_TYPE_INSTANCE_GET_CLASS ((obj), TYPE_WAVEFORM_CONTEXT, WaveformContextClass))
+#define WAVEFORM_CONTEXT_GET_CLASS(obj)  (G_TYPE_INSTANCE_GET_CLASS ((obj), TYPE_WAVEFORM_CONTEXT, WaveformContextClass))
 
 typedef struct _WfContextPriv WfContextPriv;
 
@@ -47,7 +48,7 @@ struct _WaveformContext {
 	float          bpm;
 	float          samples_per_pixel;  // application can specify the base sppx. Is multiplied by zoom to get the actual sppx.
 	bool           scaled;             // scaled mode uses the WfContext time scale. Non-scaled mode uses only the actor rect and sample-region.
-	float          zoom;
+	AGlObservable* zoom;
 	int64_t        start_time;         // start time measured in frames.
 	float          rotation;
 	float          v_gain;
@@ -96,7 +97,7 @@ void             wf_context_set_zoom                  (WaveformContext*, float);
 #endif
 void             wf_context_set_scale                 (WaveformContext*, float samples_per_px);
 void             wf_context_set_gain                  (WaveformContext*, float);
-void             wf_canvas_queue_redraw               (WaveformContext*);
+void             wf_context_queue_redraw              (WaveformContext*);
 void             wf_canvas_load_texture_from_alphabuf (WaveformContext*, int texture_id, AlphaBuf*);
 float            wf_context_frame_to_x                (WaveformContext*, uint64_t);
 

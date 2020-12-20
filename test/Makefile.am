@@ -9,7 +9,7 @@ if ENABLE_SDL
 SDLPROGRAMS = sdl
 endif
 if ENABLE_GTK
-GTKPROGRAMS = view_plus actor_test actor_plus actor_no_scene list group hires multi_scene $(ASSPROGRAMS) frame_rate resources cache viewport pixbuf
+GTKPROGRAMS = view_plus actor actor_plus actor_no_scene list group hires res_vhi multi_scene $(ASSPROGRAMS) frame_rate resources cache viewport pixbuf
 LOCAL_GTK_LDFLAGS = $(GTK_LDFLAGS)
 endif
 
@@ -52,7 +52,7 @@ TEST_LDFLAGS = \
 	$(top_srcdir)/.libs/libwaveformui.a \
 	$(top_srcdir)/.libs/libwaveformcore.a \
 	$(top_srcdir)/lib/agl/.libs/libagl.a \
-	$(top_srcdir)/debug/libayyidebug.la \
+	../debug/.libs/libayyidebug.a \
 	$(OPENGL_LDFLAGS) \
 	$(GL_LOADER_LDFLAGS) \
 	$(LIBASS_LDFLAGS) \
@@ -83,9 +83,9 @@ view_plus_SOURCES = \
 	$(COMMON_SOURCES) \
 	view_plus.c
 
-actor_test_SOURCES = \
+actor_SOURCES = \
 	$(COMMON_SOURCES) \
-	actor_test.c
+	actor.c
 
 actor_no_scene_SOURCES = \
 	$(COMMON_SOURCES) \
@@ -112,6 +112,10 @@ ass_SOURCES = $(COMMON_SOURCES) ass.c
 hires_SOURCES = \
 	$(COMMON_SOURCES) \
 	hires.c
+
+res_vhi_SOURCES = \
+	$(COMMON_SOURCES) \
+	res_vhi.c
 
 frame_rate_SOURCES = \
 	$(COMMON2_SOURCES) \
@@ -178,7 +182,7 @@ waveform_test_LDADD = \
 view_plus_LDADD = \
 	$(ass_LDADD)
 
-actor_test_LDADD = \
+actor_LDADD = \
 	$(OPENGL_LDFLAGS) \
 	$(TEST_LDFLAGS)
 
@@ -234,9 +238,10 @@ TESTS = \
 	32bit \
 	cache \
 	view_plus \
-	actor_test \
+	actor \
 	actor_plus \
 	hires \
+	res_vhi \
 	scenegraph \
 	viewport \
 	group \
@@ -255,9 +260,10 @@ test:
 	./32bit
 	./cache
 	./view_plus -n
-	./actor_test -n
+	./actor -n
 	./actor_plus -n
 	./hires -n
+	./res_vhi -n
 	./scenegraph -n
 	./viewport -n
 	./group -n
