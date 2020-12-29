@@ -4,9 +4,6 @@ if ENABLE_OPENGL
 noinst_LTLIBRARIES = libactors.la
 
 libactors_la_SOURCES = \
-	group.c group.h \
-	background.c background.h \
-	plain.c plain.h \
 	ruler.c ruler.h \
 	grid.c grid.h \
 	labels.c labels.h \
@@ -38,12 +35,9 @@ endif
 
 pkgincludedir=$(includedir)/waveform/actors
 pkginclude_HEADERS = \
-	background.h \
-	plain.h \
 	debug.h \
 	grid.h \
 	labels.h \
-	group.h \
 	ruler.h \
 	spinner.h \
 	spp.h \

@@ -296,11 +296,6 @@ wf_context_init_gl (WaveformContext* wfc)
 
 	if(!agl->pref_use_shaders){
 		wfc->use_1d_textures = false;
-#if 0
-		WAVEFORM_START_DRAW(wfc) {
-			if(wf_debug) printf("GL_RENDERER = %s\n", (const char*)glGetString(GL_RENDERER));
-		} WAVEFORM_END_DRAW(wfc);
-#endif
 		return;
 	}
 

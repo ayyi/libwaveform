@@ -26,7 +26,7 @@ endif
 endif
 
 if ENABLE_OPENGL
-noinst_PROGRAMS = waveform_test large_files promise 32bit glx scenegraph text input $(GTKPROGRAMS) $(SDLPROGRAMS)
+noinst_PROGRAMS = waveform_test large_files promise 32bit glx text input $(GTKPROGRAMS) $(SDLPROGRAMS)
 else
 noinst_PROGRAMS = waveform_test
 endif
@@ -163,10 +163,6 @@ input_SOURCES = \
 	$(COMMON2_SOURCES) \
 	input.c
 
-scenegraph_SOURCES = \
-	$(COMMON2_SOURCES) \
-	scenegraph.c
-
 viewport_SOURCES = \
 	$(COMMON2_SOURCES) \
 	_cache_behaviour.c _cache_behaviour.h \
@@ -217,9 +213,6 @@ input_LDADD = \
 	$(OPENGL_LDFLAGS) \
 	$(TEST_LDFLAGS)
 
-scenegraph_LDADD = \
-	$(TEST_LDFLAGS)
-
 LDADD = \
 	$(OPENGL_LDFLAGS) \
 	$(TEST_LDFLAGS)
@@ -242,7 +235,6 @@ TESTS = \
 	actor_plus \
 	hires \
 	res_vhi \
-	scenegraph \
 	viewport \
 	group \
 	actor_no_scene \
@@ -264,7 +256,6 @@ test:
 	./actor_plus -n
 	./hires -n
 	./res_vhi -n
-	./scenegraph -n
 	./viewport -n
 	./group -n
 	./actor_no_scene -n
@@ -281,7 +272,6 @@ CLEANFILES = \
 	multi_scene \
 	pixbuf \
 	resources \
-	scenegraph \
 	sdl \
 	view_plus \
 	viewport \

@@ -373,6 +373,7 @@ if test "$enable_submodules" = "yes"; then
 		lib/agl/agl/shaders/Makefile
 		lib/agl/agl/behaviours/Makefile
 		lib/agl/agl/text/Makefile
+		lib/agl/actors/Makefile
 		lib/agl/debug/Makefile
 		lib/agl/glib/Makefile
 		lib/agl/sdl/Makefile

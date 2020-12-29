@@ -27,8 +27,8 @@
 #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 #include <gtk/gtk.h>
 #pragma GCC diagnostic warning "-Wdeprecated-declarations"
-#include "waveform/waveform.h"
-#include "waveform/background.h"
+#include "actors/background.h"
+#include "waveform/actor.h"
 #include "waveform/grid.h"
 #include "waveform/spp.h"
 #include "waveform/text.h"

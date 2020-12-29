@@ -27,9 +27,9 @@
 #include "agl/utils.h"
 #include <gtk/gtk.h>
 #include <gdk/gdkkeysyms.h>
+#include "actors/background.h"
+#include "actors/group.h"
 #include "waveform/actor.h"
-#include "waveform/background.h"
-#include "waveform/group.h"
 #include "waveform/ruler.h"
 #include "test/common.h"
 

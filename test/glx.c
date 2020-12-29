@@ -19,10 +19,10 @@
 #include "gdk/gdk.h"
 #include "agl/ext.h"
 #include "agl/x11.h"
+#include "actors/background.h"
 #define __wf_private__
 #include "wf/waveform.h"
 #include "waveform/actor.h"
-#include "waveform/background.h"
 #define __glx_test__
 #include "test/common2.h"
 
