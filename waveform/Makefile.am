@@ -20,15 +20,12 @@ pkginclude_HEADERS = \
 EXTRA_DIST = \
 	actor.h \
 	audio.h \
-	background.h \
 	context.h \
 	debug.h \
 	fbo.h \
 	grid.h \
-	group.h \
 	labels.h \
 	pixbuf.h \
-	plain.h \
 	private.h \
 	promise.h \
 	ruler.h \

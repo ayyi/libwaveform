@@ -249,16 +249,6 @@ quit (gpointer waveform)
 		}
 	}
 
-	static gboolean on_loaded (gpointer _c)
-	{
-		C* c = _c;
-#ifndef USE_CANVAS_SCALING
-		waveform_view_plus_set_zoom(c->view, c->zoom);
-#endif
-		g_free(c);
-		return G_SOURCE_REMOVE;
-	}
-
 void
 show_wav (WaveformViewPlus* view, const char* filename)
 {
@@ -267,6 +257,16 @@ show_wav (WaveformViewPlus* view, const char* filename)
 	wf_spinner_start((WfSpinner*)layers.spinner);
 
 	waveform_view_plus_load_file(view, filename, on_loaded_, view);
+
+	gboolean on_loaded (gpointer _c)
+	{
+		C* c = _c;
+#ifndef USE_CANVAS_SCALING
+		waveform_view_plus_set_zoom(c->view, c->zoom);
+#endif
+		g_free(c);
+		return G_SOURCE_REMOVE;
+	}
 
 	g_idle_add(on_loaded, AGL_NEW(C,
 		.view = view,
