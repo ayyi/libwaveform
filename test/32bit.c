@@ -6,7 +6,7 @@
 
   --------------------------------------------------------------
 
-  Copyright (C) 2013-2020 Tim Orford <tim@orford.org>
+  Copyright (C) 2013-2021 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -21,7 +21,9 @@
   along with this program; if not, write to the Free Software
   Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 */
+
 #define __wf_private__
+
 #include "config.h"
 #include <glib.h>
 #include <glib/gstdio.h>
@@ -63,12 +65,13 @@ main (int argc, char *argv[])
 
 
 void
-create_files()
+create_files ()
 {
 	START_TEST;
 	reset_timeout(60000);
 
-	void create_file(char* filename){
+	void create_file (char* filename)
+	{
 		printf("  %s\n", filename);
 
 		int n_channels = 2;
@@ -76,7 +79,7 @@ create_files()
 		float* buffer = (float*) g_malloc0(n_frames * sizeof(float) * n_channels);
 
 		// generate a percussive waveform
-		int i; for(i=0;i<n_frames;i++){
+		for(int i=0;i<n_frames;i++){
 			float envelope = (n_frames - i) / (float)n_frames;
 
 			float h1 = sin(    i / 10.0);
@@ -87,7 +90,7 @@ create_files()
 			buffer[i * n_channels + 1] = (h1 + 0.5 * h2 + 0.5 * h3) * envelope / 1.5;
 		}
 
-		for(i=0;i<WF_PEAK_RATIO;i++){
+		for(int i=0;i<WF_PEAK_RATIO;i++){
 			first_peak[0] = MAX(first_peak[0], buffer[i * n_channels]);
 			first_peak[1] = MIN(first_peak[1], buffer[i * n_channels]);
 		}
@@ -105,7 +108,7 @@ create_files()
 			FAIL_TEST("%s", sf_strerror(sndfile));
 		}
 
-		for(i=0;i<4;i++){
+		for(int i=0;i<4;i++){
 			if(sf_writef_float(sndfile, buffer, n_frames) != n_frames){
 				fprintf(stderr, "Write failed\n");
 				sf_close(sndfile);
@@ -128,7 +131,7 @@ create_files()
 
 
 void
-delete_files()
+delete_files ()
 {
 	START_TEST;
 
@@ -138,12 +141,13 @@ delete_files()
 }
 
 
+/*
+ *  -test that the wav files are loaded and unloaded properly.
+ *  -test that the values in the peak file are as expected.
+ */
 void
-test_load()
+test_load ()
 {
-	// -test that the wav files are loaded and unloaded properly.
-	// -test that the values in the peak file are as expected.
-
 	START_TEST;
 
 	static int iter; iter = 0;
@@ -153,14 +157,13 @@ test_load()
 		void (*next)(C*);
 		int  wi;
 	};
-	C* c = g_new0(C, 1);
 
-	void finalize_notify(gpointer data, GObject* was)
+	void finalize_notify (gpointer data, GObject* was)
 	{
 		dbg(1, "...");
 	}
 
-	bool check_pixbuf(GdkPixbuf* pixbuf)
+	bool check_pixbuf (GdkPixbuf* pixbuf)
 	{
 		guchar* pixels = gdk_pixbuf_get_pixels (pixbuf);
 		int rowstride = gdk_pixbuf_get_rowstride (pixbuf);
@@ -175,7 +178,7 @@ test_load()
 		return (bool)value;
 	}
 
-	void next_wav(C* c)
+	void next_wav (C* c)
 	{
 		if(c->wi >= G_N_ELEMENTS(wavs)){
 			if(iter++ < 2){
@@ -186,7 +189,6 @@ test_load()
 			}
 		}
 
-		dbg(0, "==========================================================");
 		reset_timeout(40000);
 
 		char* filename = find_wav(wavs[c->wi]);
@@ -195,6 +197,7 @@ test_load()
 		WaveformPrivate* _w = w->priv;
 		g_object_weak_ref((GObject*)w, finalize_notify, NULL);
 		assert(waveform_load_sync(w), "failed to load wav");
+		assert(waveform_get_n_frames(w), "no frames loaded");
 
 		assert(&_w->peak, "peak not loaded");
 		assert(_w->peak.size, "peak size not set");
@@ -216,10 +219,10 @@ test_load()
 			guchar* pixels = gdk_pixbuf_get_pixels (pixbuf);
 			memset(pixels, 0, gdk_pixbuf_get_rowstride(pixbuf) * gdk_pixbuf_get_height(pixbuf));
 			waveform_peak_to_pixbuf(w, pixbuf, NULL, 0xffffffff, 0x000000ff, false);
-			assert(check_pixbuf(pixbuf), "MED waveform is blank");
 #if 0
 			gdk_pixbuf_save(pixbuf, "tmp1medres.png", "png", NULL, NULL);
 #endif
+			assert(check_pixbuf(pixbuf), "MED waveform is blank");
 			g_object_unref(pixbuf);
 
 		}
@@ -247,17 +250,20 @@ test_load()
 		g_object_unref(w);
 		c->next(c);
 	}
+
+	C* c = g_new0(C, 1);
 	c->next = next_wav;
 	next_wav(c);
 }
 
 
+/*
+ *  Instantiate a Waveform and check that all the hires-ready signals are emitted.
+ *  (copied from another test. not strictly needed here)
+ */
 void
-test_audiodata()
+test_audiodata ()
 {
-	//instantiate a Waveform and check that all the hires-ready signals are emitted.
-	//(copied from another test. not strictly needed here)
-
 	// TODO check the actual data
 
 	START_TEST;
@@ -273,14 +279,13 @@ test_audiodata()
 	struct _c {
 		void (*next)(C*);
 	};
-	C* c = g_new0(C, 1);
 
-	void finalize_notify(gpointer data, GObject* was)
+	void finalize_notify (gpointer data, GObject* was)
 	{
 		dbg(0, "!");
 	}
 
-	void test_on_peakdata_ready(Waveform* waveform, int block, gpointer data)
+	void test_on_peakdata_ready (Waveform* waveform, int block, gpointer data)
 	{
 		C* c = data;
 
@@ -305,14 +310,12 @@ test_audiodata()
 		}
 	}
 
-	void next_wav(C* c)
+	void next_wav (C* c)
 	{
 		if(wi >= G_N_ELEMENTS(wavs)){
 			g_free(c);
 			FINISH_TEST;
 		}
-
-		dbg(0, "==========================================================");
 
 		Waveform* w = waveform_new(wavs[wi++]);
 		g_object_weak_ref((GObject*)w, finalize_notify, NULL);
@@ -327,8 +330,8 @@ test_audiodata()
 			waveform_load_audio(w, b, n_tiers_needed, NULL, NULL);
 		}
 	}
-	c->next = next_wav;
-	next_wav(c);
+
+	next_wav(AGL_NEW(C,
+		.next = next_wav
+	));
 }
-
-

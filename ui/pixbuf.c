@@ -68,6 +68,7 @@ line_clear (Line* line)
 }
 
 
+#ifdef DEBUG
 static void
 pixbuf_draw_line (cairo_t* cr, WfDRect* pts, double line_width, uint32_t colour)
 {
@@ -77,6 +78,7 @@ pixbuf_draw_line (cairo_t* cr, WfDRect* pts, double line_width, uint32_t colour)
 	cairo_fill (cr);
 	cairo_stroke (cr);
 }
+#endif
 
 
 // deprecated
@@ -157,15 +159,17 @@ warn_no_src_data (Waveform* waveform, int buflen, int src_stop)
 
 
 void
-waveform_peak_to_pixbuf (Waveform* w, GdkPixbuf* pixbuf, WfSampleRegion* region, uint32_t colour, uint32_t bg_colour, bool single)
+waveform_peak_to_pixbuf (Waveform* w, GdkPixbuf* pixbuf, WfSampleRegion* _region, uint32_t colour, uint32_t bg_colour, bool single)
 {
 	g_return_if_fail(w && pixbuf);
 
-	if(!region) region = &(WfSampleRegion){0, waveform_get_n_frames(w)};
 
 	gdk_pixbuf_fill(pixbuf, bg_colour);
-	double samples_per_px = region->len / gdk_pixbuf_get_width(pixbuf);
-	waveform_peak_to_pixbuf_full(w, pixbuf, region->start, NULL, NULL, samples_per_px, colour, bg_colour, 1.0, single);
+
+	WfSampleRegion region = _region ? *_region : (WfSampleRegion){.len = waveform_get_n_frames(w)};
+	double samples_per_px = region.len / gdk_pixbuf_get_width(pixbuf);
+
+	waveform_peak_to_pixbuf_full(w, pixbuf, region.start, NULL, NULL, samples_per_px, colour, bg_colour, 1.0, single);
 }
 
 
@@ -251,46 +255,45 @@ typedef struct {
 } Lines;
 
 
+/*
+ *	renders part of a peakfile (loaded into the buffer given by waveform->buf) onto the given pixbuf.
+ *	-the pixbuf must already be cleared, with the correct background colour.
+ *
+ *	-although not explicitly block-based, it can be used with blocks by specifying start and end.
+ *
+ *	-if the data is not imediately available it will not be waited for. For short samples or big pixbufs, caller should subscribe to the Waveform::peakdata_ready signal.
+ *
+ *	@param pixbuf         - pixbuf covers the whole Waveform. We only render to the bit between @start and @end.
+ *							The simplicity of one pixbuf per waveform imposes limitations on file size and zooming.
+ *
+ *	@param region_inset   - (sample frames)
+ *	@param start          - (pixels) if set, we start rendering at this value from the left of the pixbuf.
+ *	@param end            - (pixels) if set, num of pixels from left of pixbuf to stop rendering at.
+ *							Can be bigger than pixbuf width.
+ *							If samples_per_px is set it is not neccesary to specify the end.
+ *	@param samples_per_px - sets the magnification.
+ *	@param colour_bg      - 0xrrggbbaa. used for antialiasing.
+ *	@param single         - all channels are mixed to a single waveform
+ *
+ *	TODO
+ *		v-high mode - currently fails if resolution is less than 1:16
+ *
+ *		further optimisation:
+ *			-dont scan pixels above the peaks. Should we record the overall region/file peak level?
+ *
+ *		API:
+ *			- why region_inset but not region end?
+ *			- add WaveformPixbuf object?
+ */
 void
 waveform_peak_to_pixbuf_full (Waveform* waveform, GdkPixbuf* pixbuf, uint32_t region_inset, int* start, int* end, double samples_per_px, uint32_t colour, uint32_t colour_bg, float gain, bool single)
 {
-	/*
-		renders part of a peakfile (loaded into the buffer given by waveform->buf) onto the given pixbuf.
-		-the pixbuf must already be cleared, with the correct background colour.
-
-		-although not explicitly block-based, it can be used with blocks by specifying start and end.
-
-		-if the data is not imediately available it will not be waited for. For short samples or big pixbufs, caller should subscribe to the Waveform::peakdata_ready signal.
-
-		@param pixbuf         - pixbuf covers the whole Waveform. We only render to the bit between @start and @end.
-		                        The simplicity of one pixbuf per waveform imposes limitations on file size and zooming.
-
-		@param region_inset   - (sample frames)
-		@param start          - (pixels) if set, we start rendering at this value from the left of the pixbuf.
-		@param end            - (pixels) if set, num of pixels from left of pixbuf to stop rendering at.
-		                        Can be bigger than pixbuf width.
-		                        If samples_per_px is set it is not neccesary to specify the end.
-		@param samples_per_px - sets the magnification.
-		@param colour_bg      - 0xrrggbbaa. used for antialiasing.
-		@param single         - all channels are mixed to a single waveform
-
-		TODO
-			v-high mode - currently fails if resolution is less than 1:16
-
-			further optimisation:
-				-dont scan pixels above the peaks. Should we record the overall region/file peak level?
-
-			API:
-				- why region_inset but not region end?
-				- add WaveformPixbuf object?
-	*/
-
 	g_return_if_fail(pixbuf);
 	g_return_if_fail(waveform);
 
 	static Line line[WF_MAX_CH][3] = {0,};
 
-	gboolean hires_mode = ((samples_per_px / WF_PEAK_RATIO) < 1.0);
+	bool hires_mode = ((samples_per_px / WF_PEAK_RATIO) < 1.0);
 
 	int bg_red = (colour_bg & 0xff000000) >> 24;
 	int bg_grn = (colour_bg & 0x00ff0000) >> 16;
