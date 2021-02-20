@@ -2,7 +2,7 @@
 * +----------------------------------------------------------------------+
 * | This file is part of libwaveform                                     |
 * | https://github.com/ayyi/libwaveform                                  |
-* | copyright (C) 2012-2020 Tim Orford <tim@orford.org>                  |
+* | copyright (C) 2012-2021 Tim Orford <tim@orford.org>                  |
 * +----------------------------------------------------------------------+
 * | This program is free software; you can redistribute it and/or modify |
 * | it under the terms of the GNU General Public License version 3       |
@@ -10,7 +10,9 @@
 * +----------------------------------------------------------------------+
 *
 */
+
 #define __wf_private__
+
 #include "config.h"
 #include <gdk/gdkkeysyms.h>
 #ifdef USE_LIBASS
@@ -37,7 +39,7 @@ static void text_actor_set_size (AGlActor*);
 static bool text_actor_paint    (AGlActor*);
 
 static AGl* agl = NULL;
-static AGlActorClass actor_class = {0, "Overview", (AGlActorNew*)text_actor, text_actor_free};
+static AGlActorClass actor_class = {0, "Text", (AGlActorNew*)text_actor, text_actor_free};
 static int instance_count = 0;
 
 #ifdef USE_LIBASS
@@ -81,7 +83,7 @@ static ASS_Renderer* ass_renderer = NULL;
 #ifdef USE_LIBASS
 #ifdef DEBUG
 static void
-msg_callback(int level, const char* fmt, va_list va, void* data)
+msg_callback (int level, const char* fmt, va_list va, void* data)
 {
 	if (wf_debug < 2 || level > 6) return;
 	printf("libass: ");
@@ -92,8 +94,15 @@ msg_callback(int level, const char* fmt, va_list va, void* data)
 #endif
 
 
+AGlActorClass*
+text_actor_get_class ()
+{
+	return &actor_class;
+}
+
+
 static void
-_init()
+_init ()
 {
 	static bool init_done = false;
 
@@ -163,7 +172,8 @@ text_actor (WaveformActor* _)
 	TextActor* ta = AGL_NEW(TextActor,
 		.actor = {
 			.class = &actor_class,
-			.name = "Text",
+			.name = actor_class.name,
+			.program = (AGlShader*)&ass,
 			.init = text_actor_init,
 			.paint = text_actor_paint,
 			.set_size = text_actor_set_size
@@ -233,9 +243,7 @@ text_actor_paint (AGlActor* actor)
 {
 	TextActor* ta = (TextActor*)actor;
 
-	if(!agl->use_shaders) agl_enable(0); // TODO find out why this is needed when AGlActor caching is enabled.
-
-	agl_print(2, agl_actor__height(actor) - 16, 0, ta->text_colour, ta->text);
+	if(!agl->use_shaders) agl_enable(0);
 
 #ifdef USE_LIBASS
 	if(ta->title){
@@ -245,8 +253,6 @@ text_actor_paint (AGlActor* actor)
 		if(agl->use_shaders){
 			agl_enable(AGL_ENABLE_TEXTURE_2D | AGL_ENABLE_BLEND);
 			glActiveTexture(GL_TEXTURE0);
-
-			agl_use_program((AGlShader*)&ass);
 
 			float th = ((TextActor*)actor)->texture.height;
 
@@ -266,6 +272,8 @@ text_actor_paint (AGlActor* actor)
 		}
 	}
 #endif
+
+	agl_print(2, agl_actor__height(actor) - 16, 0, ta->text_colour, ta->text);
 
 	return true;
 }

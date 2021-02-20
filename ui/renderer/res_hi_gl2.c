@@ -1,5 +1,5 @@
 /*
-  copyright (C) 2014-2015 Tim Orford <tim@orford.org>
+  copyright (C) 2014-2021 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -43,8 +43,10 @@
       collector removes the textures that have been used least recently.
 
 */
+
 #ifndef __actor_c__
 #define __wf_private__
+
 #include "config.h"
 #include <stdlib.h>
 #include <string.h>
@@ -64,17 +66,17 @@ extern HiResNGShader hires_ng_shader;
 
 
 void
-hi_gl2_new(WaveformActor* a)
+hi_gl2_new (WaveformActor* a)
 {
-	if(!hi_renderer_gl2.shader){
-		hi_renderer_gl2.shader = &hires_ng_shader.shader;
-		if(!hi_renderer_gl2.shader->program) agl_create_program(&hires_ng_shader.shader);
+	if(!hi_renderer_gl2.renderer.shader){
+		hi_renderer_gl2.renderer.shader = &hires_ng_shader.shader;
+		if(!hi_renderer_gl2.renderer.shader->program) agl_create_program(&hires_ng_shader.shader);
 	}
 }
 
 
 static void
-hi_gl2_free_item(/*Waveform* waveform, */gpointer _data)
+hi_gl2_free_item (/*Waveform* waveform, */gpointer _data)
 {
 	// this is called by the hash_table when an item is removed from hi_res_ng_data.
 

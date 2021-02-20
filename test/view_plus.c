@@ -30,7 +30,7 @@
 
   --------------------------------------------------------------
 
-  Copyright (C) 2012-2020 Tim Orford <tim@orford.org>
+  Copyright (C) 2012-2021 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -58,7 +58,7 @@
 #include "waveform/view_plus.h"
 #include "common.h"
 
-extern char* basename(const char*);
+extern char* basename (const char*);
 
 static const struct option long_options[] = {
 	{ "non-interactive",  0, NULL, 'n' },
@@ -88,6 +88,7 @@ KeyHandler
 	next_wav,
 	prev_wav,
 	toggle_shaders,
+	toggle_layers,
 	toggle_grid,
 	unrealise,
 	delete,
@@ -105,6 +106,7 @@ Key keys[] = {
 	{(char)'n',     next_wav},
 	{(char)'p',     prev_wav},
 	{(char)'s',     toggle_shaders},
+	{(char)'l',     toggle_layers},
 	{(char)'g',     toggle_grid},
 	{(char)'u',     unrealise},
 	{GDK_Delete,    delete},
@@ -118,6 +120,7 @@ gpointer tests[] = {};
 uint32_t _time = 1000 + 321;
 GtkWidget* table = NULL;
 WaveformViewPlus* view = NULL;
+
 struct Layers {
     AGlActor* grid;
     AGlActor* spp;
@@ -242,7 +245,7 @@ quit (gpointer waveform)
 		wf_spinner_stop((WfSpinner*)layers.spinner);
 
 		if(error){
-			AGlActor* text_layer = waveform_view_plus_get_layer(view, 3);
+			AGlActor* text_layer = agl_actor__find_by_class((AGlActor*)waveform_view_plus_get_actor(view), text_actor_get_class());
 			if(text_layer){
 				text_actor_set_text(((TextActor*)text_layer), NULL, g_strdup(error->message));
 			}
@@ -277,7 +280,7 @@ show_wav (WaveformViewPlus* view, const char* filename)
 
 	g_assert(view->waveform);
 
-	AGlActor* text_layer = waveform_view_plus_get_layer(view, 3);
+	AGlActor* text_layer = agl_actor__find_by_class((AGlActor*)waveform_view_plus_get_actor(view), text_actor_get_class());
 	if(text_layer){
 		char* text = NULL;
 		Waveform* w = view->waveform;
@@ -337,6 +340,20 @@ toggle_shaders (gpointer view)
 	g_free(filename);
 }
 
+
+
+void
+toggle_layers (gpointer view)
+{
+	static bool visible = true;
+	visible = !visible;
+	if(visible){
+		layers.spp = waveform_view_plus_add_layer((WaveformViewPlus*)view, wf_spp_actor(waveform_view_plus_get_actor((WaveformViewPlus*)view)), 0);
+	}else{
+		waveform_view_plus_remove_layer((WaveformViewPlus*)view, layers.spp);
+		layers.spp = NULL;
+	}
+}
 
 
 void
@@ -427,7 +444,7 @@ stop (gpointer view)
 		g_source_remove (play_timer);
 		play_timer = 0;
 	}else{
-		wf_spp_actor_set_time((SppActor*)layers.spp, (_time = 0));
+		if(layers.spp) wf_spp_actor_set_time((SppActor*)layers.spp, (_time = 0));
 	}
 }
 
@@ -437,7 +454,7 @@ play (gpointer view)
 {
 	gboolean tick (gpointer view)
 	{
-		wf_spp_actor_set_time((SppActor*)layers.spp, (_time += 50, _time));
+		if(layers.spp) wf_spp_actor_set_time((SppActor*)layers.spp, (_time += 50, _time));
 		return true;
 	}
 

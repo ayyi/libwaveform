@@ -3,19 +3,20 @@
 # $Header: $
 
 RESTRICT="nomirror"
-IUSE=""
 DESCRIPTION="Libwaveform provides efficient display of audio waveforms for Gtk applications."
 HOMEPAGE="http://ayyi.org/"
 SRC_URI="http://ayyi.org/files/${P}.tar.gz"
 RESTRICT="nomirror"
+IUSE="ffmpeg sndfile"
 
 LICENSE="GPL-3"
-KEYWORDS="x86"
+KEYWORDS="amd64 x86"
 SLOT="0"
 
-DEPEND=">=media-libs/libsndfile-1.0.10
+DEPEND="sndfile? ( >=media-libs/libsndfile-1.0.10 )
+	ffmpeg? ( virtual/ffmpeg )
 	>=x11-libs/gtk+-2.6
-	>=x11-libs/gtkglext-1.0"
+	media-libs/graphene"
 
 src_install() {
 	make DESTDIR=${D} install || die

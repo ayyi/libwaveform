@@ -26,6 +26,12 @@
 
 #endif // __actor_c__
 
+typedef struct
+{
+	Renderer       renderer;
+	WfSampleRegion block_region;
+} HiRenderer;
+
 // needed for v_hi res
 #define ANTIALIASED_LINES
 

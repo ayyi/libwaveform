@@ -10,7 +10,7 @@
 
   ---------------------------------------------------------------
 
-  copyright (C) 2012-2020 Tim Orford <tim@orford.org>
+  copyright (C) 2012-2021 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -126,7 +126,7 @@ window_content (GtkWindow* window, GdkGLConfig* glconfig)
 		{0x66ff66ff, 0x0000ffff},
 	};
 
-	int i; for(i=0;i<G_N_ELEMENTS(a);i++){
+	for(int i=0;i<G_N_ELEMENTS(a);i++){
 		wfc[i] = wf_context_new((AGlActor*)scene); // each waveform has its own context so as to have a different zoom
 
 		a[i] = wf_canvas_add_new_actor(wfc[i], w1);
@@ -136,7 +136,7 @@ window_content (GtkWindow* window, GdkGLConfig* glconfig)
 		wf_actor_set_colour(a[i], colours[i][0]);
 	}
 
-	g_object_unref(w1); // this effectively transfers ownership of the waveform to the Scene
+	g_object_unref(w1); // transfer ownership of the waveform to the Scene
 
 	g_signal_connect((gpointer)canvas, "realize",       G_CALLBACK(on_canvas_realise), NULL);
 	g_signal_connect((gpointer)canvas, "size-allocate", G_CALLBACK(on_allocate), NULL);

@@ -1077,15 +1077,16 @@ waveform_view_plus_gl_on_allocate (WaveformViewPlus* view)
 
 	static void waveform_actor_size (AGlActor* actor)
 	{
-		#define V_BORDER 4
+		#define V_BORDER 4.
+
 		if(!actor->parent) return;
 
-		wf_actor_set_rect((WaveformActor*)actor, &(WfRectangle){
+		actor->region = (AGlfRegion){
 			0,
 			V_BORDER,
-			.len = agl_actor__width(actor->parent),
-			.height = agl_actor__height(actor->parent) - 2 * V_BORDER
-		});
+			agl_actor__width(actor->parent),
+			agl_actor__height(actor->parent) - V_BORDER
+		};
 
 		WaveformActor* wf_actor = (WaveformActor*)actor;
 		uint64_t n_frames = waveform_get_n_frames(wf_actor->waveform);
@@ -1105,12 +1106,6 @@ waveform_view_plus_gl_on_allocate (WaveformViewPlus* view)
 			actor->fbo = agl_fbo_new(agl_actor__width(actor), agl_actor__height(actor), 0, 0);
 			actor->cache.enabled = true;
 #endif
-			actor->region = (AGlfRegion){
-				0,
-				V_BORDER,
-				width,
-				agl_actor__height(actor->parent) - 2 * V_BORDER
-			};
 
 			//actor->set_size = waveform_actor_size;
 			actor->set_size = set_size;
@@ -1127,5 +1122,3 @@ waveform_actor (WaveformViewPlus* view)
 
 	return actor;
 }
-
-

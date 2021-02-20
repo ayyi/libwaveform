@@ -1,7 +1,7 @@
 /**
 * +----------------------------------------------------------------------+
 * | This file is part of the Ayyi project. http://ayyi.org               |
-* | copyright (C) 2012-2020 Tim Orford <tim@orford.org>                  |
+* | copyright (C) 2012-2021 Tim Orford <tim@orford.org>                  |
 * +----------------------------------------------------------------------+
 * | This program is free software; you can redistribute it and/or modify |
 * | it under the terms of the GNU General Public License version 3       |
@@ -37,7 +37,6 @@ typedef struct {
 	int         mmidx_max[N_LOD];
 	int         mmidx_min[N_LOD];
 	int         time_stamp;
-	AGlShader*  shader;
 } NGRenderer;
 
 
@@ -48,7 +47,7 @@ typedef struct {
 } HiResNGWaveform;
 
 
-static void ng_gl2_queue_clean(Renderer*);
+static void ng_gl2_queue_clean (Renderer*);
 
 
 static void
@@ -92,7 +91,7 @@ ng_gl2_load_block (Renderer* renderer, WaveformActor* actor, int b)
 
 	#define get_block_size(ACTOR) (modes[renderer->mode].texture_size * waveform_get_n_channels(ACTOR->waveform) * WF_PEAK_VALUES_PER_SAMPLE * ROWS_PER_PEAK_TYPE)
 
-	Section* add_section(Renderer* renderer, WaveformActor* actor, HiResNGWaveform* data, int s)
+	Section* add_section (Renderer* renderer, WaveformActor* actor, HiResNGWaveform* data, int s)
 	{
 		int block_size = get_block_size(actor);
 		int buffer_size = block_size * MIN(MAX_BLOCKS_PER_TEXTURE, waveform_get_n_audio_blocks(waveform) - s * MAX_BLOCKS_PER_TEXTURE);
@@ -142,7 +141,7 @@ ng_gl2_load_block (Renderer* renderer, WaveformActor* actor, int b)
 		}
 	}
 
-	inline void lo_peakbuf_to_texture(Renderer* renderer, WaveformActor* actor, int b, Section* section, int n_chans, int block_size)
+	inline void lo_peakbuf_to_texture (Renderer* renderer, WaveformActor* actor, int b, Section* section, int n_chans, int block_size)
 	{
 		// borders: source data is not blocked so borders need to be added here.
 
@@ -190,7 +189,7 @@ ng_gl2_load_block (Renderer* renderer, WaveformActor* actor, int b)
 		}
 	}
 
-	inline void med_peakbuf_to_texture(Renderer* renderer, WaveformActor* actor, int b, Section* section, int n_chans, int block_size)
+	inline void med_peakbuf_to_texture (Renderer* renderer, WaveformActor* actor, int b, Section* section, int n_chans, int block_size)
 	{
 		// borders: source data is not blocked so borders are added here.
 
@@ -232,7 +231,7 @@ ng_gl2_load_block (Renderer* renderer, WaveformActor* actor, int b)
 		}
 	}
 
-	inline void hi_audio_to_texture(Renderer* renderer, WaveformActor* actor, int b, Section* section, int n_chans, int block_size)
+	inline void hi_audio_to_texture (Renderer* renderer, WaveformActor* actor, int b, Section* section, int n_chans, int block_size)
 	{
 		// borders: Source data blocks are correctly sized but an offset needs to be added.
 		//          The left hand border is currently empty which is ok if there is no texture post-processing.
@@ -340,7 +339,7 @@ ng_gl2_load_block (Renderer* renderer, WaveformActor* actor, int b)
 		}
 	}
 
-	int s; for(s=0;s<(*data)->size;s++){
+	for(int s=0;s<(*data)->size;s++){
 		Section* section = &(*data)->section[s];
 		if(!section->completed){
 			if(texture_changed[s]){
@@ -382,7 +381,7 @@ ng_gl2_pre_render (Renderer* renderer, WaveformActor* actor)
 	if(r->mode >= MODE_V_HI) return false; // TODO this will happen when falling through.
 
 	HiResNGWaveform* data = (HiResNGWaveform*)w->priv->render_data[renderer->mode];
-	HiResNGShader* shader = (HiResNGShader*)((NGRenderer*)renderer)->shader;
+	HiResNGShader* shader = (HiResNGShader*)renderer->shader;
 	if(!data || !shader) return false; // this can happen when we fall through from v hi res.
 
 	shader->uniform.fg_colour = (((AGlActor*)actor)->colour & 0xffffff00) + (unsigned)(0xff * _a->opacity);
@@ -438,7 +437,7 @@ ng_gl2_render_block (Renderer* renderer, WaveformActor* actor, int b, bool is_fi
 	Section* section = &data->section[s];
 
 	if(!_b && b != r->viewport_blocks.first){
-		HiResNGShader* shader = (HiResNGShader*)((NGRenderer*)renderer)->shader;
+		HiResNGShader* shader = (HiResNGShader*)renderer->shader;
 		shader->uniform.tex_height = section->buffer_size / modes[renderer->mode].texture_size;
 		shader->shader.set_uniforms_(actor);
 	}
@@ -574,5 +573,3 @@ ng_gl2_queue_clean (Renderer* renderer)
 {
 	if(!idle_id) idle_id = g_idle_add_full(G_PRIORITY_LOW, __clean, renderer, NULL);
 }
-
-

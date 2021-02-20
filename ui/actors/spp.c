@@ -2,7 +2,7 @@
 * +----------------------------------------------------------------------+
 * | This file is part of libwaveform                                     |
 * | https://github.com/ayyi/libwaveform                                  |
-* | copyright (C) 2012-2020 Tim Orford <tim@orford.org>                  |
+* | copyright (C) 2012-2021 Tim Orford <tim@orford.org>                  |
 * +----------------------------------------------------------------------+
 * | This program is free software; you can redistribute it and/or modify |
 * | it under the terms of the GNU General Public License version 3       |
@@ -14,7 +14,9 @@
 * +----------------------------------------------------------------------+
 *
 */
+
 #define __wf_private__
+
 #include "config.h"
 #include <math.h>
 #include <gdk/gdkkeysyms.h>
@@ -95,12 +97,10 @@ static void spp_actor__set_size (AGlActor*);
 
 			int64_t frame = ((int64_t)spp->time) * a->context->sample_rate / 1000;
 			float x = floorf(wf_actor_frame_to_x(a, frame) - (width - 1.0));
-			glTranslatef(x, 0, 0); // TODO should be done using actor position instead.
 			agl_rect(
-				0, 0,
-				width, actor->region.y2 - actor->region.y1
+				x, 0,
+				width, agl_actor__height(actor)
 			);
-			glTranslatef(-x, 0, 0);
 
 			agl_set_font_string("Roboto 16");
 			char s[16] = {0,};
@@ -121,9 +121,7 @@ wf_spp_actor (WaveformActor* wf_actor)
 
 	SppActor* spp = AGL_NEW(SppActor,
 		.actor = {
-#ifdef AGL_DEBUG_ACTOR
 			.name = "SPP",
-#endif
 			.program = (AGlShader*)&cursor,
 			.init = spp_actor__init,
 			.set_state = spp_actor__set_state,

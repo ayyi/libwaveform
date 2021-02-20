@@ -26,7 +26,7 @@ endif
 endif
 
 if ENABLE_OPENGL
-noinst_PROGRAMS = waveform_test large_files promise 32bit glx text input $(GTKPROGRAMS) $(SDLPROGRAMS)
+noinst_PROGRAMS = waveform_test large_files promise 32bit glx input $(GTKPROGRAMS) $(SDLPROGRAMS)
 else
 noinst_PROGRAMS = waveform_test
 endif
@@ -155,10 +155,6 @@ glx_SOURCES = \
 	$(COMMON2_SOURCES) \
 	glx.c
 
-text_SOURCES = \
-	$(COMMON2_SOURCES) \
-	text.c
-
 input_SOURCES = \
 	$(COMMON2_SOURCES) \
 	input.c
@@ -202,10 +198,6 @@ sdl_LDADD = \
 	$(TEST_LDFLAGS)
 
 glx_LDADD = \
-	$(OPENGL_LDFLAGS) \
-	$(TEST_LDFLAGS)
-
-text_LDADD = \
 	$(OPENGL_LDFLAGS) \
 	$(TEST_LDFLAGS)
 

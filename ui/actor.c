@@ -1,9 +1,9 @@
 /**
 * +----------------------------------------------------------------------+
-* | This file is part of the Ayyi project. http://ayyi.org               |
-* | copyright (C) 2012-2020 Tim Orford <tim@orford.org>                  |
+* | This file is part of the Ayyi project. https://www.ayyi.org          |
+* | copyright (C) 2012-2021 Tim Orford <tim@orford.org>                  |
 * +----------------------------------------------------------------------+
-* | This program is free s20tware; you can redistribute it and/or modify |
+* | This program is free software; you can redistribute it and/or modify |
 * | it under the terms of the GNU General Public License version 3       |
 * | as published by the Free Software Foundation.                        |
 * +----------------------------------------------------------------------+
@@ -188,13 +188,9 @@ struct _Renderer
 #ifdef USE_TEST
 	WaveformActorTestFn      is_not_blank;
 #endif
-};
 
-typedef struct
-{
-	Renderer                 renderer;
-	WfSampleRegion           block_region;
-} HiRenderer;
+	AGlShader*               shader;
+};
 
 typedef struct
 {
@@ -295,7 +291,7 @@ wf_actor_get_class ()
 
 
 static void
-wf_actor_class_init()
+wf_actor_class_init ()
 {
 	agl = agl_get_instance();
 
@@ -344,29 +340,21 @@ wf_actor_class_init()
 			if(((AGlActor*)a)->root->draw) wf_context_queue_redraw(a->context);
 		}
 
-	static void wf_actor_on_init(AGlActor* actor)
-	{
-		WaveformActor* a = (WaveformActor*)actor;
+static void
+wf_actor_on_init (AGlActor* actor)
+{
+	WaveformActor* a = (WaveformActor*)actor;
 
-		a->priv->render_info.valid = false;
+	a->priv->render_info.valid = false;
 
-		a->context->use_1d_textures = agl->use_shaders;
+	a->context->use_1d_textures = agl->use_shaders;
 
-		wf_actor_on_use_shaders_change();
+	wf_actor_on_use_shaders_change();
 
-		if(a->waveform && !a->waveform->priv->peak.size) waveform_load(a->waveform, wf_actor_init_load_done, actor);
-	}
+	if(a->waveform && !a->waveform->priv->peak.size) waveform_load(a->waveform, wf_actor_init_load_done, actor);
+}
 
-	/*
-	static void wf_actor_set_size(AGlActor* actor)
-	{
-		wf_actor_set_rect((WaveformActor*)actor, &(WfRectangle){
-			actor->region.x1,
-			actor->region.y1,
-			agl_actor__width(actor),
-			agl_actor__height(actor)
-		});
-	*/
+
 /*
  *	Graph layout handler
  *	No animations are done here, they must be requested explictly
@@ -1227,7 +1215,7 @@ block_to_fbo(WaveformActor* a, int b, WfGlBlock* blocks, int resolution)
  *   These points may lie outside of the canvas viewport.
  */
 void
-wf_actor_get_viewport(WaveformActor* a, WfViewPort* viewport)
+wf_actor_get_viewport (WaveformActor* a, WfViewPort* viewport)
 {
 	AGlActor* actor = (AGlActor*)a;
 #if 0
@@ -1466,6 +1454,20 @@ wf_actor_queue_load_render_data (WaveformActor* a)
 }
 
 
+static inline Renderer*
+set_renderer (WaveformActor* actor)
+{
+	RenderInfo* r = &actor->priv->render_info;
+
+	Renderer* renderer = modes[r->mode].renderer;
+	dbg(2, "%s", modes[r->mode].name);
+
+	((AGlActor*)actor)->program = renderer->shader;
+
+	return renderer;
+}
+
+
 static void
 _wf_actor_load_missing_blocks (WaveformActor* a)
 {
@@ -1604,6 +1606,10 @@ _wf_actor_load_missing_blocks (WaveformActor* a)
 			renderer->load_block(renderer, a, b);
 		}
 	}
+
+	RenderInfo* r = &a->priv->render_info;
+	r->mode = mode1;
+	set_renderer(a);
 
 	gl_warn("");
 }
@@ -1808,7 +1814,7 @@ get_peaks_per_pixel(WaveformContext* wfc, WfSampleRegion* region, WfRectangle* r
 
 
 static inline void
-_draw_block(float tex_start, float tex_pct, float tex_x, float top, float width, float height, float gain)
+_draw_block (float tex_start, float tex_pct, float tex_x, float top, float width, float height, float gain)
 {
 	// the purpose of this fn is to hide the effect of the texture border.
 	// (******* no longer the case. TODO remove all text border stuff OUT of here - its too complicated - see _draw_block_from_1d in MODE_HI)
@@ -1824,18 +1830,6 @@ _draw_block(float tex_start, float tex_pct, float tex_x, float top, float width,
 	glTexCoord2d(tex_start + tex_pct, 0.5 - 0.5/gain); glVertex2d(tex_x + width, top);
 	glTexCoord2d(tex_start + tex_pct, 0.5 + 0.5/gain); glVertex2d(tex_x + width, top + height);
 	glTexCoord2d(tex_start + 0.0,     0.5 + 0.5/gain); glVertex2d(tex_x + 0.0,   top + height);
-}
-
-
-static inline Renderer*
-set_renderer(WaveformActor* actor)
-{
-	RenderInfo* r = &actor->priv->render_info;
-
-	Renderer* renderer = modes[r->mode].renderer;
-	dbg(2, "%s", modes[r->mode].name);
-
-	return renderer;
 }
 
 
