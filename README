@@ -42,18 +42,19 @@ Requirements:
 Status
 ------
 
-Main functionality is now in place, but some areas are subject to improvement. There
+Main functionality is in place and well tested, but some areas are subject to improvement. There
 are no known serious bugs so please report any you find. Feedback is wanted on
 API, documentation, and visuals.
 
 An API review needs to be undertaken before a release is made.
 
 Adding support for other platfroms is relatively easy to do but there is currently no demand.
-Wayland support will be the next objective.
+Gtk-4 support is the next objective, followed by Wayland. Sadly, it will be necessary to drop
+support for systems that dont support OpenGL 3 in the near future.
 
 GPU Testing:
 The GPU requirements are not heavy, and no issues have been reported. Most development
-is done on Intel HD3000.
+is done on Intel HD graphics.
 
 If you are able to help testing, please start with running test/view_plus_test.
 To compile the test programs you need to run configure with '--enable-test'.
@@ -74,7 +75,7 @@ To use the widget:
 ```
 (then pack and show the widget as normal)	
 
-For a demonstration of usage, see: test/view_test.c
+For a demonstration of usage, see: [view_test.c](test/view_plus.c)
 
 
 WaveformActor
