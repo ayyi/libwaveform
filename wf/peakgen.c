@@ -65,9 +65,6 @@ static int           peak_mem_size = 0;
 static bool          need_file_cache_check = true;
 
 static inline void   process_data        (short* data, int count, int channels, short max[], short min[]);
-#ifdef UNUSED
-static unsigned long sample2time         (SF_INFO, long samplenum);
-#endif
 static bool          wf_file_is_newer    (const char*, const char*);
 static bool          wf_create_cache_dir ();
 static char*         get_cache_dir       ();
@@ -281,7 +278,7 @@ alloc_audio_frame (enum AVSampleFormat sample_fmt, uint64_t channel_layout, int 
 
 #ifdef USE_FFMPEG
 static void
-open_audio2 (AVCodecContext* c, AVStream* stream, OutputStream *ost)
+open_audio2 (AVCodecContext* c, AVStream* stream, OutputStream* ost)
 {
 	int nb_samples;
 
@@ -830,7 +827,7 @@ typedef struct {
 	void*         user_data;
 } PeakJob;
 
-	static void peakgen_execute_job(Waveform* w, gpointer _job)
+	static void peakgen_execute_job (Waveform* w, gpointer _job)
 	{
 		// runs in worker thread
 
@@ -845,14 +842,14 @@ typedef struct {
 		}
 	}
 
-	static void peakgen_free(gpointer item)
+	static void peakgen_free (gpointer item)
 	{
 		PeakJob* job = item;
 		g_free0(job->infilename);
 		g_free(job);
 	}
 
-	static void peakgen_post(Waveform* waveform, GError* error, gpointer item)
+	static void peakgen_post (Waveform* waveform, GError* error, gpointer item)
 	{
 		// runs in the main thread
 		// will not be called if the waveform is destroyed.
@@ -866,7 +863,7 @@ typedef struct {
 	}
 
 void
-waveform_peakgen(Waveform* w, const char* peak_filename, WfCallback3 callback, gpointer user_data)
+waveform_peakgen (Waveform* w, const char* peak_filename, WfCallback3 callback, gpointer user_data)
 {
 	if(!peakgen.msg_queue) wf_worker_init(&peakgen);
 
@@ -952,20 +949,6 @@ process_data (short* data, int data_size_frames, int n_channels, short max[], sh
 }
 
 
-/*
- * Returns time in milliseconds, given the sample number.
- */
-#ifdef UNUSED
-static unsigned long
-sample2time(SF_INFO sfinfo, long samplenum)
-{
-	// long is good up to 4.2GB
-
-	return (10 * samplenum) / ((sfinfo.samplerate/100) * sfinfo.channels);
-}
-#endif
-
-
 static bool
 wf_create_cache_dir ()
 {
@@ -992,7 +975,7 @@ peakbuf_allocate (Peakbuf* peakbuf, int c)
 
 
 void
-waveform_peakbuf_free(Peakbuf* p)
+waveform_peakbuf_free (Peakbuf* p)
 {
 	if(p){
 		int c; for(c=0;c<WF_STEREO;c++) if(p->buf[c]) g_free0(p->buf[c]);
@@ -1002,7 +985,7 @@ waveform_peakbuf_free(Peakbuf* p)
 
 
 static void
-peakbuf_set_n_tiers(Peakbuf* peakbuf, int n_tiers, int resolution)
+peakbuf_set_n_tiers (Peakbuf* peakbuf, int n_tiers, int resolution)
 {
 	if(n_tiers < 1 || n_tiers > MAX_TIERS){ pwarn("n_tiers out of range: %i", n_tiers); n_tiers = MAX_TIERS; }
 	peakbuf->resolution = resolution;
@@ -1017,7 +1000,7 @@ peakbuf_set_n_tiers(Peakbuf* peakbuf, int n_tiers, int resolution)
  *  For thread-safety, the Waveform is not modified.
  */
 void
-waveform_peakbuf_regen(Waveform* waveform, WfBuf16* audiobuf, Peakbuf* peakbuf, int block_num, int min_output_tiers)
+waveform_peakbuf_regen (Waveform* waveform, WfBuf16* audiobuf, Peakbuf* peakbuf, int block_num, int min_output_tiers)
 {
 	// TODO caching: consider saving to disk, and using kernel caching. clear cache on exit.
 
@@ -1140,7 +1123,7 @@ waveform_peakbuf_regen(Waveform* waveform, WfBuf16* audiobuf, Peakbuf* peakbuf, 
 
 
 static bool
-wf_file_is_newer(const char* file1, const char* file2)
+wf_file_is_newer (const char* file1, const char* file2)
 {
 	//return TRUE if file1 date is newer than file2 date.
 
@@ -1154,7 +1137,7 @@ wf_file_is_newer(const char* file1, const char* file2)
 
 
 static char*
-get_cache_dir()
+get_cache_dir ()
 {
 	const gchar* env = g_getenv("XDG_CACHE_HOME");
 	if(env) dbg(0, "cache_dir=%s", env);

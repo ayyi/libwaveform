@@ -1,5 +1,5 @@
 /*
-  copyright (C) 2014-2017 Tim Orford <tim@orford.org>
+  copyright (C) 2014-2021 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -25,7 +25,8 @@ uniform float tex_height;
 uniform float tex_width;
 uniform int mm_level;
 
-varying vec2 MCposition;
+varying vec2 position;
+varying vec2 tex_coords;
 
 const vec4 x_gain = vec4(1.0, 2.0, 4.0, 8.0);
 const vec4 mm2tx = vec4(0.00, 0.00, 0.50, 0.75);
@@ -33,10 +34,10 @@ const vec4 mm2ty = vec4(0.0, 1.0, 1.0, 1.0);
 const vec4 tx_min = vec4(0.0, 0.0, 0.5, 0.75); // TODO add border between LOD sections to avoid overlapping
 
 
-void main(void)
+void main (void)
 {
 	float dx = 1.0 / tex_width;
-	float y = bottom - MCposition.y; // invert y
+	float y = bottom - position.y; // invert y
 
 	float mid = (bottom - top) / 2.0;
 	float mid3 = mid;
@@ -78,7 +79,7 @@ void main(void)
 	if(y < mid){
 		// max
 
-		t.y = t.y / tex_height + gl_TexCoord[0].y;
+		t.y = t.y / tex_height + tex_coords.y;
 
 		y1 = (mid3 - (yc + smooth)) / mid3;
 		y2 = (mid3 - (yc - smooth)) / mid3;
@@ -86,7 +87,7 @@ void main(void)
 	}else{
 		// min
 
-		t.y = (t.y + 2.0) / tex_height + gl_TexCoord[0].y;
+		t.y = (t.y + 2.0) / tex_height + tex_coords.y;
 
 		y1 = ((yc - smooth) - mid3) / mid3;
 		y2 = ((yc + smooth) - mid3) / mid3;
@@ -94,7 +95,7 @@ void main(void)
 
 	//(texture2D(tex2d, vec2(tx, t.y)).a > y1) ? 1.0 : 0.0;
 
-	t.x += gl_TexCoord[0].x / x_gain[mm_level];
+	t.x += tex_coords.x / x_gain[mm_level];
 
 	// TODO try and use just 2 samples but calculate the correct ratio depending on how close.
 	vec4 colour = fg_colour;

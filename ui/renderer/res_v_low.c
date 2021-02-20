@@ -1,5 +1,5 @@
 /*
-  copyright (C) 2014-2020 Tim Orford <tim@orford.org>
+  copyright (C) 2014-2021 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -38,7 +38,7 @@ v_lo_new_gl2 (WaveformActor* actor)
 		g_hash_table_insert(((NGRenderer*)renderer)->ng_data, waveform, *data);
 	}
 
-	AGlShader** shader = &((NGRenderer*)modes[MODE_V_LOW].renderer)->shader;
+	AGlShader** shader = &modes[MODE_V_LOW].renderer->shader;
 	if(!*shader){
 		*shader = &hires_ng_shader.shader;
 		if(!(*shader)->program) agl_create_program(*shader);

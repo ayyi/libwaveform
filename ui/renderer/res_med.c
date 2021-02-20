@@ -45,9 +45,9 @@ wf_texture_array_new(int size, int n_channels)
 
 
 static void
-med_renderer_new_gl2(WaveformActor* actor)
+med_renderer_new_gl2 (WaveformActor* actor)
 {
-	AGlShader** shader = &((NGRenderer*)modes[MODE_MED].renderer)->shader;
+	AGlShader** shader = &modes[MODE_MED].renderer->shader;
 	if(!*shader){
 		*shader = &hires_ng_shader.shader;
 		if(!(*shader)->program) agl_create_program(*shader);
@@ -174,24 +174,11 @@ low_allocate_block_gl1(Renderer* renderer, WaveformActor* a, int b)
 
 
 static inline void
-_med_lo_set_gl_state_for_block(WaveformContext* wfc, Waveform* w, WfGlBlock* textures, int b)
+_med_lo_set_gl_state_for_block (WaveformContext* wfc, Waveform* w, WfGlBlock* textures, int b)
 {
 	g_return_if_fail(b < textures->size);
 
-	if(wfc->use_1d_textures){
-		g_assert("NEVER GET HERE");
-		int c = 0;
-		agl_texture_unit_use_texture(wfc->texture_unit[0], textures->peak_texture[c].main[b]);
-		agl_texture_unit_use_texture(wfc->texture_unit[1], textures->peak_texture[c].neg[b]);
-
-		if(textures->peak_texture[WF_RIGHT].main){
-			agl_texture_unit_use_texture(wfc->texture_unit[2], textures->peak_texture[WF_RIGHT].main[b]);
-			agl_texture_unit_use_texture(wfc->texture_unit[3], textures->peak_texture[WF_RIGHT].neg[b]);
-		}
-
-		glActiveTexture(WF_TEXTURE0);
-	}else
-		agl_use_texture(textures->peak_texture[0].main[b]);
+	agl_use_texture(textures->peak_texture[0].main[b]);
 
 	gl_warn("cannot bind texture: block=%i: %i", b, textures->peak_texture[0].main[b]);
 }

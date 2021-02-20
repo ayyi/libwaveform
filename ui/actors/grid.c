@@ -1,7 +1,7 @@
 /**
 * +----------------------------------------------------------------------+
 * | This file is part of the Ayyi project. http://ayyi.org               |
-* | copyright (C) 2013-2020 Tim Orford <tim@orford.org>                  |
+* | copyright (C) 2013-2021 Tim Orford <tim@orford.org>                  |
 * +----------------------------------------------------------------------+
 * | This program is free software; you can redistribute it and/or modify |
 * | it under the terms of the GNU General Public License version 3       |
@@ -15,7 +15,7 @@
 * | properties of the WaveformContext.                                   |
 * +----------------------------------------------------------------------+
 */
-#define __wf_private__
+
 #include "config.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -54,6 +54,17 @@ grid_actor_init (AGlActor* actor)
 }
 
 
+static void
+grid_actor_set_state (AGlActor* actor)
+{
+	agl_enable(AGL_ENABLE_BLEND | !AGL_ENABLE_TEXTURE_2D);
+
+	if(agl->use_shaders){
+		agl->shaders.plain->uniform.colour = 0x3355bb66;
+	}
+}
+
+
 AGlActor*
 grid_actor (WaveformActor* wf_actor)
 {
@@ -64,7 +75,10 @@ grid_actor (WaveformActor* wf_actor)
 	GridActor* grid = AGL_NEW(GridActor,
 		.actor = {
 			.name = "Grid",
+			.colour = 0xffffffff,
 			.init = grid_actor_init,
+			.program = (AGlShader*)agl->shaders.plain,
+			.set_state = grid_actor_set_state,
 			.paint = grid_actor_paint,
 			.set_size = grid_actor_size,
 		},
@@ -108,18 +122,12 @@ grid_actor_paint (AGlActor* actor)
 	int i = 0;
 	uint64_t f = ((int)(context->start_time / interval)) * interval;
 	if(agl->use_shaders){
-		agl_enable(AGL_ENABLE_BLEND | !AGL_ENABLE_TEXTURE_2D);
-
-															// TODO make fixed contrast with background
-		agl->shaders.plain->uniform.colour = 0x1133bb55;
-		agl_use_program((AGlShader*)agl->shaders.plain);
-
 		for(; (f < region_end) && (i < 0xff); f += interval, i++){
 			agl_rect_((AGlRect){wf_context_frame_to_x(context, f), 0, 1, agl_actor__height(actor)});
 		}
 
 		agl_set_font_string("Roboto 7");
-		uint32_t colour = (actor->colour & 0xffffff00) + (actor->colour & 0x000000ff) * 0x44 / 0xff;
+		uint32_t colour = (actor->colour & 0xffffff00) + (actor->colour & 0x000000ff) * 0x66 / 0xff;
 		char s[16] = {0,};
 		int x_ = 0;
 		uint64_t f = ((int)(context->start_time / interval)) * interval;
@@ -158,5 +166,3 @@ grid_actor_paint (AGlActor* actor)
 	}
 	return true;
 }
-
-
