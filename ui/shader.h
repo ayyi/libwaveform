@@ -92,7 +92,6 @@ struct _ass_shader {
 struct _CursorShader {
 	AGlShader    shader;
 	struct {
-		uint32_t colour;
 		float    width;
 	}            uniform;
 };

@@ -1,8 +1,16 @@
 #!/bin/sh
 
 PROG=./cache
-PROG=./text
 PROG=./view_plus
+PROG="./res_vhi -n"
+PROG=./pixbuf
+PROG=./resources
+PROG=./frame_rate
+PROG=./actor_plus
+PROG=./promise
+PROG=./glx
+PROG=./list
+PROG=./actor_no_scene
 
 ls -l $PROG
 export G_SLICE=always-malloc
@@ -10,10 +18,11 @@ export G_DEBUG=gc-friendly
 
 /usr/bin/valgrind \
 	--leak-check=full \
+	--suppressions=../lib/agl/test/suppressions/mesa.supp \
 	--suppressions=suppressions/pango.supp \
 	--suppressions=suppressions/glib.supp \
 	--suppressions=suppressions/mesa.supp \
 	--suppressions=suppressions/test.supp \
 	--gen-suppressions=yes \
-	--num-callers=20 \
+	--num-callers=50 \
 	$@ $PROG

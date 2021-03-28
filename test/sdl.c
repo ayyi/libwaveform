@@ -1,7 +1,7 @@
 /**
 * +----------------------------------------------------------------------+
 * | This file is part of libwaveform https://github.com/ayyi/libwaveform |
-* | copyright (C) 2013-2020 Tim Orford <tim@orford.org>                  |
+* | copyright (C) 2013-2021 Tim Orford <tim@orford.org>                  |
 * +----------------------------------------------------------------------+
 * | This program is free software; you can redistribute it and/or modify |
 * | it under the terms of the GNU General Public License version 3       |
@@ -155,7 +155,7 @@ main (int argc, char **argv)
 		window.region[1] = (WfSampleRegion){100000, n_frames / 2};
 
 		int i = 0; for(;i<2;i++){
-			agl_actor__add_child((AGlActor*)window.scene, (AGlActor*)(window.a[i] = wf_canvas_add_new_actor(window.wfc, window.w1)));
+			agl_actor__add_child((AGlActor*)window.scene, (AGlActor*)(window.a[i] = wf_context_add_new_actor(window.wfc, window.w1)));
 
 			wf_actor_set_rect(window.a[i], &(WfRectangle){
 				0.0,
@@ -195,11 +195,11 @@ main (int argc, char **argv)
 #endif
 	}
 
-	void render() {
+	void render () {
 		glClear(GL_COLOR_BUFFER_BIT);
 
-		agl->shaders.plain->uniform.colour = 0xaaaaffff;
-		agl_use_program((AGlShader*)agl->shaders.plain);
+		SET_PLAIN_COLOUR(agl->shaders.plain, 0xaaaaffff);
+		agl_use_program(agl->shaders.plain);
 
 		glRectf(0.0, window.height/2.0, window.width, window.height);
 

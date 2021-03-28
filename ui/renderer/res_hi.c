@@ -1,7 +1,7 @@
 /**
 * +----------------------------------------------------------------------+
 * | This file is part of the Ayyi project. http://ayyi.org               |
-* | copyright (C) 2012-2020 Tim Orford <tim@orford.org>                  |
+* | copyright (C) 2012-2021 Tim Orford <tim@orford.org>                  |
 * +----------------------------------------------------------------------+
 * | This program is free software; you can redistribute it and/or modify |
 * | it under the terms of the GNU General Public License version 3       |
@@ -11,7 +11,6 @@
 */
 #ifndef __actor_c__
 #define __wf_private__
-#define __wf_canvas_priv__
 #include "config.h"
 #include <fcntl.h>
 #include <sys/types.h>
@@ -32,12 +31,7 @@ typedef struct
 	WfSampleRegion block_region;
 } HiRenderer;
 
-// needed for v_hi res
 #define ANTIALIASED_LINES
-
-#ifdef MULTILINE_SHADER
-static GLuint lines_texture[8] = {0};
-#endif
 
 #define RENDER_DATA_HI(W) ((WfTexturesHi*)W->render_data[MODE_HI])
 
@@ -98,56 +92,6 @@ hi_request_block (WaveformActor* a, int b)
 {
 	waveform_load_audio(a->waveform, b, HI_MIN_TIERS, hi_request_block_done, a);
 }
-
-
-#ifdef MULTILINE_SHADER
-GLuint
-_wf_create_lines_texture (guchar* pbuf, int width, int height)
-{
-	/*
-	 * This texture is used as data for the shader.
-	 * Each column represents a vertex.
-	 * Each row contains the following values:
-	 *   0: x value // .. or maybe not
-	 *   1: y value
-	 *
-	 */
-	glEnable(GL_TEXTURE_2D);
-
-	if(!lines_texture[0]){
-		glGenTextures(8, lines_texture);
-		if(glGetError() != GL_NO_ERROR){ gerr ("couldnt create lines_texture."); return 0; }
-		dbg(2, "lines_texture=%i", lines_texture[0]);
-	}
-
-	/*
-	int y; for(y=0;y<height/2;y++){
-		int x; for(x=0;x<width;x++){
-			y=0; *(pbuf + y * width + x) = 0x40;
-			y=1; *(pbuf + y * width + x) = 0xa0;
-			y=2; *(pbuf + y * width + x) = 0xff;
-			y=3; *(pbuf + y * width + x) = 0xa0;
-			y=4; *(pbuf + y * width + x) = 0x40;
-		}
-	}
-	*/
-
-	// currently we rotate through a fixed number of textures. TODO needs improvement - fixed number will either be too high or too low depending on the application.
-	static int t_idx = 0;
-	int t = t_idx;
-
-	int pixel_format = GL_ALPHA;
-	glBindTexture  (GL_TEXTURE_2D, lines_texture[t]);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_ALPHA, width, height, 0, pixel_format, GL_UNSIGNED_BYTE, pbuf);
-	gl_warn("error binding lines texture");
-
-	t_idx = (t_idx + 1) % 8;
-
-	return lines_texture[t];
-}
-#endif
 
 
 static void
@@ -225,9 +169,9 @@ make_texture_data_hi(Waveform* w, int ch, IntBufHi* buf, int blocknum)
 }
 
 
-#ifdef VERTEX_ARRAYS
+#if 0
 static void
-_draw_line(int x1, int y1, int x2, int y2, float r, float g, float b, float a)
+_draw_line (int x1, int y1, int x2, int y2, float r, float g, float b, float a)
 {
 	glColor4f(r, g, b, a);
 #ifdef ANTIALIASED_LINES
@@ -254,7 +198,7 @@ _draw_line(int x1, int y1, int x2, int y2, float r, float g, float b, float a)
 
 #if 0
 static void
-_draw_line_f(float x1, int y1, float x2, int y2, float r, float g, float b, float a)
+_draw_line_f (float x1, int y1, float x2, int y2, float r, float g, float b, float a)
 {
 	glLineWidth(1);
 	glColor4f(r, g, b, a);
@@ -651,7 +595,7 @@ _wf_actor_print_hires_textures (WaveformActor* a)
 #endif
 
 
-NGRenderer hi_renderer_gl2 = {{MODE_HI, hi_gl2_new, ng_gl2_load_block, ng_gl2_pre_render, ng_gl2_render_block, ng_gl2_free_waveform}};
+NGRenderer hi_renderer_gl2 = {{MODE_HI, hi_gl2_new, ng_gl2_load_block, ng_gl2_pre_render, ng_gl2_render_block, ng_gl2_post_render, ng_gl2_free_waveform}};
 
 HiRenderer hi_renderer_gl1 = {{MODE_HI, hi_new_gl1, hi_gl1_load_block, hi_gl1_pre_render,
 #ifdef HIRES_NONSHADER_TEXTURES
@@ -660,7 +604,7 @@ HiRenderer hi_renderer_gl1 = {{MODE_HI, hi_new_gl1, hi_gl1_load_block, hi_gl1_pr
 				// without shaders, each sample line is drawn directly without using textures, so performance will be relatively poor.
 				draw_wave_buffer_hi_gl1,
 #endif
-				hi_free_gl1
+				NULL, hi_free_gl1
 }};
 
 

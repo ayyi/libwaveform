@@ -1,7 +1,7 @@
 /**
 * +----------------------------------------------------------------------+
 * | This file is part of the Ayyi project. http://ayyi.org               |
-* | copyright (C) 2012-2020 Tim Orford <tim@orford.org>                  |
+* | copyright (C) 2012-2021 Tim Orford <tim@orford.org>                  |
 * +----------------------------------------------------------------------+
 * | This program is free software; you can redistribute it and/or modify |
 * | it under the terms of the GNU General Public License version 3       |
@@ -204,13 +204,12 @@ construct ()
 		return G_SOURCE_REMOVE;
 	}
 
-	// TODO find a better way to ensure the canvas is ready before calling waveform_view_plus_gl_init
 	gboolean try_canvas (gpointer _a)
 	{
 		AGlActor* a = _a;
 		WaveformViewPlus* view = (WaveformViewPlus*)((AGlRootActor*)a)->gl.gdk.widget;
 
-		if(agl->use_shaders && !agl->shaders.plain->shader.program) return G_SOURCE_CONTINUE;
+		if(agl->use_shaders && !agl->shaders.plain->program) return G_SOURCE_CONTINUE;
 
 		waveform_view_plus_display_ready(view);
 
@@ -421,7 +420,7 @@ waveform_view_plus_set_zoom (WaveformViewPlus* view, float zoom)
 		v->actor->region.len -= delta;
 	}
 
-	// its possibly not neccesary to set the region, as it will anyway be clipped when rendering
+	// It is not strictly neccesary to set the region, as it will anyway be clipped when rendering
 	int64_t region_len = v->context->samples_per_pixel * agl_actor__width(((AGlActor*)v->actor)) / v->context->priv->zoom.target_val.f;
 	int64_t max_start = n_frames - region_len;
 	wf_actor_set_region(v->actor, &(WfSampleRegion){
@@ -465,6 +464,9 @@ waveform_view_plus_set_start (WaveformViewPlus* view, int64_t start_frame)
 		(int64_t)(waveform_get_n_frames(view->waveform) - MAX(10, n_frames_visible))
 	);
 	dbg(1, "start=%"PRIi64, view->start_frame);
+
+	wf_context_set_start(v->context, view->start_frame);
+
 	wf_actor_set_region(v->actor, &(WfSampleRegion){
 		view->start_frame,
 		n_frames_visible
@@ -639,21 +641,6 @@ waveform_view_plus_on_expose (GtkWidget* widget, GdkEventExpose* event)
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 		if(promise(PROMISE_DISP_READY)->is_resolved){
-#if 0 //white border
-			glPushMatrix(); /* modelview matrix */
-				glNormal3f(0, 0, 1); glDisable(GL_TEXTURE_2D);
-				glLineWidth(1);
-				glColor3f(1.0, 1.0, 1.0);
-
-				int wid = waveform_view_plus_get_width(view);
-				int h   = waveform_view_plus_get_height(view);
-				glBegin(GL_LINES);
-				glVertex3f(0.0, 0.0, 1); glVertex3f(wid, 0.0, 1);
-				glVertex3f(wid, h,   1); glVertex3f(0.0,   h, 1);
-				glEnd();
-			glPopMatrix();
-#endif
-
 			if(view->waveform) agl_actor__paint(v->root);
 		}
 
@@ -778,7 +765,7 @@ waveform_view_plus_allocate (GtkWidget* widget, GdkRectangle* allocation)
 
 
 static void
-waveform_view_plus_class_init (WaveformViewPlusClass * klass)
+waveform_view_plus_class_init (WaveformViewPlusClass* klass)
 {
 	waveform_view_plus_parent_class = g_type_class_peek_parent (klass);
 
@@ -820,6 +807,13 @@ waveform_view_plus_finalize (GObject* obj)
 
 	// these should really be done in dispose
 	if(v->actor){
+#ifdef AGL_ACTOR_RENDER_CACHE
+		/*
+		 *  Temporary pending completion of moving caching to a separate behaviour
+		 */
+		g_clear_pointer(&((AGlActor*)v->actor)->fbo, agl_fbo_free);
+#endif
+
 		wf_actor_clear(v->actor);
 
 		AGlActor* parent = (AGlActor*)((AGlActor*)v->actor)->root;
@@ -852,18 +846,6 @@ waveform_view_plus_set_projection (GtkWidget* widget)
 	int vh = waveform_view_plus_get_height((WaveformViewPlus*)widget);
 	glViewport(vx, vy, vw, vh);
 	dbg (2, "viewport: %i %i %i %i", vx, vy, vw, vh);
-	glMatrixMode(GL_PROJECTION);
-	glLoadIdentity();
-
-	// set clipping volume (left, right, bottom, top, near, far):
-	int width = vw;
-	double hborder = 0 * width / 32;
-
-	double left = -hborder;
-	double right = width + hborder;
-	double top   = 0.0;
-	double bottom = vh;
-	glOrtho (left, right, bottom, top, 10.0, -100.0);
 }
 
 
@@ -1078,6 +1060,7 @@ waveform_view_plus_gl_on_allocate (WaveformViewPlus* view)
 	static void waveform_actor_size (AGlActor* actor)
 	{
 		#define V_BORDER 4.
+		WaveformActor* wf_actor = (WaveformActor*)actor;
 
 		if(!actor->parent) return;
 
@@ -1088,10 +1071,9 @@ waveform_view_plus_gl_on_allocate (WaveformViewPlus* view)
 			agl_actor__height(actor->parent) - V_BORDER
 		};
 
-		WaveformActor* wf_actor = (WaveformActor*)actor;
 		uint64_t n_frames = waveform_get_n_frames(wf_actor->waveform);
 		if(n_frames){
-			((WaveformActor*)actor)->context->samples_per_pixel = n_frames / agl_actor__width(actor);
+			wf_actor->context->samples_per_pixel = n_frames / agl_actor__width(actor);
 		}
 	}
 
@@ -1115,7 +1097,7 @@ waveform_view_plus_gl_on_allocate (WaveformViewPlus* view)
 static AGlActor*
 waveform_actor (WaveformViewPlus* view)
 {
-	AGlActor* actor = (AGlActor*)wf_canvas_add_new_actor(view->priv->context, view->waveform);
+	AGlActor* actor = (AGlActor*)wf_context_add_new_actor(view->priv->context, view->waveform);
 
 	set_size = actor->set_size;
 	actor->set_size = waveform_actor_size0;

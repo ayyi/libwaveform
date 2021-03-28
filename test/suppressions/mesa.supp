@@ -1,14 +1,34 @@
 {
-   <insert_a_suppression_name_here>
+   <see comment above>
    Memcheck:Leak
    ...
-   fun:agl_create_program
+   fun:buffer_data_error
+   ...
+   fun:_mesa_BufferData
+   fun:grid_actor_paint
 }
 {
    <insert_a_suppression_name_here>
    Memcheck:Leak
    ...
-   fun:_mesa_AttachShader
+   fun:buffer_data_error
+   ...
+   fun:_mesa_BufferData
+   fun:renderer_render_ops
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   ...
+   fun:_mesa_BufferData
+   fun:spinner__init
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   ...
+   fun:_mesa_BufferData
+   fun:draw_wave_buffer_v_hi
 }
 {
    <insert_a_suppression_name_here>
@@ -122,6 +142,12 @@
    <insert_a_suppression_name_here>
    Memcheck:Leak
    ...
+   fun:_mesa_Rotatef
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   ...
    fun:_mesa_ShaderSource
 }
 {
@@ -196,6 +222,12 @@
    Memcheck:Addr2
    ...
    fun:_mesa_Uniform4fv
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   ...
+   fun:_mesa_update_texture_renderbuffer
 }
 {
    <insert_a_suppression_name_here>
@@ -370,4 +402,9 @@
    ...
    fun:glXCreateContext
 }
-
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   ...
+   fun:XextAddDisplay
+}

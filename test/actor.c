@@ -31,7 +31,7 @@
 #include "config.h"
 #include <getopt.h>
 #include <gdk/gdkkeysyms.h>
-#include "agl/utils.h"
+#include "agl/gtk.h"
 #include "waveform/actor.h"
 #include "test/common.h"
 
@@ -129,7 +129,7 @@ window_content (GtkWindow* window, GdkGLConfig* glconfig)
 	for(int i=0;i<G_N_ELEMENTS(a);i++){
 		wfc[i] = wf_context_new((AGlActor*)scene); // each waveform has its own context so as to have a different zoom
 
-		a[i] = wf_canvas_add_new_actor(wfc[i], w1);
+		a[i] = wf_context_add_new_actor(wfc[i], w1);
 		agl_actor__add_child((AGlActor*)scene, (AGlActor*)a[i]);
 
 		wf_actor_set_region(a[i], &region[i]);

@@ -48,7 +48,7 @@ gpointer tests[] = {};
 
 
 int
-main (int argc, char *argv[])
+main (int argc, char* argv[])
 {
 	set_log_handlers();
 

@@ -1,7 +1,7 @@
 /**
 * +----------------------------------------------------------------------+
 * | This file is part of the Ayyi project. http://ayyi.org               |
-* | copyright (C) 2012-2020 Tim Orford <tim@orford.org>                  |
+* | copyright (C) 2012-2021 Tim Orford <tim@orford.org>                  |
 * +----------------------------------------------------------------------+
 * | This program is free software; you can redistribute it and/or modify |
 * | it under the terms of the GNU General Public License version 3       |
@@ -73,13 +73,7 @@ static void wf_context_instance_init   (WaveformContext*);
 static void wf_context_finalize        (GObject*);
 static void wf_context_on_paint_update (GdkFrameClock*, void*);
 
-extern PeakShader peak_shader, peak_nonscaling;
-extern HiResShader hires_shader;
-extern BloomShader horizontal;
-extern BloomShader vertical;
-extern AlphaMapShader tex2d, ass;
 extern RulerShader ruler;
-extern CursorShader cursor;
 
 #define TRACK_ACTORS // for debugging only.
 #undef TRACK_ACTORS
@@ -204,6 +198,12 @@ wf_context_init (WaveformContext* wfc, AGlActor* root)
 			.start_val.f  = wfc->samples_per_pixel,
 			.target_val.f = wfc->samples_per_pixel,
 			.type         = WF_FLOAT
+		},
+		.start = {
+			.val.b        = &wfc->start_time,
+			.start_val.b  = wfc->start_time,
+			.target_val.b = wfc->start_time,
+			.type         = WF_INT64
 		}
 	);
 
@@ -359,7 +359,7 @@ wf_context_set_viewport (WaveformContext* wfc, WfViewPort* _viewport)
  *  You do not need to hold an additional reference.
  */
 WaveformActor*
-wf_canvas_add_new_actor (WaveformContext* wfc, Waveform* w)
+wf_context_add_new_actor (WaveformContext* wfc, Waveform* w)
 {
 	g_return_val_if_fail(wfc, NULL);
 
@@ -590,6 +590,25 @@ wf_context_set_scale (WaveformContext* wfc, float samples_per_px)
 
 	wfc->priv->samples_per_pixel.target_val.f = samples_per_px;
 	wf_transition_add_member(animation, g_list_prepend(NULL, &wfc->priv->samples_per_pixel));
+
+	wf_animation_start(animation);
+}
+
+
+static void
+wf_context_set_start_on_frame (WfAnimation* animation, int time)
+{
+}
+
+
+void
+wf_context_set_start (WaveformContext* wfc, int64_t start)
+{
+	WfAnimation* animation = wf_animation_new(NULL, wfc);
+	animation->on_frame = wf_context_set_start_on_frame;
+
+	wfc->priv->start.target_val.b = start;
+	wf_transition_add_member(animation, g_list_prepend(NULL, &wfc->priv->start));
 
 	wf_animation_start(animation);
 }

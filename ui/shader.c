@@ -1,22 +1,19 @@
 /*
-  copyright (C) 2012-2018 Tim Orford <tim@orford.org>
-
-  This program is free software; you can redistribute it and/or modify
-  it under the terms of the GNU General Public License version 3
-  as published by the Free Software Foundation.
-
-  This program is distributed in the hope that it will be useful,
-  but WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-  GNU General Public License for more details.
-
-  You should have received a copy of the GNU General Public License
-  along with this program; if not, write to the Free Software
-  Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+* +----------------------------------------------------------------------+
+* | This file is part of the Ayyi project. https://www.ayyi.org          |
+* | copyright (C) 2012-2021 Tim Orford <tim@orford.org>                  |
+* +----------------------------------------------------------------------+
+* | This program is free software; you can redistribute it and/or modify |
+* | it under the terms of the GNU General Public License version 3       |
+* | as published by the Free Software Foundation.                        |
+* +----------------------------------------------------------------------+
+*
 */
+
 #define __wf_shader_c__
 #define __wf_private__
 #define __wf_canvas_priv__
+
 #include "config.h"
 #include "agl/ext.h"
 #include "agl/utils.h"
@@ -29,13 +26,13 @@
 static void  _peak_shader_set_uniforms (float peaks_per_pixel, float top, float bottom, uint32_t _fg_colour, int n_channels);
 static void  _peak_nonscaling_set_uniforms ();
 #endif
-static void  _hires_ng_set_uniforms    ();
+static void  _hires_ng_set_uniforms    (AGlShader*);
 #if 0
 static void  _vertical_set_uniforms    ();
 static void  _horizontal_set_uniforms  ();
 #endif
-static void  _ass_set_uniforms         ();
-static void  _ruler_set_uniforms       ();
+static void  _ass_set_uniforms         (AGlShader*);
+static void  _ruler_set_uniforms       (AGlShader*);
 static void  _lines_set_uniforms       ();
 static void  _cursor_set_uniforms      ();
 
@@ -73,15 +70,15 @@ HiResShader hires_shader = {{NULL, NULL, 0, uniforms_hr, _hires_set_uniforms, &h
 #endif
 
 static AGlUniformInfo uniforms_hr_ng[] = {
-   {"tex2d",     1, GL_INT,   { 0,   }, -1}, // 0 corresponds to glActiveTexture(GL_TEXTURE0);
-   {"top",       1, GL_FLOAT, { 0.0, }, -1},
-   {"bottom",    1, GL_FLOAT, { 0.0, }, -1},
-   {"n_channels",1, GL_INT,   { 1,   }, -1},
-   {"tex_width", 1, GL_FLOAT, { 0.0, }, -1},
-   {"tex_height",1, GL_FLOAT, { 0.0, }, -1},
-   {"mm_level",  1, GL_INT,   { 0,   }, -1},
-   {"v_gain",    1, GL_FLOAT, { 1.0, }, -1},
-   {"fg_colour", 4, GL_FLOAT, { 0.0, }, -1},
+   {"tex2d",     1, GL_INT,   -1, { 0,  }}, // 0 corresponds to glActiveTexture(GL_TEXTURE0);
+   {"top",       1, GL_FLOAT, -1, { 0., }},
+   {"bottom",    1, GL_FLOAT, -1, { 0., }},
+   {"n_channels",1, GL_INT,   -1, { 1,  }},
+   {"tex_width", 1, GL_FLOAT, -1, { 0., }},
+   {"tex_height",1, GL_FLOAT, -1, { 0., }},
+   {"mm_level",  1, GL_INT,   -1, { 0,  }},
+   {"v_gain",    1, GL_FLOAT, -1, { 1., }},
+   {"fg_colour", 4, GL_FLOAT, -1,        },
    END_OF_UNIFORMS
 };
 HiResNGShader hires_ng_shader = {{NULL, NULL, 0, uniforms_hr_ng, _hires_ng_set_uniforms, &hires_ng_text}};
@@ -103,7 +100,7 @@ BloomShader vertical = {{NULL, NULL, 0, uniforms3, _vertical_set_uniforms, &vert
 AssShader ass = {{
    NULL, NULL, 0,
    (AGlUniformInfo[]){
-      {"tex2d",     1, GL_INT,   { 0, 0, 0, 0 }, -1},
+      {"tex2d", 1, GL_INT, -1,},
       END_OF_UNIFORMS
    },
    _ass_set_uniforms, &ass_text
@@ -115,7 +112,15 @@ static AGlUniformInfo uniforms5[] = {
 };
 RulerShader ruler = {{NULL, NULL, 0, uniforms5, _ruler_set_uniforms, &ruler_text}};
 
-CursorShader cursor = {{NULL, NULL, 0, uniforms5, _cursor_set_uniforms, &cursor_text}};
+
+CursorShader cursor = {{
+	.uniforms = (AGlUniformInfo[]){
+   		{"colour", 4, GL_COLOR_ARRAY, -1,},
+		END_OF_UNIFORMS
+	},
+	.set_uniforms_ = _cursor_set_uniforms,
+	.text = &cursor_text
+}};
 
 #if 0
 static void
@@ -146,7 +151,7 @@ _peak_shader_set_uniforms(float peaks_per_pixel, float top, float bottom, uint32
 #endif
 
 static AGlUniformInfo uniforms7[] = {
-   {"tex",     1, GL_INT,   { 0, 0, 0, 0 }, -1},
+   {"tex", 1, GL_INT, -1,},
    END_OF_UNIFORMS
 };
 LinesShader lines = {{NULL, NULL, 0, uniforms7, _lines_set_uniforms, &lines_text}};
@@ -183,7 +188,7 @@ _hires_set_uniforms()
 
 
 static void
-_hires_ng_set_uniforms()
+_hires_ng_set_uniforms (AGlShader* _shader)
 {
 	AGlShader* shader = &hires_ng_shader.shader;
 	AGlUniformInfo* uniforms = shader->uniforms;
@@ -229,7 +234,7 @@ _hires_ng_set_uniforms()
 
 #if 0
 static void
-_vertical_set_uniforms()
+_vertical_set_uniforms ()
 {
 	AGlShader* shader = &vertical.shader;
 	float fg_colour[4] = {0.0, 0.0, 0.0, ((float)(vertical.uniform.fg_colour & 0xff)) / 0x100};
@@ -241,7 +246,7 @@ _vertical_set_uniforms()
 
 
 static void
-_horizontal_set_uniforms()
+_horizontal_set_uniforms ()
 {
 	AGlShader* shader = &horizontal.shader;
 	//dbg(0, "ppp=%.2f", ((BloomShader*)shader)->uniform.peaks_per_pixel);
@@ -255,7 +260,7 @@ _horizontal_set_uniforms()
 
 
 static void
-_ass_set_uniforms()
+_ass_set_uniforms (AGlShader* shader)
 {
 	float colour1[4] = {0.0, 0.0, 0.0, ((float)(ass.uniform.colour1 & 0xff)) / 0x100};
 	agl_rgba_to_float(ass.uniform.colour1, &colour1[0], &colour1[1], &colour1[2]);
@@ -268,7 +273,7 @@ _ass_set_uniforms()
 
 
 static void
-_ruler_set_uniforms()
+_ruler_set_uniforms (AGlShader* _shader)
 {
 	AGlShader* shader = &ruler.shader;
 
@@ -276,6 +281,7 @@ _ruler_set_uniforms()
 	agl_rgba_to_float(ruler.uniform.fg_colour, &fg_colour[0], &fg_colour[1], &fg_colour[2]);
 	glUniform4fv(glGetUniformLocation(ruler.shader.program, "fg_colour"), 1, fg_colour);
 
+																		// TODO  glGetUniformLocation
 	glUniform1iv(glGetUniformLocation(shader->program, "markers"), 10, ((RulerShader*)shader)->uniform.markers);
 	glUniform1f(glGetUniformLocation(shader->program, "beats_per_pixel"), ((RulerShader*)shader)->uniform.beats_per_pixel);
 	glUniform1f(glGetUniformLocation(shader->program, "samples_per_pixel"), ((RulerShader*)shader)->uniform.samples_per_pixel);
@@ -284,7 +290,7 @@ _ruler_set_uniforms()
 
 
 static void
-_lines_set_uniforms()
+_lines_set_uniforms ()
 {
 	AGlShader* shader = &lines.shader;
 
@@ -298,15 +304,12 @@ _lines_set_uniforms()
 
 
 static void
-_cursor_set_uniforms()
+_cursor_set_uniforms (AGlShader* shader)
 {
-	uint32_t program = cursor.shader.program;
+	//agl_set_colour_uniform (&cursor.shader.uniforms[0], cursor.shader.uniforms[0].value[0]);
+	agl_set_uniforms(&cursor.shader);
 
-	float colour[4] = {0.0, 0.0, 0.0, ((float)(cursor.uniform.colour & 0xff)) / 0x100};
-	agl_rgba_to_float(cursor.uniform.colour, &colour[0], &colour[1], &colour[2]);
-	glUniform4fv(glGetUniformLocation(program, "colour"), 1, colour);
-
-	glUniform1f(glGetUniformLocation(program, "width"), (float)cursor.uniform.width);
+	glUniform1f(3, (float)cursor.uniform.width);
 }
 
 

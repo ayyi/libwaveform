@@ -54,6 +54,15 @@ if test "$strict" = "yes"; then
   CXXFLAGS="$CXXFLAGS -Wall -Wextra -Wno-unused-parameter -Wconversion -Winit-self -Woverloaded-virtual -Wsign-promo"
 fi
 
+AC_ARG_ENABLE(valgrind,
+	[  --enable-valgrind            Enable features to help with memory reporting.]
+)
+if test "$enable_valgrind" = "yes"; then
+	AC_DEFINE(WITH_VALGRIND, 1, [Enable features to help with memory reporting])
+else
+	enable_valgrind=no
+fi;
+
 AYYI_CFLAGS="-I./ayyi"
 AC_SUBST(AYYI_CFLAGS)
 GLIB_CFLAGS=`pkg-config --cflags glib-2.0`

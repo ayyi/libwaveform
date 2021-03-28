@@ -1,7 +1,7 @@
 /**
 * +----------------------------------------------------------------------+
 * | This file is part of the Ayyi project. http://ayyi.org               |
-* | copyright (C) 2013-2020 Tim Orford <tim@orford.org>                  |
+* | copyright (C) 2013-2021 Tim Orford <tim@orford.org>                  |
 * +----------------------------------------------------------------------+
 * | This program is free software; you can redistribute it and/or modify |
 * | it under the terms of the GNU General Public License version 3       |
@@ -28,42 +28,46 @@ typedef struct {
 
 static AGl* agl = NULL;
 
-static bool ruler_actor_paint(AGlActor*);
+static bool ruler_actor_paint (AGlActor*);
 
 
-	static void ruler_actor_size(AGlActor* actor)
-	{
-		actor->region.x2 = agl_actor__width(actor->parent);
+static void
+ruler_init (AGlActor* actor)
+{
+	RulerActor* ruler = (RulerActor*)actor;
+	if(agl->use_shaders){
+		if(!ruler->context->shaders.ruler->shader.program)
+			agl_create_program(&ruler->context->shaders.ruler->shader);
 	}
-
-	static void ruler_init(AGlActor* actor)
-	{
-		RulerActor* ruler = (RulerActor*)actor;
-		if(agl->use_shaders){
-			if(!ruler->context->shaders.ruler->shader.program)
-				agl_create_program(&ruler->context->shaders.ruler->shader);
-		}
 #ifdef AGL_ACTOR_RENDER_CACHE
-		actor->fbo = agl_fbo_new(actor->region.x2 - actor->region.x1, actor->region.y2 - actor->region.y1, 0, 0);
+	actor->fbo = agl_fbo_new(actor->region.x2 - actor->region.x1, actor->region.y2 - actor->region.y1, 0, 0);
 #endif
-	}
+}
 
-	static void ruler_set_state(AGlActor* actor)
-	{
-		if(!agl->use_shaders) return;
 
-		#define samples_per_beat(C) (C->sample_rate / (C->bpm / 60.0))
+static void
+ruler_actor_size (AGlActor* actor)
+{
+	actor->region.x2 = agl_actor__width(actor->parent);
+}
 
-		RulerActor* ruler = (RulerActor*)actor;
-		RulerShader* shader = ruler->context->shaders.ruler;
-		WaveformContext* context = ruler->context;
 
-		shader->uniform.fg_colour = 0xffffff7f;
-		shader->uniform.beats_per_pixel = context->samples_per_pixel / (samples_per_beat(context) * context->zoom->value.f);
-		shader->uniform.samples_per_pixel = context->samples_per_pixel;
+static void
+ruler_set_state (AGlActor* actor)
+{
+	if(!agl->use_shaders) return;
 
-		agl_use_program((AGlShader*)shader);
-	}
+	#define samples_per_beat(C) (C->sample_rate / (C->bpm / 60.0))
+
+	RulerActor* ruler = (RulerActor*)actor;
+	WaveformContext* context = ruler->context;
+	RulerShader* shader = context->shaders.ruler;
+
+	shader->uniform.fg_colour = 0xffffff7f;
+	shader->uniform.beats_per_pixel = context->samples_per_pixel / (samples_per_beat(context) * context->zoom->value.f);
+	shader->uniform.samples_per_pixel = context->samples_per_pixel;
+}
+
 
 AGlActor*
 ruler_actor (WaveformActor* wf_actor)
@@ -75,6 +79,7 @@ ruler_actor (WaveformActor* wf_actor)
 	return (AGlActor*)AGL_NEW(RulerActor,
 		.actor = {
 			.name = "ruler",
+			.program = (AGlShader*)wf_actor->context->shaders.ruler,
 			.init = ruler_init,
 			.set_state = ruler_set_state,
 			.paint = ruler_actor_paint,
@@ -86,11 +91,11 @@ ruler_actor (WaveformActor* wf_actor)
 
 
 static bool
-ruler_actor_paint(AGlActor* actor)
+ruler_actor_paint (AGlActor* actor)
 {
-	if(!agl->use_shaders) return false;
+	if (!agl->use_shaders) return false;
 
-#if 0 //shader debugging
+#if 0 // shader debugging
 	{
 		float smoothstep(float edge0, float edge1, float x)
 		{
@@ -108,11 +113,7 @@ ruler_actor_paint(AGlActor* actor)
 	}
 #endif
 
-	glPushMatrix();
-	glScalef(1.0, -1.0, 1.0);           // inverted vertically to make alignment of marks to bottom easier in the shader
-	glTranslatef(0.0, -agl_actor__height(actor), 0.0); // making more negative moves downward
-	glRecti(actor->region.x1, 0, actor->region.x2, agl_actor__height(actor));
-	glPopMatrix();
+	agl_quad (0., 0., actor->region.x2, agl_actor__height(actor));
 
 	return true;
 }

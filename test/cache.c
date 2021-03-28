@@ -1,32 +1,25 @@
 /*
-  Tests for opengl textures using large files
+ +---------------------------------------------------------------------
+ | This file is part of the Ayyi project. https://www.ayyi.org
+ | copyright (C) 2013-2021 Tim Orford <tim@orford.org>
+ +---------------------------------------------------------------------
+ | This program is free software; you can redistribute it and/or modify
+ | it under the terms of the GNU General Public License version 3
+ | as published by the Free Software Foundation.
+ +----------------------------------------------
+ |
+ | Tests for opengl textures using large files
+ |
+ | Automated, opens a gui window.
+ |
+ |  1-test basic hires
+ |  2-test textures are loaded when scrolling
+ |      Shows many different views at using all modes to check that the cache
+ |      works when full and that the correct data for the view is available.
+ |  3-test texture cache is emptied at lowres when the Waveform is free'd.
+ |
+ */
 
-  Automated, opens a gui window.
-
-  1-test basic hires
-  2-test textures are loaded when scrolling
-      Shows many different views at using all modes to check that the cache
-      works when full and that the correct data for the view is available.
-  3-test texture cache is emptied at lowres when the Waveform is free'd.
-
-  ---------------------------------------------------------------
-
-  copyright (C) 2013-2020 Tim Orford <tim@orford.org>
-
-  This program is free software; you can redistribute it and/or modify
-  it under the terms of the GNU General Public License version 3
-  as published by the Free Software Foundation.
-
-  This program is distributed in the hope that it will be useful,
-  but WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-  GNU General Public License for more details.
-
-  You should have received a copy of the GNU General Public License
-  along with this program; if not, write to the Free Software
-  Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
-
-*/
 #define __wf_private__
 #include "config.h"
 #include <getopt.h>
@@ -38,7 +31,7 @@
 #pragma GCC diagnostic warning "-Wdeprecated-declarations"
 #include <gdk/gdkkeysyms.h>
 #include <glib/gstdio.h>
-#include "agl/utils.h"
+#include "agl/gtk.h"
 #include "wf/audio.h"
 #include "wf/worker.h"
 #include "waveform/actor.h"
@@ -613,7 +606,7 @@ test_hi_double()
 			wf_free(filename);
 		}
 
-		a[i] = wf_canvas_add_new_actor(wfc, w[i]);
+		a[i] = wf_context_add_new_actor(wfc, w[i]);
 		assert(a[i], "failed to create actor");
 
 		agl_actor__add_child((AGlActor*)scene, (AGlActor*)a[i]);
@@ -824,7 +817,7 @@ __on_canvas_realise (gpointer user_data)
 	};
 
 	int i; for(i=0;i<1;i++){ // initially only create 1 actor
-		agl_actor__add_child((AGlActor*)scene, (AGlActor*)(a[i] = wf_canvas_add_new_actor(wfc, w[0])));
+		agl_actor__add_child((AGlActor*)scene, (AGlActor*)(a[i] = wf_context_add_new_actor(wfc, w[0])));
 
 		wf_actor_set_region(a[i], &region[i]);
 		wf_actor_set_colour(a[i], colours[i][0]);
