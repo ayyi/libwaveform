@@ -173,7 +173,9 @@ text_actor (WaveformActor* _)
 		.actor = {
 			.class = &actor_class,
 			.name = actor_class.name,
+#ifdef USE_LIBASS
 			.program = (AGlShader*)&ass,
+#endif
 			.init = text_actor_init,
 			.paint = text_actor_paint,
 			.set_size = text_actor_set_size
@@ -203,6 +205,8 @@ text_actor_free (AGlActor* actor)
 		ass_library = NULL;
 	}
 #endif
+
+	g_free(actor);
 }
 
 

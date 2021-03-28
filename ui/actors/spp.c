@@ -61,56 +61,59 @@ static void spp_actor__set_size (AGlActor*);
 #endif
 	}
 
-	static void spp_actor__set_state (AGlActor* actor)
-	{
-		SppActor* spp = (SppActor*)actor;
-		WaveformActor* a = spp->wf_actor;
-		if(!a->context) return;
 
-		if(spp->time != WF_SPP_TIME_NONE){
-			if(agl->use_shaders){
-				cursor.uniform.colour = 0x00ff00ff;
-				cursor.uniform.width = spp->play_timeout
-					? MAX(2.0, (WF_ACTOR_PX_PER_FRAME(a) / a->context->sample_rate) * (1 << 24) * 4)
-					: 2.0;
-			}else{
-				glColor4f(0.0, 1.0, 0.0, 1.0);
-				agl_enable(!AGL_ENABLE_TEXTURE_2D | !AGL_ENABLE_BLEND);
-			}
+static void
+spp_actor__set_state (AGlActor* actor)
+{
+	SppActor* spp = (SppActor*)actor;
+	WaveformActor* a = spp->wf_actor;
+	if(!a->context) return;
+
+	if(spp->time != WF_SPP_TIME_NONE){
+		if(agl->use_shaders){
+			((AGlUniformUnion*)&cursor.shader.uniforms[0])->value.i[0] = 0x00ff00ff;
+			cursor.uniform.width = spp->play_timeout
+				? MAX(2.0, (WF_ACTOR_PX_PER_FRAME(a) / a->context->sample_rate) * (1 << 24) * 4)
+				: 2.0;
+		}else{
+			glColor4f(0.0, 1.0, 0.0, 1.0);
+			agl_enable(!AGL_ENABLE_TEXTURE_2D | !AGL_ENABLE_BLEND);
 		}
 	}
+}
 
-	static bool spp_actor__paint (AGlActor* actor)
-	{
-		SppActor* spp = (SppActor*)actor;
-		WaveformActor* a = spp->wf_actor;
-		if(!a || !a->context) return false;
 
-		if(spp->time != WF_SPP_TIME_NONE){
-#if 0
-			glStringMarkerGREMEDY(3, "SPP");
-#endif
-			float width = 1.0;
-			if(agl->use_shaders){
-				width = cursor.uniform.width;
-			}
+static bool
+spp_actor__paint (AGlActor* actor)
+{
+	SppActor* spp = (SppActor*)actor;
+	WaveformActor* a = spp->wf_actor;
+	if (!a || !a->context) return false;
 
-			int64_t frame = ((int64_t)spp->time) * a->context->sample_rate / 1000;
-			float x = floorf(wf_actor_frame_to_x(a, frame) - (width - 1.0));
-			agl_rect(
-				x, 0,
-				width, agl_actor__height(actor)
-			);
-
-			agl_set_font_string("Roboto 16");
-			char s[16] = {0,};
-			snprintf(s, 15, "%02i:%02i:%03i", (spp->time / 1000) / 60, (spp->time / 1000) % 60, spp->time % 1000);
-			// FIXME background is not opaque unless bg is ffffff
-			agl_print_with_background(0, 0, 0, spp->text_colour, 0x000000ff, s);
-			agl_set_font_string("Roboto 10");
+	if (spp->time != WF_SPP_TIME_NONE) {
+		float width = 1.0;
+		if (agl->use_shaders) {
+			width = cursor.uniform.width;
 		}
-		return true;
+
+		int64_t frame = ((int64_t)spp->time) * a->context->sample_rate / 1000;
+		float x = floorf(wf_actor_frame_to_x(a, frame) - (width - 1.0));
+		agl_rect(
+			x, 0,
+			width, agl_actor__height(actor)
+		);
+
+		agl_set_font_string("Roboto 16");
+		char s[16] = {0,};
+		snprintf(s, 15, "%02i:%02i:%03i", (spp->time / 1000) / 60, (spp->time / 1000) % 60, spp->time % 1000);
+		// FIXME background is not opaque unless bg is ffffff
+		agl_print_with_background(0, 0, 0, spp->text_colour, 0x000000ff, s);
+		agl_set_font_string("Roboto 10");
 	}
+
+	return true;
+}
+
 
 AGlActor*
 wf_spp_actor (WaveformActor* wf_actor)
@@ -149,21 +152,24 @@ spp_actor__set_size (AGlActor* actor)
 	};
 }
 
-	static gboolean check_playback (gpointer _spp)
-	{
-		SppActor* spp = _spp;
 
-		spp->play_timeout = 0;
-		agl_actor__invalidate((AGlActor*)spp);
+static gboolean
+check_playback (gpointer _spp)
+{
+	SppActor* spp = _spp;
 
-		return G_SOURCE_REMOVE;
-	}
+	spp->play_timeout = 0;
+	agl_actor__invalidate((AGlActor*)spp);
+
+	return G_SOURCE_REMOVE;
+}
+
 
 /*
  *  Set the current playback position in milliseconds
  */
 void
-wf_spp_actor_set_time(SppActor* spp, uint32_t time)
+wf_spp_actor_set_time (SppActor* spp, uint32_t time)
 {
 	g_return_if_fail(spp);
 

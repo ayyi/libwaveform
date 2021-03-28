@@ -39,8 +39,8 @@ typedef struct _WfContextPriv WfContextPriv;
 struct _WaveformContext {
 	GObject        parent_instance;
 
-	gboolean       show_rms;
-	gboolean       use_1d_textures;
+	bool           show_rms;
+	bool           use_1d_textures;
 
 	AGlActor*      root;               // note the context root is not neccesarily the scenegraph root
 
@@ -64,8 +64,9 @@ struct _WaveformContext {
 
 #ifdef __wf_canvas_priv__
 struct _WfContextPriv {
-	WfAnimatable  zoom;               // (float) samples_per_pixel
-	WfAnimatable  samples_per_pixel;  // type float
+	WfAnimatable  zoom;               // samples_per_pixel (float)
+	WfAnimatable  samples_per_pixel;  // (float)
+	WfAnimatable  start;              // start time in frames (int64_t)
 
 #ifdef USE_FRAME_CLOCK
 	guint64       _last_redraw_time;
@@ -87,7 +88,7 @@ WaveformContext* wf_context_new_sdl                   (SDL_GLContext*);
 #endif
 void             wf_context_free                      (WaveformContext*);
 
-WaveformActor*   wf_canvas_add_new_actor              (WaveformContext*, Waveform*);
+WaveformActor*   wf_context_add_new_actor             (WaveformContext*, Waveform*);
 
 void             wf_context_set_viewport              (WaveformContext*, WfViewPort*);
 void             wf_context_set_rotation              (WaveformContext*, float);
@@ -96,6 +97,7 @@ float            wf_context_get_zoom                  (WaveformContext*);
 void             wf_context_set_zoom                  (WaveformContext*, float);
 #endif
 void             wf_context_set_scale                 (WaveformContext*, float samples_per_px);
+void             wf_context_set_start                 (WaveformContext*, int64_t);
 void             wf_context_set_gain                  (WaveformContext*, float);
 void             wf_context_queue_redraw              (WaveformContext*);
 void             wf_canvas_load_texture_from_alphabuf (WaveformContext*, int texture_id, AlphaBuf*);

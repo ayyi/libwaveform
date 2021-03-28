@@ -4,7 +4,7 @@
 
   --------------------------------------------------------------
 
-  Copyright (C) 2012-2018 Tim Orford <tim@orford.org>
+  Copyright (C) 2012-2021 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -19,7 +19,9 @@
   along with this program; if not, write to the Free Software
   Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 */
+
 #define __wf_private__
+
 #include "config.h"
 #include <getopt.h>
 #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
@@ -76,11 +78,11 @@ WfSampleRegion regions[2];
 float zoom = 1.0;
 int x = 0.0;
 
-void image_async(GtkAllocation*);
+void image_async (GtkAllocation*);
 
 
 int
-main (int argc, char *argv[])
+main (int argc, char* argv[])
 {
 	set_log_handlers();
 
@@ -103,7 +105,7 @@ main (int argc, char *argv[])
 
 	// synchronous
 
-	void image_sync(GtkAllocation* size)
+	void image_sync (GtkAllocation* size)
 	{
 		GdkPixbuf* pixbuf = gdk_pixbuf_new(GDK_COLORSPACE_RGB, FALSE, 8, CLAMP(size->width, 8, 1920), CLAMP(size->height / 2, 8, 600));
 		if(waveform_load_sync(waveform)){
@@ -133,7 +135,7 @@ main (int argc, char *argv[])
 	}
 	g_signal_connect(window, "delete-event", G_CALLBACK(window_on_delete), NULL);
 
-	void on_allocate(GtkWidget* widget, GtkAllocation* allocation, gpointer view)
+	void on_allocate (GtkWidget* widget, GtkAllocation* allocation, gpointer view)
 	{
 		static GtkAllocation a = {0,};
 
@@ -154,7 +156,7 @@ main (int argc, char *argv[])
 
 
 void
-image_async(GtkAllocation* size)
+image_async (GtkAllocation* size)
 {
 	void pixbuf_loaded(Waveform* w, GdkPixbuf* pixbuf, gpointer _)
 	{
@@ -167,14 +169,14 @@ image_async(GtkAllocation* size)
 }
 
 void
-quit(gpointer _)
+quit (gpointer _)
 {
 	exit(EXIT_SUCCESS);
 }
 
 
 void
-zoom_in(gpointer _)
+zoom_in (gpointer _)
 {
 	zoom *= 1.3;
 	GtkAllocation size = {.width = 480, .height = 160};
@@ -184,7 +186,7 @@ zoom_in(gpointer _)
 
 
 void
-zoom_out(gpointer _)
+zoom_out (gpointer _)
 {
 	zoom /= 1.3;
 	GtkAllocation size = {.width = 480, .height = 160};
@@ -194,7 +196,7 @@ zoom_out(gpointer _)
 
 
 void
-scroll_left(gpointer _)
+scroll_left (gpointer _)
 {
 	x = MAX(0, x - 2000);
 	GtkAllocation size = {.width = 480, .height = 160};
@@ -202,7 +204,7 @@ scroll_left(gpointer _)
 }
 
 
-void scroll_right(gpointer _)
+void scroll_right (gpointer _)
 {
 	x = MIN(waveform_get_n_frames(waveform) - regions[1].len, x + 2000);
 	GtkAllocation size = {.width = 480, .height = 160};
@@ -210,8 +212,6 @@ void scroll_right(gpointer _)
 }
 
 
-void next_wav(gpointer _)
+void next_wav (gpointer _)
 {
 }
-
-

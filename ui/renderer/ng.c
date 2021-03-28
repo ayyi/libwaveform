@@ -350,8 +350,8 @@ ng_gl2_load_block (Renderer* renderer, WaveformActor* actor, int b)
 
 				int width = modes[renderer->mode].texture_size;
 				int height = section->buffer_size / width;
-				int pixel_format = GL_ALPHA;
-				glBindTexture  (GL_TEXTURE_2D, section->texture);
+				#define pixel_format GL_ALPHA
+				agl_use_texture (section->texture);
 				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 				// TODO it is quite common for this to be done several times in quick succession for the same texture with consecutive calls to ng_gl2_load_block
@@ -414,6 +414,12 @@ ng_gl2_pre_render (Renderer* renderer, WaveformActor* actor)
 
 	agl_use_program(&shader->shader);
 
+	glActiveTexture (GL_TEXTURE0);
+	glBindBuffer (GL_ARRAY_BUFFER, agl->vbo);
+
+	glEnableVertexAttribArray (0);
+	glVertexAttribPointer (0, 4, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)0);
+
 	return true;
 }
 
@@ -439,10 +445,8 @@ ng_gl2_render_block (Renderer* renderer, WaveformActor* actor, int b, bool is_fi
 	if(!_b && b != r->viewport_blocks.first){
 		HiResNGShader* shader = (HiResNGShader*)renderer->shader;
 		shader->uniform.tex_height = section->buffer_size / modes[renderer->mode].texture_size;
-		shader->shader.set_uniforms_(actor);
+		shader->shader.set_uniforms_((AGlShader*)shader);
 	}
-
-																								glActiveTexture(GL_TEXTURE0);
 
 	TextureRange tex;
 	WfSampleRegionf block;
@@ -454,9 +458,16 @@ ng_gl2_render_block (Renderer* renderer, WaveformActor* actor, int b, bool is_fi
 
 	//dbg(0, "b=%i %u n_rows=%f x=%f-->%f y=%f (%f)", b % MAX_BLOCKS_PER_TEXTURE, section->texture, n_rows, tex.start, tex.end, ty, ((float)(b % MAX_BLOCKS_PER_TEXTURE) * 4.0 * waveform->n_channels));
 
-	agl_textured_rect(section->texture, block.start, r->rect.top, block.len, r->rect.height, &tex_rect);
+	agl_textured_rect_fast (section->texture, block.start, r->rect.top, block.len, r->rect.height, &tex_rect);
 
 	return true;
+}
+
+
+static void
+ng_gl2_post_render (Renderer* renderer, WaveformActor* actor)
+{
+	glBindBuffer(GL_ARRAY_BUFFER, 0);  
 }
 
 

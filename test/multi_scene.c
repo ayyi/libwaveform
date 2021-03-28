@@ -10,7 +10,7 @@
 
   ---------------------------------------------------------------
 
-  Copyright (C) 2012-2019 Tim Orford <tim@orford.org>
+  Copyright (C) 2012-2021 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -159,7 +159,7 @@ main (int argc, char *argv[])
 	};
 
 	int i; for(i=0;i<G_N_ELEMENTS(a);i++){
-		a[i] = wf_canvas_add_new_actor(wfc, w1);
+		a[i] = wf_context_add_new_actor(wfc, w1);
 		agl_actor__add_child((AGlActor*)(i < 2 ? scene1 : scene2), (AGlActor*)a[i]);
 
 		wf_actor_set_region(a[i], &region[i]);

@@ -322,7 +322,7 @@ med_lo_render_gl1(Renderer* renderer, WaveformActor* actor, int b, bool is_first
 	double bot = rect.top + rect.height;
 	double top = rect->top;
 	if(wfc->show_rms && w->textures->rms_texture){
-		glBindTexture(GL_TEXTURE_2D, w->textures->rms_texture[b]);
+		agl_use_texture(w->textures->rms_texture[b]);
 #if 0
 		if(!glIsTexture(w->textures->rms_texture[i])) pwarn ("texture not loaded. block=%i", i);
 #endif
@@ -419,12 +419,12 @@ med_lo_on_steal(WaveformBlock* wb, guint tex)
 }
 
 
-Renderer med_renderer_gl1 = {MODE_MED, NULL, med_allocate_block_gl1, med_lo_pre_render_gl1, med_lo_render_gl1, med_lo_gl1_free_waveform};
-NGRenderer med_renderer_gl2 = {{MODE_MED, med_renderer_new_gl2, ng_gl2_load_block, ng_gl2_pre_render, ng_gl2_render_block, ng_gl2_free_waveform}};
+Renderer med_renderer_gl1 = {MODE_MED, NULL, med_allocate_block_gl1, med_lo_pre_render_gl1, med_lo_render_gl1, NULL, med_lo_gl1_free_waveform};
+NGRenderer med_renderer_gl2 = {{MODE_MED, med_renderer_new_gl2, ng_gl2_load_block, ng_gl2_pre_render, ng_gl2_render_block, ng_gl2_post_render, ng_gl2_free_waveform}};
 
 
 static Renderer*
-med_renderer_new()
+med_renderer_new ()
 {
 	g_return_val_if_fail(!med_renderer_gl2.ng_data, NULL);
 

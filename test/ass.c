@@ -1,24 +1,17 @@
 /*
-  Demonstration of overlaying text on a waveform window.
+ +---------------------------------------------------------------------
+ | This file is part of the Ayyi project. https://www.ayyi.org
+ | copyright (C) 2012-2021 Tim Orford <tim@orford.org>
+ +---------------------------------------------------------------------
+ | This program is free software; you can redistribute it and/or modify
+ | it under the terms of the GNU General Public License version 3
+ | as published by the Free Software Foundation.
+ +----------------------------------------------
+ |
+ | Demonstration of overlaying text on a waveform window.
+ |
+ */
 
-  ---------------------------------------------------------------
-
-  Copyright (C) 2012-2020 Tim Orford <tim@orford.org>
-
-  This program is free software; you can redistribute it and/or modify
-  it under the terms of the GNU General Public License version 3
-  as published by the Free Software Foundation.
-
-  This program is distributed in the hope that it will be useful,
-  but WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-  GNU General Public License for more details.
-
-  You should have received a copy of the GNU General Public License
-  along with this program; if not, write to the Free Software
-  Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
-
-*/
 #define __wf_private__
 #define __wf_canvas_priv__
 #include "config.h"
@@ -28,7 +21,7 @@
 #pragma GCC diagnostic warning "-Wdeprecated-declarations"
 #include <gdk/gdkkeysyms.h>
 #include <ass/ass.h>
-#include "agl/utils.h"
+#include "agl/gtk.h"
 #include "waveform/actor.h"
 #define __wf_private__
 #include "test/common2.h"
@@ -98,14 +91,10 @@ static bool
 ass_node_paint (AGlActor* actor)
 {
 	if(agl_get_instance()->use_shaders){
-		glEnable(GL_TEXTURE_2D);
-		glActiveTexture(GL_TEXTURE0);
 		if(!glIsTexture(ass_textures[0])) pwarn("not texture");
 
 		ass.uniform.colour1 = 0xffffffff;
 		ass.uniform.colour2 = 0xff0000ff;
-
-		agl_use_program((AGlShader*)&ass);
 
 		agl_textured_rect(ass_textures[0], 0., 0., GL_WIDTH, frame_h, NULL);
 	}
@@ -123,6 +112,7 @@ ass_node ()
 
 	return agl_actor__new(AGlActor,
 		.paint = ass_node_paint,
+		.program = &ass.shader,
 		.region = {0, GL_HEIGHT - frame_h, GL_WIDTH, GL_HEIGHT}
 	);
 }
@@ -236,12 +226,7 @@ main (int argc, char *argv[])
 	}
 
 	g_signal_connect(window, "key-press-event", G_CALLBACK(key_press), NULL);
-
-	gboolean window_on_delete(GtkWidget* widget, GdkEvent* event, gpointer user_data){
-		gtk_main_quit();
-		return false;
-	}
-	g_signal_connect(window, "delete-event", G_CALLBACK(window_on_delete), NULL);
+	g_signal_connect(window, "delete-event", G_CALLBACK(gtk_main_quit), NULL);
 
 	render_text();
 
@@ -299,7 +284,7 @@ render_text ()
 		if(gl_error){ perr ("couldnt create ass_texture."); exit(EXIT_FAILURE); }
 
 		int pixel_format = GL_LUMINANCE_ALPHA;
-		glBindTexture  (GL_TEXTURE_2D, ass_textures[0]);
+		agl_use_texture (ass_textures[0]);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 		glTexImage2D(GL_TEXTURE_2D, 0, GL_LUMINANCE8_ALPHA8, out.width, out.height, 0, pixel_format, GL_UNSIGNED_BYTE, out.buf);
@@ -333,12 +318,12 @@ on_canvas_realise (GtkWidget* _canvas, gpointer user_data)
 	int n_frames = waveform_get_n_frames(w1);
 
 	WfSampleRegion region = {
-		0,            n_frames,
+		0, n_frames,
 	};
 
 	uint32_t colours[2] = {0x3399ffff, 0x0000ffff}; // blue
 
-	actor = wf_canvas_add_new_actor(wfc, w1);
+	actor = wf_context_add_new_actor(wfc, w1);
 
 	wf_actor_set_region (actor, &region);
 	wf_actor_set_colour (actor, colours[0]);

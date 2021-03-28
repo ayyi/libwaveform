@@ -1,7 +1,7 @@
 /**
 * +----------------------------------------------------------------------+
 * | This file is part of the Ayyi project. http://ayyi.org               |
-* | copyright (C) 2012-2020 Tim Orford <tim@orford.org>                  |
+* | copyright (C) 2012-2021 Tim Orford <tim@orford.org>                  |
 * +----------------------------------------------------------------------+
 * | This program is free software; you can redistribute it and/or modify |
 * | it under the terms of the GNU General Public License version 3       |
@@ -24,7 +24,7 @@
 #include <gtk/gtk.h>
 #pragma GCC diagnostic warning "-Wdeprecated-declarations"
 #include <gdk/gdkkeysyms.h>
-#include "agl/utils.h"
+#include "agl/gtk.h"
 #include "waveform/actor.h"
 #include "test/common2.h"
 
@@ -217,7 +217,7 @@ on_canvas_realise (GtkWidget* _canvas, gpointer user_data)
 
 	AGlActor* rotator = ((AGlActor*)scene)->children->data;
 	int i; for(i=0;i<G_N_ELEMENTS(a);i++){
-		agl_actor__add_child(rotator, (AGlActor*)(a[i] = wf_canvas_add_new_actor(wfc, w1)));
+		agl_actor__add_child(rotator, (AGlActor*)(a[i] = wf_context_add_new_actor(wfc, w1)));
 
 		wrapped = ((AGlActor*)a[i])->paint;
 		((AGlActor*)a[i])->paint = _paint;

@@ -15,12 +15,10 @@ attribute vec4 vertex;
 uniform vec2 modelview;
 uniform vec2 translate;
 
-varying vec2 tex_coords;
 varying vec2 position;
 
 void main () 
 {
-	tex_coords = vertex.zw;
 	position = vertex.xy;
-	gl_Position = vec4((vertex.xy + translate) / modelview - vec2(1.0, -1.0), 1.0, 1.0);
+	gl_Position = vec4(vec2(1., -1.) * (vertex.xy + translate) / modelview - vec2(1., -1.), 0., 1.);
 }

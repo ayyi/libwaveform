@@ -136,8 +136,6 @@ void  on_allocate     (GtkWidget*, GtkAllocation*, gpointer);
 int
 main (int argc, char* argv[])
 {
-	if(sizeof(off_t) != 8){ perr("sizeof(off_t)=%zu\n", sizeof(off_t)); return EXIT_FAILURE; }
-
 	set_log_handlers();
 
 	wf_debug = 0;
@@ -229,7 +227,22 @@ on_allocate (GtkWidget* widget, GtkAllocation* allocation, gpointer _view)
 void
 quit (gpointer waveform)
 {
-	exit(EXIT_SUCCESS);
+#ifdef WITH_VALGRIND
+	gboolean on_idle (void* data)
+	{
+		agl_gl_uninit ();
+		exit (EXIT_SUCCESS);
+
+		return G_SOURCE_REMOVE;
+	}
+
+	gtk_widget_destroy ((GtkWidget*)view);
+	view = NULL;
+
+	g_idle_add (on_idle, NULL);
+#else
+	exit (EXIT_SUCCESS);
+#endif
 }
 
 

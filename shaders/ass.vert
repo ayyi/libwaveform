@@ -20,5 +20,5 @@ varying vec2 tex_coords;
 void main () 
 {
 	tex_coords = vertex.zw;
-	gl_Position = vec4((vertex.xy + translate) / modelview - vec2(1.0, -1.0), 1.0, 1.0);
+	gl_Position = vec4(vec2(1., -1.) * (vertex.xy + translate) / modelview - vec2(1.0, -1.0), 1.0, 1.0);
 }

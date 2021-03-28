@@ -5,7 +5,8 @@
   different colours and zoom levels. The canvas can be zoomed
   and panned.
 
-  This test does NOT use the AGl scene graph.
+  This test does NOT use the AGl scene graph, though it is not
+  clear why one would not want to use the scene graph.
   It demonstates use of the WaveformActor as part of a larger scene
   under manual control by the application.
 
@@ -13,7 +14,7 @@
 
   ---------------------------------------------------------------
 
-  Copyright (C) 2012-2019 Tim Orford <tim@orford.org>
+  Copyright (C) 2012-2021 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -61,7 +62,6 @@ float           vzoom          = 1.0;
 gpointer        tests[]        = {};
 
 static void     init              (AGlActor*);
-static void     setup_projection  (GtkWidget*);
 static void     draw              (GtkWidget*);
 static gboolean on_expose         (GtkWidget*, GdkEventExpose*, gpointer);
 static void     on_canvas_realise (GtkWidget*, gpointer);
@@ -128,7 +128,7 @@ window_content (GtkWindow* window, GdkGLConfig* glconfig)
 
 
 int
-main (int argc, char *argv[])
+main (int argc, char* argv[])
 {
 	set_log_handlers();
 
@@ -167,38 +167,18 @@ init (AGlActor* actor)
 
 
 static void
-setup_projection(GtkWidget* widget)
-{
-	int vx = 0;
-	int vy = 0;
-	int vw = widget->allocation.width;
-	int vh = widget->allocation.height;
-	glViewport(vx, vy, vw, vh);
-	dbg (0, "viewport: %i %i %i %i", vx, vy, vw, vh);
-	glMatrixMode(GL_PROJECTION);
-	glLoadIdentity();
-
-	double hborder = GL_WIDTH / 32;
-
-	double left = -hborder;
-	double right = GL_WIDTH + hborder;
-	double bottom = GL_HEIGHT + VBORDER;
-	double top = -VBORDER;
-	glOrtho (left, right, bottom, top, 10.0, -100.0);
-}
-
-
-static void
 draw (GtkWidget* widget)
 {
-	glPushMatrix(); /* modelview matrix */
-		for(int i=0;i<G_N_ELEMENTS(a);i++)
-			if(a[i]){
-				glTranslatef(0, ((AGlActor*)a[i])->region.y1, 0);
-				((AGlActor*)a[i])->paint((AGlActor*)a[i]);
-				glTranslatef(0, -((AGlActor*)a[i])->region.y1, 0);
+	for(int i=0;i<G_N_ELEMENTS(a);i++)
+		if(a[i]){
+			AGlActor* actor = (AGlActor*)a[i];
+			if (actor->program) {
+				agl_use_program(actor->program);
+				agl_scale(actor->program, 100., 100.);
+				agl_translate_abs (actor->program, 0., actor->region.y1);
+				actor->paint(actor);
 			}
-	glPopMatrix();
+		}
 
 #undef SHOW_BOUNDING_BOX
 #ifdef SHOW_BOUNDING_BOX
@@ -278,7 +258,7 @@ on_canvas_realise (GtkWidget* _canvas, gpointer user_data)
 	};
 
 	int i; for(i=0;i<G_N_ELEMENTS(a);i++){
-		a[i] = wf_canvas_add_new_actor(wfc, w1);
+		a[i] = wf_context_add_new_actor(wfc, w1);
 
 		wf_actor_set_region(a[i], &region[i]);
 		wf_actor_set_colour(a[i], colours[i][0]);
@@ -293,8 +273,6 @@ on_allocate (GtkWidget* widget, GtkAllocation* allocation, gpointer user_data)
 {
 	if(!wfc || !gtk_widget_get_gl_drawable(widget)) return;
 
-	setup_projection(widget);
-
 	// optimise drawing by telling the canvas which area is visible
 	wf_context_set_viewport(wfc, &(WfViewPort){0, 0, GL_WIDTH, GL_HEIGHT});
 
@@ -308,9 +286,10 @@ start_zoom (float target_zoom)
 	// when zooming in, the Region is preserved so the box gets bigger. Drawing is clipped by the Viewport.
 
 	zoom = MAX(0.1, target_zoom);
+
 	dbg(0, "zoom=%.2f", zoom);
 
-	int i; for(i=0;i<G_N_ELEMENTS(a);i++)
+	for(int i=0;i<G_N_ELEMENTS(a);i++)
 		if(a[i])
 			wf_actor_set_rect(a[i], &(WfRectangle){
 				0.0,
@@ -376,8 +355,7 @@ scroll_right (gpointer _)
 void
 toggle_animate (gpointer _)
 {
-	PF0;
-	gboolean on_idle(gpointer _)
+	gboolean on_idle (gpointer _)
 	{
 		static uint64_t frame = 0;
 		static uint64_t t0    = 0;

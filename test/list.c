@@ -6,7 +6,7 @@
 
   ---------------------------------------------------------------
 
-  Copyright (C) 2012-2019 Tim Orford <tim@orford.org>
+  Copyright (C) 2012-2021 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -30,7 +30,7 @@
 #include <gtk/gtk.h>
 #pragma GCC diagnostic warning "-Wdeprecated-declarations"
 #include <gdk/gdkkeysyms.h>
-#include "agl/utils.h"
+#include "agl/gtk.h"
 #include "waveform/actor.h"
 #include "test/common2.h"
 
@@ -65,7 +65,7 @@ static const char* const short_options = "n";
 
 
 int
-main (int argc, char *argv[])
+main (int argc, char* argv[])
 {
 	set_log_handlers();
 
@@ -160,23 +160,8 @@ main (int argc, char *argv[])
 static void
 setup_projection (GtkWidget* widget)
 {
-	int vw = widget->allocation.width;
-	int vh = widget->allocation.height;
-	glViewport(0, 0, vw, vh);
-	dbg (1, "viewport: %i %i", vw, vh);
-	glMatrixMode(GL_PROJECTION);
-	glLoadIdentity();
-
-	double hborder = GL_WIDTH / 32;
-
-	double left = -hborder;
-	double right = GL_WIDTH + hborder;
-	double bottom = GL_HEIGHT + VBORDER;
-	double top = -VBORDER;
-	glOrtho (left, right, bottom, top, 10.0, -100.0);
-
-	((AGlActor*)scene)->region.x2 = vw;
-	((AGlActor*)scene)->region.y2 = vh;
+	((AGlActor*)scene)->region.x2 = widget->allocation.width;
+	((AGlActor*)scene)->region.y2 = widget->allocation.height;
 }
 
 
@@ -208,7 +193,7 @@ on_canvas_realise (GtkWidget* _canvas, gpointer user_data)
 	};
 
 	int i; for(i=0;i<G_N_ELEMENTS(a);i++){
-		agl_actor__add_child((AGlActor*)scene, (AGlActor*)(a[i] = wf_canvas_add_new_actor(wfc, w1)));
+		agl_actor__add_child((AGlActor*)scene, (AGlActor*)(a[i] = wf_context_add_new_actor(wfc, w1)));
 
 		wf_actor_set_region(a[i], &region[i]);
 		wf_actor_set_colour(a[i], colours[i][0]);
@@ -235,10 +220,10 @@ start_zoom (float target_zoom)
 	// This example illustrates zooming by setting the object sizes directly.
 	// Normally you would use wf_context_set_zoom() instead
 
-	PF0;
+	PF;
 	zoom = MAX(0.1, target_zoom);
 
-	int i; for(i=0;i<G_N_ELEMENTS(a);i++)
+	for(int i=0;i<G_N_ELEMENTS(a);i++)
 		if(a[i]) wf_actor_set_rect(a[i], &(WfRectangle){
 			GL_WIDTH * target_zoom * i / 4,
 			0.0,
@@ -252,7 +237,7 @@ static void
 toggle_animate ()
 {
 	PF0;
-	gboolean on_idle(gpointer _)
+	gboolean on_idle (gpointer _)
 	{
 		static uint64_t frame = 0;
 		static uint64_t t0    = 0;

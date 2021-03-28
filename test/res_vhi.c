@@ -1,12 +1,12 @@
 /**
- +----------------------------------------------------------------------
- | This file is part of the Ayyi project. http://ayyi.org
- | copyright (C) 2012-2020 Tim Orford <tim@orford.org>
- +----------------------------------------------------------------------
+ +---------------------------------------------------------------------
+ | This file is part of the Ayyi project. https://www.ayyi.org
+ | copyright (C) 2012-2021 Tim Orford <tim@orford.org>
+ +---------------------------------------------------------------------
  | This program is free software; you can redistribute it and/or modify
  | it under the terms of the GNU General Public License version 3
  | as published by the Free Software Foundation.
- +----------------------------------------------------------------------
+ +----------------------------------------------
  |
  | Test waveform rendering in V_HI mode
  |
@@ -15,7 +15,7 @@
 #include "config.h"
 #include <getopt.h>
 #include <gdk/gdkkeysyms.h>
-#include "agl/utils.h"
+#include "agl/gtk.h"
 #include "waveform/actor.h"
 #include "test/common.h"
 
@@ -108,7 +108,7 @@ window_content (GtkWindow* window, GdkGLConfig* glconfig)
 
 	for(int i=0;i<G_N_ELEMENTS(a);i++){
 
-		a[i] = wf_canvas_add_new_actor(wfc, w1);
+		a[i] = wf_context_add_new_actor(wfc, w1);
 		agl_actor__add_child((AGlActor*)scene, (AGlActor*)a[i]);
 
 		wf_actor_set_region(a[i], &region[i]);
@@ -116,7 +116,7 @@ window_content (GtkWindow* window, GdkGLConfig* glconfig)
 	}
 
 	for(int i=0;i<G_N_ELEMENTS(split);i++){
-		split[i] = wf_canvas_add_new_actor(wfc, w1);
+		split[i] = wf_context_add_new_actor(wfc, w1);
 		agl_actor__add_child((AGlActor*)scene, (AGlActor*)split[i]);
 		wf_actor_set_colour(split[i], colours[1 + i][0]);
 	}
@@ -328,12 +328,12 @@ test_delete ()
 
 	g_object_weak_ref((GObject*)w1, finalize_notify, NULL);
 
-	a[0] = (agl_actor__remove_child((AGlActor*)scene, (AGlActor*)a[0]), NULL);
-
 	if(finalize_done){
 		pwarn("waveform should not be free'd");
 		return false;
 	}
+
+	a[0] = (agl_actor__remove_child((AGlActor*)scene, (AGlActor*)a[0]), NULL);
 
 	if(!finalize_done){
 		pwarn("waveform was not free'd");

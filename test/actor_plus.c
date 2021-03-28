@@ -27,6 +27,7 @@
 #include "agl/utils.h"
 #include <gtk/gtk.h>
 #include <gdk/gdkkeysyms.h>
+#include "agl/gtk.h"
 #include "actors/background.h"
 #include "actors/group.h"
 #include "waveform/actor.h"
@@ -179,7 +180,7 @@ on_canvas_realise (GtkWidget* _canvas, gpointer user_data)
 	};
 
 	int i; for(i=0;i<G_N_ELEMENTS(a);i++){
-		agl_actor__add_child(group, (AGlActor*)(a[i] = wf_canvas_add_new_actor(wfc, w1)));
+		agl_actor__add_child(group, (AGlActor*)(a[i] = wf_context_add_new_actor(wfc, w1)));
 
 		wf_actor_set_region(a[i], &region[i]);
 		wf_actor_set_colour(a[i], colours[i][0]);

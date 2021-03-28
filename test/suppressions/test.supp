@@ -8,3 +8,10 @@
    obj:/bin/bash
    fun:(below main)
 }
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   ...
+   fun:g_thread_new
+   fun:wf_worker_init
+}

@@ -162,8 +162,8 @@ wf_load_riff_peak (Waveform* wv, const char* peak_file)
 		int shortfall = MIN(n_frames, max_frames) * WF_PEAK_VALUES_PER_SAMPLE - readcount_frames;
 #ifndef USE_SNDFILE
 		if(shortfall){
-			memset(buf.buf[0] + readcount_frames, 0, shortfall * sizeof(short));
-			memset(buf.buf[1] + readcount_frames, 0, shortfall * sizeof(short));
+			if(true)       memset(buf.buf[0] + readcount_frames, 0, shortfall * sizeof(short));
+			if(buf.buf[1]) memset(buf.buf[1] + readcount_frames, 0, shortfall * sizeof(short));
 		}
 #endif
 		if(shortfall < 48){
