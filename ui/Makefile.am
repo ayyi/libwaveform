@@ -44,6 +44,7 @@ libwf_la_SOURCES = \
 	$(OPENGL_SOURCES) \
 	pixbuf.c pixbuf.h \
 	transition_behaviour.c transition_behaviour.h \
+	invalidator.c invalidator.h \
 	utils.c utils.h
 
 libwf_la_LIBADD = \

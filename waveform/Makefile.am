@@ -24,6 +24,7 @@ EXTRA_DIST = \
 	debug.h \
 	fbo.h \
 	grid.h \
+	invalidator.h \
 	labels.h \
 	pixbuf.h \
 	private.h \
