@@ -62,6 +62,7 @@
 #include "waveform/ui-utils.h"
 #include "waveform/ui-private.h"
 #include "waveform/transition_behaviour.h"
+#include "waveform/invalidator.h"
 
 #define _g_signal_handler_disconnect0(A, H) (H = (g_signal_handler_disconnect((gpointer)A, H), 0))
 
@@ -110,6 +111,7 @@ typedef enum
 	RECT,
 	Z,
 	OPACITY,
+	INVALIDATOR,
 	N_BEHAVIOURS
 } Behaviours;
 
@@ -128,6 +130,12 @@ typedef struct
     WaveformActorTransitionFn on_start;
 } WfWaveformActorSizeTransitions;
 
+typedef enum {
+	INVALIDATOR_SIZE = 0,
+	INVALIDATOR_DATA,
+	INVALIDATOR_MAX
+} InvalidatorTypes;
+
 struct _actor_priv
 {
 	float           opacity;     // derived from background colour
@@ -138,8 +146,6 @@ struct _actor_priv
 		gulong      zoom_changed;
 	}               handlers;
 	AMPromise*      peakdata_ready;
-
-	guint           load_render_data_queue;
 
 	// cached values used for rendering. cleared when rect/region/viewport changed.
 	struct _RenderInfo {
@@ -268,7 +274,6 @@ static void   waveform_free_render_data      (Waveform*);
 
 static void  wf_actor_waveform_finalize_notify (gpointer, GObject*);
 static void  wf_actor_on_size_transition_start (WaveformActor*, WfAnimatable*);
-static void  wf_actor_queue_load_render_data   (WaveformActor*);
 static void _wf_actor_load_missing_blocks      (WaveformActor*);
 static void  wf_actor_on_use_shaders_change    ();
 #if 0
@@ -325,7 +330,7 @@ wf_actor_class_init ()
 
 	static void wf_actor_on_zoom_changed(WaveformContext* wfc, gpointer _actor)
 	{
-		wf_actor_queue_load_render_data((WaveformActor*)_actor);
+		invalidator_invalidate_item(((Invalidator*)((AGlActor*)_actor)->behaviours[INVALIDATOR]), INVALIDATOR_DATA);
 	}
 
 		static void wf_actor_init_load_done(Waveform* w, GError* error, gpointer _actor)
@@ -354,6 +359,8 @@ wf_actor_on_init (AGlActor* actor)
 	wf_actor_on_use_shaders_change();
 
 	if(a->waveform && !a->waveform->priv->peak.size) waveform_load(a->waveform, wf_actor_init_load_done, actor);
+
+	invalidator_queue_check ((Invalidator*)actor->behaviours[INVALIDATOR]);
 }
 
 
@@ -387,6 +394,8 @@ wf_actor_set_size (AGlActor* actor)
 				_wf_actor_load_missing_blocks(a);
 		}
 	}
+
+	((Invalidator*)actor->behaviours[INVALIDATOR])->valid |= (1 << INVALIDATOR_SIZE);
 }
 
 
@@ -562,6 +571,45 @@ wf_actor_new (Waveform* w, WaveformContext* wfc)
 		}
 	);
 
+	actor->behaviours[INVALIDATOR] = g_malloc0(sizeof(Invalidator) + INVALIDATOR_MAX * sizeof(InvalidatorResolve));
+	*((Invalidator*)actor->behaviours[INVALIDATOR]) = (Invalidator){
+		.behaviour = { .klass = invalidator_get_class() },
+		.n_types = INVALIDATOR_MAX,
+		.valid = 2,
+		.user_data = a
+	};
+
+	bool resolve_size (Invalidator* invalidator)
+	{
+		AGlActor* actor = invalidator->user_data;
+
+		if (!actor->parent) return false;
+
+		agl_actor__set_size(actor);
+
+		return true;
+	}
+	((Invalidator*)actor->behaviours[INVALIDATOR])->resolve[INVALIDATOR_SIZE] = resolve_size;
+
+	bool resolve_data (Invalidator* invalidator)
+	{
+		AGlActor* actor = invalidator->user_data;
+		WaveformActor* a = invalidator->user_data;
+		AGlScene* scene = actor->root;
+
+		if (!a->waveform->priv->num_peaks) return false;
+
+		_wf_actor_load_missing_blocks(a); // this loads _current_ values, future values are loaded by the animator preview
+
+		// because this is asynchronous, any caches may consist of an empty render.
+		agl_actor__invalidate(actor);
+
+		if(scene && scene->draw) wf_context_queue_redraw(a->context);
+
+		return true;
+	}
+	((Invalidator*)actor->behaviours[INVALIDATOR])->resolve[INVALIDATOR_DATA] = resolve_data;
+
 	_a->peakdata_ready = am_promise_new(a);
 
 	if(w) wf_actor_connect_waveform(a);
@@ -644,8 +692,6 @@ wf_actor_free (AGlActor* actor)
 	for(;l;l=l->next) wf_animation_remove((WfAnimation*)l->data);
 	g_list_free0(actor->transitions);
 
-	if(_a->load_render_data_queue) g_source_remove(_a->load_render_data_queue);
-
 	if(a->waveform){
 		wf_actor_disconnect_waveform(a);
 		_g_signal_handler_disconnect0(a->context, _a->handlers.dimensions_changed);
@@ -706,7 +752,7 @@ wf_actor_waveform_finalize_notify (gpointer _actor, GObject* was)
 		if(c->actor->waveform == w){
 			if(waveform_get_n_frames(w)){
 				c->actor->context->sample_rate = c->actor->waveform->samplerate;
-				wf_actor_queue_load_render_data(c->actor);
+				invalidator_invalidate_item(((Invalidator*)((AGlActor*)c->actor)->behaviours[INVALIDATOR]), INVALIDATOR_DATA);
 			}
 
 			if(c->callback) c->callback(c->actor, c->user_data);
@@ -778,7 +824,7 @@ wf_actor_set_waveform_sync (WaveformActor* a, Waveform* waveform)
 
 	if(waveform_get_n_frames(a->waveform)){
 		a->context->sample_rate = a->waveform->samplerate;
-		wf_actor_queue_load_render_data(a);
+		invalidator_invalidate_item(((Invalidator*)((AGlActor*)a)->behaviours[INVALIDATOR]), INVALIDATOR_DATA);
 		wf_actor_set_region(a, &(WfSampleRegion){0, waveform_get_n_frames(a->waveform)});
 		wf_actor_after_set_waveform (a);
 	}
@@ -811,7 +857,8 @@ wf_actor_set_region (WaveformActor* a, WfSampleRegion* region)
 
 	if(!start && !end) return;
 
-	if(agl_actor__width(actor) > 0.00001) wf_actor_queue_load_render_data(a);
+	if(agl_actor__width(actor) > 0.00001)
+		invalidator_invalidate_item((Invalidator*)actor->behaviours[INVALIDATOR], INVALIDATOR_DATA);
 
 	if(!(scene && scene->draw) || !scene->enable_animations){
 		a->region = *region;
@@ -1268,12 +1315,12 @@ wf_actor_clear (WaveformActor* actor)
 	// note that we cannot clear outstanding requests for loading audio as we
 	// dont track who made the requests.
 
-	WfActorPriv* a = actor->priv;
 	Waveform* w = actor->waveform;
 
-	if(a->load_render_data_queue){
-		g_source_remove(a->load_render_data_queue);
-		a->load_render_data_queue = 0;
+	Invalidator* invalidator = (Invalidator*)((AGlActor*)actor)->behaviours[INVALIDATOR];
+	if (invalidator->recheck_queue) {
+		g_source_remove(invalidator->recheck_queue);
+		invalidator->recheck_queue = 0;
 	}
 
 	waveform_free_render_data(w);
@@ -1313,7 +1360,7 @@ _wf_actor_get_viewport_max (WaveformActor* a, WfViewPort* viewport)
 #define ZOOM_V_LO (1.0/65536) // transition point from v-low-res to low-res.
 
 static inline Mode
-get_mode(double zoom)
+get_mode (double zoom)
 {
 	return (zoom > ZOOM_HI)
 		? MODE_V_HI
@@ -1434,35 +1481,6 @@ _wf_actor_allocate_hi (WaveformActor* a)
 	}
 #endif
 #endif
-}
-
-
-static gboolean
-__load_render_data (gpointer _a)
-{
-	WaveformActor* a = _a;
-	AGlScene* scene = ((AGlActor*)a)->root;
-
-	if(!a->waveform->priv->num_peaks) return G_SOURCE_CONTINUE; // TODO use peakdata-ready instead
-
-	_wf_actor_load_missing_blocks(a); // this loads _current_ values, future values are loaded by the animator preview
-
-	// because this is asynchronous, any caches may consist of an empty render.
-	agl_actor__invalidate((AGlActor*)a);
-
-	if(scene && scene->draw) wf_context_queue_redraw(a->context);
-	a->priv->load_render_data_queue = 0;
-
-	return G_SOURCE_REMOVE;
-}
-
-
-static void
-wf_actor_queue_load_render_data (WaveformActor* a)
-{
-	WfActorPriv* _a = a->priv;
-
-	if(!_a->load_render_data_queue) _a->load_render_data_queue = g_timeout_add(10, __load_render_data, a);
 }
 
 
@@ -1669,7 +1687,8 @@ wf_actor_set_rect (WaveformActor* a, WfRectangle* rect)
 
 	dbg(2, "rect: %.0f --> %0.f", actor->region.x1, actor->region.x2);
 
-	if(a->region.len && !have_full_render && a->waveform->priv->num_peaks) wf_actor_queue_load_render_data(a);
+	if(a->region.len && !have_full_render && a->waveform->priv->num_peaks)
+		invalidator_invalidate_item((Invalidator*)actor->behaviours[INVALIDATOR], INVALIDATOR_DATA);
 
 	if(animate){
 		if(left_changed || len_changed){
