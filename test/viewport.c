@@ -23,9 +23,9 @@
 #include <gdk/gdkkeysyms.h>
 #include "agl/gtk.h"
 #include "agl/shader.h"
+#include "agl/behaviours/cache.h"
 #include "waveform/actor.h"
 #include "test/common2.h"
-#include "test/_cache_behaviour.h"
 
 struct
 {

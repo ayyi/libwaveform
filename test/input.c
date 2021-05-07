@@ -68,7 +68,7 @@ main (int argc, char *argv[])
 #else
 	text_input_set_placeholder((TextInput*)layers.input, "Search");
 #endif
-	agl_observable_set(((TextInput*)layers.input)->font, 32);
+	agl_observable_set_int (((TextInput*)layers.input)->font, 32);
 
 	scene->selected = layers.input;
 
