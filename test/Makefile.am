@@ -161,7 +161,6 @@ input_SOURCES = \
 
 viewport_SOURCES = \
 	$(COMMON2_SOURCES) \
-	_cache_behaviour.c _cache_behaviour.h \
 	viewport.c
 
 promise_SOURCES = \
@@ -208,6 +207,11 @@ input_LDADD = \
 LDADD = \
 	$(OPENGL_LDFLAGS) \
 	$(TEST_LDFLAGS)
+
+view_plus_DEPENDENCIES = \
+	../.libs/libwaveformcore.a \
+	../.libs/libwaveformui.a \
+	../lib/agl/.libs/libagl.a
 
 endif
 
