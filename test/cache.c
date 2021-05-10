@@ -461,7 +461,7 @@ _check_scroll (gpointer _c)
 		WF_TEST_FINISH_TIMER_STOP;
 	}
 
-	return TIMER_STOP;
+	return G_SOURCE_REMOVE;
 }
 
 
@@ -690,7 +690,7 @@ test_hi_double()
 			}
 
 			g_timeout_add(2000, check_not_in_cache, c);
-			return TIMER_STOP;
+			return G_SOURCE_REMOVE;
 		}
 
 static void
