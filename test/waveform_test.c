@@ -31,13 +31,14 @@
 #include "waveform/pixbuf.h"
 #include "test/common.h"
 
-TestFn test_peakgen, test_bad_wav, test_audio_file, test_audiodata, test_audio_cache, test_alphabuf, test_transition, test_worker, test_thumbnail;
+TestFn test_peakgen, test_bad_wav, test_empty_wav, test_audio_file, test_audiodata, test_audio_cache, test_alphabuf, test_transition, test_worker, test_thumbnail;
 
 static void finalize_notify(gpointer, GObject*);
 
 gpointer tests[] = {
 	test_peakgen,
 	test_bad_wav,
+	test_empty_wav,
 	test_audio_file,
 	test_audiodata,
 	test_audio_cache,
@@ -112,7 +113,7 @@ test_bad_wav ()
 	assert(error, "expected error");
 	g_error_free(error);
 
-	void callback(Waveform* w, GError* error, gpointer _c)
+	void callback (Waveform* w, GError* error, gpointer _c)
 	{
 		PF;
 		WfTest* c = _c;
@@ -125,6 +126,38 @@ test_bad_wav ()
 	Waveform* w = waveform_new(NULL);
 	waveform_set_file(w, "bad.wav");
 	waveform_load(w, callback,
+		WF_NEW(C1,
+			.test = {
+				.test_idx = current_test,
+			}
+		)
+	);
+}
+
+
+/*
+ *  Test valid wav file with length 0
+ */
+void
+test_empty_wav ()
+{
+	START_TEST;
+	if (__test_idx);
+
+	char* filename = find_wav ("mono_0:00.wav");
+	Waveform* w = waveform_new (filename);
+	g_free (filename);
+
+	void callback (Waveform* w, GError* error, gpointer _c)
+	{
+		WfTest* c = _c;
+
+		assert(error, "expected GError")
+
+		WF_TEST_FINISH;
+	}
+
+	waveform_load (w, callback,
 		WF_NEW(C1,
 			.test = {
 				.test_idx = current_test,
@@ -152,14 +185,14 @@ test_audio_file ()
 		"mono_24b_0:10.wav", "stereo_24b_0:10.wav"
 	};
 
-	int i; for(i=0;i<G_N_ELEMENTS(filenames);i++){
+	for (int i=0;i<G_N_ELEMENTS(filenames);i++) {
 		WfDecoder f = {{0,}};
 		char* filename = find_wav(filenames[i]);
-		if(!ad_open(&f, filename)) FAIL_TEST("file open: %s", filenames[i]);
+		if (!ad_open(&f, filename)) FAIL_TEST("file open: %s", filenames[i]);
 
-		if(!g_str_has_suffix(filenames[i], ".opus")){
+		if (!g_str_has_suffix(filenames[i], ".opus")) {
 			assert(f.info.sample_rate == 44100, "samplerate: %i (expected 44100)", f.info.sample_rate);
-		}else{
+		} else {
 			assert(f.info.sample_rate == 48000, "samplerate: %i (expected 48000)", f.info.sample_rate);
 		}
 
@@ -179,10 +212,11 @@ test_audio_file ()
 			total += readcount;
 		} while (readcount > 0);
 		dbg(1, "diff=%zu", abs((int)total - (int)f.info.frames));
-		if(g_str_has_suffix(filenames[i], ".wav") || g_str_has_suffix(filenames[i], ".flac")){
+
+		if (g_str_has_suffix(filenames[i], ".wav") || g_str_has_suffix(filenames[i], ".flac")) {
 			assert(total == f.info.frames, "%s: incorrect number of frames read: %"PRIi64" (expected %"PRIi64")", filenames[i], total, f.info.frames);
 			assert(!(total % 512) || !(total % 100), "%s: bad framecount: %zu", filenames[i], total); // test file sizes are always a round number
-		}else{
+		} else {
 			// for some file types, f.info.frames is only an estimate
 			assert(abs((int)total - (int)f.info.frames) < 2048, "%s: incorrect number of frames read: %"PRIi64" (expected %"PRIi64")", filenames[i], total, f.info.frames);
 		}
