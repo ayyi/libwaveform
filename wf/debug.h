@@ -1,7 +1,7 @@
 /**
 * +----------------------------------------------------------------------+
 * | This file is part of the Ayyi project. http://ayyi.org               |
-* | copyright (C) 2012-2020 Tim Orford <tim@orford.org>                  |
+* | copyright (C) 2012-2021 Tim Orford <tim@orford.org>                  |
 * +----------------------------------------------------------------------+
 * | This program is free software; you can redistribute it and/or modify |
 * | it under the terms of the GNU General Public License version 3       |
@@ -15,8 +15,7 @@
 extern int wf_debug;
 #endif
 
-#ifndef __wf_debug_h__
-#define __wf_debug_h__
+#pragma once
 
 #include <sys/time.h>
 
@@ -28,5 +27,4 @@ extern int wf_debug;
 
 #include "debug/debug.h"
 
-#endif
 #endif

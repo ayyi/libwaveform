@@ -6,6 +6,7 @@ AM_CFLAGS = \
 	-DPACKAGE_DATA_DIR=\""$(datadir)"\" \
 	-I$(includedir) \
 	-I$(top_srcdir) \
+	-I$(top_srcdir)/lib \
 	$(GLIB_CFLAGS)
 
 noinst_LTLIBRARIES = libwfcore.la

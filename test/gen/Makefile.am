@@ -8,9 +8,7 @@ DATA_DIR = ../data
 FFMPEG = ffmpeg -y -loglevel warning
 
 AM_CFLAGS = \
-	-D_FILE_OFFSET_BITS=64 \
-	-I$(top_srcdir) \
-	-I$(top_srcdir)/libs
+	-D_FILE_OFFSET_BITS=64
 
 if ENABLE_GTK
 GTKGLEXT_LDFLAGS = \

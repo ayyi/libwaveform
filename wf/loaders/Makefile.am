@@ -16,6 +16,7 @@ AM_CFLAGS = \
 	-D_FILE_OFFSET_BITS=64 \
 	-I$(includedir) \
 	-I$(top_srcdir) \
+	-I$(top_srcdir)/lib \
 	$(GTK_CFLAGS) \
 	$(LIBASS_CFLAGS) \
 	$(SDL_CFLAGS) \

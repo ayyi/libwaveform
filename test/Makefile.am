@@ -52,7 +52,7 @@ TEST_LDFLAGS = \
 	$(top_srcdir)/.libs/libwaveformui.a \
 	$(top_srcdir)/.libs/libwaveformcore.a \
 	$(top_srcdir)/lib/agl/.libs/libagl.a \
-	../debug/.libs/libayyidebug.a \
+	../lib/debug/.libs/libayyidebug.a \
 	$(OPENGL_LDFLAGS) \
 	$(GL_LOADER_LDFLAGS) \
 	$(LIBASS_LDFLAGS) \
