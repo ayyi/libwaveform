@@ -366,6 +366,7 @@ AC_CONFIG_FILES([
 	gtkglext-1.0/Makefile
 	lib/Makefile
 	lib/debug/Makefile
+	lib/test/Makefile
 	decoder/Makefile
 	ui/Makefile
 	ui/actors/Makefile

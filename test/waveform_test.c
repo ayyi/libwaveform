@@ -1,24 +1,17 @@
 /*
+ +----------------------------------------------------------------------+
+ | This file is part of the Ayyi project. https://www.ayyi.org          |
+ | copyright (C) 2012-2021 Tim Orford <tim@orford.org>                  |
+ +----------------------------------------------------------------------+
+ | This program is free software; you can redistribute it and/or modify |
+ | it under the terms of the GNU General Public License version 3       |
+ | as published by the Free Software Foundation.                        |
+ +----------------------------------------------------------------------+
+ |
+ | libwaveform unit tests
+ |
+ */
 
-  libwaveform unit tests
-
-  --------------------------------------------------------------
-
-  Copyright (C) 2012-2020 Tim Orford <tim@orford.org>
-
-  This program is free software; you can redistribute it and/or modify
-  it under the terms of the GNU General Public License version 3
-  as published by the Free Software Foundation.
-
-  This program is distributed in the hope that it will be useful,
-  but WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-  GNU General Public License for more details.
-
-  You should have received a copy of the GNU General Public License
-  along with this program; if not, write to the Free Software
-  Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
-*/
 #define __wf_private__
 #include "config.h"
 #include <getopt.h>
@@ -128,7 +121,7 @@ test_bad_wav ()
 	waveform_load(w, callback,
 		WF_NEW(C1,
 			.test = {
-				.test_idx = current_test,
+				.test_idx = TEST.current.test,
 			}
 		)
 	);
@@ -160,7 +153,7 @@ test_empty_wav ()
 	waveform_load (w, callback,
 		WF_NEW(C1,
 			.test = {
-				.test_idx = current_test,
+				.test_idx = TEST.current.test,
 			}
 		)
 	);
@@ -236,7 +229,7 @@ test_audio_file ()
 
 		if(wf_debug) printf("\n");
 		dbg(1, "block=%i", block);
-		reset_timeout(5000);
+		test_reset_timeout(5000);
 
 		if(++c1->n >= c1->tot_blocks){
 			g_signal_handler_disconnect((gpointer)waveform, c1->ready_handler);
@@ -254,7 +247,7 @@ test_audiodata ()
 
 	C1* c = WF_NEW(C1,
 		.test = {
-			.test_idx = current_test,
+			.test_idx = TEST.current.test,
 		}
 	);
 
@@ -287,7 +280,7 @@ test_audiodata ()
 
 		if(wf_debug) printf("\n");
 		dbg(1, "block=%i", block);
-		reset_timeout(5000);
+		test_reset_timeout(5000);
 
 		c1->n++;
 		if(c1->n < tot_blocks){
@@ -310,7 +303,7 @@ test_audiodata_slow ()
 #if 0
 	C1* c = WF_NEW(C1,
 		.test = {
-			.test_idx = current_test,
+			.test_idx = TEST.current.test,
 		}
 	);
 #endif
@@ -341,7 +334,7 @@ test_audio_cache__after_unref (gpointer _c)
 		C1* c = _c;
 
 		dbg(1, "block=%i", block);
-		reset_timeout(5000);
+		test_reset_timeout(5000);
 
 		c->n++;
 		if(c->n >= tot_blocks){
@@ -365,7 +358,7 @@ test_audio_cache ()
 
 	C1* c = WF_NEW(C1,
 		.test = {
-			.test_idx = current_test,
+			.test_idx = TEST.current.test,
 		}
 	);
 
@@ -472,7 +465,7 @@ test_worker ()
 	static int n_workers_done = 0;
 	static int W = -1;
 
-	static int i_max = 20;
+	static int i_max = 15;
 
 	typedef struct {
 		WfWorker worker;
@@ -522,7 +515,7 @@ test_worker ()
 				g_idle_add(__finish, NULL);
 			}
 
-			reset_timeout(10000);
+			test_reset_timeout(10000);
 		}
 
 		void c_free (gpointer _c)
@@ -555,7 +548,7 @@ test_worker ()
 
 		gboolean main_thread ()
 		{
-			if(__test_idx != current_test) return G_SOURCE_REMOVE;
+			if(__test_idx != TEST.current.test) return G_SOURCE_REMOVE;
 
 			if(mem) g_free(mem);
 			mem = g_malloc(get_random_int(1024 * 1024));

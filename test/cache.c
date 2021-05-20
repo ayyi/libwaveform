@@ -114,7 +114,7 @@ void
 create_files ()
 {
 	START_TEST;
-	reset_timeout(60000);
+	test_reset_timeout(60000);
 
 	char* wavs[] = {WAV1, WAV2};
 

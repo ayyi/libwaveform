@@ -1,27 +1,18 @@
 /*
-
-  libwaveform large files test
-  ----------------------------
-
-  This is a non-interactive test.
-
-  --------------------------------------------------------------
-
-  Copyright (C) 2012-2020 Tim Orford <tim@orford.org>
-
-  This program is free software; you can redistribute it and/or modify
-  it under the terms of the GNU General Public License version 3
-  as published by the Free Software Foundation.
-
-  This program is distributed in the hope that it will be useful,
-  but WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-  GNU General Public License for more details.
-
-  You should have received a copy of the GNU General Public License
-  along with this program; if not, write to the Free Software
-  Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
-*/
+ +----------------------------------------------------------------------+
+ | This file is part of the Ayyi project. https://www.ayyi.org          |
+ | copyright (C) 2012-2021 Tim Orford <tim@orford.org>                  |
+ +----------------------------------------------------------------------+
+ | This program is free software; you can redistribute it and/or modify |
+ | it under the terms of the GNU General Public License version 3       |
+ | as published by the Free Software Foundation.                        |
+ +----------------------------------------------------------------------+
+ |
+ | libwaveform large files test
+ |
+ | This is a non-interactive test.
+ |
+ */
 #define __wf_private__
 #include "config.h"
 #include <getopt.h>
@@ -64,7 +55,7 @@ void
 create_large_files ()
 {
 	START_TEST;
-	reset_timeout(60000);
+	test_reset_timeout(60000);
 
 	create_large_file(WAV1);
 	create_large_file(WAV2);
@@ -121,7 +112,7 @@ test_load ()
 		}
 
 		dbg(0, "==========================================================");
-		reset_timeout(40000);
+		test_reset_timeout(40000);
 
 		Waveform* w = waveform_new(wavs[wi++]);
 		g_object_weak_ref((GObject*)w, finalize_notify, NULL);
@@ -177,7 +168,7 @@ test_audiodata ()
 		C* c = data;
 
 		dbg(1, ">> block=%i", block);
-		reset_timeout(5000);
+		test_reset_timeout(5000);
 
 		WfAudioData* audio = &waveform->priv->audio;
 		if(audio->buf16){

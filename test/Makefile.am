@@ -39,6 +39,7 @@ AM_CFLAGS = \
 	-fno-common \
 	-D_FILE_OFFSET_BITS=64 \
 	-I$(top_srcdir) \
+	-I$(top_srcdir)/lib \
 	-I$(top_srcdir)/lib/agl \
 	$(LOCAL_GTKGLEXT_CFLAGS) \
 	$(OPENGL_CFLAGS) \
@@ -53,6 +54,7 @@ TEST_LDFLAGS = \
 	$(top_srcdir)/.libs/libwaveformcore.a \
 	$(top_srcdir)/lib/agl/.libs/libagl.a \
 	../lib/debug/.libs/libayyidebug.a \
+	../lib/test/.libs/libtest.a \
 	$(OPENGL_LDFLAGS) \
 	$(GL_LOADER_LDFLAGS) \
 	$(LIBASS_LDFLAGS) \

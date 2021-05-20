@@ -3,4 +3,4 @@ if ENABLE_SUBMODULES
 AGL_SUBDIRS = agl
 endif
 
-SUBDIRS = debug $(AGL_SUBDIRS)
+SUBDIRS = debug test $(AGL_SUBDIRS)

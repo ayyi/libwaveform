@@ -68,7 +68,7 @@ void
 create_files ()
 {
 	START_TEST;
-	reset_timeout(60000);
+	test_reset_timeout(60000);
 
 	void create_file (char* filename)
 	{
@@ -189,7 +189,7 @@ test_load ()
 			}
 		}
 
-		reset_timeout(40000);
+		test_reset_timeout(40000);
 
 		char* filename = find_wav(wavs[c->wi]);
 		Waveform* w = waveform_new(filename);
@@ -290,7 +290,7 @@ test_audiodata ()
 		C* c = data;
 
 		dbg(1, ">> block=%i", block);
-		reset_timeout(5000);
+		test_reset_timeout(5000);
 
 		WfAudioData* audio = &waveform->priv->audio;
 		if(audio->buf16){

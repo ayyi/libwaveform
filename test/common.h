@@ -12,33 +12,13 @@
  | (move stuff for non-automated tests to common2.h)
  |
  */
+
 #include "wf/debug.h"
 #include "wf/waveform.h"
+#include "test/runner.h"
 #include "test/common2.h"
 
 #define TIMER_CONTINUE TRUE
-
-extern int current_test;
-
-#ifndef __common_c__
-extern
-#endif
-struct _app
-{
-	int            timeout;
-	int            n_passed;
-#ifdef __common_c__
-} app = {0,};
-#else
-} app;
-#endif
-
-typedef void (*Test)    ();
-
-void test_init          (gpointer tests[], int);
-void next_test          ();
-void test_finished_     ();
-void reset_timeout      (int ms);
 
 bool get_random_boolean ();
 int  get_random_int     (int max);
@@ -48,54 +28,15 @@ void errprintf4         (char* format, ...);
 
 KeyHandler* key_lookup  (int keycode);
 
-#define START_TEST \
-	static int step = 0;\
-	static int __test_idx; \
-	__test_idx = current_test; \
-	if(!step){ \
-		g_strlcpy(current_test_name, __func__, 64); \
-		printf("%srunning %i of %zu: %s%s ...\n", ayyi_bold, current_test + 1, G_N_ELEMENTS(tests), __func__, ayyi_white); \
-	} \
-	if(test_finished) return;
-
 #define START_LONG_TEST \
 	START_TEST; \
-	g_source_remove (app.timeout); \
-	app.timeout = 0;
+	g_source_remove (TEST.timeout); \
+	TEST.timeout = 0;
 
 #define NEXT_CALLBACK(A, B, C) \
 	step++; \
 	void (*callback)() = callbacks[step]; \
 	callback(A, B, C);
-
-#define FINISH_TEST \
-	if(__test_idx != current_test) return; \
-	printf("%s: finish\n", current_test_name); \
-	test_finished = true; \
-	passed = true; \
-	test_finished_(); \
-	return;
-
-#define FINISH_TEST_TIMER_STOP \
-	if(__test_idx != current_test) return G_SOURCE_REMOVE; \
-	test_finished = true; \
-	passed = true; \
-	test_finished_(); \
-	return G_SOURCE_REMOVE;
-
-#define FAIL_TEST(msg, ...) \
-	{test_finished = true; \
-	passed = false; \
-	errprintf4(msg, ##__VA_ARGS__); \
-	test_finished_(); \
-	return; }
-
-#define FAIL_TEST_TIMER(msg) \
-	{test_finished = true; \
-	passed = false; \
-	printf("%s%s%s\n", red, msg, ayyi_white); \
-	test_finished_(); \
-	return G_SOURCE_REMOVE;}
 
 typedef struct {
 	int test_idx;
@@ -105,26 +46,26 @@ WfTest* wf_test_new();
 
 #define NEW_TEST() \
 	({ \
-	g_strlcpy(current_test_name, __func__, 64); \
-	printf("%srunning %i of %zu: %s%s ...\n", ayyi_bold, current_test + 1, G_N_ELEMENTS(tests), __func__, ayyi_white); \
-	if(test_finished) return; \
+	g_strlcpy(TEST.current.name, __func__, 64); \
+	printf("%srunning %i of %zu: %s%s ...\n", ayyi_bold, TEST.current.test + 1, G_N_ELEMENTS(tests), __func__, ayyi_white); \
+	if(TEST.current.finished) return; \
 	wf_test_new(); \
 	})
 
 #define WF_TEST_FINISH \
-	if(c->test_idx != current_test) return; \
-	printf("%s: finish\n", current_test_name); \
-	test_finished = true; \
-	passed = true; \
-	test_finished_(); \
+	if(c->test_idx != TEST.current.test) return; \
+	printf("%s: finish\n", TEST.current.name); \
+	TEST.current.finished = true; \
+	TEST.passed = true; \
+	test_finish(); \
 	wf_free(c); \
 	return;
 
 #define WF_TEST_FINISH_TIMER_STOP \
-	if(c->test_idx != current_test) return G_SOURCE_REMOVE; \
-	test_finished = true; \
-	passed = true; \
-	test_finished_(); \
+	if(c->test_idx != TEST.current.test) return G_SOURCE_REMOVE; \
+	TEST.current.finished = true; \
+	TEST.passed = true; \
+	test_finish(); \
 	wf_free(c); \
 	return G_SOURCE_REMOVE;
 
@@ -143,10 +84,3 @@ WfTest* wf_test_new();
 
 typedef void (TestFn)();
 
-#ifdef __common_c__
-char       current_test_name[64];
-#else
-extern gboolean passed;
-extern int      test_finished;
-extern char     current_test_name[];
-#endif
