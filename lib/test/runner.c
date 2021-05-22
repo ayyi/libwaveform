@@ -26,7 +26,7 @@ static void next_test ();
 
 bool abort_on_fail = true;
 
-static gboolean fn(gpointer user_data) { next_test(); return G_SOURCE_REMOVE; }
+static gboolean fn (gpointer user_data) { next_test(); return G_SOURCE_REMOVE; }
 
 
 void
@@ -76,7 +76,7 @@ next_test ()
 		TEST.current.finished = false;
 		gboolean (*test)() = tests[TEST.current.test];
 		dbg(2, "test %i of %i.", TEST.current.test + 1, TEST.n_tests);
-		g_timeout_add(300, run_test, test);
+		g_timeout_add(200, run_test, test);
 
 		TEST.timeout = g_timeout_add(30000, on_test_timeout, NULL);
 	} else {
