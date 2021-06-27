@@ -89,14 +89,14 @@ WaveformActor's share a common WfContext object to allow multiple
 waveforms to be positioned and scaled togeter.
 The context has the following directly settable properties:
 ```c
-	uint32_t sample_rate
-	float    bpm
-	float    samples_per_pixel
-	int64_t  start_time
-	float    v_gain
+uint32_t sample_rate
+float    bpm
+float    samples_per_pixel
+int64_t  start_time
+float    v_gain
 ```
 
-For a demonstration of usage, see: test/actor_test.c
+For a demonstration of usage, see: [test/actor.c](test/actor.c)
 
 Support for different peak formats is provided by 'loaders'. As
 well as the default peak file loader, an Ardour session loader is
@@ -110,11 +110,11 @@ or you can specify your own loader.
 GdkPixbuf
 ---------
 
-Libwaveform provides the function waveform_render_peak_to_pixbuf().
-Support for splitting the audio into blocks is not explicitly provided
-and has to be done manually.
+Libwaveform provides the functions waveform_peak_to_pixbuf() and waveform_peak_to_pixbuf_async().
 
 GdkPixbuf is useful as an intermediate step to producing PNG output.
+
+See [test/pixbuf.c](test/pixbuf.c)
 
 
 AlphaBuf
