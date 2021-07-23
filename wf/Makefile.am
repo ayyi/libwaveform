@@ -7,6 +7,7 @@ AM_CFLAGS = \
 	-I$(includedir) \
 	-I$(top_srcdir) \
 	-I$(top_srcdir)/lib \
+	$(FFMPEG_CFLAGS) \
 	$(GLIB_CFLAGS)
 
 noinst_LTLIBRARIES = libwfcore.la

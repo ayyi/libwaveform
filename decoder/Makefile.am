@@ -4,6 +4,7 @@ noinst_LTLIBRARIES = libdecoder.la
 AM_CFLAGS = \
 	-DG_LOG_DOMAIN=\"Decoder\" \
 	-I$(includedir) \
+	$(FFMPEG_CFLAGS) \
 	$(GLIB_CFLAGS)
 
 if ENABLE_FFMPEG
