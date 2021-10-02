@@ -180,6 +180,11 @@ PANGO_LIBS=`pkg-config --libs pangocairo`
 AC_SUBST(PANGO_CFLAGS)
 AC_SUBST(PANGO_LIBS)
 
+FRIBIDI_CFLAGS=`pkg-config --cflags fribidi`
+FRIBIDI_LDFLAGS=`pkg-config --libs fribidi`
+AC_SUBST(FRIBIDI_CFLAGS)
+AC_SUBST(FRIBIDI_LDFLAGS)
+
 dnl -opengl----------------------------------------------
 
 AM_CONDITIONAL(AGL_ENABLE_GTKGLEXT, false)
@@ -386,6 +391,7 @@ if test "$enable_submodules" = "yes"; then
 		lib/agl/actors/Makefile
 		lib/agl/debug/Makefile
 		lib/agl/glib/Makefile
+		lib/agl/glib/glib/Makefile
 		lib/agl/sdl/Makefile
 		lib/agl/transition/Makefile
 		lib/agl/test/Makefile
