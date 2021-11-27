@@ -13,6 +13,7 @@
 #pragma once
 
 typedef void (*Test) ();
+typedef void (TestFn) ();
 
 typedef struct {
 	int n_tests;
@@ -20,6 +21,7 @@ typedef struct {
 	int n_failed;
 	int timeout;
 	bool passed;
+	bool is_gtk;
 	struct {
 		int    test;
 		char   name[64];
@@ -33,13 +35,17 @@ Test_t TEST = {.current = {-1}};
 extern Test_t TEST;
 #endif
 
-void test_init          (gpointer tests[], int);
 void test_finish        ();
 void test_reset_timeout (int ms);
+void test_errprintf     (char*, ...);
 
+#ifndef red
+#define RED "\x1b[1;31m"
+#define GREEN "\x1b[1;32m"
+#endif
 
 #define START_TEST \
-	static int step = 0;\
+	static int step = 0; \
 	static int __test_idx; \
 	__test_idx = TEST.current.test; \
 	if(!step){ \
@@ -66,16 +72,23 @@ void test_reset_timeout (int ms);
 #define FAIL_TEST(msg, ...) \
 	{TEST.current.finished = true; \
 	TEST.passed = false; \
-	errprintf4(msg, ##__VA_ARGS__); \
+	test_errprintf(msg, ##__VA_ARGS__); \
 	test_finish(); \
 	return; }
 
 #define FAIL_TEST_TIMER(msg) \
 	{TEST.current.finished = true; \
 	TEST.passed = false; \
-	printf("%s%s%s\n", red, msg, ayyi_white); \
+	printf("%s%s%s\n", RED, msg, ayyi_white); \
 	test_finish(); \
 	return G_SOURCE_REMOVE;}
 
-extern char red      [10];
-extern char green    [10];
+#define assert(A, B, ...) \
+	{bool __ok_ = ((A) != 0); \
+	{if(!__ok_) perr(B, ##__VA_ARGS__); } \
+	{if(!__ok_) FAIL_TEST("assertion failed") }}
+
+#define assert_and_stop(A, B, ...) \
+	{bool __ok_ = ((A) != 0); \
+	{if(!__ok_) perr(B, ##__VA_ARGS__); } \
+	{if(!__ok_) FAIL_TEST_TIMER("assertion failed") }}

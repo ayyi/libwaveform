@@ -81,11 +81,9 @@ int x = 0.0;
 void image_async (GtkAllocation*);
 
 
-int
-main (int argc, char* argv[])
+bool
+setup (int argc, char* argv[])
 {
-	set_log_handlers();
-
 	wf_debug = 0;
 
 	gtk_init(&argc, &argv);

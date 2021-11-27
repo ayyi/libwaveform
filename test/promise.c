@@ -1,30 +1,25 @@
 /*
+ +----------------------------------------------------------------------+
+ | This file is part of the Ayyi project. https://www.ayyi.org          |
+ | copyright (C) 2012-2021 Tim Orford <tim@orford.org>                  |
+ +----------------------------------------------------------------------+
+ | This program is free software; you can redistribute it and/or modify |
+ | it under the terms of the GNU General Public License version 3       |
+ | as published by the Free Software Foundation.                        |
+ +----------------------------------------------------------------------+
+ |
+ | Tests for the libwaveform Promise object
+ |
+ */
 
-  Tests for the libwaveform Promise object
-
-  --------------------------------------------------------------
-
-  Copyright (C) 2012-2020 Tim Orford <tim@orford.org>
-
-  This program is free software; you can redistribute it and/or modify
-  it under the terms of the GNU General Public License version 3
-  as published by the Free Software Foundation.
-
-  This program is distributed in the hope that it will be useful,
-  but WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-  GNU General Public License for more details.
-
-  You should have received a copy of the GNU General Public License
-  along with this program; if not, write to the Free Software
-  Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
-*/
 #define __wf_private__
+
 #include "config.h"
 #include <glib.h>
 #include "decoder/ad.h"
 #include "wf/waveform.h"
-#include "test/common.h"
+#include "test/runner.h"
+#include "test/utils.h"
 
 TestFn test_1, test_2_when, test_3, test_4_many;
 
@@ -35,16 +30,7 @@ gpointer tests[] = {
 	test_4_many,
 };
 
-
-int
-main (int argc, char* argv[])
-{
-	test_init(tests, G_N_ELEMENTS(tests));
-
-	g_main_loop_run(g_main_loop_new (NULL, 0));
-
-	exit(1);
-}
+#include "test/common.c"
 
 
 void

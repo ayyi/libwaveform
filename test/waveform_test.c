@@ -13,8 +13,9 @@
  */
 
 #define __wf_private__
+#define __no_setup__
+
 #include "config.h"
-#include <getopt.h>
 #include <glib.h>
 #include "decoder/ad.h"
 #include "transition/transition.h"
@@ -22,7 +23,8 @@
 #include "wf/peakgen.h"
 #include "wf/worker.h"
 #include "waveform/pixbuf.h"
-#include "test/common.h"
+#include "test/utils.h"
+#include "test/runner.h"
 
 TestFn test_peakgen, test_bad_wav, test_empty_wav, test_audio_file, test_audiodata, test_audio_cache, test_alphabuf, test_transition, test_worker, test_thumbnail;
 
@@ -43,19 +45,10 @@ gpointer tests[] = {
 #endif
 };
 
+#include "test/common.c"
+
 #define WAV "mono_0:10.wav"
 #define WAV2 "stereo_0:10.wav"
-
-
-int
-main (int argc, char* argv[])
-{
-	test_init(tests, G_N_ELEMENTS(tests));
-
-	g_main_loop_run (g_main_loop_new (NULL, 0));
-
-	exit(1);
-}
 
 
 void

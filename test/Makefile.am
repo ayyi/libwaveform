@@ -48,6 +48,8 @@ AM_CFLAGS = \
 	$(GRAPHENE_CFLAGS) \
 	$(LIBASS_CFLAGS)
 
+promise_CFLAGS = -D__no_setup__ $(AM_CFLAGS)
+
 # be careful before changing the order here
 TEST_LDFLAGS = \
 	$(top_srcdir)/.libs/libwaveformui.a \
@@ -79,45 +81,45 @@ COMMON2_SOURCES = \
 	common2.c common2.h
 
 waveform_test_SOURCES = \
-	$(COMMON_SOURCES) \
+	$(COMMON2_SOURCES) \
 	waveform_test.c
 
 view_plus_SOURCES = \
-	$(COMMON_SOURCES) \
+	$(COMMON2_SOURCES) \
 	view_plus.c
 
 actor_SOURCES = \
-	$(COMMON_SOURCES) \
+	$(COMMON2_SOURCES) \
 	actor.c
 
 actor_no_scene_SOURCES = \
-	$(COMMON_SOURCES) \
+	$(COMMON2_SOURCES) \
 	actor_no_scene.c
 
 multi_scene_SOURCES = \
-	$(COMMON_SOURCES) \
+	$(COMMON2_SOURCES) \
 	multi_scene.c
 
 actor_plus_SOURCES = \
-	$(COMMON_SOURCES) \
+	$(COMMON2_SOURCES) \
 	actor_plus.c
 
 list_SOURCES = \
-	$(COMMON_SOURCES) \
+	$(COMMON2_SOURCES) \
 	list.c
 
 group_SOURCES = \
-	$(COMMON_SOURCES) \
+	$(COMMON2_SOURCES) \
 	group.c
 
-ass_SOURCES = $(COMMON_SOURCES) ass.c
+ass_SOURCES = $(COMMON2_SOURCES) ass.c
 
 hires_SOURCES = \
-	$(COMMON_SOURCES) \
+	$(COMMON2_SOURCES) \
 	hires.c
 
 res_vhi_SOURCES = \
-	$(COMMON_SOURCES) \
+	$(COMMON2_SOURCES) \
 	res_vhi.c
 
 frame_rate_SOURCES = \
@@ -129,7 +131,6 @@ resources_SOURCES = \
 	resources.c
 
 large_files_SOURCES = \
-	$(COMMON_SOURCES) \
 	large_files.c
 
 cache_SOURCES = \
@@ -166,9 +167,7 @@ viewport_SOURCES = \
 	$(COMMON2_SOURCES) \
 	viewport.c
 
-promise_SOURCES = \
-	$(COMMON_SOURCES) \
-	promise.c
+#promise_SOURCES = promise.c
 
 waveform_test_LDADD = \
 	$(TEST_LDFLAGS)

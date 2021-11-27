@@ -1083,9 +1083,9 @@ waveform_view_plus_gl_on_allocate (WaveformViewPlus* view)
 		waveform_actor_size(actor);
 
 		float width = agl_actor__width(actor->parent);
-		if(width > 0.0){
+		if (width > 0.0) {
 #ifdef AGL_ACTOR_RENDER_CACHE
-			actor->fbo = agl_fbo_new(agl_actor__width(actor), agl_actor__height(actor), 0, 0);
+			actor->fbo = agl_fbo_new(MAX(1, agl_actor__width(actor)), MAX(1, agl_actor__height(actor)), 0, 0);
 			actor->cache.enabled = true;
 #endif
 

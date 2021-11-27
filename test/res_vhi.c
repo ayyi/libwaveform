@@ -280,18 +280,24 @@ static gboolean
 on_idle (gpointer _)
 {
 	static uint64_t frame = 0;
+#ifdef DEBUG
 	static uint64_t t0    = 0;
+#endif
 
-	if(!frame)
+	if (!frame) {
+#ifdef DEBUG
 		t0 = g_get_monotonic_time();
-	else{
+#endif
+	} else {
+#ifdef DEBUG
 		uint64_t time = g_get_monotonic_time();
-		if(!(frame % 1000))
+		if (!(frame % 1000))
 			dbg(0, "rate=%.2f fps", ((float)frame) / ((float)(time - t0)) / 1000.0);
+#endif
 
-		if(!(frame % 8)){
+		if (!(frame % 8)) {
 			float v = (frame % 16) ? 2.0 : 1.0/2.0;
-			if(v > 16.0) v = 1.0;
+			if (v > 16.0) v = 1.0;
 			wf_context_set_zoom(wfc, v);
 		}
 	}

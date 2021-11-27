@@ -82,7 +82,7 @@ static const char* const short_options = "n";
 
 
 int
-main (int argc, char **argv)
+setup (int argc, char* argv[])
 {
 	wf_debug = 0;
 

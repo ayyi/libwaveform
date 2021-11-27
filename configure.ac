@@ -392,6 +392,8 @@ if test "$enable_submodules" = "yes"; then
 		lib/agl/debug/Makefile
 		lib/agl/glib/Makefile
 		lib/agl/glib/glib/Makefile
+		lib/agl/lib/Makefile
+		lib/agl/lib/test/Makefile
 		lib/agl/sdl/Makefile
 		lib/agl/transition/Makefile
 		lib/agl/test/Makefile

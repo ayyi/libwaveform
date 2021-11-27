@@ -13,7 +13,10 @@
  | This is a non-interactive test.
  |
  */
+
 #define __wf_private__
+#define __no_setup__
+
 #include "config.h"
 #include <getopt.h>
 #include <glib.h>
@@ -22,7 +25,8 @@
 #include <agl/utils.h>
 #include "wf/audio.h"
 #include "wf/peakgen.h"
-#include "test/common.h"
+#include "test/runner.h"
+#include "test/utils.h"
 
 TestFn create_large_files, test_audiodata, test_load, delete_large_files;
 
@@ -33,22 +37,10 @@ gpointer tests[] = {
 	delete_large_files,
 };
 
+#include "test/common.c"
+
 #define WAV1 "test/data/large1.wav"
 #define WAV2 "test/data/large2.wav"
-
-int
-main (int argc, char *argv[])
-{
-	if(sizeof(off_t) != 8){ perr("sizeof(off_t)=%zu\n", sizeof(off_t)); exit(1); }
-
-	wf_debug = 1;
-
-	test_init(tests, G_N_ELEMENTS(tests));
-
-	g_main_loop_run (g_main_loop_new (NULL, 0));
-
-	exit(1);
-}
 
 
 void

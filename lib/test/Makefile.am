@@ -8,7 +8,8 @@ AM_CFLAGS = \
 noinst_LTLIBRARIES = libtest.la
 
 libtest_la_SOURCES = \
-	runner.c runner.h
+	runner.c runner.h \
+	utils.c utils.h
 
 endif
 

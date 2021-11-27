@@ -89,4 +89,6 @@ invalidator_free (AGlBehaviour* behaviour)
 	Invalidator* invalidator = (Invalidator*)behaviour;
 
 	if (invalidator->recheck_queue) g_source_remove(invalidator->recheck_queue);
+
+	g_free(invalidator);
 }

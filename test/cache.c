@@ -1,12 +1,12 @@
 /*
- +---------------------------------------------------------------------
- | This file is part of the Ayyi project. https://www.ayyi.org
- | copyright (C) 2013-2021 Tim Orford <tim@orford.org>
- +---------------------------------------------------------------------
- | This program is free software; you can redistribute it and/or modify
- | it under the terms of the GNU General Public License version 3
- | as published by the Free Software Foundation.
- +----------------------------------------------
+ +----------------------------------------------------------------------+
+ | This file is part of the Ayyi project. https://www.ayyi.org          |
+ | copyright (C) 2013-2021 Tim Orford <tim@orford.org>                  |
+ +----------------------------------------------------------------------+
+ | This program is free software; you can redistribute it and/or modify |
+ | it under the terms of the GNU General Public License version 3       |
+ | as published by the Free Software Foundation.                        |
+ +----------------------------------------------------------------------+
  |
  | Tests for opengl textures using large files
  |
@@ -21,16 +21,11 @@
  */
 
 #define __wf_private__
+
 #include "config.h"
-#include <getopt.h>
-#include <time.h>
-#include <sys/time.h>
-#include <math.h>
 #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 #include <gtk/gtk.h>
 #pragma GCC diagnostic warning "-Wdeprecated-declarations"
-#include <gdk/gdkkeysyms.h>
-#include <glib/gstdio.h>
 #include "agl/gtk.h"
 #include "wf/audio.h"
 #include "wf/worker.h"
@@ -38,6 +33,7 @@
 #include "waveform/texture_cache.h"
 #include "waveform/ui-private.h"
 #include "test/common.h"
+#include "test/utils.h"
 
 extern void texture_cache_print ();
 extern void hi_ng_cache_print   ();
@@ -46,6 +42,16 @@ extern void hi_ng_cache_print   ();
 #define VBORDER 8
 #define WAV1 "large1.wav"
 #define WAV2 "large2.wav"
+
+WfTest* wf_test_new();
+
+#define NEW_TEST() \
+	({ \
+	g_strlcpy(TEST.current.name, __func__, 64); \
+	printf("%srunning %i of %zu: %s%s ...\n", ayyi_bold, TEST.current.test + 1, G_N_ELEMENTS(tests), __func__, ayyi_white); \
+	if(TEST.current.finished) return; \
+	wf_test_new(); \
+	})
 
 GdkGLConfig*    glconfig       = NULL;
 static bool     gl_initialised = false;
@@ -74,29 +80,29 @@ gpointer tests[] = {
 };
 
 
-int
-main (int argc, char *argv[])
+bool
+setup (int argc, char* argv[])
 {
-	wf_debug = 0;
-	test_init(tests, G_N_ELEMENTS(tests));
- 
+	TEST.is_gtk = true;
+	TEST.n_tests = G_N_ELEMENTS(tests);
+
 	ready = am_promise_new(NULL);
 
 	gtk_init(&argc, &argv);
-	if(!(glconfig = gdk_gl_config_new_by_mode(GDK_GL_MODE_RGBA | GDK_GL_MODE_DEPTH | GDK_GL_MODE_DOUBLE))){
-		perr ("Cannot initialise gtkglext."); return EXIT_FAILURE;
+	if (!(glconfig = gdk_gl_config_new_by_mode(GDK_GL_MODE_RGBA | GDK_GL_MODE_DEPTH | GDK_GL_MODE_DOUBLE))) {
+		perr ("Cannot initialise gtkglext.");
+		return EXIT_FAILURE;
 	}
 
 	GtkWidget* window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
 
 	canvas = gtk_drawing_area_new();
-#ifdef HAVE_GTK_2_18
 	gtk_widget_set_can_focus     (canvas, true);
-#endif
 	gtk_widget_set_size_request  (canvas, GL_WIDTH, 128);
 	gtk_widget_set_gl_capability (canvas, glconfig, NULL, 1, GDK_GL_RGBA_TYPE);
 	gtk_widget_add_events        (canvas, GDK_POINTER_MOTION_MASK | GDK_BUTTON_PRESS_MASK | GDK_BUTTON_RELEASE_MASK);
 	gtk_container_add            ((GtkContainer*)window, (GtkWidget*)canvas);
+
 	g_signal_connect((gpointer)canvas, "realize",       G_CALLBACK(on_canvas_realise), NULL);
 	g_signal_connect((gpointer)canvas, "size-allocate", G_CALLBACK(on_allocate), NULL);
 
@@ -106,7 +112,7 @@ main (int argc, char *argv[])
 
 	gtk_main();
 
-	return EXIT_SUCCESS;
+	return 0;
 }
 
 
@@ -118,11 +124,11 @@ create_files ()
 
 	char* wavs[] = {WAV1, WAV2};
 
-	int i; for(i=0;i<G_N_ELEMENTS(wavs);i++){
+	for (int i=0;i<G_N_ELEMENTS(wavs);i++) {
 		char* filename = find_wav(wavs[i]);
-		if(filename){
+		if (filename) {
 			wf_free(filename);
-		}else{
+		} else {
 			const char* dir = find_data_dir();
 			assert(dir, "data dir not found");
 
@@ -143,8 +149,7 @@ __test_shown (gpointer _c)
 	WfTest* c = _c;
 #ifdef AGL_ACTOR_RENDER_CACHE
 	AGlActor* actor = (AGlActor*)a[0];
-	if(actor->cache.valid){
-	}else{
+	if (!actor->cache.valid) {
 		extern bool wf_actor_test_is_not_blank(WaveformActor*);
 		assert_and_stop(wf_actor_test_is_not_blank(a[0]), "output is blank");
 	}
@@ -428,7 +433,7 @@ _check_scroll (gpointer _c)
 	assert_and_stop(animatable->val.i == *animatable->model_val.i, "animation not finished");
 	*/
 
-	if(g_list_length(((AGlActor*)a[0])->transitions)) return TIMER_CONTINUE; // not yet ready
+	if (g_list_length(((AGlActor*)a[0])->transitions)) return G_SOURCE_CONTINUE; // not yet ready
 
 	c->wait_count++;
 
@@ -447,17 +452,17 @@ _check_scroll (gpointer _c)
 	WfBuf16* buf = audio->buf16[region_start_block];
 	WfWorker* worker = &wf->audio_worker;
 	int n_jobs = g_list_length(worker->jobs);
-	if(n_jobs || !buf){
-		if(c->wait_count < 30) return TIMER_CONTINUE;
+	if (n_jobs || !buf) {
+		if (c->wait_count < 30) return G_SOURCE_CONTINUE;
 	}
 
 	//assert_and_stop(c->wait_count < 30, "timeout loading blocks");
 	assert_and_stop(buf, "buf is empty %i", region_start_block);
 	assert_and_stop(!n_jobs, "jobs still pending: %i", n_jobs);
 
-	if(++c->iter < c->n){
+	if (++c->iter < c->n) {
 		c->next(c);
-	}else{
+	} else {
 		WF_TEST_FINISH_TIMER_STOP;
 	}
 
@@ -535,7 +540,7 @@ typedef struct {
 			assert_and_stop(animatable->val.i == *animatable->model_val.i, "animation not finished");
 			*/
 
-			if(g_list_length(((AGlActor*)a[0])->transitions)) return TIMER_CONTINUE; // not yet ready
+			if (g_list_length(((AGlActor*)a[0])->transitions)) return G_SOURCE_CONTINUE; // not yet ready
 
 			c->wait_count++;
 
@@ -554,7 +559,7 @@ typedef struct {
 			WfBuf16* buf = audio->buf16[region_start_block];
 			int n_jobs = g_list_length(wf->audio_worker.jobs);
 			if(n_jobs || !buf){
-				if(c->wait_count < 30) return TIMER_CONTINUE;
+				if(c->wait_count < 30) return G_SOURCE_CONTINUE;
 			}
 
 			//assert_and_stop(wait_count < 30, "timeout loading blocks");

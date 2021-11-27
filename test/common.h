@@ -18,14 +18,6 @@
 #include "test/runner.h"
 #include "test/common2.h"
 
-#define TIMER_CONTINUE TRUE
-
-bool get_random_boolean ();
-int  get_random_int     (int max);
-void create_large_file  (char*);
-
-void errprintf4         (char* format, ...);
-
 KeyHandler* key_lookup  (int keycode);
 
 #define START_LONG_TEST \
@@ -41,16 +33,6 @@ KeyHandler* key_lookup  (int keycode);
 typedef struct {
 	int test_idx;
 } WfTest;
-
-WfTest* wf_test_new();
-
-#define NEW_TEST() \
-	({ \
-	g_strlcpy(TEST.current.name, __func__, 64); \
-	printf("%srunning %i of %zu: %s%s ...\n", ayyi_bold, TEST.current.test + 1, G_N_ELEMENTS(tests), __func__, ayyi_white); \
-	if(TEST.current.finished) return; \
-	wf_test_new(); \
-	})
 
 #define WF_TEST_FINISH \
 	if(c->test_idx != TEST.current.test) return; \
@@ -69,18 +51,5 @@ WfTest* wf_test_new();
 	wf_free(c); \
 	return G_SOURCE_REMOVE;
 
-#define assert(A, B, ...) \
-	{bool __ok_ = ((A) != 0); \
-	{if(!__ok_) perr(B, ##__VA_ARGS__); } \
-	{if(!__ok_) FAIL_TEST("assertion failed") }}
-
-#define assert_and_stop(A, B, ...) \
-	{bool __ok_ = ((A) != 0); \
-	{if(!__ok_) perr(B, ##__VA_ARGS__); } \
-	{if(!__ok_) FAIL_TEST_TIMER("assertion failed") }}
-
 #define FAIL_IF_ERROR \
 	if(error && *error) FAIL_TEST((*error)->message);
-
-typedef void (TestFn)();
-

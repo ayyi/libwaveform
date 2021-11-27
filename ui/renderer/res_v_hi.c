@@ -1,6 +1,6 @@
 /**
 * +----------------------------------------------------------------------+
-* | This file is part of the Ayyi project. http://ayyi.org               |
+* | This file is part of the Ayyi project. https://www.ayyi.org          |
 * | copyright (C) 2012-2021 Tim Orford <tim@orford.org>                  |
 * +----------------------------------------------------------------------+
 * | This program is free software; you can redistribute it and/or modify |
@@ -37,10 +37,6 @@ typedef struct {
 	} outer;
 	int border;
 } Range;
-
-typedef struct {float x, y;} Vertex;
-typedef struct {Vertex vertex, t;} TVertex;
-typedef struct {TVertex a, b, c, d;} TQuad;
 
 #ifdef MULTILINE_SHADER
 static GLuint lines_texture[8] = {0};
@@ -106,12 +102,10 @@ _v_hi_set_gl_state (WaveformActor* actor)
 #else
 	AGl* agl = agl_get_instance();
 
-	if(wfc->use_1d_textures){
+	if (wfc->use_1d_textures) {
 		agl->shaders.alphamap->uniform.fg_colour = ((AGlActor*)actor)->colour;
 		agl_use_material(agl->aaline);
-		agl_enable(AGL_ENABLE_BLEND | AGL_ENABLE_TEXTURE_2D);
-		glBindTexture(GL_TEXTURE_2D, aaline_class.texture);
-	}else{
+	} else {
 		agl_enable(AGL_ENABLE_BLEND | AGL_ENABLE_TEXTURE_2D);
 	}
 #endif
@@ -178,7 +172,7 @@ draw_wave_buffer_v_hi (Renderer* renderer, WaveformActor* actor, int block, bool
 
 #ifndef MULTILINE_SHADER
 	const int n_lines = MIN(BIG_NUMBER, ri->viewport.right - b_rect.left); // TODO the arrays possibly can be smaller - dont use b_rect.left, use x0
-	TQuad quads[n_lines];
+	AGlTQuad quads[n_lines];
 #endif
 
 	Range xr = {
@@ -330,11 +324,11 @@ draw_wave_buffer_v_hi (Renderer* renderer, WaveformActor* actor, int block, bool
 				float xoff = (y1 - y0) * 5.0 / len;
 				float yoff = (x1 - x0) * 5.0 / len;
 
-				quads[i] = (TQuad){
-					{(Vertex){x0 - xoff/2, y0 + yoff/2}, (Vertex){0.0, 0.0}},
-					{(Vertex){x1 - xoff/2, y1 + yoff/2}, (Vertex){1.0, 0.0}},
-					{(Vertex){x1 + xoff/2, y1 - yoff/2}, (Vertex){1.0, 1.0}},
-					{(Vertex){x0 + xoff/2, y0 - yoff/2}, (Vertex){0.0, 1.0}}
+				quads[i] = (AGlTQuad){
+					{(AGlVertex){x0 - xoff/2, y0 + yoff/2}, (AGlVertex){0.0, 0.0}},
+					{(AGlVertex){x1 - xoff/2, y1 + yoff/2}, (AGlVertex){1.0, 0.0}},
+					{(AGlVertex){x1 + xoff/2, y1 - yoff/2}, (AGlVertex){1.0, 1.0}},
+					{(AGlVertex){x0 + xoff/2, y0 - yoff/2}, (AGlVertex){0.0, 1.0}}
 				};
 			}
 

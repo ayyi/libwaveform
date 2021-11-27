@@ -49,18 +49,10 @@ static char* wavs[] = {WAV1};
 float first_peak[WF_PEAK_VALUES_PER_SAMPLE] = {0,};
 
 
-int
-main (int argc, char *argv[])
+void
+setup ()
 {
-	if(sizeof(off_t) != 8){ perr("sizeof(off_t)=%zu\n", sizeof(off_t)); exit(1); }
-
-	wf_debug = 1;
-
-	test_init(tests, G_N_ELEMENTS(tests));
-
-	g_main_loop_run (g_main_loop_new (NULL, 0));
-
-	exit(1);
+	TEST.n_tests = G_N_ELEMENTS(tests);
 }
 
 
