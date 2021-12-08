@@ -55,6 +55,7 @@
 #pragma GCC diagnostic warning "-Wdeprecated-declarations"
 #include <gdk/gdkkeysyms.h>
 #include "agl/actor.h"
+#include "actors/spinner.h"
 #include "waveform/view_plus.h"
 #include "common.h"
 
@@ -177,7 +178,7 @@ main (int argc, char* argv[])
 	layers.spp = waveform_view_plus_add_layer(waveform, wf_spp_actor(waveform_view_plus_get_actor(waveform)), 0);
 	wf_spp_actor_set_time((SppActor*)layers.spp, (_time += 50, _time));
 
-	layers.spinner = waveform_view_plus_add_layer(waveform, wf_spinner(waveform_view_plus_get_actor(waveform)), 0);
+	layers.spinner = waveform_view_plus_add_layer(waveform, agl_spinner(waveform_view_plus_get_actor(waveform)), 0);
 
 	char* filename = find_wav(wavs[0]);
 	show_wav(waveform, filename);
@@ -255,7 +256,7 @@ quit (gpointer waveform)
 	{
 		WaveformViewPlus* view = _view;
 
-		wf_spinner_stop((WfSpinner*)layers.spinner);
+		agl_spinner_stop((AGlSpinner*)layers.spinner);
 
 		if(error){
 			AGlActor* text_layer = agl_actor__find_by_class((AGlActor*)waveform_view_plus_get_actor(view), text_actor_get_class());
@@ -270,7 +271,7 @@ show_wav (WaveformViewPlus* view, const char* filename)
 {
 	g_assert(filename);
 
-	wf_spinner_start((WfSpinner*)layers.spinner);
+	agl_spinner_start((AGlSpinner*)layers.spinner);
 
 	waveform_view_plus_load_file(view, filename, on_loaded_, view);
 

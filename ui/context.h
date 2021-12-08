@@ -1,16 +1,17 @@
-/**
-* +----------------------------------------------------------------------+
-* | This file is part of the Ayyi project. http://ayyi.org               |
-* | copyright (C) 2013-2020 Tim Orford <tim@orford.org>                  |
-* +----------------------------------------------------------------------+
-* | This program is free software; you can redistribute it and/or modify |
-* | it under the terms of the GNU General Public License version 3       |
-* | as published by the Free Software Foundation.                        |
-* +----------------------------------------------------------------------+
-*
-*/
-#ifndef __waveform_context_h__
-#define __waveform_context_h__
+/*
+ +----------------------------------------------------------------------+
+ | This file is part of the Ayyi project. https://ayyi.org              |
+ | copyright (C) 2013-2022 Tim Orford <tim@orford.org>                  |
+ +----------------------------------------------------------------------+
+ | This program is free software; you can redistribute it and/or modify |
+ | it under the terms of the GNU General Public License version 3       |
+ | as published by the Free Software Foundation.                        |
+ +----------------------------------------------------------------------+
+ |
+ */
+
+#pragma once
+
 #include "config.h"
 #include <glib.h>
 #include <glib-object.h>
@@ -49,7 +50,7 @@ struct _WaveformContext {
 	float          samples_per_pixel;  // application can specify the base sppx. Is multiplied by zoom to get the actual sppx.
 	bool           scaled;             // scaled mode uses the WfContext time scale. Non-scaled mode uses only the actor rect and sample-region.
 	AGlObservable* zoom;
-	int64_t        start_time;         // start time measured in frames.
+	AGlObservable* start_time;         // start time measured in frames.
 	float          rotation;
 	float          v_gain;
 
@@ -59,7 +60,6 @@ struct _WaveformContext {
 
 	WfContextPriv* priv;
 	int           _draw_depth;
-	AGlTextureUnit* texture_unit[4];
 };
 
 #ifdef __wf_canvas_priv__
@@ -100,9 +100,6 @@ void             wf_context_set_scale                 (WaveformContext*, float s
 void             wf_context_set_start                 (WaveformContext*, int64_t);
 void             wf_context_set_gain                  (WaveformContext*, float);
 void             wf_context_queue_redraw              (WaveformContext*);
-void             wf_canvas_load_texture_from_alphabuf (WaveformContext*, int texture_id, AlphaBuf*);
 float            wf_context_frame_to_x                (WaveformContext*, uint64_t);
 
 #define wf_context_free0(A) (wf_context_free(A), A = NULL)
-
-#endif

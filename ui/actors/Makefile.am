@@ -8,9 +8,7 @@ libactors_la_SOURCES = \
 	grid.c grid.h \
 	labels.c labels.h \
 	spp.c spp.h \
-	spinner.c spinner.h \
-	text.c text.h \
-	debug.c debug.h
+	text.c text.h
 
 if ENABLE_SYSTEM_GTKGLEXT
 else
@@ -35,10 +33,8 @@ endif
 
 pkgincludedir=$(includedir)/waveform/actors
 pkginclude_HEADERS = \
-	debug.h \
 	grid.h \
 	labels.h \
 	ruler.h \
-	spinner.h \
 	spp.h \
 	text.h

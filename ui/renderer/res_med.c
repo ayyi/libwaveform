@@ -1,14 +1,14 @@
-/**
-* +----------------------------------------------------------------------+
-* | This file is part of the Ayyi project. http://ayyi.org               |
-* | copyright (C) 2012-2020 Tim Orford <tim@orford.org>                  |
-* +----------------------------------------------------------------------+
-* | This program is free software; you can redistribute it and/or modify |
-* | it under the terms of the GNU General Public License version 3       |
-* | as published by the Free Software Foundation.                        |
-* +----------------------------------------------------------------------+
-*
-*/
+/*
+ +----------------------------------------------------------------------+
+ | This file is part of the Ayyi project. https://www.ayyi.org          |
+ | copyright (C) 2012-2022 Tim Orford <tim@orford.org>                  |
+ +----------------------------------------------------------------------+
+ | This program is free software; you can redistribute it and/or modify |
+ | it under the terms of the GNU General Public License version 3       |
+ | as published by the Free Software Foundation.                        |
+ +----------------------------------------------------------------------+
+ |
+ */
 
 extern HiResNGShader hires_ng_shader;
 
@@ -168,7 +168,7 @@ low_allocate_block_gl1(Renderer* renderer, WaveformActor* a, int b)
 
 	dbg(1, "* %i: texture=%i", b, texture_id);
 	AlphaBuf* alphabuf = wf_alphabuf_new(w, b, (renderer->mode == MODE_LOW ? WF_PEAK_STD_TO_LO : WF_MED_TO_V_LOW), false, TEX_BORDER);
-	wf_canvas_load_texture_from_alphabuf(a->context, texture_id, alphabuf);
+	wf_load_texture_from_alphabuf(a->context, texture_id, alphabuf);
 	wf_alphabuf_free(alphabuf);
 }
 
@@ -189,8 +189,7 @@ med_lo_pre_render_gl1(Renderer* renderer, WaveformActor* actor)
 {
 	WfActorPriv* _a = actor->priv;
 
-	agl_enable(AGL_ENABLE_BLEND); // TODO find out why GL_TEXTURE_2D needs to be flipped here.
-	agl_enable(AGL_ENABLE_TEXTURE_2D | AGL_ENABLE_BLEND);
+	agl_enable(AGL_ENABLE_BLEND);
 
 	AGlColourFloat fg; wf_colour_rgba_to_float(&fg, ((AGlActor*)actor)->colour);
 
@@ -224,125 +223,8 @@ _draw_block_from_1d(float tex_start, float tex_pct, float x, float y, float widt
 
 
 static bool
-med_lo_get_quad_dimensions(WaveformActor* actor, int b, bool is_first, bool is_last, double x, TextureRange* tex_, QuadExtent* qe_)
-{
-	// TODO this appears to not be using border offsetting. may need to copy from get_quad_dimensions() in hi_res.c
-
-	WfActorPriv* _a = actor->priv;
-	RenderInfo* r  = &_a->render_info;
-
-#if 0 //TODO
-	int border = TEX_BORDER;
-	double usable_pct = (modes[r->mode].texture_size - 2.0 * border) / modes[r->mode].texture_size;
-	double border_pct = (1.0 - usable_pct)/2;
-#endif
-
-	QuadExtent tex = {0.0, 1.0}; // use the whole texture
-#ifdef RECT_ROUNDING
-	QuadExtent quad = {x, round(r->block_wid)};
-#else
-	QuadExtent quad = {x, r->block_wid};
-#endif
-
-	if (is_first){
-		tex.wid = 1.0 - ((double)r->first_offset) / r->samples_per_texture;
-#ifdef RECT_ROUNDING
-		quad.wid = round(r->block_wid * tex.wid); // this can be off by a pixel
-#else
-		quad.wid = r->block_wid * tex.wid;
-#endif
-		tex.start = 1.0 - tex.wid;
-		dbg(3, "rect.left=%.2f region->start=%"PRIi64" first_offset=%i", r->rect.left, r->region.start, r->first_offset);
- 		//if(r->first_offset) quad.start += r->first_offset_px;
-		quad.start = x + r->block_wid - quad.wid; // align the block end to the start of the following one
-	}
-
-	if (is_last){
-		if(b < r->region_end_block){
-			//end is offscreen. last block is not smaller.
-		}else{
-			//end is trimmed
-			double part_inset_px = wf_actor_samples2gl(r->zoom, r->region.start);
-			double region_len_px = wf_actor_samples2gl(r->zoom, r->region.len);
-																// TODO apply change to other renderers
-			// note region may be smaller that the rect during transitions
-			double distance_from_file_start_to_region_end = part_inset_px + MIN(r->rect.len, region_len_px);
-			//                                                                               ^ does this one work in all cases?
-			quad.wid = distance_from_file_start_to_region_end - b * r->block_wid;
-#ifdef RECT_ROUNDING
-			quad.wid = round(quad.wid);
-#else
-			dbg(3, " %i: inset=%.2f s->e=%.2f i*b=%.2f", b, part_inset_px, distance_from_file_start_to_region_end, b * r->block_wid);
-			if(b * r->block_wid > distance_from_file_start_to_region_end){ pwarn("end error! %.2f %.2f", b * r->block_wid, distance_from_file_start_to_region_end); return false; }
-#endif
-		}
-
-		tex.wid = quad.wid / r->block_wid;
-	}
-
-#if defined (USE_FBO) && defined (multipass)
-	if(agl->use_shaders){
-		tex.wid = MIN(0.995 - tex.start, tex.wid); // TODO remove
-	}
-#endif
-
-	dbg (3, "%i: is_last=%i x=%.2f wid=%.2f/%.2f tex_pct=%.3f tex.start=%.2f", b, is_last, x, quad.wid, r->block_wid, tex.wid, tex.start);
-	if(tex.wid < 0.0 || tex.start + tex.wid > 1.0000001) pwarn("tex_pct out of range: %f %.20f", tex.wid, tex.start + tex.wid);
-
-	*tex_ = (TextureRange){tex.start, tex.start + tex.wid};
-	*qe_ = quad;
-	return true;
-}
-
-
-static bool
 med_lo_render_gl1(Renderer* renderer, WaveformActor* actor, int b, bool is_first, bool is_last, double x)
 {
-	Waveform* w = actor->waveform; 
-	WfActorPriv* _a = actor->priv;
-	WaveformContext* wfc = actor->context;
-	RenderInfo* r  = &_a->render_info;
-
-	TextureRange tex;
-	QuadExtent block;
-	if(!med_lo_get_quad_dimensions(actor, b, is_first, is_last, x, &tex, &block)) return false;
-
-	_med_lo_set_gl_state_for_block(wfc, w, (WfGlBlock*)w->priv->render_data[r->mode], b);
-
-	glPushMatrix();
-	glTranslatef(0, 0, actor->z);
-	glBegin(GL_QUADS);
-	_draw_block(tex.start, tex.end - tex.start, block.start, r->rect.top, block.wid, r->rect.height, wfc->v_gain);
-	glEnd();
-	glPopMatrix();
-	gl_warn("block=%i", b);
-
-#if 0
-#ifdef WF_SHOW_RMS
-	double bot = rect.top + rect.height;
-	double top = rect->top;
-	if(wfc->show_rms && w->textures->rms_texture){
-		agl_use_texture(w->textures->rms_texture[b]);
-#if 0
-		if(!glIsTexture(w->textures->rms_texture[i])) pwarn ("texture not loaded. block=%i", i);
-#endif
-		AglColourFloat bg;
-		wf_colour_rgba_to_float(&bg, actor->bg_colour);
-
-		//note seems we have to do this after binding...
-		glBlendFunc (GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA); 
-		glColor4f(bg.r, bg.g, bg.b, 0.5);
-
-		dbg (2, "rms: %i: is_last=%i x=%.2f wid=%.2f tex_pct=%.2f", i, is_last, x, block_wid, tex_pct);
-		glBegin(GL_QUADS);
-		glTexCoord2d(tex_start + 0.0,     0.0); glVertex2d(tex_x + 0.0,       top);
-		glTexCoord2d(tex_start + tex_pct, 0.0); glVertex2d(tex_x + block_wid, top);
-		glTexCoord2d(tex_start + tex_pct, 1.0); glVertex2d(tex_x + block_wid, bot);
-		glTexCoord2d(tex_start + 0.0,     1.0); glVertex2d(tex_x + 0.0,       bot);
-		glEnd();
-	}
-#endif
-#endif
 	return true;
 }
 

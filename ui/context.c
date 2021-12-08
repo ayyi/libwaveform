@@ -1,22 +1,23 @@
-/**
-* +----------------------------------------------------------------------+
-* | This file is part of the Ayyi project. http://ayyi.org               |
-* | copyright (C) 2012-2021 Tim Orford <tim@orford.org>                  |
-* +----------------------------------------------------------------------+
-* | This program is free software; you can redistribute it and/or modify |
-* | it under the terms of the GNU General Public License version 3       |
-* | as published by the Free Software Foundation.                        |
-* +----------------------------------------------------------------------+
-*
-*/
 /*
- *
- *  WaveformContext acts as a shared context for drawing multiple related
- *  Waveform Actors.
- *
+ +----------------------------------------------------------------------+
+ | This file is part of the Ayyi project. https://ayyi.org              |
+ | copyright (C) 2012-2022 Tim Orford <tim@orford.org>                  |
+ +----------------------------------------------------------------------+
+ | This program is free software; you can redistribute it and/or modify |
+ | it under the terms of the GNU General Public License version 3       |
+ | as published by the Free Software Foundation.                        |
+ +----------------------------------------------------------------------+
+ |                                                                      |
+ | WaveformContext allow multiple actors to share audio related         |
+ | properties such as sample-rate and samples-per-pixel                 |
+ |                                                                      |
+ +----------------------------------------------------------------------+
+ |
  */
+
 #define __wf_private__
 #define __wf_canvas_priv__
+
 #include "config.h"
 #include "agl/actor.h"
 #include "agl/debug.h"
@@ -40,38 +41,9 @@ static AGl* agl = NULL;
 #  define is_sdl(WFC) false
 #endif
 
-#ifdef USE_GTK
-#define WAVEFORM_START_DRAW(wfc) \
-	if(wfc->_draw_depth) pwarn("START_DRAW: already drawing"); \
-	wfc->_draw_depth++; \
-	if (actor_not_is_gtk(wfc->root->root) || \
-		(wfc->_draw_depth > 1) || gdk_gl_drawable_make_current (wfc->root->root->gl.gdk.drawable, wfc->root->root->gl.gdk.context) \
-		) {
-#else
-#define WAVEFORM_START_DRAW(wfc) \
-	;
-#endif
-
-#ifdef USE_GTK
-#define WAVEFORM_END_DRAW(wa) \
-	wa->_draw_depth--; \
-	if(wa->root->root->type == CONTEXT_TYPE_GTK){ \
-		if(!wa->_draw_depth) ; \
-	} \
-	} else pwarn("!! gl_begin fail")
-#else
-#define WAVEFORM_END_DRAW(wa) \
-	;
-#endif
-
-#define WAVEFORM_IS_DRAWING(wa) \
-	(wa->_draw_depth > 0)
-
-static void wf_context_init_gl         (WaveformContext*);
 static void wf_context_class_init      (WaveformContextClass*);
 static void wf_context_instance_init   (WaveformContext*);
 static void wf_context_finalize        (GObject*);
-static void wf_context_on_paint_update (GdkFrameClock*, void*);
 
 extern RulerShader ruler;
 
@@ -144,39 +116,11 @@ wf_context_instance_init (WaveformContext* self)
 }
 
 
-static gboolean
-__wf_canvas_try_drawable (gpointer _wfc)
-{
-	WaveformContext* wfc = _wfc;
-	AGlScene* scene = wfc->root->root;
-
-#ifdef USE_GTK
-	if((scene->type == CONTEXT_TYPE_GTK) && !wfc->root->root->gl.gdk.drawable){
-		return G_SOURCE_CONTINUE;
-	}
-#endif
-
-	wf_context_init_gl(wfc);
-
-	if(scene->draw) wf_context_queue_redraw(wfc);
-	wfc->use_1d_textures = agl->use_shaders;
-
-#ifdef USE_FRAME_CLOCK
-	frame_clock_connect(G_CALLBACK(wf_context_on_paint_update), wfc);
-#endif
-	return (wfc->priv->pending_init = G_SOURCE_REMOVE);
-}
-
-
 static void
 wf_context_init (WaveformContext* wfc, AGlActor* root)
 {
 	wfc->sample_rate = 44100;
 	wfc->v_gain = 1.0;
-	wfc->texture_unit[0] = agl_texture_unit_new(WF_TEXTURE0);
-	wfc->texture_unit[1] = agl_texture_unit_new(WF_TEXTURE1);
-	wfc->texture_unit[2] = agl_texture_unit_new(WF_TEXTURE2);
-	wfc->texture_unit[3] = agl_texture_unit_new(WF_TEXTURE3);
 
 	wfc->samples_per_pixel = wfc->sample_rate / 32.0; // 32 pixels for 1 second
 	wfc->bpm = 120.0;
@@ -185,6 +129,10 @@ wf_context_init (WaveformContext* wfc, AGlActor* root)
 	wfc->zoom->value.f = 1.0;
 	wfc->zoom->min.f = WF_CONTEXT_MIN_ZOOM;
 	wfc->zoom->max.f = WF_CONTEXT_MAX_ZOOM;
+
+	wfc->start_time = AGL_NEW(AGlObservable,
+		.max.b = LONG_MAX,
+	);
 
 	wfc->priv = WF_NEW(WfContextPriv,
 		.zoom = {
@@ -200,28 +148,25 @@ wf_context_init (WaveformContext* wfc, AGlActor* root)
 			.type         = WF_FLOAT
 		},
 		.start = {
-			.val.b        = &wfc->start_time,
-			.start_val.b  = wfc->start_time,
-			.target_val.b = wfc->start_time,
+			.val.b        = &wfc->start_time->value.b,
+			.start_val.b  = wfc->start_time->value.b,
+			.target_val.b = wfc->start_time->value.b,
 			.type         = WF_INT64
 		}
 	);
 
 	wfc->shaders.ruler = &ruler;
-
-	if(wfc->root){
-		if(__wf_canvas_try_drawable(wfc)) wfc->priv->pending_init = g_idle_add(__wf_canvas_try_drawable, wfc);
-	}
 }
 
 
 WaveformContext*
 waveform_canvas_construct (GType object_type)
 {
-	WaveformContext* wfc = (WaveformContext*)g_object_new(object_type, NULL);
-	return wfc;
+	return (WaveformContext*)g_object_new(object_type, NULL);
 }
 
+
+extern void wf_gl_init (WaveformContext*, AGlActor*);
 
 WaveformContext*
 wf_context_new (AGlActor* root)
@@ -231,6 +176,7 @@ wf_context_new (AGlActor* root)
 	WaveformContext* wfc = waveform_canvas_construct(TYPE_WAVEFORM_CONTEXT);
 	wfc->root = root;
 	wf_context_init(wfc, root);
+	wf_gl_init(wfc, root);
 
 	return wfc;
 }
@@ -250,6 +196,7 @@ wf_context_new_sdl (SDL_GLContext* context)
 	wfc->root->root->gl.sdl.context = context;
 
 	wf_context_init(wfc, a);
+	wf_gl_init(wfc, a);
 
 	return wfc;
 }
@@ -274,56 +221,10 @@ wf_context_free (WaveformContext* wfc)
 	PF;
 	WfContextPriv* c = wfc->priv;
 
-#ifdef USE_FRAME_CLOCK
-	frame_clock_disconnect(G_CALLBACK(wf_context_on_paint_update), wfc);
-#endif
-
 	_g_source_remove0(c->pending_init);
 	_g_source_remove0(c->_queued);
 	wf_context_finalize((GObject*)wfc);
 }
-
-
-static void
-wf_context_init_gl (WaveformContext* wfc)
-{
-	PF;
-#if 0
-	if(agl->shaders.plain->shader.program){
-		return;
-	}
-#endif
-
-	if(!agl->pref_use_shaders){
-		wfc->use_1d_textures = false;
-		return;
-	}
-
-	WAVEFORM_START_DRAW(wfc) {
-
-		if(!wfc->root){
-			agl_gl_init();
-		}
-
-		if(!agl->use_shaders){
-			agl_use_program(NULL);
-			wfc->use_1d_textures = false;
-		}
-
-	} WAVEFORM_END_DRAW(wfc);
-}
-
-
-#ifdef USE_FRAME_CLOCK
-static void
-wf_context_on_paint_update (GdkFrameClock* clock, void* _canvas)
-{
-	WaveformContext* wfc = _canvas;
-
-	if(wfc->root->root->draw) wfc->root->root->draw(wfc->root->root, wfc->root->root->user_data);
-	wfc->priv->_last_redraw_time = wf_get_time();
-}
-#endif
 
 
 /*
@@ -404,75 +305,6 @@ wf_context_queue_redraw (WaveformContext* wfc)
 
 	wfc->priv->_queued = g_timeout_add(CLAMP(WF_FRAME_INTERVAL - (wf_get_time() - wfc->priv->_last_redraw_time), 1, WF_FRAME_INTERVAL), wf_canvas_redraw, wfc);
 #endif
-}
-
-
-void
-wf_canvas_load_texture_from_alphabuf (WaveformContext* wfc, int texture_name, AlphaBuf* alphabuf)
-{
-	//load the Alphabuf into the gl texture identified by texture_name.
-	//-the user can usually free the Alphabuf afterwards as it is unlikely to be needed again.
-
-	g_return_if_fail(alphabuf);
-	g_return_if_fail(texture_name);
-
-#ifdef USE_MIPMAPPING
-	guchar* generate_mipmap (AlphaBuf* a, int level)
-	{
-		int r = 1 << level;
-		int height = MAX(1, a->height / r);
-		int width = agl->have & AGL_HAVE_NPOT_TEXTURES ? MAX(1, a->width / r) : height;
-		guchar* buf = g_malloc(width * height);
-
-		int y; for(y=0;y<height;y++){
-			int x; for(x=0;x<width;x++){
-				//TODO find max of all peaks, dont just use one.
-				buf[width * y + x] = a->buf[a->width * y * r + x * r];
-			}
-		}
-		return buf;
-	}
-#endif
-
-	WAVEFORM_START_DRAW(wfc) {
-		//note: gluBuild2DMipmaps is deprecated. instead use GL_GENERATE_MIPMAP (requires GL 1.4)
-
-		glBindTexture(GL_TEXTURE_2D, texture_name);
-		int width = agl->have & AGL_HAVE_NPOT_TEXTURES ? alphabuf->width : alphabuf->height;
-		dbg (2, "copying texture... width=%i texture_id=%u", width, texture_name);
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_ALPHA8, width, alphabuf->height, 0, GL_ALPHA, GL_UNSIGNED_BYTE, alphabuf->buf);
-
-#ifdef USE_MIPMAPPING
-		{
-			int l; for(l=1;l<16;l++){
-				guchar* buf = generate_mipmap(alphabuf, l);
-				int width = (agl->have & AGL_HAVE_NPOT_TEXTURES ? alphabuf->width : alphabuf->height) / (1<<l);
-				int width = alphabuf->height / (1<<l);
-				glTexImage2D(GL_TEXTURE_2D, l, GL_ALPHA8, width, alphabuf->height/(1<<l), 0, GL_ALPHA, GL_UNSIGNED_BYTE, buf);
-				wf_free(buf);
-				int w = alphabuf->width / (1<<l);
-				int h = alphabuf->height / (1<<l);
-				if((w < 2) && (h < 2)) break;
-			}
-		}
-#endif
-
-#ifdef USE_MIPMAPPING
-		glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST_MIPMAP_NEAREST);
-#else
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-#endif
-		// if TEX_BORDER is used, clamping will make no difference as we dont reach the edge of the texture.
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-		//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST); //note using this stops gaps between blocks.
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); // prevent wrapping. GL_CLAMP_TO_EDGE uses the nearest texture value, and will not fade to the border colour like GL_CLAMP
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP); //prevent wrapping
-
-		glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
-		if(!glIsTexture(texture_name)) pwarn("texture not loaded! %i", texture_name);
-	} WAVEFORM_END_DRAW(wfc);
-
-	gl_warn("copy to texture");
 }
 
 
@@ -598,12 +430,19 @@ wf_context_set_scale (WaveformContext* wfc, float samples_per_px)
 static void
 wf_context_set_start_on_frame (WfAnimation* animation, int time)
 {
+	WaveformContext* wfc = animation->user_data;
+
+	agl_observable_set_float(wfc->start_time, wfc->start_time->value.b);
+
+	agl_actor__invalidate_down (wfc->root);
 }
 
 
 void
 wf_context_set_start (WaveformContext* wfc, int64_t start)
 {
+	if (start == wfc->priv->start.target_val.b) return;
+
 	WfAnimation* animation = wf_animation_new(NULL, wfc);
 	animation->on_frame = wf_context_set_start_on_frame;
 
@@ -626,7 +465,5 @@ float
 wf_context_frame_to_x (WaveformContext* context, uint64_t frame)
 {
 	float pixels_per_sample = context->zoom->value.f / context->samples_per_pixel;
-	return (frame - context->start_time) * pixels_per_sample;
+	return (frame - context->start_time->value.b) * pixels_per_sample;
 }
-
-
