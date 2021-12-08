@@ -34,7 +34,6 @@ static GLboolean print_info = GL_FALSE;
 extern PFNGLXGETFRAMEUSAGEMESAPROC get_frame_usage;
 
 struct {
-	AGlActor*      bg;
 	WaveformActor* wa;
 } layers = {0,};
 
@@ -61,11 +60,11 @@ static const char* const short_options = "n";
 
 
 int
-main (int argc, char *argv[])
+main (int argc, char* argv[])
 {
 	int width = 400, height = 160;
 
-	int i; for (i = 1; i < argc; i++) {
+	for (int i = 1; i < argc; i++) {
 		if (strcmp(argv[i], "-info") == 0) {
 			print_info = GL_TRUE;
 		}
@@ -94,8 +93,8 @@ main (int argc, char *argv[])
 	}
 
 	int opt;
-	while((opt = getopt_long (argc, argv, short_options, long_options, NULL)) != -1) {
-		switch(opt) {
+	while ((opt = getopt_long (argc, argv, short_options, long_options, NULL)) != -1) {
+		switch (opt) {
 			case 'n':
 				g_timeout_add(3000, (gpointer)exit, NULL);
 				break;
@@ -105,7 +104,7 @@ main (int argc, char *argv[])
 	AGlWindow* window = agl_window("waveformglxtest", 0, 0, width, height, 0);
 	XMapWindow(dpy, window->window);
 
-	agl_actor__add_child((AGlActor*)window->scene, layers.bg = background_actor(NULL));
+	AGlActor* bg = agl_actor__add_child((AGlActor*)window->scene, background_actor(NULL));
 
 	void set_size (AGlActor* actor)
 	{
@@ -115,7 +114,7 @@ main (int argc, char *argv[])
 		((AGlActor*)layers.wa)->region = (AGlfRegion){.x2 = width, .y2 = height};
 	}
 
-	layers.bg->set_size = set_size;
+	bg->set_size = set_size;
 
 	char* filename = find_wav("mono_0:10.wav");
 	Waveform* w = waveform_load_new(filename);

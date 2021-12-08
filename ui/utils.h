@@ -43,6 +43,9 @@ uint32_t   wf_color_gdk_to_rgba       (GdkColor*);
 void       wf_colour_rgba_to_float    (AGlColourFloat*, uint32_t rgba);
 bool       wf_colour_is_dark_rgba     (uint32_t);
 
+void       wf_load_texture_from_alphabuf
+                                      (WaveformContext*, int texture_id, AlphaBuf*);
+
 guint64    wf_get_time                ();
 #endif
 

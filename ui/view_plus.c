@@ -1,18 +1,18 @@
-/**
-* +----------------------------------------------------------------------+
-* | This file is part of the Ayyi project. http://ayyi.org               |
-* | copyright (C) 2012-2021 Tim Orford <tim@orford.org>                  |
-* +----------------------------------------------------------------------+
-* | This program is free software; you can redistribute it and/or modify |
-* | it under the terms of the GNU General Public License version 3       |
-* | as published by the Free Software Foundation.                        |
-* +----------------------------------------------------------------------+
-* |                                                                      |
-* | WaveformView is a Gtk widget based on GtkDrawingArea.                |
-* | It displays an audio waveform represented by a Waveform object.      |
-* +----------------------------------------------------------------------+
-*
-*/
+/*
+ +----------------------------------------------------------------------+
+ | This file is part of the Ayyi project. https://www.ayyi.org          |
+ | copyright (C) 2012-2022 Tim Orford <tim@orford.org>                  |
+ +----------------------------------------------------------------------+
+ | This program is free software; you can redistribute it and/or modify |
+ | it under the terms of the GNU General Public License version 3       |
+ | as published by the Free Software Foundation.                        |
+ +----------------------------------------------------------------------+
+ |                                                                      |
+ | WaveformView is a Gtk widget based on GtkDrawingArea.                |
+ | It displays an audio waveform represented by a Waveform object.      |
+ +----------------------------------------------------------------------+
+ |
+ */
 /*
 
   WaveformViewPlus is a Gtk widget based on GtkDrawingArea.
@@ -33,13 +33,13 @@
 #define __waveform_view_private__
 #define __wf_canvas_priv__
 #include "config.h"
-#include <math.h>
 #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 #include <gtk/gtk.h>
 #pragma GCC diagnostic warning "-Wdeprecated-declarations"
 #include <gdk/gdkkeysyms.h>
 #include "agl/debug.h"
 #include "agl/utils.h"
+#include "agl/fbo.h"
 #include "waveform/ui-utils.h"
 #include "waveform/actor.h"
 #include "view_plus.h"
@@ -437,11 +437,6 @@ waveform_view_plus_set_zoom (WaveformViewPlus* view, float zoom)
 		(waveform_get_n_frames(view->waveform) - view->start_frame) / view->zoom
 	});
 
-#ifdef AGL_ACTOR_RENDER_CACHE
-	((AGlActor*)v->actor)->cache.valid = false;
-#endif
-
-	if(!((AGlActor*)v->actor)->root->draw) gtk_widget_queue_draw((GtkWidget*)view);
 #endif
 }
 
@@ -471,7 +466,6 @@ waveform_view_plus_set_start (WaveformViewPlus* view, int64_t start_frame)
 		view->start_frame,
 		n_frames_visible
 	});
-	if(!((AGlActor*)v->actor)->root->draw) gtk_widget_queue_draw((GtkWidget*)view);
 }
 
 

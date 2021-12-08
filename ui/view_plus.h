@@ -1,27 +1,21 @@
 /*
-  copyright (C) 2012-2020 Tim Orford <tim@orford.org>
+ +----------------------------------------------------------------------+
+ | This file is part of the Ayyi project. https://ayyi.org              |
+ | copyright (C) 2012-2021 Tim Orford <tim@orford.org>                  |
+ +----------------------------------------------------------------------+
+ | This program is free software; you can redistribute it and/or modify |
+ | it under the terms of the GNU General Public License version 3       |
+ | as published by the Free Software Foundation.                        |
+ +----------------------------------------------------------------------+
+ |                                                                      |
+ | WaveformViewPlus is a Gtk widget based on GtkDrawingArea.            |
+ | It displays an audio waveform represented by a Waveform object.      |
+ |                                                                      |
+ +----------------------------------------------------------------------+
+ |
+ */
 
-  This program is free software; you can redistribute it and/or modify
-  it under the terms of the GNU General Public License version 3
-  as published by the Free Software Foundation.
-
-  This program is distributed in the hope that it will be useful,
-  but WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-  GNU General Public License for more details.
-
-  You should have received a copy of the GNU General Public License
-  along with this program; if not, write to the Free Software
-  Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
-
-  ---------------------------------------------------------------
-
-  WaveformViewPlus is a Gtk widget based on GtkDrawingArea.
-  It displays an audio waveform derived from a peak file.
-
-*/
-#ifndef __waveform_view_plus_h__
-#define __waveform_view_plus_h__
+#pragma once
 
 #include <glib.h>
 #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
@@ -32,7 +26,6 @@
 #include "waveform/grid.h"
 #include "waveform/spp.h"
 #include "waveform/text.h"
-#include "waveform/spinner.h"
 #include "waveform/view_plus.h"
 
 G_BEGIN_DECLS
@@ -87,5 +80,3 @@ WaveformActor*    waveform_view_plus_get_actor     (WaveformViewPlus*);
 
 
 G_END_DECLS
-
-#endif

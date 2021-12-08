@@ -19,8 +19,13 @@
 #include <gtk/gtk.h>
 #pragma GCC diagnostic warning "-Wdeprecated-declarations"
 #endif
+#include "transition/frameclock.h"
+#include "agl/actor.h"
 #include "wf/debug.h"
 #include "wf/waveform.h"
+#define __wf_canvas_priv__
+#include "ui/context.h"
+#include "ui/pixbuf.h"
 #include "ui/utils.h"
 
 
@@ -153,6 +158,165 @@ wf_get_time()
 }
 
 
+#ifdef USE_GTK
+#define WAVEFORM_START_DRAW(wfc) \
+	if(wfc->_draw_depth) pwarn("START_DRAW: already drawing"); \
+	wfc->_draw_depth++; \
+	if (actor_not_is_gtk(wfc->root->root) || \
+		(wfc->_draw_depth > 1) || gdk_gl_drawable_make_current (wfc->root->root->gl.gdk.drawable, wfc->root->root->gl.gdk.context) \
+		) {
+#else
+#define WAVEFORM_START_DRAW(wfc) \
+	;
+#endif
+
+#ifdef USE_GTK
+#define WAVEFORM_END_DRAW(wa) \
+	wa->_draw_depth--; \
+	if(wa->root->root->type == CONTEXT_TYPE_GTK){ \
+		if(!wa->_draw_depth) ; \
+	} \
+	} else pwarn("!! gl_begin fail")
+#else
+#define WAVEFORM_END_DRAW(wa) \
+	;
+#endif
+
+#define WAVEFORM_IS_DRAWING(wa) \
+	(wa->_draw_depth > 0)
+
+
+/*
+ *  Load the Alphabuf into the gl texture identified by texture_name.
+ *  -the user can usually free the Alphabuf afterwards as it is unlikely to be needed again.
+ */
+void
+wf_load_texture_from_alphabuf (WaveformContext* wfc, int texture_name, AlphaBuf* alphabuf)
+{
+	g_return_if_fail(alphabuf);
+	g_return_if_fail(texture_name);
+
+	AGl* agl = agl_get_instance();
+
+#ifdef USE_MIPMAPPING
+	guchar* generate_mipmap (AlphaBuf* a, int level)
+	{
+		int r = 1 << level;
+		int height = MAX(1, a->height / r);
+		int width = agl->have & AGL_HAVE_NPOT_TEXTURES ? MAX(1, a->width / r) : height;
+		guchar* buf = g_malloc(width * height);
+
+		for (int y=0;y<height;y++) {
+			for (int x=0;x<width;x++) {
+				//TODO find max of all peaks, dont just use one.
+				buf[width * y + x] = a->buf[a->width * y * r + x * r];
+			}
+		}
+		return buf;
+	}
+#endif
+
+	WAVEFORM_START_DRAW(wfc) {
+		//note: gluBuild2DMipmaps is deprecated. instead use GL_GENERATE_MIPMAP (requires GL 1.4)
+
+		glBindTexture(GL_TEXTURE_2D, texture_name);
+		int width = agl->have & AGL_HAVE_NPOT_TEXTURES ? alphabuf->width : alphabuf->height;
+		dbg (2, "copying texture... width=%i texture_id=%u", width, texture_name);
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_ALPHA8, width, alphabuf->height, 0, GL_ALPHA, GL_UNSIGNED_BYTE, alphabuf->buf);
+
+#ifdef USE_MIPMAPPING
+		{
+			for(int l=1;l<16;l++){
+				guchar* buf = generate_mipmap(alphabuf, l);
+				int width = (agl->have & AGL_HAVE_NPOT_TEXTURES ? alphabuf->width : alphabuf->height) / (1<<l);
+				int width = alphabuf->height / (1<<l);
+				glTexImage2D(GL_TEXTURE_2D, l, GL_ALPHA8, width, alphabuf->height/(1<<l), 0, GL_ALPHA, GL_UNSIGNED_BYTE, buf);
+				wf_free(buf);
+				int w = alphabuf->width / (1<<l);
+				int h = alphabuf->height / (1<<l);
+				if ((w < 2) && (h < 2)) break;
+			}
+		}
+#endif
+
+#ifdef USE_MIPMAPPING
+		glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST_MIPMAP_NEAREST);
+#else
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+#endif
+		// if TEX_BORDER is used, clamping will make no difference as we dont reach the edge of the texture.
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+		//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST); //note using this stops gaps between blocks.
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); // prevent wrapping. GL_CLAMP_TO_EDGE uses the nearest texture value, and will not fade to the border colour like GL_CLAMP
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP); //prevent wrapping
+
+		glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
+		if (!glIsTexture(texture_name)) pwarn("texture not loaded! %i", texture_name);
+	} WAVEFORM_END_DRAW(wfc);
+
+	gl_warn("copy to texture");
+}
+
+
+static void
+wf_context_init_gl (WaveformContext* wfc)
+{
+	PF;
+
+	AGl* agl = agl_get_instance();
+
+	if (!agl->pref_use_shaders) {
+		wfc->use_1d_textures = false;
+		return;
+	}
+
+	WAVEFORM_START_DRAW(wfc) {
+
+		if (!wfc->root) {
+			agl_gl_init();
+		}
+
+		if (!agl->use_shaders) {
+			agl_use_program(NULL);
+			wfc->use_1d_textures = false;
+		}
+
+	} WAVEFORM_END_DRAW(wfc);
+}
+
+
+static gboolean
+__wf_canvas_try_drawable (gpointer _wfc)
+{
+	WaveformContext* wfc = _wfc;
+	AGlScene* scene = wfc->root->root;
+
+	AGl* agl = agl_get_instance();
+
+#ifdef USE_GTK
+	if ((scene->type == CONTEXT_TYPE_GTK) && !wfc->root->root->gl.gdk.drawable) {
+		return G_SOURCE_CONTINUE;
+	}
+#endif
+
+	wf_context_init_gl(wfc);
+
+	if (scene->draw) wf_context_queue_redraw(wfc);
+	wfc->use_1d_textures = agl->use_shaders;
+
+	return (wfc->priv->pending_init = G_SOURCE_REMOVE);
+}
+
+
+void
+wf_gl_init (WaveformContext* wfc, AGlActor* root)
+{
+	if (wfc->root) {
+		if (__wf_canvas_try_drawable(wfc)) wfc->priv->pending_init = g_idle_add(__wf_canvas_try_drawable, wfc);
+	}
+}
+
+
 #if 0
 #include "agl/utils.h"
 void
@@ -174,14 +338,14 @@ fbo_2_png(AGlFBO* fbo)
 
 #ifndef USE_OPENGL
 int
-agl_power_of_two(guint a)
+agl_power_of_two (guint a)
 {
 	// return the next power of two up from the given value.
 
 	int i = 0;
 	int orig = a;
 	a = MAX(1, a - 1);
-	while(a){
+	while (a) {
 		a = a >> 1;
 		i++;
 	}
@@ -189,5 +353,3 @@ agl_power_of_two(guint a)
 	return 1 << i;
 }
 #endif
-
-

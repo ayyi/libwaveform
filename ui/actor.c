@@ -1,63 +1,45 @@
-/**
-* +----------------------------------------------------------------------+
-* | This file is part of the Ayyi project. https://www.ayyi.org          |
-* | copyright (C) 2012-2021 Tim Orford <tim@orford.org>                  |
-* +----------------------------------------------------------------------+
-* | This program is free software; you can redistribute it and/or modify |
-* | it under the terms of the GNU General Public License version 3       |
-* | as published by the Free Software Foundation.                        |
-* +----------------------------------------------------------------------+
-*
-*/
-
 /*
-  WaveformActor draws a Waveform object onto a shared opengl drawable.
+ +----------------------------------------------------------------------+
+ | This file is part of the Ayyi project. https://www.ayyi.org          |
+ | copyright (C) 2012-2022 Tim Orford <tim@orford.org>                  |
+ +----------------------------------------------------------------------+
+ | This program is free software; you can redistribute it and/or modify |
+ | it under the terms of the GNU General Public License version 3       |
+ | as published by the Free Software Foundation.                        |
+ +----------------------------------------------------------------------+
+ |                                                                      |
+ | WaveformActor draws a Waveform object onto a shared opengl drawable. |
+ |                                                                      |
+ | Animated transitions:                                                |
+ |                                                                      |
+ | WaveformActor has internal support for animating the following       |
+ | properties:                                                          |
+ |   - region start and end,                                            |
+ |   - start and end position onscreen (zoom is derived from these)     |
+ |   - opacity.                                                         |
+ |                                                                      |
+ | The render output is not cached. Caching behaviour can be added by   |
+ | the parent if required                                               |
+ |                                                                      |
+ +----------------------------------------------------------------------+
+ |
+ */
 
-  [ **** The description below is out of date **** ]
-
-  The rendering process depends on magnification and hardwave capabilities,
-  but for at STD resolution with shaders available, and both USE_FBO and
-  'multipass' are defined, the method for each block is as follows:
-
-  1- when the waveform is loaded, the peakdata is copied to 1d textures.
-  2- on a horizontal zoom change, an fbo is created that maps the 1d peakdata
-     to a 2d map using the 'peak_shader'. This texture is independent of
-     colour and vertical-zoom.
-  3- on each expose, a single rectangle is drawn. The Vertical shader is used
-     to apply vertical convolution to the 2d texture.
-
-  animated transitions:
-
-  WaveformActor has internal support for animating the following properties:
-  region start and end, start and end position onscreen (zoom is derived
-  from these) and opacity.
-
-  ---------------------------------------------------------------
-
-  TODO
-
-  fbos do not use the texture cache
-
-*/
 #define __actor_c__
 #define __wf_private__
 #define __wf_canvas_priv__
 
 #include "config.h"
-#include <sys/time.h>
 #ifdef USE_GTK
 #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 #include <gtk/gtk.h>
 #pragma GCC diagnostic warning "-Wdeprecated-declarations"
 #endif
-#include "agl/ext.h"
 #include "wf/debug.h"
-#include "transition/transition.h"
 #include "wf/waveform.h"
 #include "wf/audio.h"
 #include "waveform/texture_cache.h"
 #include "waveform/pixbuf.h"
-#include "waveform/fbo.h"
 #include "waveform/actor.h"
 #include "waveform/ui-utils.h"
 #include "waveform/ui-private.h"
@@ -67,10 +49,10 @@
 #define _g_signal_handler_disconnect0(A, H) (H = (g_signal_handler_disconnect((gpointer)A, H), 0))
 
 static AGl* agl = NULL;
+
 #ifdef USE_FBO
 #define multipass
 #endif
-																												extern int n_loads[4096];
 
 #define HIRES_NONSHADER_TEXTURES // work in progress
                                  // because of the issue with missing peaks with reduced size textures without shaders, this option is possibly unwanted.
@@ -314,26 +296,26 @@ wf_actor_class_init ()
 }
 
 
-	static void _wf_actor_invalidate(AGlActor* actor)
+	static void _wf_actor_invalidate (AGlActor* actor)
 	{
 		WaveformActor* a = (WaveformActor*)actor;
 		a->priv->render_info.valid = false; //strictly should only be invalidated when animating region and rect.
 		wf_context_queue_redraw(a->context);
 	}
 
-	static void wf_actor_on_dimensions_changed(WaveformContext* wfc, gpointer _actor)
+	static void wf_actor_on_dimensions_changed (WaveformContext* wfc, gpointer _actor)
 	{
 		PF;
 		WaveformActor* a = _actor;
 		a->priv->render_info.valid = false;
 	}
 
-	static void wf_actor_on_zoom_changed(WaveformContext* wfc, gpointer _actor)
+	static void wf_actor_on_zoom_changed (WaveformContext* wfc, gpointer _actor)
 	{
 		invalidator_invalidate_item(((Invalidator*)((AGlActor*)_actor)->behaviours[INVALIDATOR]), INVALIDATOR_DATA);
 	}
 
-		static void wf_actor_init_load_done(Waveform* w, GError* error, gpointer _actor)
+		static void wf_actor_init_load_done (Waveform* w, GError* error, gpointer _actor)
 		{
 			AGlActor* actor = _actor;
 			WaveformActor* a = _actor;
@@ -348,7 +330,7 @@ wf_actor_class_init ()
 		}
 
 static void
-wf_actor_on_init (AGlActor* actor)
+wf_actor_init (AGlActor* actor)
 {
 	WaveformActor* a = (WaveformActor*)actor;
 
@@ -444,7 +426,7 @@ wf_actor_new (Waveform* w, WaveformContext* wfc)
 		.actor = {
 			.class = (AGlActorClass*)&actor_class,
 			.name = actor_class.parent.name,
-			.init = wf_actor_on_init,
+			.init = wf_actor_init,
 			.paint = wf_actor_paint,
 			.invalidate = _wf_actor_invalidate,
 			.set_size = wf_actor_set_size,
@@ -1166,108 +1148,6 @@ wf_actor_get_visible_block_range (WfSampleRegion* region, WfRectangle* rect, dou
 
 	out: return range;
 }
-
-
-#if defined (USE_FBO) && defined (multipass)
-// this is only used in gl-1 mode with the obsolete use_1d_textures options.
-#if 0
-static void
-block_to_fbo(WaveformActor* a, int b, WfGlBlock* blocks, int resolution)
-{
-	// create a new fbo for the given block and render to it using the raw 1d peak data.
-
-#ifdef WF_DEBUG
-	g_return_if_fail(b < blocks->size);
-#endif
-	g_return_if_fail(!blocks->fbo[b]);
-	blocks->fbo[b] = agl_fbo_new(256, 256, 0, 0);
-	{
-		WaveformContext* wfc = a->context;
-		WaveformActor* actor = a;
-		WfGlBlock* textures = blocks;
-
-		if(a->context->use_1d_textures){
-			AGlFBO* fbo = blocks->fbo[b];
-			if(fbo){
-				agl_draw_to_fbo(fbo) {
-					AGlColourFloat fg; wf_colour_rgba_to_float(&fg, actor->fg_colour);
-					glClearColor(fg.r, fg.g, fg.b, 0.0); // background colour must be same as foreground for correct antialiasing
-					glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
-
-					{
-						//set shader program
-						PeakShader* peak_shader = wfc->priv->shaders.peak_nonscaling;
-						peak_shader->uniform.n_channels = textures->peak_texture[WF_RIGHT].main ? 2 : 1;
-						agl_use_program(&peak_shader->shader);
-					}
-
-					glEnable(GL_TEXTURE_1D);
-					int c = 0;
-					agl_texture_unit_use_texture(wfc->texture_unit[0], textures->peak_texture[c].main[b]);
-					agl_texture_unit_use_texture(wfc->texture_unit[1], textures->peak_texture[c].neg[b]);
-					if(a->waveform->priv->peak.buf[WF_RIGHT]){
-						c = 1;
-						agl_texture_unit_use_texture(a->context->texture_unit[2], textures->peak_texture[c].main[b]);
-						agl_texture_unit_use_texture(a->context->texture_unit[3], textures->peak_texture[c].neg[b]);
-					}
-
-					//must introduce the overlap as early as possible in the pipeline. It is introduced during the copy from peakbuf to 1d texture.
-					//-here only a 1:1 copy is needed.
-
-					const double top = 0;
-					const double bot = fbo->height;
-					const double x1 = 0;
-					const double x2 = fbo->width;
-
-					const double src_start = 0;
-					const double tex_pct = 1.0;
-
-					glBegin(GL_QUADS);
-					glMultiTexCoord2f(WF_TEXTURE0, src_start + 0.0,     0.0); glMultiTexCoord2f(WF_TEXTURE1, src_start + 0.0,     0.0); glMultiTexCoord2f(WF_TEXTURE2, src_start + 0.0,     0.0); glMultiTexCoord2f(WF_TEXTURE3, src_start + 0.0,     0.0); glVertex2d(x1, top);
-					glMultiTexCoord2f(WF_TEXTURE0, src_start + tex_pct, 0.0); glMultiTexCoord2f(WF_TEXTURE1, src_start + tex_pct, 0.0); glMultiTexCoord2f(WF_TEXTURE2, src_start + tex_pct, 0.0); glMultiTexCoord2f(WF_TEXTURE3, src_start + tex_pct, 0.0); glVertex2d(x2, top);
-					glMultiTexCoord2f(WF_TEXTURE0, src_start + tex_pct, 1.0); glMultiTexCoord2f(WF_TEXTURE1, src_start + tex_pct, 1.0); glMultiTexCoord2f(WF_TEXTURE2, src_start + tex_pct, 1.0); glMultiTexCoord2f(WF_TEXTURE3, src_start + tex_pct, 1.0); glVertex2d(x2, bot);
-					glMultiTexCoord2f(WF_TEXTURE0, src_start + 0.0,     1.0); glMultiTexCoord2f(WF_TEXTURE1, src_start + 0.0,     1.0); glMultiTexCoord2f(WF_TEXTURE2, src_start + 0.0,     1.0); glMultiTexCoord2f(WF_TEXTURE3, src_start + 0.0,     1.0); glVertex2d(x1, bot);
-					glEnd();
-				} agl_end_draw_to_fbo;
-#ifdef USE_FX
-				//now process the first fbo onto the fx_fbo
-
-				if(blocks->fx_fbo[b]) pwarn("%i: fx_fbo: expected empty", b);
-				AGlFBO* fx_fbo = blocks->fx_fbo[b] = agl_fbo_new(256, 256, 0, 0);
-				if(fx_fbo){
-					dbg(1, "%i: rendering to fx fbo. from: id=%i texture=%u - to: texture=%u", b, fbo->id, fbo->texture, fx_fbo->texture);
-					agl_draw_to_fbo(fx_fbo) {
-						glClearColor(1.0, 1.0, 1.0, 0.0); //background colour must be same as foreground for correct antialiasing
-						glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
-
-						agl_use_texture(fbo->texture);
-
-						BloomShader* shader = wfc->priv->shaders.vertical;
-						shader->uniform.fg_colour = 0xffffffff;
-						shader->uniform.peaks_per_pixel = 256; // peaks_per_pixel not used by this shader
-						agl_use_program(&shader->shader);
-
-						const double top = 0;
-						const double bot = fbo->height;
-						const double x1 = 0;
-						const double x2 = fbo->width;
-						const double tex_pct = 1.0; //TODO check
-						glBegin(GL_QUADS);
-						glTexCoord2d(0.0,     0.0); glVertex2d(x1, top);
-						glTexCoord2d(tex_pct, 0.0); glVertex2d(x2, top);
-						glTexCoord2d(tex_pct, 1.0); glVertex2d(x2, bot);
-						glTexCoord2d(0.0,     1.0); glVertex2d(x1, bot);
-						glEnd();
-					} agl_end_draw_to_fbo;
-				}
-#endif
-			} else pwarn("fbo not allocated");
-		}
-		gl_warn("fbo");
-	}
-}
-#endif
-#endif
 
 
 /*
@@ -2008,11 +1888,13 @@ wf_actor_paint (AGlActor* _actor)
 	if(!((hits + misses) % 100)) dbg(1, "hit ratio: %.2f", ((float)hits) / ((float)misses));
 #endif
 
-	if(!r->valid){
-		if(!calc_render_info(actor)) return false;
+	if (!r->valid) {
+		AGlShader* shader = _actor->program;
+		if (!calc_render_info(actor)) return false;
+		if (_actor->program != shader) agl_use_program(_actor->program);
 
 #ifdef WF_DEBUG
-	}else{
+	} else {
 		// temporary checks:
 
 		WfRectangle rect = {_a->animatable.rect_left.val.f, _actor->region.y1, _a->animatable.rect_right.val.f, agl_actor__height(_actor)};
@@ -2319,12 +2201,12 @@ wf_actor_load_texture2d(WaveformActor* a, Mode mode, int texture_id, int blocknu
 	dbg(1, "* %i: texture=%i", blocknum, texture_id);
 	if(mode == MODE_MED){
 		AlphaBuf* alphabuf = wf_alphabuf_new(w, blocknum, 1, false, TEX_BORDER);
-		wf_canvas_load_texture_from_alphabuf(a->context, texture_id, alphabuf);
+		wf_load_texture_from_alphabuf(a->context, texture_id, alphabuf);
 		wf_alphabuf_free(alphabuf);
 	}
 	else if(mode == MODE_HI){
 		AlphaBuf* alphabuf = wf_alphabuf_new_hi(w, blocknum, 1, false, TEX_BORDER);
-		wf_canvas_load_texture_from_alphabuf(a->context, texture_id, alphabuf);
+		wf_load_texture_from_alphabuf(a->context, texture_id, alphabuf);
 		wf_alphabuf_free(alphabuf);
 	}
 }

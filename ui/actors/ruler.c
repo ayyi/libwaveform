@@ -1,21 +1,22 @@
-/**
-* +----------------------------------------------------------------------+
-* | This file is part of the Ayyi project. http://ayyi.org               |
-* | copyright (C) 2013-2021 Tim Orford <tim@orford.org>                  |
-* +----------------------------------------------------------------------+
-* | This program is free software; you can redistribute it and/or modify |
-* | it under the terms of the GNU General Public License version 3       |
-* | as published by the Free Software Foundation.                        |
-* +----------------------------------------------------------------------+
-*
-*/
 /*
+ +----------------------------------------------------------------------+
+ | This file is part of the Ayyi project. https://ayyi.org              |
+ | copyright (C) 2013-2022 Tim Orford <tim@orford.org>                  |
+ +----------------------------------------------------------------------+
+ | This program is free software; you can redistribute it and/or modify |
+ | it under the terms of the GNU General Public License version 3       |
+ | as published by the Free Software Foundation.                        |
+ +----------------------------------------------------------------------+
+ |                                                                      |
+ | WaveformGrid draws timeline markers onto a shared opengl drawable.   |
+ |                                                                      |
+ +----------------------------------------------------------------------+
+ |
+ */
 
-  WaveformGrid draws timeline markers onto a shared opengl drawable.
-
-*/
 #define __wf_private__
 #include "config.h"
+#include "agl/behaviours/cache.h"
 #include "wf/waveform.h"
 #include "waveform/actor.h"
 #include "waveform/context.h"
@@ -35,13 +36,11 @@ static void
 ruler_init (AGlActor* actor)
 {
 	RulerActor* ruler = (RulerActor*)actor;
-	if(agl->use_shaders){
-		if(!ruler->context->shaders.ruler->shader.program)
+
+	if (agl->use_shaders) {
+		if (!ruler->context->shaders.ruler->shader.program)
 			agl_create_program(&ruler->context->shaders.ruler->shader);
 	}
-#ifdef AGL_ACTOR_RENDER_CACHE
-	actor->fbo = agl_fbo_new(actor->region.x2 - actor->region.x1, actor->region.y2 - actor->region.y1, 0, 0);
-#endif
 }
 
 
@@ -55,7 +54,7 @@ ruler_actor_size (AGlActor* actor)
 static void
 ruler_set_state (AGlActor* actor)
 {
-	if(!agl->use_shaders) return;
+	if (!agl->use_shaders) return;
 
 	#define samples_per_beat(C) (C->sample_rate / (C->bpm / 60.0))
 
@@ -83,7 +82,10 @@ ruler_actor (WaveformActor* wf_actor)
 			.init = ruler_init,
 			.set_state = ruler_set_state,
 			.paint = ruler_actor_paint,
-			.set_size = ruler_actor_size
+			.set_size = ruler_actor_size,
+			.behaviours = {
+				cache_behaviour(),
+			}
 		},
 		.context = wf_actor->context
 	);
@@ -117,5 +119,3 @@ ruler_actor_paint (AGlActor* actor)
 
 	return true;
 }
-
-

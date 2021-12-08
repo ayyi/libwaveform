@@ -1,54 +1,46 @@
 /*
-  Demonstration of the libwaveform WaveformActor interface
+ +----------------------------------------------------------------------+
+ | This file is part of the Ayyi project. https://www.ayyi.org          |
+ | copyright (C) 2012-2022 Tim Orford <tim@orford.org>                  |
+ +----------------------------------------------------------------------+
+ | This program is free software; you can redistribute it and/or modify |
+ | it under the terms of the GNU General Public License version 3       |
+ | as published by the Free Software Foundation.                        |
+ +----------------------------------------------------------------------+
+ |                                                                      |
+ | Demonstration of the libwaveform WaveformActor interface             |
+ |                                                                      |
+ | Several waveforms are drawn onto a single canvas with                |
+ | different colours and zoom levels. The canvas can be zoomed          |
+ | and panned.                                                          |
+ |                                                                      |
+ | This test does NOT use the AGl scene graph, though it is not         |
+ | clear why one would not want to use the scene graph.                 |
+ | It demonstates use of the WaveformActor as part of a larger scene    |
+ | under manual control by the application.                             |
+ |                                                                      |
+ | For a simpler example, see test/actor.c                              |
+ |                                                                      |
+ +----------------------------------------------------------------------+
+ |
+ */
 
-  Several waveforms are drawn onto a single canvas with
-  different colours and zoom levels. The canvas can be zoomed
-  and panned.
-
-  This test does NOT use the AGl scene graph, though it is not
-  clear why one would not want to use the scene graph.
-  It demonstates use of the WaveformActor as part of a larger scene
-  under manual control by the application.
-
-  For a simpler example, see actor_test.c
-
-  ---------------------------------------------------------------
-
-  Copyright (C) 2012-2021 Tim Orford <tim@orford.org>
-
-  This program is free software; you can redistribute it and/or modify
-  it under the terms of the GNU General Public License version 3
-  as published by the Free Software Foundation.
-
-  This program is distributed in the hope that it will be useful,
-  but WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-  GNU General Public License for more details.
-
-  You should have received a copy of the GNU General Public License
-  along with this program; if not, write to the Free Software
-  Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
-
-*/
 #define USE_SHADERS true
 
 #define __wf_private__
+
 #include "config.h"
-#include <stdlib.h>
-#include <stdint.h>
-#include <string.h>
 #include <getopt.h>
-#include <sys/time.h>
 #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 #include <gtk/gtk.h>
 #pragma GCC diagnostic warning "-Wdeprecated-declarations"
 #include <gdk/gdkkeysyms.h>
 #include "agl/utils.h"
+#include "agl/text/renderer.h"
+#include "agl/fbo.h"
 #include "waveform/actor.h"
 #include "test/common.h"
 
-#define GL_WIDTH 256.0
-#define GL_HEIGHT 256.0
 #define VBORDER 8
 
 AGlScene*       scene          = NULL;
@@ -137,8 +129,8 @@ main (int argc, char* argv[])
 	gtk_init(&argc, &argv);
 
 	int opt;
-	while((opt = getopt_long (argc, argv, short_options, long_options, NULL)) != -1) {
-		switch(opt) {
+	while ((opt = getopt_long (argc, argv, short_options, long_options, NULL)) != -1) {
+		switch (opt) {
 			case 'n':
 				g_timeout_add(3000, (gpointer)exit, NULL);
 				break;
@@ -169,13 +161,12 @@ init (AGlActor* actor)
 static void
 draw (GtkWidget* widget)
 {
-	for(int i=0;i<G_N_ELEMENTS(a);i++)
-		if(a[i]){
+	for (int i=0;i<G_N_ELEMENTS(a);i++)
+		if (a[i]) {
 			AGlActor* actor = (AGlActor*)a[i];
 			if (actor->program) {
 				agl_use_program(actor->program);
-				agl_scale(actor->program, 100., 100.);
-				agl_translate_abs (actor->program, 0., actor->region.y1);
+				builder()->offset.y = actor->region.y1;
 				actor->paint(actor);
 			}
 		}
@@ -188,8 +179,8 @@ draw (GtkWidget* widget)
 		glDisable(GL_TEXTURE_2D);
 		glLineWidth(1);
 
-		int w = GL_WIDTH;
-		int h = GL_HEIGHT/2;
+		int w = widget->allocation.width;
+		int h = widget->allocation.height / 2;
 		glBegin(GL_QUADS);
 		glVertex3f(-0.2, -0.2, 1); glVertex3f(w, -0.2, 1);
 		glVertex3f(w, h, 1);       glVertex3f(-0.2, h, 1);
@@ -203,13 +194,13 @@ draw (GtkWidget* widget)
 static gboolean
 on_expose (GtkWidget* widget, GdkEventExpose* event, gpointer user_data)
 {
-	if(!GTK_WIDGET_REALIZED(widget)) return true;
-	if(!wfc) return true;
+	if (!GTK_WIDGET_REALIZED(widget)) return true;
+	if (!wfc) return true;
 
 #ifdef USE_SYSTEM_GTKGLEXT
-	if(gdk_gl_drawable_make_current(gtk_widget_get_gl_drawable(widget), gtk_widget_get_gl_context(widget))){
+	if (gdk_gl_drawable_make_current(gtk_widget_get_gl_drawable(widget), gtk_widget_get_gl_context(widget))) {
 #else
-	if(gdk_gl_window_make_context_current(gtk_widget_get_gl_drawable(widget), scene->gl.gdk.context)){
+	if (gdk_gl_window_make_context_current(gtk_widget_get_gl_drawable(widget), scene->gl.gdk.context)) {
 #endif
 		glClearColor(0.0, 0.0, 0.0, 1.0);
 		glClear(GL_COLOR_BUFFER_BIT);
@@ -230,8 +221,8 @@ on_expose (GtkWidget* widget, GdkEventExpose* event, gpointer user_data)
 static void
 on_canvas_realise (GtkWidget* _canvas, gpointer user_data)
 {
-	if(wfc) return;
-	if(!GTK_WIDGET_REALIZED (canvas)) return;
+	if (wfc) return;
+	if (!GTK_WIDGET_REALIZED (canvas)) return;
 
 	agl_get_instance()->pref_use_shaders = USE_SHADERS;
 
@@ -257,7 +248,7 @@ on_canvas_realise (GtkWidget* _canvas, gpointer user_data)
 		{0x66ff66ff, 0x0000ffff},
 	};
 
-	int i; for(i=0;i<G_N_ELEMENTS(a);i++){
+	for(int i=0;i<G_N_ELEMENTS(a);i++) {
 		a[i] = wf_context_add_new_actor(wfc, w1);
 
 		wf_actor_set_region(a[i], &region[i]);
@@ -271,10 +262,13 @@ on_canvas_realise (GtkWidget* _canvas, gpointer user_data)
 static void
 on_allocate (GtkWidget* widget, GtkAllocation* allocation, gpointer user_data)
 {
-	if(!wfc || !gtk_widget_get_gl_drawable(widget)) return;
+	if (!wfc || !gtk_widget_get_gl_drawable(widget)) return;
 
 	// optimise drawing by telling the canvas which area is visible
-	wf_context_set_viewport(wfc, &(WfViewPort){0, 0, GL_WIDTH, GL_HEIGHT});
+	wf_context_set_viewport(wfc, &(WfViewPort){0, 0, widget->allocation.width, widget->allocation.height});
+
+	builder()->target->width = widget->allocation.width;
+	builder()->target->height = widget->allocation.height;
 
 	start_zoom(zoom);
 }
@@ -287,16 +281,16 @@ start_zoom (float target_zoom)
 
 	zoom = MAX(0.1, target_zoom);
 
-	dbg(0, "zoom=%.2f", zoom);
-
-	for(int i=0;i<G_N_ELEMENTS(a);i++)
-		if(a[i])
+	for (int i=0;i<G_N_ELEMENTS(a);i++)
+		if (a[i]) {
 			wf_actor_set_rect(a[i], &(WfRectangle){
 				0.0,
-				i * GL_HEIGHT / 4,
-				GL_WIDTH * target_zoom,
-				GL_HEIGHT / 4 * 0.95
+				i * canvas->allocation.height / 4,
+				canvas->allocation.width * target_zoom,
+				canvas->allocation.height / 4 * 0.95
 			});
+			((AGlActor*)a[i])->set_size((AGlActor*)a[i]);
+		}
 
 	gdk_window_invalidate_rect(canvas->window, NULL, false);
 }
@@ -321,8 +315,8 @@ vzoom_up (gpointer _)
 {
 	vzoom *= 1.1;
 	vzoom = MIN(vzoom, 100.0);
-	int i; for(i=0;i<G_N_ELEMENTS(a);i++)
-		if(a[i]) wf_actor_set_vzoom(a[i], vzoom);
+	for (int i=0;i<G_N_ELEMENTS(a);i++)
+		if (a[i]) wf_actor_set_vzoom(a[i], vzoom);
 }
 
 
@@ -331,8 +325,8 @@ vzoom_down (gpointer _)
 {
 	vzoom /= 1.1;
 	vzoom = MAX(vzoom, 1.0);
-	int i; for(i=0;i<G_N_ELEMENTS(a);i++)
-		if(a[i]) wf_actor_set_vzoom(a[i], vzoom);
+	for(int i=0;i<G_N_ELEMENTS(a);i++)
+		if (a[i]) wf_actor_set_vzoom(a[i], vzoom);
 }
 
 
@@ -361,7 +355,7 @@ toggle_animate (gpointer _)
 #ifdef DEBUG
 		static uint64_t t0    = 0;
 #endif
-		if(!frame) {
+		if (!frame) {
 #ifdef DEBUG
 			t0 = g_get_monotonic_time();
 #endif

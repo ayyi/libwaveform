@@ -571,19 +571,6 @@ waveform_view_set_projection(GtkWidget* widget)
 	int vh = widget->allocation.height;
 	glViewport(vx, vy, vw, vh);
 	dbg (1, "viewport: %i %i %i %i", vx, vy, vw, vh);
-	glMatrixMode(GL_PROJECTION);
-	glLoadIdentity();
-
-	// establish clipping volume (left, right, bottom, top, near, far) :
-	// This gives us an addressable area of GL_WIDTH x GL_HEIGHT (256)
-	int width = waveform_view_get_width((WaveformView*)widget);
-	double hborder = 0 * width / 32;
-
-	double left = -hborder;
-	double right = width + hborder;
-	double top   = GL_HEIGHT;
-	double bottom = 0.0;
-	glOrtho (left, right, bottom, top, 10.0, -100.0);
 }
 
 

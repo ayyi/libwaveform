@@ -77,7 +77,7 @@ spp_actor__set_state (AGlActor* actor)
 				: 2.0;
 		}else{
 			glColor4f(0.0, 1.0, 0.0, 1.0);
-			agl_enable(!AGL_ENABLE_TEXTURE_2D | !AGL_ENABLE_BLEND);
+			agl_enable(!AGL_ENABLE_BLEND);
 		}
 	}
 }

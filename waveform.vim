@@ -59,7 +59,6 @@ syn keyword waveformFunction wf_context_set_scale
 syn keyword waveformFunction wf_context_set_start
 syn keyword waveformFunction wf_context_set_gain
 syn keyword waveformFunction wf_context_queue_redraw
-syn keyword waveformFunction wf_canvas_load_texture_from_alphabuf
 syn keyword waveformFunction wf_context_frame_to_x
 
 " ui/view_plus.h
@@ -79,6 +78,9 @@ syn keyword waveformFunction waveform_view_plus_get_layer
 syn keyword waveformFunction waveform_view_plus_remove_layer
 syn keyword waveformFunction waveform_view_plus_get_context
 syn keyword waveformFunction waveform_view_plus_get_actor
+
+" ui/utils.h
+syn keyword waveformFunction wf_load_texture_from_alphabuf
 
 syn keyword waveformDebug    PF
 

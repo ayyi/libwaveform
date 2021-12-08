@@ -18,7 +18,7 @@
 #ifdef USE_LIBASS
 #include <ass/ass.h>
 #endif
-#include "agl/actor.h"
+#include "agl/behaviours/cache.h"
 #include "wf/debug.h"
 #include "wf/waveform.h"
 #include "wf/peakgen.h"
@@ -37,6 +37,7 @@
 static void text_actor_free     (AGlActor*);
 static void text_actor_set_size (AGlActor*);
 static bool text_actor_paint    (AGlActor*);
+static void text_actor_init     (AGlActor*);
 
 static AGl* agl = NULL;
 static AGlActorClass actor_class = {0, "Text", (AGlActorNew*)text_actor, text_actor_free};
@@ -106,7 +107,7 @@ _init ()
 {
 	static bool init_done = false;
 
-	void ass_init()
+	void ass_init ()
 	{
 #ifdef USE_LIBASS
 		ass_library = ass_library_init();
@@ -129,38 +130,13 @@ _init ()
 #endif
 	}
 
-	if(!init_done){
+	if (!init_done) {
 		ass_init();
 
 		init_done = true;
 	}
 }
 
-
-	static void text_actor_init (AGlActor* a)
-	{
-#ifdef USE_GTK
-		TextActor* ta = (TextActor*)a;
-
-		if(!ta->title_colour1) ta->title_colour1 = wf_get_gtk_text_color(a->root->gl.gdk.widget, GTK_STATE_NORMAL);
-		if(!ta->text_colour) ta->text_colour = wf_get_gtk_base_color(a->root->gl.gdk.widget, GTK_STATE_NORMAL, 0xaa);
-#endif
-
-		agl = agl_get_instance();
-		agl_set_font_string("Roboto 10"); // initialise the pango context
-
-#ifdef USE_LIBASS
-		if(agl_get_instance()->use_shaders){
-			agl_create_program((AGlShader*)&ass);
-			ass.uniform.colour1 = ((TextActor*)a)->title_colour1;
-			ass.uniform.colour2 = ((TextActor*)a)->title_colour2;
-		}
-#endif
-#ifdef AGL_ACTOR_RENDER_CACHE
-		a->fbo = agl_fbo_new(agl_actor__width(a), agl_actor__height(a), 0, 0);
-		a->cache.enabled = true;
-#endif
-	}
 
 AGlActor*
 text_actor (WaveformActor* _)
@@ -178,7 +154,10 @@ text_actor (WaveformActor* _)
 #endif
 			.init = text_actor_init,
 			.paint = text_actor_paint,
-			.set_size = text_actor_set_size
+			.set_size = text_actor_set_size,
+			.behaviours = {
+				cache_behaviour(),
+			}
 		},
 		.title_colour1 = 0xff0000ff,
 		.title_colour2 = 0xffffffff
@@ -207,6 +186,29 @@ text_actor_free (AGlActor* actor)
 #endif
 
 	g_free(actor);
+}
+
+
+static void
+text_actor_init (AGlActor* a)
+{
+#ifdef USE_GTK
+	TextActor* ta = (TextActor*)a;
+
+	if(!ta->title_colour1) ta->title_colour1 = wf_get_gtk_text_color(a->root->gl.gdk.widget, GTK_STATE_NORMAL);
+	if(!ta->text_colour) ta->text_colour = wf_get_gtk_base_color(a->root->gl.gdk.widget, GTK_STATE_NORMAL, 0xaa);
+#endif
+
+	agl = agl_get_instance();
+	agl_set_font_string("Roboto 10"); // initialise the pango context
+
+#ifdef USE_LIBASS
+	if (agl_get_instance()->use_shaders) {
+		agl_create_program((AGlShader*)&ass);
+		ass.uniform.colour1 = ((TextActor*)a)->title_colour1;
+		ass.uniform.colour2 = ((TextActor*)a)->title_colour2;
+	}
+#endif
 }
 
 
@@ -255,7 +257,7 @@ text_actor_paint (AGlActor* actor)
 
 		// title text:
 		if(agl->use_shaders){
-			agl_enable(AGL_ENABLE_TEXTURE_2D | AGL_ENABLE_BLEND);
+			agl_enable(AGL_ENABLE_BLEND);
 			glActiveTexture(GL_TEXTURE0);
 
 			float th = ((TextActor*)actor)->texture.height;

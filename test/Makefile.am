@@ -9,7 +9,7 @@ if ENABLE_SDL
 SDLPROGRAMS = sdl
 endif
 if ENABLE_GTK
-GTKPROGRAMS = view_plus actor actor_plus actor_no_scene list group hires res_vhi multi_scene $(ASSPROGRAMS) frame_rate resources cache viewport pixbuf
+GTKPROGRAMS = view_plus actor actor_plus actor_no_scene list group hires res_vhi multi_scene $(ASSPROGRAMS) frame_rate resources cache pixbuf
 LOCAL_GTK_LDFLAGS = $(GTK_LDFLAGS)
 endif
 
@@ -141,10 +141,6 @@ cache_SOURCES = \
 	$(COMMON_SOURCES) \
 	32bit.c
 
-#med_textures_SOURCES = \
-#	$(COMMON_SOURCES) \
-#	med_textures.c
-
 pixbuf_SOURCES = \
 	$(COMMON_SOURCES) \
 	pixbuf.c
@@ -162,10 +158,6 @@ glx_SOURCES = \
 input_SOURCES = \
 	$(COMMON2_SOURCES) \
 	input.c
-
-viewport_SOURCES = \
-	$(COMMON2_SOURCES) \
-	viewport.c
 
 #promise_SOURCES = promise.c
 
@@ -233,7 +225,6 @@ TESTS = \
 	actor_plus \
 	hires \
 	res_vhi \
-	viewport \
 	group \
 	actor_no_scene \
 	multi_scene \
@@ -254,7 +245,6 @@ test:
 	./actor_plus -n
 	./hires -n
 	./res_vhi -n
-	./viewport -n
 	./group -n
 	./actor_no_scene -n
 	./multi_scene -n
@@ -272,7 +262,6 @@ CLEANFILES = \
 	resources \
 	sdl \
 	view_plus \
-	viewport \
 	waveform_test
 
 EXTRA_DIST = 

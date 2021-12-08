@@ -106,7 +106,7 @@ _v_hi_set_gl_state (WaveformActor* actor)
 		agl->shaders.alphamap->uniform.fg_colour = ((AGlActor*)actor)->colour;
 		agl_use_material(agl->aaline);
 	} else {
-		agl_enable(AGL_ENABLE_BLEND | AGL_ENABLE_TEXTURE_2D);
+		agl_enable(AGL_ENABLE_BLEND);
 	}
 #endif
 }
@@ -328,6 +328,8 @@ draw_wave_buffer_v_hi (Renderer* renderer, WaveformActor* actor, int block, bool
 					{(AGlVertex){x0 - xoff/2, y0 + yoff/2}, (AGlVertex){0.0, 0.0}},
 					{(AGlVertex){x1 - xoff/2, y1 + yoff/2}, (AGlVertex){1.0, 0.0}},
 					{(AGlVertex){x1 + xoff/2, y1 - yoff/2}, (AGlVertex){1.0, 1.0}},
+					{(AGlVertex){x0 - xoff/2, y0 + yoff/2}, (AGlVertex){0.0, 0.0}},
+					{(AGlVertex){x1 + xoff/2, y1 - yoff/2}, (AGlVertex){1.0, 1.0}},
 					{(AGlVertex){x0 + xoff/2, y0 - yoff/2}, (AGlVertex){0.0, 1.0}}
 				};
 			}
@@ -351,7 +353,7 @@ draw_wave_buffer_v_hi (Renderer* renderer, WaveformActor* actor, int block, bool
 		glEnableVertexAttribArray(0);
 		glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 0, NULL);
 
-		glDrawArrays(GL_QUADS, 0, i * 4);
+		glDrawArrays(GL_TRIANGLES, 0, i * AGL_V_PER_QUAD);
 #endif
 	} // end channel
 

@@ -1,30 +1,26 @@
-/**
-* +----------------------------------------------------------------------+
-* | This file is part of the Ayyi project. http://ayyi.org               |
-* | copyright (C) 2013-2021 Tim Orford <tim@orford.org>                  |
-* +----------------------------------------------------------------------+
-* | This program is free software; you can redistribute it and/or modify |
-* | it under the terms of the GNU General Public License version 3       |
-* | as published by the Free Software Foundation.                        |
-* +----------------------------------------------------------------------+
-*
-* +----------------------------------------------------------------------+
-* | WaveformGrid draws timeline markers onto a shared opengl drawable.   |
-* +----------------------------------------------------------------------+
-* | The scaling is controlled by the sample_rate and samples_per_pixel   |
-* | properties of the WaveformContext.                                   |
-* +----------------------------------------------------------------------+
-*/
+/*
+ +----------------------------------------------------------------------+
+ | This file is part of the Ayyi project. https://ayyi.org              |
+ | copyright (C) 2013-2022 Tim Orford <tim@orford.org>                  |
+ +----------------------------------------------------------------------+
+ | This program is free software; you can redistribute it and/or modify |
+ | it under the terms of the GNU General Public License version 3       |
+ | as published by the Free Software Foundation.                        |
+ +----------------------------------------------------------------------+
+ |                                                                      |
+ | WaveformGrid draws timeline markers onto a shared opengl drawable.   |
+ |                                                                      |
+ | The scaling is controlled by the sample_rate and samples_per_pixel   |
+ | properties of the WaveformContext.                                   |
+ |                                                                      |
+ +----------------------------------------------------------------------+
+ |
+ */
 
 #include "config.h"
-#include <stdio.h>
-#include <stdlib.h>
-#include <math.h>
-#include <sys/time.h>
+#include "agl/behaviours/cache.h"
 #include "waveform/actor.h"
 #include "waveform/grid.h"
-
-#define V_PER_QUAD 4
 
 typedef struct {
     AGlActor         actor;
@@ -51,13 +47,6 @@ grid_actor_size (AGlActor* actor)
 static void
 grid_actor_init (AGlActor* actor)
 {
-	if(agl->use_shaders){
-		agl_create_program(&((GridActor*)actor)->context->shaders.ruler->shader);
-	}
-#ifdef AGL_ACTOR_RENDER_CACHE
-	actor->fbo = agl_fbo_new(actor->region.x2 - actor->region.x1, actor->region.y2 - actor->region.y1, 0, 0);
-#endif
-
 	if (!vbo) {
 		glGenBuffers(1, &vbo);
 	}
@@ -67,9 +56,9 @@ grid_actor_init (AGlActor* actor)
 static void
 grid_actor_set_state (AGlActor* actor)
 {
-	agl_enable(AGL_ENABLE_BLEND | !AGL_ENABLE_TEXTURE_2D);
+	agl_enable(AGL_ENABLE_BLEND);
 
-	if(agl->use_shaders){
+	if (agl->use_shaders) {
 		SET_PLAIN_COLOUR(agl->shaders.dotted, 0x55bb5566);
 	}
 }
@@ -92,6 +81,9 @@ grid_actor (WaveformActor* wf_actor)
 			.set_state = grid_actor_set_state,
 			.paint = grid_actor_paint,
 			.set_size = grid_actor_size,
+			.behaviours = {
+				cache_behaviour(),
+			}
 		},
 		.wf_actor = wf_actor,
 		.context = wf_actor->context,
@@ -133,13 +125,13 @@ grid_actor_paint (AGlActor* actor)
 	int interval = context->sample_rate * (zoom > 0.005 ? 1 : zoom > 0.0002 ? 10 : zoom > 0.0001 ? 50 : zoom > 0.00001 ? 480 : 4800) / 10;
 
 	const int64_t region_end = context->scaled
-		? context->start_time + agl_actor__width(actor) * context->samples_per_pixel / context->zoom->value.f
+		? context->start_time->value.b + agl_actor__width(actor) * context->samples_per_pixel / context->zoom->value.f
 		: grid->wf_actor->region.start + grid->wf_actor->region.len;
 
-	uint64_t f = ((int)(context->start_time / interval)) * interval;
+	int64_t f = ((int64_t)(context->start_time->value.b / interval)) * interval;
 	if (agl->use_shaders) {
 		int n = MIN(0x5f, (region_end - f) / interval);
-		if (f < context->start_time) f += interval;
+		if (f < context->start_time->value.b) f += interval;
 		AGlQuadVertex vertices[n];
 
 		for (int i = 0; i < n; f += interval, i++) {
@@ -154,17 +146,17 @@ grid_actor_paint (AGlActor* actor)
 		glBufferData (GL_ARRAY_BUFFER, sizeof(AGlQuadVertex) * n, vertices, GL_STATIC_DRAW);
 		glEnableVertexAttribArray (0);
 		glVertexAttribPointer (0, 2, GL_FLOAT, GL_FALSE, 0, NULL);
-		glDrawArrays(GL_QUADS, 0, n * V_PER_QUAD);
+		glDrawArrays(GL_TRIANGLES, 0, n * AGL_V_PER_QUAD);
 
 		agl_set_font_string("Roboto 7");
 		uint32_t colour = (actor->colour & 0xffffff00) + (actor->colour & 0x000000ff) * 0x88 / 0xff;
 		char s[16] = {0,};
 		int x_ = 0;
-		uint64_t f = ((int)(context->start_time / interval)) * interval;
+		uint64_t f = ((int64_t)(context->start_time->value.b / interval)) * interval;
 		for (int i = 0; (f < region_end) && (i < 0xff); f += interval, i++) {
 			int x = wf_context_frame_to_x(context, f) + 3;
-			if(x > agl_actor__width(actor)) break;
-			if(x - x_ > 60){
+			if (x > agl_actor__width(actor)) break;
+			if (x - x_ > 60) {
 #if 0
 				if(w->n_frames / actor->canvas->sample_rate < 60)
 					snprintf(s, 15, "%.1f", ((float)f) / actor->canvas->sample_rate);
@@ -184,7 +176,7 @@ grid_actor_paint (AGlActor* actor)
 		glDisable(GL_TEXTURE_1D);
 		glLineWidth(1);
 		glColor4f(0.5, 0.5, 1.0, 0.25);
-		agl_enable(AGL_ENABLE_BLEND | !AGL_ENABLE_TEXTURE_2D);
+		agl_enable(AGL_ENABLE_BLEND);
 
 		for (int i = 0; (f < region_end) && (i < 0xff); f += interval, i++) {
 			float x = wf_context_frame_to_x(context, f);

@@ -1,14 +1,14 @@
-/**
-* +----------------------------------------------------------------------+
-* | This file is part of the Ayyi project. http://ayyi.org               |
-* | copyright (C) 2012-2021 Tim Orford <tim@orford.org>                  |
-* +----------------------------------------------------------------------+
-* | This program is free software; you can redistribute it and/or modify |
-* | it under the terms of the GNU General Public License version 3       |
-* | as published by the Free Software Foundation.                        |
-* +----------------------------------------------------------------------+
-*
-*/
+/*
+ +----------------------------------------------------------------------+
+ | This file is part of the Ayyi project. https://www.ayyi.org          |
+ | copyright (C) 2012-2022 Tim Orford <tim@orford.org>                  |
+ +----------------------------------------------------------------------+
+ | This program is free software; you can redistribute it and/or modify |
+ | it under the terms of the GNU General Public License version 3       |
+ | as published by the Free Software Foundation.                        |
+ +----------------------------------------------------------------------+
+ |
+ */
 
 #define NG_HASHTABLE
 #define MAX_BLOCKS_PER_TEXTURE 32 // gives a texture size of 128k (256k stereo)
@@ -356,7 +356,7 @@ ng_gl2_load_block (Renderer* renderer, WaveformActor* actor, int b)
 				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 				// TODO it is quite common for this to be done several times in quick succession for the same texture with consecutive calls to ng_gl2_load_block
 				dbg(1, "%i: uploading texture: %i x %i", s, width, height);
-				glTexImage2D(GL_TEXTURE_2D, 0, GL_ALPHA, width, height, 0, pixel_format, GL_UNSIGNED_BYTE, section->buffer);
+				glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, width, height, 0, pixel_format, GL_UNSIGNED_BYTE, section->buffer);
 				gl_warn("error binding texture: %u", section->texture);
 			}
 
@@ -378,11 +378,11 @@ ng_gl2_pre_render (Renderer* renderer, WaveformActor* actor)
 	WfActorPriv* _a = actor->priv;
 	RenderInfo* r = &_a->render_info;
 
-	if(r->mode >= MODE_V_HI) return false; // TODO this will happen when falling through.
+	if (r->mode >= MODE_V_HI) return false; // TODO this will happen when falling through.
 
 	HiResNGWaveform* data = (HiResNGWaveform*)w->priv->render_data[renderer->mode];
 	HiResNGShader* shader = (HiResNGShader*)renderer->shader;
-	if(!data || !shader) return false; // this can happen when we fall through from v hi res.
+	if (!data || !shader) return false; // this can happen when we fall through from v hi res.
 
 	shader->uniform.fg_colour = (((AGlActor*)actor)->colour & 0xffffff00) + (unsigned)(0xff * _a->opacity);
 	shader->uniform.top = r->rect.top;
@@ -412,7 +412,9 @@ ng_gl2_pre_render (Renderer* renderer, WaveformActor* actor)
 					: 3
 		);
 
-	agl_use_program(&shader->shader);
+	agl_scale (&shader->shader, 1., 1.);
+	agl_translate (&shader->shader, 0., 0.);
+	shader->shader.set_uniforms_((AGlShader*)shader);
 
 	glActiveTexture (GL_TEXTURE0);
 	glBindBuffer (GL_ARRAY_BUFFER, agl->vbo);
