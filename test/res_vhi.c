@@ -1,7 +1,7 @@
-/**
+/*
  +---------------------------------------------------------------------
  | This file is part of the Ayyi project. https://www.ayyi.org
- | copyright (C) 2012-2021 Tim Orford <tim@orford.org>
+ | copyright (C) 2012-2022 Tim Orford <tim@orford.org>
  +---------------------------------------------------------------------
  | This program is free software; you can redistribute it and/or modify
  | it under the terms of the GNU General Public License version 3
@@ -106,7 +106,7 @@ window_content (GtkWindow* window, GdkGLConfig* glconfig)
 		{0xffdd66ff, 0x0000ffff},
 	};
 
-	for(int i=0;i<G_N_ELEMENTS(a);i++){
+	for (int i=0;i<G_N_ELEMENTS(a);i++) {
 
 		a[i] = wf_context_add_new_actor(wfc, w1);
 		agl_actor__add_child((AGlActor*)scene, (AGlActor*)a[i]);
@@ -115,7 +115,7 @@ window_content (GtkWindow* window, GdkGLConfig* glconfig)
 		wf_actor_set_colour(a[i], colours[i][0]);
 	}
 
-	for(int i=0;i<G_N_ELEMENTS(split);i++){
+	for (int i=0;i<G_N_ELEMENTS(split);i++) {
 		split[i] = wf_context_add_new_actor(wfc, w1);
 		agl_actor__add_child((AGlActor*)scene, (AGlActor*)split[i]);
 		wf_actor_set_colour(split[i], colours[1 + i][0]);
@@ -134,7 +134,6 @@ window_content (GtkWindow* window, GdkGLConfig* glconfig)
 	}
 	agl_observable_subscribe_with_state(wfc->zoom, on_zoom, NULL);
 
-
 	g_object_unref(w1); // this effectively transfers ownership of the waveform to the Scene
 
 	g_signal_connect((gpointer)canvas, "realize",       G_CALLBACK(on_canvas_realise), NULL);
@@ -147,10 +146,10 @@ static gboolean
 automated ()
 {
 	static bool done = false;
-	if(!done){
+	if (!done) {
 		done = true;
 
-		if(!test_delete())
+		if (!test_delete())
 			exit(EXIT_FAILURE);
 
 		gtk_main_quit();
@@ -169,15 +168,15 @@ main (int argc, char* argv[])
 	gtk_init(&argc, &argv);
 
 	int opt;
-	while((opt = getopt_long (argc, argv, short_options, long_options, NULL)) != -1) {
-		switch(opt) {
+	while ((opt = getopt_long (argc, argv, short_options, long_options, NULL)) != -1) {
+		switch (opt) {
 			case 'n':
 				g_timeout_add(3000, automated, NULL);
 				break;
 		}
 	}
 
-	if(g_getenv("NON_INTERACTIVE")){
+	if (g_getenv("NON_INTERACTIVE")) {
 		g_timeout_add(3000, automated, NULL);
 	}
 
@@ -188,7 +187,7 @@ main (int argc, char* argv[])
 static void
 on_canvas_realise (GtkWidget* canvas, gpointer user_data)
 {
-	if(!gtk_widget_get_realized(canvas)) return;
+	if (!gtk_widget_get_realized(canvas)) return;
 
 	on_allocate(canvas, &canvas->allocation, user_data);
 }
@@ -200,10 +199,10 @@ on_allocate (GtkWidget* widget, GtkAllocation* allocation, gpointer user_data)
 	((AGlActor*)scene)->region.x2 = allocation->width;
 	((AGlActor*)scene)->region.y2 = allocation->height;
 
-	for(int i=0;i<G_N_ELEMENTS(a);i++){
+	for (int i=0;i<G_N_ELEMENTS(a);i++) {
 		wfc->samples_per_pixel = a[i]->region.len / allocation->width;
 
-		if(a[i]) wf_actor_set_rect(a[i], &(WfRectangle){
+		if (a[i]) wf_actor_set_rect(a[i], &(WfRectangle) {
 			0.0,
 			i * allocation->height / 2,
 			allocation->width * wfc->zoom->value.f,
@@ -245,7 +244,7 @@ vzoom_up (gpointer _)
 {
 	vzoom = MIN(vzoom * 1.2, 100.0);
 
-	int i; for(i=0;i<G_N_ELEMENTS(a);i++)
+	for (int i=0;i<G_N_ELEMENTS(a);i++)
 		if(a[i]) wf_actor_set_vzoom(a[i], vzoom);
 }
 
@@ -255,8 +254,8 @@ vzoom_down (gpointer _)
 {
 	vzoom = MAX(vzoom / 1.2, 1.0);
 
-	int i; for(i=0;i<G_N_ELEMENTS(a);i++)
-		if(a[i]) wf_actor_set_vzoom(a[i], vzoom);
+	for(int i=0;i<G_N_ELEMENTS(a);i++)
+		if (a[i]) wf_actor_set_vzoom(a[i], vzoom);
 }
 
 
@@ -330,18 +329,21 @@ finalize_notify (gpointer data, GObject* was)
 static bool
 test_delete ()
 {
-	if(!a[0]) return false;
+	if (!a[0]) return false;
 
 	g_object_weak_ref((GObject*)w1, finalize_notify, NULL);
 
-	if(finalize_done){
+	if (finalize_done) {
 		pwarn("waveform should not be free'd");
 		return false;
 	}
 
-	a[0] = (agl_actor__remove_child((AGlActor*)scene, (AGlActor*)a[0]), NULL);
+	for (int i=0;i<G_N_ELEMENTS(a);i++)
+		a[i] = (agl_actor__remove_child((AGlActor*)scene, (AGlActor*)a[i]), NULL);
+	for (int i=0;i<G_N_ELEMENTS(split);i++)
+		split[i] = (agl_actor__remove_child((AGlActor*)scene, (AGlActor*)split[i]), NULL);
 
-	if(!finalize_done){
+	if (!finalize_done) {
 		pwarn("waveform was not free'd");
 		return false;
 	}

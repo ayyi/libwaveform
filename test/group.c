@@ -1,20 +1,17 @@
-/**
-* +----------------------------------------------------------------------+
-* | This file is part of the Ayyi project. http://ayyi.org               |
-* | copyright (C) 2012-2021 Tim Orford <tim@orford.org>                  |
-* +----------------------------------------------------------------------+
-* | This program is free software; you can redistribute it and/or modify |
-* | it under the terms of the GNU General Public License version 3       |
-* | as published by the Free Software Foundation.                        |
-* +----------------------------------------------------------------------+
-*
-*/
 /*
-
-    Demonstration of the libwaveform WaveformActor interface
-    showing a 3d presentation of a list of waveforms.
-
-*/
+ +----------------------------------------------------------------------+
+ | This file is part of the Ayyi project. https://www.ayyi.org          |
+ | copyright (C) 2012-2022 Tim Orford <tim@orford.org>                  |
+ +----------------------------------------------------------------------+
+ | This program is free software; you can redistribute it and/or modify |
+ | it under the terms of the GNU General Public License version 3       |
+ | as published by the Free Software Foundation.                        |
+ +----------------------------------------------------------------------+
+ |
+ |   Demonstration of the libwaveform WaveformActor interface
+ |   showing a 3d presentation of a list of waveforms.
+ |
+ */
 
 #define __wf_private__
 
@@ -72,8 +69,8 @@ main (int argc, char *argv[])
 	wf_debug = 0;
 
 	int opt;
-	while((opt = getopt_long (argc, argv, short_options, long_options, NULL)) != -1) {
-		switch(opt) {
+	while ((opt = getopt_long (argc, argv, short_options, long_options, NULL)) != -1) {
+		switch (opt) {
 			case 'n':
 				g_timeout_add(3000, (gpointer)exit, NULL);
 				break;
@@ -81,7 +78,7 @@ main (int argc, char *argv[])
 	}
 
 	gtk_init(&argc, &argv);
-	if(!(glconfig = gdk_gl_config_new_by_mode(GDK_GL_MODE_RGBA | GDK_GL_MODE_DEPTH | GDK_GL_MODE_DOUBLE))){
+	if (!(glconfig = gdk_gl_config_new_by_mode(GDK_GL_MODE_RGBA | GDK_GL_MODE_DEPTH | GDK_GL_MODE_DOUBLE))) {
 		perr ("Cannot initialise gtkglext."); return EXIT_FAILURE;
 	}
 
@@ -113,9 +110,9 @@ main (int argc, char *argv[])
 
 	gtk_widget_show_all(window);
 
-	gboolean key_press(GtkWidget* widget, GdkEventKey* event, gpointer user_data)
+	gboolean key_press (GtkWidget* widget, GdkEventKey* event, gpointer user_data)
 	{
-		switch(event->keyval){
+		switch (event->keyval) {
 			case 61:
 				start_zoom(zoom * 1.5);
 				break;
@@ -159,7 +156,8 @@ main (int argc, char *argv[])
 
 	g_signal_connect(window, "key-press-event", G_CALLBACK(key_press), NULL);
 
-	gboolean window_on_delete(GtkWidget* widget, GdkEvent* event, gpointer user_data){
+	gboolean window_on_delete (GtkWidget* widget, GdkEvent* event, gpointer user_data)
+	{
 		gtk_main_quit();
 		return false;
 	}
@@ -192,8 +190,8 @@ static void
 on_canvas_realise (GtkWidget* _canvas, gpointer user_data)
 {
 	PF;
-	if(canvas_init_done) return;
-	if(!GTK_WIDGET_REALIZED (canvas)) return;
+	if (canvas_init_done) return;
+	if (!GTK_WIDGET_REALIZED (canvas)) return;
 
 	gl_initialised = true;
 
@@ -216,7 +214,7 @@ on_canvas_realise (GtkWidget* _canvas, gpointer user_data)
 	};
 
 	AGlActor* rotator = ((AGlActor*)scene)->children->data;
-	int i; for(i=0;i<G_N_ELEMENTS(a);i++){
+	for (int i=0;i<G_N_ELEMENTS(a);i++) {
 		agl_actor__add_child(rotator, (AGlActor*)(a[i] = wf_context_add_new_actor(wfc, w1)));
 
 		wrapped = ((AGlActor*)a[i])->paint;
@@ -242,7 +240,7 @@ on_allocate (GtkWidget* widget, GtkAllocation* allocation, gpointer user_data)
 	AGlActor* rotator = ((AGlActor*)scene)->children->data;
 	rotator->region = (AGlfRegion){0, 0, allocation->width, allocation->height};
 
-	if(!gl_initialised) return;
+	if (!gl_initialised) return;
 
 	start_zoom(zoom);
 }
@@ -251,7 +249,7 @@ on_allocate (GtkWidget* widget, GtkAllocation* allocation, gpointer user_data)
 AGlActor*
 rotator (WaveformActor* wf_actor)
 {
-	void rotator_set_state(AGlActor* actor)
+	void rotator_set_state (AGlActor* actor)
 	{
 		glMatrixMode(GL_MODELVIEW);
 		glLoadIdentity();
@@ -260,9 +258,10 @@ rotator (WaveformActor* wf_actor)
 		glScalef(1.0f, 1.0f, -1.0f);
 	}
 
-	AGlActor* actor = agl_actor__new(AGlActor);
-	actor->name = "Rotator";
-	actor->set_state = rotator_set_state;
+	AGlActor* actor = agl_actor__new(AGlActor,
+		.name = g_strdup("Rotator"),
+		.set_state = rotator_set_state,
+	);
 
 	return actor;
 }
@@ -273,7 +272,7 @@ set_position (int i, int j)
 {
 	#define Y_FACTOR 0.0f //0.5f //currently set to zero to simplify changing stack order
 
-	if(a[i]) wf_actor_set_rect(a[i], &(WfRectangle){
+	if (a[i]) wf_actor_set_rect(a[i], &(WfRectangle) {
 		40.0,
 		((float)j) * GL_HEIGHT * Y_FACTOR / 4 + 10.0f,
 		GL_WIDTH * zoom,
@@ -290,7 +289,7 @@ start_zoom (float target_zoom)
 	PF;
 	zoom = MAX(0.1, target_zoom);
 
-	int i; for(i=0;i<G_N_ELEMENTS(a);i++) set_position(i, i);
+	for(int i=0;i<G_N_ELEMENTS(a);i++) set_position(i, i);
 }
 
 
@@ -328,7 +327,7 @@ forward ()
 
 	AGlActor* rotator = ((AGlActor*)scene)->children->data;
 	float z = - 2 * dz; // actors have to be drawn from back to front
-	for(GList* l=rotator->children;l;l=l->next){
+	for (GList* l=rotator->children;l;l=l->next) {
 		WaveformActor* a = l->data;
 		wf_actor_set_z(a, z, NULL, NULL);
 		z += dz;
@@ -372,7 +371,7 @@ backward ()
 
 	AGlActor* rotator = ((AGlActor*)scene)->children->data;
 	float z = - 4 * dz; // actors have to be drawn from back to front
-	for(GList* l=rotator->children;l;l=l->next){
+	for (GList* l=rotator->children;l;l=l->next) {
 		WaveformActor* a = l->data;
 		wf_actor_set_z(a, z, NULL, NULL);
 		z += dz;

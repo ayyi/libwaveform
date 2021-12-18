@@ -479,7 +479,7 @@ next_scroll (C* c)
 	WfSampleRegion region = get_random_region(a[0], MODE_V_HI, UINT_MAX);
 	c->start = region.start;
 
-	int i; for(i=0;i<G_N_ELEMENTS(a)&&a[i];i++)
+	for (int i=0;i<G_N_ELEMENTS(a)&&a[i];i++)
 		wf_actor_set_region(a[i], &region);
 
 	g_timeout_add(200, _check_scroll, c);
@@ -493,7 +493,7 @@ test_scroll ()
 
 	C* c = WF_NEW(C,
 		.test_idx = __test_idx,
-		.n = 256,
+		.n = 128,
 		.next = next_scroll,
 	);
 
@@ -579,7 +579,12 @@ typedef struct {
 			return G_SOURCE_REMOVE;
 		}
 
-	void hi_next_scroll(C3* c)
+void
+test_hi_double ()
+{
+	START_LONG_TEST;
+
+	void hi_next_scroll (C3* c)
 	{
 		static int timeouts[] =  {1000,   700,   600,    500,    400,      300,     100};
 		static uint64_t move[] = {4096, 16384, 65536, 262144, 1048576, 4194304, INT_MAX};
@@ -588,7 +593,7 @@ typedef struct {
 		int stage = MIN(G_N_ELEMENTS(move) - 1, c->iter / 8);
 		dbg(0, "------------------------- %i %i", c->iter, stage);
 
-		int i; for(i=0;i<G_N_ELEMENTS(a);i++){
+		for (int i=0;i<G_N_ELEMENTS(a);i++) {
 			c->region[i] = get_random_region(a[i], MODE_HI, move[stage]);
 			wf_actor_set_region(a[i], &c->region[i]);
 		}
@@ -596,12 +601,7 @@ typedef struct {
 		g_timeout_add(timeouts[stage], _hi_check_scroll, c);
 	}
 
-void
-test_hi_double()
-{
-	START_LONG_TEST;
-
-	void add_actor(int i)
+	void add_actor (int i)
 	{
 		{
 			char* filename = find_wav(WAV2);
@@ -623,7 +623,7 @@ test_hi_double()
 
 	hi_next_scroll(WF_NEW(C3,
 		.test_idx = __test_idx,
-		.n = 256,
+		.n = 128,
 		.next = hi_next_scroll,
 	));
 }

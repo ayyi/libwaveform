@@ -74,7 +74,6 @@ grid_actor (WaveformActor* wf_actor)
 	GridActor* grid = AGL_NEW(GridActor,
 		.actor = {
 			.class = &actor_class,
-			.name = actor_class.name,
 			.colour = 0xffffffff,
 			.init = grid_actor_init,
 			.program = (AGlShader*)agl->shaders.dotted,

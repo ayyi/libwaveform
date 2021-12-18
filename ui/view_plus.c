@@ -8,27 +8,24 @@
  | as published by the Free Software Foundation.                        |
  +----------------------------------------------------------------------+
  |                                                                      |
- | WaveformView is a Gtk widget based on GtkDrawingArea.                |
+ | WaveformViewPlus is a Gtk widget based on GtkDrawingArea.            |
  | It displays an audio waveform represented by a Waveform object.      |
+ | It also displays decorative title text and information text.         |
+ |                                                                      |
+ |  When the widget is focussed, the following keyboard shortcuts are   |
+ |  active:                                                             |
+ |    left         scroll left                                          |
+ |    right        scroll right                                         |
+ |    home         scroll to start                                      |
+ |    -            zoom in                                              |
+ |    +            zoom out                                             |
+ |                                                                      |
+ |  For a demonstration of usage, see the file test/view_plus.c         |
+ |                                                                      |
  +----------------------------------------------------------------------+
  |
  */
-/*
 
-  WaveformViewPlus is a Gtk widget based on GtkDrawingArea.
-  It displays an audio waveform represented by a Waveform object.
-  It also displays decorative title text and information text.
-
-  When the widget is focussed, the following keyboard shortcuts are active:
-    left         scroll left
-    right        scroll right
-    home         scroll to start
-    -            zoom in
-    +            zoom out
-
-  For a demonstration of usage, see the file test/view_plus_test.c
-
-*/
 #define __wf_private__
 #define __waveform_view_private__
 #define __wf_canvas_priv__
@@ -132,6 +129,8 @@ static void     waveform_view_plus_finalize             (GObject*);
 static void     waveform_view_plus_set_projection       (GtkWidget*);
 static bool     waveform_view_plus_init_drawable        (WaveformViewPlus*);
 static void     waveform_view_plus_display_ready        (WaveformViewPlus*);
+static void    _waveform_view_plus_set_waveform         (WaveformViewPlus*, Waveform*);
+static void    _waveform_view_plus_unset_waveform       (WaveformViewPlus*);
 
 static void     waveform_view_plus_gl_on_allocate       (WaveformViewPlus*);
 
@@ -236,7 +235,7 @@ waveform_view_plus_new (Waveform* waveform)
 	GtkWidget* widget = (GtkWidget*)view;
 	WaveformViewPlusPrivate* v = view->priv;
 
-	view->waveform = waveform ? g_object_ref(waveform) : NULL;
+	if (waveform) _waveform_view_plus_set_waveform(view, waveform);
 
 #ifdef HAVE_GTK_2_18
 	gtk_widget_set_can_focus(widget, TRUE);
@@ -333,15 +332,16 @@ waveform_view_plus_load_file (WaveformViewPlus* view, const char* filename, WfCa
 
 	WaveformViewPlusPrivate* v = view->priv;
 
-	_g_object_unref0(view->waveform);
+	_waveform_view_plus_unset_waveform(view);
 
-	if(!filename){
+	if (!filename) {
 		gtk_widget_queue_draw((GtkWidget*)view);
 		return;
 	}
 
-	view->waveform = waveform_new(filename);
-	if(v->actor){
+	_waveform_view_plus_set_waveform(view, waveform_new(filename));
+
+	if (v->actor) {
 		wf_actor_set_waveform(v->actor, view->waveform, waveform_view_plus_load_file_done, AGL_NEW(WfClosure,
 			.callback = callback,
 			.user_data = user_data
@@ -352,34 +352,20 @@ waveform_view_plus_load_file (WaveformViewPlus* view, const char* filename, WfCa
 }
 
 
-#ifdef DEBUG
-	static void waveform_view_on_wav_finalize (gpointer view, GObject* was)
-	{
-		dbg(0, "^^^");
-		((WaveformViewPlus*)view)->waveform = NULL;
-	}
-#endif
-
 void
 waveform_view_plus_set_waveform (WaveformViewPlus* view, Waveform* waveform)
 {
 	PF;
 	WaveformViewPlusPrivate* v = view->priv;
 
-	if(view->waveform){
-#ifdef DEBUG
-		g_object_weak_unref((GObject*)view->waveform, waveform_view_on_wav_finalize, view);
-#endif
-		g_object_unref(view->waveform);
+	if (view->waveform) {
+		_waveform_view_plus_unset_waveform(view);
 		v->actor->region.len = 0; // force it to be set once the wav is loaded
 	}
-	view->waveform = g_object_ref(waveform);
 
-#ifdef DEBUG
-	g_object_weak_ref((GObject*)view->waveform, waveform_view_on_wav_finalize, view);
-#endif
+	_waveform_view_plus_set_waveform(view, waveform);
 
-	if(v->actor){
+	if (v->actor) {
 		wf_actor_set_waveform_sync(v->actor, waveform);
 	}
 
@@ -800,7 +786,7 @@ waveform_view_plus_finalize (GObject* obj)
 	WaveformViewPlusPrivate* v = view->priv;
 
 	// these should really be done in dispose
-	if(v->actor){
+	if (v->actor) {
 #ifdef AGL_ACTOR_RENDER_CACHE
 		/*
 		 *  Temporary pending completion of moving caching to a separate behaviour
@@ -811,18 +797,15 @@ waveform_view_plus_finalize (GObject* obj)
 		wf_actor_clear(v->actor);
 
 		AGlActor* parent = (AGlActor*)((AGlActor*)v->actor)->root;
-		if(parent){
+		if (parent) {
 			agl_actor__remove_child(parent, (AGlActor*)v->actor);
 		}
 		v->actor = NULL;
 	}
 
-	if(v->context) wf_context_free0(v->context);
+	if (v->context) wf_context_free0(v->context);
 
-#ifdef DEBUG
-	g_object_weak_unref((GObject*)view->waveform, waveform_view_on_wav_finalize, view);
-#endif
-	g_clear_object(&view->waveform);
+	_waveform_view_plus_unset_waveform(view);
 	g_clear_pointer(&v->ready, am_promise_unref);
 
 	agl_actor__free(v->root);
@@ -1097,4 +1080,37 @@ waveform_actor (WaveformViewPlus* view)
 	actor->set_size = waveform_actor_size0;
 
 	return actor;
+}
+
+
+#ifdef DEBUG
+static void waveform_view_on_wav_finalize (gpointer view, GObject* was)
+{
+	PF;
+	((WaveformViewPlus*)view)->waveform = NULL;
+}
+#endif
+
+
+static void
+_waveform_view_plus_set_waveform (WaveformViewPlus* view, Waveform* waveform)
+{
+	view->waveform = g_object_ref(waveform);
+
+#ifdef DEBUG
+	g_object_weak_ref((GObject*)view->waveform, waveform_view_on_wav_finalize, view);
+#endif
+
+}
+
+
+static void
+_waveform_view_plus_unset_waveform (WaveformViewPlus* view)
+{
+	if (view->waveform) {
+#ifdef DEBUG
+		g_object_weak_unref((GObject*)view->waveform, waveform_view_on_wav_finalize, view);
+#endif
+		_g_object_unref0(view->waveform);
+	}
 }

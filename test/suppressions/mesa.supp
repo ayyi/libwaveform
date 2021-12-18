@@ -408,3 +408,9 @@
    ...
    fun:XextAddDisplay
 }
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   ...
+   fun:gdk_gl_window_swap_buffers
+}

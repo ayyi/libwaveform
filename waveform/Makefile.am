@@ -21,7 +21,6 @@ EXTRA_DIST = \
 	actor.h \
 	audio.h \
 	context.h \
-	debug.h \
 	fbo.h \
 	grid.h \
 	invalidator.h \
@@ -31,7 +30,6 @@ EXTRA_DIST = \
 	promise.h \
 	ruler.h \
 	shader.h \
-	spinner.h \
 	spp.h \
 	text.h \
 	texture_cache.h \

@@ -1,15 +1,15 @@
-/**
-* +----------------------------------------------------------------------+
-* | This file is part of libwaveform                                     |
-* | https://github.com/ayyi/libwaveform                                  |
-* | copyright (C) 2012-2021 Tim Orford <tim@orford.org>                  |
-* +----------------------------------------------------------------------+
-* | This program is free software; you can redistribute it and/or modify |
-* | it under the terms of the GNU General Public License version 3       |
-* | as published by the Free Software Foundation.                        |
-* +----------------------------------------------------------------------+
-*
-*/
+/*
+ +----------------------------------------------------------------------+
+ | This file is part of libwaveform                                     |
+ | https://github.com/ayyi/libwaveform                                  |
+ | copyright (C) 2012-2022 Tim Orford <tim@orford.org>                  |
+ +----------------------------------------------------------------------+
+ | This program is free software; you can redistribute it and/or modify |
+ | it under the terms of the GNU General Public License version 3       |
+ | as published by the Free Software Foundation.                        |
+ +----------------------------------------------------------------------+
+ |
+ */
 
 #define __wf_private__
 
@@ -39,8 +39,9 @@ static void text_actor_set_size (AGlActor*);
 static bool text_actor_paint    (AGlActor*);
 static void text_actor_init     (AGlActor*);
 
-static AGl* agl = NULL;
 static AGlActorClass actor_class = {0, "Text", (AGlActorNew*)text_actor, text_actor_free};
+
+static AGl* agl = NULL;
 static int instance_count = 0;
 
 #ifdef USE_LIBASS
@@ -105,11 +106,9 @@ text_actor_get_class ()
 static void
 _init ()
 {
-	static bool init_done = false;
-
+#ifdef USE_LIBASS
 	void ass_init ()
 	{
-#ifdef USE_LIBASS
 		ass_library = ass_library_init();
 		if (!ass_library) {
 			printf("ass_library_init failed!\n");
@@ -127,14 +126,12 @@ _init ()
 		}
 
 		ass_set_fonts(ass_renderer, NULL, "Sans", 1, NULL, 1);
-#endif
 	}
 
-	if (!init_done) {
+	if (!ass_renderer) {
 		ass_init();
-
-		init_done = true;
 	}
+#endif
 }
 
 
@@ -145,10 +142,9 @@ text_actor (WaveformActor* _)
 
 	_init();
 
-	TextActor* ta = AGL_NEW(TextActor,
+	TextActor* ta = agl_actor__new(TextActor,
 		.actor = {
 			.class = &actor_class,
-			.name = actor_class.name,
 #ifdef USE_LIBASS
 			.program = (AGlShader*)&ass,
 #endif
@@ -178,10 +174,14 @@ text_actor_free (AGlActor* actor)
 	g_free0(ta->text);
 
 #ifdef USE_LIBASS
-	if(!--instance_count){
+	if (!--instance_count) {
 		g_clear_pointer(&ass_renderer, ass_renderer_done);
-		ass_library_done(ass_library);
-		ass_library = NULL;
+		g_clear_pointer(&ass_library, ass_library_done);
+
+		if (ta->texture.ids[0]) {
+			glDeleteTextures(1, ta->texture.ids);
+			ta->texture.ids[0] = 0;
+		}
 	}
 #endif
 
@@ -195,19 +195,17 @@ text_actor_init (AGlActor* a)
 #ifdef USE_GTK
 	TextActor* ta = (TextActor*)a;
 
-	if(!ta->title_colour1) ta->title_colour1 = wf_get_gtk_text_color(a->root->gl.gdk.widget, GTK_STATE_NORMAL);
-	if(!ta->text_colour) ta->text_colour = wf_get_gtk_base_color(a->root->gl.gdk.widget, GTK_STATE_NORMAL, 0xaa);
+	if (!ta->title_colour1) ta->title_colour1 = wf_get_gtk_text_color(a->root->gl.gdk.widget, GTK_STATE_NORMAL);
+	if (!ta->text_colour) ta->text_colour = wf_get_gtk_base_color(a->root->gl.gdk.widget, GTK_STATE_NORMAL, 0xaa);
 #endif
 
 	agl = agl_get_instance();
 	agl_set_font_string("Roboto 10"); // initialise the pango context
 
 #ifdef USE_LIBASS
-	if (agl_get_instance()->use_shaders) {
-		agl_create_program((AGlShader*)&ass);
-		ass.uniform.colour1 = ((TextActor*)a)->title_colour1;
-		ass.uniform.colour2 = ((TextActor*)a)->title_colour2;
-	}
+	agl_create_program((AGlShader*)&ass);
+	ass.uniform.colour1 = ((TextActor*)a)->title_colour1;
+	ass.uniform.colour2 = ((TextActor*)a)->title_colour2;
 #endif
 }
 
@@ -230,7 +228,7 @@ text_actor_set_colour (TextActor* ta, uint32_t title1, uint32_t title2)
 void
 text_actor_set_text (TextActor* ta, char* title, char* text)
 {
-	if(title){
+	if (title) {
 		g_free0(ta->title);
 		ta->title = title;
 	}
@@ -249,33 +247,29 @@ text_actor_paint (AGlActor* actor)
 {
 	TextActor* ta = (TextActor*)actor;
 
-	if(!agl->use_shaders) agl_enable(0);
-
 #ifdef USE_LIBASS
-	if(ta->title){
-		if(!ta->title_is_rendered) text_actor_render_text(ta);
+	if (ta->title) {
+		if (!ta->title_is_rendered) text_actor_render_text(ta);
 
-		// title text:
-		if(agl->use_shaders){
-			agl_enable(AGL_ENABLE_BLEND);
-			glActiveTexture(GL_TEXTURE0);
+		// title text
+		agl_enable(AGL_ENABLE_BLEND);
+		glActiveTexture(GL_TEXTURE0);
 
-			float th = ((TextActor*)actor)->texture.height;
+		float th = ((TextActor*)actor)->texture.height;
 
 #undef ALIGN_TOP
 #ifdef ALIGN_TOP
-			float y1 = -((int)th - ta->_title.height - ta->_title.y_offset);
-			agl_textured_rect(ta->texture.ids[0], (actor->region.x2 - actor->region.x1) - ta->_title.width - 4.0f, y, ta->_title.width, th, &(AGlRect){0.0, 0.0, ((float)ta->_title.width) / ta->texture.width, 1.0});
+		float y1 = -((int)th - ta->_title.height - ta->_title.y_offset);
+		agl_textured_rect(ta->texture.ids[0], (actor->region.x2 - actor->region.x1) - ta->_title.width - 4.0f, y, ta->_title.width, th, &(AGlRect){0.0, 0.0, ((float)ta->_title.width) / ta->texture.width, 1.0});
 #else
-			agl_textured_rect(ta->texture.ids[0],
-				actor->region.x2 - ta->_title.width - 4.0f,
-				actor->region.y2 - actor->region.y1 - th + ((TextActor*)actor)->baseline - 4.0f,
-				ta->_title.width,
-				th,
-				&(AGlQuad){0.0, 0.0, ((float)ta->_title.width) / ta->texture.width, 1.0}
-			);
+		agl_textured_rect(ta->texture.ids[0],
+			actor->region.x2 - ta->_title.width - 4.0f,
+			actor->region.y2 - actor->region.y1 - th + ((TextActor*)actor)->baseline - 4.0f,
+			ta->_title.width,
+			th,
+			&(AGlQuad){0.0, 0.0, ((float)ta->_title.width) / ta->texture.width, 1.0}
+		);
 #endif
-		}
 	}
 #endif
 
@@ -334,12 +328,12 @@ text_actor_render_text (TextActor* ta)
 	AGlActor* actor = (AGlActor*)ta;
 
 	PF;
-	if(ta->title_is_rendered) pwarn("title is already rendered");
+	if (ta->title_is_rendered) pwarn("title is already rendered");
 
 	GError* error = NULL;
 	GRegexMatchFlags flags = 0;
 	static GRegex* regex = NULL;
-	if(!regex) regex = g_regex_new("[_]", 0, flags, &error);
+	if (!regex) regex = g_regex_new("[_]", 0, flags, &error);
 	gchar* str = g_regex_replace(regex, ta->title, -1, 0, " ", flags, &error);
 
 	char* title = g_strdup_printf("%s", str);
@@ -367,21 +361,21 @@ text_actor_render_text (TextActor* ta)
 		};
 
 		ASS_Image* i = img;
-		for(;i;i=i->next){
+		for (;i;i=i->next) {
 			t->height   = MAX(t->height, i->h);
 			t->width    = MAX(t->width,  i->dst_x + i->w);
 			t->y_offset = MIN(t->y_offset, fh - i->dst_y - i->h); // dst_y is distance from bottom.
 		}
 
 		*out = (image_t){fw, fh, fw * N_CHANNELS, g_new0(guchar, fw * fh * N_CHANNELS)};
-		for(i=img;i;i=i->next){
+		for (i=img;i;i=i->next) {
 			blend_single(out, i); // blend each glyph onto the output buffer.
 		}
 
 		ass_free_track(track);
 
 #ifdef DEBUG
-		if(false){
+		if (false) {
 			char* buf = g_new0(char, out->width * out->height * 4);
 			int stride = out->width * 4;
 			int y; for(y=0;y<fh;y++){
@@ -419,9 +413,9 @@ text_actor_render_text (TextActor* ta)
 	title_render(title, &out, &ta->_title);
 
 	{
-		if(!((TextActor*)actor)->texture.ids[0]){
+		if (!((TextActor*)actor)->texture.ids[0]) {
 			glGenTextures(1, ((TextActor*)actor)->texture.ids);
-			if(gl_error){ perr ("couldnt create ass_texture."); goto out; }
+			if (gl_error){ perr ("couldnt create ass_texture."); goto out; }
 		}
 		((TextActor*)actor)->texture.height = out.height;
 		agl_actor__set_size(actor);
