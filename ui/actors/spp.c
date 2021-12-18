@@ -53,7 +53,7 @@ static void spp_actor__set_size (AGlActor*);
 	static void spp_actor__init (AGlActor* actor)
 	{
 #ifdef USE_GTK
-		if(!((SppActor*)actor)->text_colour) ((SppActor*)actor)->text_colour = wf_get_gtk_base_color(actor->root->gl.gdk.widget, GTK_STATE_NORMAL, 0xaa);
+		if (!((SppActor*)actor)->text_colour) ((SppActor*)actor)->text_colour = wf_get_gtk_base_color(actor->root->gl.gdk.widget, GTK_STATE_NORMAL, 0xaa);
 #endif
 
 #ifdef USE_GTK
@@ -67,18 +67,13 @@ spp_actor__set_state (AGlActor* actor)
 {
 	SppActor* spp = (SppActor*)actor;
 	WaveformActor* a = spp->wf_actor;
-	if(!a->context) return;
+	if (!a->context) return;
 
-	if(spp->time != WF_SPP_TIME_NONE){
-		if(agl->use_shaders){
-			((AGlUniformUnion*)&cursor.shader.uniforms[0])->value.i[0] = 0x00ff00ff;
-			cursor.uniform.width = spp->play_timeout
-				? MAX(2.0, (WF_ACTOR_PX_PER_FRAME(a) / a->context->sample_rate) * (1 << 24) * 4)
-				: 2.0;
-		}else{
-			glColor4f(0.0, 1.0, 0.0, 1.0);
-			agl_enable(!AGL_ENABLE_BLEND);
-		}
+	if (spp->time != WF_SPP_TIME_NONE) {
+		((AGlUniformUnion*)&cursor.shader.uniforms[0])->value.i[0] = 0x00ff00ff;
+		cursor.uniform.width = spp->play_timeout
+			? MAX(2.0, (WF_ACTOR_PX_PER_FRAME(a) / a->context->sample_rate) * (1 << 24) * 4)
+			: 2.0;
 	}
 }
 
@@ -122,9 +117,9 @@ wf_spp_actor (WaveformActor* wf_actor)
 
 	agl = agl_get_instance();
 
-	SppActor* spp = AGL_NEW(SppActor,
+	SppActor* spp = agl_actor__new(SppActor,
 		.actor = {
-			.name = "SPP",
+			.name = g_strdup("SPP"),
 			.program = (AGlShader*)&cursor,
 			.init = spp_actor__init,
 			.set_state = spp_actor__set_state,
@@ -175,7 +170,7 @@ wf_spp_actor_set_time (SppActor* spp, uint32_t time)
 
 	spp->time = time;
 
-	if(spp->play_timeout) g_source_remove(spp->play_timeout);
+	if (spp->play_timeout) g_source_remove(spp->play_timeout);
 	spp->play_timeout = g_timeout_add(100, check_playback, spp);
 
 	agl_actor__invalidate((AGlActor*)spp);

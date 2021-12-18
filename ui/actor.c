@@ -425,7 +425,6 @@ wf_actor_new (Waveform* w, WaveformContext* wfc)
 	WaveformActor* a = agl_actor__new(WaveformActor,
 		.actor = {
 			.class = (AGlActorClass*)&actor_class,
-			.name = actor_class.parent.name,
 			.init = wf_actor_init,
 			.paint = wf_actor_paint,
 			.invalidate = _wf_actor_invalidate,
@@ -708,7 +707,7 @@ waveform_free_render_data (Waveform* waveform)
 #endif
 #endif
 
-	int m; for(m=0;m<N_MODES;m++){
+	for (int m=0;m<N_MODES;m++) {
 		if(waveform->priv->render_data[m]){
 			call(modes[m].renderer->free, modes[m].renderer, waveform);
 			waveform->priv->render_data[m] = NULL;
@@ -1891,6 +1890,8 @@ wf_actor_paint (AGlActor* _actor)
 	if (!r->valid) {
 		AGlShader* shader = _actor->program;
 		if (!calc_render_info(actor)) return false;
+		if (!_actor->program) return false;
+
 		if (_actor->program != shader) agl_use_program(_actor->program);
 
 #ifdef WF_DEBUG

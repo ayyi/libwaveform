@@ -1,27 +1,19 @@
 /*
-  copyright (C) 2012-2020 Tim Orford <tim@orford.org>
-
-  This program is free software; you can redistribute it and/or modify
-  it under the terms of the GNU General Public License version 3
-  as published by the Free Software Foundation.
-
-  This program is distributed in the hope that it will be useful,
-  but WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-  GNU General Public License for more details.
-
-  You should have received a copy of the GNU General Public License
-  along with this program; if not, write to the Free Software
-  Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
-
-  --------------------------------------------------------------
+ +----------------------------------------------------------------------+
+ | This file is part of the Ayyi project. https://www.ayyi.org          |
+ | copyright (C) 2012-2022 Tim Orford <tim@orford.org>                  |
+ +----------------------------------------------------------------------+
+ | This program is free software; you can redistribute it and/or modify |
+ | it under the terms of the GNU General Public License version 3       |
+ | as published by the Free Software Foundation.                        |
+ +----------------------------------------------------------------------+
 
   Borders:
 
-  Audio blocks overlap so that there is a 1:1 block relationship all the way
-  through the rendering chain.
-  But note that the block starts are NOT offset, so when rendered they need
-  to be delayed by the border size.
+  Audio blocks overlap so that there is a 1:1 block relationship all
+  the way through the rendering chain.
+  But note that the block starts are NOT offset, so when rendered they
+  need to be delayed by the border size.
 
 */
 #define __waveform_peak_c__
@@ -267,12 +259,12 @@ waveform_load_audio_post (Waveform* waveform, GError* error, gpointer _pjob)
 
 	PeakbufQueueItem* pjob = _pjob;
 
-	if(waveform){
+	if (waveform) {
 		audio_cache_insert(waveform, pjob->out.buf16, pjob->block_num);
 
 		WfAudioData* audio = &waveform->priv->audio;
 		GPtrArray* peaks = waveform->priv->hires_peaks;
-		if(audio->buf16[pjob->block_num]){
+		if (audio->buf16[pjob->block_num]) {
 			// this is unexpected. If the data is obsolete, it should probably be cleared imediately.
 			pwarn("overwriting old audio buffer");
 			audio_cache_free(waveform, pjob->block_num);
@@ -282,14 +274,14 @@ waveform_load_audio_post (Waveform* waveform, GError* error, gpointer _pjob)
 		g_assert(!peaks->pdata || pjob->block_num >= peaks->len || !peaks->pdata[pjob->block_num]);
 		waveform_peakbuf_assign(waveform, pjob->block_num, pjob->out.peakbuf);
 
-		if(pjob->done) pjob->done(waveform, pjob->block_num, pjob->user_data);
+		if (pjob->done) pjob->done(waveform, pjob->block_num, pjob->user_data);
 		dbg(2, "--->");
 		g_signal_emit_by_name(waveform, "hires-ready", pjob->block_num);
 
-	}else{
-		if(pjob->out.buf16){
-			for(int c=0;c<2;c++){
-				if(pjob->out.buf16->buf[c])
+	} else {
+		if (pjob->out.buf16) {
+			for (int c=0;c<2;c++) {
+				if (pjob->out.buf16->buf[c])
 					wf_free0(pjob->out.buf16->buf[c]);
 			}
 			wf_free0(pjob->out.buf16);
@@ -354,6 +346,7 @@ waveform_load_audio (Waveform* waveform, int block_num, int n_tiers_needed, WfAu
 					dbg(2, "already queued");
 					// it is possible to get here while zooming in/out fast
 					// or when there are lots of views of the same waveform
+					g_object_unref(w);
 					return true;
 				}
 				g_object_unref(w);
@@ -439,8 +432,9 @@ wf_block_lookup_by_audio_buf (Waveform* w, WfBuf16* buf)
 {
 	g_return_val_if_fail(w && buf, -1);
 
-	int b; for(b=0;b<waveform_get_n_audio_blocks(w);b++){
-		if(w->priv->audio.buf16[b] == buf) return b;
+	for (int b=0;b<waveform_get_n_audio_blocks(w);b++) {
+		if (w->priv->audio.buf16[b] == buf)
+			return b;
 	}
 	return -1;
 }
@@ -449,8 +443,8 @@ wf_block_lookup_by_audio_buf (Waveform* w, WfBuf16* buf)
 static void
 audio_cache_insert (Waveform* w, WfBuf16* buf16, int b)
 {
-	if(wf->audio.mem_size + buf16->size > MAX_AUDIO_CACHE_SIZE){
-		dbg(2, "**** cache full. looking for audio block to delete...");
+	if (wf->audio.mem_size + buf16->size > MAX_AUDIO_CACHE_SIZE) {
+		dbg(2, "cache full. looking for audio block to delete...");
 		//what to delete?
 		// - audio cache items can be in use, but only if we are at high zoom.
 		//   But as there are many views, none of which we have knowledge of, we can't use this information.
@@ -460,24 +454,24 @@ audio_cache_insert (Waveform* w, WfBuf16* buf16, int b)
 		GHashTableIter iter;
 		gpointer key, value;
 		g_hash_table_iter_init (&iter, wf->audio.cache);
-		while (g_hash_table_iter_next (&iter, &key, &value)){ //need to check the stamp of each block and associate it with the waveform
+		while (g_hash_table_iter_next (&iter, &key, &value)) { //need to check the stamp of each block and associate it with the waveform
 			WfBuf16* buf = key;
 			Waveform* w = value;
-			if(!oldest || buf->stamp < oldest->stamp){
+			if (!oldest || buf->stamp < oldest->stamp) {
 				oldest = buf;
 				oldest_waveform = w;
 			}
 		}
-		if(oldest){
+		if (oldest) {
 			dbg(2, "*** cache full: clearing buf with stamp=%i ...", oldest->stamp);
 			audio_cache_free(oldest_waveform, wf_block_lookup_by_audio_buf(oldest_waveform, oldest));
 		}
-		if(wf->audio.mem_size + buf16->size > MAX_AUDIO_CACHE_SIZE){
+		if (wf->audio.mem_size + buf16->size > MAX_AUDIO_CACHE_SIZE) {
 			perr("cant free space in audio cache");
 		}
 	}
 
-	wf->audio.mem_size += buf16->size;
+	wf->audio.mem_size += buf16->size * (buf16->buf[WF_RIGHT] ? 2 : 1);
 	g_hash_table_insert(wf->audio.cache, buf16, w); //each channel has its own entry. however as channels are always accessed together, it might be better to have one entry per Buf16*
 }
 
@@ -489,16 +483,16 @@ audio_cache_free (Waveform* w, int block)
 
 	WfAudioData* audio = &w->priv->audio;
 	WfBuf16* buf16 = audio->buf16[block];
-	if(buf16){
+	if (buf16) {
 		// the cache may already have been cleared if the cache is full
-		if(!g_hash_table_remove(wf->audio.cache, buf16)) dbg(2, "%i: failed to remove waveform block from audio_cache", block);
-		if(buf16->buf[WF_LEFT]){
+		if (!g_hash_table_remove(wf->audio.cache, buf16)) dbg(2, "%i: failed to remove waveform block from audio_cache", block);
+		if (buf16->buf[WF_LEFT]) {
 			wf->audio.mem_size -= buf16->size;
 			wf_free0(buf16->buf[WF_LEFT]);
 		}
 		else { dbg(2, "%i: left buffer empty", block); }
 
-		if(buf16->buf[WF_RIGHT]){
+		if (buf16->buf[WF_RIGHT]) {
 			wf->audio.mem_size -= buf16->size;
 			dbg(2, "b=%i clearing right...", block);
 			wf_free0(buf16->buf[WF_RIGHT]);
@@ -533,18 +527,16 @@ audio_cache_print ()
 	gpointer key, value;
 	int i = 0;
 	g_hash_table_iter_init (&iter, wf->audio.cache);
-	while (g_hash_table_iter_next (&iter, &key, &value)){
+	while (g_hash_table_iter_next (&iter, &key, &value)) {
 		Waveform* w = value;
 		WfBuf16* buf = key;
-		//	printf("  -\n");
 		g_return_if_fail(w && buf);
-		int c; for(c=0;c<WF_STEREO;c++){
-			//if(buf->buf[c]) printf("    %i %p\n", c, buf->buf[c]);
-			if(buf->buf[c]) total_mem += WF_PEAK_BLOCK_SIZE;
+		for(int c=0;c<WF_STEREO;c++){
+			if (buf->buf[c]) total_mem += WF_PEAK_BLOCK_SIZE;
 		}
-		if(i < STRLEN / 2 - 1){
-			if(buf->buf[WF_LEFT])  str[2*i    ] = 'L';
-			if(buf->buf[WF_RIGHT]) str[2*i + 1] = 'R';
+		if (i < STRLEN / 2 - 1) {
+			if (buf->buf[WF_LEFT])  str[2*i    ] = 'L';
+			if (buf->buf[WF_RIGHT]) str[2*i + 1] = 'R';
 		}
 
 		total_size++;

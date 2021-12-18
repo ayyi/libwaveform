@@ -49,10 +49,12 @@ static char* wavs[] = {WAV1};
 float first_peak[WF_PEAK_VALUES_PER_SAMPLE] = {0,};
 
 
-void
+bool
 setup ()
 {
 	TEST.n_tests = G_N_ELEMENTS(tests);
+
+	return 0;
 }
 
 
@@ -71,7 +73,7 @@ create_files ()
 		float* buffer = (float*) g_malloc0(n_frames * sizeof(float) * n_channels);
 
 		// generate a percussive waveform
-		for(int i=0;i<n_frames;i++){
+		for (int i=0;i<n_frames;i++) {
 			float envelope = (n_frames - i) / (float)n_frames;
 
 			float h1 = sin(    i / 10.0);
@@ -82,7 +84,7 @@ create_files ()
 			buffer[i * n_channels + 1] = (h1 + 0.5 * h2 + 0.5 * h3) * envelope / 1.5;
 		}
 
-		for(int i=0;i<WF_PEAK_RATIO;i++){
+		for (int i=0;i<WF_PEAK_RATIO;i++) {
 			first_peak[0] = MAX(first_peak[0], buffer[i * n_channels]);
 			first_peak[1] = MIN(first_peak[1], buffer[i * n_channels]);
 		}
@@ -95,13 +97,13 @@ create_files ()
 		};
 
 		SNDFILE* sndfile = sf_open(filename, SFM_WRITE, &info);
-		if(!sndfile) {
+		if (!sndfile) {
 			fprintf(stderr, "Sndfile open failed: %s %s\n", sf_strerror(sndfile), filename);
 			FAIL_TEST("%s", sf_strerror(sndfile));
 		}
 
-		for(int i=0;i<4;i++){
-			if(sf_writef_float(sndfile, buffer, n_frames) != n_frames){
+		for (int i=0;i<4;i++) {
+			if (sf_writef_float(sndfile, buffer, n_frames) != n_frames) {
 				fprintf(stderr, "Write failed\n");
 				sf_close(sndfile);
 				FAIL_TEST("write failed");
@@ -161,8 +163,8 @@ test_load ()
 		int rowstride = gdk_pixbuf_get_rowstride (pixbuf);
 		int n_channels = gdk_pixbuf_get_n_channels (pixbuf);
 		int value = 0;
-		int y = 0; for(y=0;y<gdk_pixbuf_get_height(pixbuf);y++){
-			int x; for(x=0;x<gdk_pixbuf_get_width(pixbuf);x++){
+		for (int y=0;y<gdk_pixbuf_get_height(pixbuf);y++) {
+			for (int x=0;x<gdk_pixbuf_get_width(pixbuf);x++) {
 				guchar* p = pixels + y * rowstride + x * n_channels;
 				value += p[0];
 			}
@@ -172,10 +174,10 @@ test_load ()
 
 	void next_wav (C* c)
 	{
-		if(c->wi >= G_N_ELEMENTS(wavs)){
-			if(iter++ < 2){
+		if (c->wi >= G_N_ELEMENTS(wavs)) {
+			if (iter++ < 2) {
 				c->wi = 0;
-			}else{
+			} else {
 				g_free(c);
 				FINISH_TEST;
 			}
@@ -243,8 +245,8 @@ test_load ()
 		c->next(c);
 	}
 
-	C* c = g_new0(C, 1);
-	c->next = next_wav;
+	C* c = WF_NEW(C, .next = next_wav);
+
 	next_wav(c);
 }
 
@@ -285,7 +287,7 @@ test_audiodata ()
 		test_reset_timeout(5000);
 
 		WfAudioData* audio = &waveform->priv->audio;
-		if(audio->buf16){
+		if (audio->buf16) {
 			WfBuf16* buf = audio->buf16[block];
 			assert(buf, "no data in buffer! %i", block);
 			assert(buf->buf[WF_LEFT], "no data in buffer (L)! %i", block);
@@ -294,7 +296,7 @@ test_audiodata ()
 
 		printf("\n");
 		n++;
-		if(n >= tot_blocks){
+		if (n >= tot_blocks) {
 			g_signal_handler_disconnect((gpointer)waveform, ready_handler);
 			ready_handler = 0;
 			g_object_unref(waveform);
@@ -304,7 +306,7 @@ test_audiodata ()
 
 	void next_wav (C* c)
 	{
-		if(wi >= G_N_ELEMENTS(wavs)){
+		if (wi >= G_N_ELEMENTS(wavs)) {
 			g_free(c);
 			FINISH_TEST;
 		}
@@ -318,7 +320,7 @@ test_audiodata ()
 
 		// trying to load the whole file at once is slightly dangerous but seems to work ok.
 		// the callback is called before the cache is cleared for the block.
-		int b; for(b=0;b<tot_blocks;b++){
+		for (int b=0;b<tot_blocks;b++) {
 			waveform_load_audio(w, b, n_tiers_needed, NULL, NULL);
 		}
 	}
