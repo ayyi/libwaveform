@@ -11,6 +11,7 @@ PROG=./promise
 PROG=./glx
 PROG=./list
 PROG=./actor_no_scene
+PROG=./waveform_test
 
 ls -l $PROG
 export G_SLICE=always-malloc

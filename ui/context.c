@@ -62,7 +62,7 @@ GType
 waveform_context_get_type ()
 {
 	static volatile gsize waveform_context_type_id__volatile = 0;
-	if (g_once_init_enter (&waveform_context_type_id__volatile)) {
+	if (g_once_init_enter ((gsize*)&waveform_context_type_id__volatile)) {
 		static const GTypeInfo g_define_type_info = { sizeof (WaveformContextClass), (GBaseInitFunc) NULL, (GBaseFinalizeFunc) NULL, (GClassInitFunc) wf_context_class_init, (GClassFinalizeFunc) NULL, NULL, sizeof (WaveformContext), 0, (GInstanceInitFunc) wf_context_instance_init, NULL };
 		GType waveform_context_type_id;
 		waveform_context_type_id = g_type_register_static (G_TYPE_OBJECT, "WaveformContext", &g_define_type_info, 0);

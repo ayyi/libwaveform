@@ -271,7 +271,7 @@ dnl -----------------------------------------------------
 AC_ARG_ENABLE(ffmpeg, AC_HELP_STRING([--disable-ffmpeg], [disable use of FFMPEG]), enable_ffmpeg=$enableval, enable_ffmpeg="auto")
 
 AS_IF([test "$enable_ffmpeg" != "no"], [
-	PKG_CHECK_MODULES(FFMPEG, [libavformat >= 51.0.0 libavcodec >= 51.0.0 libavutil >= 50.0.0 libavfilter >= 7.0.0], enable_ffmpeg=yes, enable_ffmpeg=no)
+	PKG_CHECK_MODULES(FFMPEG, [libavformat >= 51.0.0 libavcodec >= 51.0.0 libavutil >= 50.0.0 libswscale >= 5.0.0], enable_ffmpeg=yes, enable_ffmpeg=no)
 	])
 
 if test "$enable_ffmpeg" = "yes"; then

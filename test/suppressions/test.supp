@@ -15,3 +15,20 @@
    fun:g_thread_new
    fun:wf_worker_init
 }
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   ...
+   fun:g_thread_new
+   ...
+   fun:test_peakgen
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   ...
+   fun:g_thread_new
+   ...
+   fun:wf_ff_peakgen
+}
+

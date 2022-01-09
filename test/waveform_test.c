@@ -1,7 +1,7 @@
 /*
  +----------------------------------------------------------------------+
  | This file is part of the Ayyi project. https://www.ayyi.org          |
- | copyright (C) 2012-2021 Tim Orford <tim@orford.org>                  |
+ | copyright (C) 2012-2022 Tim Orford <tim@orford.org>                  |
  +----------------------------------------------------------------------+
  | This program is free software; you can redistribute it and/or modify |
  | it under the terms of the GNU General Public License version 3       |
@@ -59,7 +59,7 @@ test_peakgen ()
 	char* filename = find_wav(WAV);
 	assert(filename, "cannot find file %s", WAV);
 
-	if(!wf_peakgen__sync(filename, WAV ".peak", NULL)){
+	if (!wf_peakgen__sync(filename, WAV ".peak", NULL)) {
 		FAIL_TEST("local peakgen failed");
 	}
 
@@ -68,6 +68,8 @@ test_peakgen ()
 	g_free(filename);
 	char* p = waveform_ensure_peakfile__sync(w);
 	assert(p, "cache dir peakgen failed");
+	g_object_unref(w);
+	g_free(p);
 
 	FINISH_TEST;
 }
@@ -89,6 +91,7 @@ test_bad_wav ()
 {
 	START_TEST;
 	if(__test_idx == -1) printf("\n"); // stop compiler warning
+	static Waveform* w;
 
 	bool a = wf_peakgen__sync("bad.wav", "bad.peak", NULL);
 	assert(!a, "peakgen was expected to fail");
@@ -104,11 +107,12 @@ test_bad_wav ()
 		WfTest* c = _c;
 
 		assert(error, "GError not set")
+		g_object_unref(w);
 
 		WF_TEST_FINISH;
 	}
 
-	Waveform* w = waveform_new(NULL);
+	w = waveform_new(NULL);
 	waveform_set_file(w, "bad.wav");
 	waveform_load(w, callback,
 		WF_NEW(C1,
@@ -130,7 +134,7 @@ test_empty_wav ()
 	if (__test_idx);
 
 	char* filename = find_wav ("mono_0:00.wav");
-	Waveform* w = waveform_new (filename);
+	static Waveform* w; w = waveform_new (filename);
 	g_free (filename);
 
 	void callback (Waveform* w, GError* error, gpointer _c)
@@ -138,6 +142,7 @@ test_empty_wav ()
 		WfTest* c = _c;
 
 		assert(error, "expected GError")
+		g_object_unref(w);
 
 		WF_TEST_FINISH;
 	}
@@ -206,6 +211,7 @@ test_audio_file ()
 			assert(abs((int)total - (int)f.info.frames) < 2048, "%s: incorrect number of frames read: %"PRIi64" (expected %"PRIi64")", filenames[i], total, f.info.frames);
 		}
 
+		ad_free_nfo(&f.info);
 		ad_close(&f);
 		g_free(filename);
 	}
@@ -214,34 +220,34 @@ test_audio_file ()
 }
 
 
-	static void _on_peakdata_ready (Waveform* waveform, int block, gpointer _c)
-	{
-		WfTest* c = _c;
-		C1* c1 = _c;
-
-		if(wf_debug) printf("\n");
-		dbg(1, "block=%i", block);
-		test_reset_timeout(5000);
-
-		if(++c1->n >= c1->tot_blocks){
-			g_signal_handler_disconnect((gpointer)waveform, c1->ready_handler);
-			c1->ready_handler = 0;
-			g_object_unref(waveform);
-			WF_TEST_FINISH;
-		}
-	}
-
 void
 test_audiodata ()
 {
 	START_TEST;
-	if(__test_idx);
+	if (__test_idx);
 
 	C1* c = WF_NEW(C1,
 		.test = {
 			.test_idx = TEST.current.test,
 		}
 	);
+
+	void _on_peakdata_ready (Waveform* waveform, int block, gpointer _c)
+	{
+		WfTest* c = _c;
+		C1* c1 = _c;
+
+		if (wf_debug) printf("\n");
+		dbg(1, "block=%i", block);
+		test_reset_timeout(5000);
+
+		if (++c1->n >= c1->tot_blocks) {
+			g_signal_handler_disconnect((gpointer)waveform, c1->ready_handler);
+			c1->ready_handler = 0;
+			g_object_unref(waveform);
+			WF_TEST_FINISH;
+		}
+	}
 
 	char* filename = find_wav(WAV);
 	Waveform* w = waveform_new(filename);
@@ -255,7 +261,7 @@ test_audiodata ()
 
 	c->ready_handler = g_signal_connect (w, "hires-ready", (GCallback)_on_peakdata_ready, c);
 
-	int b; for(b=0;b<c->tot_blocks;b++){
+	for (int b=0;b<c->tot_blocks;b++) {
 		waveform_load_audio(w, b, n_tiers_needed, NULL, NULL);
 	}
 }
@@ -329,7 +335,7 @@ test_audio_cache__after_unref (gpointer _c)
 		test_reset_timeout(5000);
 
 		c->n++;
-		if (c->n >= tot_blocks) {
+		if (c->n >= c->tot_blocks) {
 			g_signal_handler_disconnect((gpointer)waveform, ready_handler);
 			ready_handler = 0;
 			g_object_unref(waveform);
@@ -355,12 +361,13 @@ test_audio_cache ()
 	Waveform* w = waveform_new(filename);
 	g_free(filename);
 
-	static int tot_blocks; tot_blocks = MIN(20, waveform_get_n_audio_blocks(w)); //cannot do too many parallel requests as the cache will fill.
-	static int n_tiers_needed = 3;//4;
+	int tot_blocks = MIN(20, waveform_get_n_audio_blocks(w)); // cannot do too many parallel requests as the cache will fill.
+	int n_tiers_needed = 3;//4;
 
 	g_object_weak_ref((GObject*)w, finalize_notify, NULL);
 
 	ready_handler = g_signal_connect (w, "hires-ready", (GCallback)_on_peakdata_ready_3, WF_NEW(C1,
+		.tot_blocks = tot_blocks,
 		.test = {
 			.test_idx = TEST.current.test,
 		}
@@ -604,6 +611,7 @@ test_thumbnail ()
 
 	ad_close(&dec);
 	ad_thumbnail_free(NULL, &picture);
+	ad_free_nfo(&dec.info);
 
 	g_free(filename);
 	FINISH_TEST;
