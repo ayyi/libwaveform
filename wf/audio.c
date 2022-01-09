@@ -213,16 +213,6 @@ peakbuf_is_present (Waveform* waveform, int block_num)
 #define IO_RATIO (OUTPUT_RESOLUTION / INPUT_RESOLUTION) // number of input bytes for 1 byte of output
 
 
-static Peakbuf*
-wf_peakbuf_new (int block_num)
-{
-	Peakbuf* peakbuf = g_new0(Peakbuf, 1);
-	peakbuf->block_num = block_num;
-
-	return peakbuf;
-}
-
-
 static void
 waveform_load_audio_run_job (Waveform* waveform, gpointer _pjob)
 {
@@ -240,7 +230,7 @@ waveform_load_audio_run_job (Waveform* waveform, gpointer _pjob)
 		pjob->out.buf16->buf[c] = g_malloc0(sizeof(short) * WF_PEAK_BLOCK_SIZE);
 		pjob->out.buf16->stamp = ++wf->audio.access_counter;
 	}
-	pjob->out.peakbuf = wf_peakbuf_new(pjob->block_num);
+	pjob->out.peakbuf = WF_NEW(Peakbuf, .block_num = pjob->block_num);
 	pjob->out.peakbuf->size = pjob->out.buf16->size * WF_PEAK_VALUES_PER_SAMPLE / IO_RATIO;
 
 	dbg(1, "block=%i tot_audio_mem=%ukB", pjob->block_num, wf->audio.mem_size / 1024);
