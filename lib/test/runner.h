@@ -72,6 +72,7 @@ void test_errprintf     (char*, ...);
 #define FAIL_TEST(msg, ...) \
 	{TEST.current.finished = true; \
 	TEST.passed = false; \
+	printf("%s: ", TEST.current.name); \
 	test_errprintf(msg, ##__VA_ARGS__); \
 	test_finish(); \
 	return; }
@@ -79,6 +80,7 @@ void test_errprintf     (char*, ...);
 #define FAIL_TEST_TIMER(msg) \
 	{TEST.current.finished = true; \
 	TEST.passed = false; \
+	printf("%s: ", TEST.current.name); \
 	printf("%s%s%s\n", RED, msg, ayyi_white); \
 	test_finish(); \
 	return G_SOURCE_REMOVE;}

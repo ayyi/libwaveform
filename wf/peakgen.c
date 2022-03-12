@@ -1,14 +1,14 @@
-/**
-* +----------------------------------------------------------------------+
-* | This file is part of the Ayyi project. http://ayyi.org               |
-* | copyright (C) 2012-2020 Tim Orford <tim@orford.org>                  |
-* +----------------------------------------------------------------------+
-* | This program is free software; you can redistribute it and/or modify |
-* | it under the terms of the GNU General Public License version 3       |
-* | as published by the Free Software Foundation.                        |
-* +----------------------------------------------------------------------+
-*
-*/
+/*
+ +----------------------------------------------------------------------+
+ | This file is part of the Ayyi project. https://ayyi.org              |
+ | copyright (C) 2012-2023 Tim Orford <tim@orford.org>                  |
+ +----------------------------------------------------------------------+
+ | This program is free software; you can redistribute it and/or modify |
+ | it under the terms of the GNU General Public License version 3       |
+ | as published by the Free Software Foundation.                        |
+ +----------------------------------------------------------------------+
+ |
+ */
 
 /*
   peakgen
@@ -107,7 +107,7 @@ waveform_get_peak_filename (const char* filename)
 
 
 static bool
-peakfile_is_current(const char* audio_file, const char* peak_file)
+peakfile_is_current (const char* audio_file, const char* peak_file)
 {
 	/*
 	note that this test will fail to detect a modified file, if an older file is now stored at this location.
@@ -139,16 +139,18 @@ peakfile_is_current(const char* audio_file, const char* peak_file)
 		gpointer           user_data;
 	} C;
 
-	static void waveform_ensure_peakfile_done(Waveform* w, GError* error, gpointer user_data)
+	static void waveform_ensure_peakfile_done (Waveform* w, GError* error, gpointer user_data)
 	{
 		C* c = (C*)user_data;
 
-		if(error && w->priv->peaks){
+		if (error && w->priv->peaks) {
 			w->priv->peaks->error = error;
 		}
 
-		if(c->callback) c->callback(c->waveform, c->filename, c->user_data);
-		else g_free(c->filename);
+		if (c->callback)
+			c->callback(c->waveform, c->filename, c->user_data);
+		else
+			g_free(c->filename);
 		g_object_unref(c->waveform);
 		g_free(c);
 	}
@@ -160,17 +162,17 @@ peakfile_is_current(const char* audio_file, const char* peak_file)
 void
 waveform_ensure_peakfile (Waveform* w, WfPeakfileCallback callback, gpointer user_data)
 {
-	if(!wf_create_cache_dir()) return;
+	if (!wf_create_cache_dir()) return;
 
 	char* filename = g_path_is_absolute(w->filename) ? g_strdup(w->filename) : g_build_filename(g_get_current_dir(), w->filename, NULL);
 
 	gchar* peak_filename = waveform_get_peak_filename(filename);
-	if(!peak_filename){
+	if (!peak_filename) {
 		callback(w, NULL, user_data);
 		goto out;
 	}
 
-	if(w->offline || peakfile_is_current(filename, peak_filename)){
+	if (w->offline || peakfile_is_current(filename, peak_filename)) {
 		callback(w, peak_filename, user_data);
 		goto out;
 	}
@@ -415,7 +417,7 @@ wf_ff_peakgen (const char* infilename, const char* peak_filename)
 
 	int readcount;
 	int total_readcount = 0;
-	while((readcount = ad_read_short(&f, &buf))){
+	while ((readcount = ad_read_short(&f, &buf))) {
 		total_readcount += readcount;
 		int remaining = readcount;
 
@@ -485,8 +487,8 @@ wf_ff_peakgen (const char* infilename, const char* peak_filename)
 	}
 #endif
 
-	if(total_frames_written / WF_PEAK_VALUES_PER_SAMPLE != f.info.frames / WF_PEAK_RATIO + (f.info.frames % WF_PEAK_RATIO ? 1 : 0)){
-		if(total_frames_written){
+	if (total_frames_written / WF_PEAK_VALUES_PER_SAMPLE != f.info.frames / WF_PEAK_RATIO + (f.info.frames % WF_PEAK_RATIO ? 1 : 0)) {
+		if (total_frames_written) {
 			pwarn("unexpected number of frames written: wrote %i, expected %"PRIu64,
 				total_frames_written / WF_PEAK_VALUES_PER_SAMPLE,
 				f.info.frames / WF_PEAK_RATIO + (f.info.frames % WF_PEAK_RATIO ? 1 : 0)
@@ -495,7 +497,7 @@ wf_ff_peakgen (const char* infilename, const char* peak_filename)
 
 #ifdef USE_FFMPEG
 		unsigned char w[WF_PEAK_VALUES_PER_SAMPLE * WF_STEREO * sizeof(short)] = {0,};
-		while(total_frames_written / WF_PEAK_VALUES_PER_SAMPLE < f.info.frames / WF_PEAK_RATIO){
+		while (total_frames_written / WF_PEAK_VALUES_PER_SAMPLE < f.info.frames / WF_PEAK_RATIO) {
 			avio_write(format_context->pb, w, WF_PEAK_VALUES_PER_SAMPLE * f.info.channels * sizeof(short));
 			total_frames_written += WF_PEAK_VALUES_PER_SAMPLE * f.info.channels * sizeof(short);
 		}
@@ -517,7 +519,7 @@ wf_ff_peakgen (const char* infilename, const char* peak_filename)
 	sf_close (outfile);
 #endif
 
-	if(total_readcount){
+	if (total_readcount) {
 		GError* err = NULL;
 		GFile* tmp_file = g_file_new_for_path(tmp_path);
 		GFile* peak_file = g_file_new_for_path(peak_filename);
@@ -526,12 +528,12 @@ wf_ff_peakgen (const char* infilename, const char* peak_filename)
 		g_object_unref(peak_file);
 		g_free(tmp_path);
 
-		if(err != NULL){
+		if (err != NULL) {
 			printf("Could not move peak file to %s: %s\n", peak_filename, err->message);
 			g_error_free(err);
 			return false;
 		}
-	}else{
+	} else {
 		pwarn("failed to read from file %s", infilename);
 		g_unlink(tmp_path);
 #ifdef USE_FFMPEG
@@ -562,8 +564,8 @@ wf_ff_peakgen_split_stereo (const char* infilename, const char* peak_filename)
 	char infilename2[256] = {0,};
 	waveform_get_rhs(infilename, infilename2);
 
-	if(!ad_open(&f, infilename)) return false;
-	if(!ad_open(&f2, infilename2)) return false;
+	if (!ad_open(&f, infilename)) return false;
+	if (!ad_open(&f2, infilename2)) return false;
 
 	gchar* basename = g_path_get_basename(peak_filename);
 	gchar* tmp_path = g_build_filename(g_get_tmp_dir(), basename, NULL);
@@ -576,18 +578,18 @@ wf_ff_peakgen_split_stereo (const char* infilename, const char* peak_filename)
 	avformat_alloc_output_context2(&format_context, av_guess_format("wav", NULL, "audio/x-wav"), NULL, NULL);
 
 	avio_open(&format_context->pb, tmp_path, AVIO_FLAG_READ_WRITE);
-	if(!format_context->pb) {
+	if (!format_context->pb) {
 		FAIL("could not open for writing");
 	}
 
 	AVCodec* codec = avcodec_find_encoder(AV_CODEC_ID_PCM_S16LE);
-	if(!codec){
+	if (!codec) {
 		pwarn("codec not found");
 		return false;
 	}
 
 	AVStream* stream = avformat_new_stream(format_context, NULL);
-	if(!stream){
+	if (!stream) {
 		pwarn("could not alloc stream");
 		return false;
 	}
@@ -595,7 +597,7 @@ wf_ff_peakgen_split_stereo (const char* infilename, const char* peak_filename)
 	//av_dump_format(format_context, 0, tmp_file, 1);
 
 	AVCodecContext* c = output_stream.encoder = avcodec_alloc_context3(codec);
-	if(!c){
+	if (!c) {
 		pwarn("Could not alloc an encoding context");
 		return false;
 	}
@@ -615,7 +617,7 @@ wf_ff_peakgen_split_stereo (const char* infilename, const char* peak_filename)
 	open_audio2(c, stream, &output_stream);
 
 	AVDictionary** options = NULL;
-	if(avformat_write_header(format_context, options)){
+	if (avformat_write_header(format_context, options)) {
 		pwarn("could not write header");
 		return false;
 	}
@@ -897,17 +899,18 @@ wf_peakgen__sync (const char* infilename, const char* peak_filename, GError** er
 	PF;
 
 	bool (*fn) (const char* infilename, const char* peak_filename) = wf_ff_peakgen;
-	if(g_strrstr(infilename, "%L")) fn = wf_ff_peakgen_split_stereo;
-	if(!fn(infilename, peak_filename)){
-		if(wf_debug){
+	if (g_strrstr(infilename, "%L")) fn = wf_ff_peakgen_split_stereo;
+
+	if (!fn(infilename, peak_filename)) {
+		if (wf_debug) {
 #ifdef USE_SNDFILE
 			printf("peakgen: not able to open input file %s: %s\n", infilename, sf_strerror(NULL));
 #endif
-			if(!g_file_test(infilename, G_FILE_TEST_EXISTS)){
+			if (!g_file_test(infilename, G_FILE_TEST_EXISTS)) {
 				printf("peakgen: no such input file: '%s'\n", infilename);
 			}
 		}
-		if(error){
+		if (error) {
 #ifdef USE_SNDFILE
 			char* text = g_strdup_printf("Failed to create peak: not able to open input file: %s: %s", infilename, sf_strerror(NULL));
 			*error = g_error_new_literal(g_quark_from_static_string(wf->domain), 1, text);
@@ -917,7 +920,7 @@ wf_peakgen__sync (const char* infilename, const char* peak_filename, GError** er
 		return false;
 	}
 
-	if(need_file_cache_check){
+	if (need_file_cache_check) {
 		maintain_file_cache();
 		need_file_cache_check = false;
 	}
