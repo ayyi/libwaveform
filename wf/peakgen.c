@@ -1,14 +1,14 @@
-/**
-* +----------------------------------------------------------------------+
-* | This file is part of the Ayyi project. http://ayyi.org               |
-* | copyright (C) 2012-2020 Tim Orford <tim@orford.org>                  |
-* +----------------------------------------------------------------------+
-* | This program is free software; you can redistribute it and/or modify |
-* | it under the terms of the GNU General Public License version 3       |
-* | as published by the Free Software Foundation.                        |
-* +----------------------------------------------------------------------+
-*
-*/
+/*
+ +----------------------------------------------------------------------+
+ | This file is part of the Ayyi project. https://www.ayyi.org          |
+ | copyright (C) 2012-2022 Tim Orford <tim@orford.org>                  |
+ +----------------------------------------------------------------------+
+ | This program is free software; you can redistribute it and/or modify |
+ | it under the terms of the GNU General Public License version 3       |
+ | as published by the Free Software Foundation.                        |
+ +----------------------------------------------------------------------+
+ |
+ */
 
 /*
   peakgen
@@ -39,14 +39,13 @@
 #include <gio/gio.h>
 #ifdef USE_SNDFILE
 #include <sndfile.h>
-#else
+#endif
 #ifdef USE_FFMPEG
 #include <libavcodec/avcodec.h>
 #include <libavutil/channel_layout.h>
 #include <libavutil/common.h>
 #include <libavutil/frame.h>
 #include <libavutil/samplefmt.h>
-#endif
 #endif
 #include "decoder/ad.h"
 #include "wf/debug.h"
@@ -107,7 +106,7 @@ waveform_get_peak_filename (const char* filename)
 
 
 static bool
-peakfile_is_current(const char* audio_file, const char* peak_file)
+peakfile_is_current (const char* audio_file, const char* peak_file)
 {
 	/*
 	note that this test will fail to detect a modified file, if an older file is now stored at this location.
@@ -139,16 +138,18 @@ peakfile_is_current(const char* audio_file, const char* peak_file)
 		gpointer           user_data;
 	} C;
 
-	static void waveform_ensure_peakfile_done(Waveform* w, GError* error, gpointer user_data)
+	static void waveform_ensure_peakfile_done (Waveform* w, GError* error, gpointer user_data)
 	{
 		C* c = (C*)user_data;
 
-		if(error && w->priv->peaks){
+		if (error && w->priv->peaks) {
 			w->priv->peaks->error = error;
 		}
 
-		if(c->callback) c->callback(c->waveform, c->filename, c->user_data);
-		else g_free(c->filename);
+		if (c->callback)
+			c->callback(c->waveform, c->filename, c->user_data);
+		else
+			g_free(c->filename);
 		g_object_unref(c->waveform);
 		g_free(c);
 	}
@@ -160,17 +161,17 @@ peakfile_is_current(const char* audio_file, const char* peak_file)
 void
 waveform_ensure_peakfile (Waveform* w, WfPeakfileCallback callback, gpointer user_data)
 {
-	if(!wf_create_cache_dir()) return;
+	if (!wf_create_cache_dir()) return;
 
 	char* filename = g_path_is_absolute(w->filename) ? g_strdup(w->filename) : g_build_filename(g_get_current_dir(), w->filename, NULL);
 
 	gchar* peak_filename = waveform_get_peak_filename(filename);
-	if(!peak_filename){
+	if (!peak_filename) {
 		callback(w, NULL, user_data);
 		goto out;
 	}
 
-	if(w->offline || peakfile_is_current(filename, peak_filename)){
+	if (w->offline || peakfile_is_current(filename, peak_filename)) {
 		callback(w, peak_filename, user_data);
 		goto out;
 	}
@@ -897,17 +898,18 @@ wf_peakgen__sync (const char* infilename, const char* peak_filename, GError** er
 	PF;
 
 	bool (*fn) (const char* infilename, const char* peak_filename) = wf_ff_peakgen;
-	if(g_strrstr(infilename, "%L")) fn = wf_ff_peakgen_split_stereo;
-	if(!fn(infilename, peak_filename)){
-		if(wf_debug){
+	if (g_strrstr(infilename, "%L")) fn = wf_ff_peakgen_split_stereo;
+
+	if (!fn(infilename, peak_filename)) {
+		if (wf_debug) {
 #ifdef USE_SNDFILE
 			printf("peakgen: not able to open input file %s: %s\n", infilename, sf_strerror(NULL));
 #endif
-			if(!g_file_test(infilename, G_FILE_TEST_EXISTS)){
+			if (!g_file_test(infilename, G_FILE_TEST_EXISTS)) {
 				printf("peakgen: no such input file: '%s'\n", infilename);
 			}
 		}
-		if(error){
+		if (error) {
 #ifdef USE_SNDFILE
 			char* text = g_strdup_printf("Failed to create peak: not able to open input file: %s: %s", infilename, sf_strerror(NULL));
 			*error = g_error_new_literal(g_quark_from_static_string(wf->domain), 1, text);
@@ -917,7 +919,7 @@ wf_peakgen__sync (const char* infilename, const char* peak_filename, GError** er
 		return false;
 	}
 
-	if(need_file_cache_check){
+	if (need_file_cache_check) {
 		maintain_file_cache();
 		need_file_cache_check = false;
 	}

@@ -1,15 +1,16 @@
-/**
-* +----------------------------------------------------------------------+
-* | This file is part of the Ayyi project. http://ayyi.org               |
-* | copyright (C) 2011-2022 Tim Orford <tim@orford.org>                  |
-* | copyright (C) 2011 Robin Gareus <robin@gareus.org>                   |
-* +----------------------------------------------------------------------+
-* | This program is free software; you can redistribute it and/or modify |
-* | it under the terms of the GNU General Public License version 3       |
-* | as published by the Free Software Foundation.                        |
-* +----------------------------------------------------------------------+
-*
-*/
+/*
+ +----------------------------------------------------------------------+
+ | This file is part of the Ayyi project. http://ayyi.org               |
+ | copyright (C) 2011-2022 Tim Orford <tim@orford.org>                  |
+ | copyright (C) 2011 Robin Gareus <robin@gareus.org>                   |
+ +----------------------------------------------------------------------+
+ | This program is free software; you can redistribute it and/or modify |
+ | it under the terms of the GNU General Public License version 3       |
+ | as published by the Free Software Foundation.                        |
+ +----------------------------------------------------------------------+
+ |
+ */
+
 #include "config.h"
 #include <glib.h>
 #include <libavcodec/avcodec.h>
@@ -18,9 +19,6 @@
 #include <libavutil/imgutils.h>
 #include "decoder/debug.h"
 #include "decoder/ad.h"
-
-// Fully working replacements for some deprecated ffmpeg API is not yet in place
-#define USE_DEPRECATED
 
 // The thumbnail extraction using ffmpeg filters was replaced
 // due to hard to resolve memory leaks
@@ -61,27 +59,27 @@ typedef struct _FFmpegAudioDecoder FFmpegAudioDecoder;
 
 struct _FFmpegAudioDecoder
 {
-    AVFormatContext* format_context;
-    AVCodecContext*  codec_context;
+    AVFormatContext*   format_context;
+    AVCodecContext*    codec_context;
     AVCodecParameters* codec_parameters;
-    AVCodec*         codec;
-    AVPacket         packet;
-    int              audio_stream;
-    int              pkt_len;
-    uint8_t*         pkt_ptr;
+    const AVCodec*     codec;
+    AVPacket           packet;
+    int                audio_stream;
+    int                pkt_len;
+    uint8_t*           pkt_ptr;
 
-    AVFrame          frame;
-    int              frame_iter;
+    AVFrame            frame;
+    int                frame_iter;
 
     struct {
-      int16_t        buf[AVCODEC_MAX_AUDIO_FRAME_SIZE];
-      int16_t*       start;
-      unsigned long  len;
-    }                tmp_buf;
+      int16_t          buf[AVCODEC_MAX_AUDIO_FRAME_SIZE];
+      int16_t*         start;
+      unsigned long    len;
+    }                  tmp_buf;
 
-    int64_t          decoder_clock;
-    int64_t          output_clock;
-    int64_t          seek_frame;
+    int64_t            decoder_clock;
+    int64_t            output_clock;
+    int64_t            seek_frame;
 
     struct {
       int              stream;
@@ -94,9 +92,9 @@ struct _FFmpegAudioDecoder
       AVFrame*         frame;
       AVPacket*        packet;
 #endif
-    }                thumbnail;
+    }                  thumbnail;
 
-    ssize_t (*read)  (WfDecoder*, float*, size_t len);
+    ssize_t (*read)    (WfDecoder*, float*, size_t len);
     ssize_t (*read_planar) (WfDecoder*, WfBuf16*);
 };
 
@@ -196,7 +194,7 @@ get_scaled_thumbnail (WfDecoder* d, int size, AdPicture* picture)
 	if (!f->thumbnail.codec_id)
 		return;
  
-	AVCodec* codec = avcodec_find_decoder(f->thumbnail.codec_id);
+	const AVCodec* codec = avcodec_find_decoder(f->thumbnail.codec_id);
 	f->thumbnail.codec_context = avcodec_alloc_context3(codec);
 	if (!f->thumbnail.codec_context)
 		return;
@@ -324,9 +322,7 @@ get_scaled_thumbnail (WfDecoder* d, int size, AdPicture* picture)
 
 			#define ALIGN 1
 			uint8_t* buffer = g_malloc(size * line_size);
-#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
-			av_image_fill_arrays(((AVPicture*)frameRGB)->data, ((AVPicture*)frameRGB)->linesize, buffer, AV_PIX_FMT_RGB24, width_dst, size, ALIGN);
-#pragma GCC diagnostic warning "-Wdeprecated-declarations"
+			av_image_fill_arrays(frameRGB->data, frameRGB->linesize, buffer, AV_PIX_FMT_RGB24, width_dst, size, ALIGN);
 			frameRGB->linesize[0] = line_size;
 
 			struct SwsContext* sws_ctx = sws_getContext(codec_ctx->width, codec_ctx->height, codec_ctx->pix_fmt, width_dst, size, AV_PIX_FMT_RGB24, SWS_BILINEAR, NULL, NULL, NULL);
@@ -409,21 +405,22 @@ ad_open_ffmpeg (WfDecoder* decoder, const char* filename)
 		avformat_close_input(&f->format_context);
 		goto f;
 	}
-	if(!f->thumbnail.codec_context){
-		dbg(1, "thumbnail not found");
+
+	if (!f->thumbnail.codec_context) {
+		dbg(2, "no thumbnail found");
 	}
 
-	#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
-	f->codec_context    = f->format_context->streams[f->audio_stream]->codec;
-	#pragma GCC diagnostic warning "-Wdeprecated-declarations"
 	f->codec_parameters = f->format_context->streams[f->audio_stream]->codecpar;
-	f->codec            = avcodec_find_decoder(f->codec_context->codec_id);
 
-	if (!f->codec) {
+	if (!(f->codec = avcodec_find_decoder(f->codec_parameters->codec_id))) {
 		avformat_close_input(&f->format_context);
 		dbg(1, "Codec not supported by ffmpeg");
 		goto f;
 	}
+
+	f->codec_context = avcodec_alloc_context3(f->codec);
+	avcodec_parameters_to_context(f->codec_context, f->codec_parameters);
+
 	if (avcodec_open2(f->codec_context, f->codec, NULL) < 0) {
 		dbg(1, "avcodec_open failed");
 		goto f;
@@ -447,7 +444,7 @@ ad_open_ffmpeg (WfDecoder* decoder, const char* filename)
 	av_dump_format(f->format_context, f->audio_stream, filename, 0);
 #endif
 
-	switch(f->codec_parameters->format){
+	switch (f->codec_parameters->format) {
 		case AV_SAMPLE_FMT_S16:
 			dbg(1, "S16 (TODO check float out)");
 
@@ -1037,6 +1034,7 @@ ff_read_float_planar_to_planar (WfDecoder* d, WfBuf16* buf)
 				if (ret < 0){
 					char errbuff[64] = {0,};
 					gwarn("error decoding audio: %s", av_make_error_string(errbuff, 64, ret));
+					goto stop;
 				}
 			}
 			if(got_frame){
@@ -1300,32 +1298,27 @@ ff_read_peak (WfDecoder* d, WfBuf16* buf)
 	g_return_val_if_fail(data_size == 2, 0);
 
 	// File is read in 1024 frame chunks
-	while(!av_read_frame(f->format_context, &f->packet)){
+	while (!av_read_frame(f->format_context, &f->packet)) {
 		g_return_val_if_fail(f->packet.stream_index == f->audio_stream, 0);
 		int got_frame = false;
-		if(f->frame_iter && f->frame_iter < f->frame.nb_samples){
+		if (f->frame_iter && f->frame_iter < f->frame.nb_samples) {
 			got_frame = true;
-		}else{
+		} else {
 			av_frame_unref(&f->frame);
 			f->frame_iter = 0;
 
-#ifdef USE_DEPRECATED
-			#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
-			if(avcodec_decode_audio4(f->codec_context, &f->frame, &got_frame, &f->packet) < 0){
-				gwarn("error decoding audio");
-			}
-			#pragma GCC diagnostic warning "-Wdeprecated-declarations"
-#else
 			int ret = avcodec_receive_frame(f->codec_context, &f->frame);
 			if (ret == 0) got_frame = true;
 			if (ret == AVERROR(EAGAIN)) ret = 0;
 			if (ret == 0) ret = avcodec_send_packet(f->codec_context, &f->packet);
 			if (ret == AVERROR(EAGAIN)) ret = 0;
-			if (ret < 0) gwarn("error decoding audio");
-#endif
+			if (ret < 0) {
+				gwarn("error decoding audio");
+				goto stop;
+			}
 		}
 
-		if(got_frame){
+		if (got_frame) {
 			int size = av_samples_get_buffer_size (NULL, f->codec_parameters->channels, f->frame.nb_samples, f->codec_parameters->format, 1);
 			if (size < 0)  {
 				dbg(0, "av_samples_get_buffer_size invalid value");
@@ -1341,8 +1334,8 @@ ff_read_peak (WfDecoder* d, WfBuf16* buf)
 			int remaining_in_buffer = buf->size - n_fr_done;
 			int iter_max = MIN(remaining_in_buffer - 2, f->frame.nb_samples);
 			//for(int i=f->frame_iter; (f->frame_iter < f->frame.nb_samples) && (n_fr_done + 2 < buf->size); i+=2){
-			for(int i=f->frame_iter; f->frame_iter < iter_max; i+=2){
-				for(ch=0; ch<n_ch; ch++){
+			for (int i=f->frame_iter; f->frame_iter < iter_max; i+=2) {
+				for (ch=0; ch<n_ch; ch++) {
 					memcpy(buf->buf[ch] + n_fr_done, f->frame.data[0] + data_size * (f->codec_context->channels * i + 2 * ch), data_size * 2);
 				}
 				n_fr_done += 2;
@@ -1350,7 +1343,7 @@ ff_read_peak (WfDecoder* d, WfBuf16* buf)
 			}
 			f->output_clock = n_fr_done;
 
-			if(n_fr_done >= buf->size) goto stop;
+			if (n_fr_done >= buf->size) goto stop;
 		}
 		av_packet_unref(&f->packet);
 		continue;

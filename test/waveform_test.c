@@ -26,12 +26,13 @@
 #include "test/utils.h"
 #include "test/runner.h"
 
-TestFn test_peakgen, test_bad_wav, test_empty_wav, test_audio_file, test_audiodata, test_audio_cache, test_alphabuf, test_transition, test_worker, test_thumbnail;
+TestFn test_peakgen, test_m4a, test_bad_wav, test_empty_wav, test_audio_file, test_audiodata, test_audio_cache, test_alphabuf, test_transition, test_worker, test_thumbnail;
 
 static void finalize_notify (gpointer, GObject*);
 
 gpointer tests[] = {
 	test_peakgen,
+	test_m4a,
 	test_bad_wav,
 	test_empty_wav,
 	test_audio_file,
@@ -66,8 +67,38 @@ test_peakgen ()
 	// create peakfile in the cache directory
 	Waveform* w = waveform_new(filename);
 	g_free(filename);
+
 	char* p = waveform_ensure_peakfile__sync(w);
 	assert(p, "cache dir peakgen failed");
+	g_object_unref(w);
+	g_free(p);
+
+	FINISH_TEST;
+}
+
+
+void
+test_m4a ()
+{
+	START_TEST;
+
+	#define M4A "mono_0:10.m4a"
+
+	char* filename = find_wav(M4A);
+	assert(filename, "cannot find file %s", M4A);
+
+	assert(wf_peakgen__sync(filename, M4A ".peak", NULL), "peakgen failed");
+
+	Waveform* w = waveform_new(filename);
+	g_free(filename);
+
+	char* p = waveform_ensure_peakfile__sync(w);
+	assert(p, "cache dir peakgen failed");
+
+	assert(waveform_load_sync(w), "failed to load");
+	assert(w->n_frames == 441000 || w->n_frames == 442058, "wrong frame count %"PRIi64, w->n_frames);
+	assert(w->priv->peak.size >= 3440 && w->priv->peak.size <= 3446, "wrong peak count %i", w->priv->peak.size);
+
 	g_object_unref(w);
 	g_free(p);
 
@@ -90,7 +121,7 @@ void
 test_bad_wav ()
 {
 	START_TEST;
-	if(__test_idx == -1) printf("\n"); // stop compiler warning
+	if (__test_idx == -1) printf("\n"); // stop compiler warning
 	static Waveform* w;
 
 	bool a = wf_peakgen__sync("bad.wav", "bad.peak", NULL);
