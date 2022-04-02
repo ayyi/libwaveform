@@ -1,7 +1,7 @@
 /*
  +----------------------------------------------------------------------+
  | This file is part of libwaveform https://github.com/ayyi/libwaveform |
- | copyright (C) 2012-2021 Tim Orford <tim@orford.org>                  |
+ | copyright (C) 2012-2022 Tim Orford <tim@orford.org>                  |
  +----------------------------------------------------------------------+
  | This program is free software; you can redistribute it and/or modify |
  | it under the terms of the GNU General Public License version 3       |
@@ -15,9 +15,7 @@
 
 #include "config.h"
 #if defined(USE_GTK) || defined(__GTK_H__)
-#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 #include <gtk/gtk.h>
-#pragma GCC diagnostic warning "-Wdeprecated-declarations"
 #endif
 #include "agl/actor.h"
 #include "wf/private.h"

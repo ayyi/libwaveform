@@ -18,10 +18,12 @@ export G_SLICE=always-malloc
 export G_DEBUG=gc-friendly
 
 /usr/bin/valgrind \
+	-s \
 	--leak-check=full \
 	--suppressions=../lib/agl/test/suppressions/mesa.supp \
 	--suppressions=suppressions/pango.supp \
 	--suppressions=suppressions/glib.supp \
+	--suppressions=suppressions/gtk4.supp \
 	--suppressions=suppressions/mesa.supp \
 	--suppressions=suppressions/test.supp \
 	--gen-suppressions=yes \

@@ -1,23 +1,23 @@
 {
-   <insert_a_suppression_name_here>
+   g_type_register_static
    Memcheck:Leak
    ...
    fun:g_type_register_static
 }
 {
-   <insert_a_suppression_name_here>
+   g_type_add_interface_static
    Memcheck:Leak
    ...
    fun:g_type_add_interface_static
 }
 {
-   <insert_a_suppression_name_here>
+   g_type_register_fundamental
    Memcheck:Leak
    ...
    fun:g_type_register_fundamental
 }
 {
-   <insert_a_suppression_name_here>
+   g_option_context_parse
    Memcheck:Leak
    ...
    fun:g_option_context_parse

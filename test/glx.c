@@ -1,14 +1,16 @@
-/**
-* +----------------------------------------------------------------------+
-* | This file is part of libwaveform                                     |
-* | https://github.com/ayyi/libwaveform                                  |
-* | copyright (C) 2012-2021 Tim Orford <tim@orford.org>                  |
-* +----------------------------------------------------------------------+
-* | This program is free software; you can redistribute it and/or modify |
-* | it under the terms of the GNU General Public License version 3       |
-* | as published by the Free Software Foundation.                        |
-* +----------------------------------------------------------------------+
-*/
+/*
+ +----------------------------------------------------------------------+
+ | This file is part of libwaveform                                     |
+ | https://github.com/ayyi/libwaveform                                  |
+ | copyright (C) 2012-2022 Tim Orford <tim@orford.org>                  |
+ +----------------------------------------------------------------------+
+ | This program is free software; you can redistribute it and/or modify |
+ | it under the terms of the GNU General Public License version 3       |
+ | as published by the Free Software Foundation.                        |
+ +----------------------------------------------------------------------+
+ |
+ */
+
 #include "config.h"
 #include <getopt.h>
 #include <X11/Xlib.h>
@@ -19,6 +21,8 @@
 #include "gdk/gdk.h"
 #include "agl/ext.h"
 #include "agl/x11.h"
+#include "agl/behaviours/simple_key.h"
+#include "agl/behaviours/fullsize.h"
 #include "actors/background.h"
 #define __wf_private__
 #include "wf/waveform.h"
@@ -38,12 +42,16 @@ struct {
 } layers = {0,};
 
 static KeyHandler
+	nav_left,
+	nav_right,
 	nav_up,
 	nav_down,
 	zoom_in,
 	zoom_out;
 
-Key keys[] = {
+AGlKey keys[] = {
+	{XK_Left,        nav_left},
+	{XK_Right,       nav_right},
 	{XK_Up,          nav_up},
 	{XK_Down,        nav_down},
 	{XK_equal,       zoom_in},
@@ -53,10 +61,10 @@ Key keys[] = {
 };
 
 static const struct option long_options[] = {
-	{ "non-interactive",  0, NULL, 'n' },
+	{ "autoquit", 0, NULL, 'q' },
 };
 
-static const char* const short_options = "n";
+static const char* const short_options = "q";
 
 
 int
@@ -95,26 +103,15 @@ main (int argc, char* argv[])
 	int opt;
 	while ((opt = getopt_long (argc, argv, short_options, long_options, NULL)) != -1) {
 		switch (opt) {
-			case 'n':
+			case 'q':
 				g_timeout_add(3000, (gpointer)exit, NULL);
 				break;
 		}
 	}
 
-	AGlWindow* window = agl_window("waveformglxtest", 0, 0, width, height, 0);
-	XMapWindow(dpy, window->window);
+	AGlWindow* window = agl_window("Waveform glx test", -1, -1, width, height, 0);
 
-	AGlActor* bg = agl_actor__add_child((AGlActor*)window->scene, background_actor(NULL));
-
-	void set_size (AGlActor* actor)
-	{
-		int width = agl_actor__width(actor->parent);
-		int height = agl_actor__height(actor->parent);
-
-		((AGlActor*)layers.wa)->region = (AGlfRegion){.x2 = width, .y2 = height};
-	}
-
-	bg->set_size = set_size;
+	agl_actor__add_child((AGlActor*)window->scene, background_actor(NULL));
 
 	char* filename = find_wav("mono_0:10.wav");
 	Waveform* w = waveform_load_new(filename);
@@ -125,10 +122,16 @@ main (int argc, char* argv[])
 
 	layers.wa = (WaveformActor*)agl_actor__add_child((AGlActor*)window->scene, (AGlActor*)wf_context_add_new_actor(wfc, w));
 	((AGlActor*)layers.wa)->colour = 0xaaaaaaff;
+	agl_actor__add_behaviour((AGlActor*)layers.wa, fullsize());
 
 	wf_actor_set_region(layers.wa, &(WfSampleRegion){0, 441000});
 
-	add_key_handlers(keys);
+	#define KEYS(A) ((SimpleKeyBehaviour*)((AGlActor*)A)->behaviours[0])
+	AGlActor* root = (AGlActor*)window->scene;
+	window->scene->selected = root;
+	root->behaviours[0] = simple_key_behaviour();
+	KEYS(root)->keys = &keys;
+	simple_key_behaviour_init(root->behaviours[0], root);
 
 	GMainLoop* mainloop = agl_main_loop_new();
 	g_main_loop_run(mainloop);
@@ -137,6 +140,50 @@ main (int argc, char* argv[])
 	XCloseDisplay(dpy);
 
 	return 0;
+}
+
+
+static void
+nav_left (gpointer user_data)
+{
+	WaveformContext* wfc = layers.wa->context;
+
+	int64_t n_frames_visible = agl_actor__width(((AGlActor*)layers.wa)) * wfc->samples_per_pixel / wfc->zoom->value.f;
+
+	int64_t start_frame = CLAMP(
+		wfc->start_time->value.b - n_frames_visible / 10,
+		0,
+		(int64_t)(waveform_get_n_frames(layers.wa->waveform) - MAX(10, n_frames_visible))
+	);
+
+	wf_context_set_start(wfc, start_frame);
+
+	wf_actor_set_region(layers.wa, &(WfSampleRegion){
+		start_frame,
+		n_frames_visible
+	});
+}
+
+
+static void
+nav_right (gpointer user_data)
+{
+	WaveformContext* wfc = layers.wa->context;
+
+	int64_t n_frames_visible = agl_actor__width(((AGlActor*)layers.wa)) * wfc->samples_per_pixel / wfc->zoom->value.f;
+
+	int64_t start_frame = CLAMP(
+		wfc->start_time->value.b + n_frames_visible / 10,
+		0,
+		(int64_t)(waveform_get_n_frames(layers.wa->waveform) - MAX(10, n_frames_visible))
+	);
+
+	wf_context_set_start(wfc, start_frame);
+
+	wf_actor_set_region(layers.wa, &(WfSampleRegion){
+		start_frame,
+		n_frames_visible
+	});
 }
 
 

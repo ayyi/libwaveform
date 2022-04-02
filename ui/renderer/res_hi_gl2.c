@@ -16,8 +16,7 @@
 
   ------------------------------------------------------------------------
 
-  This HI_RES renderer is shader-only (GLSL 1.20) and passes peak data
-  directly to the shader in a 2D texture.
+  This HI_RES renderer passes peak data directly to the shader in a 2D texture.
 
   Texture format:
     - each texture can hold up to 32 blocks.
@@ -48,18 +47,12 @@
 #define __wf_private__
 
 #include "config.h"
-#include <stdlib.h>
 #include <string.h>
-#include <sys/types.h>
-#include <stdint.h>
 #include <glib.h>
-#include <GL/gl.h>
 #include "waveform/waveform.h"
 
 extern int wf_debug;
 #endif // __actor_c__
-
-void hi_gl2_cache_print ();
 
 extern NGRenderer hi_renderer_gl2;
 extern HiResNGShader hires_ng_shader;
@@ -68,10 +61,6 @@ extern HiResNGShader hires_ng_shader;
 void
 hi_gl2_new (WaveformActor* a)
 {
-	if(!hi_renderer_gl2.renderer.shader){
-		hi_renderer_gl2.renderer.shader = &hires_ng_shader.shader;
-		if(!hi_renderer_gl2.renderer.shader->program) agl_create_program(&hires_ng_shader.shader);
-	}
 }
 
 
@@ -144,6 +133,11 @@ hi_gl2_on_steal(WaveformBlock* wb, guint tex)
 	}
 }
 
+
+#if 0
+void
+hi_gl2_cache_print ()
+{
 	static int n_textures;
 
 	static void _hi_ng_print(gpointer key, gpointer value, gpointer _)
@@ -160,10 +154,6 @@ hi_gl2_on_steal(WaveformBlock* wb, guint tex)
 		if(!n) dbg(0, "all sections EMPTY");
 	}
 
-// temporary
-void
-hi_gl2_cache_print()
-{
 	n_textures = 0;
 
 	if(g_hash_table_size(hi_renderer_gl2.ng_data)){
@@ -172,5 +162,4 @@ hi_gl2_cache_print()
 	}else
 		dbg(0, "EMPTY");
 }
-
-
+#endif

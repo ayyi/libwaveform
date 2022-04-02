@@ -9,24 +9,19 @@ if ENABLE_SDL
 SDLPROGRAMS = sdl
 endif
 if ENABLE_GTK
-GTKPROGRAMS = view_plus actor actor_plus actor_no_scene list group hires res_vhi multi_scene $(ASSPROGRAMS) frame_rate resources cache pixbuf
+GTKPROGRAMS = view_plus no_scene hires res_vhi multi_scene $(ASSPROGRAMS) pixbuf
 LOCAL_GTK_LDFLAGS = $(GTK_LDFLAGS)
 endif
 
 if ENABLE_OPENGL
-if !ENABLE_SYSTEM_GTKGLEXT
 if ENABLE_GTK
-LOCAL_GTKGLEXT_CFLAGS = \
-	-I$(top_srcdir)/gtkglext-1.0
-TEST_GTKGLEXT_LDFLAGS = \
-	-lgmodule-2.0 \
-	$(top_srcdir)/gtkglext-1.0/.libs/libgtkglext.a
-endif
+TEST_GTK_LDFLAGS = \
+	-lgmodule-2.0
 endif
 endif
 
 if ENABLE_OPENGL
-noinst_PROGRAMS = waveform_test large_files promise 32bit glx input $(GTKPROGRAMS) $(SDLPROGRAMS)
+noinst_PROGRAMS = waveform_test large_files promise 32bit actor actor_plus glx list group input frame_rate resources cache $(GTKPROGRAMS) $(SDLPROGRAMS)
 else
 noinst_PROGRAMS = waveform_test
 endif
@@ -41,7 +36,6 @@ AM_CFLAGS = \
 	-I$(top_srcdir) \
 	-I$(top_srcdir)/lib \
 	-I$(top_srcdir)/lib/agl \
-	$(LOCAL_GTKGLEXT_CFLAGS) \
 	$(OPENGL_CFLAGS) \
 	$(GTK_CFLAGS) \
 	$(SDL_CFLAGS) \
@@ -61,7 +55,7 @@ TEST_LDFLAGS = \
 	$(GL_LOADER_LDFLAGS) \
 	$(LIBASS_LDFLAGS) \
 	$(LOCAL_GTK_LDFLAGS) \
-	$(TEST_GTKGLEXT_LDFLAGS) \
+	$(TEST_GTK_LDFLAGS) \
 	$(GMODULE_LDFLAGS) \
 	$(SNDFILE_LIBS) \
 	$(FFMPEG_LDFLAGS) \
@@ -92,9 +86,9 @@ actor_SOURCES = \
 	$(COMMON2_SOURCES) \
 	actor.c
 
-actor_no_scene_SOURCES = \
+no_scene_SOURCES = \
 	$(COMMON2_SOURCES) \
-	actor_no_scene.c
+	no_scene.c
 
 multi_scene_SOURCES = \
 	$(COMMON2_SOURCES) \
@@ -142,7 +136,7 @@ cache_SOURCES = \
 	32bit.c
 
 pixbuf_SOURCES = \
-	$(COMMON_SOURCES) \
+	$(COMMON2_SOURCES) \
 	pixbuf.c
 
 if ENABLE_SDL
@@ -171,7 +165,7 @@ actor_LDADD = \
 	$(OPENGL_LDFLAGS) \
 	$(TEST_LDFLAGS)
 
-actor_no_scene_LDADD = \
+no_scene_LDADD = \
 	$(OPENGL_LDFLAGS) \
 	$(TEST_LDFLAGS)
 
@@ -209,13 +203,12 @@ view_plus_DEPENDENCIES = \
 
 endif
 
-AM_TESTS_FD_REDIRECT = 9>&2 --non-interactive
+AM_TESTS_FD_REDIRECT = 9>&2 --autoquit
 
 AM_TESTS_ENVIRONMENT = \
 	export NON_INTERACTIVE=1;
 
 # these tests will be run as part of make-check
-# TODO dont swallow stdout
 TESTS = \
 	waveform_test \
 	32bit \
@@ -226,7 +219,7 @@ TESTS = \
 	hires \
 	res_vhi \
 	group \
-	actor_no_scene \
+	no_scene \
 	multi_scene \
 	frame_rate \
 	glx \
@@ -246,7 +239,7 @@ test:
 	./hires -n
 	./res_vhi -n
 	./group -n
-	./actor_no_scene -n
+	./no_scene -n
 	./multi_scene -n
 	./frame_rate -n
 	./glx -n

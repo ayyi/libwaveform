@@ -64,7 +64,7 @@ KeyHandler
 	scroll_right,
 	quit;
 
-Key keys[] = {
+AGlKey keys[] = {
 	{1073741904,    scroll_left},
 	{1073741903,    scroll_right},
 	{46,            scroll_right},
@@ -75,10 +75,10 @@ Key keys[] = {
 };
 
 static const struct option long_options[] = {
-	{ "non-interactive",  0, NULL, 'n' },
+	{ "autoquit", 0, NULL, 'q' },
 };
 
-static const char* const short_options = "n";
+static const char* const short_options = "q";
 
 
 int
@@ -89,7 +89,7 @@ setup (int argc, char* argv[])
 	int opt;
 	while((opt = getopt_long (argc, argv, short_options, long_options, NULL)) != -1) {
 		switch(opt) {
-			case 'n':
+			case 'q':
 				g_timeout_add(3000, (gpointer)exit, NULL);
 				break;
 		}

@@ -166,8 +166,6 @@ waveform_canvas_construct (GType object_type)
 }
 
 
-extern void wf_gl_init (WaveformContext*, AGlActor*);
-
 WaveformContext*
 wf_context_new (AGlActor* root)
 {
@@ -176,7 +174,6 @@ wf_context_new (AGlActor* root)
 	WaveformContext* wfc = waveform_canvas_construct(TYPE_WAVEFORM_CONTEXT);
 	wfc->root = root;
 	wf_context_init(wfc, root);
-	wf_gl_init(wfc, root);
 
 	return wfc;
 }
@@ -192,11 +189,10 @@ wf_context_new_sdl (SDL_GLContext* context)
 
 	wfc->show_rms = true;
 
-	AGlActor* a = wfc->root = agl_actor__new_root_(CONTEXT_TYPE_SDL);
+	AGlActor* a = wfc->root = agl_actor__new_root (CONTEXT_TYPE_SDL);
 	wfc->root->root->gl.sdl.context = context;
 
 	wf_context_init(wfc, a);
-	wf_gl_init(wfc, a);
 
 	return wfc;
 }
@@ -277,7 +273,7 @@ wf_context_add_new_actor (WaveformContext* wfc, Waveform* w)
 	{
 		WaveformContext* wfc = _canvas;
 
-		if(wfc->root->draw) wfc->root->draw(wfc->root, wfc->root->user_data);
+		if (wfc->root->draw) wfc->root->draw(wfc->root, wfc->root->user_data);
 		wfc->priv->_queued = false;
 
 		return G_SOURCE_REMOVE;
@@ -288,11 +284,11 @@ void
 wf_context_queue_redraw (WaveformContext* wfc)
 {
 #ifdef USE_FRAME_CLOCK
-	if(wfc->root->root->is_animating){
+	if (wfc->root->root->is_animating) {
 #if 0 // this is not needed - draw is called via the frame_clock_connect callback
 		if(wfc->draw) wfc->draw(wfc, wfc->draw_data);
 #endif
-	}else{
+	} else {
 #if 0
 		frame_clock_request_phase(GDK_FRAME_CLOCK_PHASE_PAINT);
 #else
@@ -301,7 +297,7 @@ wf_context_queue_redraw (WaveformContext* wfc)
 	}
 
 #else
-	if(wfc->priv->_queued) return;
+	if (wfc->priv->_queued) return;
 
 	wfc->priv->_queued = g_timeout_add(CLAMP(WF_FRAME_INTERVAL - (wf_get_time() - wfc->priv->_last_redraw_time), 1, WF_FRAME_INTERVAL), wf_canvas_redraw, wfc);
 #endif

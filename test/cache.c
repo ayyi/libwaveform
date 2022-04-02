@@ -1,7 +1,7 @@
 /*
  +----------------------------------------------------------------------+
  | This file is part of the Ayyi project. https://www.ayyi.org          |
- | copyright (C) 2013-2021 Tim Orford <tim@orford.org>                  |
+ | copyright (C) 2013-2022 Tim Orford <tim@orford.org>                  |
  +----------------------------------------------------------------------+
  | This program is free software; you can redistribute it and/or modify |
  | it under the terms of the GNU General Public License version 3       |
@@ -23,10 +23,9 @@
 #define __wf_private__
 
 #include "config.h"
-#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
-#include <gtk/gtk.h>
-#pragma GCC diagnostic warning "-Wdeprecated-declarations"
-#include "agl/gtk.h"
+#include "agl/x11.h"
+#include "agl/event.h"
+#include "agl/behaviours/split.h"
 #include "wf/audio.h"
 #include "wf/worker.h"
 #include "waveform/actor.h"
@@ -38,8 +37,10 @@
 extern void texture_cache_print ();
 extern void hi_ng_cache_print   ();
 
-#define GL_WIDTH 512.0
+#define WIDTH 512.0
 #define VBORDER 8
+#define REGION_LEN 2048
+
 #define WAV1 "large1.wav"
 #define WAV2 "large2.wav"
 
@@ -53,9 +54,6 @@ WfTest* wf_test_new();
 	wf_test_new(); \
 	})
 
-GdkGLConfig*    glconfig       = NULL;
-static bool     gl_initialised = false;
-GtkWidget*      canvas         = NULL;
 AGlScene*       scene          = NULL;
 WaveformContext*wfc            = NULL;
 Waveform*       w[2]           = {NULL,};
@@ -63,8 +61,6 @@ WaveformActor*  a[2]           = {NULL,};
 bool            files_created  = false;
 AMPromise*      ready          = NULL;
 
-static void on_canvas_realise  (GtkWidget*, gpointer);
-static void on_allocate        (GtkWidget*, GtkAllocation*, gpointer);
 uint64_t    get_time           ();
 
 TestFn create_files, test_shown, test_hires, test_scroll, test_hi_double, test_add_remove, finish;
@@ -83,34 +79,34 @@ gpointer tests[] = {
 bool
 setup (int argc, char* argv[])
 {
-	TEST.is_gtk = true;
 	TEST.n_tests = G_N_ELEMENTS(tests);
 
 	ready = am_promise_new(NULL);
 
-	gtk_init(&argc, &argv);
-	if (!(glconfig = gdk_gl_config_new_by_mode(GDK_GL_MODE_RGBA | GDK_GL_MODE_DEPTH | GDK_GL_MODE_DOUBLE))) {
-		perr ("Cannot initialise gtkglext.");
-		return EXIT_FAILURE;
+	AGlWindow* window = agl_window ("Cache", -1, -1, WIDTH, 160, 0);
+	scene = window->scene;
+	agl_actor__add_behaviour((AGlActor*)scene, agl_split());
+
+	wfc = wf_context_new((AGlActor*)scene);
+
+	void scene_init (AGlActor* scene)
+	{
 	}
+	((AGlActor*)scene)->init = scene_init;
 
-	GtkWidget* window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
+	void set_size (AGlActor* scene)
+	{
+		float height = scene->region.y2;
+		// Optimise drawing by telling the canvas which area is visible
+		wf_context_set_viewport(wfc, &(WfViewPort){0, 0, WIDTH, height});
 
-	canvas = gtk_drawing_area_new();
-	gtk_widget_set_can_focus     (canvas, true);
-	gtk_widget_set_size_request  (canvas, GL_WIDTH, 128);
-	gtk_widget_set_gl_capability (canvas, glconfig, NULL, 1, GDK_GL_RGBA_TYPE);
-	gtk_widget_add_events        (canvas, GDK_POINTER_MOTION_MASK | GDK_BUTTON_PRESS_MASK | GDK_BUTTON_RELEASE_MASK);
-	gtk_container_add            ((GtkContainer*)window, (GtkWidget*)canvas);
+	}
+	((AGlActor*)scene)->set_size = set_size;
 
-	g_signal_connect((gpointer)canvas, "realize",       G_CALLBACK(on_canvas_realise), NULL);
-	g_signal_connect((gpointer)canvas, "size-allocate", G_CALLBACK(on_allocate), NULL);
+	g_main_loop_run (agl_main_loop_new());
 
-	gtk_widget_show_all(window);
-
-	g_signal_connect(window, "delete-event", G_CALLBACK(gtk_main_quit), NULL);
-
-	gtk_main();
+	agl_window_destroy (&window);
+	XCloseDisplay (dpy);
 
 	return 0;
 }
@@ -139,6 +135,23 @@ create_files ()
 	}
 	files_created = true;
 
+	AGlActor* root = (AGlActor*)scene;
+
+	char* filename = find_wav(WAV1);
+	w[0] = waveform_new(filename);
+	g_free(filename);
+
+	a[0] = wf_context_add_new_actor(wfc, w[0]);
+	agl_actor__add_child(root, (AGlActor*)a[0]);
+	scene->selected = (AGlActor*)a[0];
+
+	wf_actor_set_region(a[0], &(WfSampleRegion){0, REGION_LEN});
+	wf_actor_set_colour(a[0], 0x66eeffff);
+
+	agl_actor__set_size(root);
+
+	am_promise_resolve(ready, NULL);
+
 	FINISH_TEST;
 }
 
@@ -153,6 +166,7 @@ __test_shown (gpointer _c)
 		extern bool wf_actor_test_is_not_blank(WaveformActor*);
 		assert_and_stop(wf_actor_test_is_not_blank(a[0]), "output is blank");
 	}
+	assert_and_stop(!((WaveformActor*)actor)->render_result, "render error code %i", ((WaveformActor*)actor)->render_result);
 #endif
 	WF_TEST_FINISH_TIMER_STOP;
 }
@@ -163,15 +177,12 @@ test_shown ()
 {
 	WfTest* t = NEW_TEST();
 
-	assert(GTK_WIDGET_REALIZED(canvas), "widget not realised");
 	assert(wfc, "canvas not created");
 	assert(a[0], "actor not created");
 
 	g_timeout_add(2000, __test_shown, t);
 }
 
-
-#define REGION_LEN 2048
 
 static gboolean
 __check_zoom (gpointer _c)
@@ -193,9 +204,9 @@ test_hires ()
 
 	assert(wfc, "canvas not created");
 
-	void set_region()
+	void set_region ()
 	{
-		int i; for(i=0;i<G_N_ELEMENTS(a)&&a[i];i++)
+		for (int i=0;i<G_N_ELEMENTS(a)&&a[i];i++)
 			wf_actor_set_region(a[i], &(WfSampleRegion){
 				0,
 				REGION_LEN
@@ -249,7 +260,7 @@ test_hires ()
 				#define ZOOM_V_LO (1.0/65536) // px_per_sample - transition point from v-low-res to low-res.
 
 				static inline int
-				get_resolution(double zoom)
+				get_resolution (double zoom)
 				{
 					return (zoom > ZOOM_HI)
 						? 1
@@ -263,7 +274,7 @@ test_hires ()
 				}
 
 				static inline Mode
-				get_mode(double zoom)
+				get_mode (double zoom)
 				{
 					return (zoom > ZOOM_HI)
 						? MODE_V_HI
@@ -294,14 +305,14 @@ test_hires ()
 
 #ifdef LATER
 				static double
-				wf_actor_samples2gl(double zoom, uint32_t n_samples)
+				wf_actor_samples2gl (double zoom, uint32_t n_samples)
 				{
 					//zoom is pixels per sample
 					return n_samples * zoom;
 				}
 
 				static BlockRange
-				wf_actor_get_visible_block_range(WfSampleRegion* region, WfRectangle* rect, double zoom, WfViewPort* viewport_px, int textures_size)
+				wf_actor_get_visible_block_range (WfSampleRegion* region, WfRectangle* rect, double zoom, WfViewPort* viewport_px, int textures_size)
 				{
 					//the region, rect and viewport are passed explictly because different users require slightly different values during transitions.
 
@@ -327,20 +338,20 @@ test_hires ()
 					}
 
 					// find first block
-					if(rect->left <= viewport_px->right){
+					if (rect->left <= viewport_px->right) {
 
-						int b; for(b=region_start_block;b<=region_end_block-1;b++){ // stop before the last block
+						for (int b=region_start_block;b<=region_end_block-1;b++) { // stop before the last block
 							int block_start_px = file_start_px + b * block_wid;
 							double block_end_px = block_start_px + block_wid;
 							dbg(3, "block_pos_px=%i", block_start_px);
-							if(block_end_px >= viewport_px->left){
+							if (block_end_px >= viewport_px->left) {
 								range.first = b;
 								goto next;
 							}
 						}
 						// check last block:
 						double block_end_px = file_start_px + wf_actor_samples2gl(zoom, region->start + region->len);
-						if(block_end_px >= viewport_px->left){
+						if (block_end_px >= viewport_px->left) {
 							range.first = b;
 							goto next;
 						}
@@ -352,17 +363,17 @@ test_hires ()
 					next:
 
 					// find last block
-					if(rect->left <= viewport_px->right){
+					if (rect->left <= viewport_px->right) {
 						int last = range.last = MIN(range.first + WF_MAX_BLOCK_RANGE, region_end_block);
 
 						g_return_val_if_fail(viewport_px->right - viewport_px->left > 0.01, range);
 
 						//crop to viewport:
-						int b; for(b=region_start_block;b<=last-1;b++){ //note we dont check the last block which can be partially outside the viewport
+						for (int b=region_start_block;b<=last-1;b++) { //note we dont check the last block which can be partially outside the viewport
 							float block_end_px = file_start_px + (b + 1) * block_wid;
 							//dbg(1, " %i: block_px: %.1f --> %.1f", b, block_end_px - (int)block_wid, block_end_px);
-							if(block_end_px > viewport_px->right) dbg(2, "end %i clipped by viewport at block %i. vp.right=%.2f block_end=%.1f", region_end_block, MAX(0, b/* - 1*/), viewport_px->right, block_end_px);
-							if(block_end_px > viewport_px->right){
+							if (block_end_px > viewport_px->right) dbg(2, "end %i clipped by viewport at block %i. vp.right=%.2f block_end=%.1f", region_end_block, MAX(0, b/* - 1*/), viewport_px->right, block_end_px);
+							if (block_end_px > viewport_px->right) {
 								range.last = MAX(0, b/* - 1*/);
 								goto out;
 							}
@@ -400,7 +411,6 @@ get_random_region (WaveformActor* a, Mode mode, uint32_t max_scroll)
 		MIN(a->region.start + max_scroll, a->waveform->n_frames - len_range + 1)
 						)
 	);
-																	//dbg(0, "start range: %i %i (max_scroll=%u)", min_start, MIN(a->region.start + max_scroll, a->waveform->n_frames - len_range + 1), max_scroll);
 	int len = min + g_random_int_range(0, len_range + 1);
 	dbg(1, "r=%Lu", start);
 
@@ -439,7 +449,7 @@ _check_scroll (gpointer _c)
 
 	WfSampleRegion* region = &a[0]->region;
 
-	assert_and_stop((region->start == c->start), "region");
+	assert_and_stop((region->start == c->start), "region %"PRIi64, region->start);
 
 	const int samples_per_texture = WF_SAMPLES_PER_TEXTURE;// * (resolution == 1024 ? WF_PEAK_STD_TO_LO : 1);
 	int region_start_block = region->start / samples_per_texture;
@@ -449,15 +459,19 @@ _check_scroll (gpointer _c)
 	WfAudioData* audio = &w[0]->priv->audio;
 	assert_and_stop(audio->n_blocks, "n_blocks not set");
 
+#ifdef DEBUG
+	assert_and_stop((a[0]->render_result == 0), "render_result=%i", a[0]->render_result);
+#endif
+
 	WfBuf16* buf = audio->buf16[region_start_block];
 	WfWorker* worker = &wf->audio_worker;
 	int n_jobs = g_list_length(worker->jobs);
 	if (n_jobs || !buf) {
 		if (c->wait_count < 30) return G_SOURCE_CONTINUE;
+		//assert_and_stop(buf, "audio buffer not created");
 	}
 
-	//assert_and_stop(c->wait_count < 30, "timeout loading blocks");
-	assert_and_stop(buf, "buf is empty %i", region_start_block);
+	assert_and_stop(buf, "buf is empty for block=%i", region_start_block);
 	assert_and_stop(!n_jobs, "jobs still pending: %i", n_jobs);
 
 	if (++c->iter < c->n) {
@@ -491,12 +505,6 @@ test_scroll ()
 {
 	START_LONG_TEST;
 
-	C* c = WF_NEW(C,
-		.test_idx = __test_idx,
-		.n = 128,
-		.next = next_scroll,
-	);
-
 	{
 		// test the number of blocks is being calculated correctly.
 
@@ -518,7 +526,11 @@ test_scroll ()
 #endif
 	}
 
-	next_scroll(c);
+	next_scroll(WF_NEW(C,
+		.test_idx = __test_idx,
+		.n = 128,
+		.next = next_scroll,
+	));
 }
 
 
@@ -558,17 +570,17 @@ typedef struct {
 
 			WfBuf16* buf = audio->buf16[region_start_block];
 			int n_jobs = g_list_length(wf->audio_worker.jobs);
-			if(n_jobs || !buf){
-				if(c->wait_count < 30) return G_SOURCE_CONTINUE;
+			if (n_jobs || !buf) {
+				if (c->wait_count < 30) return G_SOURCE_CONTINUE;
 			}
 
 			//assert_and_stop(wait_count < 30, "timeout loading blocks");
 			assert_and_stop(buf, "buf is empty %i", region_start_block);
 			assert_and_stop(!n_jobs, "jobs still pending: %i", n_jobs);
 
-			if(++c->iter < c->n){
+			if (++c->iter < c->n) {
 				c->next(c);
-			}else{
+			} else {
 				/*
 				hi_ng_cache_print();
 				texture_cache_print();
@@ -617,7 +629,8 @@ test_hi_double ()
 		agl_actor__add_child((AGlActor*)scene, (AGlActor*)a[i]);
 		wf_actor_set_region(a[i], &(WfSampleRegion){0, 4096 * 256});
 		wf_actor_set_colour(a[i], 0x66eeffff);
-		on_allocate(canvas, &canvas->allocation, NULL);
+
+		agl_actor__set_size((AGlActor*)scene);
 	}
 	add_actor(1);
 
@@ -682,13 +695,13 @@ test_hi_double ()
 			assert_and_stop((t != -1), "block 0 not found in cache");
 #endif
 
-			int i; for(i=0;i<G_N_ELEMENTS(a);i++){
+			for (int i=0;i<G_N_ELEMENTS(a);i++) {
 				if(a[i]){
 					a[i] = (agl_actor__remove_child((AGlActor*)scene, (AGlActor*)a[1]), NULL);
 				}
 			}
-			for(i=0;i<G_N_ELEMENTS(w);i++){
-				if(w[i]){
+			for (int i=0;i<G_N_ELEMENTS(w);i++) {
+				if (w[i]) {
 					g_object_unref(w[i]);
 					w[i] = NULL;
 				}
@@ -709,7 +722,7 @@ __on_ready (gpointer user_data, gpointer _)
 #if 0
 	assert(!agl_get_instance()->use_shaders, "shaders must be disabled for this test");
 #else
-	if(agl_get_instance()->use_shaders){
+	if (agl_get_instance()->use_shaders) {
 		pwarn("test only suports GL 1");
 		WF_TEST_FINISH;
 	}
@@ -718,7 +731,7 @@ __on_ready (gpointer user_data, gpointer _)
 
 	void set_res()
 	{
-		int i; for(i=0;i<G_N_ELEMENTS(a)&&a[i];i++)
+		for(int i=0;i<G_N_ELEMENTS(a)&&a[i];i++)
 			wf_actor_set_region(a[i], &(WfSampleRegion){
 				0,
 				MIN(len, a[i]->waveform->n_frames - 1)
@@ -738,12 +751,12 @@ test_add_remove ()
 	WfTest* t = NEW_TEST();
 
 	// calculate the region length needed to ensure that the view is of the above mode type.
-	switch(mode){
+	switch (mode) {
 		case MODE_LOW:
-			len = 2 * GL_WIDTH * WF_PEAK_RATIO * WF_PEAK_STD_TO_LO;
+			len = 2 * WIDTH * WF_PEAK_RATIO * WF_PEAK_STD_TO_LO;
 			break;
 		case MODE_V_LOW:
-			len = 2 * GL_WIDTH * WF_PEAK_RATIO * WF_MED_TO_V_LOW;
+			len = 2 * WIDTH * WF_PEAK_RATIO * WF_MED_TO_V_LOW;
 			break;
 		default:
 			break;
@@ -763,8 +776,8 @@ __finish (gpointer _c)
 
 	wf_worker_cancel_jobs(&wf->audio_worker, w[0]);
 
-	for(int i=0;i<2;i++){
-		if(a[i]){
+	for (int i=0;i<2;i++) {
+		if (a[i]) {
 			agl_actor__remove_child((AGlActor*)scene, (AGlActor*)a[i]);
 			a[i] = NULL;
 		}
@@ -780,93 +793,6 @@ void
 finish ()
 {
 	g_timeout_add(5000, __finish, NEW_TEST());
-}
-
-
-static void
-gl_init ()
-{
-	if(gl_initialised) return;
-
-	gl_initialised = true;
-}
-
-
-static gboolean
-__on_canvas_realise (gpointer user_data)
-{
-	if(!files_created){
-		return G_SOURCE_CONTINUE;
-	}
-
-	gl_init();
-
-	wfc = wf_context_new((AGlActor*)(scene = (AGlScene*)agl_actor__new_root(canvas)));
-
-	g_signal_connect((gpointer)canvas, "expose-event",  G_CALLBACK(agl_actor__on_expose), scene);
-
-	{
-		char* filename = find_wav(WAV1);
-		w[0] = waveform_load_new(filename);
-		wf_free(filename);
-	}
-
-	WfSampleRegion region[] = {
-		{0,    REGION_LEN        },
-		{0,    w[0]->n_frames - 1},
-	};
-
-	uint32_t colours[4][2] = {
-		{0xffffff77, 0x0000ffff},
-		{0x66eeffff, 0x0000ffff},
-	};
-
-	int i; for(i=0;i<1;i++){ // initially only create 1 actor
-		agl_actor__add_child((AGlActor*)scene, (AGlActor*)(a[i] = wf_context_add_new_actor(wfc, w[0])));
-
-		wf_actor_set_region(a[i], &region[i]);
-		wf_actor_set_colour(a[i], colours[i][0]);
-	}
-
-	on_allocate(canvas, &canvas->allocation, user_data);
-
-	am_promise_resolve(ready, NULL);
-
-	return G_SOURCE_REMOVE;
-}
-
-
-static void
-on_canvas_realise (GtkWidget* _canvas, gpointer user_data)
-{
-	if(wfc) return;
-	if(!GTK_WIDGET_REALIZED (canvas)) return;
-
-	g_timeout_add(200, __on_canvas_realise, user_data);
-}
-
-
-static void
-on_allocate (GtkWidget* widget, GtkAllocation* allocation, gpointer user_data)
-{
-	if(!gl_initialised) return;
-
-	g_return_if_fail(scene);
-	g_return_if_fail(allocation);
-
-	((AGlActor*)scene)->region.x2 = allocation->width;
-	((AGlActor*)scene)->region.y2 = allocation->height;
-
-	// Optimise drawing by telling the canvas which area is visible
-	wf_context_set_viewport(wfc, &(WfViewPort){0, 0, GL_WIDTH, allocation->height});
-
-	int i; for(i=0;i<G_N_ELEMENTS(a);i++)
-		if(a[i]) wf_actor_set_rect(a[i], &(WfRectangle){
-			0.0,
-			i * allocation->height / G_N_ELEMENTS(a),
-			GL_WIDTH,
-			allocation->height / G_N_ELEMENTS(a) * 0.95
-		});
 }
 
 

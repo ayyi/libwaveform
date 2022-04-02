@@ -427,6 +427,18 @@ ng_gl2_pre_render (Renderer* renderer, WaveformActor* actor)
 
 
 static bool
+ng_gl2_pre_render0 (Renderer* renderer, WaveformActor* actor)
+{
+	if (!renderer->shader->program) agl_create_program(renderer->shader);
+	((AGlActor*)actor)->program = renderer->shader;
+
+	renderer->pre_render = ng_gl2_pre_render;
+
+	return ng_gl2_pre_render(renderer, actor);
+}
+
+
+static bool
 ng_gl2_render_block (Renderer* renderer, WaveformActor* actor, int b, bool is_first, bool is_last, double x)
 {
 	gl_warn("pre");

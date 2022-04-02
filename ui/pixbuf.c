@@ -1,19 +1,22 @@
-/**
-* +----------------------------------------------------------------------+
-* | This file is part of the Ayyi project. http://ayyi.org               |
-* | copyright (C) 2012-2020 Tim Orford <tim@orford.org>                  |
-* +----------------------------------------------------------------------+
-* | This program is free software; you can redistribute it and/or modify |
-* | it under the terms of the GNU General Public License version 3       |
-* | as published by the Free Software Foundation.                        |
-* +----------------------------------------------------------------------+
-*
-*/
+/*
+ +----------------------------------------------------------------------+
+ | This file is part of the Ayyi project. https://www.ayyi.org          |
+ | copyright (C) 2012-2022 Tim Orford <tim@orford.org>                  |
+ +----------------------------------------------------------------------+
+ | This program is free software; you can redistribute it and/or modify |
+ | it under the terms of the GNU General Public License version 3       |
+ | as published by the Free Software Foundation.                        |
+ +----------------------------------------------------------------------+
+ |
+ */
+
 #define __wf_private__
+
 #include "config.h"
 #include "agl/utils.h"
 #include "wf/waveform.h"
 #include "wf/debug.h"
+#include "waveform/worker.h"
 #include "waveform/pixbuf.h"
 
 #ifdef USE_GDK_PIXBUF
@@ -185,14 +188,16 @@ waveform_peak_to_pixbuf (Waveform* w, GdkPixbuf* pixbuf, WfSampleRegion* _region
 		int               n_blocks_done;
 	} C2;
 
-	void _waveform_peak_to_pixbuf__load_done (C2* c)
+	void _waveform_peak_to_pixbuf__after_load (C2* c)
 	{
 		PF;
 		double samples_per_px = c->region.len / gdk_pixbuf_get_width(c->pixbuf);
 		gdk_pixbuf_fill(c->pixbuf, c->bg_colour);
 		waveform_peak_to_pixbuf_full(c->waveform, c->pixbuf, c->region.start, NULL, NULL, samples_per_px, c->colour, c->bg_colour, 1.0, false);
-
-		if(c->callback) c->callback(c->waveform, c->pixbuf, c->user_data);
+	}
+	void _waveform_peak_to_pixbuf__finish (C2* c)
+	{
+		if (c->callback) c->callback(c->waveform, c->pixbuf, c->user_data);
 		g_free(c);
 	}
 
@@ -205,8 +210,9 @@ _waveform_load_audio_done (Waveform* w, int block, gpointer _c)
 	c->n_blocks_done++;
 //TODO no, we cannot load the whole file at once!! render each block separately
 	// call waveform_peak_to_pixbuf_full here for the block
-	if(c->n_blocks_done >= c->n_blocks_total){
-		_waveform_peak_to_pixbuf__load_done(c);
+	if (c->n_blocks_done >= c->n_blocks_total) {
+		_waveform_peak_to_pixbuf__after_load(c);
+		_waveform_peak_to_pixbuf__finish (c);
 	}
 }
 
@@ -216,11 +222,10 @@ waveform_peak_to_pixbuf_async (Waveform* w, GdkPixbuf* pixbuf, WfSampleRegion* r
 {
 	g_return_if_fail(w && pixbuf && region);
 
-					g_return_if_fail(region->start + region->len <= waveform_get_n_frames(w));
-					g_return_if_fail(region->len > 0);
+	g_return_if_fail(region->start + region->len <= waveform_get_n_frames(w));
+	g_return_if_fail(region->len > 0);
 
-	C2* c = g_new0(C2, 1);
-	*c = (C2){
+	C2* c = WF_NEW(C2,
 		.waveform  = w,
 		.region    = *region,
 		.colour    = colour,
@@ -228,21 +233,41 @@ waveform_peak_to_pixbuf_async (Waveform* w, GdkPixbuf* pixbuf, WfSampleRegion* r
 		.pixbuf    = pixbuf,
 		.callback  = callback,
 		.user_data = user_data
-	};
+	);
 
 	double samples_per_px = region->len / gdk_pixbuf_get_width(pixbuf);
 	bool hires_mode = ((samples_per_px / WF_PEAK_RATIO) < 1.0);
-	if(hires_mode){
+	if (hires_mode) {
 		int b0 = region->start / WF_SAMPLES_PER_TEXTURE;
 		int b1 = (region->start + region->len) / WF_SAMPLES_PER_TEXTURE;
 		c->n_blocks_total = b1 - b0 + 1;
-		int b; for(b=b0;b<=b1;b++){
+		for (int b=b0;b<=b1;b++) {
 			waveform_load_audio(w, b, N_TIERS_NEEDED, _waveform_load_audio_done, c);
 		}
-		return;
-	}
+	} else {
+		if (!wf->audio_worker.msg_queue) wf_worker_init(&wf->audio_worker);
 
-	_waveform_peak_to_pixbuf__load_done(c);
+		void waveform_load_audio_run_job (Waveform* waveform, gpointer c)
+		{
+			// Runs in the worker thread.
+			_waveform_peak_to_pixbuf__after_load((C2*)c);
+		}
+
+		void waveform_load_audio_post (Waveform* waveform, GError* error, gpointer c)
+		{
+			// Runs in the main thread
+			_waveform_peak_to_pixbuf__finish ((C2*)c);
+		}
+
+		wf_worker_push_job(
+			&wf->audio_worker,
+			w,
+			waveform_load_audio_run_job,
+			waveform_load_audio_post,
+			NULL,
+			c
+		);
+	}
 }
 
 
@@ -954,18 +979,18 @@ wf_alphabuf_new (Waveform* waveform, int blocknum, int scale, bool is_rms, int o
 	PF2;
 	WaveformPrivate* _w = waveform->priv;
 	g_return_val_if_fail(_w->num_peaks, NULL);
-	GdkColor fg_colour = {0, 0xffff, 0xffff, 0xffff};
+	uint32_t fg_colour = 0xffffffff;
 
 	int x_start;
 	int x_stop;
 	int width;
-	if(blocknum == -1){
+	if (blocknum == -1) {
 		x_start = 0;
 		x_stop  = width = _w->num_peaks;
-	}else{
+	} else {
 		int n_blocks = waveform->priv->n_blocks;
 		dbg(2, "block %i/%i", blocknum, n_blocks);
-		gboolean is_last = (blocknum == n_blocks - 1);
+		bool is_last = (blocknum == n_blocks - 1);
 
 		x_start = blocknum * (WF_PEAK_TEXTURE_SIZE - 2 * overlap) - overlap;
 		x_stop  = x_start + WF_PEAK_TEXTURE_SIZE; // irrespective of overlap, the whole texture is used.
@@ -986,13 +1011,13 @@ wf_alphabuf_new (Waveform* waveform, int blocknum, int scale, bool is_rms, int o
 		#define SCALE_BODGE 2;
 		double samples_per_px = WF_PEAK_TEXTURE_SIZE * SCALE_BODGE;
 		uint32_t bg_colour = 0x00000000;
-		waveform_rms_to_alphabuf(waveform, buf, &x_start, &x_stop, samples_per_px, &fg_colour, bg_colour);
+		waveform_rms_to_alphabuf(waveform, buf, &x_start, &x_stop, samples_per_px, fg_colour, bg_colour);
 	}else{
 
 		x_start += 1; //TODO waveform_peak_to_alphabuf has a 1px offset.
 
 		memset(buf->buf, 0, buf->buf_size); //TODO only clear start of first block and end of last block
-		waveform_peak_to_alphabuf(waveform, buf, scale, &x_start, &x_stop, &fg_colour);
+		waveform_peak_to_alphabuf(waveform, buf, scale, &x_start, &x_stop, fg_colour);
 	}
 
 #if 0
@@ -1035,7 +1060,7 @@ wf_alphabuf_new_hi (Waveform* waveform, int blocknum, int Xscale, bool is_rms, i
 	PF2;
 	WaveformPrivate* _w = waveform->priv;
 	g_return_val_if_fail(_w->num_peaks, NULL);
-	GdkColor fg_colour = {0, 0xffff, 0xffff, 0xffff};
+	uint32_t fg_colour = 0xffffffff;
 
 	int x_start;
 	int x_stop;
@@ -1070,14 +1095,14 @@ wf_alphabuf_new_hi (Waveform* waveform, int blocknum, int Xscale, bool is_rms, i
 		#define SCALE_BODGE 2;
 		double samples_per_px = WF_PEAK_TEXTURE_SIZE * SCALE_BODGE;
 		uint32_t bg_colour = 0x00000000;
-		waveform_rms_to_alphabuf(waveform, buf, &x_start, &x_stop, samples_per_px, &fg_colour, bg_colour);
+		waveform_rms_to_alphabuf(waveform, buf, &x_start, &x_stop, samples_per_px, fg_colour, bg_colour);
 	}else{
 
 		//x_start += 1; //TODO waveform_peak_to_alphabuf has a 1px offset.
 
 		memset(buf->buf, 0, buf->buf_size); //TODO only clear start of first block and end of last block
 		WfSampleRegion region = {x_start, x_stop - x_start};
-		waveform_peak_to_alphabuf_hi(waveform, buf, blocknum, region, &fg_colour);
+		waveform_peak_to_alphabuf_hi(waveform, buf, blocknum, region, fg_colour);
 	}
 
 #if 0
@@ -1125,13 +1150,13 @@ wf_alphabuf_to_pixbuf (AlphaBuf* a)
 
 
 static void
-alphabuf_draw_line (AlphaBuf* pixbuf, WfDRect* pts, double line_width, GdkColor* colour)
+alphabuf_draw_line (AlphaBuf* pixbuf, WfDRect* pts, double line_width, uint32_t colour)
 {
 }
 
 
 void
-waveform_peak_to_alphabuf (Waveform* w, AlphaBuf* a, int scale, int* start, int* end, GdkColor* colour)
+waveform_peak_to_alphabuf (Waveform* w, AlphaBuf* a, int scale, int* start, int* end, uint32_t colour)
 {
 	/*
 	 renders a peakfile (pre-loaded into WfPeakBuf* waveform->priv->peak) onto the given 8 bit alpha-map buffer.
@@ -1344,7 +1369,7 @@ waveform_peak_to_alphabuf (Waveform* w, AlphaBuf* a, int scale, int* start, int*
  *  @region: specifies the output range (not actually samples). TODO rename
  */
 void
-waveform_peak_to_alphabuf_hi (Waveform* w, AlphaBuf* a, int block, WfSampleRegion region, GdkColor* colour)
+waveform_peak_to_alphabuf_hi (Waveform* w, AlphaBuf* a, int block, WfSampleRegion region, uint32_t colour)
 {
 	//TODO start is -2 so we probably need to load from 2 peakbufs?
 
@@ -1427,7 +1452,7 @@ io_ratio = 1;
 
 
 void
-waveform_rms_to_alphabuf (Waveform* waveform, AlphaBuf* pixbuf, int* start, int* end, double samples_per_px, GdkColor* colour, uint32_t colour_bg)
+waveform_rms_to_alphabuf (Waveform* waveform, AlphaBuf* pixbuf, int* start, int* end, double samples_per_px, uint32_t colour, uint32_t colour_bg)
 {
 	/*
 
@@ -1449,7 +1474,7 @@ waveform_rms_to_alphabuf (Waveform* waveform, AlphaBuf* pixbuf, int* start, int*
 	gettimeofday(&time_start, NULL);
 #endif
 
-	if(samples_per_px < 0.001) perr ("samples_per_pix=%f", samples_per_px);
+	if (samples_per_px < 0.001) perr ("samples_per_pix=%f", samples_per_px);
 	WfPeakSample sample;
 	short min;                //negative peak value for each pixel.
 	short max;                //positive peak value for each pixel.

@@ -1,57 +1,52 @@
 /*
-  Demonstration of the libwaveform WaveformActor interface
-
-  Several waveforms are drawn onto a single canvas with
-  different colours and zoom levels. The canvas can be zoomed
-  and panned.
-
-  In this example, drawing is managed by the AGl scene graph.
-  See actor_no_scene.c for a version that doesnt use the scene graph.
-
-  ---------------------------------------------------------------
-
-  copyright (C) 2012-2021 Tim Orford <tim@orford.org>
-
-  This program is free software; you can redistribute it and/or modify
-  it under the terms of the GNU General Public License version 3
-  as published by the Free Software Foundation.
-
-  This program is distributed in the hope that it will be useful,
-  but WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-  GNU General Public License for more details.
-
-  You should have received a copy of the GNU General Public License
-  along with this program; if not, write to the Free Software
-  Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
-
-*/
-#define USE_SHADERS true
+ +----------------------------------------------------------------------+
+ | This file is part of the Ayyi project. https://www.ayyi.org          |
+ | copyright (C) 2012-2022 Tim Orford <tim@orford.org>                  |
+ +----------------------------------------------------------------------+
+ | This program is free software; you can redistribute it and/or modify |
+ | it under the terms of the GNU General Public License version 3       |
+ | as published by the Free Software Foundation.                        |
+ +----------------------------------------------------------------------+
+ |                                                                      |
+ | test/actor.c                                                         |
+ |                                                                      |
+ | Demonstration of the libwaveform WaveformActor interface             |
+ |                                                                      |
+ | Several waveforms are drawn onto a single canvas with                |
+ | different colours and zoom levels. The canvas can be zoomed          |
+ | and panned.                                                          |
+ |                                                                      |
+ | In this example, drawing is managed by the AGl scene graph.          |
+ | See actor_no_scene.c for a version that doesnt use the scene graph.  |
+ |                                                                      |
+ +----------------------------------------------------------------------+
+ |
+ */
 
 #include "config.h"
 #include <getopt.h>
 #include <gdk/gdkkeysyms.h>
-#include "agl/gtk.h"
+#include "agl/actor.h"
+#include "agl/x11.h"
 #include "waveform/actor.h"
 #include "test/common.h"
+#include "agl/behaviours/simple_key.h"
 
 static const struct option long_options[] = {
-	{ "non-interactive",  0, NULL, 'n' },
+	{ "autoquit",  0, NULL, 'q' },
 };
 
-static const char* const short_options = "n";
+static const char* const short_options = "q";
 
 #define WAV "mono_0:10.wav"
 
 #define GL_WIDTH 256.0
-#define VBORDER 8
 
 AGlScene*        scene     = NULL;
+Waveform*        wav       = NULL;
 WaveformContext* wfc[4]    = {NULL,}; // This test has 4 separate contexts. Normally you would use a single context.
-Waveform*        w1        = NULL;
 WaveformActor*   a[4]      = {NULL,};
 float            vzoom     = 1.0;
-gpointer         tests[]   = {};
 
 KeyHandler
 	zoom_in,
@@ -64,7 +59,7 @@ KeyHandler
 	delete,
 	quit;
 
-Key keys[] = {
+AGlKey keys[] = {
 	{KEY_Left,      scroll_left},
 	{KEY_KP_Left,   scroll_left},
 	{KEY_Right,     scroll_right},
@@ -73,44 +68,51 @@ Key keys[] = {
 	{45,            zoom_out},
 	{(char)'w',     vzoom_up},
 	{(char)'s',     vzoom_down},
-	{GDK_KP_Enter,  NULL},
+	{XK_KP_Enter,   NULL},
 	{(char)'<',     NULL},
 	{(char)'>',     NULL},
 	{(char)'a',     toggle_animate},
-	{GDK_Delete,    delete},
-	{113,           quit},
+	{XK_Delete,     delete},
 	{0},
 };
 
-static void on_canvas_realise (GtkWidget*, gpointer);
-static void on_allocate       (GtkWidget*, GtkAllocation*, gpointer);
-static void start_zoom        (float target_zoom);
-static bool test_delete       ();
+static void start_zoom     (float target_zoom);
+static bool test_delete    ();
 
 
-static void
-window_content (GtkWindow* window, GdkGLConfig* glconfig)
+#define HAVE_AUTOMATION
+
+static gboolean
+automated ()
 {
-	GtkWidget* canvas = gtk_drawing_area_new();
+	static bool done = false;
+	if (!done) {
+		done = true;
 
-#ifdef HAVE_GTK_2_18
-	gtk_widget_set_can_focus     (canvas, true);
-#endif
-	gtk_widget_set_size_request  (canvas, 320, 128);
-	gtk_widget_set_gl_capability (canvas, glconfig, NULL, 1, GDK_GL_RGBA_TYPE);
-	gtk_widget_add_events        (canvas, GDK_POINTER_MOTION_MASK | GDK_BUTTON_PRESS_MASK | GDK_BUTTON_RELEASE_MASK);
+		if (!test_delete())
+			exit(EXIT_FAILURE);
 
-	gtk_container_add((GtkContainer*)window, (GtkWidget*)canvas);
+		exit(EXIT_SUCCESS);
+	}
+	return G_SOURCE_REMOVE;
+}
 
-	agl_get_instance()->pref_use_shaders = USE_SHADERS;
 
-	scene = (AGlRootActor*)agl_actor__new_root(canvas);
+int
+run (int argc, char* argv[])
+{
+	wf_debug = 0;
+
+	AGlWindow* window = agl_window ("Actor", -1, -1, 320, 160, 0);
+	scene = window->scene;
+	AGlActor* root = (AGlActor*)scene;
+	scene->selected = root;
 
 	char* filename = find_wav(WAV);
-	w1 = waveform_load_new(filename);
+	wav = waveform_load_new(filename);
 	g_free(filename);
 
-	int n_frames = waveform_get_n_frames(w1);
+	int n_frames = waveform_get_n_frames(wav);
 
 	WfSampleRegion region[] = {
 		{0,            n_frames     - 1},
@@ -126,92 +128,48 @@ window_content (GtkWindow* window, GdkGLConfig* glconfig)
 		{0x66ff66ff, 0x0000ffff},
 	};
 
-	for(int i=0;i<G_N_ELEMENTS(a);i++){
+	for (int i=0;i<G_N_ELEMENTS(a);i++) {
 		wfc[i] = wf_context_new((AGlActor*)scene); // each waveform has its own context so as to have a different zoom
 
-		a[i] = wf_context_add_new_actor(wfc[i], w1);
+		a[i] = wf_context_add_new_actor(wfc[i], wav);
 		agl_actor__add_child((AGlActor*)scene, (AGlActor*)a[i]);
 
 		wf_actor_set_region(a[i], &region[i]);
 		wf_actor_set_colour(a[i], colours[i][0]);
 	}
 
-	g_object_unref(w1); // transfer ownership of the waveform to the Scene
+	g_object_unref(wav); // transfer ownership of the waveform to the Scene
 
-	g_signal_connect((gpointer)canvas, "realize",       G_CALLBACK(on_canvas_realise), NULL);
-	g_signal_connect((gpointer)canvas, "size-allocate", G_CALLBACK(on_allocate), NULL);
-	g_signal_connect((gpointer)canvas, "expose-event",  G_CALLBACK(agl_actor__on_expose), scene);
-}
+	void set_size (AGlActor* scene)
+	{
+		float height = agl_actor__height(scene);
 
-
-static gboolean
-automated ()
-{
-	static bool done = false;
-	if(!done){
-		done = true;
-
-		if(!test_delete())
-			exit(EXIT_FAILURE);
-
-		gtk_main_quit();
-	}
-	return G_SOURCE_REMOVE;
-}
-
-
-int
-main (int argc, char* argv[])
-{
-	set_log_handlers();
-
-	wf_debug = 0;
-
-	gtk_init(&argc, &argv);
-
-	int opt;
-	while((opt = getopt_long (argc, argv, short_options, long_options, NULL)) != -1) {
-		switch(opt) {
-			case 'n':
-				g_timeout_add(3000, automated, NULL);
-				break;
+		for (int i=0;i<G_N_ELEMENTS(a);i++) {
+			wfc[i]->samples_per_pixel = a[i]->region.len / agl_actor__width(scene);
+			if (a[i])
+				wf_actor_set_rect(a[i], &(WfRectangle){
+					0.,
+					i * agl_actor__height(scene) / 4.,
+					GL_WIDTH * wfc[0]->zoom->value.f,
+					height / 4. * 0.95
+				});
 		}
+
+		start_zoom(wfc[0]->zoom->value.f);
 	}
+	((AGlActor*)window->scene)->set_size = set_size;
 
-	if(g_getenv("NON_INTERACTIVE")){
-		g_timeout_add(3000, automated, NULL);
-	}
+	#define KEYS(A) ((SimpleKeyBehaviour*)((AGlActor*)A)->behaviours[0])
+	root->behaviours[0] = simple_key_behaviour();
+	KEYS(root)->keys = &keys;
+	simple_key_behaviour_init(root->behaviours[0], root);
 
-	return gtk_window((Key*)&keys, window_content);
-}
+	g_main_loop_run (agl_main_loop_new());
 
+	agl_window_destroy (&window);
+	XCloseDisplay (dpy);
 
-static void
-on_canvas_realise (GtkWidget* canvas, gpointer user_data)
-{
-	if(!GTK_WIDGET_REALIZED (canvas)) return;
-
-	on_allocate(canvas, &canvas->allocation, user_data);
-}
-
-
-static void
-on_allocate (GtkWidget* widget, GtkAllocation* allocation, gpointer user_data)
-{
-	((AGlActor*)scene)->region.x2 = allocation->width;
-	((AGlActor*)scene)->region.y2 = allocation->height;
-
-	int i; for(i=0;i<G_N_ELEMENTS(a);i++){
-		wfc[i]->samples_per_pixel = a[i]->region.len / allocation->width;
-		if(a[i]) wf_actor_set_rect(a[i], &(WfRectangle){
-			0.0,
-			i * allocation->height / 4,
-			GL_WIDTH * wfc[0]->zoom->value.f,
-			allocation->height / 4 * 0.95
-		});
-	}
-
-	start_zoom(wfc[0]->zoom->value.f);
+	return 0;
 }
 
 
@@ -220,8 +178,7 @@ start_zoom (float target_zoom)
 {
 	// When zooming in, the Region is preserved so the box gets bigger. Drawing is clipped by the Viewport.
 
-	for(int i=0;i<G_N_ELEMENTS(a);i++)
-		wf_context_set_zoom(wfc[i], target_zoom);
+	wf_context_set_zoom(wfc[0], target_zoom);
 }
 
 
@@ -244,8 +201,8 @@ vzoom_up (gpointer _)
 {
 	vzoom *= 1.1;
 	vzoom = MIN(vzoom, 100.0);
-	int i; for(i=0;i<G_N_ELEMENTS(a);i++)
-		if(a[i]) wf_actor_set_vzoom(a[i], vzoom);
+	for (int i=0;i<G_N_ELEMENTS(a);i++)
+		if (a[i]) wf_actor_set_vzoom(a[i], vzoom);
 }
 
 
@@ -254,8 +211,8 @@ vzoom_down (gpointer _)
 {
 	vzoom /= 1.1;
 	vzoom = MAX(vzoom, 1.0);
-	int i; for(i=0;i<G_N_ELEMENTS(a);i++)
-		if(a[i]) wf_actor_set_vzoom(a[i], vzoom);
+	for (int i=0;i<G_N_ELEMENTS(a);i++)
+		if (a[i]) wf_actor_set_vzoom(a[i], vzoom);
 }
 
 
@@ -283,20 +240,20 @@ on_idle (gpointer _)
 	static uint64_t t0    = 0;
 #endif
 
-	if(!frame)
+	if (!frame)
 #ifdef DEBUG
 		t0 = g_get_monotonic_time();
 #else
 		;
 #endif
-	else{
+	else {
 #ifdef DEBUG
 		uint64_t time = g_get_monotonic_time();
-		if(!(frame % 1000))
+		if (!(frame % 1000))
 			dbg(0, "rate=%.2f fps", ((float)frame) / ((float)(time - t0)) / 1000.0);
 #endif
 
-		if(!(frame % 8)){
+		if (!(frame % 8)) {
 			float v = (frame % 16) ? 2.0 : 1.0/2.0;
 			if(v > 16.0) v = 1.0;
 			start_zoom(v);
@@ -323,7 +280,7 @@ finalize_notify (gpointer data, GObject* was)
 {
 	PF;
 
-	w1 = NULL;
+	wav = NULL;
 	finalize_done = true;
 }
 
@@ -331,13 +288,13 @@ finalize_notify (gpointer data, GObject* was)
 static bool
 test_delete ()
 {
-	if(!a[0]) return false;
+	if (!a[0]) return false;
 
-	g_object_weak_ref((GObject*)w1, finalize_notify, NULL);
+	g_object_weak_ref((GObject*)wav, finalize_notify, NULL);
 
 	a[0] = (agl_actor__remove_child((AGlActor*)scene, (AGlActor*)a[0]), NULL);
 
-	if(finalize_done){
+	if (finalize_done) {
 		pwarn("waveform should not be free'd");
 		return false;
 	}
@@ -348,7 +305,7 @@ test_delete ()
 
 	a[3] = (agl_actor__remove_child((AGlActor*)scene, (AGlActor*)a[3]), NULL);
 
-	if(!finalize_done){
+	if (!finalize_done) {
 		pwarn("waveform was not free'd");
 		return false;
 	}
@@ -364,9 +321,4 @@ delete (gpointer _)
 }
 
 
-void
-quit (gpointer _)
-{
-	exit(EXIT_SUCCESS);
-}
-
+#include "test/_x11.c"

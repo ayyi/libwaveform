@@ -303,8 +303,6 @@ waveform_load_audio (Waveform* waveform, int block_num, int n_tiers_needed, WfAu
 	// if the file is local we access it directly, otherwise send a msg.
 	// -for now, we assume the file is local.
 
-	// TODO should use same api as g_file_read_async ? uses GAsyncReadyCallback
-
 	PF2;
 	g_return_if_fail(block_num < waveform_get_n_audio_blocks(waveform));
 	WfAudioData* audio = &waveform->priv->audio;

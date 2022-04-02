@@ -1,4 +1,15 @@
 /*
+ +----------------------------------------------------------------------+
+ | This file is part of the Ayyi project. https://www.ayyi.org          |
+ | copyright (C) 2012-2022 Tim Orford <tim@orford.org>                  |
+ +----------------------------------------------------------------------+
+ | This program is free software; you can redistribute it and/or modify |
+ | it under the terms of the GNU General Public License version 3       |
+ | as published by the Free Software Foundation.                        |
+ +----------------------------------------------------------------------+
+ |
+ */
+/*
 
   Demonstration of the libwaveform WaveformViewPlus widget.
   ---------------------------------------------------------
@@ -28,31 +39,10 @@
   The WaveformView interface is designed to be easy to use.
   For a more powerful but more complicated interface, see WaveformActor
 
-  --------------------------------------------------------------
-
-  Copyright (C) 2012-2021 Tim Orford <tim@orford.org>
-
-  This program is free software; you can redistribute it and/or modify
-  it under the terms of the GNU General Public License version 3
-  as published by the Free Software Foundation.
-
-  This program is distributed in the hope that it will be useful,
-  but WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-  GNU General Public License for more details.
-
-  You should have received a copy of the GNU General Public License
-  along with this program; if not, write to the Free Software
-  Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 */
 
-#define __wf_private__
-
 #include "config.h"
-#include <getopt.h>
-#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 #include <gtk/gtk.h>
-#pragma GCC diagnostic warning "-Wdeprecated-declarations"
 #include <gdk/gdkkeysyms.h>
 #include "agl/actor.h"
 #include "actors/spinner.h"
@@ -60,12 +50,6 @@
 #include "common.h"
 
 extern char* basename (const char*);
-
-static const struct option long_options[] = {
-	{ "non-interactive",  0, NULL, 'n' },
-};
-
-static const char* const short_options = "n";
 
 const char* wavs[] = {
 	"data/mono_0:10.flac",
@@ -88,38 +72,34 @@ const char* wavs[] = {
 KeyHandler
 	next_wav,
 	prev_wav,
-	toggle_shaders,
 	toggle_layers,
 	toggle_grid,
 	unrealise,
 	delete,
 	play,
-	stop,
-	quit;
+	stop;
 
 extern bool key_down;
 extern KeyHold key_hold;
 
-Key keys[] = {
-	{GDK_KP_Enter,  NULL},
-	{'<',           NULL},
-	{'>',           NULL},
-	{(char)'n',     next_wav},
-	{(char)'p',     prev_wav},
-	{(char)'s',     toggle_shaders},
-	{(char)'l',     toggle_layers},
-	{(char)'g',     toggle_grid},
-	{(char)'u',     unrealise},
-	{GDK_Delete,    delete},
-	{65438,         stop},
-	{65421,         play},
-	{113,           quit},
+AGlKey keys[] = {
+	{GDK_KEY_KP_Enter, NULL},
+	{'<',              NULL},
+	{'>',              NULL},
+	{(char)'n',        next_wav},
+	{(char)'p',        prev_wav},
+	{(char)'l',        toggle_layers},
+	{(char)'g',        toggle_grid},
+	{(char)'u',        unrealise},
+	{GDK_KEY_Delete,   delete},
+	{65438,            stop},
+	{65421,            play},
 	{0},
 };
 
 gpointer tests[] = {};
 uint32_t _time = 1000 + 321;
-GtkWidget* table = NULL;
+GtkWidget* box = NULL;
 WaveformViewPlus* view = NULL;
 
 struct Layers {
@@ -128,43 +108,33 @@ struct Layers {
     AGlActor* spinner;
 } layers;
 
+void  on_quit         (GSimpleAction*, GVariant*, gpointer);
 void  show_wav        (WaveformViewPlus*, const char* filename);
 char* format_channels (int n_channels);
 void  format_time     (char* str, int64_t t_ms);
-void  on_allocate     (GtkWidget*, GtkAllocation*, gpointer);
 
 
-int
-main (int argc, char* argv[])
+static void
+activate (GtkApplication* app, gpointer user_data)
 {
-	set_log_handlers();
-
 	wf_debug = 0;
 
-	gtk_init(&argc, &argv);
+	GtkWidget* window = gtk_application_window_new (app);
+	gtk_window_set_title (GTK_WINDOW (window), "Window");
+	gtk_window_set_default_size (GTK_WINDOW (window), 640, 160);
 
-	int opt;
-	while((opt = getopt_long (argc, argv, short_options, long_options, NULL)) != -1) {
-		switch(opt) {
-			case 'n':
-				g_timeout_add(3000, (gpointer)gtk_main_quit, NULL);
-				break;
-		}
-	}
-
-	if(g_getenv("NON_INTERACTIVE")){
-		g_timeout_add(3000, (gpointer)gtk_main_quit, NULL);
-	}
-
-	GtkWidget* window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
-
-	#if 0
-	agl_get_instance()->pref_use_shaders = false;
-	#endif
+	box = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 0);
+	gtk_window_set_child (GTK_WINDOW (window), box);
 
 	WaveformViewPlus* waveform = view = waveform_view_plus_new(NULL);
+	gtk_widget_set_hexpand ((GtkWidget*)view, TRUE);
+	gtk_widget_set_vexpand ((GtkWidget*)view, TRUE);
+	gtk_box_append (GTK_BOX(box), GTK_WIDGET(view));
 	waveform_view_plus_set_show_rms(waveform, false);
 	waveform_view_plus_set_colour(waveform, 0xccccddaa, 0x000000ff);
+#if 0
+	waveform_view_plus_set_region(waveform, 0, 32383); // start in hi-res mode
+#endif
 
 	waveform_view_plus_add_layer(waveform, background_actor(NULL), 0);
 
@@ -184,68 +154,52 @@ main (int argc, char* argv[])
 	show_wav(waveform, filename);
 	g_free(filename);
 
-#if 0
-	waveform_view_plus_set_region(waveform, 0, 32383); // start in hi-res mode
-#endif
+	GActionEntry app_entries[] =
+	{
+		{ "quit", on_quit, NULL, NULL, NULL }
+	};
+	g_action_map_add_action_entries (G_ACTION_MAP (app), app_entries, G_N_ELEMENTS (app_entries), app);
+	gtk_application_set_accels_for_action (GTK_APPLICATION (app), "app.quit", (const char* const*)(char*[]){"Q", "<Ctrl>Q", NULL});
 
-	gtk_widget_set_size_request((GtkWidget*)waveform, 640, 160);
+	add_key_handlers_gtk((GtkWindow*)window, waveform, (AGlKey*)&keys);
 
-	GtkWidget* scrolledwindow = gtk_scrolled_window_new (NULL, NULL);
-	gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scrolledwindow), GTK_POLICY_NEVER, GTK_POLICY_NEVER);
-	gtk_container_add((GtkContainer*)window, scrolledwindow);
-
-	table = gtk_table_new(1, 2, false);
-	gtk_table_attach(GTK_TABLE(table), (GtkWidget*)waveform, 0, 1, 0, 1, GTK_FILL | GTK_EXPAND, GTK_FILL, 0, 0);
-	gtk_scrolled_window_add_with_viewport((GtkScrolledWindow*)scrolledwindow, table);
-
-	gtk_widget_show_all(window);
-
-	add_key_handlers_gtk((GtkWindow*)window, waveform, (Key*)&keys);
-
-	g_signal_connect(window, "delete-event", G_CALLBACK(gtk_main_quit), NULL);
-	g_signal_connect(window, "size-allocate", G_CALLBACK(on_allocate), waveform);
-
-	gtk_main();
-
-	return EXIT_SUCCESS;
+	gtk_widget_show (window);
 }
 
 
-void
-on_allocate (GtkWidget* widget, GtkAllocation* allocation, gpointer _view)
+
+
+void on_quit (GSimpleAction* a, GVariant* v, gpointer app)
 {
-	if(!view) return;
 
-	static int height = 0;
-
-	if(allocation->height != height){
-		gtk_widget_set_size_request((GtkWidget*)view, -1, allocation->height);
-		height = allocation->height;
-	}
-}
-
-
-void
-quit (gpointer waveform)
-{
 #ifdef WITH_VALGRIND
-	gboolean on_idle (void* data)
+	gboolean on_idle (void* app)
 	{
 		agl_gl_uninit ();
-		exit (EXIT_SUCCESS);
+		g_application_quit (G_APPLICATION (app));
 
 		return G_SOURCE_REMOVE;
 	}
 
-	gtk_widget_destroy ((GtkWidget*)view);
+	GtkWindow* window = (GtkWindow*)gtk_widget_get_parent(box);
+	gtk_window_set_child (window, NULL);
 	view = NULL;
+	box = NULL;
+	gtk_window_destroy (window);
 
-	g_idle_add (on_idle, NULL);
+	g_idle_add (on_idle, app);
 #else
-	exit (EXIT_SUCCESS);
+	g_application_quit (G_APPLICATION (app));
 #endif
 }
 
+
+void
+show_wav (WaveformViewPlus* view, const char* filename)
+{
+	g_assert(filename);
+
+	agl_spinner_start((AGlSpinner*)layers.spinner);
 
 	typedef struct {
 		WaveformViewPlus* view;
@@ -258,20 +212,13 @@ quit (gpointer waveform)
 
 		agl_spinner_stop((AGlSpinner*)layers.spinner);
 
-		if(error){
+		if (error) {
 			AGlActor* text_layer = agl_actor__find_by_class((AGlActor*)waveform_view_plus_get_actor(view), text_actor_get_class());
-			if(text_layer){
+			if (text_layer) {
 				text_actor_set_text(((TextActor*)text_layer), NULL, g_strdup(error->message));
 			}
 		}
 	}
-
-void
-show_wav (WaveformViewPlus* view, const char* filename)
-{
-	g_assert(filename);
-
-	agl_spinner_start((AGlSpinner*)layers.spinner);
 
 	waveform_view_plus_load_file(view, filename, on_loaded_, view);
 
@@ -295,10 +242,10 @@ show_wav (WaveformViewPlus* view, const char* filename)
 	g_assert(view->waveform);
 
 	AGlActor* text_layer = agl_actor__find_by_class((AGlActor*)waveform_view_plus_get_actor(view), text_actor_get_class());
-	if(text_layer){
+	if (text_layer) {
 		char* text = NULL;
 		Waveform* w = view->waveform;
-		if(w->n_channels){
+		if (w->n_channels) {
 			char* ch_str = format_channels(w->n_channels);
 			char length[32]; format_time(length, (w->n_frames * 1000) / w->samplerate);
 			char fs_str[32] = {'\0'}; //samplerate_format(fs_str, sample->sample_rate); strcpy(fs_str + strlen(fs_str), " kHz");
@@ -343,27 +290,13 @@ prev_wav (gpointer waveform)
 
 
 void
-toggle_shaders (gpointer view)
-{
-	printf(">> %s ...\n", __func__);
-
-	agl_actor__set_use_shaders(((AGlActor*)waveform_view_plus_get_actor((WaveformViewPlus*)view))->root, !agl_get_instance()->use_shaders);
-
-	char* filename = find_wav(wavs[0]);
-	waveform_view_plus_load_file((WaveformViewPlus*)view, filename, NULL, NULL);
-	g_free(filename);
-}
-
-
-
-void
 toggle_layers (gpointer view)
 {
 	static bool visible = true;
 	visible = !visible;
-	if(visible){
+	if (visible) {
 		layers.spp = waveform_view_plus_add_layer((WaveformViewPlus*)view, wf_spp_actor(waveform_view_plus_get_actor((WaveformViewPlus*)view)), 0);
-	}else{
+	} else {
 		waveform_view_plus_remove_layer((WaveformViewPlus*)view, layers.spp);
 		layers.spp = NULL;
 	}
@@ -375,9 +308,9 @@ toggle_grid (gpointer view)
 {
 	static bool visible = true;
 	visible = !visible;
-	if(visible){
+	if (visible) {
 		layers.grid = waveform_view_plus_add_layer((WaveformViewPlus*)view, grid_actor(waveform_view_plus_get_actor((WaveformViewPlus*)view)), 0);
-	}else{
+	} else {
 		waveform_view_plus_remove_layer((WaveformViewPlus*)view, layers.grid);
 	}
 }
@@ -388,14 +321,14 @@ unrealise (gpointer view)
 {
 	gboolean reattach (gpointer _view)
 	{
-		gtk_table_attach(GTK_TABLE(table), (GtkWidget*)_view, 0, 1, 1, 2, GTK_FILL | GTK_EXPAND, GTK_FILL, 0, 0);
+		gtk_box_append (GTK_BOX(box), GTK_WIDGET(_view));
 		g_object_unref(_view);
 		return G_SOURCE_REMOVE;
 	}
 
 	dbg(0, "-----------------------------");
 	g_object_ref((GObject*)view);
-	gtk_container_remove ((GtkContainer*)table, (GtkWidget*)view);
+	gtk_box_remove ((GtkBox*)box, (GtkWidget*)view);
 	g_timeout_add(600, reattach, view);
 }
 
@@ -421,7 +354,7 @@ finalize_notify (gpointer data, GObject* was)
 static bool
 test_delete ()
 {
-	if(!view) return false;
+	if (!view) return false;
 
 	g_object_weak_ref((GObject*)view->waveform, finalize_notify, NULL);
 
@@ -430,10 +363,10 @@ test_delete ()
 		return false;
 	}
 
-	gtk_widget_destroy((GtkWidget*)view);
+	gtk_box_remove((GtkBox*)box, (GtkWidget*)view);
 	view = NULL;
 
-	if(!dt.finalize_done){
+	if (!dt.finalize_done) {
 		pwarn("waveform was not free'd");
 		return false;
 	}
@@ -454,11 +387,11 @@ static guint play_timer = 0;
 void
 stop (gpointer view)
 {
-	if(play_timer){
+	if (play_timer) {
 		g_source_remove (play_timer);
 		play_timer = 0;
-	}else{
-		if(layers.spp) wf_spp_actor_set_time((SppActor*)layers.spp, (_time = 0));
+	} else {
+		if (layers.spp) wf_spp_actor_set_time((SppActor*)layers.spp, (_time = 0));
 	}
 }
 
@@ -468,7 +401,7 @@ play (gpointer view)
 {
 	gboolean tick (gpointer view)
 	{
-		if(layers.spp) wf_spp_actor_set_time((SppActor*)layers.spp, (_time += 50, _time));
+		if (layers.spp) wf_spp_actor_set_time((SppActor*)layers.spp, (_time += 50, _time));
 		return true;
 	}
 
@@ -493,3 +426,4 @@ format_time (char* str, int64_t t_ms)
 	snprintf(str, 31, "%"PRIi64":%02"PRIi64":%02"PRIi64, mins, secs, ms);
 }
 
+#include "test/_gtk.c"

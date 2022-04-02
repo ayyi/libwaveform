@@ -1,7 +1,7 @@
 /*
  +---------------------------------------------------------------------
  | This file is part of the Ayyi project. https://www.ayyi.org
- | copyright (C) 2012-2021 Tim Orford <tim@orford.org>
+ | copyright (C) 2012-2022 Tim Orford <tim@orford.org>
  +---------------------------------------------------------------------
  | This program is free software; you can redistribute it and/or modify
  | it under the terms of the GNU General Public License version 3
@@ -12,18 +12,10 @@
  |
  */
 
-#define __wf_private__
-#define __wf_canvas_priv__
 #include "config.h"
-#include <getopt.h>
-#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
-#include <gtk/gtk.h>
-#pragma GCC diagnostic warning "-Wdeprecated-declarations"
-#include <gdk/gdkkeysyms.h>
+#include <agl/gtk-area.h>
 #include <ass/ass.h>
-#include "agl/gtk.h"
 #include "waveform/actor.h"
-#define __wf_private__
 #include "test/common2.h"
 
 extern AssShader ass;
@@ -37,16 +29,10 @@ extern AssShader ass;
 #define VBORDER 8
 #define WAV "test/data/mono_0:10.wav"
 
-GdkGLConfig*    glconfig       = NULL;
-static bool     gl_initialised = false;
-GtkWidget*      canvas         = NULL;
-WaveformContext*wfc            = NULL;
-Waveform*       w1             = NULL;
-Waveform*       w2             = NULL;
+Waveform*       wav            = NULL;
 WaveformActor*  actor          = NULL;
 AGlRootActor*   scene          = NULL;
 float           zoom           = 1.0;
-float           dz             = 20.0;
 GLuint          ass_textures[] = {0, 0};
 gpointer        tests[]        = {};
 
@@ -69,29 +55,20 @@ typedef struct
     unsigned char* buf;      // 8 bit alphamap
 } image_t;
 
-static void on_canvas_realise  (GtkWidget*, gpointer);
-static void on_allocate        (GtkWidget*, GtkAllocation*, gpointer);
 static void start_zoom         (float target_zoom);
 static void toggle_animate     ();
 static void render_text        ();
 static void blend_single       (image_t*, ASS_Image*);
-uint64_t    get_time           ();
 
 static ASS_Library* ass_library;
 static ASS_Renderer* ass_renderer;
-
-static const struct option long_options[] = {
-	{ "non-interactive",  0, NULL, 'n' },
-};
-
-static const char* const short_options = "n";
 
 
 static bool
 ass_node_paint (AGlActor* actor)
 {
-	if(agl_get_instance()->use_shaders){
-		if(!glIsTexture(ass_textures[0])) pwarn("not texture");
+	if (agl_get_instance()->use_shaders) {
+		if (!glIsTexture(ass_textures[0])) pwarn("not texture");
 
 		ass.uniform.colour1 = 0xffffffff;
 		ass.uniform.colour2 = 0xff0000ff;
@@ -150,50 +127,59 @@ init (int frame_w, int frame_h)
 }
 
 
-int
-main (int argc, char *argv[])
+static void
+activate (GtkApplication* app, gpointer user_data)
 {
 	set_log_handlers();
 
 	wf_debug = 0;
 
-	int opt;
-	while((opt = getopt_long (argc, argv, short_options, long_options, NULL)) != -1) {
-		switch(opt) {
-			case 'n':
-				g_timeout_add(3000, (gpointer)exit, NULL);
-				break;
-		}
-	}
+	GtkWidget* window = gtk_application_window_new (app);
+	gtk_window_set_title (GTK_WINDOW (window), "Window");
+	gtk_window_set_default_size (GTK_WINDOW (window), 320, 160);
 
-	gtk_init(&argc, &argv);
-	if(!(glconfig = gdk_gl_config_new_by_mode(GDK_GL_MODE_RGBA | GDK_GL_MODE_DEPTH | GDK_GL_MODE_DOUBLE))){
-		perr ("Cannot initialise gtkglext."); return EXIT_FAILURE;
-	}
+	GtkWidget* widget = agl_gtk_area_new();
+	gtk_widget_set_hexpand ((GtkWidget*)widget, TRUE);
+	gtk_widget_set_vexpand ((GtkWidget*)widget, TRUE);
+	gtk_window_set_child (GTK_WINDOW (window), widget);
 
-	GtkWidget* window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
+	scene = ((AGlGtkArea*)widget)->scene;
 
-	canvas = gtk_drawing_area_new();
-#ifdef HAVE_GTK_2_18
-	gtk_widget_set_can_focus     (canvas, true);
-#endif
-	gtk_widget_set_size_request  (canvas, 480, 64);
-	gtk_widget_set_gl_capability (canvas, glconfig, NULL, 1, GDK_GL_RGBA_TYPE);
-	gtk_widget_add_events        (canvas, GDK_POINTER_MOTION_MASK | GDK_BUTTON_PRESS_MASK | GDK_BUTTON_RELEASE_MASK);
-	gtk_container_add((GtkContainer*)window, (GtkWidget*)canvas);
+	WaveformContext* wfc = wf_context_new((AGlActor*)scene);
 
-	scene = (AGlRootActor*)agl_actor__new_root(canvas);
-	wfc = wf_context_new((AGlActor*)scene);
+	char* filename = g_build_filename(g_get_current_dir(), WAV, NULL);
+	wav = waveform_load_new(filename);
+	g_free(filename);
 
-	g_signal_connect((gpointer)canvas, "realize",       G_CALLBACK(on_canvas_realise), NULL);
-	g_signal_connect((gpointer)canvas, "size-allocate", G_CALLBACK(on_allocate), NULL);
-	g_signal_connect((gpointer)canvas, "expose_event",  G_CALLBACK(agl_actor__on_expose), scene);
+	int n_frames = waveform_get_n_frames(wav);
 
-	gtk_widget_show_all(window);
+	uint32_t colours[2] = {0x3399ffff, 0x0000ffff}; // blue
 
-	gboolean key_press (GtkWidget* widget, GdkEventKey* event, gpointer user_data)
+	actor = wf_context_add_new_actor(wfc, wav);
+
+	wf_actor_set_region (actor, &(WfSampleRegion){0, n_frames});
+	wf_actor_set_colour (actor, colours[0]);
+
+	agl_actor__add_child((AGlActor*)scene, (AGlActor*)actor);
+	agl_actor__add_child((AGlActor*)scene, ass_node());
+
+	void scene_init (AGlActor* scene)
 	{
-		switch(event->keyval){
+		render_text();
+	}
+	((AGlActor*)scene)->init = scene_init;
+
+	void set_size (AGlActor* scene)
+	{
+		((AGlActor*)scene)->region = (AGlfRegion){0, 0, GL_WIDTH, GL_HEIGHT};
+
+		start_zoom(zoom);
+	}
+	((AGlActor*)scene)->set_size = set_size;
+
+	gboolean on_key_press (GtkEventController* controller, guint keyval, guint keycode, GdkModifierType state, gpointer _)
+	{
+		switch (keyval) {
 			case 61:
 				start_zoom(zoom * 1.5);
 				break;
@@ -211,28 +197,22 @@ main (int argc, char *argv[])
 			case (char)'a':
 				toggle_animate();
 				break;
-			case GDK_KP_Enter:
+			case XK_KP_Enter:
 				break;
-			case 113:
-				exit(EXIT_SUCCESS);
-				break;
-			case GDK_Delete:
+			case XK_Delete:
 				break;
 			default:
-				dbg(0, "%i", event->keyval);
+				dbg(0, "%i", keyval);
 				break;
 		}
 		return TRUE;
 	}
 
-	g_signal_connect(window, "key-press-event", G_CALLBACK(key_press), NULL);
-	g_signal_connect(window, "delete-event", G_CALLBACK(gtk_main_quit), NULL);
+	GtkEventController* controller = gtk_event_controller_key_new ();
+	g_signal_connect (controller, "key-pressed", G_CALLBACK (on_key_press), NULL);
+	gtk_widget_add_controller (window, controller);
 
-	render_text();
-
-	gtk_main();
-
-	return EXIT_SUCCESS;
+	gtk_widget_show (window);
 }
 
 
@@ -265,8 +245,8 @@ render_text ()
 	}
 #else
 	//clear the background to border colour for better antialiasing at edges
-	int x, y; for(y=0;y<out.height;y++){
-		for(x=0;x<out.width;x++){
+	for (int y=0;y<out.height;y++) {
+		for (int x=0;x<out.width;x++) {
 			*(out.buf + y * out.stride + N_CHANNELS * x) = 0xff; //TODO should be border colour.
 		}
 	}
@@ -274,20 +254,19 @@ render_text ()
 
 	ASS_Image* i = img;
 	int cnt = 0;
-	for(;i;i=i->next,cnt++){
+	for (;i;i=i->next,cnt++) {
 		blend_single(&out, i); //is each one of these a single glyph?
 	}
 	printf("%d images blended\n", cnt);
 
 	{
 		glGenTextures(1, ass_textures);
-		if(gl_error){ perr ("couldnt create ass_texture."); exit(EXIT_FAILURE); }
+		if (gl_error){ perr ("couldnt create ass_texture."); exit(EXIT_FAILURE); }
 
-		int pixel_format = GL_LUMINANCE_ALPHA;
 		agl_use_texture (ass_textures[0]);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_LUMINANCE8_ALPHA8, out.width, out.height, 0, pixel_format, GL_UNSIGNED_BYTE, out.buf);
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RG, out.width, out.height, 0, GL_RG, GL_UNSIGNED_BYTE, out.buf);
 		gl_warn("gl error binding ass texture");
 	}
 
@@ -295,60 +274,6 @@ render_text ()
 	ass_renderer_done(ass_renderer);
 	ass_library_done(ass_library);
 	g_free(out.buf);
-}
-
-
-static gboolean canvas_init_done = false;
-static void
-on_canvas_realise (GtkWidget* _canvas, gpointer user_data)
-{
-	PF;
-	if(canvas_init_done) return;
-	if(!GTK_WIDGET_REALIZED (canvas)) return;
-
-	agl_actor__add_child((AGlActor*)scene, ass_node());
-
-	gl_initialised = true;
-	canvas_init_done = true;
-
-	char* filename = g_build_filename(g_get_current_dir(), WAV, NULL);
-	w1 = waveform_load_new(filename);
-	g_free(filename);
-
-	int n_frames = waveform_get_n_frames(w1);
-
-	WfSampleRegion region = {
-		0, n_frames,
-	};
-
-	uint32_t colours[2] = {0x3399ffff, 0x0000ffff}; // blue
-
-	actor = wf_context_add_new_actor(wfc, w1);
-
-	wf_actor_set_region (actor, &region);
-	wf_actor_set_colour (actor, colours[0]);
-
-	on_allocate(canvas, &canvas->allocation, user_data);
-
-	void _on_scene_requests_redraw(AGlScene* scene, gpointer _)
-	{
-		gdk_window_invalidate_rect(canvas->window, NULL, false);
-	}
-	scene->draw = _on_scene_requests_redraw;
-}
-
-
-static void
-on_allocate (GtkWidget* widget, GtkAllocation* allocation, gpointer user_data)
-{
-	if(!gl_initialised) return;
-
-	((AGlActor*)scene)->region = (AGlfRegion){0, 0, GL_WIDTH, GL_HEIGHT};
-
-	//optimise drawing by telling the canvas which area is visible
-	wf_context_set_viewport(wfc, &(WfViewPort){0, 0, GL_WIDTH, GL_HEIGHT});
-
-	start_zoom(zoom);
 }
 
 
@@ -401,7 +326,13 @@ start_zoom (float target_zoom)
 static void
 toggle_animate ()
 {
-	PF0;
+	uint64_t get_time ()
+	{
+		struct timeval start;
+		gettimeofday(&start, NULL);
+		return start.tv_sec * 1000 + start.tv_usec / 1000;
+	}
+
 	gboolean on_idle(gpointer _)
 	{
 		static uint64_t frame = 0;
@@ -429,12 +360,4 @@ toggle_animate ()
 }
 
 
-uint64_t
-get_time ()
-{
-	struct timeval start;
-	gettimeofday(&start, NULL);
-	return start.tv_sec * 1000 + start.tv_usec / 1000;
-}
-
-
+#include "test/_gtk.c"

@@ -21,8 +21,6 @@ AC_PROG_LIBTOOL
 
 PKG_PROG_PKG_CONFIG
 
-AX_SUBDIRS_CONFIGURE([gtkglext-1.0], [[--enable-test=false]], [], [])
-
 # At least level 2 optimisation is needed to allow GCC to
 # determine that not all nested functions require trampolines.
 CFLAGS="$CFLAGS -O2"
@@ -103,8 +101,8 @@ AC_SUBST(GRAPHENE_LDFLAGS)
 
 dnl -----------------------------------------------------
 
-GTK_CFLAGS=`pkg-config gtk+-2.0 --cflags`
-GTK_LDFLAGS=`pkg-config gtk+-2.0 --libs`
+GTK_CFLAGS=`pkg-config --cflags gtk4`
+GTK_LDFLAGS=`pkg-config --libs gtk4`
 AC_SUBST(GTK_CFLAGS)
 AC_SUBST(GTK_LDFLAGS)
 
@@ -187,10 +185,7 @@ AC_SUBST(FRIBIDI_LDFLAGS)
 
 dnl -opengl----------------------------------------------
 
-AM_CONDITIONAL(AGL_ENABLE_GTKGLEXT, false)
 AM_CONDITIONAL(AGL_NO_INSTALL, true)
-
-AC_ARG_ENABLE(system-gtkglext, AC_HELP_STRING([--enable-system-gtkglext], [disable local opengl extension for gtk]), enable_system_gtkglext=$enableval, enable_system_gtkglext="no")
 
 AC_ARG_ENABLE(
 	[opengl],
@@ -218,9 +213,6 @@ if test "x$enable_opengl" = "xyes" ; then
 		OPENGL_CFLAGS=`pkg-config --cflags-only-I gl`
 		OPENGL_LDFLAGS=`pkg-config --libs-only-l gl`
 
-		AS_IF([test "$enable_system_gtkglext" = "yes"], [
-			PKG_CHECK_MODULES(GTKGLEXT, [gtkglext-1.0], [OPENGL_CFLAGS=`pkg-config --cflags-only-I gtkglext-1.0`], [AC_MSG_ERROR([Gtkglext not found]) enable_system_gtkglext=no])
-			])
 	else
 		OPENGL_CFLAGS=`pkg-config --cflags-only-I gl`
 		OPENGL_LDFLAGS=`pkg-config --libs-only-l gl`
@@ -231,7 +223,6 @@ if test "x$enable_opengl" = "xyes" ; then
 	AC_DEFINE(WF_USE_TEXTURE_CACHE, 1, [cannot currently disable if opengl used])
 fi
 AM_CONDITIONAL(ENABLE_OPENGL, test $enable_opengl = "yes")
-AM_CONDITIONAL(ENABLE_SYSTEM_GTKGLEXT, test "$enable_system_gtkglext" = "yes")
 AC_SUBST(OPENGL_CFLAGS)
 AC_SUBST(OPENGL_LDFLAGS)
 
@@ -357,13 +348,6 @@ fi
 
 dnl -----------------------------------------------------
 
-# Local version of Gtkglext only works with X11
-if test "$enable_system_gtkglext" != "no"; then
-	AC_DEFINE(USE_SYSTEM_GTKGLEXT, 1, [do not use the internal Gtkglext library])
-fi
-
-dnl -----------------------------------------------------
-
 AC_DEFINE(USE_FRAME_CLOCK, 1, [Synchronise drawing to screen refresh])
 
 # extra CXXFLAGS that should always be used
@@ -375,7 +359,6 @@ AC_CONFIG_FILES([
 	Makefile
 	wf/Makefile
 	wf/loaders/Makefile
-	gtkglext-1.0/Makefile
 	lib/Makefile
 	lib/debug/Makefile
 	lib/test/Makefile
@@ -397,8 +380,6 @@ if test "$enable_submodules" = "yes"; then
 		lib/agl/agl/text/Makefile
 		lib/agl/actors/Makefile
 		lib/agl/debug/Makefile
-		lib/agl/glib/Makefile
-		lib/agl/glib/glib/Makefile
 		lib/agl/lib/Makefile
 		lib/agl/lib/test/Makefile
 		lib/agl/sdl/Makefile
@@ -421,7 +402,6 @@ AC_MSG_RESULT([Building ffmpeg:          $enable_ffmpeg])
 AC_MSG_RESULT([Building xrandr:          $have_xrandr])
 AC_MSG_RESULT([Building tests:           $enable_test])
 AC_MSG_RESULT([Building profiler:        $enable_profiler])
-AC_MSG_RESULT([Use system GtkGL:         $enable_system_gtkglext])
 AC_MSG_RESULT([Use epoxy:                $enable_epoxy])
 AC_MSG_RESULT([])
 

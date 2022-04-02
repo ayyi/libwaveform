@@ -14,16 +14,9 @@
 
 #include "config.h"
 #include <getopt.h>
-#include <gdk/gdkkeysyms.h>
-#include "agl/gtk.h"
+#include "agl/gtk-area.h"
 #include "waveform/actor.h"
 #include "test/common.h"
-
-static const struct option long_options[] = {
-	{ "non-interactive",  0, NULL, 'n' },
-};
-
-static const char* const short_options = "n";
 
 #define WAV "piano.wav"
 
@@ -45,10 +38,9 @@ KeyHandler
 	scroll_left,
 	scroll_right,
 	toggle_animate,
-	delete,
-	quit;
+	delete;
 
-Key keys[] = {
+AGlKey keys[] = {
 	{KEY_Left,      scroll_left},
 	{KEY_KP_Left,   scroll_left},
 	{KEY_Right,     scroll_right},
@@ -57,35 +49,38 @@ Key keys[] = {
 	{45,            zoom_out},
 	{(char)'w',     vzoom_up},
 	{(char)'s',     vzoom_down},
-	{GDK_KP_Enter,  NULL},
+	{XK_KP_Enter,   NULL},
 	{(char)'<',     NULL},
 	{(char)'>',     NULL},
 	{(char)'a',     toggle_animate},
-	{GDK_Delete,    delete},
-	{113,           quit},
+	{XK_Delete,     delete},
 	{0},
 };
 
-static void on_canvas_realise (GtkWidget*, gpointer);
-static void on_allocate       (GtkWidget*, GtkAllocation*, gpointer);
 static bool test_delete       ();
 
 
 static void
-window_content (GtkWindow* window, GdkGLConfig* glconfig)
+activate (GtkApplication* app, gpointer user_data)
 {
-	GtkWidget* canvas = gtk_drawing_area_new();
+	set_log_handlers();
 
-#ifdef HAVE_GTK_2_18
-	gtk_widget_set_can_focus     (canvas, true);
-#endif
-	gtk_widget_set_size_request  (canvas, 320, 256);
-	gtk_widget_set_gl_capability (canvas, glconfig, NULL, 1, GDK_GL_RGBA_TYPE);
-	gtk_widget_add_events        (canvas, GDK_POINTER_MOTION_MASK | GDK_BUTTON_PRESS_MASK | GDK_BUTTON_RELEASE_MASK);
+	wf_debug = 0;
 
-	gtk_container_add((GtkContainer*)window, (GtkWidget*)canvas);
+	GtkWidget* window = gtk_application_window_new (app);
+	gtk_window_set_title (GTK_WINDOW (window), "Window");
+	gtk_window_set_default_size (GTK_WINDOW (window), 320, 256);
 
-	scene = (AGlRootActor*)agl_actor__new_root(canvas);
+	GtkWidget* box = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 0);
+	gtk_window_set_child (GTK_WINDOW (window), box);
+
+	GtkWidget* widget = agl_gtk_area_new();
+	gtk_widget_set_hexpand (widget, TRUE);
+	gtk_widget_set_vexpand (widget, TRUE);
+	gtk_box_append (GTK_BOX(box), widget);
+	AGlGtkArea* area = (AGlGtkArea*)widget;
+
+	scene = area->scene;
 	wfc = wf_context_new((AGlActor*)scene);
 
 	char* filename = find_wav(WAV);
@@ -134,16 +129,44 @@ window_content (GtkWindow* window, GdkGLConfig* glconfig)
 	}
 	agl_observable_subscribe_with_state(wfc->zoom, on_zoom, NULL);
 
+	void set_size (AGlActor* scene)
+	{
+		AGlfPt size = {agl_actor__width(scene), agl_actor__height(scene)};
+
+		for (int i=0;i<G_N_ELEMENTS(a);i++) {
+			wfc->samples_per_pixel = a[i]->region.len / size.x;
+
+			if (a[i]) wf_actor_set_rect(a[i], &(WfRectangle) {
+				0.0,
+				i * size.y / 2,
+				size.x * wfc->zoom->value.f,
+				size.y / 2 * 0.95
+			});
+		}
+
+		int r = 1;
+		WfRectangle rect = {
+			.left = 0.,
+			.top = r * size.y / 2,
+			.len = size.x * wfc->zoom->value.f / 2.,
+			.height = size.y / 2 * 0.95
+		};
+
+		wf_actor_set_rect(split[0], &rect);
+
+		rect.left = size.x / 2;
+		wf_actor_set_rect(split[1], &rect);
+	}
+	((AGlActor*)scene)->set_size = set_size;
+
 	g_object_unref(w1); // this effectively transfers ownership of the waveform to the Scene
 
-	g_signal_connect((gpointer)canvas, "realize",       G_CALLBACK(on_canvas_realise), NULL);
-	g_signal_connect((gpointer)canvas, "size-allocate", G_CALLBACK(on_allocate), NULL);
-	g_signal_connect((gpointer)canvas, "expose-event",  G_CALLBACK(agl_actor__on_expose), scene);
+	gtk_widget_show (window);
 }
 
 
 static gboolean
-automated ()
+automated (gpointer app)
 {
 	static bool done = false;
 	if (!done) {
@@ -152,76 +175,9 @@ automated ()
 		if (!test_delete())
 			exit(EXIT_FAILURE);
 
-		gtk_main_quit();
+		g_application_quit((GApplication*)app);
 	}
 	return G_SOURCE_REMOVE;
-}
-
-
-int
-main (int argc, char* argv[])
-{
-	set_log_handlers();
-
-	wf_debug = 0;
-
-	gtk_init(&argc, &argv);
-
-	int opt;
-	while ((opt = getopt_long (argc, argv, short_options, long_options, NULL)) != -1) {
-		switch (opt) {
-			case 'n':
-				g_timeout_add(3000, automated, NULL);
-				break;
-		}
-	}
-
-	if (g_getenv("NON_INTERACTIVE")) {
-		g_timeout_add(3000, automated, NULL);
-	}
-
-	return gtk_window((Key*)&keys, window_content);
-}
-
-
-static void
-on_canvas_realise (GtkWidget* canvas, gpointer user_data)
-{
-	if (!gtk_widget_get_realized(canvas)) return;
-
-	on_allocate(canvas, &canvas->allocation, user_data);
-}
-
-
-static void
-on_allocate (GtkWidget* widget, GtkAllocation* allocation, gpointer user_data)
-{
-	((AGlActor*)scene)->region.x2 = allocation->width;
-	((AGlActor*)scene)->region.y2 = allocation->height;
-
-	for (int i=0;i<G_N_ELEMENTS(a);i++) {
-		wfc->samples_per_pixel = a[i]->region.len / allocation->width;
-
-		if (a[i]) wf_actor_set_rect(a[i], &(WfRectangle) {
-			0.0,
-			i * allocation->height / 2,
-			allocation->width * wfc->zoom->value.f,
-			allocation->height / 2 * 0.95
-		});
-	}
-
-	int r = 1;
-	WfRectangle rect = {
-		.left = 0.,
-		.top = r * allocation->height / 2,
-		.len = allocation->width * wfc->zoom->value.f / 2.,
-		.height = allocation->height / 2 * 0.95
-	};
-
-	wf_actor_set_rect(split[0], &rect);
-
-	rect.left = allocation->width / 2;
-	wf_actor_set_rect(split[1], &rect);
 }
 
 
@@ -359,9 +315,5 @@ delete (gpointer _)
 }
 
 
-void
-quit (gpointer _)
-{
-	exit(EXIT_SUCCESS);
-}
-
+#define HAVE_AUTOMATION
+#include "test/_gtk.c"

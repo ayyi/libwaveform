@@ -1,23 +1,22 @@
-/**
-* +----------------------------------------------------------------------+
-* | This file is part of the Ayyi project. http://ayyi.org               |
-* | copyright (C) 2012-2020 Tim Orford <tim@orford.org>                  |
-* +----------------------------------------------------------------------+
-* | This program is free software; you can redistribute it and/or modify |
-* | it under the terms of the GNU General Public License version 3       |
-* | as published by the Free Software Foundation.                        |
-* +----------------------------------------------------------------------+
-*
-*/
+/*
+ +----------------------------------------------------------------------+
+ | This file is part of the Ayyi project. https://www.ayyi.org          |
+ | copyright (C) 2012-2022 Tim Orford <tim@orford.org>                  |
+ +----------------------------------------------------------------------+
+ | This program is free software; you can redistribute it and/or modify |
+ | it under the terms of the GNU General Public License version 3       |
+ | as published by the Free Software Foundation.                        |
+ +----------------------------------------------------------------------+
+ |
+ */
+
 #define __wf_private__
 #include "config.h"
 #include <math.h>
 #include <sys/ioctl.h>
 #include <glib.h>
 #ifdef USE_GTK
-#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 #include <gtk/gtk.h>
-#pragma GCC diagnostic warning "-Wdeprecated-declarations"
 #endif
 #include "transition/frameclock.h"
 #include "agl/actor.h"
@@ -84,33 +83,24 @@ wf_int2db (short x)
 #ifdef USE_GTK
 
 uint32_t
-wf_get_gtk_fg_color (GtkWidget* widget, GtkStateType state)
+wf_get_gtk_fg_color (GtkWidget* widget)
 {
-	GtkStyle* style = gtk_widget_get_style(widget);
-	//GdkColor fg = style->fg[state];
-	return wf_color_gdk_to_rgba(&style->fg[state]);
+	GtkStyleContext* context = gtk_widget_get_style_context (widget);
+	GdkRGBA  colour;
+	gtk_style_context_lookup_color (context, "foreground-color", &colour);
+
+	return wf_color_gdk_to_rgba(&colour);
 }
 
 
 uint32_t
-wf_get_gtk_text_color (GtkWidget* widget, GtkStateType state)
+wf_get_gtk_base_color (GtkWidget* widget, char alpha)
 {
-	GtkStyle* style = gtk_style_copy(gtk_widget_get_style(widget));
-	GdkColor c = style->text[state];
-	g_object_unref(style);
+	GtkStyleContext* context = gtk_widget_get_style_context (widget);
+	GdkRGBA  colour;
+	gtk_style_context_lookup_color (context, "background-color", &colour);
 
-	return wf_color_gdk_to_rgba(&c);
-}
-
-
-uint32_t
-wf_get_gtk_base_color (GtkWidget* widget, GtkStateType state, char alpha)
-{
-	GtkStyle* style = gtk_style_copy(gtk_widget_get_style(widget));
-	GdkColor c = style->base[state];
-	g_object_unref(style);
-
-	return (wf_color_gdk_to_rgba(&c) & 0xffffff00) | alpha;
+	return (wf_color_gdk_to_rgba(&colour) & 0xffffff00) | alpha;
 }
 #endif
 
@@ -130,9 +120,9 @@ wf_colour_rgba_to_float (AGlColourFloat* colour, uint32_t rgba)
 
 #ifdef USE_GTK
 uint32_t
-wf_color_gdk_to_rgba (GdkColor* color)
+wf_color_gdk_to_rgba (GdkRGBA* color)
 {
-	return ((color->red / 0x100) << 24) + ((color->green / 0x100) << 16) + ((color->blue / 0x100) << 8) + 0xff;
+	return (((int)(color->red * 256.)) << 24) + (((int)(color->green * 256.)) << 16) + (((int)(color->blue * 256.)) << 8) + 0xff;
 }
 #endif
 
@@ -160,30 +150,18 @@ wf_get_time()
 
 #ifdef USE_GTK
 #define WAVEFORM_START_DRAW(wfc) \
-	if(wfc->_draw_depth) pwarn("START_DRAW: already drawing"); \
-	wfc->_draw_depth++; \
-	if (actor_not_is_gtk(wfc->root->root) || \
-		(wfc->_draw_depth > 1) || gdk_gl_drawable_make_current (wfc->root->root->gl.gdk.drawable, wfc->root->root->gl.gdk.context) \
-		) {
+	if \
+		( \
+			actor_not_is_gtk(wfc->root->root) || \
+			(gdk_gl_context_make_current (wfc->root->root->gl.gdk.context), true) \
+		)
 #else
 #define WAVEFORM_START_DRAW(wfc) \
 	;
 #endif
 
-#ifdef USE_GTK
-#define WAVEFORM_END_DRAW(wa) \
-	wa->_draw_depth--; \
-	if(wa->root->root->type == CONTEXT_TYPE_GTK){ \
-		if(!wa->_draw_depth) ; \
-	} \
-	} else pwarn("!! gl_begin fail")
-#else
-#define WAVEFORM_END_DRAW(wa) \
+#define WAVEFORM_END_DRAW(wfc) \
 	;
-#endif
-
-#define WAVEFORM_IS_DRAWING(wa) \
-	(wa->_draw_depth > 0)
 
 
 /*
@@ -255,65 +233,6 @@ wf_load_texture_from_alphabuf (WaveformContext* wfc, int texture_name, AlphaBuf*
 	} WAVEFORM_END_DRAW(wfc);
 
 	gl_warn("copy to texture");
-}
-
-
-static void
-wf_context_init_gl (WaveformContext* wfc)
-{
-	PF;
-
-	AGl* agl = agl_get_instance();
-
-	if (!agl->pref_use_shaders) {
-		wfc->use_1d_textures = false;
-		return;
-	}
-
-	WAVEFORM_START_DRAW(wfc) {
-
-		if (!wfc->root) {
-			agl_gl_init();
-		}
-
-		if (!agl->use_shaders) {
-			agl_use_program(NULL);
-			wfc->use_1d_textures = false;
-		}
-
-	} WAVEFORM_END_DRAW(wfc);
-}
-
-
-static gboolean
-__wf_canvas_try_drawable (gpointer _wfc)
-{
-	WaveformContext* wfc = _wfc;
-	AGlScene* scene = wfc->root->root;
-
-	AGl* agl = agl_get_instance();
-
-#ifdef USE_GTK
-	if ((scene->type == CONTEXT_TYPE_GTK) && !wfc->root->root->gl.gdk.drawable) {
-		return G_SOURCE_CONTINUE;
-	}
-#endif
-
-	wf_context_init_gl(wfc);
-
-	if (scene->draw) wf_context_queue_redraw(wfc);
-	wfc->use_1d_textures = agl->use_shaders;
-
-	return (wfc->priv->pending_init = G_SOURCE_REMOVE);
-}
-
-
-void
-wf_gl_init (WaveformContext* wfc, AGlActor* root)
-{
-	if (wfc->root) {
-		if (__wf_canvas_try_drawable(wfc)) wfc->priv->pending_init = g_idle_add(__wf_canvas_try_drawable, wfc);
-	}
 }
 
 

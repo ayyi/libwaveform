@@ -1,33 +1,22 @@
 /*
-  Demonstration of the libwaveform WaveformActor interface
-
-  Similar to actor.c but with additional features, eg background, ruler.
-
-  ---------------------------------------------------------------
-
-  Copyright (C) 2012-2020 Tim Orford <tim@orford.org>
-
-  This program is free software; you can redistribute it and/or modify
-  it under the terms of the GNU General Public License version 3
-  as published by the Free Software Foundation.
-
-  This program is distributed in the hope that it will be useful,
-  but WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-  GNU General Public License for more details.
-
-  You should have received a copy of the GNU General Public License
-  along with this program; if not, write to the Free Software
-  Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
-
-*/
+ +----------------------------------------------------------------------+
+ | This file is part of the Ayyi project. https://www.ayyi.org          |
+ | copyright (C) 2012-2022 Tim Orford <tim@orford.org>                  |
+ +----------------------------------------------------------------------+
+ | This program is free software; you can redistribute it and/or modify |
+ | it under the terms of the GNU General Public License version 3       |
+ | as published by the Free Software Foundation.                        |
+ +----------------------------------------------------------------------+
+ |
+ |  Demonstration of the libwaveform WaveformActor interface
+ |
+ |  Similar to actor.c but with additional features, eg background, ruler.
+ |
+ */
 
 #include "config.h"
 #include <getopt.h>
-#include "agl/utils.h"
-#include <gtk/gtk.h>
-#include <gdk/gdkkeysyms.h>
-#include "agl/gtk.h"
+#include "agl/x11.h"
 #include "actors/background.h"
 #include "actors/group.h"
 #include "waveform/actor.h"
@@ -41,8 +30,6 @@
 #define HBORDER 16
 #define VBORDER 8
 
-AGl*             agl      = NULL;
-GtkWidget*       canvas   = NULL;
 AGlRootActor*    scene    = NULL;
 AGlActor*        group    = NULL;
 WaveformContext* wfc      = NULL;
@@ -56,107 +43,71 @@ KeyHandler
 	scroll_left,
 	scroll_right,
 	toggle_animate,
-	toggle_shaders,
 	quit;
 
-Key keys[] = {
+AGlKey keys[] = {
 	{KEY_Left,      scroll_left},
 	{KEY_KP_Left,   scroll_left},
 	{KEY_Right,     scroll_right},
 	{KEY_KP_Right,  scroll_right},
 	{61,            zoom_in},
 	{45,            zoom_out},
-	{GDK_KP_Enter,  NULL},
-	{(char)'<',     NULL},
-	{(char)'>',     NULL},
-	{(char)'a',     toggle_animate},
-	{(char)'s',     toggle_shaders},
-	{GDK_Delete,    NULL},
+	{XK_KP_Enter,  NULL},
+	{(char)'<',    NULL},
+	{(char)'>',    NULL},
+	{(char)'a',    toggle_animate},
+	{XK_Delete,    NULL},
 	{113,           quit},
 	{0},
 };
 
-static void on_canvas_realise  (GtkWidget*, gpointer);
-static void on_allocate        (GtkWidget*, GtkAllocation*, gpointer);
-static void start_zoom         (float target_zoom);
-uint64_t    get_time           ();
+static void start_zoom   (float target_zoom);
+uint64_t    get_time     ();
 
 static const struct option long_options[] = {
-	{ "non-interactive",  0, NULL, 'n' },
+	{ "autoquit", 0, NULL, 'q' },
 };
 
-static const char* const short_options = "n";
+static const char* const short_options = "q";
 
 
-static void
-window_content (GtkWindow* window, GdkGLConfig* glconfig)
+int
+run (int argc, char* argv[])
 {
-	canvas = gtk_drawing_area_new();
+	wf_debug = 0;
 
-	gtk_widget_set_can_focus     (canvas, true);
-	gtk_widget_set_size_request  (canvas, GL_WIDTH + 2 * HBORDER, 128);
-	gtk_widget_set_gl_capability (canvas, glconfig, NULL, 1, GDK_GL_RGBA_TYPE);
-	gtk_widget_add_events        (canvas, GDK_POINTER_MOTION_MASK | GDK_BUTTON_PRESS_MASK | GDK_BUTTON_RELEASE_MASK);
-
-	gtk_container_add((GtkContainer*)window, (GtkWidget*)canvas);
-
-	agl = agl_get_instance();
-
-	scene = (AGlRootActor*)agl_actor__new_root(canvas);
-	//scene->enable_animations = false;
+	AGlWindow* window = agl_window ("Actor", -1, -1, 320, 160, 0);
+	scene = window->scene;
 
 	char* filename = find_wav(WAV);
 	w1 = waveform_load_new(filename);
 	g_free(filename);
 
-	g_signal_connect((gpointer)canvas, "realize",       G_CALLBACK(on_canvas_realise), NULL);
-	g_signal_connect((gpointer)canvas, "size-allocate", G_CALLBACK(on_allocate), NULL);
-	g_signal_connect((gpointer)canvas, "expose-event",  G_CALLBACK(agl_actor__on_expose), scene);
-}
+	group = agl_actor__add_child((AGlActor*)scene, group_actor(a[0]));
 
-
-int
-main (int argc, char *argv[])
-{
-	set_log_handlers();
-
-	wf_debug = 0;
-
-	int opt;
-	while((opt = getopt_long (argc, argv, short_options, long_options, NULL)) != -1) {
-		switch(opt) {
-			case 'n':
-				g_timeout_add(3000, (gpointer)exit, NULL);
-				break;
-		}
-	}
-
-	gtk_init(&argc, &argv);
-
-	return gtk_window((Key*)&keys, window_content);
-}
-
-
-static void
-on_canvas_realise (GtkWidget* _canvas, gpointer user_data)
-{
-	PF;
-	static gboolean canvas_init_done = false;
-	if(canvas_init_done) return;
-	if(!GTK_WIDGET_REALIZED (canvas)) return;
-
-	canvas_init_done = true;
-
-	agl_actor__add_child((AGlActor*)scene, group = group_actor(a[0]));
-
-	void group__set_size(AGlActor* actor)
+	void group__set_size (AGlActor* group)
 	{
-		actor->region = (AGlfRegion){
+		group->region = (AGlfRegion){
 			.x1 = HBORDER,
 			.y1 = VBORDER,
-			.x2 = actor->parent->region.x2 - HBORDER,
-			.y2 = actor->parent->region.y2 - VBORDER,
+			.x2 = group->parent->region.x2 - HBORDER,
+			.y2 = group->parent->region.y2 - VBORDER,
 		};
+
+		double width = agl_actor__width(group);//((AGlActor*)scene) - 2 * ((int)HBORDER);
+		wfc->samples_per_pixel = waveform_get_n_frames(w1) / width;
+
+		#define ruler_height 20.0
+
+		for (int i=0;i<G_N_ELEMENTS(a);i++)
+			if (a[i]) wf_actor_set_rect(a[i], &(WfRectangle){
+				0.0,
+				ruler_height + 5 + i * ((AGlActor*)scene)->region.y2 / 2,
+				width,
+				agl_actor__height(group) / 2 * 0.95
+			});
+
+		start_zoom(wf_context_get_zoom(wfc));
 	}
 	group->set_size = group__set_size;
 
@@ -179,7 +130,7 @@ on_canvas_realise (GtkWidget* _canvas, gpointer user_data)
 		{0x66ff66ff, 0x0000ffff},
 	};
 
-	int i; for(i=0;i<G_N_ELEMENTS(a);i++){
+	for (int i=0;i<G_N_ELEMENTS(a);i++) {
 		agl_actor__add_child(group, (AGlActor*)(a[i] = wf_context_add_new_actor(wfc, w1)));
 
 		wf_actor_set_region(a[i], &region[i]);
@@ -191,38 +142,12 @@ on_canvas_realise (GtkWidget* _canvas, gpointer user_data)
 	AGlActor* ruler = agl_actor__add_child(group, ruler_actor(a[0]));
 	ruler->region = (AGlfRegion){0, 0, 0, 20};
 
-	on_allocate(canvas, &canvas->allocation, user_data);
+	g_main_loop_run (agl_main_loop_new());
 
-	void _scene_needs_redraw(AGlScene* scene, gpointer _)
-	{
-		gdk_window_invalidate_rect(canvas->window, NULL, false);
-	}
-	scene->draw = _scene_needs_redraw;
-}
+	agl_window_destroy (&window);
+	XCloseDisplay (dpy);
 
-
-static void
-on_allocate (GtkWidget* widget, GtkAllocation* allocation, gpointer user_data)
-{
-	if(!GTK_WIDGET_REALIZED (canvas)) return;
-
-	double width = canvas->allocation.width - 2 * ((int)HBORDER);
-	wfc->samples_per_pixel = waveform_get_n_frames(w1) / width;
-
-	((AGlActor*)scene)->region = (AGlfRegion){0, 0, allocation->width, allocation->height};
-	agl_actor__set_size((AGlActor*)scene);
-
-	#define ruler_height 20.0
-
-	int i; for(i=0;i<G_N_ELEMENTS(a);i++)
-		if(a[i]) wf_actor_set_rect(a[i], &(WfRectangle){
-			0.0,
-			ruler_height + 5 + i * ((AGlActor*)scene)->region.y2 / 2,
-			width,
-			agl_actor__height(group) / 2 * 0.95
-		});
-
-	start_zoom(wf_context_get_zoom(wfc));
+	return EXIT_SUCCESS;
 }
 
 
@@ -274,14 +199,6 @@ toggle_animate (gpointer _)
 
 
 void
-toggle_shaders (gpointer _)
-{
-	PF0;
-	agl_actor__set_use_shaders(scene, !agl->use_shaders);
-}
-
-
-void
 zoom_in (gpointer _)
 {
 	start_zoom(wf_context_get_zoom(wfc) * 1.5);
@@ -327,3 +244,4 @@ get_time ()
 }
 
 
+#include "test/_x11.c"
