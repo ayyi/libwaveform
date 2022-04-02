@@ -1,7 +1,7 @@
 /*
  +----------------------------------------------------------------------+
- | This file is part of the Ayyi project. https://ayyi.org              |
- | copyright (C) 2012-2021 Tim Orford <tim@orford.org>                  |
+ | This file is part of the Ayyi project. https://www.ayyi.org          |
+ | copyright (C) 2012-2022 Tim Orford <tim@orford.org>                  |
  +----------------------------------------------------------------------+
  | This program is free software; you can redistribute it and/or modify |
  | it under the terms of the GNU General Public License version 3       |
@@ -17,10 +17,8 @@
 
 #pragma once
 
-#include <glib.h>
-#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 #include <gtk/gtk.h>
-#pragma GCC diagnostic warning "-Wdeprecated-declarations"
+#include "agl/gtk-area.h"
 #include "actors/background.h"
 #include "waveform/actor.h"
 #include "waveform/grid.h"
@@ -30,18 +28,18 @@
 
 G_BEGIN_DECLS
 
-#define TYPE_WAVEFORM_VIEW_PLUS (waveform_view_plus_get_type ())
-#define WAVEFORM_VIEW_PLUS(obj) (G_TYPE_CHECK_INSTANCE_CAST ((obj), TYPE_WAVEFORM_VIEW_PLUS, WaveformViewPlus))
-#define WAVEFORM_VIEW_PLUS_CLASS(klass) (G_TYPE_CHECK_CLASS_CAST ((klass), TYPE_WAVEFORM_VIEW_PLUS, WaveformViewPlusClass))
-#define IS_WAVEFORM_VIEW_PLUS(obj) (G_TYPE_CHECK_INSTANCE_TYPE ((obj), TYPE_WAVEFORM_VIEW_PLUS))
+#define TYPE_WAVEFORM_VIEW_PLUS            (waveform_view_plus_get_type ())
+#define WAVEFORM_VIEW_PLUS(obj)            (G_TYPE_CHECK_INSTANCE_CAST ((obj), TYPE_WAVEFORM_VIEW_PLUS, WaveformViewPlus))
+#define WAVEFORM_VIEW_PLUS_CLASS(klass)    (G_TYPE_CHECK_CLASS_CAST ((klass), TYPE_WAVEFORM_VIEW_PLUS, WaveformViewPlusClass))
+#define IS_WAVEFORM_VIEW_PLUS(obj)         (G_TYPE_CHECK_INSTANCE_TYPE ((obj), TYPE_WAVEFORM_VIEW_PLUS))
 #define IS_WAVEFORM_VIEW_PLUS_CLASS(klass) (G_TYPE_CHECK_CLASS_TYPE ((klass), TYPE_WAVEFORM_VIEW_PLUS))
-#define WAVEFORM_VIEW_PLUS_GET_CLASS(obj) (G_TYPE_INSTANCE_GET_CLASS ((obj), TYPE_WAVEFORM_VIEW_PLUS, WaveformViewPlusClass))
+#define WAVEFORM_VIEW_PLUS_GET_CLASS(obj)  (G_TYPE_INSTANCE_GET_CLASS ((obj), TYPE_WAVEFORM_VIEW_PLUS, WaveformViewPlusClass))
 
 typedef struct _WaveformViewPlusClass WaveformViewPlusClass;
 typedef struct _WaveformViewPlusPrivate WaveformViewPlusPrivate;
 
 struct _WaveformViewPlus {
-	GtkDrawingArea           parent_instance;
+	AGlGtkArea               parent_instance;
 
 	Waveform*                waveform;
 #ifndef USE_CANVAS_SCALING
@@ -51,11 +49,13 @@ struct _WaveformViewPlus {
 
 	uint32_t                 bg_colour;
 
+	GtkGesture*              click;
+
 	WaveformViewPlusPrivate* priv;
 };
 
 struct _WaveformViewPlusClass {
-	GtkDrawingAreaClass parent_class;
+	AGlGtkAreaClass parent_class;
 };
 
 

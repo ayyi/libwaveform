@@ -1,6 +1,6 @@
 #!/bin/bash
 
-shaders=(peak peak_nonscaling horizontal vertical hires hires_ng ruler ass lines cursor);
+shaders=(hires hires_ng ruler ass lines cursor);
 out=shaders.c
 
 if [[ -s $out ]]; then
@@ -23,11 +23,12 @@ echo "" > $out
 
 function a {
 	echo '' >> $out
-	echo 'AGlShaderText '$1'_text = {" \' >> $out
-	cpp -P $1.vert | sed -e "s/$/ \\\/" >> $out
+	echo 'AGlShaderText '$1'_text = { \' >> $out
+	echo '"#version 130\n \' >> $out
+	cpp -P $1.vert | sed -e "s/$/ \\\/" -e "s/^/\\\n/" >> $out
 	echo '",' >> $out
-	echo '" \' >> $out
-	cpp -P $1.frag | sed -e "s/$/ \\\/" >> $out
+	echo '"#version 130\n \' >> $out
+	cpp -P $1.frag | sed -e "s/$/ \\\/" -e "s/^/\\\n/" >> $out
 	echo '"' >> $out
 	echo '};' >> $out
 }

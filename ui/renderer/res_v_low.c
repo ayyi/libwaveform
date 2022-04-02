@@ -131,7 +131,7 @@ v_lo_is_not_blank (Renderer* renderer, WaveformActor* actor)
 
 
 Renderer v_lo_renderer_gl1 = {MODE_V_LOW, v_lo_new_gl1, low_allocate_block_gl1, med_lo_pre_render_gl1, med_lo_render_gl1, NULL, med_lo_gl1_free_waveform};
-NGRenderer v_lo_renderer_gl2 = {{MODE_V_LOW, v_lo_new_gl2, ng_gl2_load_block, ng_gl2_pre_render, ng_gl2_render_block, ng_gl2_post_render, ng_gl2_free_waveform,
+NGRenderer v_lo_renderer_gl2 = {{MODE_V_LOW, v_lo_new_gl2, ng_gl2_load_block, ng_gl2_pre_render0, ng_gl2_render_block, ng_gl2_post_render, ng_gl2_free_waveform,
 #ifdef USE_TEST
 	.is_not_blank = v_lo_is_not_blank,
 #endif

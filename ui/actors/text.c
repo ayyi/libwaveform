@@ -41,9 +41,6 @@ static void text_actor_init     (AGlActor*);
 
 static AGlActorClass actor_class = {0, "Text", (AGlActorNew*)text_actor, text_actor_free};
 
-static AGl* agl = NULL;
-static int instance_count = 0;
-
 #ifdef USE_LIBASS
 static void text_actor_render_text (TextActor*);
 
@@ -138,8 +135,6 @@ _init ()
 AGlActor*
 text_actor (WaveformActor* _)
 {
-	instance_count++;
-
 	_init();
 
 	TextActor* ta = agl_actor__new(TextActor,
@@ -174,7 +169,7 @@ text_actor_free (AGlActor* actor)
 	g_free0(ta->text);
 
 #ifdef USE_LIBASS
-	if (!--instance_count) {
+	if (!actor->class->instances) {
 		g_clear_pointer(&ass_renderer, ass_renderer_done);
 		g_clear_pointer(&ass_library, ass_library_done);
 
@@ -195,11 +190,10 @@ text_actor_init (AGlActor* a)
 #ifdef USE_GTK
 	TextActor* ta = (TextActor*)a;
 
-	if (!ta->title_colour1) ta->title_colour1 = wf_get_gtk_text_color(a->root->gl.gdk.widget, GTK_STATE_NORMAL);
-	if (!ta->text_colour) ta->text_colour = wf_get_gtk_base_color(a->root->gl.gdk.widget, GTK_STATE_NORMAL, 0xaa);
+	if (!ta->title_colour1) ta->title_colour1 = wf_get_gtk_fg_color(a->root->gl.gdk.widget);
+	if (!ta->text_colour) ta->text_colour = wf_get_gtk_base_color(a->root->gl.gdk.widget, 0xaa);
 #endif
 
-	agl = agl_get_instance();
 	agl_set_font_string("Roboto 10"); // initialise the pango context
 
 #ifdef USE_LIBASS
@@ -255,19 +249,25 @@ text_actor_paint (AGlActor* actor)
 		agl_enable(AGL_ENABLE_BLEND);
 		glActiveTexture(GL_TEXTURE0);
 
-		float th = ((TextActor*)actor)->texture.height;
+		float th = ta->texture.height;
 
 #undef ALIGN_TOP
 #ifdef ALIGN_TOP
 		float y1 = -((int)th - ta->_title.height - ta->_title.y_offset);
-		agl_textured_rect(ta->texture.ids[0], (actor->region.x2 - actor->region.x1) - ta->_title.width - 4.0f, y, ta->_title.width, th, &(AGlRect){0.0, 0.0, ((float)ta->_title.width) / ta->texture.width, 1.0});
+		agl_textured_rect(ta->texture.ids[0],
+			(actor->region.x2 - actor->region.x1) - ta->_title.width - 4.0f,
+			y,
+			ta->_title.width,
+			th,
+			&(AGlRect){0., 0., ((float)ta->_title.width) / ta->texture.width, 1.}
+		);
 #else
 		agl_textured_rect(ta->texture.ids[0],
 			actor->region.x2 - ta->_title.width - 4.0f,
 			actor->region.y2 - actor->region.y1 - th + ((TextActor*)actor)->baseline - 4.0f,
 			ta->_title.width,
 			th,
-			&(AGlQuad){0.0, 0.0, ((float)ta->_title.width) / ta->texture.width, 1.0}
+			&(AGlQuad){0., 0., ((float)ta->_title.width) / ta->texture.width, 1.}
 		);
 #endif
 	}
@@ -301,7 +301,6 @@ text_actor_set_size (AGlActor* actor)
 static void
 blend_single (image_t* frame, ASS_Image* img)
 {
-	int x;
 	unsigned char opacity = 255 - _a(img->color);
 	unsigned char b = _b(img->color);
 	dbg(2, "  %ix%i stride=%i x=%i", img->w, img->h, img->stride, img->dst_x);
@@ -311,7 +310,7 @@ blend_single (image_t* frame, ASS_Image* img)
 	unsigned char* src = img->bitmap;
 	unsigned char* dst = frame->buf + img->dst_y * frame->stride + img->dst_x * N_CHANNELS;
 	for (int y = 0; y < img->h; ++y) {
-		for (x = 0; x < img->w; ++x) {
+		for (int x = 0; x < img->w; ++x) {
 			unsigned k = ((unsigned) src[x]) * opacity / 255;
 			dst[LUMINANCE_CHANNEL] = (k * b + (255 - k) * dst[LUMINANCE_CHANNEL]) / 255;
 			dst[ALPHA_CHANNEL] = (k * 255 + (255 - k) * dst[ALPHA_CHANNEL]) / 255;
@@ -328,7 +327,6 @@ text_actor_render_text (TextActor* ta)
 	AGlActor* actor = (AGlActor*)ta;
 
 	PF;
-	if (ta->title_is_rendered) pwarn("title is already rendered");
 
 	GError* error = NULL;
 	GRegexMatchFlags flags = 0;
@@ -378,8 +376,8 @@ text_actor_render_text (TextActor* ta)
 		if (false) {
 			char* buf = g_new0(char, out->width * out->height * 4);
 			int stride = out->width * 4;
-			int y; for(y=0;y<fh;y++){
-				int x; for(x=0;x<out->width;x++){
+			for (int y=0;y<fh;y++) {
+				for(int x=0;x<out->width;x++) {
 					*(buf + y * stride + x * 4    ) = *(out->buf + y * out->stride + x * N_CHANNELS);
 					*(buf + y * stride + x * 4 + 1) = 0;
 					*(buf + y * stride + x * 4 + 2) = 0;
@@ -420,12 +418,10 @@ text_actor_render_text (TextActor* ta)
 		((TextActor*)actor)->texture.height = out.height;
 		agl_actor__set_size(actor);
 
-		int pixel_format = GL_LUMINANCE_ALPHA;
 		glBindTexture  (GL_TEXTURE_2D, ((TextActor*)actor)->texture.ids[0]);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_LUMINANCE8_ALPHA8, out.width, out.height, 0, pixel_format, GL_UNSIGNED_BYTE, out.buf);
-		gl_warn("gl error using ass texture");
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RG, out.width, out.height, 0, GL_RG, GL_UNSIGNED_BYTE, out.buf);
 
 #if 0
 		{

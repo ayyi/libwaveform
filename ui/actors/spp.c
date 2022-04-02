@@ -1,25 +1,26 @@
-/**
-* +----------------------------------------------------------------------+
-* | This file is part of libwaveform                                     |
-* | https://github.com/ayyi/libwaveform                                  |
-* | copyright (C) 2012-2021 Tim Orford <tim@orford.org>                  |
-* +----------------------------------------------------------------------+
-* | This program is free software; you can redistribute it and/or modify |
-* | it under the terms of the GNU General Public License version 3       |
-* | as published by the Free Software Foundation.                        |
-* +----------------------------------------------------------------------+
-* | SONG POSITION POINTER (CURSOR) ACTOR                                 |
-* | The time position can be set either by calling spp_actor_set_time()  |
-* | or by middle-clicking on the waveform.                               |
-* +----------------------------------------------------------------------+
-*
-*/
+/*
+ +----------------------------------------------------------------------+
+ | This file is part of libwaveform                                     |
+ | https://github.com/ayyi/libwaveform                                  |
+ | copyright (C) 2012-2022 Tim Orford <tim@orford.org>                  |
+ +----------------------------------------------------------------------+
+ | This program is free software; you can redistribute it and/or modify |
+ | it under the terms of the GNU General Public License version 3       |
+ | as published by the Free Software Foundation.                        |
+ +----------------------------------------------------------------------+
+ | SONG POSITION POINTER (CURSOR) ACTOR                                 |
+ | The time position can be set either by calling spp_actor_set_time()  |
+ | or by middle-clicking on the waveform.                               |
+ +----------------------------------------------------------------------+
+ |
+ */
 
 #define __wf_private__
 
 #include "config.h"
 #include <math.h>
 #include <gdk/gdkkeysyms.h>
+#include "agl/event.h"
 #include "waveform/actor.h"
 #include "waveform/ui-utils.h"
 #include "waveform/shader.h"
@@ -30,36 +31,15 @@ static AGl* agl = NULL;
 static void spp_actor__set_size (AGlActor*);
 
 
-#ifdef USE_GTK
-		static bool on_middle_click (GtkWidget* widget, GdkEventButton* event, gpointer _spp)
-		{
-			SppActor* spp = (SppActor*)_spp;
-			WaveformActor* wf_actor = spp->wf_actor;
 
-			if(event->button == 2){
-				AGliPt p = agl_actor__find_offset((AGlActor*)_spp);
-				int x = (int)event->x - p.x;
-				int64_t samples = x * (wf_actor->context->scaled
-					? wf_actor->context->samples_per_pixel
-					: wf_actor->region.len / agl_actor__width((AGlActor*)wf_actor)
-				);
-				wf_spp_actor_set_time((SppActor*)_spp, (1000 * samples) / wf_actor->context->sample_rate);
-				return true;
-			}
-			return false;
-		}
-#endif
-
-	static void spp_actor__init (AGlActor* actor)
-	{
+static void spp_actor__init (AGlActor* actor)
+{
+#if 0 // TODO use theme object?
 #ifdef USE_GTK
 		if (!((SppActor*)actor)->text_colour) ((SppActor*)actor)->text_colour = wf_get_gtk_base_color(actor->root->gl.gdk.widget, GTK_STATE_NORMAL, 0xaa);
 #endif
-
-#ifdef USE_GTK
-		g_signal_connect((gpointer)actor->root->gl.gdk.widget, "button-release-event", G_CALLBACK(on_middle_click), actor);
 #endif
-	}
+}
 
 
 static void
@@ -78,6 +58,17 @@ spp_actor__set_state (AGlActor* actor)
 }
 
 
+static float
+get_x (AGlActor* actor)
+{
+	SppActor* spp = (SppActor*)actor;
+	WaveformActor* a = spp->wf_actor;
+
+	int64_t frame = ((int64_t)spp->time) * a->context->sample_rate / 1000;
+	return floorf(wf_actor_frame_to_x(a, frame) - (cursor.uniform.width - 1.0));
+}
+
+
 static bool
 spp_actor__paint (AGlActor* actor)
 {
@@ -86,16 +77,10 @@ spp_actor__paint (AGlActor* actor)
 	if (!a || !a->context) return false;
 
 	if (spp->time != WF_SPP_TIME_NONE) {
-		float width = 1.0;
-		if (agl->use_shaders) {
-			width = cursor.uniform.width;
-		}
 
-		int64_t frame = ((int64_t)spp->time) * a->context->sample_rate / 1000;
-		float x = floorf(wf_actor_frame_to_x(a, frame) - (width - 1.0));
 		agl_rect(
-			x, 0,
-			width, agl_actor__height(actor)
+			get_x(actor), 0,
+			cursor.uniform.width, agl_actor__height(actor)
 		);
 
 		agl_set_font_string("Roboto 16");
@@ -107,6 +92,45 @@ spp_actor__paint (AGlActor* actor)
 	}
 
 	return true;
+}
+
+
+static bool
+spp_event (AGlActor* actor, AGlEvent* event, AGliPt xy)
+{
+	SppActor* spp = (SppActor*)actor;
+	WaveformActor* wf_actor = spp->wf_actor;
+
+	switch (event->type) {
+		case AGL_BUTTON_PRESS:
+			float x = get_x(actor);
+			switch (event->button.button) {
+				case 1:
+					{
+						if (xy.x > x - 2 && xy.x < x + 2) {
+							// drag
+						}
+					}
+					break;
+				case 3: {
+					AGliPt p = agl_actor__find_offset(actor);
+					int xa = (int)xy.x - p.x;
+					int64_t samples = xa * (wf_actor->context->scaled
+						? wf_actor->context->samples_per_pixel
+						: wf_actor->region.len / agl_actor__width((AGlActor*)wf_actor)
+					);
+					wf_spp_actor_set_time(spp, (1000 * samples) / wf_actor->context->sample_rate);
+
+					return AGL_HANDLED;
+				}
+				default:
+					break;
+			}
+			break;
+		default:
+			break;
+	}
+	return AGL_NOT_HANDLED;
 }
 
 
@@ -125,6 +149,7 @@ wf_spp_actor (WaveformActor* wf_actor)
 			.set_state = spp_actor__set_state,
 			.set_size = spp_actor__set_size,
 			.paint = spp_actor__paint,
+			.on_event = spp_event,
 		},
 		.wf_actor = wf_actor,
 		.time = WF_SPP_TIME_NONE

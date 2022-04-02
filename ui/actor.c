@@ -31,9 +31,7 @@
 
 #include "config.h"
 #ifdef USE_GTK
-#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 #include <gtk/gtk.h>
-#pragma GCC diagnostic warning "-Wdeprecated-declarations"
 #endif
 #include "wf/debug.h"
 #include "wf/waveform.h"
@@ -1282,24 +1280,27 @@ _wf_actor_allocate_hi (WaveformActor* a)
 	Hi-res mode uses a separate low-priority texture cache.
 
 	*/
-	//WfActorPriv* _a = a->priv;
+
 	Waveform* w = a->waveform;
 	g_return_if_fail(!w->offline);
+
 	WfRectangle rect; WF_ACTOR_GET_RECT(a, &rect);
 	WfViewPort viewport; _wf_actor_get_viewport_max(a, &viewport);
 #ifdef USE_CANVAS_SCALING
 	// currently only blocks for the final target zoom are loaded, not for any transitions
 	double zoom = a->context->scaled
 		? a->context->zoom->value.f / a->context->samples_per_pixel
-		: ((float)agl_actor__width(((AGlActor*)a))) / a->region.len;
+		: agl_actor__width((AGlActor*)a) / a->region.len;
 #else
-	double zoom = ((float)agl_actor__width(((AGlActor*)a))) / a->region.len;
+	double zoom = agl_actor__width((AGlActor*)a) / a->region.len;
 #endif
 
 #if 0
 	// load _all_ blocks for the transition range
 	// -works well at low-zoom and for smallish transitions
-	// but can uneccesarily load too many blocks.
+	// but can unnecessarily load too many blocks.
+
+	WfActorPriv* _a = a->priv;
 
 	WfAnimatable* start = &_a->animatable.start;
 	WfSampleRegion region = {MIN(start->val.i, *start->model_val.i), _a->animatable.len.val.b};
@@ -1404,6 +1405,7 @@ _wf_actor_load_missing_blocks (WaveformActor* a)
 
 	PF2;
 	AGlActor* actor = (AGlActor*)a;
+	AGlScene* scene = actor->root;
 	Waveform* w = a->waveform;
 	if(!a->waveform) return;
 	WaveformPrivate* _w = w->priv;
@@ -1433,6 +1435,9 @@ _wf_actor_load_missing_blocks (WaveformActor* a)
 		MIN(mode1, mode2),
 		MAX(mode1, mode2)
 	};
+
+	if (scene)
+		glXMakeContextCurrent (agl->xdisplay, scene->drawable, scene->drawable, scene->glxcontext);
 
 	for(int i=mode[0];i<=mode[1];i++)
 		if(!_w->render_data[i])
@@ -1888,11 +1893,9 @@ wf_actor_paint (AGlActor* _actor)
 #endif
 
 	if (!r->valid) {
-		AGlShader* shader = _actor->program;
 		if (!calc_render_info(actor)) return false;
-		if (!_actor->program) return false;
 
-		if (_actor->program != shader) agl_use_program(_actor->program);
+		agl_use_program(_actor->program);
 
 #ifdef WF_DEBUG
 	} else {
@@ -1957,7 +1960,7 @@ wf_actor_paint (AGlActor* _actor)
 	bool render_ok = true;
 	Mode m_active = N_MODES;
 	bool is_first = true;
-	int b; for(b=r->viewport_blocks.first;b<=r->viewport_blocks.last;b++){
+	for (int b=r->viewport_blocks.first;b<=r->viewport_blocks.last;b++) {
 		bool is_last = (b == r->viewport_blocks.last) || (b == r->n_blocks - 1); //2nd test is unneccesary?
 
 		Mode m = r->mode;
@@ -1973,8 +1976,9 @@ wf_actor_paint (AGlActor* _actor)
 			if(m > N_MODES){
 				render_ok = false;
 				if(wf_debug) pwarn("render failed. no modes succeeded. mode=%i", r->mode); // not neccesarily an error. may simply be not ready.
+			} else {
+				if(!w->priv->render_data[m]) break;
 			}
-			if(!w->priv->render_data[m]) break;
 		}
 #ifdef RECT_ROUNDING
 		i++;
@@ -2007,7 +2011,7 @@ wf_actor_paint (AGlActor* _actor)
 		agl_enable(AGL_ENABLE_BLEND | !AGL_ENABLE_TEXTURE_2D);
 		glColor4f(1.0, 0.0, 1.0, 0.75);
 	}
-	for(b=r->viewport_blocks.first;b<=r->viewport_blocks.last;b++){
+	for(int b=r->viewport_blocks.first;b<=r->viewport_blocks.last;b++){
 		glLineWidth(1);
 		float x_ = x + 0.1; // added for intel 945.
 		glBegin(GL_LINES);
@@ -2264,7 +2268,10 @@ wf_actor_load_texture2d(WaveformActor* a, Mode mode, int texture_id, int blocknu
 		}
 
 /*
- *  load resources that will be needed over the course of the transition
+ *  Load resources that will be needed over the course of the transition
+ *
+ *  If USE_FRAME_CLOCK is enabled only the final frame of the transition is loaded
+ *  as it is not possible to make predictions.
  */
 static void
 wf_actor_on_size_transition_start (WaveformActor* a, WfAnimatable* Xanimatable)
@@ -2274,28 +2281,37 @@ wf_actor_on_size_transition_start (WaveformActor* a, WfAnimatable* Xanimatable)
 	// if neccesary load any additional audio needed by the transition.
 	// - currently only changes to the region start are checked.
 	{
-
 		double zoom_start = agl_actor__width(actor) / a->region.len;
 		double zoom_end = RIGHT(actor).target_val.f / a->region.len;
-		if(zoom_start == 0.0) zoom_start = zoom_end;
+		if (zoom_start == 0.0) zoom_start = zoom_end;
+
 		GList* l = actor->transitions;
-		for(;l;l=l->next){
+		for (;l;l=l->next) {
 			WfAnimation* animation = l->data;
 			GList* j = animation->members;
-			for(;j;j=j->next){
+			for (;j;j=j->next) {
 				WfAnimActor* anim_actor = j->data;
+#ifdef USE_FRAME_CLOCK
+				UVal vals[g_list_length(anim_actor->transitions)];
+				int i = 0;
+#endif
 				GList* k = anim_actor->transitions;
-				for(;k;k=k->next){
+				for (;k;k=k->next) {
 					WfAnimatable* animatable = k->data;
-												#if 0
-					if(animatable == &_a->animatable.start){
+#ifdef USE_FRAME_CLOCK
+					vals[i++].b = animatable->target_val.b;
+#else
+					if (animatable == &START(actor)) {
 						wf_animation_preview(g_list_last(actor->transitions)->data, set_region_on_frame_preview, a);
 					}
-												#endif
-					if(animatable == &RIGHT(actor)){
+					if (animatable == &RIGHT(actor)) {
 						wf_animation_preview(g_list_last(actor->transitions)->data, set_region_on_frame_preview, a);
 					}
+#endif
 				}
+#ifdef USE_FRAME_CLOCK
+				set_region_on_frame_preview(animation, vals, a);
+#endif
 			}
 		}
 	}
@@ -2360,6 +2376,7 @@ wf_actor_test_is_not_blank(WaveformActor* a)
 			dbg(0, "is not blank");
 		}else{
 			dbg(0, "is blank");
+			if (a->render_result) dbg(0, "result=%i", a->render_result);
 			return false;
 		}
 	}

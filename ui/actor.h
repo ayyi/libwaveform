@@ -1,14 +1,14 @@
-/**
-* +----------------------------------------------------------------------+
-* | This file is part of the Ayyi project. http://ayyi.org               |
-* | copyright (C) 2013-2021 Tim Orford <tim@orford.org>                  |
-* +----------------------------------------------------------------------+
-* | This program is free software; you can redistribute it and/or modify |
-* | it under the terms of the GNU General Public License version 3       |
-* | as published by the Free Software Foundation.                        |
-* +----------------------------------------------------------------------+
-*
-*/
+/*
+ +----------------------------------------------------------------------+
+ | This file is part of the Ayyi project. https://www.ayyi.org          |
+ | copyright (C) 2013-2022 Tim Orford <tim@orford.org>                  |
+ +----------------------------------------------------------------------+
+ | This program is free software; you can redistribute it and/or modify |
+ | it under the terms of the GNU General Public License version 3       |
+ | as published by the Free Software Foundation.                        |
+ +----------------------------------------------------------------------+
+ |
+ */
 
 #ifndef __waveform_actor_h__
 #define __waveform_actor_h__
@@ -21,14 +21,17 @@
 typedef struct _actor_priv WfActorPriv;
 typedef void    (*WaveformActorFn) (WaveformActor*, gpointer);
 
+#ifdef DEBUG
 typedef enum {
 	RENDER_RESULT_OK = 0,
 	RENDER_RESULT_LOADING,
 	RENDER_RESULT_SIZE,
 	RENDER_RESULT_NO_BLOCKS,
 	RENDER_RESULT_BLOCK_RANGE,
+	RENDER_RESULT_NO_AUDIO_DATA,
 	RENDER_RESULT_BAD
 } RenderResult;
+#endif
 
 struct _WaveformActor {
 	AGlActor         actor;

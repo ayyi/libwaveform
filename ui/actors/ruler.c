@@ -27,8 +27,6 @@ typedef struct {
     WaveformContext* context;
 } RulerActor;
 
-static AGl* agl = NULL;
-
 static bool ruler_actor_paint (AGlActor*);
 
 
@@ -37,10 +35,8 @@ ruler_init (AGlActor* actor)
 {
 	RulerActor* ruler = (RulerActor*)actor;
 
-	if (agl->use_shaders) {
-		if (!ruler->context->shaders.ruler->shader.program)
-			agl_create_program(&ruler->context->shaders.ruler->shader);
-	}
+	if (!ruler->context->shaders.ruler->shader.program)
+		agl_create_program(&ruler->context->shaders.ruler->shader);
 }
 
 
@@ -54,8 +50,6 @@ ruler_actor_size (AGlActor* actor)
 static void
 ruler_set_state (AGlActor* actor)
 {
-	if (!agl->use_shaders) return;
-
 	#define samples_per_beat(C) (C->sample_rate / (C->bpm / 60.0))
 
 	RulerActor* ruler = (RulerActor*)actor;
@@ -73,11 +67,9 @@ ruler_actor (WaveformActor* wf_actor)
 {
 	g_return_val_if_fail(wf_actor, NULL);
 
-	agl = agl_get_instance();
-
-	return (AGlActor*)AGL_NEW(RulerActor,
+	return (AGlActor*)agl_actor__new(RulerActor,
 		.actor = {
-			.name = "ruler",
+			.name = g_strdup("ruler"),
 			.program = (AGlShader*)wf_actor->context->shaders.ruler,
 			.init = ruler_init,
 			.set_state = ruler_set_state,
@@ -95,8 +87,6 @@ ruler_actor (WaveformActor* wf_actor)
 static bool
 ruler_actor_paint (AGlActor* actor)
 {
-	if (!agl->use_shaders) return false;
-
 #if 0 // shader debugging
 	{
 		float smoothstep(float edge0, float edge1, float x)

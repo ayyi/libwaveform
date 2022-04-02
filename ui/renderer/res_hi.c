@@ -48,10 +48,6 @@ hi_new_gl1 (WaveformActor* a)
 	g_return_if_fail(!_w->render_data[MODE_HI]);
 
 	agl = agl_get_instance();
-	if(!agl->use_shaders){
-		_w->render_data[MODE_HI] = (WaveformModeRender*)g_new0(WfTexturesHi, 1);
-		RENDER_DATA_HI(_w)->textures = g_hash_table_new(g_int_hash, g_int_equal);
-	}
 }
 
 
@@ -595,7 +591,7 @@ _wf_actor_print_hires_textures (WaveformActor* a)
 #endif
 
 
-NGRenderer hi_renderer_gl2 = {{MODE_HI, hi_gl2_new, ng_gl2_load_block, ng_gl2_pre_render, ng_gl2_render_block, ng_gl2_post_render, ng_gl2_free_waveform}};
+NGRenderer hi_renderer_gl2 = {{MODE_HI, hi_gl2_new, ng_gl2_load_block, ng_gl2_pre_render0, ng_gl2_render_block, ng_gl2_post_render, ng_gl2_free_waveform}};
 
 HiRenderer hi_renderer_gl1 = {{MODE_HI, hi_new_gl1, hi_gl1_load_block, hi_gl1_pre_render,
 #ifdef HIRES_NONSHADER_TEXTURES
@@ -616,6 +612,7 @@ hi_renderer_new ()
 	static HiRenderer* hi_renderer = (HiRenderer*)&hi_renderer_gl2;
 
 	hi_renderer_gl2.ng_data = g_hash_table_new_full(g_direct_hash, g_int_equal, NULL, hi_gl2_free_item);
+	hi_renderer_gl2.renderer.shader = &hires_ng_shader.shader;
 
 	ng_make_lod_levels(&hi_renderer_gl2, MODE_HI);
 

@@ -1,0 +1,117 @@
+{
+   detach_shader
+   Memcheck:Leak
+   ...
+   fun:detach_shader_error
+}
+{
+   create_shader
+   Memcheck:Leak
+   ...
+   fun:create_shader_program
+}
+{
+   ensure_builtin
+   Memcheck:Leak
+   ...
+   fun:ensure_builtin_types
+   ...
+   fun:gsk_renderer_realize
+}
+{
+   bind_attrib
+   Memcheck:Leak
+   ...
+   fun:bind_attrib_location
+   ...
+   fun:gsk_renderer_realize
+}
+{
+   gsk_renderer_render
+   Memcheck:Leak
+   ...
+   fun:gsk_renderer_render
+}
+{
+   g_input_stream_read_async
+   Memcheck:Leak
+   ...
+   fun:g_input_stream_read_async
+}
+{
+   gdk_x11_display_open
+   Memcheck:Leak
+   ...
+   fun:gdk_x11_display_open
+}
+{
+   g_bus_get_sync
+   Memcheck:Leak
+   ...
+   fun:g_bus_get_sync
+}
+{
+   brw_create_context
+   Memcheck:Leak
+   ...
+   fun:brw_create_context
+   ...
+   fun:gsk_renderer_realize
+}
+{
+   gsk_renderer_realize glib malloc
+   Memcheck:Leak
+   ...
+   fun:g_malloc*
+   obj:/usr/lib64/libglib*
+   ...
+   fun:gsk_renderer_realize
+}
+{
+   gsk_renderer_realize gtk malloc
+   Memcheck:Leak
+   ...
+   fun:g_malloc*
+   obj:/usr/lib64/libgtk*
+   ...
+   fun:gsk_renderer_realize
+}
+{
+   gsk_renderer_realize gtk hash_table
+   Memcheck:Leak
+   ...
+   fun:g_hash_table*
+   obj:/usr/lib64/libgtk*
+   ...
+   fun:gsk_renderer_realize
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   fun:pthread_create*
+   ...
+   fun:g_thread_pool_push
+   fun:g_task_run_in_thread
+   ...
+   fun:g_main_loop_run
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   ...
+   fun:gtk_builder_extend_with_template
+}
+{
+   gtk window title
+   Memcheck:Leak
+   ...
+   fun:gtk_window_set_title
+}
+{
+   gdk_gl_texture_release
+   Memcheck:Leak
+   ...
+   fun:_mesa_get_fixed_func_fragment_program
+   ...
+   fun:gdk_gl_texture_release
+}

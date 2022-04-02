@@ -76,9 +76,8 @@ worker_post (gpointer _wj)
 		if(waveform) g_object_unref(waveform);
 	}
 
-	if(job->free && job->user_data){
-		job->free(job->user_data);
-		job->user_data = NULL;
+	if (job->free) {
+		g_clear_pointer(&job->user_data, job->free);
 	}
 
 	w->jobs = g_list_remove(w->jobs, job);
@@ -158,7 +157,7 @@ worker_thread (gpointer data)
 			process_new_job(w, job);
 		}
 
-		return TIMER_CONTINUE;
+		return G_SOURCE_CONTINUE;
 	}
 
 	g_timeout_add(500, check_work, data);

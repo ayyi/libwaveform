@@ -10,7 +10,7 @@
 
   ---------------------------------------------------------------
 
-  Copyright (C) 2012-2021 Tim Orford <tim@orford.org>
+  Copyright (C) 2012-2022 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -30,37 +30,27 @@
 
 #define __wf_private__
 #include "config.h"
-#include <getopt.h>
 #include <sys/time.h>
-#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 #include <gtk/gtk.h>
-#pragma GCC diagnostic warning "-Wdeprecated-declarations"
-#include <gdk/gdkkeysyms.h>
-#include "agl/utils.h"
+#include "gdk/x11/gdkx.h"
 #include "waveform/actor.h"
 #include "test/common.h"
 
-#define GL_WIDTH 256.0
-#define GL_HEIGHT 256.0
+#define WIDTH 256.
+#define HEIGHT 256.
 #define VBORDER 8
 
-GdkGLConfig*     glconfig  = NULL;
 GtkWidget*       canvas    = NULL;
-AGlRootActor*    scene1    = NULL;
+AGlScene*        scene1    = NULL;
 AGlRootActor*    scene2    = NULL;
 WaveformContext* wfc       = NULL;
-Waveform*        w1        = NULL;
 Waveform*        w2        = NULL;
-WaveformActor*   a[]       = {NULL, NULL, NULL, NULL};
+WaveformActor*   a[4]      = {NULL,};
 float            zoom      = 1.0;
 float            vzoom     = 1.0;
 gpointer         tests[]   = {};
 
-static void setup_projection  (GtkWidget*);
-static void on_canvas_realise (GtkWidget*, gpointer);
-static void on_allocate       (GtkWidget*, GtkAllocation*, gpointer);
-static int  on_expose         (GtkWidget*, GdkEventExpose*, gpointer);
-static void start_zoom        (float target_zoom);
+static void start_zoom        (float);
 uint64_t    get_time          ();
 
 KeyHandler
@@ -70,10 +60,9 @@ KeyHandler
 	vzoom_down,
 	scroll_left,
 	scroll_right,
-	toggle_animate,
-	quit;
+	toggle_animate;
 
-Key keys[] = {
+AGlKey keys[] = {
 	{KEY_Left,      scroll_left},
 	{KEY_KP_Left,   scroll_left},
 	{KEY_Right,     scroll_right},
@@ -82,67 +71,134 @@ Key keys[] = {
 	{45,            zoom_out},
 	{(char)'w',     vzoom_up},
 	{(char)'s',     vzoom_down},
-	{GDK_KP_Enter,  NULL},
+	{XK_KP_Enter,   NULL},
 	{(char)'<',     NULL},
 	{(char)'>',     NULL},
 	{(char)'a',     toggle_animate},
-	{GDK_Delete,    NULL},
-	{113,           quit},
+	{XK_Delete,     NULL},
 	{0},
 };
 
-static const struct option long_options[] = {
-	{ "non-interactive",  0, NULL, 'n' },
+
+static GdkGLContext* on_create_context (GtkGLArea*, GdkGLContext*);
+
+struct _GdkX11GLContextGLX
+{
+  GObject parent_instance;
+  cairo_region_t *old_updated_area[2];
+  GLXContext glx_context;
 };
 
-static const char* const short_options = "n";
+
+static GdkGLContext*
+on_create_context (GtkGLArea* gl_area, GdkGLContext* context)
+{
+	if ((scene1->gl.gdk.context = agl_get_gl_context ())) {
+		g_object_ref (scene1->gl.gdk.context);
+		g_object_ref (scene1->gl.gdk.context);
+	} else {
+		GdkGLContext* context = gdk_surface_create_gl_context (gtk_native_get_surface (gtk_widget_get_native ((GtkWidget*)gl_area)), NULL);
+		gdk_gl_context_realize (context, NULL);
+		scene1->gl.gdk.context = context;
+		scene2->gl.gdk.context = context;
+		agl_set_gl_context (scene1->gl.gdk.context);
+	}
+	gdk_gl_context_make_current (scene1->gl.gdk.context);
+	scene1->drawable = scene2->drawable = glXGetCurrentDrawable();
+	agl_gl_init();
+	GdkDisplay* display = gdk_gl_context_get_display (scene1->gl.gdk.context);
+  	agl_get_instance()->xdisplay = gdk_x11_display_get_xdisplay (display);
+	scene1->glxcontext = scene2->glxcontext = ((struct _GdkX11GLContextGLX*)scene1->gl.gdk.context)->glx_context;
+
+	agl_actor__init((AGlActor*)scene1);
+	agl_actor__init((AGlActor*)scene2);
+
+	return scene1->gl.gdk.context;
+}
 
 
-int
-main (int argc, char *argv[])
+static gboolean
+render (GtkGLArea* area, GdkGLContext* context)
+{
+	glClearColor (0, 0, 0, 1);
+	glClear (GL_COLOR_BUFFER_BIT);
+ 
+	agl_actor__paint((AGlActor*)scene1);
+	agl_actor__paint((AGlActor*)scene2);
+
+	return TRUE;
+}
+
+
+static void
+allocate (GtkWidget* widget, int width, int height, gpointer data)
+{
+#if 0
+	// optimise drawing by telling the canvas which area is visible
+	wf_context_set_viewport(wfc, &(WfViewPort){0, 0, width, height});
+#endif
+
+	((AGlActor*)scene1)->region = (AGlfRegion){0., 0., width, height};
+	((AGlActor*)scene2)->region = (AGlfRegion){0., 0., width, height};
+
+	start_zoom(zoom);
+}
+
+
+static void
+activate (GtkApplication* app, gpointer user_data)
 {
 	set_log_handlers();
 
 	wf_debug = 0;
 
-	int opt;
-	while((opt = getopt_long (argc, argv, short_options, long_options, NULL)) != -1) {
-		switch(opt) {
-			case 'n':
-				g_timeout_add(3000, (gpointer)exit, NULL);
-				break;
-		}
+	GtkWidget* window = gtk_application_window_new (app);
+	gtk_window_set_title (GTK_WINDOW (window), "Window");
+	gtk_window_set_default_size (GTK_WINDOW (window), 320, 128);
+
+	GtkWidget* box = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 0);
+	gtk_window_set_child (GTK_WINDOW (window), box);
+
+	GtkWidget* widget = gtk_gl_area_new();
+	gtk_widget_set_hexpand (widget, TRUE);
+	gtk_widget_set_vexpand (widget, TRUE);
+	gtk_box_append (GTK_BOX(box), widget);
+
+	g_signal_connect (widget, "resize", G_CALLBACK (allocate), NULL);
+	g_signal_connect (widget, "create-context", G_CALLBACK (on_create_context), NULL);
+	g_signal_connect ((GtkGLArea*)widget, "render", G_CALLBACK (render), NULL);
+
+	scene1 = ({
+		AGlScene* scene = (AGlScene*)agl_actor__new_root (CONTEXT_TYPE_GTK);
+		scene->gl.gdk.widget = widget;
+		scene->user_data = widget;
+		scene->selected = (AGlActor*)scene1;
+		scene;
+	});
+
+	scene2 = ({
+		AGlScene* scene = (AGlScene*)agl_actor__new_root (CONTEXT_TYPE_GTK);
+		scene->gl.gdk.widget = widget;
+		scene->user_data = widget;
+		scene->selected = (AGlActor*)scene2;
+		scene;
+	});
+
+	void _agl_gtk_area_queue_render (AGlScene* scene)
+	{
+		gtk_widget_queue_draw (scene->gl.gdk.widget);
 	}
-
-	gtk_init(&argc, &argv);
-	if(!(glconfig = gdk_gl_config_new_by_mode(GDK_GL_MODE_RGBA | GDK_GL_MODE_DEPTH | GDK_GL_MODE_DOUBLE))){
-		perr ("Cannot initialise gtkglext."); return EXIT_FAILURE;
-	}
-
-	GtkWidget* window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
-
-	canvas = gtk_drawing_area_new();
-
-#ifdef HAVE_GTK_2_18
-	gtk_widget_set_can_focus     (canvas, true);
-#endif
-	gtk_widget_set_size_request  (canvas, 320, 128);
-	gtk_widget_set_gl_capability (canvas, glconfig, NULL, 1, GDK_GL_RGBA_TYPE);
-	gtk_widget_add_events        (canvas, GDK_POINTER_MOTION_MASK | GDK_BUTTON_PRESS_MASK | GDK_BUTTON_RELEASE_MASK);
-	gtk_container_add((GtkContainer*)window, (GtkWidget*)canvas);
-
-	scene1 = (AGlRootActor*)agl_actor__new_root(canvas);
-	scene2 = (AGlRootActor*)agl_actor__new_root(canvas);
+	scene1->queue_draw = _agl_gtk_area_queue_render;
 
 	char* filename = find_wav("mono_0:10.wav");
-	w1 = waveform_load_new(filename);
+	Waveform* wav = waveform_load_new(filename);
 	g_free(filename);
 
 	agl_get_instance()->pref_use_shaders = USE_SHADERS;
 
 	wfc = wf_context_new((AGlActor*)scene1);
 
-	int n_frames = waveform_get_n_frames(w1);
+	int n_frames = waveform_get_n_frames(wav);
 
 	WfSampleRegion region[] = {
 		{0,            n_frames     - 1},
@@ -158,140 +214,36 @@ main (int argc, char *argv[])
 		{0x66ff66ff, 0x0000ffff},
 	};
 
-	int i; for(i=0;i<G_N_ELEMENTS(a);i++){
-		a[i] = wf_context_add_new_actor(wfc, w1);
+	for (int i=0;i<G_N_ELEMENTS(a);i++) {
+		a[i] = wf_context_add_new_actor(wfc, wav);
 		agl_actor__add_child((AGlActor*)(i < 2 ? scene1 : scene2), (AGlActor*)a[i]);
 
 		wf_actor_set_region(a[i], &region[i]);
 		wf_actor_set_colour(a[i], colours[i][0]);
 	}
 
-	g_signal_connect((gpointer)canvas, "realize",       G_CALLBACK(on_canvas_realise), NULL);
-	g_signal_connect((gpointer)canvas, "size-allocate", G_CALLBACK(on_allocate), NULL);
-	g_signal_connect((gpointer)canvas, "expose-event",  G_CALLBACK(on_expose), NULL);
+	add_key_handlers_gtk ((GtkWindow*)window, NULL, (AGlKey*)&keys);
 
-	gtk_widget_show_all(window);
-
-	add_key_handlers_gtk((GtkWindow*)window, NULL, (Key*)&keys);
-
-	bool window_on_delete(GtkWidget* widget, GdkEvent* event, gpointer user_data){
-		gtk_main_quit();
-		return false;
-	}
-	g_signal_connect(window, "delete-event", G_CALLBACK(window_on_delete), NULL);
-
-	gtk_main();
-
-	return EXIT_SUCCESS;
-}
-
-
-static void
-setup_projection (GtkWidget* widget)
-{
-	int vx = 0;
-	int vy = 0;
-	int vw = widget->allocation.width;
-	int vh = widget->allocation.height;
-	glViewport(vx, vy, vw, vh);
-	dbg (0, "viewport: %i %i %i %i", vx, vy, vw, vh);
-	glMatrixMode(GL_PROJECTION);
-	glLoadIdentity();
-
-	double hborder = GL_WIDTH / 32;
-
-	double left = -hborder;
-	double right = GL_WIDTH + hborder;
-	double bottom = GL_HEIGHT + VBORDER;
-	double top = -VBORDER;
-	glOrtho (left, right, bottom, top, 10.0, -100.0);
-}
-
-
-static void
-on_canvas_realise (GtkWidget* _canvas, gpointer user_data)
-{
-	if(!GTK_WIDGET_REALIZED (canvas)) return;
-
-	on_allocate(canvas, &canvas->allocation, user_data);
-}
-
-
-static void
-on_allocate (GtkWidget* widget, GtkAllocation* allocation, gpointer user_data)
-{
-	if(!wfc) return;
-
-	setup_projection(widget);
-
-	((AGlActor*)scene1)->region = (AGlfRegion){0, 0, GL_WIDTH, GL_HEIGHT};
-	((AGlActor*)scene2)->region = (AGlfRegion){0, 0, GL_WIDTH, GL_HEIGHT};
-
-	start_zoom(zoom);
-}
-
-
-static gboolean
-on_expose (GtkWidget* widget, GdkEventExpose* event, gpointer user_data)
-{
-	if(!GTK_WIDGET_REALIZED(widget)) return true;
-	if(!wfc) return true;
-
-	AGL_ACTOR_START_DRAW(scene1) {
-		glClearColor(0.0, 0.0, 0.0, 1.0);
-		glClear(GL_COLOR_BUFFER_BIT);
-
-		agl_actor__paint((AGlActor*)scene1);
-		agl_actor__paint((AGlActor*)scene2);
-
-#ifdef RENDER_SAME_SCENE_MULTIPLE_TIMES
-		glPushMatrix();
-		glTranslatef(10.0, 10.0, 0.0);
-		agl_actor__paint((AGlActor*)scene1);
-		glPopMatrix();
-#endif
-
-#undef SHOW_BOUNDING_BOX
-#ifdef SHOW_BOUNDING_BOX
-		glPushMatrix();
-			glDisable(GL_TEXTURE_2D);
-			glLineWidth(1);
-
-			int w = GL_WIDTH;
-			int h = GL_HEIGHT/2;
-			glBegin(GL_QUADS);
-			glVertex3f(-0.2, -0.2, 1); glVertex3f(w, -0.2, 1);
-			glVertex3f(w, h, 1);       glVertex3f(-0.2, h, 1);
-			glEnd();
-			glEnable(GL_TEXTURE_2D);
-		glPopMatrix();
-#endif
-
-#if USE_SYSTEM_GTKGLEXT
-		gdk_gl_drawable_swap_buffers(scene1->gl.gdk.drawable);
-#else
-		gdk_gl_window_swap_buffers(scene1->gl.gdk.drawable);
-#endif
-	} AGL_ACTOR_END_DRAW(scene1)
-
-	return TRUE;
+	gtk_widget_show (window);
 }
 
 
 static void
 start_zoom (float target_zoom)
 {
-	//when zooming in, the Region is preserved so the box gets bigger. Drawing is clipped by the Viewport.
+	// when zooming in, the Region is preserved so the box gets bigger. Drawing is clipped by the Viewport.
 
 	PF0;
 	zoom = MAX(0.1, target_zoom);
 
-	int i; for(i=0;i<G_N_ELEMENTS(a);i++)
-		if(a[i]) wf_actor_set_rect(a[i], &(WfRectangle){
-			0.0,
-			i * GL_HEIGHT / 4,
-			GL_WIDTH * target_zoom,
-			GL_HEIGHT / 4 * 0.95
+	AGlActor* parent = (AGlActor*)scene1;
+
+	for (int i=0;i<G_N_ELEMENTS(a);i++)
+		if (a[i]) wf_actor_set_rect(a[i], &(WfRectangle){
+			0.,
+			i * parent->region.y2 / 4.,
+			WIDTH * target_zoom,
+			parent->region.y2 / 4. * 0.95
 		});
 }
 
@@ -315,8 +267,8 @@ vzoom_up (gpointer _)
 {
 	vzoom *= 1.1;
 	zoom = MIN(vzoom, 100.0);
-	int i; for(i=0;i<G_N_ELEMENTS(a);i++)
-		if(a[i]) wf_actor_set_vzoom(a[i], vzoom);
+	for (int i=0;i<G_N_ELEMENTS(a);i++)
+		if (a[i]) wf_actor_set_vzoom(a[i], vzoom);
 }
 
 
@@ -325,8 +277,8 @@ vzoom_down (gpointer _)
 {
 	vzoom /= 1.1;
 	zoom = MAX(vzoom, 1.0);
-	int i; for(i=0;i<G_N_ELEMENTS(a);i++)
-		if(a[i]) wf_actor_set_vzoom(a[i], vzoom);
+	for (int i=0;i<G_N_ELEMENTS(a);i++)
+		if (a[i]) wf_actor_set_vzoom(a[i], vzoom);
 }
 
 
@@ -349,6 +301,13 @@ scroll_right (gpointer _)
 static gboolean
 on_idle (gpointer _)
 {
+	uint64_t get_time ()
+	{
+		struct timeval start;
+		gettimeofday(&start, NULL);
+		return start.tv_sec * 1000 + start.tv_usec / 1000;
+	}
+
 	static uint64_t frame = 0;
 #ifdef DEBUG
 	static uint64_t t0    = 0;
@@ -382,20 +341,4 @@ toggle_animate (gpointer _)
 	g_timeout_add(50, on_idle, NULL);
 }
 
-
-void
-quit (gpointer _)
-{
-	exit(EXIT_SUCCESS);
-}
-
-
-uint64_t
-get_time ()
-{
-	struct timeval start;
-	gettimeofday(&start, NULL);
-	return start.tv_sec * 1000 + start.tv_usec / 1000;
-}
-
-
+#include "test/_gtk.c"

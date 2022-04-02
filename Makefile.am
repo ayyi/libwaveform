@@ -1,10 +1,7 @@
 if ENABLE_OPENGL
 OPENGL_SUBDIRS = shaders
 endif
-if ENABLE_GTK
-GTK_SUBDIRS = gtkglext-1.0
-endif
-SUBDIRS = $(GTK_SUBDIRS) lib $(OPENGL_SUBDIRS) wf ui decoder . test waveform
+SUBDIRS = lib $(OPENGL_SUBDIRS) wf ui decoder . test waveform
 
 lib_LTLIBRARIES = libwaveformui.la libwaveformcore.la
 

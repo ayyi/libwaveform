@@ -66,7 +66,7 @@ void main (void)
 		}
 	}
 
-	float smooth = (abs(y - mid) > 2.0) ? 2.0 : 1.0;
+	float smoother = (abs(y - mid) > 2.0) ? 2.0 : 1.0;
 
 	/*
 	 *   y1 and y2 are used for comparison with the texture value.
@@ -81,16 +81,16 @@ void main (void)
 
 		t.y = t.y / tex_height + tex_coords.y;
 
-		y1 = (mid3 - (yc + smooth)) / mid3;
-		y2 = (mid3 - (yc - smooth)) / mid3;
+		y1 = (mid3 - (yc + smoother)) / mid3;
+		y2 = (mid3 - (yc - smoother)) / mid3;
 
 	}else{
 		// min
 
 		t.y = (t.y + 2.0) / tex_height + tex_coords.y;
 
-		y1 = ((yc - smooth) - mid3) / mid3;
-		y2 = ((yc + smooth) - mid3) / mid3;
+		y1 = ((yc - smoother) - mid3) / mid3;
+		y2 = ((yc + smoother) - mid3) / mid3;
 	}
 
 	//(texture2D(tex2d, vec2(tx, t.y)).a > y1) ? 1.0 : 0.0;

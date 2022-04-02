@@ -330,9 +330,11 @@ waveform_get_sf_data(Waveform* w)
 
 
 uint64_t
-waveform_get_n_frames(Waveform* w)
+waveform_get_n_frames (Waveform* w)
 {
-	if(!w->n_frames) waveform_get_sf_data(w);
+	g_return_val_if_fail(w, 0);
+
+	if (!w->n_frames) waveform_get_sf_data(w);
 
 	return w->n_frames;
 }

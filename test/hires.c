@@ -12,7 +12,7 @@
 
   --------------------------------------------------------------
 
-  Copyright (C) 2012-2020 Tim Orford <tim@orford.org>
+  Copyright (C) 2012-2022 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -29,63 +29,50 @@
 */
 
 #include "config.h"
-#include <getopt.h>
-#include <gdk/gdkkeysyms.h>
+#include <gtk/gtk.h>
 #include "waveform/view_plus.h"
 #include "test/common.h"
 
-static const struct option long_options[] = {
-	{ "non-interactive",  0, NULL, 'n' },
-};
-
-static const char* const short_options = "n";
-
-static bool  window_on_delete (GtkWidget*, GdkEvent*, gpointer);
-
 #define WAV "short.wav"
 
-gpointer tests[] = {};
 
-
-int
-main (int argc, char* argv[])
+static void
+activate (GtkApplication* app, gpointer user_data)
 {
 	set_log_handlers();
 
-	wf_debug = 0;
+	wf_debug = 1;
 
-	int opt;
-	while((opt = getopt_long (argc, argv, short_options, long_options, NULL)) != -1) {
-		switch(opt) {
-			case 'n':
-				dbg(0, "non-interative");
-				g_timeout_add(3000, (gpointer)window_on_delete, NULL);
-				break;
-		}
-	}
+	GtkWidget* window = gtk_application_window_new (app);
+	gtk_window_set_title (GTK_WINDOW (window), "Window");
+	gtk_window_set_default_size (GTK_WINDOW (window), 320, 160);
 
-	gtk_init(&argc, &argv);
-	GtkWidget* window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
+	GtkWidget* vbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 0);
+	//GtkWidget* vbox = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 0);
+	gtk_window_set_child (GTK_WINDOW (window), vbox);
 
-	GtkWidget* box = gtk_vbox_new(true, 0);
-	gtk_container_add((GtkContainer*)window, box);
+	GtkWidget* box1 = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 0);
+	gtk_box_append (GTK_BOX(vbox), box1);
+	GtkWidget* box2 = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 0);
+	gtk_box_append (GTK_BOX(vbox), box2);
 
 	WaveformViewPlus* waveform = waveform_view_plus_new(NULL);
+	gtk_widget_set_hexpand ((GtkWidget*)waveform, TRUE);
+	gtk_widget_set_vexpand ((GtkWidget*)waveform, TRUE);
+	gtk_box_append (GTK_BOX(box1), GTK_WIDGET(waveform));
 #if 0
 	waveform_view_set_show_grid(waveform, true);
 #endif
-	gtk_box_pack_start((GtkBox*)box, (GtkWidget*)waveform, false, false, 0);
-
-	GtkWidget* hbox = gtk_hbox_new(true, 0);
-	gtk_box_pack_start((GtkBox*)box, hbox, false, false, 0);
 
 	// The 2nd row splits the same wav in two to test that the join is seamless
 	WaveformViewPlus* waveform2 = waveform_view_plus_new(NULL);
-	gtk_box_pack_start((GtkBox*)hbox, (GtkWidget*)waveform2, false, false, 0);
+	gtk_widget_set_hexpand ((GtkWidget*)waveform2, TRUE);
+	gtk_widget_set_vexpand ((GtkWidget*)waveform2, TRUE);
+	gtk_box_append (GTK_BOX(box2), GTK_WIDGET(waveform2));
 	WaveformViewPlus* waveform3 = waveform_view_plus_new(NULL);
-	gtk_box_pack_start((GtkBox*)hbox, (GtkWidget*)waveform3, false, false, 0);
-
-	gtk_widget_show_all(window);
+	gtk_widget_set_hexpand ((GtkWidget*)waveform3, TRUE);
+	gtk_widget_set_vexpand ((GtkWidget*)waveform3, TRUE);
+	gtk_box_append (GTK_BOX(box2), GTK_WIDGET(waveform3));
 
 	char* filename = find_wav(WAV);
 	waveform_view_plus_load_file(waveform, filename, NULL, NULL);
@@ -97,12 +84,11 @@ main (int argc, char* argv[])
 	waveform_view_plus_set_waveform(waveform3, waveform->waveform);
 	waveform_view_plus_set_region(waveform3, waveform_get_n_frames(waveform->waveform) / 2, waveform_get_n_frames(waveform->waveform) - 1);
 
-	gboolean key_press (GtkWidget* widget, GdkEventKey* event, gpointer user_data)
+	gboolean on_key_press_event (GtkEventController* controller, guint keyval, guint keycode, GdkModifierType state, WaveformViewPlus* waveform)
 	{
-		WaveformViewPlus* waveform = user_data;
 		int n_visible_frames = ((float)waveform->waveform->n_frames) / waveform_view_plus_get_zoom(waveform);
 
-		switch(event->keyval){
+		switch (keyval) {
 			case 61:
 				waveform_view_plus_set_zoom(waveform, waveform_view_plus_get_zoom(waveform) * 1.5);
 				break;
@@ -119,36 +105,17 @@ main (int argc, char* argv[])
 				dbg(1, "right");
 				waveform_view_plus_set_start(waveform, waveform->start_frame + n_visible_frames / 10);
 				break;
-			case GDK_KP_Enter:
-				break;
-			case (char)'<':
-				break;
-			case '>':
-				break;
-			case 113:
-				exit(EXIT_SUCCESS);
-				break;
-			case GDK_Delete:
-				break;
 			default:
-				dbg(1, "%i", event->keyval);
+				dbg(1, "%i", keyval);
 				break;
 		}
-		return TRUE;
+		return AGL_NOT_HANDLED;
 	}
+	GtkEventController* controller = gtk_event_controller_key_new ();
+	g_signal_connect (controller, "key-pressed", G_CALLBACK (on_key_press_event), waveform);
+	gtk_widget_add_controller (window, controller);
 
-	g_signal_connect(window, "key-press-event", G_CALLBACK(key_press), waveform);
-	g_signal_connect(window, "delete-event", G_CALLBACK(window_on_delete), NULL);
-
-	gtk_main();
-
-	return EXIT_SUCCESS;
+	gtk_widget_show (window);
 }
 
-
-static bool
-window_on_delete (GtkWidget* widget, GdkEvent* event, gpointer user_data)
-{
-	gtk_main_quit();
-	return false;
-}
+#include "test/_gtk.c"

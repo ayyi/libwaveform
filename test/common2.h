@@ -14,6 +14,7 @@
 #define __wf_private__
 #include "wf/debug.h"
 #include "agl/actor.h"
+#include "agl/behaviours/simple_key.h"
 
 /*
  *  Common code for all tests
@@ -22,14 +23,6 @@
 void  set_log_handlers   ();
 char* find_wav           (const char*);
 const char* find_data_dir();
-
-typedef void (KeyHandler)(gpointer);
-
-typedef struct
-{
-	int         key;
-	KeyHandler* handler;
-} Key;
 
 typedef struct
 {
@@ -71,14 +64,14 @@ extern char ok       [];
 extern char fail     [];
 #endif
 
-void add_key_handlers         (Key keys[]);
+void add_key_handlers         (AGlKey[]);
 #ifdef __GTK_H__
-void add_key_handlers_gtk     (GtkWindow*, gpointer, Key keys[]);
+void add_key_handlers_gtk     (GtkWindow*, gpointer, AGlKey keys[]);
 
 #ifdef __GDK_GL_CONFIG_H__
 typedef void (*WindowFn)      (GtkWindow*, GdkGLConfig*);
 
-int  gtk_window               (Key keys[], WindowFn);
+int  gtk_window               (AGlKey keys[], WindowFn);
 #endif
 #endif
 

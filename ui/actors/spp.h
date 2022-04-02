@@ -1,22 +1,21 @@
-/**
-* +----------------------------------------------------------------------+
-* | This file is part of libwaveform                                     |
-* | https://github.com/ayyi/libwaveform                                  |
-* | copyright (C) 2012-2020 Tim Orford <tim@orford.org>                  |
-* +----------------------------------------------------------------------+
-* | This program is free software; you can redistribute it and/or modify |
-* | it under the terms of the GNU General Public License version 3       |
-* | as published by the Free Software Foundation.                        |
-* +----------------------------------------------------------------------+
-* | SONG POSITION POINTER (CURSOR) ACTOR                                 |
-* | The time position can be set either by calling spp_actor_set_time()  |
-* | or by middle-clicking on the waveform.                               |
-* +----------------------------------------------------------------------+
-*
-*/
+/*
+ +----------------------------------------------------------------------+
+ | This file is part of libwaveform                                     |
+ | https://github.com/ayyi/libwaveform                                  |
+ | copyright (C) 2012-2022 Tim Orford <tim@orford.org>                  |
+ +----------------------------------------------------------------------+
+ | This program is free software; you can redistribute it and/or modify |
+ | it under the terms of the GNU General Public License version 3       |
+ | as published by the Free Software Foundation.                        |
+ +----------------------------------------------------------------------+
+ | SONG POSITION POINTER (CURSOR) ACTOR                                 |
+ | The time position can be set either by calling spp_actor_set_time()  |
+ | or by middle-clicking on the waveform.                               |
+ +----------------------------------------------------------------------+
+ |
+ */
 
-#ifndef __spp_actor_h__
-#define __spp_actor_h__
+#pragma once
 
 #include "agl/actor.h"
 
@@ -32,5 +31,3 @@ AGlActor* wf_spp_actor          (WaveformActor*);
 void      wf_spp_actor_set_time (SppActor*, uint32_t);
 
 #define WF_SPP_TIME_NONE UINT32_MAX
-
-#endif

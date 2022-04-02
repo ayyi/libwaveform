@@ -6,7 +6,7 @@
 
   ---------------------------------------------------------------
 
-  Copyright (C) 2012-2021 Tim Orford <tim@orford.org>
+  Copyright (C) 2012-2022 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -22,161 +22,59 @@
   Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
 */
-#define __wf_private__
+
 #include "config.h"
 #include <getopt.h>
 #include <sys/time.h>
-#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
-#include <gtk/gtk.h>
-#pragma GCC diagnostic warning "-Wdeprecated-declarations"
-#include <gdk/gdkkeysyms.h>
-#include "agl/gtk.h"
+#include "agl/x11.h"
 #include "waveform/actor.h"
+#include "agl/behaviours/key.h"
 #include "test/common2.h"
 
 #define WAV "mono_0:10.wav"
 
-#define GL_WIDTH 480.0
-#define GL_HEIGHT 160.0
-#define VBORDER 8
+#define WIDTH 480.
+#define HEIGHT 160.
 
-GdkGLConfig*     glconfig       = NULL;
-GtkWidget*       canvas         = NULL;
-AGlScene*        scene          = NULL;
-WaveformContext* wfc            = NULL;
-Waveform*        w1             = NULL;
-Waveform*        w2             = NULL;
-WaveformActor*   a[4]           = {NULL,};
-float            zoom           = 1.0;
-gpointer         tests[]        = {};
+WaveformActor* a[4]  = {NULL,};
+float          zoom  = 1.0;
 
-static void setup_projection   (GtkWidget*);
-static void on_canvas_realise  (GtkWidget*, gpointer);
-static void on_allocate        (GtkWidget*, GtkAllocation*, gpointer);
 static void start_zoom         (float target_zoom);
-static void toggle_animate     ();
-uint64_t    get_time           ();
 
-static const struct option long_options[] = {
-	{ "non-interactive",  0, NULL, 'n' },
+ActorKeyHandler
+	zoom_in,
+	zoom_out,
+	toggle_animate;
+
+ActorKey keys[] = {
+	{61,   zoom_in},
+	{45,   zoom_out},
+	{'a',  toggle_animate},
 };
 
-static const char* const short_options = "n";
+static const struct option long_options[] = {
+	{ "autoquit",  0, NULL, 'q' },
+};
+
+static const char* const short_options = "q";
 
 
 int
-main (int argc, char* argv[])
+run (int argc, char* argv[])
 {
-	set_log_handlers();
-
 	wf_debug = 0;
 
-	int opt;
-	while((opt = getopt_long (argc, argv, short_options, long_options, NULL)) != -1) {
-		switch(opt) {
-			case 'n':
-				g_timeout_add(3000, (gpointer)exit, NULL);
-				break;
-		}
-	}
+	AGlWindow* window = agl_window ("List", -1, -1, WIDTH, HEIGHT, 0);
+	AGlActor* root = (AGlActor*)window->scene;
+	window->scene->selected = root;
 
-	gtk_init(&argc, &argv);
-	if(!(glconfig = gdk_gl_config_new_by_mode(GDK_GL_MODE_RGBA | GDK_GL_MODE_DEPTH | GDK_GL_MODE_DOUBLE))){
-		perr ("Cannot initialise gtkglext."); return EXIT_FAILURE;
-	}
-
-	GtkWidget* window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
-
-	canvas = gtk_drawing_area_new();
-
-	gtk_widget_set_can_focus     (canvas, true);
-	gtk_widget_set_size_request  (canvas, 480, 128);
-	gtk_widget_set_gl_capability (canvas, glconfig, NULL, 1, GDK_GL_RGBA_TYPE);
-	gtk_widget_add_events        (canvas, GDK_POINTER_MOTION_MASK | GDK_BUTTON_PRESS_MASK | GDK_BUTTON_RELEASE_MASK);
-
-	gtk_container_add((GtkContainer*)window, (GtkWidget*)canvas);
-
-	scene = (AGlRootActor*)agl_actor__new_root(canvas);
-
-	wfc = wf_context_new((AGlActor*)scene);
-	//wfc->enable_animations = false;
-
-	g_signal_connect((gpointer)canvas, "realize",       G_CALLBACK(on_canvas_realise), NULL);
-	g_signal_connect((gpointer)canvas, "size-allocate", G_CALLBACK(on_allocate), NULL);
-	g_signal_connect((gpointer)canvas, "expose-event",  G_CALLBACK(agl_actor__on_expose), scene);
-
-	gtk_widget_show_all(window);
-
-	bool key_press (GtkWidget* widget, GdkEventKey* event, gpointer user_data)
-	{
-		switch(event->keyval){
-			case 61:
-				start_zoom(zoom * 1.5);
-				break;
-			case 45:
-				start_zoom(zoom / 1.5);
-				break;
-			case KEY_Left:
-			case KEY_KP_Left:
-				dbg(0, "left");
-				//waveform_view_set_start(waveform, waveform->start_frame - 8192 / waveform->zoom);
-				break;
-			case KEY_Right:
-			case KEY_KP_Right:
-				dbg(0, "right");
-				//waveform_view_set_start(waveform, waveform->start_frame + 8192 / waveform->zoom);
-				break;
-			case (char)'a':
-				toggle_animate();
-				break;
-			case GDK_KP_Enter:
-				break;
-			case 113:
-				exit(EXIT_SUCCESS);
-				break;
-			case GDK_Delete:
-				break;
-			default:
-				dbg(0, "%i", event->keyval);
-				break;
-		}
-		return TRUE;
-	}
-
-	g_signal_connect(window, "key-press-event", G_CALLBACK(key_press), NULL);
-
-	gboolean window_on_delete(GtkWidget* widget, GdkEvent* event, gpointer user_data){
-		gtk_main_quit();
-		return false;
-	}
-	g_signal_connect(window, "delete-event", G_CALLBACK(window_on_delete), NULL);
-
-	gtk_main();
-
-	return EXIT_SUCCESS;
-}
-
-
-static void
-setup_projection (GtkWidget* widget)
-{
-	((AGlActor*)scene)->region.x2 = widget->allocation.width;
-	((AGlActor*)scene)->region.y2 = widget->allocation.height;
-}
-
-
-static void
-on_canvas_realise (GtkWidget* _canvas, gpointer user_data)
-{
-	PF;
-	if(w1) return;
-	if(!GTK_WIDGET_REALIZED (canvas)) return;
+	WaveformContext* wfc = wf_context_new((AGlActor*)window->scene);
 
 	char* filename = find_wav(WAV);
-	w1 = waveform_load_new(filename);
+	Waveform* wav = waveform_load_new(filename);
 	g_free(filename);
 
-	int n_frames = waveform_get_n_frames(w1);
+	int n_frames = waveform_get_n_frames(wav);
 
 	WfSampleRegion region[] = {
 		{0,                  n_frames / 4},
@@ -192,23 +90,48 @@ on_canvas_realise (GtkWidget* _canvas, gpointer user_data)
 		{0x66ff66ff, 0x0000ffff},
 	};
 
-	int i; for(i=0;i<G_N_ELEMENTS(a);i++){
-		agl_actor__add_child((AGlActor*)scene, (AGlActor*)(a[i] = wf_context_add_new_actor(wfc, w1)));
+	for (int i=0;i<G_N_ELEMENTS(a);i++) {
+		a[i] = (WaveformActor*)agl_actor__add_child(root, (AGlActor*)wf_context_add_new_actor(wfc, wav));
 
 		wf_actor_set_region(a[i], &region[i]);
 		wf_actor_set_colour(a[i], colours[i][0]);
 	}
 
-	on_allocate(canvas, &canvas->allocation, user_data);
+	void set_size (AGlActor* scene)
+	{
+		start_zoom(zoom);
+	}
+	root->set_size = set_size;
+
+	#define KEYS(A) ((KeyBehaviour*)((AGlActor*)A)->behaviours[0])
+	root->behaviours[0] = key_behaviour();
+	KEYS(root)->keys = &keys;
+	key_behaviour_init(root->behaviours[0], root);
+
+	g_main_loop_run (agl_main_loop_new());
+
+	agl_window_destroy (&window);
+	XCloseDisplay (dpy);
+
+	return EXIT_SUCCESS;
 }
 
 
-static void
-on_allocate (GtkWidget* widget, GtkAllocation* allocation, gpointer user_data)
+bool
+zoom_in (AGlActor* _, GdkModifierType state)
 {
-	setup_projection(widget);
+	start_zoom(zoom * 1.5);
 
-	start_zoom(zoom);
+	return AGL_HANDLED;
+}
+
+
+bool
+zoom_out (AGlActor* _, GdkModifierType state)
+{
+	start_zoom(zoom / 1.5);
+
+	return AGL_HANDLED;
 }
 
 
@@ -223,19 +146,27 @@ start_zoom (float target_zoom)
 	PF;
 	zoom = MAX(0.1, target_zoom);
 
-	for(int i=0;i<G_N_ELEMENTS(a);i++)
-		if(a[i]) wf_actor_set_rect(a[i], &(WfRectangle){
-			GL_WIDTH * target_zoom * i / 4,
-			0.0,
-			GL_WIDTH * target_zoom / 4,
-			GL_HEIGHT / 4
+	for (int i=0;i<G_N_ELEMENTS(a);i++)
+		if (a[i]) wf_actor_set_rect(a[i], &(WfRectangle) {
+			WIDTH * target_zoom * i / 4,
+			0.,
+			WIDTH * target_zoom / 4,
+			HEIGHT / 4
 		});
 }
 
 
-static void
-toggle_animate ()
+bool
+toggle_animate (AGlActor* _, GdkModifierType state)
 {
+	uint64_t
+	get_time ()
+	{
+		struct timeval start;
+		gettimeofday(&start, NULL);
+		return start.tv_sec * 1000 + start.tv_usec / 1000;
+	}
+
 	PF0;
 	gboolean on_idle (gpointer _)
 	{
@@ -254,7 +185,7 @@ toggle_animate ()
 				dbg(0, "rate=%.2f fps", ((float)frame) / ((float)(time - t0)) / 1000.0);
 #endif
 
-			if (!(frame % 8)){
+			if (!(frame % 8)) {
 				float v = (frame % 16) ? 2.0 : 1.0/2.0;
 				if(v > 16.0) v = 1.0;
 				start_zoom(v);
@@ -264,15 +195,9 @@ toggle_animate ()
 		return G_SOURCE_CONTINUE;
 	}
 	g_timeout_add(50, on_idle, NULL);
+
+	return AGL_HANDLED;
 }
 
 
-uint64_t
-get_time ()
-{
-	struct timeval start;
-	gettimeofday(&start, NULL);
-	return start.tv_sec * 1000 + start.tv_usec / 1000;
-}
-
-
+#include "test/_x11.c"

@@ -59,7 +59,6 @@ struct _WaveformContext {
 	}              shaders;
 
 	WfContextPriv* priv;
-	int           _draw_depth;
 };
 
 #ifdef __wf_canvas_priv__

@@ -57,20 +57,6 @@ v_hi_renderer_new (WaveformActor* actor)
 	w->render_data[MODE_V_HI] = WF_NEW(WaveformModeRender,
 		.n_blocks = w->n_blocks
 	);
-
-#if defined (MULTILINE_SHADER)
-	if(agl->use_shaders){
-		agl_create_program(&lines.shader);
-		modes[MODE_V_HI].renderer->shader = &lines.shader;
-	}
-#else
-	if(!agl->aaline) agl->aaline = agl_aa_line_new();
-
-	modes[MODE_V_HI].renderer->shader = aaline_class.shader;
-#endif
-
-	glGenVertexArrays(1, &vao);
-	glGenBuffers(1, &hivbo);
 }
 
 
@@ -87,27 +73,45 @@ v_hi_pre_render (Renderer* renderer, WaveformActor* actor)
 }
 
 
+static bool
+v_hi_pre_render0 (Renderer* renderer, WaveformActor* actor)
+{
+#if defined (MULTILINE_SHADER)
+	agl_create_program(&lines.shader);
+	modes[MODE_V_HI].renderer->shader = &lines.shader;
+#else
+	if (!agl->aaline) agl->aaline = agl_aa_line_new();
+
+	modes[MODE_V_HI].renderer->shader = aaline_class.shader;
+	((AGlActor*)actor)->program = renderer->shader;
+#endif
+
+	glGenVertexArrays(1, &vao);
+	glGenBuffers(1, &hivbo);
+
+	renderer->pre_render = v_hi_pre_render;
+
+	return v_hi_pre_render(renderer, actor);
+}
+
+
 static void
 _v_hi_set_gl_state (WaveformActor* actor)
 {
+#if defined (MULTILINE_SHADER)
 	const WaveformContext* wfc = actor->context;
 
-#if defined (MULTILINE_SHADER)
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-	if(wfc->use_1d_textures){
+	if (wfc->use_1d_textures) {
 		lines.uniform.colour = ((AGlActor*)actor)->colour;
 		lines.uniform.n_channels = actor->waveform->n_channels;
 	}
 #else
 	AGl* agl = agl_get_instance();
 
-	if (wfc->use_1d_textures) {
-		agl->shaders.alphamap->uniform.fg_colour = ((AGlActor*)actor)->colour;
-		agl_use_material(agl->aaline);
-	} else {
-		agl_enable(AGL_ENABLE_BLEND);
-	}
+	agl->shaders.alphamap->uniform.fg_colour = ((AGlActor*)actor)->colour;
+	agl_use_material(agl->aaline);
 #endif
 }
 
@@ -127,9 +131,14 @@ draw_wave_buffer_v_hi (Renderer* renderer, WaveformActor* actor, int block, bool
 	const WfRectangle* rect = &ri->rect;
 
 	WfAudioData* audio = &w->priv->audio;
-	if(!audio->n_blocks || w->offline) return false;
+	if (!audio->n_blocks || w->offline) return false;
 	WfBuf16* buf = audio->buf16[block];
-	if(!buf) return false;
+	if (!buf) {
+#ifdef DEBUG
+		actor->render_result = RENDER_RESULT_NO_AUDIO_DATA;
+#endif
+		return false;
+	}
 
 	if(is_last) vhr->block_region_v_hi.len = (ri->region.start + ri->region.len) % WF_SAMPLES_PER_TEXTURE;
 
@@ -456,6 +465,6 @@ _wf_create_lines_texture (guchar* pbuf, int width, int height)
 #endif
 
 
-VHiRenderer v_hi_renderer = {{MODE_V_HI, v_hi_renderer_new, v_hi_load_block, v_hi_pre_render, draw_wave_buffer_v_hi, NULL, v_hi_free_waveform}};
+VHiRenderer v_hi_renderer = {{MODE_V_HI, v_hi_renderer_new, v_hi_load_block, v_hi_pre_render0, draw_wave_buffer_v_hi, NULL, v_hi_free_waveform}};
 
 

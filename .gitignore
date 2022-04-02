@@ -44,7 +44,7 @@ test/gen/write_block
 test/gen/write_short
 test/gen/write_wav
 test/32bit
-test/actor_no_scene
+test/no_scene
 test/actor_plus
 test/actor
 test/ass
