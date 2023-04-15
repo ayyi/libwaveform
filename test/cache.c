@@ -1,7 +1,7 @@
 /*
  +----------------------------------------------------------------------+
  | This file is part of the Ayyi project. https://www.ayyi.org          |
- | copyright (C) 2013-2022 Tim Orford <tim@orford.org>                  |
+ | copyright (C) 2013-2024 Tim Orford <tim@orford.org>                  |
  +----------------------------------------------------------------------+
  | This program is free software; you can redistribute it and/or modify |
  | it under the terms of the GNU General Public License version 3       |
@@ -166,7 +166,9 @@ __test_shown (gpointer _c)
 		extern bool wf_actor_test_is_not_blank(WaveformActor*);
 		assert_and_stop(wf_actor_test_is_not_blank(a[0]), "output is blank");
 	}
+#ifdef DEBUG
 	assert_and_stop(!((WaveformActor*)actor)->render_result, "render error code %i", ((WaveformActor*)actor)->render_result);
+#endif
 #endif
 	WF_TEST_FINISH_TIMER_STOP;
 }
@@ -412,7 +414,7 @@ get_random_region (WaveformActor* a, Mode mode, uint32_t max_scroll)
 						)
 	);
 	int len = min + g_random_int_range(0, len_range + 1);
-	dbg(1, "r=%Lu", start);
+	dbg(1, "r=%"PRIu64, start);
 
 	if(start + len > a->waveform->n_frames){
 		// the above calculation failed

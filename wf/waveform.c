@@ -1,14 +1,15 @@
-/**
-* +----------------------------------------------------------------------+
-* | This file is part of the Ayyi project. http://ayyi.org               |
-* | copyright (C) 2012-2020 Tim Orford <tim@orford.org>                  |
-* +----------------------------------------------------------------------+
-* | This program is free software; you can redistribute it and/or modify |
-* | it under the terms of the GNU General Public License version 3       |
-* | as published by the Free Software Foundation.                        |
-* +----------------------------------------------------------------------+
-*
-*/
+/*
+ +----------------------------------------------------------------------+
+ | This file is part of the Ayyi project. https://www.ayyi.org          |
+ | copyright (C) 2012-2024 Tim Orford <tim@orford.org>                  |
+ +----------------------------------------------------------------------+
+ | This program is free software; you can redistribute it and/or modify |
+ | it under the terms of the GNU General Public License version 3       |
+ | as published by the Free Software Foundation.                        |
+ +----------------------------------------------------------------------+
+ |
+ */
+
 #define __waveform_peak_c__
 #define __wf_private__
 #include "config.h"
@@ -61,7 +62,7 @@ waveform_construct (GType object_type)
 
 
 Waveform*
-waveform_load_new(const char* filename)
+waveform_load_new (const char* filename)
 {
 	g_return_val_if_fail(filename, NULL);
 
@@ -89,10 +90,10 @@ waveform_new (const char* filename)
 void
 waveform_set_file (Waveform* w, const char* filename)
 {
-	if(w->filename){
-		if(filename && !strcmp(filename, w->filename)){
+	if (w->filename) {
+		if (filename && !strcmp(filename, w->filename)) {
 			// must bail otherwise peak job will not complete
-			if(wf_debug) pwarn("ignoring request to set same filename");
+			WF_DEBUG_ pwarn("ignoring request to set same filename");
 			return;
 		}
 		g_free(w->filename);
@@ -257,7 +258,7 @@ waveform_load (Waveform* w, WfCallback3 callback, gpointer user_data)
 
 
 bool
-waveform_load_sync(Waveform* w)
+waveform_load_sync (Waveform* w)
 {
 	g_return_val_if_fail(w, false);
 
@@ -278,7 +279,7 @@ waveform_load_sync(Waveform* w)
 
 
 static void
-waveform_get_sf_data(Waveform* w)
+waveform_get_sf_data (Waveform* w)
 {
 	g_return_if_fail(w->filename);
 	WaveformPrivate* _w = w->priv;
@@ -307,7 +308,7 @@ waveform_get_sf_data(Waveform* w)
 			if(waveform_load_sync(w)){
 				w->n_channels = _w->peak.buf[1] ? 2 : 1;
 				w->n_frames = _w->num_peaks * WF_PEAK_RATIO;
-				dbg(1, "offline, have peakfile: n_frames=%Lu c=%i", w->n_frames, w->n_channels);
+				dbg(1, "offline, have peakfile: n_frames=%"PRIi64" c=%i", w->n_frames, w->n_channels);
 				return;
 			}
 		}
@@ -421,14 +422,14 @@ waveform_load_peak (Waveform* w, const char* peak_file, int ch_num)
 
 
 bool
-waveform_peak_is_loaded(Waveform* w, int ch_num)
+waveform_peak_is_loaded (Waveform* w, int ch_num)
 {
 	return !!w->priv->peak.buf[ch_num];
 }
 
 
 short*
-waveform_peakbuf_malloc(Waveform* waveform, int ch, uint32_t size)
+waveform_peakbuf_malloc (Waveform* waveform, int ch, uint32_t size)
 {
 	WfPeakBuf* buf = &waveform->priv->peak;
 	uint32_t bytes = size * sizeof(short);
@@ -464,7 +465,7 @@ waveform_peakbuf_malloc(Waveform* waveform, int ch, uint32_t size)
 
 //#warning TODO location of rms files and RHS.
 RmsBuf*
-waveform_load_rms_file(Waveform* waveform, int ch_num)
+waveform_load_rms_file (Waveform* waveform, int ch_num)
 {
 	//loads the rms cache file for the given poolitem into a buffer.
 	//Unlike peakfiles, these are not stored. g_free() the returned buffer after use.
@@ -571,7 +572,7 @@ fullpath = g_strdup(src); //TODO
 
 
 void
-waveform_set_peak_loader(PeakLoader loader)
+waveform_set_peak_loader (PeakLoader loader)
 {
 	wf_get_instance();
 	wf->load_peak = loader;
@@ -580,7 +581,7 @@ waveform_set_peak_loader(PeakLoader loader)
 
 #if 0
 WfWavCache*
-wf_wav_cache_new(int n_channels)
+wf_wav_cache_new (int n_channels)
 {
 	PF0;
 	g_return_val_if_fail(n_channels <= WF_STEREO, NULL);
@@ -599,7 +600,7 @@ wf_wav_cache_new(int n_channels)
 
 
 uint32_t
-wf_peakbuf_get_max_size(int n_tiers)
+wf_peakbuf_get_max_size (int n_tiers)
 {
 	// the number of shorts in a full size buffer
 	return (1 << (n_tiers-1)) * WF_PEAK_BLOCK_SIZE * WF_PEAK_VALUES_PER_SAMPLE;
@@ -607,7 +608,7 @@ wf_peakbuf_get_max_size(int n_tiers)
 
 
 int32_t
-wf_get_peakbuf_len_frames()
+wf_get_peakbuf_len_frames ()
 {
 	// the length in samples of the file-section that the peakbuf represents.
 
@@ -616,7 +617,7 @@ wf_get_peakbuf_len_frames()
 
 
 Peakbuf*
-waveform_get_peakbuf_n(Waveform* w, int block_num)
+waveform_get_peakbuf_n (Waveform* w, int block_num)
 {
 	g_return_val_if_fail(w, NULL);
 
@@ -648,26 +649,23 @@ waveform_peakbuf_assign (Waveform* w, int block_num, Peakbuf* peakbuf)
 
 
 int
-waveform_get_n_audio_blocks(Waveform* w)
+waveform_get_n_audio_blocks (Waveform* w)
 {
 	WfAudioData* audio = &w->priv->audio;
-	if(!audio->n_blocks){
+	if (!audio->n_blocks){
 		uint64_t n_frames = waveform_get_n_frames(w);
 
 		int xtra = (n_frames % WF_SAMPLES_PER_TEXTURE) ? 1 : 0;
 		audio->n_blocks = n_frames / WF_SAMPLES_PER_TEXTURE + xtra; // WF_SAMPLES_PER_TEXTURE takes border into account
 
-		dbg(1, "setting samplecount=%Li xtra=%i n_blocks=%i",
-		        n_frames,
-		        xtra,
-		        audio->n_blocks);
+		dbg(1, "setting samplecount=%"PRIi64" xtra=%i n_blocks=%i", n_frames, xtra, audio->n_blocks);
 	}
 	return audio->n_blocks;
 }
 
 
 short
-waveform_find_max_audio_level(Waveform* w)
+waveform_find_max_audio_level (Waveform* w)
 {
 	if(w->priv->max_db > -1) return w->priv->max_db;
 
@@ -700,7 +698,7 @@ waveform_get_rhs (const char* left, char* rhs)
 
 #if 0
 void
-waveform_print_blocks(Waveform* w)
+waveform_print_blocks (Waveform* w)
 {
 	g_return_if_fail(w);
 #ifdef USE_OPENGL
@@ -732,14 +730,14 @@ waveform_print_blocks(Waveform* w)
 
 
 WfTextureHi*
-waveform_texture_hi_new()
+waveform_texture_hi_new ()
 {
 	return g_new0(WfTextureHi, 1);
 }
 
 
 void
-waveform_texture_hi_free(WfTextureHi* th)
+waveform_texture_hi_free (WfTextureHi* th)
 {
 	g_return_if_fail(th);
 

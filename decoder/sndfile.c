@@ -30,7 +30,7 @@ struct _WfBuf16 // also defined in waveform.h
     short*     buf[WF_STEREO];
     guint      size;
     uint32_t   stamp;
-#ifdef WF_DEBUG
+#ifdef DEBUG
     uint64_t   start_frame;
 #endif
 };
@@ -51,7 +51,7 @@ parse_bit_depth (int format)
 		case SF_FORMAT_DOUBLE: return 64; /* 64 bit float data */
 		default:
 #ifdef DEBUG
-			gwarn("missing format 0x%x", format);
+			pwarn("missing format 0x%x", format);
 #endif
 			break;
 	}

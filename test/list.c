@@ -118,7 +118,7 @@ run (int argc, char* argv[])
 
 
 bool
-zoom_in (AGlActor* _, GdkModifierType state)
+zoom_in (AGlActor* _, AGlModifierType state)
 {
 	start_zoom(zoom * 1.5);
 
@@ -127,7 +127,7 @@ zoom_in (AGlActor* _, GdkModifierType state)
 
 
 bool
-zoom_out (AGlActor* _, GdkModifierType state)
+zoom_out (AGlActor* _, AGlModifierType state)
 {
 	start_zoom(zoom / 1.5);
 
@@ -157,8 +157,9 @@ start_zoom (float target_zoom)
 
 
 bool
-toggle_animate (AGlActor* _, GdkModifierType state)
+toggle_animate (AGlActor* _, AGlModifierType state)
 {
+#ifdef DEBUG
 	uint64_t
 	get_time ()
 	{
@@ -166,6 +167,7 @@ toggle_animate (AGlActor* _, GdkModifierType state)
 		gettimeofday(&start, NULL);
 		return start.tv_sec * 1000 + start.tv_usec / 1000;
 	}
+#endif
 
 	PF0;
 	gboolean on_idle (gpointer _)

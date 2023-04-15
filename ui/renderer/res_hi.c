@@ -1,22 +1,18 @@
-/**
-* +----------------------------------------------------------------------+
-* | This file is part of the Ayyi project. http://ayyi.org               |
-* | copyright (C) 2012-2021 Tim Orford <tim@orford.org>                  |
-* +----------------------------------------------------------------------+
-* | This program is free software; you can redistribute it and/or modify |
-* | it under the terms of the GNU General Public License version 3       |
-* | as published by the Free Software Foundation.                        |
-* +----------------------------------------------------------------------+
-*
-*/
+/*
+ +----------------------------------------------------------------------+
+ | This file is part of the Ayyi project. https://www.ayyi.org          |
+ | copyright (C) 2012-2024 Tim Orford <tim@orford.org>                  |
+ +----------------------------------------------------------------------+
+ | This program is free software; you can redistribute it and/or modify |
+ | it under the terms of the GNU General Public License version 3       |
+ | as published by the Free Software Foundation.                        |
+ +----------------------------------------------------------------------+
+ |
+ */
+
 #ifndef __actor_c__
 #define __wf_private__
 #include "config.h"
-#include <fcntl.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <math.h>
-#include <stdint.h>
 #include <sys/time.h>
 #include <sndfile.h>
 #include <gtk/gtk.h>
@@ -578,7 +574,7 @@ hi_gl1_render_block (Renderer* renderer, WaveformActor* actor, int b, gboolean i
 static void
 _wf_actor_print_hires_textures (WaveformActor* a)
 {
-	dbg(0, "");
+	PF0;
 	GHashTableIter iter;
 	gpointer key, value;
 	g_hash_table_iter_init (&iter, RENDER_DATA_HI(a->waveform->priv)->textures);

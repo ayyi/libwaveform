@@ -47,8 +47,6 @@ struct _WaveformViewPlus {
 #endif
 	int64_t                  start_frame;
 
-	uint32_t                 bg_colour;
-
 	GtkGesture*              click;
 
 	WaveformViewPlusPrivate* priv;

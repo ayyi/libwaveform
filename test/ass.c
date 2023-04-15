@@ -1,7 +1,7 @@
 /*
  +---------------------------------------------------------------------
  | This file is part of the Ayyi project. https://www.ayyi.org
- | copyright (C) 2012-2022 Tim Orford <tim@orford.org>
+ | copyright (C) 2012-2024 Tim Orford <tim@orford.org>
  +---------------------------------------------------------------------
  | This program is free software; you can redistribute it and/or modify
  | it under the terms of the GNU General Public License version 3
@@ -186,12 +186,12 @@ activate (GtkApplication* app, gpointer user_data)
 			case 45:
 				start_zoom(zoom / 1.5);
 				break;
-			case KEY_Left:
-			case KEY_KP_Left:
+			case XK_Left:
+			case XK_KP_Left:
 				dbg(0, "left");
 				break;
-			case KEY_Right:
-			case KEY_KP_Right:
+			case XK_Right:
+			case XK_KP_Right:
 				dbg(0, "right");
 				break;
 			case (char)'a':
@@ -211,8 +211,6 @@ activate (GtkApplication* app, gpointer user_data)
 	GtkEventController* controller = gtk_event_controller_key_new ();
 	g_signal_connect (controller, "key-pressed", G_CALLBACK (on_key_press), NULL);
 	gtk_widget_add_controller (window, controller);
-
-	gtk_widget_show (window);
 }
 
 
@@ -326,12 +324,14 @@ start_zoom (float target_zoom)
 static void
 toggle_animate ()
 {
+#ifdef DEBUG
 	uint64_t get_time ()
 	{
 		struct timeval start;
 		gettimeofday(&start, NULL);
 		return start.tv_sec * 1000 + start.tv_usec / 1000;
 	}
+#endif
 
 	gboolean on_idle(gpointer _)
 	{

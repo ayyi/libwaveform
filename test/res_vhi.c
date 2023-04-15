@@ -1,7 +1,7 @@
 /*
  +---------------------------------------------------------------------
  | This file is part of the Ayyi project. https://www.ayyi.org
- | copyright (C) 2012-2022 Tim Orford <tim@orford.org>
+ | copyright (C) 2012-2023 Tim Orford <tim@orford.org>
  +---------------------------------------------------------------------
  | This program is free software; you can redistribute it and/or modify
  | it under the terms of the GNU General Public License version 3
@@ -41,10 +41,10 @@ KeyHandler
 	delete;
 
 AGlKey keys[] = {
-	{KEY_Left,      scroll_left},
-	{KEY_KP_Left,   scroll_left},
-	{KEY_Right,     scroll_right},
-	{KEY_KP_Right,  scroll_right},
+	{XK_Left,       scroll_left},
+	{XK_KP_Left,    scroll_left},
+	{XK_Right,      scroll_right},
+	{XK_KP_Right,   scroll_right},
 	{61,            zoom_in},
 	{45,            zoom_out},
 	{(char)'w',     vzoom_up},
@@ -160,8 +160,6 @@ activate (GtkApplication* app, gpointer user_data)
 	((AGlActor*)scene)->set_size = set_size;
 
 	g_object_unref(w1); // this effectively transfers ownership of the waveform to the Scene
-
-	gtk_widget_show (window);
 }
 
 

@@ -84,7 +84,7 @@ med_allocate_block_gl1(Renderer* renderer, WaveformActor* a, int b)
 
 	int c = WF_LEFT;
 	if(blocks->peak_texture[c].main[b]
-#ifdef WF_DEBUG
+#ifdef DEBUG
 		&& glIsTexture(blocks->peak_texture[c].main[b])
 #endif
 	){
@@ -143,7 +143,7 @@ low_allocate_block_gl1(Renderer* renderer, WaveformActor* a, int b)
 	Waveform* w = a->waveform;
 	WfGlBlock* blocks = (WfGlBlock*)w->priv->render_data[renderer->mode];
 	if(!blocks) return;
-#ifdef WF_DEBUG
+#ifdef DEBUG
 	g_return_if_fail(b < blocks->size);
 #endif
 
@@ -155,7 +155,7 @@ low_allocate_block_gl1(Renderer* renderer, WaveformActor* a, int b)
 
 	int c = WF_LEFT;
 	if(blocks->peak_texture[c].main[b]
-#ifdef WF_DEBUG
+#ifdef DEBUG
 		&& glIsTexture(blocks->peak_texture[c].main[b])
 #endif
 	){

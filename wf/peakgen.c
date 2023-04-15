@@ -1,7 +1,7 @@
 /*
  +----------------------------------------------------------------------+
- | This file is part of the Ayyi project. https://ayyi.org              |
- | copyright (C) 2012-2023 Tim Orford <tim@orford.org>                  |
+ | This file is part of the Ayyi project. https://www.ayyi.org          |
+ | copyright (C) 2012-2024 Tim Orford <tim@orford.org>                  |
  +----------------------------------------------------------------------+
  | This program is free software; you can redistribute it and/or modify |
  | it under the terms of the GNU General Public License version 3       |
@@ -39,14 +39,13 @@
 #include <gio/gio.h>
 #ifdef USE_SNDFILE
 #include <sndfile.h>
-#else
+#endif
 #ifdef USE_FFMPEG
 #include <libavcodec/avcodec.h>
 #include <libavutil/channel_layout.h>
 #include <libavutil/common.h>
 #include <libavutil/frame.h>
 #include <libavutil/samplefmt.h>
-#endif
 #endif
 #include "decoder/ad.h"
 #include "wf/debug.h"
@@ -251,7 +250,7 @@ typedef struct
 
 
 static AVFrame*
-alloc_audio_frame (enum AVSampleFormat sample_fmt, uint64_t channel_layout, int sample_rate, int nb_samples)
+alloc_audio_frame (enum AVSampleFormat sample_fmt, AVChannelLayout channel_layout, int sample_rate, int nb_samples)
 {
 	AVFrame* frame = av_frame_alloc();
 
@@ -261,7 +260,7 @@ alloc_audio_frame (enum AVSampleFormat sample_fmt, uint64_t channel_layout, int 
 	}
 
 	frame->format = sample_fmt;
-	frame->channel_layout = channel_layout;
+	frame->ch_layout = channel_layout;
 	frame->sample_rate = sample_rate;
 	frame->nb_samples = nb_samples;
 
@@ -294,7 +293,7 @@ open_audio2 (AVCodecContext* c, AVStream* stream, OutputStream* ost)
 	else
 		nb_samples = c->frame_size;
 
-	ost->frame = alloc_audio_frame(c->sample_fmt, c->channel_layout, c->sample_rate, nb_samples);
+	ost->frame = alloc_audio_frame(c->sample_fmt, c->ch_layout, c->sample_rate, nb_samples);
 
 	// Copy the stream parameters to the muxer
 	int ret = avcodec_parameters_from_context(stream->codecpar, c);
@@ -326,7 +325,7 @@ wf_ff_peakgen (const char* infilename, const char* peak_filename)
 #if defined(USE_FFMPEG) || defined(USE_SNDFILE)
 	WfDecoder f = {{0,}};
 
-	if(!ad_open(&f, infilename)) return false;
+	if (!ad_open(&f, infilename)) return false;
 
 	gchar* basename = g_path_get_basename(peak_filename);
 	gchar* tmp_path = g_build_filename(g_get_tmp_dir(), basename, NULL);
@@ -339,18 +338,18 @@ wf_ff_peakgen (const char* infilename, const char* peak_filename)
 	avformat_alloc_output_context2(&format_context, av_guess_format("wav", NULL, "audio/x-wav"), NULL, NULL);
 
 	avio_open(&format_context->pb, tmp_path, AVIO_FLAG_READ_WRITE);
-	if(!format_context->pb) {
+	if (!format_context->pb) {
 		FAIL("could not open for writing");
 	}
 
-	AVCodec* codec = avcodec_find_encoder(AV_CODEC_ID_PCM_S16LE);
-	if(!codec){
+	const AVCodec* codec = avcodec_find_encoder(AV_CODEC_ID_PCM_S16LE);
+	if (!codec) {
 		pwarn("codec not found");
 		return false;
 	}
 
 	AVStream* stream = avformat_new_stream(format_context, NULL);
-	if(!stream){
+	if (!stream) {
 		pwarn("could not alloc stream");
 		return false;
 	}
@@ -358,16 +357,19 @@ wf_ff_peakgen (const char* infilename, const char* peak_filename)
 	//av_dump_format(format_context, 0, tmp_file, 1);
 
 	AVCodecContext* c = output_stream.encoder = avcodec_alloc_context3(codec);
-	if(!c){
+	if (!c) {
 		pwarn("Could not alloc an encoding context");
 		return false;
 	}
 
-	c->sample_fmt     = codec->sample_fmts ? codec->sample_fmts[0] : AV_SAMPLE_FMT_S16;
-	c->sample_rate    = f.info.sample_rate;
-	c->channel_layout = codec->channel_layouts ? codec->channel_layouts[0] : (f.info.channels == 2 ? AV_CH_LAYOUT_STEREO : AV_CH_LAYOUT_MONO);
-	c->channels       = av_get_channel_layout_nb_channels(c->channel_layout);
-	c->bit_rate       = f.info.sample_rate * 16 * f.info.channels;
+	c->sample_fmt  = codec->sample_fmts ? codec->sample_fmts[0] : AV_SAMPLE_FMT_S16;
+	c->sample_rate = f.info.sample_rate;
+	if (codec->ch_layouts) {
+		c->ch_layout = codec->ch_layouts[0];
+	} else {
+		av_channel_layout_default(&c->ch_layout, f.info.channels);
+	}
+	c->bit_rate    = f.info.sample_rate * 16 * f.info.channels;
 
 	stream->time_base = (AVRational){ 1, c->sample_rate };
 
@@ -378,7 +380,7 @@ wf_ff_peakgen (const char* infilename, const char* peak_filename)
 	open_audio2(c, stream, &output_stream);
 
 	AVDictionary** options = NULL;
-	if(avformat_write_header(format_context, options)){
+	if (avformat_write_header(format_context, options)) {
 		pwarn("could not write header");
 		return false;
 	}
@@ -390,7 +392,7 @@ wf_ff_peakgen (const char* infilename, const char* peak_filename)
 		.samplerate = f.info.sample_rate,
 	};
 
-	if(!(outfile = sf_open(tmp_path, SFM_WRITE, &sfinfo))){
+	if (!(outfile = sf_open(tmp_path, SFM_WRITE, &sfinfo))) {
 		printf ("Not able to open output file %s.\n", tmp_path);
 		puts(sf_strerror(NULL));
 		return false;
@@ -582,7 +584,7 @@ wf_ff_peakgen_split_stereo (const char* infilename, const char* peak_filename)
 		FAIL("could not open for writing");
 	}
 
-	AVCodec* codec = avcodec_find_encoder(AV_CODEC_ID_PCM_S16LE);
+	const AVCodec* codec = avcodec_find_encoder(AV_CODEC_ID_PCM_S16LE);
 	if (!codec) {
 		pwarn("codec not found");
 		return false;
@@ -602,11 +604,10 @@ wf_ff_peakgen_split_stereo (const char* infilename, const char* peak_filename)
 		return false;
 	}
 
-	c->sample_fmt     = codec->sample_fmts ? codec->sample_fmts[0] : AV_SAMPLE_FMT_S16;
-	c->sample_rate    = f.info.sample_rate;
-	c->channel_layout = AV_CH_LAYOUT_STEREO;
-	c->channels       = 2;
-	c->bit_rate       = f.info.sample_rate * 16 * f.info.channels;
+	c->sample_fmt  = codec->sample_fmts ? codec->sample_fmts[0] : AV_SAMPLE_FMT_S16;
+	c->sample_rate = f.info.sample_rate;
+	av_channel_layout_default(&c->ch_layout, WF_STEREO);
+	c->bit_rate    = f.info.sample_rate * 16 * f.info.channels;
 
 	stream->time_base = (AVRational){ 1, c->sample_rate };
 
@@ -629,7 +630,7 @@ wf_ff_peakgen_split_stereo (const char* infilename, const char* peak_filename)
 		.samplerate = f.info.sample_rate,
 	};
 
-	if(!(outfile = sf_open(tmp_path, SFM_WRITE, &sfinfo))){
+	if (!(outfile = sf_open(tmp_path, SFM_WRITE, &sfinfo))) {
 		printf ("Not able to open output file %s.\n", tmp_path);
 		puts(sf_strerror(NULL));
 		return false;
@@ -665,7 +666,7 @@ wf_ff_peakgen_split_stereo (const char* infilename, const char* peak_filename)
 
 	int readcount;
 	int total_readcount = 0;
-	while((readcount = ad_read_short(&f, &buf))){
+	while ((readcount = ad_read_short(&f, &buf))) {
 				ad_read_short(&f2, &buf2);
 		total_readcount += readcount;
 		int remaining = readcount;
@@ -1132,9 +1133,9 @@ wf_file_is_newer (const char* file1, const char* file2)
 
 	struct stat info1;
 	struct stat info2;
-	if(stat(file1, &info1)) return false;
-	if(stat(file2, &info2)) return false;
-	if(info1.st_mtime < info2.st_mtime) dbg(2, "%i %i %i", info1.st_mtime, info2.st_mtime, sizeof(time_t));
+	if (stat(file1, &info1)) return false;
+	if (stat(file2, &info2)) return false;
+	if (info1.st_mtime < info2.st_mtime) dbg(2, "%li %li %lu", info1.st_mtime, info2.st_mtime, sizeof(time_t));
 	return (info1.st_mtime > info2.st_mtime);
 }
 

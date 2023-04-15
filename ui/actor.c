@@ -1,7 +1,7 @@
 /*
  +----------------------------------------------------------------------+
  | This file is part of the Ayyi project. https://www.ayyi.org          |
- | copyright (C) 2012-2022 Tim Orford <tim@orford.org>                  |
+ | copyright (C) 2012-2023 Tim Orford <tim@orford.org>                  |
  +----------------------------------------------------------------------+
  | This program is free software; you can redistribute it and/or modify |
  | it under the terms of the GNU General Public License version 3       |
@@ -116,7 +116,7 @@ typedef enum {
 	INVALIDATOR_MAX
 } InvalidatorTypes;
 
-struct _actor_priv
+struct _WfActorPriv
 {
 	float           opacity;     // derived from background colour
 
@@ -401,6 +401,18 @@ wf_actor_after_set_waveform (WaveformActor* wf_actor)
 }
 
 
+static void
+wf_actor_set_state (AGlActor* actor)
+{
+	WaveformActor* wf_actor = (WaveformActor*)actor;
+	RenderInfo* r = &wf_actor->priv->render_info;
+	Renderer* renderer = modes[r->mode].renderer;
+
+	if (renderer->shader) {
+	}
+}
+
+
 /*
  *  Normally called by wf_context_add_new_actor.
  */
@@ -424,6 +436,7 @@ wf_actor_new (Waveform* w, WaveformContext* wfc)
 		.actor = {
 			.class = (AGlActorClass*)&actor_class,
 			.init = wf_actor_init,
+			.set_state = wf_actor_set_state,
 			.paint = wf_actor_paint,
 			.invalidate = _wf_actor_invalidate,
 			.set_size = wf_actor_set_size,
@@ -470,14 +483,14 @@ wf_actor_new (Waveform* w, WaveformContext* wfc)
 				{
 					.val.b = &a->region.start,
 					.type = WF_INT64,
-#ifdef WF_DEBUG
+#ifdef DEBUG
 					.name = "region-start"
 #endif
 				},
 				{
 					.val.b = &a->region.len,
 					.type = WF_INT64,
-#ifdef WF_DEBUG
+#ifdef DEBUG
 					.name = "region-len"
 #endif
 				}
@@ -498,14 +511,14 @@ wf_actor_new (Waveform* w, WaveformContext* wfc)
 				{
 					.val.f = &actor->region.x1,
 					.type = WF_FLOAT,
-#ifdef WF_DEBUG
+#ifdef DEBUG
 				.name = "rect-left"
 #endif
 				},
 				{
 					.val.f = &actor->region.x2,
 					.type = WF_FLOAT,
-#ifdef WF_DEBUG
+#ifdef DEBUG
 					.name = "rect-right"
 #endif
 				}
@@ -525,7 +538,7 @@ wf_actor_new (Waveform* w, WaveformContext* wfc)
 			{
 				.val.f = &a->z,
 				.type = WF_FLOAT,
-#ifdef WF_DEBUG
+#ifdef DEBUG
 				.name = "z"
 #endif
 			}
@@ -542,8 +555,8 @@ wf_actor_new (Waveform* w, WaveformContext* wfc)
 		.animatables = {
 			{
 				.val.f = &_a->opacity,
-				.type = WF_FLOAT
-#ifdef WF_DEBUG
+				.type = WF_FLOAT,
+#ifdef DEBUG
 				.name = "opacity"
 #endif
 			}
@@ -820,7 +833,7 @@ wf_actor_set_region (WaveformActor* a, WfSampleRegion* region)
 	WfActorPriv* _a = a->priv;
 	AGlScene* scene = actor->root;
 
-	IF_WF_DEBUG dbg(1, "region_start=%"PRIi64" (%"PRIi64"%%) region_end=%"PRIi64" wave_end=%"PRIi64, region->start, (waveform_get_n_frames(a->waveform) ? (100 * region->start / a->waveform->n_frames) : 0), region->start + region->len, waveform_get_n_frames(a->waveform));
+	dbg(1, "region_start=%"PRIi64" (%"PRIi64"%%) region_end=%"PRIi64" wave_end=%"PRIi64, region->start, (waveform_get_n_frames(a->waveform) ? (100 * region->start / a->waveform->n_frames) : 0), region->start + region->len, waveform_get_n_frames(a->waveform));
 	if(!region->len && a->waveform->n_channels){ pwarn("invalid region: len not set"); return; }
 	if(region->start > waveform_get_n_frames(a->waveform)){ pwarn("invalid region: start out of range: %"PRIi64" > %"PRIi64"", region->start, waveform_get_n_frames(a->waveform)); return; }
 	if(region->start + region->len > waveform_get_n_frames(a->waveform)){ pwarn("invalid region: too long: %"PRIi64" len=%"PRIi64" n_frames=%"PRIi64, region->start, region->len, waveform_get_n_frames(a->waveform)); return; }
@@ -1372,7 +1385,7 @@ set_renderer (WaveformActor* actor)
 	Renderer* renderer = modes[r->mode].renderer;
 	dbg(2, "%s", modes[r->mode].name);
 
-	((AGlActor*)actor)->program = renderer->shader;
+	//((AGlActor*)actor)->program = renderer->shader; // no, dont set actor->program, it is managed in paint due to blocking and fallbacks
 
 	return renderer;
 }
@@ -1895,24 +1908,22 @@ wf_actor_paint (AGlActor* _actor)
 	if (!r->valid) {
 		if (!calc_render_info(actor)) return false;
 
-		agl_use_program(_actor->program);
-
-#ifdef WF_DEBUG
+#ifdef DEBUG
 	} else {
 		// temporary checks:
 
-		WfRectangle rect = {_a->animatable.rect_left.val.f, _actor->region.y1, _a->animatable.rect_right.val.f, agl_actor__height(_actor)};
+		WfRectangle rect = {*LEFT(_actor).val.f, _actor->region.y1, *RIGHT(_actor).val.f, agl_actor__height(_actor)};
 
-		WfSampleRegion region = (WfSampleRegion){_a->animatable.start.val.b, _a->animatable.len.val.b};
+		WfSampleRegion region = (WfSampleRegion){*START(_actor).val.b, *LEN(_actor).val.b};
 		double zoom = rect.len / region.len;
-		if(zoom != r->zoom) perr("valid should not be set: zoom %.3f %.3f", zoom, r->zoom);
+		if (zoom != r->zoom) perr("valid should not be set: zoom %.3f %.3f", zoom, r->zoom);
 
 		Mode mode = get_mode(r->zoom);
-		if(mode != r->mode) perr("valid should not be set: zoom %i %i", mode, r->mode);
+		if (mode != r->mode) perr("valid should not be set: zoom %i %i", mode, r->mode);
 
 		int samples_per_texture = WF_SAMPLES_PER_TEXTURE * (mode == MODE_LOW ? WF_PEAK_STD_TO_LO : 1);
 		int first_offset = region.start % samples_per_texture;
-		if(first_offset != r->first_offset) perr("valid should not be set: zoom %i %i", first_offset, r->first_offset);
+		if (first_offset != r->first_offset) perr("valid should not be set: zoom %i %i", first_offset, r->first_offset);
 #endif
 	}
 
@@ -1964,18 +1975,14 @@ wf_actor_paint (AGlActor* _actor)
 		bool is_last = (b == r->viewport_blocks.last) || (b == r->n_blocks - 1); //2nd test is unneccesary?
 
 		Mode m = r->mode;
-		// I think there is an optimisation to do here.
-		// Pre-render should not be done for each block
-		// but only when changing mode. Once we have fallen through
-		// to a lower mode, it seems like we will not go back to a higher mode.
-		while((m < N_MODES) && !render_block(modes[m].renderer, actor, b, is_first, is_last, x, m, &m_active)){
+		while ((m < N_MODES) && !render_block(modes[m].renderer, actor, b, is_first, is_last, x, m, &m_active)) {
 			dbg(1, "%i: %sfalling through...%s %s-->%s", b, "\x1b[1;33m", ayyi_white, modes[m].name, modes[m - 1].name);
 			// TODO pre_render not being set propery for MODE_HI due to use_shader settings.
 			// TODO render_info not correct when falling through. Is set for the higher mode.
 			m--;
-			if(m > N_MODES){
+			if (m > N_MODES) {
 				render_ok = false;
-				if(wf_debug) pwarn("render failed. no modes succeeded. mode=%i", r->mode); // not neccesarily an error. may simply be not ready.
+				WF_DEBUG_ pwarn("render failed. no modes succeeded. mode=%i", r->mode); // not neccesarily an error. may simply be not ready.
 			} else {
 				if(!w->priv->render_data[m]) break;
 			}
@@ -2376,7 +2383,9 @@ wf_actor_test_is_not_blank(WaveformActor* a)
 			dbg(0, "is not blank");
 		}else{
 			dbg(0, "is blank");
+#ifdef DEBUG
 			if (a->render_result) dbg(0, "result=%i", a->render_result);
+#endif
 			return false;
 		}
 	}

@@ -106,20 +106,6 @@ GTK_LDFLAGS=`pkg-config --libs gtk4`
 AC_SUBST(GTK_CFLAGS)
 AC_SUBST(GTK_LDFLAGS)
 
-if `pkg-config gtk+-2.0 --atleast-version=2.22`; then
-  HAVE_GTK_2_22="yes"
-  AC_DEFINE(HAVE_GTK_2_22, 1, [We have at least gtk version 2.22])
-else
-  HAVE_GTK_2_22="no"
-fi;
-
-if `pkg-config gtk+-2.0 --atleast-version=2.18`; then
-  HAVE_GTK_2_18="yes"
-  AC_DEFINE(HAVE_GTK_2_18, 1, [We have at least gtk version 2.18])
-else
-  HAVE_GTK_2_18="no"
-fi;
-
 if `pkg-config glib-2.0 --atleast-version=2.32`; then
   HAVE_GLIB_2_32="yes"
   AC_DEFINE(HAVE_GLIB_2_32, 1, [We have at least glib version 2.32])
@@ -140,6 +126,12 @@ else
   HAVE_GLIB_2_58="no"
 fi;
 AM_CONDITIONAL(ENABLE_GLIB_2_58_POLYFILL, test "$HAVE_GLIB_2_58" = "no")
+if `pkg-config glib-2.0 --atleast-version=2.74`; then
+  HAVE_GLIB_2_74="yes"
+  AC_DEFINE(HAVE_GLIB_2_74, 1, [We have at least glib version 2.74])
+else
+  HAVE_GLIB_2_74="no"
+fi;
 
 if `pkg-config pango --atleast-version=1.44`; then
   AC_DEFINE(HAVE_PANGO_1_44, 1, [We have at least pango version 1.44])
@@ -167,11 +159,6 @@ if test "$have_xrandr" = "yes"; then
 fi
 XRANDR_LDFLAGS=`pkg-config --libs xrandr`
 AC_SUBST(XRANDR_LDFLAGS)
-
-GDK_CFLAGS=`pkg-config --cflags gdk-2.0`
-GDK_LIBS=`pkg-config --libs gdk-2.0`
-AC_SUBST(GDK_CFLAGS)
-AC_SUBST(GDK_LIBS)
 
 PANGO_CFLAGS=`pkg-config --cflags pangocairo`
 PANGO_LIBS=`pkg-config --libs pangocairo`

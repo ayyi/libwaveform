@@ -1,7 +1,7 @@
 /*
  +----------------------------------------------------------------------+
  | This file is part of libwaveform https://github.com/ayyi/libwaveform |
- | copyright (C) 2012-2022 Tim Orford <tim@orford.org>                  |
+ | copyright (C) 2012-2023 Tim Orford <tim@orford.org>                  |
  +----------------------------------------------------------------------+
  | This program is free software; you can redistribute it and/or modify |
  | it under the terms of the GNU General Public License version 3       |
@@ -15,7 +15,6 @@
 #include "waveform/ui-typedefs.h"
 #ifdef USE_GDK_PIXBUF
 #include <gdk-pixbuf/gdk-pixdata.h>
-#include <gdk/gdk.h>
 #endif
 
 typedef void (WfPixbufCallback) (Waveform*, GdkPixbuf*, gpointer);

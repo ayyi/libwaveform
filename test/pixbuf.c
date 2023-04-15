@@ -1,26 +1,18 @@
 /*
-
-  Show gdk pixbuf output
-
-  --------------------------------------------------------------
-
-  Copyright (C) 2012-2022 Tim Orford <tim@orford.org>
-
-  This program is free software; you can redistribute it and/or modify
-  it under the terms of the GNU General Public License version 3
-  as published by the Free Software Foundation.
-
-  This program is distributed in the hope that it will be useful,
-  but WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-  GNU General Public License for more details.
-
-  You should have received a copy of the GNU General Public License
-  along with this program; if not, write to the Free Software
-  Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
-*/
-
-#define __wf_private__
+ +----------------------------------------------------------------------+
+ | This file is part of the Ayyi project. https://www.ayyi.org          |
+ | copyright (C) 2012-2024 Tim Orford <tim@orford.org>                  |
+ +----------------------------------------------------------------------+
+ | This program is free software; you can redistribute it and/or modify |
+ | it under the terms of the GNU General Public License version 3       |
+ | as published by the Free Software Foundation.                        |
+ +----------------------------------------------------------------------+
+ |                                                                      |
+ | Show gdk pixbuf output                                               |
+ |                                                                      |
+ +----------------------------------------------------------------------+
+ |
+ */
 
 #include "config.h"
 #include <gtk/gtk.h>
@@ -51,8 +43,8 @@ extern bool key_down;
 extern KeyHold key_hold;
 
 AGlKey keys[] = {
-	{KEY_Left,      scroll_left},
-	{KEY_Right,     scroll_right},
+	{XK_Left,       scroll_left},
+	{XK_Right,      scroll_right},
 	{61,            zoom_in},
 	{45,            zoom_out},
 	{XK_KP_Enter,   NULL},
@@ -123,8 +115,6 @@ activate (GtkApplication* app, gpointer user_data)
 	}
 
 	add_key_handlers_gtk((GtkWindow*)window, NULL, (AGlKey*)&keys);
-
-	gtk_widget_show(window);
 }
 
 
@@ -186,7 +176,7 @@ zoom_in (gpointer _)
 	item0.region = (WfSampleRegion){x, x + (waveform_get_n_frames(item0.waveform) - 1) / zoom};
 	gtk_widget_queue_draw(item0.widget);
 
-	image_async((GtkDrawingArea*)item1.widget, &(GtkAllocation){gtk_widget_get_allocated_width(item1.widget), gtk_widget_get_allocated_height(item1.widget)});
+	image_async((GtkDrawingArea*)item1.widget, &(GtkAllocation){gtk_widget_get_width(item1.widget), gtk_widget_get_height(item1.widget)});
 }
 
 
@@ -198,7 +188,7 @@ zoom_out (gpointer _)
 	item0.region = (WfSampleRegion){x, x + (waveform_get_n_frames(item0.waveform) - 1) / zoom};
 	gtk_widget_queue_draw(item0.widget);
 
-	image_async((GtkDrawingArea*)item1.widget, &(GtkAllocation){.width=gtk_widget_get_allocated_width(item1.widget), .height=gtk_widget_get_allocated_height(item1.widget)});
+	image_async((GtkDrawingArea*)item1.widget, &(GtkAllocation){.width=gtk_widget_get_width(item1.widget), .height=gtk_widget_get_height(item1.widget)});
 }
 
 
@@ -237,7 +227,7 @@ next_wav (gpointer _)
 	item1.waveform = waveform_new(filename);
 	g_free(filename);
 
-	image_async((GtkDrawingArea*)item1.widget, &(GtkAllocation){.width=gtk_widget_get_allocated_width(item1.widget), .height=gtk_widget_get_allocated_height(item1.widget)});
+	image_async((GtkDrawingArea*)item1.widget, &(GtkAllocation){.width=gtk_widget_get_width(item1.widget), .height=gtk_widget_get_height(item1.widget)});
 }
 
 
