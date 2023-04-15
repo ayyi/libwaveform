@@ -88,12 +88,12 @@ main (int argc, char* argv[])
 				case 45:
 					wf_context_set_zoom(wa->context, wa->context->zoom->value.f / 1.5);
 					break;
-				case KEY_Left:
-				case KEY_KP_Left:
+				case XK_Left:
+				case XK_KP_Left:
 					set_start(wa, wa->region.start - 8192 / wa->context->zoom->value.f);
 					break;
-				case KEY_Right:
-				case KEY_KP_Right:
+				case XK_Right:
+				case XK_KP_Right:
 					set_start(wa, wa->region.start + 8192 / wa->context->zoom->value.f);
 					break;
 				case 113:

@@ -1,7 +1,7 @@
 /*
  +----------------------------------------------------------------------+
  | This file is part of the Ayyi project. https://www.ayyi.org          |
- | copyright (C) 2012-2022 Tim Orford <tim@orford.org>                  |
+ | copyright (C) 2012-2023 Tim Orford <tim@orford.org>                  |
  +----------------------------------------------------------------------+
  | This program is free software; you can redistribute it and/or modify |
  | it under the terms of the GNU General Public License version 3       |
@@ -85,9 +85,11 @@ wf_int2db (short x)
 uint32_t
 wf_get_gtk_fg_color (GtkWidget* widget)
 {
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 	GtkStyleContext* context = gtk_widget_get_style_context (widget);
 	GdkRGBA  colour;
 	gtk_style_context_lookup_color (context, "foreground-color", &colour);
+#pragma GCC diagnostic warning "-Wdeprecated-declarations"
 
 	return wf_color_gdk_to_rgba(&colour);
 }

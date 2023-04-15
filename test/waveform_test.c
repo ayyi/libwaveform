@@ -1,7 +1,7 @@
 /*
  +----------------------------------------------------------------------+
  | This file is part of the Ayyi project. https://www.ayyi.org          |
- | copyright (C) 2012-2022 Tim Orford <tim@orford.org>                  |
+ | copyright (C) 2012-2024 Tim Orford <tim@orford.org>                  |
  +----------------------------------------------------------------------+
  | This program is free software; you can redistribute it and/or modify |
  | it under the terms of the GNU General Public License version 3       |
@@ -269,7 +269,7 @@ test_audio_file ()
 			readcount = ad_read_short(&f, &buf);
 			total += readcount;
 		} while (readcount > 0);
-		dbg(1, "diff=%zu", abs((int)total - (int)f.info.frames));
+		dbg(1, "diff=%i", abs((int)total - (int)f.info.frames));
 
 		if (g_str_has_suffix(filenames[i], ".wav") || g_str_has_suffix(filenames[i], ".flac")) {
 			assert(total == f.info.frames, "%s: incorrect number of frames read: %"PRIi64" (expected %"PRIi64")", filenames[i], total, f.info.frames);

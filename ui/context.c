@@ -1,7 +1,7 @@
 /*
  +----------------------------------------------------------------------+
- | This file is part of the Ayyi project. https://ayyi.org              |
- | copyright (C) 2012-2022 Tim Orford <tim@orford.org>                  |
+ | This file is part of the Ayyi project. https://www.ayyi.org          |
+ | copyright (C) 2012-2024 Tim Orford <tim@orford.org>                  |
  +----------------------------------------------------------------------+
  | This program is free software; you can redistribute it and/or modify |
  | it under the terms of the GNU General Public License version 3       |
@@ -358,7 +358,7 @@ wf_context_set_zoom (WaveformContext* wfc, float zoom)
 	wfc->scaled = true;
 
 	dbg(1, "zoom=%f spp=%.2f", zoom, wfc->samples_per_pixel);
-	dbg(1, "zoom=%.2f-->%.2f spp=%.2f", wfc->zoom, zoom, wfc->samples_per_pixel);
+	dbg(1, "zoom=%.2f-->%.2f spp=%.2f", wfc->zoom->value.f, zoom, wfc->samples_per_pixel);
 
 	AGL_DEBUG if(wfc->samples_per_pixel < 0.001) pwarn("spp too low: %f", wfc->samples_per_pixel);
 

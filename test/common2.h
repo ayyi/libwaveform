@@ -65,7 +65,7 @@ extern char fail     [];
 #endif
 
 void add_key_handlers         (AGlKey[]);
-#ifdef __GTK_H__
+#ifdef GTK_TYPE_WIDGET
 void add_key_handlers_gtk     (GtkWindow*, gpointer, AGlKey keys[]);
 
 #ifdef __GDK_GL_CONFIG_H__

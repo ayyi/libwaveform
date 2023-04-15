@@ -97,7 +97,7 @@ waveform_load_audio_block (Waveform* waveform, WfBuf16* buf16, int block_num)
 		return false;
 	}
 
-#ifdef WF_DEBUG
+#ifdef DEBUG
 	buf16->start_frame = start_pos;
 #endif
 

@@ -95,13 +95,13 @@ activate (GtkApplication* app, gpointer user_data)
 			case 45:
 				waveform_view_plus_set_zoom(waveform, waveform_view_plus_get_zoom(waveform) / 1.5);
 				break;
-			case KEY_Left:
-			case KEY_KP_Left:
+			case XK_Left:
+			case XK_KP_Left:
 				dbg(1, "left");
 				waveform_view_plus_set_start(waveform, waveform->start_frame - n_visible_frames / 10);
 				break;
-			case KEY_Right:
-			case KEY_KP_Right:
+			case XK_Right:
+			case XK_KP_Right:
 				dbg(1, "right");
 				waveform_view_plus_set_start(waveform, waveform->start_frame + n_visible_frames / 10);
 				break;
@@ -114,8 +114,6 @@ activate (GtkApplication* app, gpointer user_data)
 	GtkEventController* controller = gtk_event_controller_key_new ();
 	g_signal_connect (controller, "key-pressed", G_CALLBACK (on_key_press_event), waveform);
 	gtk_widget_add_controller (window, controller);
-
-	gtk_widget_show (window);
 }
 
 #include "test/_gtk.c"

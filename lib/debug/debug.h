@@ -1,14 +1,15 @@
-/**
-* +----------------------------------------------------------------------+
-* | This file is part of the Ayyi project. http://ayyi.org               |
-* | copyright (C) 2013-2020 Tim Orford <tim@orford.org>                  |
-* +----------------------------------------------------------------------+
-* | This program is free software; you can redistribute it and/or modify |
-* | it under the terms of the GNU General Public License version 3       |
-* | as published by the Free Software Foundation.                        |
-* +----------------------------------------------------------------------+
-*
-*/
+/*
+ +----------------------------------------------------------------------+
+ | This file is part of the Ayyi project. https://www.ayyi.org          |
+ | copyright (C) 2013-2024 Tim Orford <tim@orford.org>                  |
+ +----------------------------------------------------------------------+
+ | This program is free software; you can redistribute it and/or modify |
+ | it under the terms of the GNU General Public License version 3       |
+ | as published by the Free Software Foundation.                        |
+ +----------------------------------------------------------------------+
+ |
+ */
+
 #ifndef __ayyi_debug_h__
 #define __ayyi_debug_h__
 
@@ -23,7 +24,7 @@
 
 #  define PF {if(_debug_) printf("%s()...\n", __func__);}
 #  define PF0 {printf("%s()...\n", __func__);}
-#  define PF2 {if(_debug_ > 1) printf("%s...\n", __func__);}
+#  define PF2 {if (_debug_ > 1) PF0;}
 #  define PF_DONE {if(_debug_) printf("%s(): done.\n", __func__);}
 #else
 #  define dbg(A, B, ...)
@@ -41,9 +42,9 @@
 #endif
 
 #ifdef DEBUG
-void     debug_printf       (const char* func, int level, const char* format, ...);
+void     debug_printf       (const char* func, int level, const char* format, ...) __attribute__ ((format (printf, 3, 4)));
 #endif
-void     warnprintf         (const char* format, ...);
+void     warnprintf         (const char* format, ...) __attribute__ ((format (printf, 1, 2)));
 void     warnprintf2        (const char* func, char* format, ...);
 void     errprintf          (const char* format, ...);
 

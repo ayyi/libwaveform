@@ -129,13 +129,13 @@ run (int argc, char *argv[])
 					case 45:
 						start_zoom(zoom / 1.5);
 						break;
-					case KEY_Up:
-					case KEY_KP_Up:
+					case XK_Up:
+					case XK_KP_Up:
 						dbg(0, "up");
 						forward();
 						break;
-					case KEY_Down:
-					case KEY_KP_Down:
+					case XK_Down:
+					case XK_KP_Down:
 						dbg(0, "down");
 						backward();
 						break;

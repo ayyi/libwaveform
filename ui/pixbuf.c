@@ -1727,7 +1727,7 @@ get_buf_info (const Waveform* w, int block_num, BufInfo* b)
 
 	bool hires_mode = (block_num > -1);
 
-	if(hires_mode){
+	if (hires_mode) {
 		WfAudioData* audio = &w->priv->audio;
 		g_return_val_if_fail(audio->buf16, false);
 		Peakbuf* peakbuf = waveform_get_peakbuf_n((Waveform*)w, block_num);
@@ -1737,8 +1737,7 @@ get_buf_info (const Waveform* w, int block_num, BufInfo* b)
 			.len = peakbuf->size,
 			.n_tiers = RESOLUTION_TO_TIERS(peakbuf->resolution)
 		};
-		g_return_val_if_fail(b->buf, false);
-	}else{
+	} else {
 		dbg(2, "MED len=%i %i (x256=%i)", b->len, b->len / WF_PEAK_VALUES_PER_SAMPLE, (b->len * 256) / WF_PEAK_VALUES_PER_SAMPLE);
 
 		*b = (BufInfo){
@@ -1750,7 +1749,6 @@ get_buf_info (const Waveform* w, int block_num, BufInfo* b)
 	}
 	b->len_frames = b->len / WF_PEAK_VALUES_PER_SAMPLE;
 
-	if(!b->buf) return false;
 	g_return_val_if_fail(b->len < 10000000, false);
 
 	return true;

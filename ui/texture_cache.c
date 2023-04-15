@@ -46,7 +46,7 @@ static int  texture_cache_steal            (TextureCache*);
 static int  texture_cache_lookup_idx       (TextureCache*, WaveformBlock);
 static void texture_cache_unassign         (TextureCache*, WaveformBlock);
 static void texture_cache_shrink           (TextureCache*, int);
-#ifdef WF_DEBUG
+#ifdef DEBUG
 static int  texture_cache_lookup_idx_by_id (TextureCache*, guint);
 #endif
 #ifdef DEBUG
@@ -109,13 +109,13 @@ texture_cache_gen (TextureCache* c)
 	gl_warn("failed to generate %i textures. cache_size=%i", WF_TEXTURE_ALLOCATION_INCREMENT, c->t->len);
 
 	int t;
-#ifdef WF_DEBUG
+#ifdef DEBUG
 	//check the new textures are not already in the cache
 	for(t=0;t< WF_TEXTURE_ALLOCATION_INCREMENT;t++){
 		int idx = texture_cache_lookup_idx_by_id (c, textures[t]);
 		if(idx > -1){
 			WfTexture* tx = &g_array_index(c->t, WfTexture, t);
-			gwarn("given duplicate texture id: %i wf=%p b=%i", textures[t], tx->wb.waveform, tx->wb.block);
+			pwarn("given duplicate texture id: %i wf=%p b=%i", textures[t], tx->wb.waveform, tx->wb.block);
 		}
 	}
 #endif
@@ -324,7 +324,7 @@ texture_cache_lookup_idx(TextureCache* c, WaveformBlock wb)
 }
 
 
-#ifdef WF_DEBUG
+#ifdef DEBUG
 static int
 texture_cache_lookup_idx_by_id(TextureCache* c, guint id)
 {
@@ -424,7 +424,7 @@ texture_cache_remove_waveform(Waveform* waveform) //tmp? should probably only be
 
 		dbg(2, "size=%i n_removed=%i", c->t->len, size0 - texture_cache_count_used(c));
 	}
-	if(wf_debug) texture_cache_print();
+	WF_DEBUG_ texture_cache_print();
 }
 
 

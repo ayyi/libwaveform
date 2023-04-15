@@ -1,7 +1,7 @@
 /*
  +----------------------------------------------------------------------+
  | This file is part of the Ayyi project. https://www.ayyi.org          |
- | copyright (C) 2012-2022 Tim Orford <tim@orford.org>                  |
+ | copyright (C) 2012-2023 Tim Orford <tim@orford.org>                  |
  +----------------------------------------------------------------------+
  | This program is free software; you can redistribute it and/or modify |
  | it under the terms of the GNU General Public License version 3       |
@@ -32,7 +32,6 @@
 
 #include "config.h"
 #include <gtk/gtk.h>
-#include <gdk/gdkkeysyms.h>
 #include "agl/debug.h"
 #include "agl/utils.h"
 #include "agl/event.h"
@@ -66,11 +65,11 @@ static ActorKeyHandler
 static ActorKey keys[] = {
 	{61,        zoom_in},
 	{45,        zoom_out},
-	{KEY_Left,  scroll_left},
-	{KEY_Right, scroll_right},
+	{XK_Left,   scroll_left},
+	{XK_Right,  scroll_right},
 	{'0',       zoom_up},
 	{'9',       zoom_down},
-	{KEY_Home,  home},
+	{XK_Home,   home},
 	{0},
 };
 
@@ -471,7 +470,9 @@ waveform_view_plus_realize (GtkWidget* widget)
 				? wf_get_gtk_fg_color(widget)
 				: base_colour
 		);
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 		GtkStyleContext* context = gtk_widget_get_style_context (widget);
+#pragma GCC diagnostic warning "-Wdeprecated-declarations"
 		GdkRGBA color;
 		gtk_style_context_lookup_color (context, "background-color", &color);
 	}
@@ -664,7 +665,7 @@ waveform_view_plus_get_actor (WaveformViewPlus* view)
 
 
 static bool
-scroll_left (AGlActor* actor, GdkModifierType state)
+scroll_left (AGlActor* actor, AGlModifierType state)
 {
 	WaveformViewPlus* view = (WaveformViewPlus*)actor->root->gl.gdk.widget;
 #ifdef USE_CANVAS_SCALING
@@ -685,7 +686,7 @@ scroll_left (AGlActor* actor, GdkModifierType state)
 
 
 static bool
-scroll_right (AGlActor* actor, GdkModifierType state)
+scroll_right (AGlActor* actor, AGlModifierType state)
 {
 	WaveformViewPlus* view = (WaveformViewPlus*)actor->root->gl.gdk.widget;
 #ifdef USE_CANVAS_SCALING
@@ -706,7 +707,7 @@ scroll_right (AGlActor* actor, GdkModifierType state)
 
 
 static bool
-home (AGlActor* actor, GdkModifierType state)
+home (AGlActor* actor, AGlModifierType state)
 {
 	WaveformViewPlus* view = (WaveformViewPlus*)actor->root->gl.gdk.widget;
 
@@ -717,7 +718,7 @@ home (AGlActor* actor, GdkModifierType state)
 
 
 static bool
-zoom_in (AGlActor* actor, GdkModifierType state)
+zoom_in (AGlActor* actor, AGlModifierType state)
 {
 	WaveformViewPlus* view = (WaveformViewPlus*)actor->root->gl.gdk.widget;
 
@@ -728,7 +729,7 @@ zoom_in (AGlActor* actor, GdkModifierType state)
 
 
 static bool
-zoom_out (AGlActor* actor, GdkModifierType state)
+zoom_out (AGlActor* actor, AGlModifierType state)
 {
 	WaveformViewPlus* view = (WaveformViewPlus*)actor->root->gl.gdk.widget;
 
@@ -739,7 +740,7 @@ zoom_out (AGlActor* actor, GdkModifierType state)
 
 
 static bool
-zoom_up (AGlActor* scene, GdkModifierType state)
+zoom_up (AGlActor* scene, AGlModifierType state)
 {
 	WaveformViewPlus* view = (WaveformViewPlus*)scene->root->gl.gdk.widget;
 	WaveformActor* actor = view->priv->actor;
@@ -751,7 +752,7 @@ zoom_up (AGlActor* scene, GdkModifierType state)
 
 
 static bool
-zoom_down (AGlActor* scene, GdkModifierType state)
+zoom_down (AGlActor* scene, AGlModifierType state)
 {
 	WaveformViewPlus* view = (WaveformViewPlus*)scene->root->gl.gdk.widget;
 	WaveformActor* actor = view->priv->actor;

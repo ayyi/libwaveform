@@ -1,15 +1,16 @@
-/**
-* +----------------------------------------------------------------------+
-* | This file is part of libwaveform                                     |
-* | https://github.com/ayyi/libwaveform                                  |
-* | copyright (C) 2012-2020 Tim Orford <tim@orford.org>                  |
-* +----------------------------------------------------------------------+
-* | This program is free software; you can redistribute it and/or modify |
-* | it under the terms of the GNU General Public License version 3       |
-* | as published by the Free Software Foundation.                        |
-* +----------------------------------------------------------------------+
-*
-*/
+/*
+ +----------------------------------------------------------------------+
+ | This file is part of libwaveform                                     |
+ | https://github.com/ayyi/libwaveform                                  |
+ | copyright (C) 2012-2024 Tim Orford <tim@orford.org>                  |
+ +----------------------------------------------------------------------+
+ | This program is free software; you can redistribute it and/or modify |
+ | it under the terms of the GNU General Public License version 3       |
+ | as published by the Free Software Foundation.                        |
+ +----------------------------------------------------------------------+
+ |
+ */
+
 #define __wf_private__
 #ifdef DEBUG
 #define ENABLE_CHECKS
@@ -97,7 +98,7 @@ wf_load_riff_peak (Waveform* wv, const char* peak_file)
 	const int64_t n_frames = decoder.info.frames / WF_PEAK_VALUES_PER_SAMPLE;
 #endif
 #ifdef USE_SNDFILE
-	dbg(2, "n_channels=%i n_frames=%Li n_bytes=%Li n_blocks=%i", sfinfo.channels, n_frames, sfinfo.frames * peak_byte_depth * sfinfo.channels, (int)(ceil((float)n_frames / WF_PEAK_TEXTURE_SIZE)));
+	dbg(2, "n_channels=%i n_frames=%"PRIi64" n_bytes=%li n_blocks=%i", sfinfo.channels, n_frames, sfinfo.frames * peak_byte_depth * sfinfo.channels, (int)(ceil((float)n_frames / WF_PEAK_TEXTURE_SIZE)));
 #else
 	dbg(2, "n_channels=%i n_frames=%"PRIi64" n_bytes=%"PRIi64" n_blocks=%i", decoder.info.channels, n_frames, decoder.info.frames * peak_byte_depth * decoder.info.channels, (int)(ceil((float)n_frames / WF_PEAK_TEXTURE_SIZE)));
 #endif

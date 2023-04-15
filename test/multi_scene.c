@@ -10,7 +10,7 @@
 
   ---------------------------------------------------------------
 
-  Copyright (C) 2012-2022 Tim Orford <tim@orford.org>
+  Copyright (C) 2012-2023 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -63,10 +63,10 @@ KeyHandler
 	toggle_animate;
 
 AGlKey keys[] = {
-	{KEY_Left,      scroll_left},
-	{KEY_KP_Left,   scroll_left},
-	{KEY_Right,     scroll_right},
-	{KEY_KP_Right,  scroll_right},
+	{XK_Left,       scroll_left},
+	{XK_KP_Left,    scroll_left},
+	{XK_Right,      scroll_right},
+	{XK_KP_Right,   scroll_right},
 	{61,            zoom_in},
 	{45,            zoom_out},
 	{(char)'w',     vzoom_up},
@@ -223,8 +223,6 @@ activate (GtkApplication* app, gpointer user_data)
 	}
 
 	add_key_handlers_gtk ((GtkWindow*)window, NULL, (AGlKey*)&keys);
-
-	gtk_widget_show (window);
 }
 
 
@@ -301,12 +299,14 @@ scroll_right (gpointer _)
 static gboolean
 on_idle (gpointer _)
 {
+#ifdef DEBUG
 	uint64_t get_time ()
 	{
 		struct timeval start;
 		gettimeofday(&start, NULL);
 		return start.tv_sec * 1000 + start.tv_usec / 1000;
 	}
+#endif
 
 	static uint64_t frame = 0;
 #ifdef DEBUG

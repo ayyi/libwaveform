@@ -52,10 +52,10 @@ KeyHandler
 	toggle_animate;
 
 AGlKey keys[] = {
-	{KEY_Left,      scroll_left},
-	{KEY_KP_Left,   scroll_left},
-	{KEY_Right,     scroll_right},
-	{KEY_KP_Right,  scroll_right},
+	{XK_Left,       scroll_left},
+	{XK_KP_Left,    scroll_left},
+	{XK_Right,      scroll_right},
+	{XK_KP_Right,   scroll_right},
 	{61,            zoom_in},
 	{45,            zoom_out},
 	{(char)'w',     vzoom_up},
@@ -133,8 +133,6 @@ activate (GtkApplication* app, gpointer user_data)
 	}
 
 	add_key_handlers_gtk ((GtkWindow*)window, NULL, (AGlKey*)&keys);
-
-	gtk_widget_show (window);
 }
 
 

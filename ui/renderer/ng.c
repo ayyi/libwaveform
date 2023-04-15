@@ -60,7 +60,7 @@ ng_gl2_finalize_notify (gpointer user_data, GObject* was)
 }
 
 
-#ifdef WF_DEBUG
+#ifdef DEBUG
 static bool
 ng_gl2_set (Section* section, int pos, char val)
 {
@@ -278,7 +278,7 @@ ng_gl2_load_block (Renderer* renderer, WaveformActor* actor, int b)
 
 	HiResNGWaveform** data = (HiResNGWaveform**)&w->render_data[renderer->mode];
 #ifdef NG_HASHTABLE
-#ifdef WF_DEBUG
+#ifdef DEBUG
 	{
 		HiResNGWaveform* data1 = g_hash_table_lookup(((NGRenderer*)renderer)->ng_data, waveform);
 		if((*data) != data1) pwarn("%i: wav=%p hash=%p %s", b, *data, data1, modes[renderer->mode].name);

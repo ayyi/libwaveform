@@ -50,7 +50,7 @@ struct _WfBuf16 // also defined in waveform.h
     short*     buf[WF_STEREO];
     guint      size;
     uint32_t   stamp;
-#ifdef WF_DEBUG
+#ifdef DEBUG
     uint64_t   start_frame;
 #endif
 };
@@ -231,7 +231,7 @@ get_scaled_thumbnail (WfDecoder* d, int size, AdPicture* picture)
 		}
 
 		if(av_buffersrc_write_frame(f->thumbnail.filter_source, frame)){
-			gwarn("Failed to write frame to filter graph");
+			pwarn("Failed to write frame to filter graph");
 		}
 		rc = av_buffersink_get_frame(f->thumbnail.filter_sink, frame);
 	}
@@ -471,18 +471,18 @@ ad_open_ffmpeg (WfDecoder* decoder, const char* filename)
 			f->read_planar = ff_read_float_planar_to_planar;
 			break;
 		case AV_SAMPLE_FMT_S32:
-			gwarn("no implementation of S32 to FLT");
+			pwarn("no implementation of S32 to FLT");
 			f->read_planar = ff_read_int32_interleaved_to_planar;
 			break;
 		case AV_SAMPLE_FMT_S32P:
-			gwarn("planar (non-interleaved) unhandled!");
+			pwarn("planar (non-interleaved) unhandled!");
 			f->read = NULL;
 			break;
 		case AV_SAMPLE_FMT_U8:
 			f->read_planar = ff_read_u8_interleaved_to_planar;
 			break;
 		default:
-			gwarn("sample format not handled: %i", f->codec_parameters->format);
+			pwarn("sample format not handled: %i", f->codec_parameters->format);
 			break;
 	}
 
@@ -633,7 +633,7 @@ ff_read_default_interleaved (WfDecoder* d, float* out, size_t len)
 					const int diff = f->output_clock - f->decoder_clock;
 				if (diff < 0) {
 					/* seek ended up past the wanted sample */
-					gwarn("audio seek failed.");
+					pwarn("audio seek failed.");
 					return -1;
 				} else if (f->tmp_buf.len < (diff * d->info.channels)) {
 					/* wanted sample not in current buffer - keep going */
@@ -699,7 +699,7 @@ ff_read_short_interleaved_to_planar (WfDecoder* d, WfBuf16* buf)
 				if (ret == AVERROR(EAGAIN)) ret = 0;
 				if (ret == 0) ret = avcodec_send_packet(f->codec_context, &f->packet);
 				if (ret == AVERROR(EAGAIN)) ret = 0;
-				if (ret < 0) gwarn("error decoding audio");
+				if (ret < 0) pwarn("error decoding audio");
 			}
 
 			if (got_frame) {
@@ -775,7 +775,7 @@ ff_read_short_planar_to_planar (WfDecoder* d, WfBuf16* buf)
 				if (ret == AVERROR(EAGAIN)) ret = 0;
 				if (ret == 0) ret = avcodec_send_packet(f->codec_context, &f->packet);
 				if (ret == AVERROR(EAGAIN)) ret = 0;
-				if (ret < 0) gwarn("error decoding audio");
+				if (ret < 0) pwarn("error decoding audio");
 			}
 			if (got_frame) {
 #ifdef HAVE_FFMPEG_60
@@ -850,7 +850,7 @@ ff_read_short_planar_to_interleaved (WfDecoder* d, float* out, size_t len)
 				if (ret == AVERROR(EAGAIN)) ret = 0;
 				if (ret == 0) ret = avcodec_send_packet(f->codec_context, &f->packet);
 				if (ret == AVERROR(EAGAIN)) ret = 0;
-				if (ret < 0) gwarn("error decoding audio");
+				if (ret < 0) pwarn("error decoding audio");
 			}
 			if (got_frame) {
 #ifdef HAVE_FFMPEG_60
@@ -898,7 +898,7 @@ ff_read_short_planar_to_interleaved (WfDecoder* d, float* out, size_t len)
 static ssize_t
 ff_read_float_interleaved_to_interleaved (WfDecoder* d, float* out, size_t len)
 {
-	gwarn("no implementation of FLT to FLT");
+	pwarn("no implementation of FLT to FLT");
 	return -1;
 }
 
@@ -925,7 +925,7 @@ ff_read_float_interleaved_to_planar (WfDecoder* d, WfBuf16* buf)
 			if (ret == AVERROR(EAGAIN)) ret = 0;
 			if (ret == 0) ret = avcodec_send_packet(f->codec_context, &f->packet);
 			if (ret == AVERROR(EAGAIN)) ret = 0;
-			if (ret < 0) gwarn("error decoding audio");
+			if (ret < 0) pwarn("error decoding audio");
 
 			if (got_frame) {
 #ifdef HAVE_FFMPEG_60
@@ -1006,7 +1006,7 @@ ff_read_short_interleaved_to_interleaved (WfDecoder* d, float* out, size_t len)
 				if (ret == AVERROR(EAGAIN)) ret = 0;
 				if (ret == 0) ret = avcodec_send_packet(f->codec_context, &f->packet);
 				if (ret == AVERROR(EAGAIN)) ret = 0;
-				if (ret < 0) gwarn("error decoding audio");
+				if (ret < 0) pwarn("error decoding audio");
 			}
 			if (got_frame) {
 #ifdef HAVE_FFMPEG_60
@@ -1081,7 +1081,7 @@ ff_read_float_planar_to_planar (WfDecoder* d, WfBuf16* buf)
 				if (ret == AVERROR(EAGAIN)) ret = 0;
 				if (ret < 0){
 					char errbuff[64] = {0,};
-					gwarn("error decoding audio: %s", av_make_error_string(errbuff, 64, ret));
+					pwarn("error decoding audio: %s", av_make_error_string(errbuff, 64, ret));
 					goto stop;
 				}
 			}
@@ -1092,7 +1092,7 @@ ff_read_float_planar_to_planar (WfDecoder* d, WfBuf16* buf)
 				int size = av_samples_get_buffer_size (NULL, f->codec_parameters->channels, f->frame.nb_samples, f->codec_parameters->format, 1);
 #endif
 				if (size < 0)  {
-					gwarn("av_samples_get_buffer_size invalid value");
+					pwarn("av_samples_get_buffer_size invalid value");
 				}
 
 				int64_t fr = f->frame.best_effort_timestamp * d->info.sample_rate / f->format_context->streams[f->audio_stream]->time_base.den + f->frame_iter;
@@ -1171,7 +1171,7 @@ ff_read_float_planar_to_interleaved (WfDecoder* d, float* out, size_t len)
 				if (ret == AVERROR(EAGAIN)) ret = 0;
 				if (ret == 0) ret = avcodec_send_packet(f->codec_context, &f->packet);
 				if (ret == AVERROR(EAGAIN)) ret = 0;
-				if (ret < 0) gwarn("error decoding audio");
+				if (ret < 0) pwarn("error decoding audio");
 			}
 			if (got_frame) {
 #ifdef HAVE_FFMPEG_60
@@ -1246,7 +1246,7 @@ ff_read_int32_interleaved_to_planar (WfDecoder* d, WfBuf16* buf)
 				if (ret == AVERROR(EAGAIN)) ret = 0;
 				if (ret == 0) ret = avcodec_send_packet(f->codec_context, &f->packet);
 				if (ret == AVERROR(EAGAIN)) ret = 0;
-				if (ret < 0) gwarn("error decoding audio");
+				if (ret < 0) pwarn("error decoding audio");
 			}
 
 			if (got_frame) {
@@ -1322,7 +1322,7 @@ ff_read_u8_interleaved_to_planar (WfDecoder* d, WfBuf16* buf)
 				if (ret == AVERROR(EAGAIN)) ret = 0;
 				if (ret == 0) ret = avcodec_send_packet(f->codec_context, &f->packet);
 				if (ret == AVERROR(EAGAIN)) ret = 0;
-				if (ret < 0) gwarn("error decoding audio");
+				if (ret < 0) pwarn("error decoding audio");
 			}
 
 			if (got_frame) {
@@ -1400,7 +1400,7 @@ ff_read_peak (WfDecoder* d, WfBuf16* buf)
 			if (ret == 0) ret = avcodec_send_packet(f->codec_context, &f->packet);
 			if (ret == AVERROR(EAGAIN)) ret = 0;
 			if (ret < 0) {
-				gwarn("error decoding audio");
+				pwarn("error decoding audio");
 				goto stop;
 			}
 		}
@@ -1568,30 +1568,30 @@ ff_filters_init (FFmpegAudioDecoder* f, int size)
 	char scale[64] = {0,};
 	sprintf(scale, "w=%i:h=%i", (int)((float)f->thumbnail.codec_context->width * scale_ratio), size);
 	if(avfilter_graph_create_filter(&scale_filter, avfilter_get_by_name("scale"), "thumb_scale", scale, NULL, graph)){
-		gwarn("Failed to create scale filter");
+		pwarn("Failed to create scale filter");
 	}
 
 	AVFilterContext* format_filter = NULL;
 	if(avfilter_graph_create_filter(&format_filter, avfilter_get_by_name("format"), "thumb_format", "pix_fmts=rgb24", NULL, graph)){
-		gwarn("Failed to create format filter");
+		pwarn("Failed to create format filter");
 	}
 	//av_opt_set_int_list(f->thumbnail.filter_sink, "pix_fmts", pixel_formats, AV_PIX_FMT_NONE, AV_OPT_SEARCH_CHILDREN);
 	//buffersinkParams.release();
 
 	if(avfilter_link(format_filter, 0, f->thumbnail.filter_sink, 0)){
-		gwarn("Failed to link final filter");
+		pwarn("Failed to link final filter");
 	}
 
 	if(avfilter_link(scale_filter, 0, format_filter, 0)){
-		gwarn("Failed to link scale filter");
+		pwarn("Failed to link scale filter");
 	}
 
 	if(avfilter_link(f->thumbnail.filter_source, 0, scale_filter, 0)){
-		gwarn("Failed to link source filter");
+		pwarn("Failed to link source filter");
 	}
 
 	if(avfilter_graph_config(graph, NULL)){
-		gwarn("Failed to configure filter graph");
+		pwarn("Failed to configure filter graph");
 	}
 
   out:
