@@ -1,7 +1,7 @@
 /*
  +----------------------------------------------------------------------+
  | This file is part of the Ayyi project. https://www.ayyi.org          |
- | copyright (C) 2012-2021 Tim Orford <tim@orford.org>                  |
+ | copyright (C) 2012-2023 Tim Orford <tim@orford.org>                  |
  +----------------------------------------------------------------------+
  | This program is free software; you can redistribute it and/or modify |
  | it under the terms of the GNU General Public License version 3       |
@@ -11,6 +11,8 @@
  */
 
 #pragma once
+
+#include <stdbool.h>
 
 typedef void (*Test) ();
 typedef void (TestFn) ();
@@ -27,12 +29,12 @@ typedef struct {
 		char   name[64];
 		bool   finished;  // current test has finished. Go onto the next test.
 	}   current;
-} Test_t;
+} Runner;
 
 #ifdef __runner_c__
-Test_t TEST = {.current = {-1}};
+Runner TEST = {.current = {-1}};
 #else
-extern Test_t TEST;
+extern Runner TEST;
 #endif
 
 void test_finish        ();
@@ -55,12 +57,14 @@ void test_errprintf     (char*, ...);
 	if(TEST.current.finished) return;
 
 #define FINISH_TEST \
+	{ \
 	if(__test_idx != TEST.current.test) return; \
 	printf("%s: finish\n", TEST.current.name); \
 	TEST.current.finished = true; \
 	TEST.passed = true; \
 	test_finish(); \
-	return;
+	return; \
+	}
 
 #define FINISH_TEST_TIMER_STOP \
 	if(__test_idx != TEST.current.test) return G_SOURCE_REMOVE; \

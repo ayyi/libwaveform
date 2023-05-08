@@ -1725,7 +1725,6 @@ get_buf_info (const Waveform* w, int block_num, BufInfo* b)
 	}
 	b->len_frames = b->len / WF_PEAK_VALUES_PER_SAMPLE;
 
-	if(!b->buf) return false;
 	g_return_val_if_fail(b->len < 10000000, false);
 
 	return true;

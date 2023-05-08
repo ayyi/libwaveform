@@ -1,4 +1,5 @@
 if BUILD_TESTS
+if ENABLE_SNDFILE
 
 lib_LTLIBRARIES = libgen.la
 
@@ -130,6 +131,7 @@ clean-local:
 	if [ -f $(DATA_DIR)/large2.wav ]; then rm $(DATA_DIR)/large2.wav; fi
 	if [ -f $(DATA_DIR)/stereo_24b_0:10.wav ]; then rm $(DATA_DIR)/stereo_24b_0:10.wav; fi
 
+endif
 endif
 
 EXTRA_DIST = \

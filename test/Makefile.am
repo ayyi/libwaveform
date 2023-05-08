@@ -1,6 +1,7 @@
 SUBDIRS = gen
 
 if BUILD_TESTS
+if ENABLE_SNDFILE
 
 if ENABLE_LIBASS
 ASSPROGRAMS = ass
@@ -207,6 +208,7 @@ view_plus_DEPENDENCIES = \
 	../.libs/libwaveformui.a \
 	../lib/agl/.libs/libagl.a
 
+endif
 endif
 
 AM_TESTS_FD_REDIRECT = 9>&2 --non-interactive
