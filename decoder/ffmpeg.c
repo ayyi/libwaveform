@@ -1,7 +1,7 @@
 /*
  +----------------------------------------------------------------------+
- | This file is part of the Ayyi project. http://ayyi.org               |
- | copyright (C) 2011-2022 Tim Orford <tim@orford.org>                  |
+ | This file is part of the Ayyi project. https://www.ayyi.org          |
+ | copyright (C) 2011-2023 Tim Orford <tim@orford.org>                  |
  | copyright (C) 2011 Robin Gareus <robin@gareus.org>                   |
  +----------------------------------------------------------------------+
  | This program is free software; you can redistribute it and/or modify |
@@ -147,7 +147,11 @@ ad_info_ffmpeg (WfDecoder* d)
 
 	d->info = (WfAudioInfo){
 		.sample_rate = f->codec_parameters->sample_rate,
+#ifdef HAVE_FFMPEG_60
+		.channels    = f->codec_parameters->ch_layout.nb_channels,
+#else
 		.channels    = f->codec_parameters->channels,
+#endif
 		.frames      = n_frames,
 		.length      = (n_frames * 1000) / f->codec_parameters->sample_rate,
 		.bit_rate    = f->format_context->bit_rate,
@@ -680,13 +684,13 @@ ff_read_short_interleaved_to_planar (WfDecoder* d, WfBuf16* buf)
 		have_frame = true;
 	}
 
-	while(have_frame || !av_read_frame(f->format_context, &f->packet)){
+	while (have_frame || !av_read_frame(f->format_context, &f->packet)) {
 		have_frame = false;
-		if(f->packet.stream_index == f->audio_stream){
+		if (f->packet.stream_index == f->audio_stream) {
 			int got_frame = 0;
-			if(f->frame_iter && f->frame_iter < f->frame.nb_samples){
+			if (f->frame_iter && f->frame_iter < f->frame.nb_samples) {
 				got_frame = true;
-			}else{
+			} else {
 				av_frame_unref(&f->frame);
 				f->frame_iter = 0;
 
@@ -698,18 +702,27 @@ ff_read_short_interleaved_to_planar (WfDecoder* d, WfBuf16* buf)
 				if (ret < 0) gwarn("error decoding audio");
 			}
 
-			if(got_frame){
+			if (got_frame) {
+#ifdef HAVE_FFMPEG_60
+				int size = av_samples_get_buffer_size (NULL, f->codec_context->ch_layout.nb_channels, f->frame.nb_samples, f->codec_parameters->format, 1);
+#else
 				int size = av_samples_get_buffer_size (NULL, f->codec_context->channels, f->frame.nb_samples, f->codec_parameters->format, 1);
+#endif
 				if (size < 0)  {
 					dbg(0, "av_samples_get_buffer_size invalid value");
 				}
 
 				int64_t fr = f->frame.best_effort_timestamp * d->info.sample_rate / f->format_context->streams[f->audio_stream]->time_base.den;
 				int ch;
-				int i; for(i=f->frame_iter; i<f->frame.nb_samples && (n_fr_done < buf->size); i++){
-					if(fr >= f->seek_frame){
-						for(ch=0; ch<MIN(2, f->codec_context->channels); ch++){
+				for (int i=f->frame_iter; i<f->frame.nb_samples && (n_fr_done < buf->size); i++) {
+					if (fr >= f->seek_frame) {
+#ifdef HAVE_FFMPEG_60
+						for (ch=0; ch<MIN(2, f->codec_context->ch_layout.nb_channels); ch++) {
+							memcpy(buf->buf[ch] + n_fr_done, f->frame.data[0] + data_size * (f->codec_context->ch_layout.nb_channels * i + ch), data_size);
+#else
+						for (ch=0; ch<MIN(2, f->codec_context->channels); ch++) {
 							memcpy(buf->buf[ch] + n_fr_done, f->frame.data[0] + data_size * (f->codec_context->channels * i + ch), data_size);
+#endif
 						}
 						n_fr_done++;
 						f->frame_iter++;
@@ -742,18 +755,18 @@ ff_read_short_planar_to_planar (WfDecoder* d, WfBuf16* buf)
 	g_return_val_if_fail(data_size == 2, 0);
 
 	bool have_frame = false;
-	if(f->frame.nb_samples && f->frame_iter < f->frame.nb_samples){
+	if (f->frame.nb_samples && f->frame_iter < f->frame.nb_samples) {
 		have_frame = true;
 	}
 
-	while(have_frame || !av_read_frame(f->format_context, &f->packet)){
+	while (have_frame || !av_read_frame(f->format_context, &f->packet)) {
 		have_frame = false;
-		if(f->packet.stream_index == f->audio_stream){
+		if (f->packet.stream_index == f->audio_stream) {
 
 			int got_frame = false;
-			if(f->frame_iter && f->frame_iter < f->frame.nb_samples){
+			if (f->frame_iter && f->frame_iter < f->frame.nb_samples) {
 				got_frame = true;
-			}else{
+			} else {
 				av_frame_unref(&f->frame);
 				f->frame_iter = 0;
 
@@ -764,17 +777,25 @@ ff_read_short_planar_to_planar (WfDecoder* d, WfBuf16* buf)
 				if (ret == AVERROR(EAGAIN)) ret = 0;
 				if (ret < 0) gwarn("error decoding audio");
 			}
-			if(got_frame){
+			if (got_frame) {
+#ifdef HAVE_FFMPEG_60
+				int size = av_samples_get_buffer_size (NULL, f->codec_context->ch_layout.nb_channels, f->frame.nb_samples, f->codec_parameters->format, 1);
+#else
 				int size = av_samples_get_buffer_size (NULL, f->codec_context->channels, f->frame.nb_samples, f->codec_parameters->format, 1);
+#endif
 				if (size < 0)  {
 					dbg(0, "av_samples_get_buffer_size invalid value");
 				}
 
 				int64_t fr = f->frame.best_effort_timestamp * f->codec_context->sample_rate / f->format_context->streams[f->audio_stream]->time_base.den + f->frame_iter;
 				int ch;
-				int i; for(i=f->frame_iter; i<f->frame.nb_samples && (n_fr_done < buf->size); i++){
-					if(fr >= f->seek_frame){
-						for(ch=0; ch<MIN(2, f->codec_context->channels); ch++){
+				for (int i=f->frame_iter; i<f->frame.nb_samples && (n_fr_done < buf->size); i++) {
+					if (fr >= f->seek_frame) {
+#ifdef HAVE_FFMPEG_60
+						for (ch=0; ch<MIN(2, f->codec_context->ch_layout.nb_channels); ch++) {
+#else
+						for (ch=0; ch<MIN(2, f->codec_context->channels); ch++) {
+#endif
 							buf->buf[ch][n_fr_done] = *(((int16_t*)f->frame.data[ch]) + i);
 						}
 						n_fr_done++;
@@ -783,7 +804,7 @@ ff_read_short_planar_to_planar (WfDecoder* d, WfBuf16* buf)
 				}
 				f->output_clock = fr + n_fr_done;
 
-				if(n_fr_done >= buf->size) goto stop;
+				if (n_fr_done >= buf->size) goto stop;
 			}
 		}
 		av_packet_unref(&f->packet);
@@ -809,18 +830,18 @@ ff_read_short_planar_to_interleaved (WfDecoder* d, float* out, size_t len)
 	g_return_val_if_fail(data_size == 2, 0);
 
 	bool have_frame = false;
-	if(f->frame.nb_samples && f->frame_iter < f->frame.nb_samples){
+	if (f->frame.nb_samples && f->frame_iter < f->frame.nb_samples) {
 		have_frame = true;
 	}
 
-	while(have_frame || !av_read_frame(f->format_context, &f->packet)){
+	while (have_frame || !av_read_frame(f->format_context, &f->packet)) {
 		have_frame = false;
-		if(f->packet.stream_index == f->audio_stream){
+		if (f->packet.stream_index == f->audio_stream) {
 
 			int got_frame = false;
-			if(f->frame_iter && f->frame_iter < f->frame.nb_samples){
+			if (f->frame_iter && f->frame_iter < f->frame.nb_samples) {
 				got_frame = true;
-			}else{
+			} else {
 				av_frame_unref(&f->frame);
 				f->frame_iter = 0;
 
@@ -831,18 +852,27 @@ ff_read_short_planar_to_interleaved (WfDecoder* d, float* out, size_t len)
 				if (ret == AVERROR(EAGAIN)) ret = 0;
 				if (ret < 0) gwarn("error decoding audio");
 			}
-			if(got_frame){
+			if (got_frame) {
+#ifdef HAVE_FFMPEG_60
+				int size = av_samples_get_buffer_size (NULL, f->codec_parameters->ch_layout.nb_channels, f->frame.nb_samples, f->codec_parameters->format, 1);
+#else
 				int size = av_samples_get_buffer_size (NULL, f->codec_parameters->channels, f->frame.nb_samples, f->codec_parameters->format, 1);
+#endif
 				if (size < 0)  {
 					dbg(0, "av_samples_get_buffer_size invalid value");
 				}
 
 				int64_t fr = f->frame.best_effort_timestamp * f->codec_context->sample_rate / f->format_context->streams[f->audio_stream]->time_base.den + f->frame_iter;
 				int ch;
-				int i; for(i=f->frame_iter; i<f->frame.nb_samples && (n_fr_done < n_frames); i++){
-					if(fr >= f->seek_frame){
-						for(ch=0; ch<MIN(2, f->codec_parameters->channels); ch++){
+				for (int i=f->frame_iter; i<f->frame.nb_samples && (n_fr_done < n_frames); i++) {
+					if (fr >= f->seek_frame) {
+#ifdef HAVE_FFMPEG_60
+						for (ch=0; ch<MIN(2, f->codec_parameters->ch_layout.nb_channels); ch++) {
+							out[f->codec_parameters->ch_layout.nb_channels * n_fr_done + ch] = SHORT_TO_FLOAT(*(((int16_t*)f->frame.data[ch]) + i));
+#else
+						for (ch=0; ch<MIN(2, f->codec_parameters->channels); ch++) {
 							out[f->codec_parameters->channels * n_fr_done + ch] = SHORT_TO_FLOAT(*(((int16_t*)f->frame.data[ch]) + i));
+#endif
 						}
 						n_fr_done++;
 						f->frame_iter++;
@@ -883,9 +913,9 @@ ff_read_float_interleaved_to_planar (WfDecoder* d, WfBuf16* buf)
 	int data_size = av_get_bytes_per_sample(f->codec_parameters->format);
 	g_return_val_if_fail(data_size == 4, 0);
 
-	while(!av_read_frame(f->format_context, &f->packet)){
+	while (!av_read_frame(f->format_context, &f->packet)) {
 
-		if(f->packet.stream_index == f->audio_stream){
+		if (f->packet.stream_index == f->audio_stream) {
 
 			av_frame_unref(&frame);
 
@@ -897,8 +927,12 @@ ff_read_float_interleaved_to_planar (WfDecoder* d, WfBuf16* buf)
 			if (ret == AVERROR(EAGAIN)) ret = 0;
 			if (ret < 0) gwarn("error decoding audio");
 
-			if(got_frame){
+			if (got_frame) {
+#ifdef HAVE_FFMPEG_60
+				int size = av_samples_get_buffer_size (NULL, f->codec_parameters->ch_layout.nb_channels, frame.nb_samples, f->codec_parameters->format, 1);
+#else
 				int size = av_samples_get_buffer_size (NULL, f->codec_parameters->channels, frame.nb_samples, f->codec_parameters->format, 1);
+#endif
 				if (size < 0)  {
 					dbg(1, "av_samples_get_buffer_size invalid value");
 					goto stop;
@@ -906,10 +940,15 @@ ff_read_float_interleaved_to_planar (WfDecoder* d, WfBuf16* buf)
 
 				int64_t fr = frame.best_effort_timestamp * d->info.sample_rate / f->format_context->streams[f->audio_stream]->time_base.den;
 				int ch;
-				int i; for(i=0; i<frame.nb_samples && (n_fr_done < buf->size); i++){
-					if(fr >= f->seek_frame){
-						for(ch=0; ch<MIN(2, f->codec_context->channels); ch++){
+				for (int i=0; i<frame.nb_samples && (n_fr_done < buf->size); i++) {
+					if (fr >= f->seek_frame) {
+#ifdef HAVE_FFMPEG_60
+						for (ch=0; ch<MIN(2, f->codec_context->ch_layout.nb_channels); ch++) {
+							float* src = (float*)(frame.data[0] + f->codec_context->ch_layout.nb_channels * data_size * i + data_size * ch);
+#else
+						for (ch=0; ch<MIN(2, f->codec_context->channels); ch++) {
 							float* src = (float*)(frame.data[0] + f->codec_context->channels * data_size * i + data_size * ch);
+#endif
 							buf->buf[ch][n_fr_done] = (*src) * (1 << 15);
 						}
 						n_fr_done++;
@@ -918,7 +957,7 @@ ff_read_float_interleaved_to_planar (WfDecoder* d, WfBuf16* buf)
 				}
 				f->output_clock = fr + n_fr_done;
 
-				if(n_fr_done >= buf->size) goto stop;
+				if (n_fr_done >= buf->size) goto stop;
 			}
 		}
 		av_packet_unref(&f->packet);
@@ -969,19 +1008,28 @@ ff_read_short_interleaved_to_interleaved (WfDecoder* d, float* out, size_t len)
 				if (ret == AVERROR(EAGAIN)) ret = 0;
 				if (ret < 0) gwarn("error decoding audio");
 			}
-			if(got_frame){
+			if (got_frame) {
+#ifdef HAVE_FFMPEG_60
+				int size = av_samples_get_buffer_size (NULL, f->codec_context->ch_layout.nb_channels, f->frame.nb_samples, f->codec_parameters->format, 1);
+#else
 				int size = av_samples_get_buffer_size (NULL, f->codec_context->channels, f->frame.nb_samples, f->codec_parameters->format, 1);
+#endif
 				if (size < 0)  {
 					dbg(0, "av_samples_get_buffer_size invalid value");
 				}
 
 				int64_t fr = f->frame.best_effort_timestamp * f->codec_context->sample_rate / f->format_context->streams[f->audio_stream]->time_base.den + f->frame_iter;
 				int ch;
-				int i; for(i=f->frame_iter; i<f->frame.nb_samples; i++){
-					if(n_fr_done >= n_frames) break;
-					if(fr >= f->seek_frame){
-						for(ch=0; ch<MIN(2, f->codec_context->channels); ch++){
+				for (int i=f->frame_iter; i<f->frame.nb_samples; i++) {
+					if (n_fr_done >= n_frames) break;
+					if (fr >= f->seek_frame) {
+#ifdef HAVE_FFMPEG_60
+						for (ch=0; ch<MIN(2, f->codec_context->ch_layout.nb_channels); ch++) {
+							int16_t* src = (int16_t*)(f->frame.data[0] + f->codec_context->ch_layout.nb_channels * data_size * i + data_size * ch);
+#else
+						for (ch=0; ch<MIN(2, f->codec_context->channels); ch++) {
 							int16_t* src = (int16_t*)(f->frame.data[0] + f->codec_context->channels * data_size * i + data_size * ch);
+#endif
 							out[n_fr_done * d->info.channels + ch] = SHORT_TO_FLOAT(*src);
 							//out[f->codec_context->channels * n_fr_done + ch] = SHORT_TO_FLOAT(*(((int16_t*)f->frame.data[ch]) + i));
 						}
@@ -1016,13 +1064,13 @@ ff_read_float_planar_to_planar (WfDecoder* d, WfBuf16* buf)
 	g_return_val_if_fail(data_size == 4, 0);
 
 	bool have_prev_frame = (f->frame.nb_samples && f->frame_iter < f->frame.nb_samples);
-	while(have_prev_frame || !av_read_frame(f->format_context, &f->packet)){
+	while (have_prev_frame || !av_read_frame(f->format_context, &f->packet)) {
 		have_prev_frame = false;
-		if(f->packet.stream_index == f->audio_stream){
+		if (f->packet.stream_index == f->audio_stream) {
 			int got_frame = false;
-			if(f->frame_iter && f->frame_iter < f->frame.nb_samples){
+			if (f->frame_iter && f->frame_iter < f->frame.nb_samples) {
 				got_frame = true;
-			}else{
+			} else {
 				av_frame_unref(&f->frame);
 				f->frame_iter = 0;
 
@@ -1037,8 +1085,12 @@ ff_read_float_planar_to_planar (WfDecoder* d, WfBuf16* buf)
 					goto stop;
 				}
 			}
-			if(got_frame){
+			if (got_frame) {
+#ifdef HAVE_FFMPEG_60
+				int size = av_samples_get_buffer_size (NULL, f->codec_parameters->ch_layout.nb_channels, f->frame.nb_samples, f->codec_parameters->format, 1);
+#else
 				int size = av_samples_get_buffer_size (NULL, f->codec_parameters->channels, f->frame.nb_samples, f->codec_parameters->format, 1);
+#endif
 				if (size < 0)  {
 					gwarn("av_samples_get_buffer_size invalid value");
 				}
@@ -1046,14 +1098,22 @@ ff_read_float_planar_to_planar (WfDecoder* d, WfBuf16* buf)
 				int64_t fr = f->frame.best_effort_timestamp * d->info.sample_rate / f->format_context->streams[f->audio_stream]->time_base.den + f->frame_iter;
 				int ch;
 #ifdef DEBUG
-				for(ch=0; ch<MIN(2, f->codec_parameters->channels); ch++){
+#ifdef HAVE_FFMPEG_60
+				for (ch=0; ch<MIN(2, f->codec_parameters->ch_layout.nb_channels); ch++) {
+#else
+				for (ch=0; ch<MIN(2, f->codec_parameters->channels); ch++) {
+#endif
 					g_return_val_if_fail(f->frame.data[ch], 0);
 				}
 #endif
-				int i; for(i=f->frame_iter; i<f->frame.nb_samples; i++){
-					if(n_fr_done >= buf->size) break;
-					if(fr >= f->seek_frame){
-						for(ch=0; ch<MIN(2, f->codec_parameters->channels); ch++){
+				for (int i=f->frame_iter; i<f->frame.nb_samples; i++) {
+					if (n_fr_done >= buf->size) break;
+					if (fr >= f->seek_frame) {
+#ifdef HAVE_FFMPEG_60
+						for (ch=0; ch<MIN(2, f->codec_parameters->ch_layout.nb_channels); ch++) {
+#else
+						for (ch=0; ch<MIN(2, f->codec_parameters->channels); ch++) {
+#endif
 							float* src = (float*)(f->frame.data[ch] + data_size * i);
 							// aac values can exceed 1.0 so clamping is needed
 							buf->buf[ch][n_fr_done] = CLAMP((*src), -1.0f, 1.0f) * 32767.0f;
@@ -1064,7 +1124,7 @@ ff_read_float_planar_to_planar (WfDecoder* d, WfBuf16* buf)
 				}
 				f->output_clock = fr + n_fr_done;
 
-				if(n_fr_done >= buf->size) goto stop;
+				if (n_fr_done >= buf->size) goto stop;
 			}
 		}
 		av_packet_unref(&f->packet);
@@ -1091,18 +1151,18 @@ ff_read_float_planar_to_interleaved (WfDecoder* d, float* out, size_t len)
 	g_return_val_if_fail(data_size == 4, 0);
 
 	bool have_frame = false;
-	if(f->frame.nb_samples && f->frame_iter < f->frame.nb_samples){
+	if (f->frame.nb_samples && f->frame_iter < f->frame.nb_samples) {
 		have_frame = true;
 	}
 
-	while(have_frame || !av_read_frame(f->format_context, &f->packet)){
+	while (have_frame || !av_read_frame(f->format_context, &f->packet)) {
 		have_frame = false;
-		if(f->packet.stream_index == f->audio_stream){
+		if (f->packet.stream_index == f->audio_stream) {
 
 			int got_frame = false;
-			if(f->frame_iter && f->frame_iter < f->frame.nb_samples){
+			if (f->frame_iter && f->frame_iter < f->frame.nb_samples) {
 				got_frame = true;
-			}else{
+			} else {
 				av_frame_unref(&f->frame);
 				f->frame_iter = 0;
 
@@ -1113,18 +1173,27 @@ ff_read_float_planar_to_interleaved (WfDecoder* d, float* out, size_t len)
 				if (ret == AVERROR(EAGAIN)) ret = 0;
 				if (ret < 0) gwarn("error decoding audio");
 			}
-			if(got_frame){
+			if (got_frame) {
+#ifdef HAVE_FFMPEG_60
+				int size = av_samples_get_buffer_size (NULL, f->codec_parameters->ch_layout.nb_channels, f->frame.nb_samples, f->codec_parameters->format, 1);
+#else
 				int size = av_samples_get_buffer_size (NULL, f->codec_parameters->channels, f->frame.nb_samples, f->codec_parameters->format, 1);
+#endif
 				if (size < 0)  {
 					dbg(0, "av_samples_get_buffer_size invalid value");
 				}
 
 				int64_t fr = f->frame.best_effort_timestamp * f->codec_context->sample_rate / f->format_context->streams[f->audio_stream]->time_base.den + f->frame_iter;
 				int ch;
-				int i; for(i=f->frame_iter; i<f->frame.nb_samples && (n_fr_done < n_frames); i++){
-					if(fr >= f->seek_frame){
-						for(ch=0; ch<MIN(2, f->codec_context->channels); ch++){
+				for(int i=f->frame_iter; i<f->frame.nb_samples && (n_fr_done < n_frames); i++) {
+					if (fr >= f->seek_frame) {
+#ifdef HAVE_FFMPEG_60
+						for (ch=0; ch<MIN(2, f->codec_context->ch_layout.nb_channels); ch++) {
+							out[f->codec_parameters->ch_layout.nb_channels * n_fr_done + ch] = *(((float*)f->frame.data[ch]) + i);
+#else
+						for (ch=0; ch<MIN(2, f->codec_context->channels); ch++) {
 							out[f->codec_parameters->channels * n_fr_done + ch] = *(((float*)f->frame.data[ch]) + i);
+#endif
 						}
 						n_fr_done++;
 						f->frame_iter++;
@@ -1158,17 +1227,17 @@ ff_read_int32_interleaved_to_planar (WfDecoder* d, WfBuf16* buf)
 	g_return_val_if_fail(data_size == 4, 0);
 
 	bool have_frame = false;
-	if(f->frame.nb_samples && f->frame_iter < f->frame.nb_samples){
+	if (f->frame.nb_samples && f->frame_iter < f->frame.nb_samples) {
 		have_frame = true;
 	}
 
-	while(have_frame || !av_read_frame(f->format_context, &f->packet)){
+	while (have_frame || !av_read_frame(f->format_context, &f->packet)) {
 		have_frame = false;
-		if(f->packet.stream_index == f->audio_stream){
+		if (f->packet.stream_index == f->audio_stream) {
 			int got_frame = 0;
-			if(f->frame_iter && f->frame_iter < f->frame.nb_samples){
+			if (f->frame_iter && f->frame_iter < f->frame.nb_samples) {
 				got_frame = true;
-			}else{
+			} else {
 				av_frame_unref(&f->frame);
 				f->frame_iter = 0;
 
@@ -1180,18 +1249,27 @@ ff_read_int32_interleaved_to_planar (WfDecoder* d, WfBuf16* buf)
 				if (ret < 0) gwarn("error decoding audio");
 			}
 
-			if(got_frame){
+			if (got_frame) {
+#ifdef HAVE_FFMPEG_60
+				int size = av_samples_get_buffer_size (NULL, f->codec_parameters->ch_layout.nb_channels, f->frame.nb_samples, f->codec_parameters->format, 1);
+#else
 				int size = av_samples_get_buffer_size (NULL, f->codec_parameters->channels, f->frame.nb_samples, f->codec_parameters->format, 1);
+#endif
 				if (size < 0)  {
 					dbg(0, "av_samples_get_buffer_size invalid value");
 				}
 
 				int64_t fr = f->frame.best_effort_timestamp * d->info.sample_rate / f->format_context->streams[f->audio_stream]->time_base.den;
 				int ch;
-				int i; for(i=f->frame_iter; i<f->frame.nb_samples && (n_fr_done < buf->size); i++){
-					if(fr >= f->seek_frame){
-						for(ch=0; ch<MIN(2, f->codec_context->channels); ch++){
+				for (int i=f->frame_iter; i<f->frame.nb_samples && (n_fr_done < buf->size); i++) {
+					if (fr >= f->seek_frame) {
+#ifdef HAVE_FFMPEG_60
+						for (ch=0; ch<MIN(2, f->codec_context->ch_layout.nb_channels); ch++) {
+							buf->buf[ch][n_fr_done] = INT32_TO_SHORT(*((int32_t*)(f->frame.data[0] + (f->codec_context->ch_layout.nb_channels * i + ch) * data_size)));
+#else
+						for (ch=0; ch<MIN(2, f->codec_context->channels); ch++) {
 							buf->buf[ch][n_fr_done] = INT32_TO_SHORT(*((int32_t*)(f->frame.data[0] + (f->codec_context->channels * i + ch) * data_size)));
+#endif
 						}
 						n_fr_done++;
 						f->frame_iter++;
@@ -1199,7 +1277,7 @@ ff_read_int32_interleaved_to_planar (WfDecoder* d, WfBuf16* buf)
 				}
 				f->output_clock = fr + n_fr_done;
 
-				if(n_fr_done >= buf->size) goto stop;
+				if (n_fr_done >= buf->size) goto stop;
 			}
 		}
 		av_packet_unref(&f->packet);
@@ -1225,17 +1303,17 @@ ff_read_u8_interleaved_to_planar (WfDecoder* d, WfBuf16* buf)
 	g_return_val_if_fail(data_size == 1, 0);
 
 	bool have_frame = false;
-	if(f->frame.nb_samples && f->frame_iter < f->frame.nb_samples){
+	if (f->frame.nb_samples && f->frame_iter < f->frame.nb_samples) {
 		have_frame = true;
 	}
 
-	while(have_frame || !av_read_frame(f->format_context, &f->packet)){
+	while (have_frame || !av_read_frame(f->format_context, &f->packet)) {
 		have_frame = false;
-		if(f->packet.stream_index == f->audio_stream){
+		if (f->packet.stream_index == f->audio_stream) {
 			int got_frame = 0;
-			if(f->frame_iter && f->frame_iter < f->frame.nb_samples){
+			if (f->frame_iter && f->frame_iter < f->frame.nb_samples) {
 				got_frame = true;
-			}else{
+			} else {
 				av_frame_unref(&f->frame);
 				f->frame_iter = 0;
 
@@ -1247,18 +1325,27 @@ ff_read_u8_interleaved_to_planar (WfDecoder* d, WfBuf16* buf)
 				if (ret < 0) gwarn("error decoding audio");
 			}
 
-			if(got_frame){
+			if (got_frame) {
+#ifdef HAVE_FFMPEG_60
+				int size = av_samples_get_buffer_size (NULL, f->codec_parameters->ch_layout.nb_channels, f->frame.nb_samples, f->codec_parameters->format, 1);
+#else
 				int size = av_samples_get_buffer_size (NULL, f->codec_parameters->channels, f->frame.nb_samples, f->codec_parameters->format, 1);
+#endif
 				if (size < 0)  {
 					dbg(0, "av_samples_get_buffer_size invalid value");
 				}
 
 				int64_t fr = f->frame.best_effort_timestamp * d->info.sample_rate / f->format_context->streams[f->audio_stream]->time_base.den;
 				int ch;
-				int i; for(i=f->frame_iter; i<f->frame.nb_samples && (n_fr_done < buf->size); i++){
-					if(fr >= f->seek_frame){
-						for(ch=0; ch<MIN(2, f->codec_parameters->channels); ch++){
+				for (int i=f->frame_iter; i<f->frame.nb_samples && (n_fr_done < buf->size); i++) {
+					if (fr >= f->seek_frame) {
+#ifdef HAVE_FFMPEG_60
+						for (ch=0; ch<MIN(2, f->codec_parameters->ch_layout.nb_channels); ch++) {
+							buf->buf[ch][n_fr_done] = U8_TO_SHORT(*(f->frame.data[0] + f->codec_parameters->ch_layout.nb_channels * i + ch));
+#else
+						for (ch=0; ch<MIN(2, f->codec_parameters->channels); ch++) {
 							buf->buf[ch][n_fr_done] = U8_TO_SHORT(*(f->frame.data[0] + f->codec_parameters->channels * i + ch));
+#endif
 						}
 						n_fr_done++;
 						f->frame_iter++;
@@ -1319,7 +1406,11 @@ ff_read_peak (WfDecoder* d, WfBuf16* buf)
 		}
 
 		if (got_frame) {
+#ifdef HAVE_FFMPEG_60
+			int size = av_samples_get_buffer_size (NULL, f->codec_parameters->ch_layout.nb_channels, f->frame.nb_samples, f->codec_parameters->format, 1);
+#else
 			int size = av_samples_get_buffer_size (NULL, f->codec_parameters->channels, f->frame.nb_samples, f->codec_parameters->format, 1);
+#endif
 			if (size < 0)  {
 				dbg(0, "av_samples_get_buffer_size invalid value");
 			}
@@ -1329,14 +1420,22 @@ ff_read_peak (WfDecoder* d, WfBuf16* buf)
 			g_assert(fr == f->output_clock);
 #endif
 			int ch;
+#ifdef HAVE_FFMPEG_60
+			int n_ch = MIN(2, f->codec_context->ch_layout.nb_channels);
+#else
 			int n_ch = MIN(2, f->codec_context->channels);
+#endif
 // TODO why does ffmpeg give us more frames than the buffer can hold?
 			int remaining_in_buffer = buf->size - n_fr_done;
 			int iter_max = MIN(remaining_in_buffer - 2, f->frame.nb_samples);
 			//for(int i=f->frame_iter; (f->frame_iter < f->frame.nb_samples) && (n_fr_done + 2 < buf->size); i+=2){
 			for (int i=f->frame_iter; f->frame_iter < iter_max; i+=2) {
 				for (ch=0; ch<n_ch; ch++) {
+#ifdef HAVE_FFMPEG_60
+					memcpy(buf->buf[ch] + n_fr_done, f->frame.data[0] + data_size * (f->codec_context->ch_layout.nb_channels * i + 2 * ch), data_size * 2);
+#else
 					memcpy(buf->buf[ch] + n_fr_done, f->frame.data[0] + data_size * (f->codec_context->channels * i + 2 * ch), data_size * 2);
+#endif
 				}
 				n_fr_done += 2;
 				f->frame_iter += 2;
