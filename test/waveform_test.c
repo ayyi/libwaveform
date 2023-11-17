@@ -1,7 +1,7 @@
 /*
  +----------------------------------------------------------------------+
  | This file is part of the Ayyi project. https://www.ayyi.org          |
- | copyright (C) 2012-2022 Tim Orford <tim@orford.org>                  |
+ | copyright (C) 2012-2024 Tim Orford <tim@orford.org>                  |
  +----------------------------------------------------------------------+
  | This program is free software; you can redistribute it and/or modify |
  | it under the terms of the GNU General Public License version 3       |
@@ -26,11 +26,12 @@
 #include "test/utils.h"
 #include "test/runner.h"
 
-TestFn test_peakgen, test_m4a, test_bad_wav, test_empty_wav, test_audio_file, test_audiodata, test_audio_cache, test_alphabuf, test_transition, test_worker, test_thumbnail;
+TestFn test_decoder, test_peakgen, test_m4a, test_bad_wav, test_empty_wav, test_audio_file, test_audiodata, test_audio_cache, test_alphabuf, test_transition, test_worker, test_thumbnail;
 
 static void finalize_notify (gpointer, GObject*);
 
 gpointer tests[] = {
+	test_decoder,
 	test_peakgen,
 	test_m4a,
 	test_bad_wav,
@@ -53,6 +54,33 @@ gpointer tests[] = {
 
 
 void
+test_decoder ()
+{
+	START_TEST;
+
+	{
+		WfDecoder f = {{0,}};
+
+		g_autofree char* filename = find_wav(WAV2);
+		assert(ad_open(&f, filename), "failed to open");
+
+		assert(f.info.channels = 2, "channels");
+	}
+
+	{
+		WfDecoder f = {{0,}};
+
+		g_autofree char* filename = find_wav("stereo_0:10.m4a");
+		assert(ad_open(&f, filename), "failed to open");
+
+		assert(f.info.channels = 2, "channels");
+	}
+
+	FINISH_TEST;
+}
+
+
+void
 test_peakgen ()
 {
 	START_TEST;
@@ -60,18 +88,27 @@ test_peakgen ()
 	char* filename = find_wav(WAV);
 	assert(filename, "cannot find file %s", WAV);
 
-	if (!wf_peakgen__sync(filename, WAV ".peak", NULL)) {
-		FAIL_TEST("local peakgen failed");
+	// create local peakfile
+	{
+		if (!wf_peakgen__sync(filename, WAV ".peak", NULL)) {
+			FAIL_TEST("local peakgen failed");
+		}
+		gsize length;
+		g_autofree gchar* contents;
+		g_file_get_contents (WAV ".peak", &contents, &length, NULL);
+		assert(length == 6970, "peakfile size %i", (int)length);
 	}
 
 	// create peakfile in the cache directory
-	Waveform* w = waveform_new(filename);
-	g_free(filename);
+	{
+		Waveform* w = waveform_new(filename);
 
-	char* p = waveform_ensure_peakfile__sync(w);
-	assert(p, "cache dir peakgen failed");
-	g_object_unref(w);
-	g_free(p);
+		char* p = waveform_ensure_peakfile__sync(w);
+		assert(p, "cache dir peakgen failed");
+		g_object_unref(w);
+		g_free(p);
+	}
+	g_free(filename);
 
 	FINISH_TEST;
 }

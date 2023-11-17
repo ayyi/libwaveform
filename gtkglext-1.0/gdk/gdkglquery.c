@@ -222,7 +222,9 @@ gdk_gl_get_proc_address (const char *proc_name)
        * Look up glXGetProcAddress () function.
        */
 
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
       file_name = g_module_build_path (NULL, "GL");
+#pragma GCC diagnostic warning "-Wdeprecated-declarations"
       GDK_GL_NOTE (MISC, g_message (" - Open %s", file_name));
       module = g_module_open (file_name, G_MODULE_BIND_LAZY);
       g_free (file_name);
@@ -256,7 +258,9 @@ gdk_gl_get_proc_address (const char *proc_name)
   /* Try g_module_symbol () */
 
   /* libGL */
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
   file_name = g_module_build_path (NULL, "GL");
+#pragma GCC diagnostic warning "-Wdeprecated-declarations"
   GDK_GL_NOTE (MISC, g_message (" - Open %s", file_name));
   module = g_module_open (file_name, G_MODULE_BIND_LAZY);
   g_free (file_name);
@@ -271,7 +275,9 @@ gdk_gl_get_proc_address (const char *proc_name)
 
   if (!proc_address) {
       /* libGLcore */
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
       file_name = g_module_build_path (NULL, "GLcore");
+#pragma GCC diagnostic warning "-Wdeprecated-declarations"
       GDK_GL_NOTE (MISC, g_message (" - Open %s", file_name));
       module = g_module_open (file_name, G_MODULE_BIND_LAZY);
       g_free (file_name);

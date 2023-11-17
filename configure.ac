@@ -282,6 +282,13 @@ FFMPEG_LDFLAGS=${FFMPEG_LIBS}
 AC_SUBST(FFMPEG_CFLAGS)
 AC_SUBST(FFMPEG_LDFLAGS)
 
+if `pkg-config libavcodec --atleast-version=60.0.0`; then
+  HAVE_FFMPEG_60="yes"
+  AC_DEFINE(HAVE_FFMPEG_60, 1, [We have at least ffmpeg version 60])
+else
+  HAVE_FFMPEG_60="no"
+fi;
+
 dnl -----------------------------------------------------
 
 AS_IF([test "$enable_sdl" != "no"], [
