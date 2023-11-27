@@ -250,7 +250,11 @@ typedef struct
 
 
 static AVFrame*
+#ifdef HAVE_FFMPEG_60
 alloc_audio_frame (enum AVSampleFormat sample_fmt, AVChannelLayout channel_layout, int sample_rate, int nb_samples)
+#else
+alloc_audio_frame (enum AVSampleFormat sample_fmt, uint64_t channel_layout, int sample_rate, int nb_samples)
+#endif
 {
 	AVFrame* frame = av_frame_alloc();
 
@@ -260,7 +264,11 @@ alloc_audio_frame (enum AVSampleFormat sample_fmt, AVChannelLayout channel_layou
 	}
 
 	frame->format = sample_fmt;
+#ifdef HAVE_FFMPEG_60
 	frame->ch_layout = channel_layout;
+#else
+	frame->channel_layout = channel_layout;
+#endif
 	frame->sample_rate = sample_rate;
 	frame->nb_samples = nb_samples;
 
@@ -293,7 +301,11 @@ open_audio2 (AVCodecContext* c, AVStream* stream, OutputStream* ost)
 	else
 		nb_samples = c->frame_size;
 
+#ifdef HAVE_FFMPEG_60
 	ost->frame = alloc_audio_frame(c->sample_fmt, c->ch_layout, c->sample_rate, nb_samples);
+#else
+	ost->frame = alloc_audio_frame(c->sample_fmt, c->channel_layout, c->sample_rate, nb_samples);
+#endif
 
 	// Copy the stream parameters to the muxer
 	int ret = avcodec_parameters_from_context(stream->codecpar, c);
@@ -364,11 +376,16 @@ wf_ff_peakgen (const char* infilename, const char* peak_filename)
 
 	c->sample_fmt  = codec->sample_fmts ? codec->sample_fmts[0] : AV_SAMPLE_FMT_S16;
 	c->sample_rate = f.info.sample_rate;
+#ifdef HAVE_FFMPEG_60
 	if (codec->ch_layouts) {
 		c->ch_layout = codec->ch_layouts[0];
 	} else {
 		av_channel_layout_default(&c->ch_layout, f.info.channels);
 	}
+#else
+	c->channel_layout = codec->channel_layouts ? codec->channel_layouts[0] : (f.info.channels == 2 ? AV_CH_LAYOUT_STEREO : AV_CH_LAYOUT_MONO);
+	c->channels       = av_get_channel_layout_nb_channels(c->channel_layout);
+#endif
 	c->bit_rate    = f.info.sample_rate * 16 * f.info.channels;
 
 	stream->time_base = (AVRational){ 1, c->sample_rate };
@@ -606,7 +623,12 @@ wf_ff_peakgen_split_stereo (const char* infilename, const char* peak_filename)
 
 	c->sample_fmt  = codec->sample_fmts ? codec->sample_fmts[0] : AV_SAMPLE_FMT_S16;
 	c->sample_rate = f.info.sample_rate;
+#ifdef HAVE_FFMPEG_60
 	av_channel_layout_default(&c->ch_layout, WF_STEREO);
+#else
+	c->channel_layout = AV_CH_LAYOUT_STEREO;
+	c->channels       = 2;
+#endif
 	c->bit_rate    = f.info.sample_rate * 16 * f.info.channels;
 
 	stream->time_base = (AVRational){ 1, c->sample_rate };
