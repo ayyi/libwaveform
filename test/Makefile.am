@@ -6,12 +6,21 @@ if ENABLE_SNDFILE
 if ENABLE_LIBASS
 ASSPROGRAMS = ass
 endif
+
 if ENABLE_SDL
 SDLPROGRAMS = sdl
 endif
+
 if ENABLE_GTK
 GTKPROGRAMS = view_plus no_scene hires res_vhi multi_scene $(ASSPROGRAMS) pixbuf
-LOCAL_GTK_LDFLAGS = $(GTK_LDFLAGS)
+LOCAL_GTK_LDFLAGS = \
+	$(GTK_LDFLAGS)
+else
+LOCAL_GTK_LDFLAGS = \
+	$(GOBJECT_LDFLAGS) \
+	$(PANGO_LDFLAGS) \
+	$(GDKPIXBUF_LDFLAGS) \
+	-lgio-2.0
 endif
 
 if ENABLE_OPENGL
@@ -112,6 +121,10 @@ hires_SOURCES = \
 	$(COMMON2_SOURCES) \
 	hires.c
 
+res_vlow_SOURCES = \
+	$(COMMON2_SOURCES) \
+	res_vlow.c
+
 res_vhi_SOURCES = \
 	$(COMMON2_SOURCES) \
 	res_vhi.c
@@ -188,6 +201,10 @@ glx_LDADD = \
 	$(OPENGL_LDFLAGS) \
 	$(TEST_LDFLAGS)
 
+res_vlow_LDADD = \
+	$(OPENGL_LDFLAGS) \
+	$(TEST_LDFLAGS)
+
 input_LDADD = \
 	$(OPENGL_LDFLAGS) \
 	$(TEST_LDFLAGS)
@@ -219,6 +236,7 @@ TESTS = \
 	actor_plus \
 	hires \
 	res_vhi \
+	res_vlow \
 	group \
 	no_scene \
 	multi_scene \

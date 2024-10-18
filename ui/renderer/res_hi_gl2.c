@@ -58,7 +58,7 @@ extern NGRenderer hi_renderer_gl2;
 extern HiResNGShader hires_ng_shader;
 
 
-void
+static void
 hi_gl2_new (WaveformActor* a)
 {
 }

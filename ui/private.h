@@ -1,16 +1,16 @@
-/**
-* +----------------------------------------------------------------------+
-* | This file is part of libwaveform https://github.com/ayyi/libwaveform |
-* | copyright (C) 2012-2020 Tim Orford <tim@orford.org>                  |
-* +----------------------------------------------------------------------+
-* | This program is free software; you can redistribute it and/or modify |
-* | it under the terms of the GNU General Public License version 3       |
-* | as published by the Free Software Foundation.                        |
-* +----------------------------------------------------------------------+
-*
-*/
-#ifndef __waveform_private_h__
-#define __waveform_private_h__
+/*
+ +----------------------------------------------------------------------+
+ | This file is part of libwaveform https://github.com/ayyi/libwaveform |
+ | copyright (C) 2012-2024 Tim Orford <tim@orford.org>                  |
+ +----------------------------------------------------------------------+
+ | This program is free software; you can redistribute it and/or modify |
+ | it under the terms of the GNU General Public License version 3       |
+ | as published by the Free Software Foundation.                        |
+ +----------------------------------------------------------------------+
+ |
+ */
+
+#pragma once
 
 #include "agl/fbo.h"
 #include "waveform/ui-typedefs.h"
@@ -33,5 +33,3 @@ struct _wf_texture_list                   // WfGlBlock - used at MED and LOW res
 };
 
 WaveformActor* wf_actor_new        (Waveform*, WaveformContext*);
-
-#endif

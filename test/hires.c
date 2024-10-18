@@ -5,7 +5,7 @@
 
   Hires mode uses asynchronous loading.
   When the widget is initially loaded in this mode, different
-  code paths are excercised.
+  code paths are exercised.
 
   A single waveform is displayed.
   The keys +- and cursor left/right keys can be used to zoom and in and scroll.
@@ -56,7 +56,12 @@ activate (GtkApplication* app, gpointer user_data)
 	GtkWidget* box2 = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 0);
 	gtk_box_append (GTK_BOX(vbox), box2);
 
+	/*
+	 *  Note that WaveformViewPlus creates a new scene,
+	 *  so this test contains 3 separate scenes.
+	 */
 	WaveformViewPlus* waveform = waveform_view_plus_new(NULL);
+	set_str(((AGlActor*)waveform_view_plus_get_actor(waveform))->name, g_strdup("Waveform1"));
 	gtk_widget_set_hexpand ((GtkWidget*)waveform, TRUE);
 	gtk_widget_set_vexpand ((GtkWidget*)waveform, TRUE);
 	gtk_box_append (GTK_BOX(box1), GTK_WIDGET(waveform));
@@ -66,17 +71,19 @@ activate (GtkApplication* app, gpointer user_data)
 
 	// The 2nd row splits the same wav in two to test that the join is seamless
 	WaveformViewPlus* waveform2 = waveform_view_plus_new(NULL);
+	set_str(((AGlActor*)waveform_view_plus_get_actor(waveform2))->name, g_strdup("Waveform2"));
 	gtk_widget_set_hexpand ((GtkWidget*)waveform2, TRUE);
 	gtk_widget_set_vexpand ((GtkWidget*)waveform2, TRUE);
 	gtk_box_append (GTK_BOX(box2), GTK_WIDGET(waveform2));
+
 	WaveformViewPlus* waveform3 = waveform_view_plus_new(NULL);
+	set_str(((AGlActor*)waveform_view_plus_get_actor(waveform3))->name, g_strdup("Waveform3"));
 	gtk_widget_set_hexpand ((GtkWidget*)waveform3, TRUE);
 	gtk_widget_set_vexpand ((GtkWidget*)waveform3, TRUE);
 	gtk_box_append (GTK_BOX(box2), GTK_WIDGET(waveform3));
 
-	char* filename = find_wav(WAV);
+	g_autofree char* filename = find_wav(WAV);
 	waveform_view_plus_load_file(waveform, filename, NULL, NULL);
-	g_free(filename);
 
 	waveform_view_plus_set_waveform(waveform2, waveform->waveform);
 	waveform_view_plus_set_region(waveform2, 0, waveform_get_n_frames(waveform->waveform) / 2 - 1);
@@ -114,6 +121,8 @@ activate (GtkApplication* app, gpointer user_data)
 	GtkEventController* controller = gtk_event_controller_key_new ();
 	g_signal_connect (controller, "key-pressed", G_CALLBACK (on_key_press_event), waveform);
 	gtk_widget_add_controller (window, controller);
+
+	gtk_widget_set_visible(window, true);
 }
 
 #include "test/_gtk.c"

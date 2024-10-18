@@ -19,6 +19,9 @@
 #define __wf_canvas_priv__
 
 #include "config.h"
+#ifdef USE_GDK_PIXBUF
+#include <gdk-pixbuf/gdk-pixdata.h>
+#endif
 #include "agl/actor.h"
 #include "agl/debug.h"
 #include "transition/frameclock.h"
@@ -292,7 +295,7 @@ wf_context_queue_redraw (WaveformContext* wfc)
 #if 0
 		frame_clock_request_phase(GDK_FRAME_CLOCK_PHASE_PAINT);
 #else
-		frame_clock_request_phase(GDK_FRAME_CLOCK_PHASE_UPDATE);
+		frame_clock_request_phase(AGL_FRAME_CLOCK_PHASE_UPDATE);
 #endif
 	}
 

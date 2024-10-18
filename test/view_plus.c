@@ -162,6 +162,8 @@ activate (GtkApplication* app, gpointer user_data)
 	gtk_application_set_accels_for_action (GTK_APPLICATION (app), "app.quit", (const char* const*)(char*[]){"Q", "<Ctrl>Q", NULL});
 
 	add_key_handlers_gtk((GtkWindow*)window, waveform, (AGlKey*)&keys);
+
+	gtk_widget_set_visible(window, true);
 }
 
 

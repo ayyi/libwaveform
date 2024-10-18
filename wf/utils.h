@@ -35,7 +35,9 @@
 
 #endif // __wf_private__
 
-#define WF_NEW(T, ...) ({T* obj = g_new0(T, 1); *obj = (T){__VA_ARGS__}; obj;})
+#define WF_NEW(T, ...) ({ T* obj = g_new0(T, 1); *obj = (T){__VA_ARGS__}; obj; })
+
+#define set_str(P, NAME) ({ if (P) g_free(P); P = NAME; })
 
 bool       wf_get_filename_for_other_channel (const char* filename, char* other, int n_chars);
 

@@ -1,20 +1,20 @@
-/**
-* +----------------------------------------------------------------------+
-* | This file is part of the Ayyi project. http://ayyi.org               |
-* | copyright (C) 2012-2020 Tim Orford <tim@orford.org>                  |
-* +----------------------------------------------------------------------+
-* | This program is free software; you can redistribute it and/or modify |
-* | it under the terms of the GNU General Public License version 3       |
-* | as published by the Free Software Foundation.                        |
-* +----------------------------------------------------------------------+
-*
-*/
+/*
+ +----------------------------------------------------------------------+
+ | This file is part of the Ayyi project. https://www.ayyi.org          |
+ | copyright (C) 2012-2024 Tim Orford <tim@orford.org>                  |
+ +----------------------------------------------------------------------+
+ | This program is free software; you can redistribute it and/or modify |
+ | it under the terms of the GNU General Public License version 3       |
+ | as published by the Free Software Foundation.                        |
+ +----------------------------------------------------------------------+
+ |
+ */
+
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-#ifndef __waveform_h__
-#define __waveform_h__
+#pragma once
 
 #include <stdint.h>
 #include <stdbool.h>
@@ -139,8 +139,6 @@ typedef struct { WfCallback3 callback; gpointer user_data; } WfClosure;
 #ifndef __waveform_peak_c__
 extern WF* wf;
 #endif
-
-#endif //__waveform_h__
 
 #ifdef __cplusplus
 }

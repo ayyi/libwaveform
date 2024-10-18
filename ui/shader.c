@@ -1,14 +1,14 @@
 /*
-* +----------------------------------------------------------------------+
-* | This file is part of the Ayyi project. https://www.ayyi.org          |
-* | copyright (C) 2012-2021 Tim Orford <tim@orford.org>                  |
-* +----------------------------------------------------------------------+
-* | This program is free software; you can redistribute it and/or modify |
-* | it under the terms of the GNU General Public License version 3       |
-* | as published by the Free Software Foundation.                        |
-* +----------------------------------------------------------------------+
-*
-*/
+ +----------------------------------------------------------------------+
+ | This file is part of the Ayyi project. https://www.ayyi.org          |
+ | copyright (C) 2012-2024 Tim Orford <tim@orford.org>                  |
+ +----------------------------------------------------------------------+
+ | This program is free software; you can redistribute it and/or modify |
+ | it under the terms of the GNU General Public License version 3       |
+ | as published by the Free Software Foundation.                        |
+ +----------------------------------------------------------------------+
+ |
+ */
 
 #define __wf_shader_c__
 #define __wf_private__
@@ -115,7 +115,7 @@ RulerShader ruler = {{NULL, NULL, 0, uniforms5, _ruler_set_uniforms, &ruler_text
 
 CursorShader cursor = {{
 	.uniforms = (AGlUniformInfo[]){
-   		{"colour", 4, GL_COLOR_ARRAY, -1,},
+		{"colour", 4, GL_COLOR_ARRAY, -1,},
 		END_OF_UNIFORMS
 	},
 	.set_uniforms_ = _cursor_set_uniforms,

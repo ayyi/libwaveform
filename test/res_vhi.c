@@ -159,7 +159,9 @@ activate (GtkApplication* app, gpointer user_data)
 	}
 	((AGlActor*)scene)->set_size = set_size;
 
-	g_object_unref(w1); // this effectively transfers ownership of the waveform to the Scene
+	g_object_unref(w1); // transfer ownership of the waveform to the Scene
+
+	gtk_widget_set_visible(window, true);
 }
 
 
