@@ -1,7 +1,7 @@
 /*
  +---------------------------------------------------------------------
  | This file is part of the Ayyi project. https://www.ayyi.org
- | copyright (C) 2012-2023 Tim Orford <tim@orford.org>
+ | copyright (C) 2012-2025 Tim Orford <tim@orford.org>
  +---------------------------------------------------------------------
  | This program is free software; you can redistribute it and/or modify
  | it under the terms of the GNU General Public License version 3
@@ -16,7 +16,7 @@
 #include <getopt.h>
 #include "agl/gtk-area.h"
 #include "waveform/actor.h"
-#include "test/common.h"
+#include "test/common2.h"
 
 #define WAV "piano.wav"
 
@@ -30,7 +30,7 @@ WaveformActor*   split[2] = {NULL,};
 float            vzoom    = 1.0;
 gpointer         tests[]  = {};
 
-KeyHandler
+AGlKeyHandler
 	zoom_in,
 	zoom_out,
 	vzoom_up,
@@ -159,7 +159,9 @@ activate (GtkApplication* app, gpointer user_data)
 	}
 	((AGlActor*)scene)->set_size = set_size;
 
-	g_object_unref(w1); // this effectively transfers ownership of the waveform to the Scene
+	g_object_unref(w1); // transfer ownership of the waveform to the Scene
+
+	gtk_widget_set_visible(window, true);
 }
 
 

@@ -1,23 +1,18 @@
 /*
-  copyright (C) 2014-2021 Tim Orford <tim@orford.org>
-
-  This program is free software; you can redistribute it and/or modify
-  it under the terms of the GNU General Public License version 3
-  as published by the Free Software Foundation.
-
-  This program is distributed in the hope that it will be useful,
-  but WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-  GNU General Public License for more details.
-
-  You should have received a copy of the GNU General Public License
-  along with this program; if not, write to the Free Software
-  Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
-*/
+ +----------------------------------------------------------------------+
+ | This file is part of the Ayyi project. https://www.ayyi.org          |
+ | copyright (C) 2014-2024 Tim Orford <tim@orford.org>                  |
+ +----------------------------------------------------------------------+
+ | This program is free software; you can redistribute it and/or modify |
+ | it under the terms of the GNU General Public License version 3       |
+ | as published by the Free Software Foundation.                        |
+ +----------------------------------------------------------------------+
+ |
+ */
 
 
 static void
-v_lo_new_gl2 (WaveformActor* actor)
+v_lo_new (WaveformActor* actor)
 {
 	Waveform* waveform = actor->waveform;
 	WaveformPrivate* w = waveform->priv;
@@ -26,7 +21,7 @@ v_lo_new_gl2 (WaveformActor* actor)
 	int n_blocks = w->num_peaks / (WF_MED_TO_V_LOW * WF_TEXTURE_VISIBLE_SIZE) + ((w->num_peaks % (WF_MED_TO_V_LOW * WF_TEXTURE_VISIBLE_SIZE)) ? 1 : 0);
 
 	HiResNGWaveform** data = (HiResNGWaveform**)&w->render_data[MODE_V_LOW];
-	if(!*data){
+	if (!*data) {
 		int n_sections = waveform_get_n_audio_blocks(waveform) / MAX_BLOCKS_PER_TEXTURE + (waveform_get_n_audio_blocks(waveform) % MAX_BLOCKS_PER_TEXTURE ? 1 : 0);
 
 		*(*data = g_malloc0(sizeof(HiResNGWaveform) + sizeof(Section) * n_sections)) = (HiResNGWaveform){
@@ -38,10 +33,13 @@ v_lo_new_gl2 (WaveformActor* actor)
 		g_hash_table_insert(((NGRenderer*)renderer)->ng_data, waveform, *data);
 	}
 
-	AGlShader** shader = &modes[MODE_V_LOW].renderer->shader;
-	if(!*shader){
+	AGlShader** shader = &renderer->shader;
+	if (!*shader) {
 		*shader = &hires_ng_shader.shader;
-		if(!(*shader)->program) agl_create_program(*shader);
+		if ((*shader)->program)
+			((AGlActor*)actor)->program = *shader;
+		else
+			renderer_create_shader (renderer);
 	}
 }
 
@@ -131,7 +129,7 @@ v_lo_is_not_blank (Renderer* renderer, WaveformActor* actor)
 
 
 Renderer v_lo_renderer_gl1 = {MODE_V_LOW, v_lo_new_gl1, low_allocate_block_gl1, med_lo_pre_render_gl1, med_lo_render_gl1, NULL, med_lo_gl1_free_waveform};
-NGRenderer v_lo_renderer_gl2 = {{MODE_V_LOW, v_lo_new_gl2, ng_gl2_load_block, ng_gl2_pre_render0, ng_gl2_render_block, ng_gl2_post_render, ng_gl2_free_waveform,
+NGRenderer v_lo_renderer_gl2 = {{MODE_V_LOW, v_lo_new, ng_gl2_load_block, ng_pre_render0, ng_gl2_render_block, ng_gl2_post_render, ng_gl2_free_waveform,
 #ifdef USE_TEST
 	.is_not_blank = v_lo_is_not_blank,
 #endif
@@ -141,15 +139,11 @@ Renderer v_lo_renderer;
 
 
 static Renderer*
-v_lo_renderer_new ()
+v_lo_renderer_init ()
 {
-	static Renderer* v_lo_renderer = (Renderer*)&v_lo_renderer_gl2;
-
 	v_lo_renderer_gl2.ng_data = g_hash_table_new_full(g_direct_hash, g_int_equal, NULL, g_free);
 
 	ng_make_lod_levels(&v_lo_renderer_gl2, MODE_V_LOW);
 
-	return (Renderer*)v_lo_renderer;
+	return (Renderer*)&v_lo_renderer_gl2;
 }
-
-

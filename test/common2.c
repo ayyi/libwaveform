@@ -74,8 +74,8 @@ find_data_dir ()
 {
 	static char* dirs[] = {"test/data", "data"};
 
-	int i; for(i=0;i<G_N_ELEMENTS(dirs);i++){
-		if(g_file_test(dirs[i], G_FILE_TEST_EXISTS)){
+	for (int i=0;i<G_N_ELEMENTS(dirs);i++) {
+		if (g_file_test(dirs[i], G_FILE_TEST_EXISTS)) {
 			return dirs[i];
 		}
 	}
@@ -86,7 +86,7 @@ find_data_dir ()
 
 static GHashTable* key_handlers = NULL;
 
-KeyHandler*
+AGlKeyHandler*
 key_lookup (int keycode)
 {
 	return key_handlers ? g_hash_table_lookup(key_handlers, &keycode) : NULL;
@@ -116,7 +116,7 @@ show_refresh_rate (Display* dpy)
 
 
 #if defined(USE_GTK) || defined(__GTK_H__)
-	static KeyHold key_hold = {0, NULL};
+	static WfKeyHold key_hold = {0, NULL};
 	static bool key_down = false;
 
 	static gboolean key_hold_on_timeout (gpointer user_data)
@@ -133,7 +133,7 @@ show_refresh_rate (Display* dpy)
 			return true;
 		}
 
-		KeyHandler* handler = g_hash_table_lookup(key_handlers, &keyval);
+		AGlKeyHandler* handler = g_hash_table_lookup(key_handlers, &keyval);
 		if (handler) {
 			key_down = true;
 			if (key_hold.timer) pwarn("timer already started");

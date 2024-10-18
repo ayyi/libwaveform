@@ -1,7 +1,7 @@
 /*
  +----------------------------------------------------------------------+
  | This file is part of the Ayyi project. https://www.ayyi.org          |
- | copyright (C) 2012-2023 Tim Orford <tim@orford.org>                  |
+ | copyright (C) 2012-2024 Tim Orford <tim@orford.org>                  |
  +----------------------------------------------------------------------+
  | This program is free software; you can redistribute it and/or modify |
  | it under the terms of the GNU General Public License version 3       |
@@ -13,9 +13,12 @@
 #pragma once
 
 #include <stdbool.h>
+#include "debug/debug.h"
 
 typedef void (*Test) ();
 typedef void (TestFn) ();
+typedef int  (SetupFn) ();
+typedef void (TeardownFn) ();
 
 typedef struct {
 	int n_tests;

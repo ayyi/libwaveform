@@ -1,7 +1,7 @@
 /*
  +----------------------------------------------------------------------+
  | This file is part of the Ayyi project. https://www.ayyi.org          |
- | copyright (C) 2012-2024 Tim Orford <tim@orford.org>                  |
+ | copyright (C) 2012-2025 Tim Orford <tim@orford.org>                  |
  +----------------------------------------------------------------------+
  | This program is free software; you can redistribute it and/or modify |
  | it under the terms of the GNU General Public License version 3       |
@@ -13,41 +13,22 @@
  */
 
 #define __wf_private__
-#define __no_setup__
 
 #include "config.h"
 #include <glib.h>
 #include "decoder/ad.h"
 #include "transition/transition.h"
-#include "wf/waveform.h"
+#include "waveform/waveform.h"
 #include "wf/peakgen.h"
 #include "wf/worker.h"
 #include "waveform/pixbuf.h"
 #include "test/utils.h"
-#include "test/runner.h"
-
-TestFn test_decoder, test_peakgen, test_m4a, test_bad_wav, test_empty_wav, test_audio_file, test_audiodata, test_audio_cache, test_alphabuf, test_transition, test_worker, test_thumbnail;
+#include "test/wf_runner.h"
+#include "test/waveform.h"
 
 static void finalize_notify (gpointer, GObject*);
 
-gpointer tests[] = {
-	test_decoder,
-	test_peakgen,
-	test_m4a,
-	test_bad_wav,
-	test_empty_wav,
-	test_audio_file,
-	test_audiodata,
-	test_audio_cache,
-	test_alphabuf,
-	test_transition,
-	test_worker,
-#ifdef USE_FFMPEG
-	test_thumbnail,
-#endif
-};
-
-#include "test/common.c"
+//#include "test/common.c"
 
 #define WAV "mono_0:10.wav"
 #define WAV2 "stereo_0:10.wav"
@@ -74,6 +55,58 @@ test_decoder ()
 		assert(ad_open(&f, filename), "failed to open");
 
 		assert(f.info.channels = 2, "channels");
+	}
+
+	FINISH_TEST;
+}
+
+
+void
+test_decoder_snapshot ()
+{
+	START_TEST;
+
+	char* filenames[] = {
+		"mono_0:10.wav", "stereo_0:10.wav",
+#ifdef USE_FFMPEG
+		"mono_0:10.mp3", "stereo_0:10.mp3",
+		"mono_0:10.m4a", "stereo_0:10.m4a",
+		"mono_0:10.opus", "stereo_0:10.opus",
+#endif
+		"mono_24b_0:10.wav", "stereo_24b_0:10.wav"
+	};
+
+	#define N_FRAMES 9
+
+	int16_t snapshots[][N_FRAMES] = {
+		{0, 0, 1, 1, 2, 3, 4, 6, 8},
+		{0, 0, 1, 1, 2, 3, 4, 6, 8},
+		{-4, -4, -4, -4, -3, -3, -2, -1, 0},
+		{-6, -5, -4, -3, -2, -1, 0, 2, 4},
+		{5, 8, 11, 13, 15, 18, 21, 24, 26},
+		{5, 8, 10, 13, 16, 18, 21, 24, 26},
+		{-430, -366, -301, -234, -167, -98, -29, 39, 107},
+		{-432, -368, -302, -235, -167, -98, -28, 40, 108},
+		{0, 0, 1, 1, 2, 3, 4, 6, 8},
+		{0, 0, 1, 1, 2, 3, 4, 6, 8},
+	};
+
+	for (int f=0;f<G_N_ELEMENTS(filenames);f++) {
+		WfDecoder d = {{0,}};
+		char* filename = find_wav(filenames[f]);
+		if (!ad_open(&d, filename)) FAIL_TEST("file open: %s", filenames[f]);
+
+		int16_t data[d.info.channels][N_FRAMES];
+		WfBuf16 buf = {
+			.buf = {data[0], data[1]},
+			.size = N_FRAMES
+		};
+
+		int r = ad_read_short(&d, &buf);
+		assert(r == N_FRAMES, "data not read");
+
+		for (int i=0;i<N_FRAMES;i++)
+			assert(ABS(data[0][i] - snapshots[f][i]) < 2, "doesn't match snapshot at %i.%i: got: %i expected: %i", f, i, data[0][i], snapshots[f][i]);
 	}
 
 	FINISH_TEST;
@@ -317,9 +350,8 @@ test_audiodata ()
 		}
 	}
 
-	char* filename = find_wav(WAV);
+	g_autofree char* filename = find_wav(WAV);
 	Waveform* w = waveform_new(filename);
-	g_free(filename);
 
 	c->tot_blocks = waveform_get_n_audio_blocks(w);
 
@@ -335,6 +367,15 @@ test_audiodata ()
 }
 
 
+/*
+ *	Queue the requests separately.
+ */
+void
+test_audiodata_slow ()
+{
+	START_TEST;
+	if (__test_idx);
+
 	static int tot_blocks;
 	static int n_tiers_needed = 4;
 	static guint ready_handler = 0;
@@ -344,48 +385,37 @@ test_audiodata ()
 		WfTest* c = _c;
 		C1* c1 = _c;
 
-		if(wf_debug) printf("\n");
+		if (wf_debug) printf("\n");
 		dbg(1, "block=%i", block);
 		test_reset_timeout(5000);
 
 		c1->n++;
-		if(c1->n < tot_blocks){
+		if (c1->n < tot_blocks) {
 			waveform_load_audio(waveform, c1->n, n_tiers_needed, NULL, NULL);
-		}else{
+		} else {
 			g_signal_handler_disconnect((gpointer)waveform, ready_handler);
 			g_object_unref(waveform);
 			WF_TEST_FINISH;
 		}
 	}
 
-void
-test_audiodata_slow ()
-{
-	// queues the requests separately.
-
-	START_TEST;
-	if (__test_idx);
-
-#if 0
-	C1* c = WF_NEW(C1,
-		.test = {
-			.test_idx = TEST.current.test,
-		}
-	);
-#endif
-
-	Waveform* w = waveform_new(WAV);
+	g_autofree char* filename = find_wav(WAV);
+	Waveform* w = waveform_new(filename);
 
 	tot_blocks = waveform_get_n_audio_blocks(w);
 
-	ready_handler = g_signal_connect (w, "hires-ready", (GCallback)_slow_on_peakdata_ready, NULL);
+	ready_handler = g_signal_connect (w, "hires-ready", (GCallback)_slow_on_peakdata_ready, WF_NEW(C1,
+		.test = {
+			.test_idx = TEST.current.test,
+		}
+	));
 
 	waveform_load_audio(w, 0, n_tiers_needed, NULL, NULL);
 }
 
 
 static gboolean
-test_audio_cache__after_unref (gpointer _c)
+_test_audio_cache__after_unref (gpointer _c)
 {
 	WfTest* c = _c;
 	WF* wf = wf_get_instance();
@@ -394,6 +424,8 @@ test_audio_cache__after_unref (gpointer _c)
 
 	WF_TEST_FINISH_TIMER_STOP;
 }
+
+	static guint ready_handler = 0;
 
 	static void _on_peakdata_ready_3 (Waveform* waveform, int block, gpointer _c)
 	{
@@ -409,8 +441,8 @@ test_audio_cache__after_unref (gpointer _c)
 			g_object_unref(waveform);
 
 			// dont know why, but the idle fn runs too early.
-			//g_idle_add_full(G_PRIORITY_LOW, test_audio_cache__after_unref, NULL, NULL);
-			g_timeout_add(400, test_audio_cache__after_unref, c);
+			//g_idle_add_full(G_PRIORITY_LOW, _test_audio_cache__after_unref, NULL, NULL);
+			g_timeout_add(400, _test_audio_cache__after_unref, c);
 		}
 	}
 
@@ -662,10 +694,11 @@ test_thumbnail ()
 {
 	START_TEST;
 
-	char* filename = find_wav("thumbnail.mp3");
+#ifdef USE_FFMPEG
+	g_autofree char* filename = find_wav("thumbnail.mp3");
 
 	WfDecoder dec = {0,};
-	if(!ad_open(&dec, filename)){
+	if (!ad_open(&dec, filename)) {
 		FAIL_TEST("failed to open file");
 	}
 
@@ -680,8 +713,8 @@ test_thumbnail ()
 	ad_close(&dec);
 	ad_thumbnail_free(NULL, &picture);
 	ad_free_nfo(&dec.info);
+#endif
 
-	g_free(filename);
 	FINISH_TEST;
 }
 

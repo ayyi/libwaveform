@@ -10,7 +10,7 @@
 
   ---------------------------------------------------------------
 
-  Copyright (C) 2012-2023 Tim Orford <tim@orford.org>
+  Copyright (C) 2012-2025 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -29,12 +29,13 @@
 #define USE_SHADERS true
 
 #define __wf_private__
+
 #include "config.h"
 #include <sys/time.h>
 #include <gtk/gtk.h>
 #include "gdk/x11/gdkx.h"
 #include "waveform/actor.h"
-#include "test/common.h"
+#include "test/common2.h"
 
 #define WIDTH 256.
 #define HEIGHT 256.
@@ -53,7 +54,7 @@ gpointer         tests[]   = {};
 static void start_zoom        (float);
 uint64_t    get_time          ();
 
-KeyHandler
+AGlKeyHandler
 	zoom_in,
 	zoom_out,
 	vzoom_up,
@@ -223,6 +224,8 @@ activate (GtkApplication* app, gpointer user_data)
 	}
 
 	add_key_handlers_gtk ((GtkWindow*)window, NULL, (AGlKey*)&keys);
+
+	gtk_widget_set_visible(window, true);
 }
 
 

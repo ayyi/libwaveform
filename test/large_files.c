@@ -1,7 +1,7 @@
 /*
  +----------------------------------------------------------------------+
  | This file is part of the Ayyi project. https://www.ayyi.org          |
- | copyright (C) 2012-2021 Tim Orford <tim@orford.org>                  |
+ | copyright (C) 2012-2024 Tim Orford <tim@orford.org>                  |
  +----------------------------------------------------------------------+
  | This program is free software; you can redistribute it and/or modify |
  | it under the terms of the GNU General Public License version 3       |
@@ -15,7 +15,6 @@
  */
 
 #define __wf_private__
-#define __no_setup__
 
 #include "config.h"
 #include <getopt.h>
@@ -25,34 +24,33 @@
 #include <agl/utils.h>
 #include "wf/audio.h"
 #include "wf/peakgen.h"
-#include "test/runner.h"
 #include "test/utils.h"
+#include "test/wf_runner.h"
+#include "test/large_files.h"
 
-TestFn create_large_files, test_audiodata, test_load, delete_large_files;
-
-gpointer tests[] = {
-	create_large_files,
-	test_load,
-	test_audiodata,
-	delete_large_files,
-};
-
-#include "test/common.c"
+SetupFn create_large_files;
+TeardownFn delete_large_files;
 
 #define WAV1 "test/data/large1.wav"
 #define WAV2 "test/data/large2.wav"
 
 
-void
+int
 create_large_files ()
 {
-	START_TEST;
-	test_reset_timeout(60000);
+	// test_reset_timeout(60000);
 
 	create_large_file(WAV1);
 	create_large_file(WAV2);
 
-	FINISH_TEST;
+	return 0;
+}
+
+
+int
+setup ()
+{
+	return create_large_files();
 }
 
 
@@ -61,7 +59,7 @@ delete_large_files ()
 {
 	START_TEST;
 
-	if(g_unlink(WAV1)){
+	if (g_unlink(WAV1)) {
 		FAIL_TEST("delete failed");
 	}
 	assert(!g_unlink(WAV2), "delete failed");
@@ -71,9 +69,16 @@ delete_large_files ()
 
 
 void
+teardown()
+{
+	delete_large_files();
+}
+
+
+void
 test_load ()
 {
-	//test that the large files are loaded and unloaded properly.
+	// Test that the large files are loaded and unloaded properly.
 
 	START_TEST;
 
@@ -81,23 +86,21 @@ test_load ()
 	static int wi; wi = 0;
 	static int iter; iter = 0;
 
-	typedef struct _c C;
-	struct _c {
-		void (*next)(C*);
-	};
-	C* c = g_new0(C, 1);
+	typedef struct C {
+		void (*next)(struct C*);
+	} C;
 
-	void finalize_notify(gpointer data, GObject* was)
+	void finalize_notify (gpointer data, GObject* was)
 	{
 		dbg(0, "...");
 	}
 
-	void next_wav(C* c)
+	void next_wav (C* c)
 	{
-		if(wi >= G_N_ELEMENTS(wavs)){
-			if(iter++ < 2){
+		if (wi >= G_N_ELEMENTS(wavs)) {
+			if (iter++ < 2) {
 				wi = 0;
-			}else{
+			} else {
 				g_free(c);
 				FINISH_TEST;
 			}
@@ -124,15 +127,17 @@ test_load ()
 		g_object_unref(w);
 		c->next(c);
 	}
-	c->next = next_wav;
-	next_wav(c);
+
+	next_wav(WF_NEW(C,
+		.next = next_wav,
+	));
 }
 
 
 void
 test_audiodata ()
 {
-	//instantiate a Waveform and check that all the hires-ready signals are emitted.
+	// Instantiate a Waveform and check that all the hires-ready signals are emitted.
 
 	START_TEST;
 
@@ -144,18 +149,16 @@ test_audiodata ()
 	static guint ready_handler = 0;
 	static int tot_blocks = 0;
 
-	typedef struct _c C;
-	struct _c {
-		void (*next)(C*);
-	};
-	C* c = g_new0(C, 1);
+	typedef struct C {
+		void (*next)(struct C*);
+	} C;
 
-	void finalize_notify(gpointer data, GObject* was)
+	void finalize_notify (gpointer data, GObject* was)
 	{
 		dbg(0, "!");
 	}
 
-	void test_on_peakdata_ready(Waveform* waveform, int block, gpointer data)
+	void test_on_peakdata_ready (Waveform* waveform, int block, gpointer data)
 	{
 		C* c = data;
 
@@ -163,16 +166,16 @@ test_audiodata ()
 		test_reset_timeout(5000);
 
 		WfAudioData* audio = &waveform->priv->audio;
-		if(audio->buf16){
+		if (audio->buf16) {
 			WfBuf16* buf = audio->buf16[block];
 			assert(buf, "no data in buffer! %i", block);
 			assert(buf->buf[WF_LEFT], "no data in buffer (L)! %i", block);
 			assert(buf->buf[WF_RIGHT], "no data in buffer (R)! %i", block);
 		} else pwarn("no data!");
 
-		printf("\n");
+		if(_debug_) printf("\n");
 		n++;
-		if(n >= tot_blocks){
+		if (n >= tot_blocks) {
 			g_signal_handler_disconnect((gpointer)waveform, ready_handler);
 			ready_handler = 0;
 			g_object_unref(waveform);
@@ -187,8 +190,6 @@ test_audiodata ()
 			FINISH_TEST;
 		}
 
-		dbg(0, "==========================================================");
-
 		Waveform* w = waveform_new(wavs[wi++]);
 		g_object_weak_ref((GObject*)w, finalize_notify, NULL);
 		ready_handler = g_signal_connect (w, "hires-ready", (GCallback)test_on_peakdata_ready, c);
@@ -198,12 +199,14 @@ test_audiodata ()
 
 		// trying to load the whole file at once is slightly dangerous but seems to work ok.
 		// the callback is called before the cache is cleared for the block.
-		int b; for(b=0;b<tot_blocks;b++){
+		for (int b=0;b<tot_blocks;b++) {
 			waveform_load_audio(w, b, n_tiers_needed, NULL, NULL);
 		}
 
 		//wi++;
 	}
-	c->next = next_wav;
-	next_wav(c);
+
+	next_wav(WF_NEW(C,
+		.next = next_wav,
+	));
 }

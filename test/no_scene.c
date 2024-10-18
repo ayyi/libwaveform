@@ -1,7 +1,7 @@
 /*
  +----------------------------------------------------------------------+
  | This file is part of the Ayyi project. https://www.ayyi.org          |
- | copyright (C) 2012-2022 Tim Orford <tim@orford.org>                  |
+ | copyright (C) 2012-2025 Tim Orford <tim@orford.org>                  |
  +----------------------------------------------------------------------+
  | This program is free software; you can redistribute it and/or modify |
  | it under the terms of the GNU General Public License version 3       |
@@ -30,7 +30,7 @@
 #include "agl/text/renderer.h"
 #include "agl/fbo.h"
 #include "waveform/actor.h"
-#include "test/common.h"
+#include "test/common2.h"
 
 GtkWidget*       area          = NULL;
 WaveformContext* wfc           = NULL;
@@ -42,7 +42,7 @@ static gboolean render         (GtkGLArea*, GdkGLContext*);
 static void     allocate       (GtkWidget*, int, int, gpointer);
 static void     start_zoom     (float target_zoom);
 
-KeyHandler
+AGlKeyHandler
 	zoom_in,
 	zoom_out,
 	vzoom_up,

@@ -1,7 +1,7 @@
 /*
  +----------------------------------------------------------------------+
  | This file is part of the Ayyi project. https://www.ayyi.org          |
- | copyright (C) 2012-2024 Tim Orford <tim@orford.org>                  |
+ | copyright (C) 2012-2025 Tim Orford <tim@orford.org>                  |
  +----------------------------------------------------------------------+
  | This program is free software; you can redistribute it and/or modify |
  | it under the terms of the GNU General Public License version 3       |
@@ -32,7 +32,7 @@ const char* wavs[] = {
 	"3_blocks.wav",
 };
 
-KeyHandler
+AGlKeyHandler
 	zoom_in,
 	zoom_out,
 	scroll_left,
@@ -40,7 +40,7 @@ KeyHandler
 	next_wav;
 
 extern bool key_down;
-extern KeyHold key_hold;
+extern WfKeyHold key_hold;
 
 AGlKey keys[] = {
 	{XK_Left,       scroll_left},

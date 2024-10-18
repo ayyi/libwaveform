@@ -1,7 +1,7 @@
 /*
  +----------------------------------------------------------------------+
  | This file is part of the Ayyi project. https://www.ayyi.org          |
- | copyright (C) 2012-2022 Tim Orford <tim@orford.org>                  |
+ | copyright (C) 2012-2024 Tim Orford <tim@orford.org>                  |
  +----------------------------------------------------------------------+
  | This program is free software; you can redistribute it and/or modify |
  | it under the terms of the GNU General Public License version 3       |
@@ -372,7 +372,7 @@ ng_gl2_load_block (Renderer* renderer, WaveformActor* actor, int b)
  *  This is done only once per paint, it does not have to be done per block
  */
 static bool
-ng_gl2_pre_render (Renderer* renderer, WaveformActor* actor)
+ng_pre_render (Renderer* renderer, WaveformActor* actor)
 {
 	Waveform* w = actor->waveform;
 	WfActorPriv* _a = actor->priv;
@@ -412,9 +412,10 @@ ng_gl2_pre_render (Renderer* renderer, WaveformActor* actor)
 					: 3
 		);
 
+							// this is per block. can we move it to set_state?
+	agl_use_program((AGlShader*)shader);
 	agl_scale (&shader->shader, 1., 1.);
 	agl_translate (&shader->shader, 0., 0.);
-	shader->shader.set_uniforms_((AGlShader*)shader);
 
 	glActiveTexture (GL_TEXTURE0);
 	glBindBuffer (GL_ARRAY_BUFFER, agl->vbo);
@@ -427,14 +428,15 @@ ng_gl2_pre_render (Renderer* renderer, WaveformActor* actor)
 
 
 static bool
-ng_gl2_pre_render0 (Renderer* renderer, WaveformActor* actor)
+ng_pre_render0 (Renderer* renderer, WaveformActor* actor)
 {
-	if (!renderer->shader->program) agl_create_program(renderer->shader);
-	((AGlActor*)actor)->program = renderer->shader;
+	if (!renderer->shader->program) {
+		renderer_create_shader (renderer);
+	}
 
-	renderer->pre_render = ng_gl2_pre_render;
+	renderer->pre_render = ng_pre_render;
 
-	return ng_gl2_pre_render(renderer, actor);
+	return ng_pre_render(renderer, actor);
 }
 
 
@@ -491,7 +493,7 @@ ng_make_lod_levels (NGRenderer* renderer, Mode mode)
 	int p = 0;
 	int width = modes[mode].texture_size;
 	int level_size = width;
-	int i; for(i=0;i<N_LOD;i++){
+	for (int i=0;i<N_LOD;i++){
 		renderer->mmidx_max[i] = p;
 		renderer->mmidx_min[i] = p + width * ROWS_PER_PEAK_TYPE;
 		level_size = width / (1 << i);

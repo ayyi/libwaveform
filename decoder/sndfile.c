@@ -1,15 +1,16 @@
-/**
-* +----------------------------------------------------------------------+
-* | This file is part of the Ayyi project. http://ayyi.org               |
-* | copyright (C) 2011-2020 Tim Orford <tim@orford.org>                  |
-* | copyright (C) 2011 Robin Gareus <robin@gareus.org>                   |
-* +----------------------------------------------------------------------+
-* | This program is free software; you can redistribute it and/or modify |
-* | it under the terms of the GNU General Public License version 3       |
-* | as published by the Free Software Foundation.                        |
-* +----------------------------------------------------------------------+
-*
-*/
+/*
+ +----------------------------------------------------------------------+
+ | This file is part of the Ayyi project. https://www.ayyi.org          |
+ | copyright (C) 2011-2024 Tim Orford <tim@orford.org>                  |
+ | copyright (C) 2011 Robin Gareus <robin@gareus.org>                   |
+ +----------------------------------------------------------------------+
+ | This program is free software; you can redistribute it and/or modify |
+ | it under the terms of the GNU General Public License version 3       |
+ | as published by the Free Software Foundation.                        |
+ +----------------------------------------------------------------------+
+ |
+ */
+
 #include "config.h"
 #include <inttypes.h>
 #include <math.h>
@@ -86,7 +87,7 @@ ad_open_sndfile (WfDecoder* decoder, const char* filename)
 	SndfileDecoder* priv = decoder->d = g_new0(SndfileDecoder, 1);
 	priv->sfinfo.format = 0;
 
-	if(!(priv->sffile = sf_open(filename, SFM_READ, &priv->sfinfo))){
+	if (!(priv->sffile = sf_open(filename, SFM_READ, &priv->sfinfo))) {
 		dbg(1, "unable to open file '%s': %i: %s", filename, sf_error(NULL), sf_strerror(NULL));
 		g_free(priv);
 		return FALSE;
@@ -97,22 +98,22 @@ ad_open_sndfile (WfDecoder* decoder, const char* filename)
 }
 
 
-int
+static int
 ad_close_sndfile (WfDecoder* decoder)
 {
 	SndfileDecoder* priv = (SndfileDecoder*)decoder->d;
 	if (!priv) return -1;
 
 	if (!priv->sffile || sf_close(priv->sffile)) {
-		perr("bad file close.\n");
+		perr("bad file close.");
 		return -1;
 	}
-	g_free0(decoder->d);
+	g_clear_pointer(&decoder->d, g_free);
 	return 0;
 }
 
 
-int64_t
+static int64_t
 ad_seek_sndfile (WfDecoder* d, int64_t pos)
 {
 	SndfileDecoder* priv = (SndfileDecoder*)d->d;
@@ -124,24 +125,24 @@ ad_seek_sndfile (WfDecoder* d, int64_t pos)
 /*
  *  Output is interleaved float
  */
-ssize_t
+static ssize_t
 ad_read_sndfile (WfDecoder* d, float* out, size_t len)
 {
 	SndfileDecoder* priv = (SndfileDecoder*)d->d;
 	if (!priv) return -1;
 
-	switch(d->info.bit_depth){
+	switch (d->info.bit_depth) {
 		case 32:
-			return sf_read_float (priv->sffile, out, len);
+			return sf_read_float (priv->sffile, out, len) / d->info.channels;
 		case 16: {
 				short* d16 = g_malloc0(len * sizeof(short));
 				ssize_t r = sf_read_short (priv->sffile, d16, len);
 				int16_to_float(out, d16, d->info.channels, len / d->info.channels, 0);
 				g_free(d16);
-				return r;
+				return r / d->info.channels;
 			}
 		case 24:
-			return sf_read_float(priv->sffile, out, len);
+			return sf_read_float(priv->sffile, out, len) / d->info.channels;
 #ifdef DEBUG
 		default:
 			pwarn("unhandled bit depth: %i", d->info.bit_depth);
@@ -157,16 +158,16 @@ ad_read_sndfile_short (WfDecoder* d, WfBuf16* buf)
 {
 	SndfileDecoder* sf = (SndfileDecoder*)d->d;
 
-	switch(d->info.bit_depth){
+	switch (d->info.bit_depth) {
 		case 8:
 		case 16: {
-			if(d->info.channels == 1){
+			if (d->info.channels == 1) {
 				return sf_readf_short(sf->sffile, buf->buf[0], buf->size);
-			}else{
+			} else {
 				short* data = g_malloc0(d->info.channels * buf->size * sizeof(short));
 				ssize_t r = sf_read_short(sf->sffile, data, d->info.channels * buf->size);
-				int i, f; for(i=0,f=0;i<r;i+=d->info.channels,f++){
-					int c; for(c=0;c<d->info.channels;c++){
+				int i, f; for (i=0,f=0;i<r;i+=d->info.channels,f++) {
+					for (int c=0;c<d->info.channels;c++) {
 						buf->buf[c][f] = data[i];
 					}
 				}
@@ -177,8 +178,8 @@ ad_read_sndfile_short (WfDecoder* d, WfBuf16* buf)
 		case 24: {
 			int* data = g_malloc0(d->info.channels * buf->size * sizeof(int));
 			ssize_t r = sf_read_int(sf->sffile, data, d->info.channels * buf->size);
-			int i, f; for(i=0,f=0;i<r;i+=d->info.channels,f++){
-				int c; for(c=0;c<d->info.channels;c++){
+			int i, f; for (i=0,f=0;i<r;i+=d->info.channels,f++) {
+				for (int c=0;c<d->info.channels;c++){
 					buf->buf[c][f] = data[i + c] >> 16;
 				}
 			}
@@ -189,18 +190,18 @@ ad_read_sndfile_short (WfDecoder* d, WfBuf16* buf)
 			float* data = g_malloc0(d->info.channels * buf->size * sizeof(float));
 			ssize_t r = sf_read_float(sf->sffile, data, d->info.channels * buf->size);
 			int i, f; for(i=0,f=0;i<r;i+=d->info.channels,f++){
-				int c; for(c=0;c<d->info.channels;c++){
+				for (int c=0;c<d->info.channels;c++) {
 					buf->buf[c][f] = AD_FLOAT_TO_SHORT(data[i]);
 				}
 			}
 			g_free(data);
-			return r;
+			return f;
 		}
 		case 0:
 			return -1;
 #ifdef DEBUG
 		default:
-			dbg(0, "unhandled bit depth: %i", d->info.bit_depth);
+			pwarn("unhandled bit depth: %i", d->info.bit_depth);
 #endif
 	}
 	return -1;
@@ -210,8 +211,9 @@ ad_read_sndfile_short (WfDecoder* d, WfBuf16* buf)
 int
 ad_eval_sndfile (const char *f)
 {
-	char *ext = strrchr(f, '.');
+	char* ext = strrchr(f, '.');
 	if (!ext) return 5;
+
 	/* see http://www.mega-nerd.com/libsndfile/ */
 	if (!strcasecmp(ext, ".wav")) return 100;
 	if (!strcasecmp(ext, ".aiff")) return 100;
@@ -234,6 +236,7 @@ ad_eval_sndfile (const char *f)
 // libsndfile >= 1.0.18
 	if (!strcasecmp(ext, ".flac")) return 80;
 	if (!strcasecmp(ext, ".ogg")) return 80;
+
 	return 0;
 }
 

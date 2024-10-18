@@ -1,7 +1,7 @@
 /*
  +----------------------------------------------------------------------+
  | This file is part of the Ayyi project. https://www.ayyi.org          |
- | copyright (C) 2012-2022 Tim Orford <tim@orford.org>                  |
+ | copyright (C) 2012-2025 Tim Orford <tim@orford.org>                  |
  +----------------------------------------------------------------------+
  | This program is free software; you can redistribute it and/or modify |
  | it under the terms of the GNU General Public License version 3       |
@@ -29,7 +29,7 @@
 #include "agl/actor.h"
 #include "agl/x11.h"
 #include "waveform/actor.h"
-#include "test/common.h"
+#include "test/common2.h"
 #include "agl/behaviours/simple_key.h"
 
 static const struct option long_options[] = {
@@ -48,7 +48,7 @@ WaveformContext* wfc[4]    = {NULL,}; // This test has 4 separate contexts. Norm
 WaveformActor*   a[4]      = {NULL,};
 float            vzoom     = 1.0;
 
-KeyHandler
+AGlKeyHandler
 	zoom_in,
 	zoom_out,
 	vzoom_up,

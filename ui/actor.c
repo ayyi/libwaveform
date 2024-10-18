@@ -1,7 +1,7 @@
 /*
  +----------------------------------------------------------------------+
  | This file is part of the Ayyi project. https://www.ayyi.org          |
- | copyright (C) 2012-2023 Tim Orford <tim@orford.org>                  |
+ | copyright (C) 2012-2024 Tim Orford <tim@orford.org>                  |
  +----------------------------------------------------------------------+
  | This program is free software; you can redistribute it and/or modify |
  | it under the terms of the GNU General Public License version 3       |
@@ -20,6 +20,15 @@
  |                                                                      |
  | The render output is not cached. Caching behaviour can be added by   |
  | the parent if required                                               |
+ |                                                                      |
+ | Renderers:                                                           |
+ |                                                                      |
+ | Different 'renderers' are used for different zoom modes.             |
+ | Which renderer is curent cannot be determined until render time.     |
+ |                                                                      |
+ | This means that the AGlActor.shader property is not used.            |
+ | Normally AGlActor would call glUseProgram but here it must be done   |
+ | locally.                                                             |
  |                                                                      |
  +----------------------------------------------------------------------+
  |
@@ -57,6 +66,12 @@ static AGl* agl = NULL;
 #undef HIRES_NONSHADER_TEXTURES
 
 #undef RECT_ROUNDING
+
+/*
+ *  Registration of actors with the renderer allows the renderer to notify actors of changes.
+ *  It is disabled because there is currently no use for it.
+ */
+#undef ACTOR_REGISTRATION
 
 typedef struct {
    int first;
@@ -203,24 +218,27 @@ typedef struct
 
 typedef void (MakeTextureData)(Waveform*, int ch, IntBufHi*, int blocknum);
 
-struct _draw_mode
+struct _DrawMode
 {
 	char             name[4];
 	int              resolution;
 	int              texture_size;      // mostly applies to 1d textures. 2d textures have non-square issues.
-	MakeTextureData* make_texture_data; // might not be needed after all
 	Renderer*        renderer;
+#ifdef ACTOR_REGISTRATION
+	GList*           actors;            // list of AGlActor*
+#endif
 } modes[N_MODES] = {
-	{"V_LO", 16384, WF_PEAK_TEXTURE_SIZE,      NULL},
-	{"LOW",   1024, WF_PEAK_TEXTURE_SIZE,      NULL},
-	{"MED",    256, WF_PEAK_TEXTURE_SIZE,      NULL},
-	{"HI",      16, WF_PEAK_TEXTURE_SIZE * 16, NULL}, // texture size chosen so that blocks are the same as in medium res
-	{"V_HI",     1, WF_PEAK_TEXTURE_SIZE,      NULL},
+	{"V_LO", 16384, WF_PEAK_TEXTURE_SIZE,      },
+	{"LOW",   1024, WF_PEAK_TEXTURE_SIZE,      },
+	{"MED",    256, WF_PEAK_TEXTURE_SIZE,      },
+	{"HI",      16, WF_PEAK_TEXTURE_SIZE * 16, }, // texture size chosen so that blocks are the same as in medium res
+	{"V_HI",     1, WF_PEAK_TEXTURE_SIZE,      },
 };
 #define HI_RESOLUTION modes[MODE_HI].resolution
 #define RES_MED modes[MODE_MED].resolution
-typedef struct { int lower; int upper; } ModeRange;
 #define HI_MIN_TIERS 4 // equivalent to resolution of 1:16
+
+typedef struct { int lower; int upper; } ModeRange;
 
 static inline Mode get_mode                  (double zoom);
 static ModeRange   mode_range                (WaveformActor*);
@@ -242,6 +260,8 @@ static void   wf_actor_connect_waveform      (WaveformActor*);
 static void   wf_actor_disconnect_waveform   (WaveformActor*);
 
 static void   waveform_free_render_data      (Waveform*);
+
+static void   renderer_create_shader         (Renderer*);
 
 
 #include "ui/renderer/ng.c"
@@ -282,12 +302,10 @@ wf_actor_class_init ()
 {
 	agl = agl_get_instance();
 
-	modes[MODE_HI].make_texture_data = make_texture_data_hi;
-
-	modes[MODE_V_LOW].renderer = v_lo_renderer_new();
-	modes[MODE_LOW].renderer = lo_renderer_new();
-	modes[MODE_MED].renderer = med_renderer_new();
-	modes[MODE_HI].renderer = hi_renderer_new();
+	modes[MODE_V_LOW].renderer = v_lo_renderer_init();
+	modes[MODE_LOW].renderer = lo_renderer_init();
+	modes[MODE_MED].renderer = med_renderer_init();
+	modes[MODE_HI].renderer = hi_renderer_init();
 	modes[MODE_V_HI].renderer = (Renderer*)&v_hi_renderer;
 
 	wf_actor_on_use_shaders_change();
@@ -306,11 +324,6 @@ wf_actor_class_init ()
 		PF;
 		WaveformActor* a = _actor;
 		a->priv->render_info.valid = false;
-	}
-
-	static void wf_actor_on_zoom_changed (WaveformContext* wfc, gpointer _actor)
-	{
-		invalidator_invalidate_item(((Invalidator*)((AGlActor*)_actor)->behaviours[INVALIDATOR]), INVALIDATOR_DATA);
 	}
 
 		static void wf_actor_init_load_done (Waveform* w, GError* error, gpointer _actor)
@@ -426,7 +439,7 @@ wf_actor_new (Waveform* w, WaveformContext* wfc)
 
 	g_return_val_if_fail(wfc, NULL);
 
-	if(!modes[MODE_LOW].renderer) wf_actor_class_init();
+	if (!modes[MODE_LOW].renderer) wf_actor_class_init();
 
 	if(w){
 		waveform_get_n_frames(w);
@@ -607,6 +620,11 @@ wf_actor_new (Waveform* w, WaveformContext* wfc)
 	if(w) wf_actor_connect_waveform(a);
 
 	_a->handlers.dimensions_changed = g_signal_connect((gpointer)a->context, "dimensions-changed", (GCallback)wf_actor_on_dimensions_changed, a);
+
+	void wf_actor_on_zoom_changed (WaveformContext* wfc, gpointer _actor)
+	{
+		invalidator_invalidate_item(((Invalidator*)((AGlActor*)_actor)->behaviours[INVALIDATOR]), INVALIDATOR_DATA);
+	}
 	_a->handlers.zoom_changed = g_signal_connect((gpointer)a->context, "zoom-changed", (GCallback)wf_actor_on_zoom_changed, a);
 
 	return a;
@@ -681,10 +699,13 @@ wf_actor_free (AGlActor* actor)
 	WfActorPriv* _a = a->priv;
 
 	GList* l = actor->transitions;
-	for(;l;l=l->next) wf_animation_remove((WfAnimation*)l->data);
+	for (;l;l=l->next) wf_animation_remove((WfAnimation*)l->data);
 	g_list_free0(actor->transitions);
+#ifdef ACTOR_REGISTRATION
+	for (int m=0;m<N_MODES;m++) modes[m].actors = g_list_remove(modes[m].actors, actor);
+#endif
 
-	if(a->waveform){
+	if (a->waveform) {
 		wf_actor_disconnect_waveform(a);
 		_g_signal_handler_disconnect0(a->context, _a->handlers.dimensions_changed);
 		_g_signal_handler_disconnect0(a->context, _a->handlers.zoom_changed);
@@ -707,10 +728,11 @@ wf_actor_free (AGlActor* actor)
 static void
 waveform_free_render_data (Waveform* waveform)
 {
-	if(!waveform) return;
+	if (!waveform) return;
 
-#ifdef USE_OPENGL
-#ifdef DEBUG
+	// in general it is not correct to expect the textures to be cleared as the waveform may have other users
+#if 0
+#if defined(USE_OPENGL) && defined(DEBUG)
 	extern int texture_cache_count_by_waveform(Waveform*);
 	if(wf_debug && texture_cache_count_by_waveform(waveform)){
 		perr("textures not cleared");
@@ -719,7 +741,7 @@ waveform_free_render_data (Waveform* waveform)
 #endif
 
 	for (int m=0;m<N_MODES;m++) {
-		if(waveform->priv->render_data[m]){
+		if (waveform->priv->render_data[m]) {
 			call(modes[m].renderer->free, modes[m].renderer, waveform);
 			waveform->priv->render_data[m] = NULL;
 		}
@@ -1385,7 +1407,9 @@ set_renderer (WaveformActor* actor)
 	Renderer* renderer = modes[r->mode].renderer;
 	dbg(2, "%s", modes[r->mode].name);
 
-	//((AGlActor*)actor)->program = renderer->shader; // no, dont set actor->program, it is managed in paint due to blocking and fallbacks
+#ifdef ACTOR_REGISTRATION
+	((AGlActor*)actor)->program = renderer->shader;
+#endif
 
 	return renderer;
 }
@@ -1449,18 +1473,31 @@ _wf_actor_load_missing_blocks (WaveformActor* a)
 		MAX(mode1, mode2)
 	};
 
-	if (scene)
-		glXMakeContextCurrent (agl->xdisplay, scene->drawable, scene->drawable, scene->glxcontext);
+#ifdef USE_GTK
+    if (((AGlActor*)actor)->root->type == CONTEXT_TYPE_GTK) {
+		if (scene) {
+			glXMakeContextCurrent (agl->xdisplay, scene->drawable, scene->drawable, scene->glxcontext);
+			agl_use_program(NULL);
+		}
+	}
+#endif
 
-	for(int i=mode[0];i<=mode[1];i++)
-		if(!_w->render_data[i])
+	for (int i=mode[0];i<=mode[1];i++) {
+		if (!_w->render_data[i]) {
+#ifdef ACTOR_REGISTRATION
+			if (!g_list_find(modes[i].actors, actor)) {
+				modes[i].actors = g_list_append(modes[i].actors, actor);
+			}
+#endif
 			call(modes[i].renderer->new, a);
+		}
+	}
 
-	if(zoom_max >= ZOOM_MED){
+	if (zoom_max >= ZOOM_MED) {
 		dbg(1, "HI-RES");
-		if(!a->waveform->offline)
+		if (!a->waveform->offline) {
 			_wf_actor_allocate_hi(a);
-		else {
+		} else {
 			// fallback to lower res
 			mode[0] = MAX(mode[0], MODE_MED);
 			mode[1] = MAX(mode[1], MODE_MED);
@@ -1536,9 +1573,8 @@ _wf_actor_load_missing_blocks (WaveformActor* a)
 
 	RenderInfo* r = &a->priv->render_info;
 	r->mode = mode1;
-	set_renderer(a);
 
-	gl_warn("");
+	gl_warn("load_missing_blocks");
 }
 
 
@@ -1916,14 +1952,14 @@ wf_actor_paint (AGlActor* _actor)
 
 		WfSampleRegion region = (WfSampleRegion){*START(_actor).val.b, *LEN(_actor).val.b};
 		double zoom = rect.len / region.len;
-		if (zoom != r->zoom) perr("valid should not be set: zoom %.3f %.3f", zoom, r->zoom);
+		if (ABS(zoom - r->zoom) > .0001) pwarn("zoom not validated: %.4f %.4f", zoom, r->zoom);
 
 		Mode mode = get_mode(r->zoom);
-		if (mode != r->mode) perr("valid should not be set: zoom %i %i", mode, r->mode);
+		if (mode != r->mode) perr("mode not validated: %i %i", mode, r->mode);
 
 		int samples_per_texture = WF_SAMPLES_PER_TEXTURE * (mode == MODE_LOW ? WF_PEAK_STD_TO_LO : 1);
 		int first_offset = region.start % samples_per_texture;
-		if (first_offset != r->first_offset) perr("valid should not be set: zoom %i %i", first_offset, r->first_offset);
+		if (first_offset != r->first_offset) perr("first_offset not validated: %i %i", first_offset, r->first_offset);
 #endif
 	}
 
@@ -2326,14 +2362,14 @@ wf_actor_on_size_transition_start (WaveformActor* a, WfAnimatable* Xanimatable)
 
 
 static int
-wf_actor_get_n_blocks(Waveform* waveform, Mode mode)
+wf_actor_get_n_blocks (Waveform* waveform, Mode mode)
 {
 	// better to use render_data[mode]->n_blocks
 	// but this fn is useful if the render_data is not initialised
 
 	WaveformPrivate* w = waveform->priv;
 
-	switch(mode){
+	switch (mode) {
 		case MODE_V_LOW:
 			return w->n_blocks / WF_MED_TO_V_LOW + (w->n_blocks % WF_MED_TO_V_LOW ? 1 : 0);
 		case MODE_LOW:
@@ -2350,11 +2386,23 @@ wf_actor_get_n_blocks(Waveform* waveform, Mode mode)
 
 
 static void
-wf_actor_on_use_shaders_change()
+renderer_create_shader (Renderer* renderer)
 {
-	modes[MODE_HI].renderer = agl->use_shaders
-		? (Renderer*)&hi_renderer_gl2
-		: (Renderer*)&hi_renderer_gl1;
+	agl_create_program(renderer->shader);
+
+#ifdef ACTOR_REGISTRATION
+	for (GList* l = modes[renderer->mode].actors; l; l=l->next) {
+		AGlActor* a = l->data;
+		a->program = renderer->shader;
+	}
+#endif
+}
+
+
+static void
+wf_actor_on_use_shaders_change ()
+{
+	modes[MODE_HI].renderer = (Renderer*)&hi_renderer_gl2;
 
 	modes[MODE_MED].renderer = agl->use_shaders
 		? (Renderer*)&med_renderer_gl2

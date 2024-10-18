@@ -1,20 +1,20 @@
-/**
-* +----------------------------------------------------------------------+
-* | This file is part of the Ayyi project. http://ayyi.org               |
-* | copyright (C) 2012-2020 Tim Orford <tim@orford.org>                  |
-* +----------------------------------------------------------------------+
-* | This program is free software; you can redistribute it and/or modify |
-* | it under the terms of the GNU General Public License version 3       |
-* | as published by the Free Software Foundation.                        |
-* +----------------------------------------------------------------------+
-*
-*/
+/*
+ +----------------------------------------------------------------------+
+ | This file is part of the Ayyi project. https://www.ayyi.org          |
+ | copyright (C) 2012-2024 Tim Orford <tim@orford.org>                  |
+ +----------------------------------------------------------------------+
+ | This program is free software; you can redistribute it and/or modify |
+ | it under the terms of the GNU General Public License version 3       |
+ | as published by the Free Software Foundation.                        |
+ +----------------------------------------------------------------------+
+ |
+ */
+
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-#ifndef __waveform_h__
-#define __waveform_h__
+#pragma once
 
 #include <stdint.h>
 #include <stdbool.h>
@@ -26,12 +26,12 @@ extern "C" {
 
 G_BEGIN_DECLS
 
-#define TYPE_WAVEFORM (waveform_get_type ())
-#define WAVEFORM(obj) (G_TYPE_CHECK_INSTANCE_CAST ((obj), TYPE_WAVEFORM, Waveform))
-#define WAVEFORM_CLASS(klass) (G_TYPE_CHECK_CLASS_CAST ((klass), TYPE_WAVEFORM, WaveformClass))
-#define IS_WAVEFORM(obj) (G_TYPE_CHECK_INSTANCE_TYPE ((obj), TYPE_WAVEFORM))
+#define TYPE_WAVEFORM            (waveform_get_type ())
+#define WAVEFORM(obj)            (G_TYPE_CHECK_INSTANCE_CAST ((obj), TYPE_WAVEFORM, Waveform))
+#define WAVEFORM_CLASS(klass)    (G_TYPE_CHECK_CLASS_CAST ((klass), TYPE_WAVEFORM, WaveformClass))
+#define IS_WAVEFORM(obj)         (G_TYPE_CHECK_INSTANCE_TYPE ((obj), TYPE_WAVEFORM))
 #define IS_WAVEFORM_CLASS(klass) (G_TYPE_CHECK_CLASS_TYPE ((klass), TYPE_WAVEFORM))
-#define WAVEFORM_GET_CLASS(obj) (G_TYPE_INSTANCE_GET_CLASS ((obj), TYPE_WAVEFORM, WaveformClass))
+#define WAVEFORM_GET_CLASS(obj)  (G_TYPE_INSTANCE_GET_CLASS ((obj), TYPE_WAVEFORM, WaveformClass))
 
 typedef struct _WaveformClass WaveformClass;
 
@@ -139,8 +139,6 @@ typedef struct { WfCallback3 callback; gpointer user_data; } WfClosure;
 #ifndef __waveform_peak_c__
 extern WF* wf;
 #endif
-
-#endif //__waveform_h__
 
 #ifdef __cplusplus
 }

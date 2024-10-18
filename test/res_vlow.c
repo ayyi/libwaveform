@@ -46,29 +46,26 @@ AGlKey keys[] = {
 };
 
 static const struct option long_options[] = {
-	{ "help", 0, NULL, 'h' },
 	{ "autoquit", 0, NULL, 'q' },
+	{ "help", 0, NULL, 'h' },
 };
 
-static const char* const short_options = "hq";
+static const char* const short_options = "qh";
 
 
 int
 main (int argc, char* argv[])
 {
-	int width = 400, height = 160;
+	int width = 2, height = 160;
 
 	int opt;
 	while ((opt = getopt_long (argc, argv, short_options, long_options, NULL)) != -1) {
 		switch (opt) {
 			case 'h':
 				printf("Usage:\n");
-				printf("  glx [options]\n");
+				printf("  res_vlow [options]\n");
 				printf("Options:\n");
 				printf("  -help                   Print this information\n");
-				printf("  -info                   Display GL information\n");
-				printf("  -swap N                 Swap no more than once per N vertical refreshes\n");
-				printf("  -forcegetrate           Try to use glXGetMscRateOML function\n");
 				return 0;
 			case 'q':
 				g_timeout_add(3000, (gpointer)exit, NULL);
@@ -76,11 +73,11 @@ main (int argc, char* argv[])
 		}
 	}
 
-	AGlWindow* window = agl_window("Waveform glx test", -1, -1, width, height, 0);
+	AGlWindow* window = agl_window("Waveform v-low resolution test", -1, -1, width, height, 0);
 
 	agl_actor__add_child((AGlActor*)window->scene, background_actor(NULL));
 
-	g_autofree char* filename = find_wav("mono_0:10.wav");
+	g_autofree char* filename = find_wav("large1.wav");
 	Waveform* w = waveform_load_new(filename);
 
 	WaveformContext* wfc = wf_context_new((AGlActor*)window->scene);

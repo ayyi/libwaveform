@@ -1,5 +1,14 @@
 SUBDIRS = actors
 
+if ENABLE_GTK
+UI_TOOLKIT_CFLAGS = \
+	$(GTK_CFLAGS)
+else
+UI_TOOLKIT_CFLAGS = \
+	$(PANGO_CFLAGS) \
+	$(GDKPIXBUF_CFLAGS)
+endif
+
 AM_CFLAGS = \
 	-DG_LOG_DOMAIN=\"Waveform\" \
 	-D_FILE_OFFSET_BITS=64 \
@@ -7,7 +16,7 @@ AM_CFLAGS = \
 	-I$(includedir) \
 	-I$(top_srcdir) \
 	-I../lib/agl \
-	$(GTK_CFLAGS) \
+	$(UI_TOOLKIT_CFLAGS) \
 	$(LIBASS_CFLAGS) \
 	$(SDL_CFLAGS) \
 	$(OPENGL_CFLAGS)

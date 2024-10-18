@@ -2,6 +2,7 @@
 
 PROG=./cache
 PROG=./view_plus
+PROG=./hires
 PROG="./res_vhi -n"
 PROG=./pixbuf
 PROG=./resources

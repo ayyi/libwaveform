@@ -414,3 +414,11 @@
    ...
    fun:gdk_gl_window_swap_buffers
 }
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   match-leak-kinds: possible
+   fun:malloc
+   ...
+   fun:glXCreateContextAttribsARB
+}

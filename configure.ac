@@ -65,6 +65,8 @@ AYYI_CFLAGS="-I./ayyi"
 AC_SUBST(AYYI_CFLAGS)
 GLIB_CFLAGS=`pkg-config --cflags glib-2.0`
 AC_SUBST(GLIB_CFLAGS)
+GOBJECT_LDFLAGS=`pkg-config --libs gobject-2.0`
+AC_SUBST(GOBJECT_LDFLAGS)
 GTHREAD_LIBS=`pkg-config --libs gthread-2.0`
 AC_SUBST(GTHREAD_LIBS)
 
@@ -105,6 +107,27 @@ GTK_CFLAGS=`pkg-config --cflags gtk4`
 GTK_LDFLAGS=`pkg-config --libs gtk4`
 AC_SUBST(GTK_CFLAGS)
 AC_SUBST(GTK_LDFLAGS)
+
+if `pkg-config gtk4 --atleast-version=4.14`; then
+  HAVE_GTK_4_14="yes"
+  AC_DEFINE(HAVE_GTK_4_14, 1, [We have at least gtk 4.14])
+else
+  HAVE_GTK_4_14="no"
+fi;
+
+if `pkg-config gtk4 --atleast-version=4.16`; then
+  HAVE_GTK_4_16="yes"
+  AC_DEFINE(HAVE_GTK_4_16, 1, [We have at least gtk 4.16])
+else
+  HAVE_GTK_4_16="no"
+fi;
+
+if `pkg-config gtk4 --atleast-version=4.18`; then
+  HAVE_GTK_4_18="yes"
+  AC_DEFINE(HAVE_GTK_4_18, 1, [We have at least gtk 4.18])
+else
+  HAVE_GTK_4_18="no"
+fi;
 
 if `pkg-config glib-2.0 --atleast-version=2.32`; then
   HAVE_GLIB_2_32="yes"
@@ -161,9 +184,9 @@ XRANDR_LDFLAGS=`pkg-config --libs xrandr`
 AC_SUBST(XRANDR_LDFLAGS)
 
 PANGO_CFLAGS=`pkg-config --cflags pangocairo`
-PANGO_LIBS=`pkg-config --libs pangocairo`
+PANGO_LDFLAGS=`pkg-config --libs pangocairo`
 AC_SUBST(PANGO_CFLAGS)
-AC_SUBST(PANGO_LIBS)
+AC_SUBST(PANGO_LDFLAGS)
 
 FRIBIDI_CFLAGS=`pkg-config --cflags fribidi`
 FRIBIDI_LDFLAGS=`pkg-config --libs fribidi`
@@ -323,6 +346,9 @@ AC_DEFINE(USE_GDK_PIXBUF, 1, [enable support for Gdk Pixbuf])
 
 GDKPIXBUF_CFLAGS=`pkg-config --cflags-only-I gdk-pixbuf-2.0`
 AC_SUBST(GDKPIXBUF_CFLAGS)
+GDKPIXBUF_LDFLAGS=`pkg-config --libs gdk-pixbuf-2.0`
+AC_SUBST(GDKPIXBUF_LDFLAGS)
+
 
 dnl ------------------ test progs ------------------------
 

@@ -1,34 +1,32 @@
-
-/**
-* +----------------------------------------------------------------------+
-* | This file is part of the Ayyi project. http://ayyi.org               |
-* | copyright (C) 2013-2020 Tim Orford <tim@orford.org>                  |
-* +----------------------------------------------------------------------+
-* | This program is free software; you can redistribute it and/or modify |
-* | it under the terms of the GNU General Public License version 3       |
-* | as published by the Free Software Foundation.                        |
-* +----------------------------------------------------------------------+
-*
-*/
+/*
+ +----------------------------------------------------------------------+
+ | This file is part of the Ayyi project. https://www.ayyi.org          |
+ | copyright (C) 2013-2024 Tim Orford <tim@orford.org>                  |
+ +----------------------------------------------------------------------+
+ | This program is free software; you can redistribute it and/or modify |
+ | it under the terms of the GNU General Public License version 3       |
+ | as published by the Free Software Foundation.                        |
+ +----------------------------------------------------------------------+
+ |
+ | Common code for all tests
+ |
+ */
 
 #define __wf_private__
+
 #include "wf/debug.h"
 #include "agl/actor.h"
 #include "agl/behaviours/simple_key.h"
 
-/*
- *  Common code for all tests
- */
-
-void  set_log_handlers   ();
-char* find_wav           (const char*);
-const char* find_data_dir();
+void        set_log_handlers ();
+char*       find_wav         (const char*);
+const char* find_data_dir    ();
 
 typedef struct
 {
 	guint          timer;
-	KeyHandler*    handler;
-} KeyHold;
+	AGlKeyHandler* handler;
+} WfKeyHold;
 
 #ifdef __common2_c__
 char grey     [16] = "\x1b[2;39m"; // 2 = dim
@@ -67,12 +65,6 @@ extern char fail     [];
 void add_key_handlers         (AGlKey[]);
 #ifdef GTK_TYPE_WIDGET
 void add_key_handlers_gtk     (GtkWindow*, gpointer, AGlKey keys[]);
-
-#ifdef __GDK_GL_CONFIG_H__
-typedef void (*WindowFn)      (GtkWindow*, GdkGLConfig*);
-
-int  gtk_window               (AGlKey keys[], WindowFn);
-#endif
 #endif
 
 #define g_source_remove0(S) {if(S) g_source_remove(S); S = 0;}

@@ -19,6 +19,9 @@
 #define __wf_canvas_priv__
 
 #include "config.h"
+#ifdef USE_GDK_PIXBUF
+#include <gdk-pixbuf/gdk-pixdata.h>
+#endif
 #include "agl/actor.h"
 #include "agl/debug.h"
 #include "transition/frameclock.h"
@@ -101,8 +104,8 @@ wf_context_class_init (WaveformContextClass* klass)
 	agl = agl_get_instance();
 
 #if defined (WF_USE_TEXTURE_CACHE) && defined (USE_OPENGL)
-		texture_cache_init();
-		texture_cache_set_on_steal(on_steal);
+	texture_cache_init();
+	texture_cache_set_on_steal(on_steal);
 #endif
 
 	// testing...
@@ -292,7 +295,7 @@ wf_context_queue_redraw (WaveformContext* wfc)
 #if 0
 		frame_clock_request_phase(GDK_FRAME_CLOCK_PHASE_PAINT);
 #else
-		frame_clock_request_phase(GDK_FRAME_CLOCK_PHASE_UPDATE);
+		frame_clock_request_phase(AGL_FRAME_CLOCK_PHASE_UPDATE);
 #endif
 	}
 

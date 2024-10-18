@@ -44,6 +44,7 @@ test/gen/write_block
 test/gen/write_short
 test/gen/write_wav
 test/32bit
+test/32bit.h
 test/no_scene
 test/actor_plus
 test/actor
@@ -53,12 +54,15 @@ test/frame_rate
 test/glx
 test/group
 test/hires
+test/res_vlow
 test/input
 test/large_files
+test/large_files.h
 test/list
 test/multi_scene
 test/pixbuf
 test/promise
+test/promise.h
 test/resources
 test/res_vhi
 test/scenegraph
@@ -66,7 +70,8 @@ test/sdl
 test/view_plus
 test/view_test
 test/viewport
-test/waveform_test
+test/waveform
+test/waveform.h
 test/text
 test/gen/write_piano
 test/gen/thumbnail

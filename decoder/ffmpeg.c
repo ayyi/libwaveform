@@ -43,6 +43,12 @@
 #define bool gboolean
 #endif
 
+#if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(60, 0, 0)
+#define N_CHANNELS(F) (f->codec_context->ch_layout.nb_channels)
+#else
+#define N_CHANNELS(F) (f->codec_context->channels)
+#endif
+
 extern void int16_to_float (float* out, int16_t* in, int n_channels, int n_frames, int out_offset);
 
 struct _WfBuf16 // also defined in waveform.h
@@ -94,7 +100,7 @@ struct _FFmpegAudioDecoder
 #endif
     }                  thumbnail;
 
-    ssize_t (*read)    (WfDecoder*, float*, size_t len);
+    ssize_t (*read)        (WfDecoder*, float*, size_t len);
     ssize_t (*read_planar) (WfDecoder*, WfBuf16*);
 };
 
@@ -147,11 +153,7 @@ ad_info_ffmpeg (WfDecoder* d)
 
 	d->info = (WfAudioInfo){
 		.sample_rate = f->codec_parameters->sample_rate,
-#ifdef HAVE_FFMPEG_60
-		.channels    = f->codec_parameters->ch_layout.nb_channels,
-#else
-		.channels    = f->codec_parameters->channels,
-#endif
+		.channels    = N_CHANNELS(f),
 		.frames      = n_frames,
 		.length      = (n_frames * 1000) / f->codec_parameters->sample_rate,
 		.bit_rate    = f->format_context->bit_rate,
@@ -177,11 +179,13 @@ ad_info_ffmpeg (WfDecoder* d)
 		g_ptr_array_add(tags, g_strdup(tag->value));
 	}
 
-	if(tags->len){
+	if (tags->len) {
 		// sort tags
 		char* order[] = {"artist", "title", "album", "track", "date"};
 		int p = 0;
-		int i; for(i=0;i<G_N_ELEMENTS(order);i++) if(ad_metadata_array_set_tag_postion(tags, order[i], p)) p++;
+		for (int i=0;i<G_N_ELEMENTS(order);i++)
+			if (ad_metadata_array_set_tag_postion(tags, order[i], p))
+				p++;
 
 		d->info.meta_data = tags;
 	}else
@@ -381,8 +385,7 @@ ad_open_ffmpeg (WfDecoder* decoder, const char* filename)
 	}
 
 	f->audio_stream = -1;
-	int i;
-	for (i=0; i<f->format_context->nb_streams; i++) {
+	for (int i=0; i<f->format_context->nb_streams; i++) {
 		AVStream* stream = f->format_context->streams[i];
 		switch (stream->codecpar->codec_type) {
 			case AVMEDIA_TYPE_AUDIO:
@@ -458,7 +461,7 @@ ad_open_ffmpeg (WfDecoder* decoder, const char* filename)
 
 			f->read_planar = ff_read_short_interleaved_to_planar;
 			break;
-		case AV_SAMPLE_FMT_S16P:
+		case AV_SAMPLE_FMT_S16P: // e.g. ape
 			f->read = ff_read_short_planar_to_interleaved;
 			f->read_planar = ff_read_short_planar_to_planar;
 			break;
@@ -466,7 +469,7 @@ ad_open_ffmpeg (WfDecoder* decoder, const char* filename)
 			f->read = ff_read_float_interleaved_to_interleaved;
 			f->read_planar = ff_read_float_interleaved_to_planar;
 			break;
-		case AV_SAMPLE_FMT_FLTP:
+		case AV_SAMPLE_FMT_FLTP: // e.g. mp3, m4a, dsf, opus
 			f->read = ff_read_float_planar_to_interleaved;
 			f->read_planar = ff_read_float_planar_to_planar;
 			break;
@@ -488,8 +491,9 @@ ad_open_ffmpeg (WfDecoder* decoder, const char* filename)
 
 	return TRUE;
 
-f:
-	g_free0(decoder->d);
+  f:
+	g_clear_pointer(&decoder->d, g_free);
+
 	return FALSE;
 }
 
@@ -511,7 +515,7 @@ ad_close_ffmpeg (WfDecoder* d)
 	avcodec_free_context(&f->codec_context);
 #endif
 	avformat_close_input(&f->format_context);
-	g_free0(d->d);
+	g_clear_pointer(&f, g_free);
 
 	return 0;
 }
@@ -680,7 +684,7 @@ ff_read_short_interleaved_to_planar (WfDecoder* d, WfBuf16* buf)
 	g_return_val_if_fail(data_size == 2, 0);
 
 	bool have_frame = false;
-	if(f->frame.nb_samples && f->frame_iter < f->frame.nb_samples){
+	if (f->frame.nb_samples && f->frame_iter < f->frame.nb_samples) {
 		have_frame = true;
 	}
 
@@ -778,7 +782,7 @@ ff_read_short_planar_to_planar (WfDecoder* d, WfBuf16* buf)
 				if (ret < 0) pwarn("error decoding audio");
 			}
 			if (got_frame) {
-#ifdef HAVE_FFMPEG_60
+#if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(60, 0, 0)
 				int size = av_samples_get_buffer_size (NULL, f->codec_context->ch_layout.nb_channels, f->frame.nb_samples, f->codec_parameters->format, 1);
 #else
 				int size = av_samples_get_buffer_size (NULL, f->codec_context->channels, f->frame.nb_samples, f->codec_parameters->format, 1);
@@ -791,7 +795,7 @@ ff_read_short_planar_to_planar (WfDecoder* d, WfBuf16* buf)
 				int ch;
 				for (int i=f->frame_iter; i<f->frame.nb_samples && (n_fr_done < buf->size); i++) {
 					if (fr >= f->seek_frame) {
-#ifdef HAVE_FFMPEG_60
+#if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(60, 0, 0)
 						for (ch=0; ch<MIN(2, f->codec_context->ch_layout.nb_channels); ch++) {
 #else
 						for (ch=0; ch<MIN(2, f->codec_context->channels); ch++) {
