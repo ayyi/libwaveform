@@ -33,11 +33,13 @@ v_lo_new (WaveformActor* actor)
 		g_hash_table_insert(((NGRenderer*)renderer)->ng_data, waveform, *data);
 	}
 
-	AGlShader** shader = &modes[MODE_V_LOW].renderer->shader;
+	AGlShader** shader = &renderer->shader;
 	if (!*shader) {
 		*shader = &hires_ng_shader.shader;
-		if (!(*shader)->program)
-			wf_actor_add_shader (actor, MODE_V_LOW, *shader);
+		if ((*shader)->program)
+			((AGlActor*)actor)->program = *shader;
+		else
+			renderer_create_shader (renderer);
 	}
 }
 

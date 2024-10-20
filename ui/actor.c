@@ -241,9 +241,10 @@ static bool   wf_actor_get_quad_dimensions   (WaveformActor*, int b, bool is_fir
 static int    wf_actor_get_n_blocks          (Waveform*, Mode);
 static void   wf_actor_connect_waveform      (WaveformActor*);
 static void   wf_actor_disconnect_waveform   (WaveformActor*);
-static void   wf_actor_add_shader            (WaveformActor*, Mode, AGlShader*);
 
 static void   waveform_free_render_data      (Waveform*);
+
+static void   renderer_create_shader         (Renderer*);
 
 
 #include "ui/renderer/ng.c"
@@ -1463,8 +1464,8 @@ _wf_actor_load_missing_blocks (WaveformActor* a)
 		if (!_w->render_data[i]) {
 			if (!g_list_find(modes[i].actors, actor)) {
 				modes[i].actors = g_list_append(modes[i].actors, actor);
-				call(modes[i].renderer->new, a);
 			}
+			call(modes[i].renderer->new, a);
 		}
 
 	if(zoom_max >= ZOOM_MED){
@@ -2361,13 +2362,13 @@ wf_actor_get_n_blocks (Waveform* waveform, Mode mode)
 
 
 static void
-wf_actor_add_shader (WaveformActor* actor, Mode mode, AGlShader* shader)
+renderer_create_shader (Renderer* renderer)
 {
-	agl_create_program(shader);
+	agl_create_program(renderer->shader);
 
-	for (GList* l = modes[mode].actors; l; l=l->next) {
+	for (GList* l = modes[renderer->mode].actors; l; l=l->next) {
 		AGlActor* a = l->data;
-		a->program = shader;
+		a->program = renderer->shader;
 	}
 }
 

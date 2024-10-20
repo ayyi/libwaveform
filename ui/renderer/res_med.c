@@ -53,7 +53,7 @@ med_renderer_new_gl2 (WaveformActor* actor)
 	} else {
 		*shader = &hires_ng_shader.shader;
 		if (!(*shader)->program) {
-			wf_actor_add_shader (actor, MODE_MED, *shader);
+			renderer_create_shader (modes[MODE_MED].renderer);
 		}
 	}
 

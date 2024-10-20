@@ -430,11 +430,7 @@ static bool
 ng_pre_render0 (Renderer* renderer, WaveformActor* actor)
 {
 	if (!renderer->shader->program) {
-		agl_create_program(renderer->shader);
-		for (GList* l = modes[renderer->mode].actors; l; l=l->next) {
-			AGlActor* a = l->data;
-			a->program = renderer->shader;
-		}
+		renderer_create_shader (renderer);
 	}
 
 	g_return_val_if_fail(((AGlActor*)actor)->program && ((AGlActor*)actor)->program->program, false);

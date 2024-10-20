@@ -23,7 +23,7 @@ low_new_gl2 (WaveformActor* actor)
 	if (!renderer->shader) {
 		renderer->shader = &hires_ng_shader.shader;
 		if (!renderer->shader->program)
-			wf_actor_add_shader (actor, MODE_LOW, &hires_ng_shader.shader);
+			renderer_create_shader (renderer);
 	}
 }
 

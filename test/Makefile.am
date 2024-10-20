@@ -31,7 +31,7 @@ endif
 endif
 
 if ENABLE_OPENGL
-noinst_PROGRAMS = waveform_test large_files promise 32bit actor actor_plus glx list group input frame_rate resources cache $(GTKPROGRAMS) $(SDLPROGRAMS)
+noinst_PROGRAMS = waveform_test large_files promise 32bit actor actor_plus glx res_vlow list group input frame_rate resources cache $(GTKPROGRAMS) $(SDLPROGRAMS)
 else
 noinst_PROGRAMS = waveform_test
 endif

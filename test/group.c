@@ -1,7 +1,7 @@
 /*
  +----------------------------------------------------------------------+
  | This file is part of the Ayyi project. https://www.ayyi.org          |
- | copyright (C) 2012-2022 Tim Orford <tim@orford.org>                  |
+ | copyright (C) 2012-2024 Tim Orford <tim@orford.org>                  |
  +----------------------------------------------------------------------+
  | This program is free software; you can redistribute it and/or modify |
  | it under the terms of the GNU General Public License version 3       |
@@ -74,14 +74,13 @@ run (int argc, char *argv[])
 	AGlWindow* window = agl_window ("Group", -1, -1, WIDTH, HEIGHT, 0);
 	AGlActor* root = (AGlActor*)window->scene;
 	scene = window->scene;
-	window->scene->selected = root;
+	scene->selected = root;
 
 	wfc = wf_context_new(root);
 
-	char* filename = find_wav(WAV);
+	g_autofree char* filename = find_wav(WAV);
 	g_assert(filename);
 	Waveform* wav = waveform_load_new(filename);
-	g_free(filename);
 
 	agl_actor__add_child(root, rotator(NULL));
 
@@ -108,8 +107,7 @@ run (int argc, char *argv[])
 		wrapped = ((AGlActor*)a[i])->paint;
 		((AGlActor*)a[i])->paint = _paint;
 
-		g_free(((AGlActor*)a[i])->name);
-		((AGlActor*)a[i])->name = g_strdup_printf("Waveform %i", i);
+		set_str(((AGlActor*)a[i])->name, g_strdup_printf("Waveform %i", i));
 
 		wf_actor_set_region (a[i], &region[i]);
 		wf_actor_set_colour (a[i], colours[i][0]);
