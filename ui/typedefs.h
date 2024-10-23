@@ -1,7 +1,7 @@
 /*
  +----------------------------------------------------------------------+
- | This file is part of the Ayyi project. http://ayyi.org               |
- | copyright (C) 2012-2023 Tim Orford <tim@orford.org>                  |
+ | This file is part of the Ayyi project. https://www.ayyi.org          |
+ | copyright (C) 2012-2024 Tim Orford <tim@orford.org>                  |
  +----------------------------------------------------------------------+
  | This program is free software; you can redistribute it and/or modify |
  | it under the terms of the GNU General Public License version 3       |
@@ -10,8 +10,7 @@
  |
  */
 
-#ifndef __waveform_typedefs_h__
-#define __waveform_typedefs_h__
+#pragma once
 
 #include "glib.h"
 #include "agl/typedefs.h"
@@ -29,5 +28,3 @@ typedef struct _ass_shader          AssShader;
 typedef struct _PeakShader          PeakShader;
 typedef struct _RulerShader         RulerShader;
 typedef struct _CursorShader        CursorShader;
-
-#endif //__waveform_typedefs_h__

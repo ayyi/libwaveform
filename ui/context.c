@@ -104,8 +104,8 @@ wf_context_class_init (WaveformContextClass* klass)
 	agl = agl_get_instance();
 
 #if defined (WF_USE_TEXTURE_CACHE) && defined (USE_OPENGL)
-		texture_cache_init();
-		texture_cache_set_on_steal(on_steal);
+	texture_cache_init();
+	texture_cache_set_on_steal(on_steal);
 #endif
 
 	// testing...

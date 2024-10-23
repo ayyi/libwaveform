@@ -31,9 +31,9 @@ endif
 endif
 
 if ENABLE_OPENGL
-noinst_PROGRAMS = waveform_test large_files promise 32bit actor actor_plus glx res_vlow list group input frame_rate resources cache $(GTKPROGRAMS) $(SDLPROGRAMS)
+noinst_PROGRAMS = waveform large_files promise 32bit actor actor_plus glx res_vlow list group input frame_rate resources cache $(GTKPROGRAMS) $(SDLPROGRAMS)
 else
-noinst_PROGRAMS = waveform_test
+noinst_PROGRAMS = waveform promise 32bit
 endif
 
 if ENABLE_EPOXY
@@ -76,16 +76,16 @@ TEST_LDFLAGS = \
 	$(FRIBIDI_LDFLAGS) \
 	-lm
 
-COMMON_SOURCES = \
-	common.c common.h \
+RUNNER_SOURCES = \
+	wf_runner.c wf_runner.h \
 	common2.c common2.h
 
 COMMON2_SOURCES = \
 	common2.c common2.h
 
-waveform_test_SOURCES = \
+waveform_SOURCES = \
 	$(COMMON2_SOURCES) \
-	waveform_test.c
+	waveform.c
 
 view_plus_SOURCES = \
 	$(COMMON2_SOURCES) \
@@ -141,11 +141,11 @@ large_files_SOURCES = \
 	large_files.c
 
 cache_SOURCES = \
-	$(COMMON_SOURCES) \
+	$(RUNNER_SOURCES) \
 	cache.c
 
 32bit_SOURCES = \
-	$(COMMON_SOURCES) \
+	$(COMMON2_SOURCES) \
 	32bit.c
 
 pixbuf_SOURCES = \
@@ -154,7 +154,7 @@ pixbuf_SOURCES = \
 
 if ENABLE_SDL
 sdl_SOURCES = \
-	$(COMMON_SOURCES) \
+	$(RUNNER_SOURCES) \
 	sdl.c
 endif
 
@@ -166,9 +166,7 @@ input_SOURCES = \
 	$(COMMON2_SOURCES) \
 	input.c
 
-#promise_SOURCES = promise.c
-
-waveform_test_LDADD = \
+waveform_LDADD = \
 	$(TEST_LDFLAGS)
 
 view_plus_LDADD = \
@@ -226,9 +224,39 @@ AM_TESTS_FD_REDIRECT = 9>&2 --autoquit
 AM_TESTS_ENVIRONMENT = \
 	export NON_INTERACTIVE=1;
 
+BUILT_SOURCES = waveform.h 32bit.h promise.h large_files.h
+
+define build_header =
+	echo > $@
+	echo '#include "wf/waveform.h"' >> $@
+	echo '#include "test/runner.h"' >> $@
+	echo >> $@
+	@echo "TestFn x" >> $@
+	@cat $(@:.h=.c) | grep ^test_ | sed 's/\(.*\) .*/  ,\1/' >> $@
+	@echo "  ;" >> $@
+	@echo >> $@
+	@echo "gpointer tests[] = {" >> $@
+	@cat $(@:.h=.c) | grep ^test_ | sed 's/\(.*\) .*/  \1,/' >> $@
+	@echo "};" >> $@
+	@echo >> $@
+	@echo "int n_tests () { return "`cat $(@:.h=.c) | grep ^test_ | wc -l`"; }" >> $@
+endef
+
+32bit.h: 32bit.c Makefile
+	@$(build_header)
+
+waveform.h: waveform.c Makefile
+	@$(build_header)
+
+promise.h: promise.c Makefile
+	@$(build_header)
+
+large_files.h: large_files.c Makefile
+	@$(build_header)
+
 # these tests will be run as part of make-check
 TESTS = \
-	waveform_test \
+	waveform \
 	32bit \
 	cache \
 	view_plus \

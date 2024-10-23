@@ -30,7 +30,7 @@
 #include "agl/text/renderer.h"
 #include "agl/fbo.h"
 #include "waveform/actor.h"
-#include "test/common.h"
+#include "test/common2.h"
 
 GtkWidget*       area          = NULL;
 WaveformContext* wfc           = NULL;

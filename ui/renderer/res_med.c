@@ -1,7 +1,7 @@
 /*
  +----------------------------------------------------------------------+
  | This file is part of the Ayyi project. https://www.ayyi.org          |
- | copyright (C) 2012-2022 Tim Orford <tim@orford.org>                  |
+ | copyright (C) 2012-2024 Tim Orford <tim@orford.org>                  |
  +----------------------------------------------------------------------+
  | This program is free software; you can redistribute it and/or modify |
  | it under the terms of the GNU General Public License version 3       |
@@ -13,8 +13,6 @@
 extern HiResNGShader hires_ng_shader;
 
 typedef HiResNGWaveform NGWaveform;
-
-#define RENDER_DATA_MED(A) ((NGWaveform*)A->render_data[MODE_MED])
 
 
 static void

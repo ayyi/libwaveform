@@ -31,7 +31,7 @@
 #include "waveform/actor.h"
 #include "waveform/texture_cache.h"
 #include "waveform/ui-private.h"
-#include "test/common.h"
+#include "test/wf_runner.h"
 #include "test/utils.h"
 
 extern void texture_cache_print ();

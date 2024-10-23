@@ -412,9 +412,10 @@ ng_pre_render (Renderer* renderer, WaveformActor* actor)
 					: 3
 		);
 
+							// this is per block. can we move it to set_state?
+	agl_use_program((AGlShader*)shader);
 	agl_scale (&shader->shader, 1., 1.);
 	agl_translate (&shader->shader, 0., 0.);
-	shader->shader.set_uniforms_((AGlShader*)shader);
 
 	glActiveTexture (GL_TEXTURE0);
 	glBindBuffer (GL_ARRAY_BUFFER, agl->vbo);
@@ -432,8 +433,6 @@ ng_pre_render0 (Renderer* renderer, WaveformActor* actor)
 	if (!renderer->shader->program) {
 		renderer_create_shader (renderer);
 	}
-
-	g_return_val_if_fail(((AGlActor*)actor)->program && ((AGlActor*)actor)->program->program, false);
 
 	renderer->pre_render = ng_pre_render;
 

@@ -13,41 +13,22 @@
  */
 
 #define __wf_private__
-#define __no_setup__
 
 #include "config.h"
 #include <glib.h>
 #include "decoder/ad.h"
 #include "transition/transition.h"
-#include "wf/waveform.h"
+#include "waveform/waveform.h"
 #include "wf/peakgen.h"
 #include "wf/worker.h"
 #include "waveform/pixbuf.h"
 #include "test/utils.h"
-#include "test/runner.h"
-
-TestFn test_decoder, test_peakgen, test_m4a, test_bad_wav, test_empty_wav, test_audio_file, test_audiodata, test_audio_cache, test_alphabuf, test_transition, test_worker, test_thumbnail;
+#include "test/wf_runner.h"
+#include "test/waveform.h"
 
 static void finalize_notify (gpointer, GObject*);
 
-gpointer tests[] = {
-	test_decoder,
-	test_peakgen,
-	test_m4a,
-	test_bad_wav,
-	test_empty_wav,
-	test_audio_file,
-	test_audiodata,
-	test_audio_cache,
-	test_alphabuf,
-	test_transition,
-	test_worker,
-#ifdef USE_FFMPEG
-	test_thumbnail,
-#endif
-};
-
-#include "test/common.c"
+//#include "test/common.c"
 
 #define WAV "mono_0:10.wav"
 #define WAV2 "stereo_0:10.wav"
@@ -358,8 +339,9 @@ test_audiodata ()
 		}
 	}
 
+#if 0
 void
-test_audiodata_slow ()
+_test_audiodata_slow ()
 {
 	// queues the requests separately.
 
@@ -382,10 +364,11 @@ test_audiodata_slow ()
 
 	waveform_load_audio(w, 0, n_tiers_needed, NULL, NULL);
 }
+#endif
 
 
 static gboolean
-test_audio_cache__after_unref (gpointer _c)
+_test_audio_cache__after_unref (gpointer _c)
 {
 	WfTest* c = _c;
 	WF* wf = wf_get_instance();
@@ -409,8 +392,8 @@ test_audio_cache__after_unref (gpointer _c)
 			g_object_unref(waveform);
 
 			// dont know why, but the idle fn runs too early.
-			//g_idle_add_full(G_PRIORITY_LOW, test_audio_cache__after_unref, NULL, NULL);
-			g_timeout_add(400, test_audio_cache__after_unref, c);
+			//g_idle_add_full(G_PRIORITY_LOW, _test_audio_cache__after_unref, NULL, NULL);
+			g_timeout_add(400, _test_audio_cache__after_unref, c);
 		}
 	}
 
@@ -662,10 +645,11 @@ test_thumbnail ()
 {
 	START_TEST;
 
-	char* filename = find_wav("thumbnail.mp3");
+#ifdef USE_FFMPEG
+	g_autofree char* filename = find_wav("thumbnail.mp3");
 
 	WfDecoder dec = {0,};
-	if(!ad_open(&dec, filename)){
+	if (!ad_open(&dec, filename)) {
 		FAIL_TEST("failed to open file");
 	}
 
@@ -680,8 +664,8 @@ test_thumbnail ()
 	ad_close(&dec);
 	ad_thumbnail_free(NULL, &picture);
 	ad_free_nfo(&dec.info);
+#endif
 
-	g_free(filename);
 	FINISH_TEST;
 }
 

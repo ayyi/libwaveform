@@ -1,15 +1,17 @@
-/**
-* +----------------------------------------------------------------------+
-* | This file is part of the Ayyi project. http://ayyi.org               |
-* | copyright (C) 2012-2020 Tim Orford <tim@orford.org>                  |
-* +----------------------------------------------------------------------+
-* | This program is free software; you can redistribute it and/or modify |
-* | it under the terms of the GNU General Public License version 3       |
-* | as published by the Free Software Foundation.                        |
-* +----------------------------------------------------------------------+
-*
-*/
+/*
+ +----------------------------------------------------------------------+
+ | This file is part of the Ayyi project. https://www.ayyi.org          |
+ | copyright (C) 2012-2024 Tim Orford <tim@orford.org>                  |
+ +----------------------------------------------------------------------+
+ | This program is free software; you can redistribute it and/or modify |
+ | it under the terms of the GNU General Public License version 3       |
+ | as published by the Free Software Foundation.                        |
+ +----------------------------------------------------------------------+
+ |
+ */
+
 #define __wf_private__
+
 #include "config.h"
 #include <glib.h>
 #include "agl/utils.h"
@@ -395,14 +397,14 @@ texture_cache_steal(TextureCache* c)
 
 
 void
-texture_cache_remove(int tex_type, Waveform* w, int b)
+texture_cache_remove (int tex_type, Waveform* w, int b)
 {
 	texture_cache_unassign(cache_by_type(tex_type), (WaveformBlock){w, b});
 }
 
 
 void
-texture_cache_remove_waveform(Waveform* waveform) //tmp? should probably only be called by wf_unref()
+texture_cache_remove_waveform (Waveform* waveform) // temporary? should probably only be called by wf_unref()
 {
 	WaveformPrivate* w = waveform->priv;
 
@@ -430,14 +432,14 @@ texture_cache_remove_waveform(Waveform* waveform) //tmp? should probably only be
 
 #ifdef DEBUG
 int
-texture_cache_count_by_waveform(Waveform* w)
+texture_cache_count_by_waveform (Waveform* w)
 {
 	int n_found = 0;
-	int j; for(j=0;j<2;j++){
+	for (int j=0;j<2;j++) {
 		TextureCache* c = j ? c2 : c1;
-		int i; for(i=0;i<c->t->len;i++){
+		for (int i=0;i<c->t->len;i++) {
 			WfTexture* t = &g_array_index(c->t, WfTexture, i);
-			if(t->wb.waveform == w) n_found++;
+			if (t->wb.waveform == w) n_found++;
 		}
 	}
 	return n_found;
@@ -488,7 +490,7 @@ texture_cache_print()
 								: (t->wb.block & WF_TEXTURE_CACHE_HIRES_NG_MASK)
 									? "H"
 									: "M";
-				printf("    %3i: %2u %4i %4i %s %4i\n", i, t->id, t->time_stamp, t->wb.block & (~(WF_TEXTURE_CACHE_V_LORES_MASK | WF_TEXTURE_CACHE_LORES_MASK | WF_TEXTURE_CACHE_HIRES_NG_MASK)), mode, g_list_index(waveforms, t->wb.waveform) + 1);
+				printf("    %3i: %2u %4i %4i %s %4i %s\n", i, t->id, t->time_stamp, t->wb.block & (~(WF_TEXTURE_CACHE_V_LORES_MASK | WF_TEXTURE_CACHE_LORES_MASK | WF_TEXTURE_CACHE_HIRES_NG_MASK)), mode, g_list_index(waveforms, t->wb.waveform) + 1, t->wb.waveform ? t->wb.waveform->filename: "");
 			}
 		}
 		dbg(0, "array_size=%i n_used=%i n_waveforms=%i", c->t->len, n_used, g_list_length(waveforms));

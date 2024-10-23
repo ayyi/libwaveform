@@ -47,7 +47,7 @@
 #include "agl/actor.h"
 #include "actors/spinner.h"
 #include "waveform/view_plus.h"
-#include "common.h"
+#include "common2.h"
 
 extern char* basename (const char*);
 
@@ -118,6 +118,7 @@ static void
 activate (GtkApplication* app, gpointer user_data)
 {
 	wf_debug = 0;
+	_debug_ = 0;
 
 	GtkWidget* window = gtk_application_window_new (app);
 	gtk_window_set_title (GTK_WINDOW (window), "Window");
@@ -150,9 +151,8 @@ activate (GtkApplication* app, gpointer user_data)
 
 	layers.spinner = waveform_view_plus_add_layer(waveform, agl_spinner(waveform_view_plus_get_actor(waveform)), 0);
 
-	char* filename = find_wav(wavs[0]);
+	g_autofree char* filename = find_wav(wavs[0]);
 	show_wav(waveform, filename);
-	g_free(filename);
 
 	GActionEntry app_entries[] =
 	{
@@ -217,6 +217,11 @@ show_wav (WaveformViewPlus* view, const char* filename)
 			if (text_layer) {
 				text_actor_set_text(((TextActor*)text_layer), NULL, g_strdup(error->message));
 			}
+		} else {
+			// refs are held by the View, the Actor, and the waveform Context
+			// An additional ref is added while the waveform is loading, and another while generating the peak file
+			if (G_OBJECT(view->waveform)->ref_count < 3 || G_OBJECT(view->waveform)->ref_count > 5)
+				pwarn("waveform refcount: expected 3-5, have %i", G_OBJECT(view->waveform)->ref_count);
 		}
 	}
 
@@ -269,10 +274,8 @@ next_wav (gpointer view)
 
 	i = (i + 1) % G_N_ELEMENTS(wavs);
 
-	char* filename = find_wav(wavs[i]);
+	g_autofree char* filename = find_wav(wavs[i]);
 	show_wav(view, filename);
-
-	g_free(filename);
 }
 
 
@@ -348,9 +351,6 @@ finalize_notify (gpointer data, GObject* was)
 }
 
 
-/*
- *  Note that after the widget is destroyed the screen will not be updated, so the waveform will remain on the screen
- */
 static bool
 test_delete ()
 {
@@ -358,7 +358,7 @@ test_delete ()
 
 	g_object_weak_ref((GObject*)view->waveform, finalize_notify, NULL);
 
-	if(dt.finalize_done){
+	if (dt.finalize_done) {
 		pwarn("waveform should not be free'd");
 		return false;
 	}
@@ -366,10 +366,15 @@ test_delete ()
 	gtk_box_remove((GtkBox*)box, (GtkWidget*)view);
 	view = NULL;
 
-	if (!dt.finalize_done) {
-		pwarn("waveform was not free'd");
-		return false;
+	gboolean check ()
+	{
+		if (!dt.finalize_done) {
+			pwarn("waveform was not free'd");
+			return false;
+		}
+		return G_SOURCE_REMOVE;
 	}
+	g_idle_add(check, NULL);
 
 	return true;
 }

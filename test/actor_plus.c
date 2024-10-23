@@ -1,7 +1,7 @@
 /*
  +----------------------------------------------------------------------+
  | This file is part of the Ayyi project. https://www.ayyi.org          |
- | copyright (C) 2012-2022 Tim Orford <tim@orford.org>                  |
+ | copyright (C) 2012-2024 Tim Orford <tim@orford.org>                  |
  +----------------------------------------------------------------------+
  | This program is free software; you can redistribute it and/or modify |
  | it under the terms of the GNU General Public License version 3       |
@@ -21,7 +21,7 @@
 #include "actors/group.h"
 #include "waveform/actor.h"
 #include "waveform/ruler.h"
-#include "test/common.h"
+#include "test/common2.h"
 
 #define WAV "mono_0:10.wav"
 

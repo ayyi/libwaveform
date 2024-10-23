@@ -1,16 +1,17 @@
-/**
-* +----------------------------------------------------------------------+
-* | This file is part of libwaveform https://github.com/ayyi/libwaveform |
-* | copyright (C) 2013-2021 Tim Orford <tim@orford.org>                  |
-* +----------------------------------------------------------------------+
-* | This program is free software; you can redistribute it and/or modify |
-* | it under the terms of the GNU General Public License version 3       |
-* | as published by the Free Software Foundation.                        |
-* +----------------------------------------------------------------------+
-*
-*/
+/*
+ +----------------------------------------------------------------------+
+ | This file is part of libwaveform https://github.com/ayyi/libwaveform |
+ | copyright (C) 2013-2024 Tim Orford <tim@orford.org>                  |
+ +----------------------------------------------------------------------+
+ | This program is free software; you can redistribute it and/or modify |
+ | it under the terms of the GNU General Public License version 3       |
+ | as published by the Free Software Foundation.                        |
+ +----------------------------------------------------------------------+
+ |
+ */
 #define __wf_private__
 #define __wf_canvas_priv__
+
 #include "config.h"
 #include <getopt.h>
 #include "SDL2/SDL.h"
@@ -20,7 +21,7 @@
 #endif
 #include "agl/ext.h"
 #include "waveform/actor.h"
-#include "common.h"
+#include "common2.h"
 
 #include "transition/frameclockidle.h"
 

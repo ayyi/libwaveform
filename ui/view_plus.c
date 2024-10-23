@@ -49,7 +49,6 @@ static AGl*          agl = NULL;
 
 static GdkGLContext* gl_context = NULL;
 
-#define _g_object_unref0(var) ((var == NULL) ? NULL : (var = (g_object_unref (var), NULL)))
 #define _g_source_remove0(S) {if(S) g_source_remove(S); S = 0;}
 
 static ActorKeyHandler
@@ -251,6 +250,7 @@ waveform_view_plus_load_file (WaveformViewPlus* view, const char* filename, WfCa
 	}
 
 	_waveform_view_plus_set_waveform(view, waveform_new(filename));
+	g_object_unref(G_OBJECT(view->waveform)); // remove the initial reference from the constructor. ref_count should now be 1
 
 	if (v->actor) {
 		wf_actor_set_waveform(v->actor, view->waveform, waveform_view_plus_load_file_done, AGL_NEW(WfClosure,
@@ -838,12 +838,11 @@ static void waveform_view_on_wav_finalize (gpointer view, GObject* was)
 static void
 _waveform_view_plus_set_waveform (WaveformViewPlus* view, Waveform* waveform)
 {
-	view->waveform = g_object_ref(waveform);
+	wf_set_gobject(view->waveform, waveform);
 
 #ifdef DEBUG
 	g_object_weak_ref((GObject*)view->waveform, waveform_view_on_wav_finalize, view);
 #endif
-
 }
 
 

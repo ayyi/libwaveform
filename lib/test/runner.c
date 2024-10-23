@@ -1,7 +1,7 @@
 /*
  +----------------------------------------------------------------------+
  | This file is part of the Ayyi project. https://www.ayyi.org          |
- | copyright (C) 2012-2021 Tim Orford <tim@orford.org>                  |
+ | copyright (C) 2012-2024 Tim Orford <tim@orford.org>                  |
  +----------------------------------------------------------------------+
  | This program is free software; you can redistribute it and/or modify |
  | it under the terms of the GNU General Public License version 3       |
@@ -22,8 +22,9 @@
 
 extern gpointer tests[];
 
-extern int  setup    (int, char* argv[]);
-extern void teardown ();
+extern int  setup    (int, char* argv[]) __attribute__((weak));
+extern void teardown () __attribute__((weak));
+extern int  n_tests  () __attribute__((weak));
 
 static void next_test ();
 
@@ -39,9 +40,10 @@ main (int argc, char* argv[])
 
 	g_idle_add(run, NULL);
 
-	int r = setup (argc, argv);
+	int r = setup ? setup (argc, argv) : 0;
 	if (r) return r;
 
+	if (n_tests) TEST.n_tests = n_tests();
 	dbg(2, "n_tests=%i", TEST.n_tests);
 
 	if (!TEST.is_gtk)
@@ -70,6 +72,7 @@ on_test_timeout (gpointer _user_data)
 static gboolean
 __exit ()
 {
+	if (teardown) teardown();
 	exit(TEST.n_failed ? EXIT_FAILURE : EXIT_SUCCESS);
 	return G_SOURCE_REMOVE;
 }
@@ -91,7 +94,7 @@ next_test ()
 		TEST.timeout = g_timeout_add(30000, on_test_timeout, NULL);
 	} else {
 		printf("finished all. passed=%s %i %s failed=%s %i %s\n", GREEN, TEST.n_passed, ayyi_white, (TEST.n_failed ? RED : ayyi_white), TEST.n_failed, ayyi_white);
-		g_timeout_add(1000, __exit, NULL);
+		g_timeout_add(500, __exit, NULL);
 	}
 }
 
