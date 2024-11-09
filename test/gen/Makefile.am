@@ -80,8 +80,8 @@ test_data_1: write_block.cc write_wav write_short write_piano
 	@if [ ! -e "$(DATA_DIR)/mono_0:10.wav" ] || [ "./write_wav" -nt "$(DATA_DIR)/mono_0:10.wav" ] || [ "Makefile" -nt "$(DATA_DIR)/mono_0:10.wav" ]; then \
 		./write_wav $(DATA_DIR)/mono_0:10.wav; \
 		$(FFMPEG) -i $(DATA_DIR)/mono_0:10.wav -q 2 $(DATA_DIR)/mono_0:10.mp3; \
-		$(FFMPEG) -i $(DATA_DIR)/mono_0:10.wav -vbr 3 $(DATA_DIR)/mono_0:10.m4a; \
-		$(FFMPEG) -i $(DATA_DIR)/mono_0:10.wav $(DATA_DIR)/mono_0:10.opus; \
+		$(FFMPEG) -i $(DATA_DIR)/mono_0:10.wav $(DATA_DIR)/mono_0:10.m4a; \
+		$(FFMPEG) -i $(DATA_DIR)/mono_0:10.wav -b:a 128k $(DATA_DIR)/mono_0:10.opus; \
 		$(FFMPEG) -i $(DATA_DIR)/mono_0:10.wav $(DATA_DIR)/mono_0:10.flac; \
 		$(FFMPEG) -i $(DATA_DIR)/mono_0:10.wav -acodec pcm_s24le $(DATA_DIR)/mono_24b_0:10.wav; \
 		$(FFMPEG) -i $(DATA_DIR)/mono_0:10.wav -acodec pcm_u8 $(DATA_DIR)/mono_8b_0:10.wav; \
@@ -89,11 +89,11 @@ test_data_1: write_block.cc write_wav write_short write_piano
 	fi;
 	@if [ ! -e "$(DATA_DIR)/stereo_0:10.wav" ] || [ "./write_wav" -nt "$(DATA_DIR)/stereo_0:10.wav" ] || [ "Makefile" -nt "$(DATA_DIR)/stereo_0:10.wav" ]; then \
 		./write_wav --channels=2 $(DATA_DIR)/stereo_0:10.wav; \
-		$(FFMPEG) -i $(DATA_DIR)/stereo_0:10.wav -q 2 $(DATA_DIR)/stereo_0:10.mp3; \
-		$(FFMPEG) -i $(DATA_DIR)/stereo_0:10.wav -vbr 3 $(DATA_DIR)/stereo_0:10.m4a; \
-		$(FFMPEG) -i $(DATA_DIR)/stereo_0:10.wav $(DATA_DIR)/stereo_0:10.opus; \
-		$(FFMPEG) -i $(DATA_DIR)/stereo_0:10.wav $(DATA_DIR)/stereo_0:10.flac; \
-		$(FFMPEG) -i $(DATA_DIR)/stereo_0:10.wav -acodec pcm_s24le $(DATA_DIR)/stereo_24b_0:10.wav; \
+		$(FFMPEG) -guess_layout_max 0 -i $(DATA_DIR)/stereo_0:10.wav -ac 2 -q 2 $(DATA_DIR)/stereo_0:10.mp3; \
+		$(FFMPEG) -guess_layout_max 0 -i $(DATA_DIR)/stereo_0:10.wav -ac 2 $(DATA_DIR)/stereo_0:10.m4a; \
+		$(FFMPEG) -guess_layout_max 0 -channel_layout stereo -i $(DATA_DIR)/stereo_0:10.wav -ac 2 -b:a 192k $(DATA_DIR)/stereo_0:10.opus; \
+		$(FFMPEG) -channel_layout stereo -i $(DATA_DIR)/stereo_0:10.wav -ac 2 $(DATA_DIR)/stereo_0:10.flac; \
+		$(FFMPEG) -guess_layout_max 0 -channel_layout stereo -i $(DATA_DIR)/stereo_0:10.wav -channel_layout stereo -acodec pcm_s24le $(DATA_DIR)/stereo_24b_0:10.wav; \
 	fi;
 	@if [ ! -e "$(DATA_DIR)/mono_10:00.wav" ] || [ "./write_wav" -nt "$(DATA_DIR)/mono_10:00.wav" ]; then \
 		./write_wav --length=600  $(DATA_DIR)/mono_10:00.wav; \

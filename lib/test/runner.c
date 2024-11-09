@@ -22,8 +22,9 @@
 
 extern gpointer tests[];
 
-extern int  setup    (int, char* argv[]);
-extern void teardown ();
+extern int  setup    (int, char* argv[]) __attribute__((weak));
+extern void teardown () __attribute__((weak));
+extern int  n_tests  () __attribute__((weak));
 
 static void next_test ();
 
@@ -39,9 +40,10 @@ main (int argc, char* argv[])
 
 	g_idle_add(run, NULL);
 
-	int r = setup (argc, argv);
+	int r = setup ? setup (argc, argv) : 0;
 	if (r) return r;
 
+	if (n_tests) TEST.n_tests = n_tests();
 	dbg(2, "n_tests=%i", TEST.n_tests);
 
 	if (!TEST.is_gtk)

@@ -13,7 +13,6 @@
  */
 
 #define __wf_private__
-#define __no_setup__
 
 #include "config.h"
 #include <glib.h>
@@ -25,29 +24,14 @@
 #include "waveform/pixbuf.h"
 #include "test/utils.h"
 #include "test/runner.h"
+#include "test/common.h"
+#include "test/waveform.h"
 
-TestFn test_decoder, test_peakgen, test_m4a, test_bad_wav, test_empty_wav, test_audio_file, test_audiodata, test_audio_cache, test_alphabuf, test_transition, test_worker, test_thumbnail;
+#ifdef USE_FFMPEG
+#include <libavcodec/version.h>
+#endif
 
 static void finalize_notify (gpointer, GObject*);
-
-gpointer tests[] = {
-	test_decoder,
-	test_peakgen,
-	test_m4a,
-	test_bad_wav,
-	test_empty_wav,
-	test_audio_file,
-	test_audiodata,
-	test_audio_cache,
-	test_alphabuf,
-	test_transition,
-	test_worker,
-#ifdef USE_FFMPEG
-	test_thumbnail,
-#endif
-};
-
-#include "test/common.c"
 
 #define WAV "mono_0:10.wav"
 #define WAV2 "stereo_0:10.wav"
@@ -59,7 +43,7 @@ test_decoder ()
 	START_TEST;
 
 	{
-		WfDecoder f = {{0,}};
+		g_auto(WfDecoder) f = {{0,}};
 
 		g_autofree char* filename = find_wav(WAV2);
 		assert(ad_open(&f, filename), "failed to open");
@@ -68,12 +52,94 @@ test_decoder ()
 	}
 
 	{
-		WfDecoder f = {{0,}};
+		g_auto(WfDecoder) f = {{0,}};
 
 		g_autofree char* filename = find_wav("stereo_0:10.m4a");
 		assert(ad_open(&f, filename), "failed to open");
 
 		assert(f.info.channels = 2, "channels");
+	}
+
+	FINISH_TEST;
+}
+
+
+void
+test_decoder_snapshot ()
+{
+	START_TEST;
+
+	char* filenames[] = {
+		"mono_0:10.wav", "stereo_0:10.wav",
+		"mono_24b_0:10.wav", "stereo_24b_0:10.wav",
+#ifdef USE_FFMPEG
+#if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(60, 0, 0)
+		"mono_0:10.mp3", "stereo_0:10.mp3",
+		"mono_0:10.m4a", "stereo_0:10.m4a",
+		"mono_0:10.opus", "stereo_0:10.opus",
+#endif
+#endif
+	};
+
+	#define N_FRAMES 9
+
+	// recorded with ffmpeg 6.1.1
+	int16_t snapshots[][N_FRAMES] = {
+		{0, 0, 1, 1, 2, 3, 4, 6, 8},
+		{0, 0, 1, 1, 2, 3, 4, 6, 8},
+		{0, 0, 1, 1, 2, 3, 4, 6, 8},
+		{0, 0, 1, 1, 2, 3, 4, 6, 8},
+#ifdef USE_FFMPEG
+#if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(60, 0, 0)
+		{-4, -4, -4, -4, -3, -3, -2, -1, 0},
+		{-6, -5, -4, -3, -2, -1, 0, 2, 4},
+		{5, 8, 11, 13, 15, 18, 21, 24, 26},
+		{5, 8, 10, 13, 16, 18, 21, 24, 26},
+		{-430, -366, -301, -234, -166, -98, -28, 40, 108},
+		{-431, -367, -301, -235, -167, -98, -29, 39, 107},
+#endif
+#endif
+	};
+
+	// Don't test opus files in CI
+	const int n = g_getenv("CI_COMMIT_BRANCH") ? 8 : G_N_ELEMENTS(filenames);
+
+	for (int f=0; f<n; f++) {
+		g_auto(WfDecoder) d = {{0,}};
+		g_autofree char* filename = find_wav(filenames[f]);
+		if (!ad_open(&d, filename)) FAIL_TEST("file open: %s", filenames[f]);
+
+		int16_t data[d.info.channels][N_FRAMES];
+		WfBuf16 buf = {
+			.buf = {data[0], data[1]},
+			.size = N_FRAMES
+		};
+
+		int r = ad_read_short(&d, &buf);
+		assert(r == N_FRAMES, "data not read");
+
+		for (int i=0;i<N_FRAMES;i++)
+			assert(
+				ABS(data[0][i] - snapshots[f][i]) <= 1,
+				"16bit: doesn't match snapshot at %i.%i: got: %i expected: %i (%i, %i, %i, %i, %i, %i, %i, %i, %i)", f, i, data[0][i], snapshots[f][i], data[0][0], data[0][1], data[0][2], data[0][3], data[0][4], data[0][5], data[0][6], data[0][7], data[0][8]
+			);
+	}
+
+	for (int f=0; f<n; f++) {
+		g_auto(WfDecoder) d = {{0,}};
+		g_autofree char* filename = find_wav(filenames[f]);
+		if (!ad_open(&d, filename)) FAIL_TEST("file open: %s", filenames[f]);
+
+		int32_t data[N_FRAMES * d.info.channels];
+
+		int r = ad_read_s32(&d, data, N_FRAMES * d.info.channels);
+		assert(r == N_FRAMES, "data not read: %s", filename);
+
+		for (int i=0;i<N_FRAMES;i++)
+			assert(
+				ABS(data[i * d.info.channels] / (1 << 16) - snapshots[f][i]) <= 1,
+				"32bit: doesn't match snapshot at %i.%i: got: %i expected: %i", f, i, data[i * d.info.channels] / (1 << 16), snapshots[f][i]
+			);
 	}
 
 	FINISH_TEST;
@@ -235,6 +301,7 @@ test_audio_file ()
 
 	char* filenames[] = {
 		"mono_0:10.wav", "stereo_0:10.wav",
+		"mono_0:10.flac", "stereo_0:10.flac",
 #ifdef USE_FFMPEG
 		"mono_0:10.mp3", "stereo_0:10.mp3",
 		"mono_0:10.m4a", "stereo_0:10.m4a",
@@ -244,8 +311,8 @@ test_audio_file ()
 	};
 
 	for (int i=0;i<G_N_ELEMENTS(filenames);i++) {
-		WfDecoder f = {{0,}};
-		char* filename = find_wav(filenames[i]);
+		g_auto(WfDecoder) f = {{0,}};
+		g_autofree char* filename = find_wav(filenames[i]);
 		if (!ad_open(&f, filename)) FAIL_TEST("file open: %s", filenames[i]);
 
 		if (!g_str_has_suffix(filenames[i], ".opus")) {
@@ -278,10 +345,6 @@ test_audio_file ()
 			// for some file types, f.info.frames is only an estimate
 			assert(abs((int)total - (int)f.info.frames) < 2048, "%s: incorrect number of frames read: %"PRIi64" (expected %"PRIi64")", filenames[i], total, f.info.frames);
 		}
-
-		ad_free_nfo(&f.info);
-		ad_close(&f);
-		g_free(filename);
 	}
 
 	FINISH_TEST;
@@ -317,9 +380,8 @@ test_audiodata ()
 		}
 	}
 
-	char* filename = find_wav(WAV);
+	g_autofree char* filename = find_wav(WAV);
 	Waveform* w = waveform_new(filename);
-	g_free(filename);
 
 	c->tot_blocks = waveform_get_n_audio_blocks(w);
 
@@ -335,6 +397,15 @@ test_audiodata ()
 }
 
 
+/*
+ *	Queue the requests separately.
+ */
+void
+test_audiodata_slow ()
+{
+	START_TEST;
+	if (__test_idx);
+
 	static int tot_blocks;
 	static int n_tiers_needed = 4;
 	static guint ready_handler = 0;
@@ -344,48 +415,37 @@ test_audiodata ()
 		WfTest* c = _c;
 		C1* c1 = _c;
 
-		if(wf_debug) printf("\n");
+		if (wf_debug) printf("\n");
 		dbg(1, "block=%i", block);
 		test_reset_timeout(5000);
 
 		c1->n++;
-		if(c1->n < tot_blocks){
+		if (c1->n < tot_blocks) {
 			waveform_load_audio(waveform, c1->n, n_tiers_needed, NULL, NULL);
-		}else{
+		} else {
 			g_signal_handler_disconnect((gpointer)waveform, ready_handler);
 			g_object_unref(waveform);
 			WF_TEST_FINISH;
 		}
 	}
 
-void
-test_audiodata_slow ()
-{
-	// queues the requests separately.
-
-	START_TEST;
-	if (__test_idx);
-
-#if 0
-	C1* c = WF_NEW(C1,
-		.test = {
-			.test_idx = TEST.current.test,
-		}
-	);
-#endif
-
-	Waveform* w = waveform_new(WAV);
+	g_autofree char* filename = find_wav(WAV);
+	Waveform* w = waveform_new(filename);
 
 	tot_blocks = waveform_get_n_audio_blocks(w);
 
-	ready_handler = g_signal_connect (w, "hires-ready", (GCallback)_slow_on_peakdata_ready, NULL);
+	ready_handler = g_signal_connect (w, "hires-ready", (GCallback)_slow_on_peakdata_ready, WF_NEW(C1,
+		.test = {
+			.test_idx = TEST.current.test,
+		}
+	));
 
 	waveform_load_audio(w, 0, n_tiers_needed, NULL, NULL);
 }
 
 
 static gboolean
-test_audio_cache__after_unref (gpointer _c)
+_test_audio_cache__after_unref (gpointer _c)
 {
 	WfTest* c = _c;
 	WF* wf = wf_get_instance();
@@ -394,6 +454,8 @@ test_audio_cache__after_unref (gpointer _c)
 
 	WF_TEST_FINISH_TIMER_STOP;
 }
+
+	static guint ready_handler = 0;
 
 	static void _on_peakdata_ready_3 (Waveform* waveform, int block, gpointer _c)
 	{
@@ -409,8 +471,8 @@ test_audio_cache__after_unref (gpointer _c)
 			g_object_unref(waveform);
 
 			// dont know why, but the idle fn runs too early.
-			//g_idle_add_full(G_PRIORITY_LOW, test_audio_cache__after_unref, NULL, NULL);
-			g_timeout_add(400, test_audio_cache__after_unref, c);
+			//g_idle_add_full(G_PRIORITY_LOW, _test_audio_cache__after_unref, NULL, NULL);
+			g_timeout_add(400, _test_audio_cache__after_unref, c);
 		}
 	}
 
@@ -458,7 +520,7 @@ test_alphabuf ()
 
 	int scale[] = {1, WF_PEAK_STD_TO_LO};
 	for (int b=0;b<2;b++) {
-		for(int s=0;s<G_N_ELEMENTS(scale);s++){
+		for (int s=0;s<G_N_ELEMENTS(scale);s++) {
 			AlphaBuf* alphabuf = wf_alphabuf_new(w, b, scale[s], false, 0);
 			assert(alphabuf, "alphabuf create failed");
 			assert(alphabuf->buf, "alphabuf has no buf");
@@ -662,10 +724,11 @@ test_thumbnail ()
 {
 	START_TEST;
 
-	char* filename = find_wav("thumbnail.mp3");
+#ifdef USE_FFMPEG
+	g_autofree char* filename = find_wav("thumbnail.mp3");
 
 	WfDecoder dec = {0,};
-	if(!ad_open(&dec, filename)){
+	if (!ad_open(&dec, filename)) {
 		FAIL_TEST("failed to open file");
 	}
 
@@ -680,8 +743,8 @@ test_thumbnail ()
 	ad_close(&dec);
 	ad_thumbnail_free(NULL, &picture);
 	ad_free_nfo(&dec.info);
+#endif
 
-	g_free(filename);
 	FINISH_TEST;
 }
 

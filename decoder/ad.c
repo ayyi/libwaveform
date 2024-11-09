@@ -1,16 +1,18 @@
-/**
-* +----------------------------------------------------------------------+
-* | This file is part of the Ayyi project. http://ayyi.org               |
-* | copyright (C) 2011-2020 Tim Orford <tim@orford.org>                  |
-* | copyright (C) 2011 Robin Gareus <robin@gareus.org>                   |
-* +----------------------------------------------------------------------+
-* | This program is free software; you can redistribute it and/or modify |
-* | it under the terms of the GNU General Public License version 3       |
-* | as published by the Free Software Foundation.                        |
-* +----------------------------------------------------------------------+
-*
-*/
+/*
+ +----------------------------------------------------------------------+
+ | This file is part of the Ayyi project. https://www.ayyi.org          |
+ | copyright (C) 2011-2024 Tim Orford <tim@orford.org>                  |
+ | copyright (C) 2011 Robin Gareus <robin@gareus.org>                   |
+ +----------------------------------------------------------------------+
+ | This program is free software; you can redistribute it and/or modify |
+ | it under the terms of the GNU General Public License version 3       |
+ | as published by the Free Software Foundation.                        |
+ +----------------------------------------------------------------------+
+ |
+ */
+
 #define __ad_plugin_c__
+
 #include "config.h"
 #include <stdio.h>
 #include <string.h>
@@ -29,21 +31,21 @@ ssize_t  ad_read_null  (void* sf, float*d, size_t s) { return -1; }
 
 
 static AdPlugin const*
-choose_backend(const char* filename)
+choose_backend (const char* filename)
 {
 	AdPlugin const* b = NULL;
 	int max = 0;
 	int score;
 
 #ifdef USE_SNDFILE
-	if((score = get_sndfile()->eval(filename)) > max){
+	if ((score = get_sndfile()->eval(filename)) > max) {
 		max = score;
 		b = get_sndfile();
 	}
 #endif
 
 #ifdef USE_FFMPEG
-	if((score = get_ffmpeg()->eval(filename)) > max){
+	if ((score = get_ffmpeg()->eval(filename)) > max) {
 		max = score;
 		b = get_ffmpeg();
 	}
@@ -57,14 +59,14 @@ choose_backend(const char* filename)
  *  Opening will fill WfDecoder.info which the caller must free using ad_free_nfo()
  */
 bool
-ad_open(WfDecoder* d, const char* fname)
+ad_open (WfDecoder* d, const char* fname)
 {
 	ad_clear_nfo(&d->info);
 
 #ifdef USE_FFMPEG
 	d->b = choose_backend(fname);
 #else
-	if(!(d->b = choose_backend(fname))){
+	if (!(d->b = choose_backend(fname))) {
 		return g_warning("no decoder available for filetype: '%s'", strrchr(fname, '.')), FALSE;
 	}
 #endif
@@ -77,7 +79,7 @@ ad_open(WfDecoder* d, const char* fname)
  *  Metadata must be freed with ad_free_nfo
  */
 int
-ad_info(WfDecoder* d)
+ad_info (WfDecoder* d)
 {
 	return d
 		? d->b->info(d->d)
@@ -86,22 +88,30 @@ ad_info(WfDecoder* d)
 
 
 int
-ad_close(WfDecoder* d)
+ad_close (WfDecoder* d)
 {
 	if (!d) return -1;
 	return d->b->close(d);
 }
 
 
+void
+ad_clear (WfDecoder* d)
+{
+	ad_free_nfo(&d->info);
+	d->b->close(d);
+}
+
+
 int64_t
-ad_seek(WfDecoder* d, int64_t pos)
+ad_seek (WfDecoder* d, int64_t pos)
 {
 	if (!d) return -1;
 	return d->b->seek(d, pos);
 }
 
 ssize_t
-ad_read(WfDecoder* d, float* out, size_t len)
+ad_read (WfDecoder* d, float* out, size_t len)
 {
 	if (!d) return -1;
 	return d->b->read(d, out, len);
@@ -109,10 +119,20 @@ ad_read(WfDecoder* d, float* out, size_t len)
 
 
 ssize_t
-ad_read_short(WfDecoder* d, WfBuf16* out)
+ad_read_short (WfDecoder* d, WfBuf16* out)
 {
 	if (!d) return -1;
 	return d->b->read_short(d, out);
+}
+
+
+/*
+ *   len is the size of the buffer, i.e. n_frames * n_channels
+ */
+ssize_t
+ad_read_s32 (WfDecoder* d, int32_t* out, size_t len)
+{
+	return d ? d->b->read_s32(d, out, len) : -1;
 }
 
 
@@ -136,22 +156,22 @@ ad_read_peak (WfDecoder* d, WfBuf16* out)
  *  side-effects: allocates buffer
  */
 ssize_t
-ad_read_mono_dbl(WfDecoder* d, double* data, size_t len)
+ad_read_mono_dbl (WfDecoder* d, double* data, size_t len)
 {
-	int c,f;
+	int c;
 	int chn = d->info.channels;
 	if (len < 1) return 0;
 
 	static float *buf = NULL;
 	static size_t bufsiz = 0;
-	if (!buf || bufsiz != len*chn) {
+	if (!buf || bufsiz != len * chn) {
 		bufsiz = len * chn;
 		buf = (float*) realloc((void*)buf, bufsiz * sizeof(float));
 	}
 
-	if((len = ad_read(d, buf, bufsiz)) > bufsiz) return 0;
+	if ((len = ad_read(d, buf, bufsiz)) > bufsiz) return 0;
 
-	for (f=0;f<len/chn;f++) {
+	for (int f=0;f<len/chn;f++) {
 		double val = 0.0;
 		for (c=0;c<chn;c++) {
 			val += buf[f * chn + c];
@@ -195,12 +215,12 @@ ad_thumbnail (WfDecoder* d, AdPicture* picture)
 void
 ad_thumbnail_free (WfDecoder* d, AdPicture* picture)
 {
-	g_free0(picture->data);
+	g_clear_pointer(&picture->data, g_free);
 }
 
 
 void
-ad_clear_nfo(WfAudioInfo* nfo)
+ad_clear_nfo (WfAudioInfo* nfo)
 {
 	memset(nfo, 0, sizeof(WfAudioInfo));
 }

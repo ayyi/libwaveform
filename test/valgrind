@@ -1,5 +1,7 @@
 #!/bin/sh
 
+cd $(dirname "$0")
+
 PROG=./cache
 PROG=./view_plus
 PROG="./res_vhi -n"
@@ -11,7 +13,7 @@ PROG=./promise
 PROG=./glx
 PROG=./list
 PROG=./actor_no_scene
-PROG=./waveform_test
+PROG=./waveform
 
 ls -l $PROG
 export G_SLICE=always-malloc

@@ -336,6 +336,7 @@ waveform_view_plus_load_file (WaveformViewPlus* view, const char* filename, WfCa
 
 	if (!filename) {
 		gtk_widget_queue_draw((GtkWidget*)view);
+		call(callback, view->waveform, NULL, user_data);
 		return;
 	}
 
@@ -620,8 +621,8 @@ waveform_view_plus_on_expose (GtkWidget* widget, GdkEventExpose* event)
 		glClearColor(bg.r, bg.g, bg.b, 1.0);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-		if(promise(PROMISE_DISP_READY)->is_resolved){
-			if(view->waveform) agl_actor__paint(v->root);
+		if (promise(PROMISE_DISP_READY)->is_resolved) {
+			agl_actor__paint(v->root);
 		}
 
 #ifdef USE_SYSTEM_GTKGLEXT

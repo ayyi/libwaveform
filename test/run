@@ -8,7 +8,7 @@ COLOR_NORMAL="\\033[0;39m"
 
 dir=`dirname $0`
 
-$dir/waveform_test     || echo -en ${COLOR_FAILURE}1 FAIL${COLOR_NORMAL}\\n
+$dir/waveform          || echo -en ${COLOR_FAILURE}1 FAIL${COLOR_NORMAL}\\n
 $dir/promise           || echo -en ${COLOR_FAILURE}2 FAIL${COLOR_NORMAL}\\n
 $dir/32bit             || echo -en ${COLOR_FAILURE}3 FAIL${COLOR_NORMAL}\\n
 $dir/cache             || echo -en ${COLOR_FAILURE}4 FAIL${COLOR_NORMAL}\\n

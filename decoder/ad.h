@@ -1,17 +1,18 @@
-/**
-* +----------------------------------------------------------------------+
-* | This file is part of the Ayyi project. http://ayyi.org               |
-* | copyright (C) 2016-2019 Tim Orford <tim@orford.org>                  |
-* | copyright (C) 2011 Robin Gareus <robin@gareus.org>                   |
-* +----------------------------------------------------------------------+
-* | This program is free software; you can redistribute it and/or modify |
-* | it under the terms of the GNU General Public License version 3       |
-* | as published by the Free Software Foundation.                        |
-* +----------------------------------------------------------------------+
-*
-*/
-#ifndef __ad_h__
-#define __ad_h__
+/*
+ +----------------------------------------------------------------------+
+ | This file is part of the Ayyi project. https://www.ayyi.org          |
+ | copyright (C) 2016-2024 Tim Orford <tim@orford.org>                  |
+ | copyright (C) 2011 Robin Gareus <robin@gareus.org>                   |
+ +----------------------------------------------------------------------+
+ | This program is free software; you can redistribute it and/or modify |
+ | it under the terms of the GNU General Public License version 3       |
+ | as published by the Free Software Foundation.                        |
+ +----------------------------------------------------------------------+
+ |
+ */
+
+#pragma once
+
 #include <unistd.h>
 #include <stdint.h>
 #include <stdbool.h>
@@ -20,7 +21,7 @@
 
 typedef struct
 {
-   uint16_t   sample_rate;
+   uint32_t   sample_rate;
    uint16_t   channels;
    int64_t    length;       // milliseconds
    int64_t    frames;       // total number of frames (eg a frame for 16bit stereo is 4 bytes).
@@ -47,6 +48,7 @@ struct _AdPlugin
     int64_t  (*seek)       (WfDecoder*, int64_t);
     ssize_t  (*read)       (WfDecoder*, float*, size_t);
     ssize_t  (*read_short) (WfDecoder*, WfBuf16*);
+    ssize_t  (*read_s32)   (WfDecoder*, int32_t*, size_t);
 };
 
 
@@ -61,10 +63,11 @@ typedef struct
 /* low level API */
 bool     ad_open          (WfDecoder*, const char*);
 int      ad_close         (WfDecoder*);
+void     ad_clear         (WfDecoder*);
 int64_t  ad_seek          (WfDecoder*, int64_t);
 ssize_t  ad_read          (WfDecoder*, float*, size_t);
 ssize_t  ad_read_short    (WfDecoder*, WfBuf16*);
-ssize_t  ad_read_peak     (WfDecoder*, WfBuf16*);
+ssize_t  ad_read_s32      (WfDecoder*, int32_t*, size_t);
 int      ad_info          (WfDecoder*);
 
 void     ad_thumbnail     (WfDecoder*, AdPicture*);
@@ -86,10 +89,8 @@ const AdPlugin* get_sndfile ();
 const AdPlugin* get_ffmpeg  ();
 #endif
 
-#define AD_FLOAT_TO_SHORT(A) (A * (1<<15));
+#define ad_is_open(D) (D.d != NULL)
 
-#ifndef g_free0
-#define g_free0(var) (var = (g_free (var), NULL))
-#endif
+#define AD_FLOAT_TO_SHORT(A) round(A * 32767.f); // SHRT_MAX
 
-#endif
+G_DEFINE_AUTO_CLEANUP_CLEAR_FUNC(WfDecoder, ad_clear)

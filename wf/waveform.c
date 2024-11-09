@@ -286,19 +286,18 @@ waveform_get_sf_data(Waveform* w)
 	if(w->offline) return;
 
 	WfDecoder d = {{0,}};
-	if(ad_open(&d, w->filename)){
+	if (ad_open(&d, w->filename)) {
 		w->n_frames = d.info.frames; // for some filetypes this will be an estimate
 		w->n_channels = w->n_channels ? w->n_channels : d.info.channels; // file info is not correct in the case of split stereo files.
 		w->samplerate = d.info.sample_rate;
 
-		ad_close(&d);
-		ad_free_nfo(&d.info);
-	}else{
+		ad_clear(&d);
+	} else {
 		w->offline = true;
 
-		if(!g_file_test(w->filename, G_FILE_TEST_EXISTS)){
+		if (!g_file_test(w->filename, G_FILE_TEST_EXISTS)) {
 			if(wf_debug) pwarn("file open failure. no such file: %s", w->filename);
-		}else{
+		} else {
 #ifdef USE_SNDFILE
 			if(wf_debug) g_warning("file open failure (%s) \"%s\"\n", sf_strerror(NULL), w->filename);
 #endif

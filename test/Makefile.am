@@ -9,6 +9,7 @@ endif
 if ENABLE_SDL
 SDLPROGRAMS = sdl
 endif
+
 if ENABLE_GTK
 GTKPROGRAMS = view_plus actor actor_plus actor_no_scene list group hires res_vhi multi_scene $(ASSPROGRAMS) frame_rate resources cache pixbuf
 LOCAL_GTK_LDFLAGS = $(GTK_LDFLAGS)
@@ -27,9 +28,9 @@ endif
 endif
 
 if ENABLE_OPENGL
-noinst_PROGRAMS = waveform_test large_files promise 32bit glx input $(GTKPROGRAMS) $(SDLPROGRAMS)
+noinst_PROGRAMS = waveform large_files promise 32bit glx input $(GTKPROGRAMS) $(SDLPROGRAMS)
 else
-noinst_PROGRAMS = waveform_test
+noinst_PROGRAMS = waveform
 endif
 
 if ENABLE_EPOXY
@@ -81,9 +82,9 @@ COMMON_SOURCES = \
 COMMON2_SOURCES = \
 	common2.c common2.h
 
-waveform_test_SOURCES = \
+waveform_SOURCES = \
 	$(COMMON2_SOURCES) \
-	waveform_test.c
+	waveform.c
 
 view_plus_SOURCES = \
 	$(COMMON2_SOURCES) \
@@ -162,7 +163,7 @@ input_SOURCES = \
 
 #promise_SOURCES = promise.c
 
-waveform_test_LDADD = \
+waveform_LDADD = \
 	$(TEST_LDFLAGS)
 
 view_plus_LDADD = \
@@ -216,10 +217,31 @@ AM_TESTS_FD_REDIRECT = 9>&2 --non-interactive
 AM_TESTS_ENVIRONMENT = \
 	export NON_INTERACTIVE=1;
 
+BUILT_SOURCES = waveform.h
+
+define build_header =
+	echo > $@
+	echo '#include "wf/waveform.h"' >> $@
+	echo '#include "test/runner.h"' >> $@
+	echo >> $@
+	@echo "TestFn x" >> $@
+	@cat $(@:.h=.c) | grep ^test_ | sed 's/\(.*\) .*/  ,\1/' >> $@
+	@echo "  ;" >> $@
+	@echo >> $@
+	@echo "gpointer tests[] = {" >> $@
+	@cat $(@:.h=.c) | grep ^test_ | sed 's/\(.*\) .*/  \1,/' >> $@
+	@echo "};" >> $@
+	@echo >> $@
+	@echo "int n_tests () { return "`cat $(@:.h=.c) | grep ^test_ | wc -l`"; }" >> $@
+endef
+
+waveform.h: waveform.c Makefile
+	@$(build_header)
+
 # these tests will be run as part of make-check
 # TODO dont swallow stdout
 TESTS = \
-	waveform_test \
+	waveform \
 	32bit \
 	cache \
 	view_plus \
@@ -238,7 +260,7 @@ TESTS = \
 
 test:
 	@echo running tests...
-	./waveform_test
+	./waveform
 	cd .. && test/large_files
 	./32bit
 	./cache
@@ -264,7 +286,7 @@ CLEANFILES = \
 	resources \
 	sdl \
 	view_plus \
-	waveform_test
+	waveform
 
 EXTRA_DIST = 
 

@@ -1,7 +1,7 @@
 /*
  +----------------------------------------------------------------------+
  | This file is part of the Ayyi project. https://www.ayyi.org          |
- | copyright (C) 2011-2023 Tim Orford <tim@orford.org>                  |
+ | copyright (C) 2011-2025 Tim Orford <tim@orford.org>                  |
  | copyright (C) 2011 Robin Gareus <robin@gareus.org>                   |
  +----------------------------------------------------------------------+
  | This program is free software; you can redistribute it and/or modify |
@@ -42,6 +42,14 @@
 #ifndef bool
 #define bool gboolean
 #endif
+
+#if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(60, 0, 0)
+#define N_CHANNELS(F) (f->codec_context->ch_layout.nb_channels)
+#else
+#define N_CHANNELS(F) (f->codec_context->channels)
+#endif
+
+#define FLOAT_TO_S32(A) (A * 2147483647.) // INT_MAX
 
 extern void int16_to_float (float* out, int16_t* in, int n_channels, int n_frames, int out_offset);
 
@@ -94,8 +102,9 @@ struct _FFmpegAudioDecoder
 #endif
     }                  thumbnail;
 
-    ssize_t (*read)    (WfDecoder*, float*, size_t len);
+    ssize_t (*read)        (WfDecoder*, float*, size_t len);
     ssize_t (*read_planar) (WfDecoder*, WfBuf16*);
+    ssize_t (*read_s32)    (WfDecoder*, int32_t*, size_t len);
 };
 
 
@@ -114,6 +123,8 @@ static ssize_t ff_read_float_planar_to_interleaved          (WfDecoder*, float*,
 #if 0
 static ssize_t ff_read_default_interleaved                  (WfDecoder*, float*, size_t);
 #endif
+
+static ssize_t ff_read_float_planar_to_s32                  (WfDecoder*, int32_t*, size_t);
 
 static bool    ad_metadata_array_set_tag_postion            (GPtrArray* tags, const char* tag_name, int pos);
 
@@ -147,11 +158,7 @@ ad_info_ffmpeg (WfDecoder* d)
 
 	d->info = (WfAudioInfo){
 		.sample_rate = f->codec_parameters->sample_rate,
-#ifdef HAVE_FFMPEG_60
-		.channels    = f->codec_parameters->ch_layout.nb_channels,
-#else
-		.channels    = f->codec_parameters->channels,
-#endif
+		.channels    = N_CHANNELS(f),
 		.frames      = n_frames,
 		.length      = (n_frames * 1000) / f->codec_parameters->sample_rate,
 		.bit_rate    = f->format_context->bit_rate,
@@ -177,11 +184,13 @@ ad_info_ffmpeg (WfDecoder* d)
 		g_ptr_array_add(tags, g_strdup(tag->value));
 	}
 
-	if(tags->len){
+	if (tags->len) {
 		// sort tags
 		char* order[] = {"artist", "title", "album", "track", "date"};
 		int p = 0;
-		int i; for(i=0;i<G_N_ELEMENTS(order);i++) if(ad_metadata_array_set_tag_postion(tags, order[i], p)) p++;
+		for (int i=0;i<G_N_ELEMENTS(order);i++)
+			if (ad_metadata_array_set_tag_postion(tags, order[i], p))
+				p++;
 
 		d->info.meta_data = tags;
 	}else
@@ -381,8 +390,7 @@ ad_open_ffmpeg (WfDecoder* decoder, const char* filename)
 	}
 
 	f->audio_stream = -1;
-	int i;
-	for (i=0; i<f->format_context->nb_streams; i++) {
+	for (int i=0; i<f->format_context->nb_streams; i++) {
 		AVStream* stream = f->format_context->streams[i];
 		switch (stream->codecpar->codec_type) {
 			case AVMEDIA_TYPE_AUDIO:
@@ -440,9 +448,11 @@ ad_open_ffmpeg (WfDecoder* decoder, const char* filename)
 		goto f;
 	}
 
+#ifdef DEBUG
 	WfAudioInfo* nfo = &decoder->info;
 	dbg(2, "%s", filename);
 	dbg(2, "sr:%i c:%i d:%"PRIi64" f:%"PRIi64" %s", nfo->sample_rate, nfo->channels, nfo->length, nfo->frames, av_get_sample_fmt_name(f->codec_parameters->format));
+#endif
 
 #if 0 // TODO why prints nothing?
 	av_dump_format(f->format_context, f->audio_stream, filename, 0);
@@ -458,7 +468,7 @@ ad_open_ffmpeg (WfDecoder* decoder, const char* filename)
 
 			f->read_planar = ff_read_short_interleaved_to_planar;
 			break;
-		case AV_SAMPLE_FMT_S16P:
+		case AV_SAMPLE_FMT_S16P: // e.g. ape
 			f->read = ff_read_short_planar_to_interleaved;
 			f->read_planar = ff_read_short_planar_to_planar;
 			break;
@@ -466,9 +476,10 @@ ad_open_ffmpeg (WfDecoder* decoder, const char* filename)
 			f->read = ff_read_float_interleaved_to_interleaved;
 			f->read_planar = ff_read_float_interleaved_to_planar;
 			break;
-		case AV_SAMPLE_FMT_FLTP:
+		case AV_SAMPLE_FMT_FLTP: // e.g. mp3, m4a, dsf, opus
 			f->read = ff_read_float_planar_to_interleaved;
 			f->read_planar = ff_read_float_planar_to_planar;
+			f->read_s32 = ff_read_float_planar_to_s32;
 			break;
 		case AV_SAMPLE_FMT_S32:
 			pwarn("no implementation of S32 to FLT");
@@ -488,8 +499,9 @@ ad_open_ffmpeg (WfDecoder* decoder, const char* filename)
 
 	return TRUE;
 
-f:
-	g_free0(decoder->d);
+  f:
+	g_clear_pointer(&decoder->d, g_free);
+
 	return FALSE;
 }
 
@@ -511,7 +523,7 @@ ad_close_ffmpeg (WfDecoder* d)
 	avcodec_free_context(&f->codec_context);
 #endif
 	avformat_close_input(&f->format_context);
-	g_free0(d->d);
+	g_clear_pointer(&f, g_free);
 
 	return 0;
 }
@@ -551,6 +563,14 @@ ff_read_short (WfDecoder* d, WfBuf16* out)
 {
 	FFmpegAudioDecoder* ff = (FFmpegAudioDecoder*)d->d;
 	return ff->read_planar(d, out);
+}
+
+
+static ssize_t
+ff_read_s32 (WfDecoder* d, int32_t* out, size_t len)
+{
+	FFmpegAudioDecoder* ff = (FFmpegAudioDecoder*)d->d;
+	return ff->read_s32(d, out, len);
 }
 
 
@@ -597,7 +617,7 @@ ff_read_default_interleaved (WfDecoder* d, float* out, size_t len)
 			}
 
 			int data_size = AVCODEC_MAX_AUDIO_FRAME_SIZE;
-			AVFrame avf; // TODO statically allocate
+			AVFrame avf;
 			memset(&avf, 0, sizeof(AVFrame)); // not sure if that is needed
 			int got_frame = 0;
 			ret = avcodec_decode_audio4(f->codec_context, &avf, &got_frame, &f->packet);
@@ -680,7 +700,7 @@ ff_read_short_interleaved_to_planar (WfDecoder* d, WfBuf16* buf)
 	g_return_val_if_fail(data_size == 2, 0);
 
 	bool have_frame = false;
-	if(f->frame.nb_samples && f->frame_iter < f->frame.nb_samples){
+	if (f->frame.nb_samples && f->frame_iter < f->frame.nb_samples) {
 		have_frame = true;
 	}
 
@@ -703,7 +723,7 @@ ff_read_short_interleaved_to_planar (WfDecoder* d, WfBuf16* buf)
 			}
 
 			if (got_frame) {
-#ifdef HAVE_FFMPEG_60
+#if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(60, 0, 0)
 				int size = av_samples_get_buffer_size (NULL, f->codec_context->ch_layout.nb_channels, f->frame.nb_samples, f->codec_parameters->format, 1);
 #else
 				int size = av_samples_get_buffer_size (NULL, f->codec_context->channels, f->frame.nb_samples, f->codec_parameters->format, 1);
@@ -716,7 +736,7 @@ ff_read_short_interleaved_to_planar (WfDecoder* d, WfBuf16* buf)
 				int ch;
 				for (int i=f->frame_iter; i<f->frame.nb_samples && (n_fr_done < buf->size); i++) {
 					if (fr >= f->seek_frame) {
-#ifdef HAVE_FFMPEG_60
+#if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(60, 0, 0)
 						for (ch=0; ch<MIN(2, f->codec_context->ch_layout.nb_channels); ch++) {
 							memcpy(buf->buf[ch] + n_fr_done, f->frame.data[0] + data_size * (f->codec_context->ch_layout.nb_channels * i + ch), data_size);
 #else
@@ -778,7 +798,7 @@ ff_read_short_planar_to_planar (WfDecoder* d, WfBuf16* buf)
 				if (ret < 0) pwarn("error decoding audio");
 			}
 			if (got_frame) {
-#ifdef HAVE_FFMPEG_60
+#if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(60, 0, 0)
 				int size = av_samples_get_buffer_size (NULL, f->codec_context->ch_layout.nb_channels, f->frame.nb_samples, f->codec_parameters->format, 1);
 #else
 				int size = av_samples_get_buffer_size (NULL, f->codec_context->channels, f->frame.nb_samples, f->codec_parameters->format, 1);
@@ -791,7 +811,7 @@ ff_read_short_planar_to_planar (WfDecoder* d, WfBuf16* buf)
 				int ch;
 				for (int i=f->frame_iter; i<f->frame.nb_samples && (n_fr_done < buf->size); i++) {
 					if (fr >= f->seek_frame) {
-#ifdef HAVE_FFMPEG_60
+#if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(60, 0, 0)
 						for (ch=0; ch<MIN(2, f->codec_context->ch_layout.nb_channels); ch++) {
 #else
 						for (ch=0; ch<MIN(2, f->codec_context->channels); ch++) {
@@ -1299,8 +1319,10 @@ ff_read_u8_interleaved_to_planar (WfDecoder* d, WfBuf16* buf)
 
 	int64_t n_fr_done = 0;
 
+#ifdef DEBUG
 	int data_size = av_get_bytes_per_sample(f->codec_parameters->format);
 	g_return_val_if_fail(data_size == 1, 0);
+#endif
 
 	bool have_frame = false;
 	if (f->frame.nb_samples && f->frame_iter < f->frame.nb_samples) {
@@ -1365,6 +1387,85 @@ ff_read_u8_interleaved_to_planar (WfDecoder* d, WfBuf16* buf)
 	}
 
 	return n_fr_done;
+}
+
+
+static inline ssize_t
+ff_read_to_s32 (WfDecoder* d, int32_t* out, size_t len, void (*deliver)(WfDecoder* d, int32_t*, int i, int n_fr_done))
+{
+	FFmpegAudioDecoder* f = d->d;
+
+	int n_frames = len / d->info.channels;
+	int64_t n_fr_done = 0;
+
+	bool have_frame = false;
+	if (f->frame.nb_samples && f->frame_iter < f->frame.nb_samples) {
+		have_frame = true;
+	}
+
+	while (have_frame || !av_read_frame(f->format_context, &f->packet)) {
+		have_frame = false;
+		if (f->packet.stream_index == f->audio_stream) {
+
+			int got_frame = false;
+			if (f->frame_iter && f->frame_iter < f->frame.nb_samples) {
+				got_frame = true;
+			} else {
+				av_frame_unref(&f->frame);
+				f->frame_iter = 0;
+
+				int ret = avcodec_receive_frame(f->codec_context, &f->frame);
+				if (ret == 0) got_frame = true;
+				if (ret == AVERROR(EAGAIN)) ret = 0;
+				if (ret == 0) ret = avcodec_send_packet(f->codec_context, &f->packet);
+				if (ret == AVERROR(EAGAIN)) ret = 0;
+				if (ret < 0) pwarn("error decoding audio");
+			}
+			if (got_frame) {
+				int size = av_samples_get_buffer_size (NULL, N_CHANNELS(f), f->frame.nb_samples, f->codec_parameters->format, 1);
+				if (size < 0) {
+					dbg(0, "av_samples_get_buffer_size invalid value");
+				}
+
+				int64_t fr = f->frame.best_effort_timestamp * f->codec_context->sample_rate / f->format_context->streams[f->audio_stream]->time_base.den + f->frame_iter;
+				for (int i=f->frame_iter; i<f->frame.nb_samples && (n_fr_done < n_frames); i++) {
+					if (fr >= f->seek_frame) {
+						deliver(d, out, i, n_fr_done);
+
+						n_fr_done++;
+						f->frame_iter++;
+					}
+				}
+				f->output_clock = fr + n_fr_done;
+
+				if (n_fr_done >= n_frames) goto stop;
+			}
+		}
+		av_packet_unref(&f->packet);
+		continue;
+
+		stop:
+			av_packet_unref(&f->packet);
+			break;
+	}
+
+	return n_fr_done;
+}
+
+
+static ssize_t
+ff_read_float_planar_to_s32 (WfDecoder* d, int32_t* out, size_t len)
+{
+	inline void deliver (WfDecoder* d, int32_t* out, int i, int n_fr_done)
+	{
+		FFmpegAudioDecoder* f = d->d;
+
+		for (int ch=0; ch<MIN(2, N_CHANNELS(f)); ch++) {
+			out[N_CHANNELS(f) * n_fr_done + ch] = FLOAT_TO_S32(*(((float*)f->frame.data[ch]) + i));
+		}
+	}
+
+	return ff_read_to_s32(d, out, len, deliver);
 }
 
 
@@ -1513,11 +1614,11 @@ ad_metadata_array_set_tag_postion (GPtrArray* tags, const char* tag_name, int po
 	pos *= 2;
 
 	char** data = (char**)tags->pdata;
-	int i; for(i=pos;i<tags->len;i+=2){
-		if(!strcmp(data[i], tag_name)){
+	for (int i=pos;i<tags->len;i+=2) {
+		if (!strcmp(data[i], tag_name)) {
 			const char* item[] = {data[i], (const char*)data[i+1]};
 
-			int j; for(j=i;j>pos;j-=2){
+			for (int j=i;j>pos;j-=2) {
 				data[j    ] = data[j - 2    ];
 				data[j + 1] = data[j - 2 + 1];
 			}
@@ -1708,7 +1809,8 @@ const static AdPlugin ad_ffmpeg = {
 	&ad_info_ffmpeg,
 	&ad_seek_ffmpeg,
 	&ad_read_ffmpeg,
-	&ff_read_short
+	&ff_read_short,
+	&ff_read_s32
 };
 
 
