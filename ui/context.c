@@ -1,7 +1,7 @@
 /*
  +----------------------------------------------------------------------+
- | This file is part of the Ayyi project. https://ayyi.org              |
- | copyright (C) 2012-2022 Tim Orford <tim@orford.org>                  |
+ | This file is part of the Ayyi project. https://www.ayyi.org          |
+ | copyright (C) 2012-2025 Tim Orford <tim@orford.org>                  |
  +----------------------------------------------------------------------+
  | This program is free software; you can redistribute it and/or modify |
  | it under the terms of the GNU General Public License version 3       |
@@ -44,8 +44,6 @@ static AGl* agl = NULL;
 static void wf_context_class_init      (WaveformContextClass*);
 static void wf_context_instance_init   (WaveformContext*);
 static void wf_context_finalize        (GObject*);
-
-extern RulerShader ruler;
 
 #define TRACK_ACTORS // for debugging only.
 #undef TRACK_ACTORS
@@ -154,8 +152,6 @@ wf_context_init (WaveformContext* wfc, AGlActor* root)
 			.type         = WF_INT64
 		}
 	);
-
-	wfc->shaders.ruler = &ruler;
 }
 
 
@@ -192,7 +188,7 @@ wf_context_new_sdl (SDL_GLContext* context)
 
 	wfc->show_rms = true;
 
-	AGlActor* a = wfc->root = agl_actor__new_root_(CONTEXT_TYPE_SDL);
+	AGlActor* a = wfc->root = agl_actor__new_root(CONTEXT_TYPE_SDL);
 	wfc->root->root->gl.sdl.context = context;
 
 	wf_context_init(wfc, a);
@@ -224,32 +220,6 @@ wf_context_free (WaveformContext* wfc)
 	_g_source_remove0(c->pending_init);
 	_g_source_remove0(c->_queued);
 	wf_context_finalize((GObject*)wfc);
-}
-
-
-/*
- *  This will likely be removed. Instead just set scene->scrollable
- */
-void
-wf_context_set_viewport (WaveformContext* wfc, WfViewPort* _viewport)
-{
-	//@param viewport - optional.
-	//                  Does not apply clipping.
-	//                  units are not pixels, they are gl units.
-	//                  setting viewport->left, viewport->top allows (application implemented) scrolling.
-
-	g_return_if_fail(wfc);
-
-	if(_viewport){
-		((AGlActor*)wfc->root)->scrollable = (AGliRegion){
-			.x1 = _viewport->left,
-			.y1 = _viewport->top,
-			.x2 = _viewport->right,
-			.y2 = _viewport->bottom,
-		};
-	}
-
-	if(wfc->root->root->draw) g_signal_emit_by_name(wfc, "dimensions-changed");
 }
 
 
@@ -301,17 +271,9 @@ wf_context_queue_redraw (WaveformContext* wfc)
 	}
 
 #else
-	if(wfc->priv->_queued) return;
-
-	wfc->priv->_queued = g_timeout_add(CLAMP(WF_FRAME_INTERVAL - (wf_get_time() - wfc->priv->_last_redraw_time), 1, WF_FRAME_INTERVAL), wf_canvas_redraw, wfc);
+	if (!wfc->priv->_queued)
+		wfc->priv->_queued = g_timeout_add(CLAMP(WF_FRAME_INTERVAL - (wf_get_time() - wfc->priv->_last_redraw_time), 1, WF_FRAME_INTERVAL), wf_canvas_redraw, wfc);
 #endif
-}
-
-
-void
-wf_context_set_rotation (WaveformContext* wfc, float rotation)
-{
-	dbg(0, "TODO");
 }
 
 
@@ -361,8 +323,7 @@ wf_context_set_zoom (WaveformContext* wfc, float zoom)
 
 	wfc->scaled = true;
 
-	dbg(1, "zoom=%f spp=%.2f", zoom, wfc->samples_per_pixel);
-	dbg(1, "zoom=%.2f-->%.2f spp=%.2f", wfc->zoom, zoom, wfc->samples_per_pixel);
+	dbg(1, "zoom=%.2f-->%.2f spp=%.2f", wfc->zoom->value.f, zoom, wfc->samples_per_pixel);
 
 	AGL_DEBUG if(wfc->samples_per_pixel < 0.001) pwarn("spp too low: %f", wfc->samples_per_pixel);
 
@@ -406,13 +367,15 @@ wf_context_set_scale (WaveformContext* wfc, float samples_per_px)
 
 	samples_per_px = CLAMP(samples_per_px, 1.0, WF_CONTEXT_MAX_SAMPLES_PER_PIXEL);
 
-	if(samples_per_px == wfc->samples_per_pixel){
+	if (samples_per_px == wfc->samples_per_pixel) {
 		return;
 	}
 
-	if(!wfc->root->root->enable_animations){
+	if (!wfc->root->root->enable_animations) {
 		wfc->samples_per_pixel = samples_per_px;
-		agl_actor__invalidate((AGlActor*)wfc->root);
+		agl_actor__invalidate_down (wfc->root);
+		if (wfc->root->parent)
+			agl_actor__invalidate(wfc->root->parent);
 		return;
 	}
 	g_signal_emit_by_name(wfc, "zoom-changed");
@@ -465,5 +428,29 @@ float
 wf_context_frame_to_x (WaveformContext* context, uint64_t frame)
 {
 	float pixels_per_sample = context->zoom->value.f / context->samples_per_pixel;
-	return (frame - context->start_time->value.b) * pixels_per_sample;
+	return ((float)frame - (float)context->start_time->value.b) * pixels_per_sample;
+}
+
+
+uint64_t
+wf_context_x_to_frame (WaveformContext* context, int x)
+{
+	return context->start_time->value.b + (float)x * context->samples_per_pixel / context->zoom->value.f;
+}
+
+
+const char*
+wf_context_print_time (WaveformContext* wfc, int x)
+{
+	static char str[16] = "\0";
+
+	int64_t frames = wf_context_x_to_frame(wfc, x);
+	int _secsf = frames % (wfc->sample_rate * 60);
+
+	int mins = frames / (wfc->sample_rate * 60);
+	int secs = _secsf / wfc->sample_rate;
+	int sub = (_secsf % wfc->sample_rate) * 1000 / wfc->sample_rate;
+	snprintf(str, 15, "%02i:%02i:%03i", mins, secs, sub);
+
+	return str;
 }

@@ -1,7 +1,7 @@
 /*
  +----------------------------------------------------------------------+
  | This file is part of the Ayyi project. https://www.ayyi.org          |
- | copyright (C) 2013-2021 Tim Orford <tim@orford.org>                  |
+ | copyright (C) 2013-2025 Tim Orford <tim@orford.org>                  |
  +----------------------------------------------------------------------+
  | This program is free software; you can redistribute it and/or modify |
  | it under the terms of the GNU General Public License version 3       |
@@ -400,9 +400,9 @@ get_random_region (WaveformActor* a, Mode mode, uint32_t max_scroll)
 		MIN(a->region.start + max_scroll, a->waveform->n_frames - len_range + 1)
 						)
 	);
-																	//dbg(0, "start range: %i %i (max_scroll=%u)", min_start, MIN(a->region.start + max_scroll, a->waveform->n_frames - len_range + 1), max_scroll);
+
 	int len = min + g_random_int_range(0, len_range + 1);
-	dbg(1, "r=%Lu", start);
+	dbg(1, "r=%"PRIi64, start);
 
 	if(start + len > a->waveform->n_frames){
 		// the above calculation failed
@@ -413,12 +413,12 @@ get_random_region (WaveformActor* a, Mode mode, uint32_t max_scroll)
 }
 
 
-typedef struct {
+typedef struct C {
 	int test_idx;
 	int n;
 	int iter;
 	int wait_count;
-	void (*next)();
+	void (*next)(struct C*);
 	uint64_t start;
 } C;
 
@@ -522,13 +522,13 @@ test_scroll ()
 }
 
 
-typedef struct {
+typedef struct C3 {
 	int            test_idx;
 	int            n;
 	int            iter;
 	int            wait_count;
 	WfSampleRegion region[2];
-	void (*next)();
+	void (*next)(struct C3*);
 } C3;
 
 		gboolean _hi_check_scroll(gpointer data)
@@ -795,15 +795,15 @@ gl_init ()
 static gboolean
 __on_canvas_realise (gpointer user_data)
 {
-	if(!files_created){
+	if (!files_created) {
 		return G_SOURCE_CONTINUE;
 	}
 
 	gl_init();
 
-	wfc = wf_context_new((AGlActor*)(scene = (AGlScene*)agl_actor__new_root(canvas)));
+	wfc = wf_context_new((AGlActor*)(scene = (AGlScene*)agl_new_scene_gtk(canvas)));
 
-	g_signal_connect((gpointer)canvas, "expose-event",  G_CALLBACK(agl_actor__on_expose), scene);
+	g_signal_connect((gpointer)canvas, "expose-event", G_CALLBACK(agl_actor__on_expose), scene);
 
 	{
 		char* filename = find_wav(WAV1);
@@ -856,9 +856,6 @@ on_allocate (GtkWidget* widget, GtkAllocation* allocation, gpointer user_data)
 
 	((AGlActor*)scene)->region.x2 = allocation->width;
 	((AGlActor*)scene)->region.y2 = allocation->height;
-
-	// Optimise drawing by telling the canvas which area is visible
-	wf_context_set_viewport(wfc, &(WfViewPort){0, 0, GL_WIDTH, allocation->height});
 
 	int i; for(i=0;i<G_N_ELEMENTS(a);i++)
 		if(a[i]) wf_actor_set_rect(a[i], &(WfRectangle){

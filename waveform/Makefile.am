@@ -7,6 +7,7 @@ pkginclude_HEADERS = \
 	promise.h \
 	utils.h \
 	ui-typedefs.h \
+	ui-utils.h \
 	view_plus.h \
 	actor.h \
 	context.h \

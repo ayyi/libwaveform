@@ -3,6 +3,7 @@ INSTALL
 Makefile
 Makefile.in
 aclocal.m4
+.ccls-cache/
 agl/Makefile
 agl/Makefile.in
 agl/resources.c
@@ -11,6 +12,7 @@ agl/shaders/Makefile.in
 agl/shaders/shaders.c
 autom4te.cache/
 compile
+compile_commands.json
 config.guess
 config.h
 config.h.in
@@ -44,6 +46,7 @@ test/gen/write_block
 test/gen/write_short
 test/gen/write_wav
 test/32bit
+test/32bit.h
 test/actor_no_scene
 test/actor_plus
 test/actor
@@ -61,6 +64,8 @@ test/pixbuf
 test/promise
 test/resources
 test/res_vhi
+test/res_vhi_blocks
+test/res_vhi_scrollable
 test/scenegraph
 test/sdl
 test/view_plus
@@ -69,8 +74,11 @@ test/viewport
 test/waveform.h
 test/waveform
 test/text
+test/unit-actor
+test/unit-actor.h
 test/gen/write_piano
 test/gen/thumbnail
+test/gen/every_point_one
 transition/Makefile
 transition/Makefile.in
 waveform/Makefile

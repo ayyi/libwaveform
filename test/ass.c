@@ -1,12 +1,12 @@
 /*
- +---------------------------------------------------------------------
- | This file is part of the Ayyi project. https://www.ayyi.org
- | copyright (C) 2012-2021 Tim Orford <tim@orford.org>
- +---------------------------------------------------------------------
- | This program is free software; you can redistribute it and/or modify
- | it under the terms of the GNU General Public License version 3
- | as published by the Free Software Foundation.
- +----------------------------------------------
+ +----------------------------------------------------------------------+
+ | This file is part of the Ayyi project. https://www.ayyi.org          |
+ | copyright (C) 2012-2025 Tim Orford <tim@orford.org>                  |
+ +----------------------------------------------------------------------+
+ | This program is free software; you can redistribute it and/or modify |
+ | it under the terms of the GNU General Public License version 3       |
+ | as published by the Free Software Foundation.                        |
+ +----------------------------------------------------------------------+
  |
  | Demonstration of overlaying text on a waveform window.
  |
@@ -182,7 +182,7 @@ main (int argc, char *argv[])
 	gtk_widget_add_events        (canvas, GDK_POINTER_MOTION_MASK | GDK_BUTTON_PRESS_MASK | GDK_BUTTON_RELEASE_MASK);
 	gtk_container_add((GtkContainer*)window, (GtkWidget*)canvas);
 
-	scene = (AGlRootActor*)agl_actor__new_root(canvas);
+	scene = (AGlRootActor*)agl_new_scene_gtk(canvas);
 	wfc = wf_context_new((AGlActor*)scene);
 
 	g_signal_connect((gpointer)canvas, "realize",       G_CALLBACK(on_canvas_realise), NULL);
@@ -341,12 +341,9 @@ on_canvas_realise (GtkWidget* _canvas, gpointer user_data)
 static void
 on_allocate (GtkWidget* widget, GtkAllocation* allocation, gpointer user_data)
 {
-	if(!gl_initialised) return;
+	if (!gl_initialised) return;
 
 	((AGlActor*)scene)->region = (AGlfRegion){0, 0, GL_WIDTH, GL_HEIGHT};
-
-	//optimise drawing by telling the canvas which area is visible
-	wf_context_set_viewport(wfc, &(WfViewPort){0, 0, GL_WIDTH, GL_HEIGHT});
 
 	start_zoom(zoom);
 }

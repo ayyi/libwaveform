@@ -30,7 +30,7 @@
 
   --------------------------------------------------------------
 
-  Copyright (C) 2012-2021 Tim Orford <tim@orford.org>
+  Copyright (C) 2012-2025 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -54,8 +54,9 @@
 #include <gtk/gtk.h>
 #pragma GCC diagnostic warning "-Wdeprecated-declarations"
 #include <gdk/gdkkeysyms.h>
-#include "agl/actor.h"
+#include "agl/behaviours/follow.h"
 #include "actors/spinner.h"
+#include "ui/actors/hover.h"
 #include "waveform/view_plus.h"
 #include "common.h"
 
@@ -63,12 +64,14 @@ extern char* basename (const char*);
 
 static const struct option long_options[] = {
 	{ "non-interactive",  0, NULL, 'n' },
+	{},
 };
 
 static const char* const short_options = "n";
 
 const char* wavs[] = {
 	"data/mono_0:10.flac",
+	"data/every_point_one.wav",
 	"data/stereo_0:10.flac",
 	"data/stereo_0:10.wav",
 	"data/1_block.wav",
@@ -91,6 +94,7 @@ KeyHandler
 	toggle_shaders,
 	toggle_layers,
 	toggle_grid,
+	debug_info,
 	unrealise,
 	delete,
 	play,
@@ -109,6 +113,7 @@ Key keys[] = {
 	{(char)'s',     toggle_shaders},
 	{(char)'l',     toggle_layers},
 	{(char)'g',     toggle_grid},
+	{(char)'d',     debug_info},
 	{(char)'u',     unrealise},
 	{GDK_Delete,    delete},
 	{65438,         stop},
@@ -126,6 +131,7 @@ struct Layers {
     AGlActor* grid;
     AGlActor* spp;
     AGlActor* spinner;
+    AGlActor* hover;
 } layers;
 
 void  show_wav        (WaveformViewPlus*, const char* filename);
@@ -144,8 +150,8 @@ main (int argc, char* argv[])
 	gtk_init(&argc, &argv);
 
 	int opt;
-	while((opt = getopt_long (argc, argv, short_options, long_options, NULL)) != -1) {
-		switch(opt) {
+	while ((opt = getopt_long (argc, argv, short_options, long_options, NULL)) != -1) {
+		switch (opt) {
 			case 'n':
 				g_timeout_add(3000, (gpointer)gtk_main_quit, NULL);
 				break;
@@ -157,10 +163,6 @@ main (int argc, char* argv[])
 	}
 
 	GtkWidget* window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
-
-	#if 0
-	agl_get_instance()->pref_use_shaders = false;
-	#endif
 
 	WaveformViewPlus* waveform = view = waveform_view_plus_new(NULL);
 	waveform_view_plus_set_show_rms(waveform, false);
@@ -179,10 +181,10 @@ main (int argc, char* argv[])
 	wf_spp_actor_set_time((SppActor*)layers.spp, (_time += 50, _time));
 
 	layers.spinner = waveform_view_plus_add_layer(waveform, agl_spinner(waveform_view_plus_get_actor(waveform)), 0);
+	layers.hover = waveform_view_plus_add_layer(waveform, hover_actor(waveform_view_plus_get_actor(waveform)), 3);
 
-	char* filename = find_wav(wavs[0]);
+	g_autofree char* filename = find_wav(wavs[0]);
 	show_wav(waveform, filename);
-	g_free(filename);
 
 #if 0
 	waveform_view_plus_set_region(waveform, 0, 32383); // start in hi-res mode
@@ -380,6 +382,16 @@ toggle_grid (gpointer view)
 	}else{
 		waveform_view_plus_remove_layer((WaveformViewPlus*)view, layers.grid);
 	}
+}
+
+
+void
+debug_info (gpointer view)
+{
+#ifdef DEBUG
+	extern void agl_actor__print_tree (AGlActor*);
+	agl_actor__print_tree((AGlActor*)((GlArea*)view)->scene);
+#endif
 }
 
 

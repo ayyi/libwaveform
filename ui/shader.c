@@ -33,8 +33,8 @@ static void  _horizontal_set_uniforms  ();
 #endif
 static void  _ass_set_uniforms         (AGlShader*);
 static void  _ruler_set_uniforms       (AGlShader*);
-static void  _lines_set_uniforms       ();
-static void  _cursor_set_uniforms      ();
+static void  _lines_set_uniforms       (AGlShader*);
+static void  _cursor_set_uniforms      (AGlShader*);
 
 #if 0
 static AGlUniformInfo uniforms[] = {
@@ -110,7 +110,7 @@ AssShader ass = {{
 static AGlUniformInfo uniforms5[] = {
    END_OF_UNIFORMS
 };
-RulerShader ruler = {{NULL, NULL, 0, uniforms5, _ruler_set_uniforms, &ruler_text}};
+RulerShader ruler = {{.uniforms = uniforms5, _ruler_set_uniforms, &ruler_text}};
 
 
 CursorShader cursor = {{
@@ -290,7 +290,7 @@ _ruler_set_uniforms (AGlShader* _shader)
 
 
 static void
-_lines_set_uniforms ()
+_lines_set_uniforms (AGlShader* _shader)
 {
 	AGlShader* shader = &lines.shader;
 

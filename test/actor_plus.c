@@ -1,26 +1,21 @@
 /*
-  Demonstration of the libwaveform WaveformActor interface
-
-  Similar to actor.c but with additional features, eg background, ruler.
-
-  ---------------------------------------------------------------
-
-  Copyright (C) 2012-2020 Tim Orford <tim@orford.org>
-
-  This program is free software; you can redistribute it and/or modify
-  it under the terms of the GNU General Public License version 3
-  as published by the Free Software Foundation.
-
-  This program is distributed in the hope that it will be useful,
-  but WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-  GNU General Public License for more details.
-
-  You should have received a copy of the GNU General Public License
-  along with this program; if not, write to the Free Software
-  Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
-
-*/
+ +----------------------------------------------------------------------+
+ | This file is part of the Ayyi project. https://www.ayyi.org          |
+ | copyright (C) 2012-2025 Tim Orford <tim@orford.org>                  |
+ +----------------------------------------------------------------------+
+ | This program is free software; you can redistribute it and/or modify |
+ | it under the terms of the GNU General Public License version 3       |
+ | as published by the Free Software Foundation.                        |
+ +----------------------------------------------------------------------+
+ |                                                                      |
+ | Demonstration of the libwaveform WaveformActor interface             |
+ |                                                                      |
+ | Similar to actor.c but with additional features,                     |
+ | e.g. background, ruler.                                              |
+ |                                                                      |
+ +----------------------------------------------------------------------+
+ |
+ */
 
 #include "config.h"
 #include <getopt.h>
@@ -34,12 +29,15 @@
 #include "waveform/ruler.h"
 #include "test/common.h"
 
+extern AGlShaderText ruler_bottom_text;
+
 #define WAV "mono_0:10.wav"
 
 #define GL_WIDTH 300.0
 #define GL_HEIGHT 256.0
 #define HBORDER 16
 #define VBORDER 8
+#define ruler_height 20.0
 
 AGl*             agl      = NULL;
 GtkWidget*       canvas   = NULL;
@@ -102,7 +100,7 @@ window_content (GtkWindow* window, GdkGLConfig* glconfig)
 
 	agl = agl_get_instance();
 
-	scene = (AGlRootActor*)agl_actor__new_root(canvas);
+	scene = (AGlScene*)agl_new_scene_gtk(canvas);
 	//scene->enable_animations = false;
 
 	char* filename = find_wav(WAV);
@@ -141,15 +139,16 @@ static void
 on_canvas_realise (GtkWidget* _canvas, gpointer user_data)
 {
 	PF;
-	static gboolean canvas_init_done = false;
-	if(canvas_init_done) return;
-	if(!GTK_WIDGET_REALIZED (canvas)) return;
+
+	static bool canvas_init_done = false;
+	if (canvas_init_done) return;
+	if (!GTK_WIDGET_REALIZED (canvas)) return;
 
 	canvas_init_done = true;
 
 	agl_actor__add_child((AGlActor*)scene, group = group_actor(a[0]));
 
-	void group__set_size(AGlActor* actor)
+	void group__set_size (AGlActor* actor)
 	{
 		actor->region = (AGlfRegion){
 			.x1 = HBORDER,
@@ -179,7 +178,7 @@ on_canvas_realise (GtkWidget* _canvas, gpointer user_data)
 		{0x66ff66ff, 0x0000ffff},
 	};
 
-	int i; for(i=0;i<G_N_ELEMENTS(a);i++){
+	for (int i=0;i<G_N_ELEMENTS(a);i++) {
 		agl_actor__add_child(group, (AGlActor*)(a[i] = wf_context_add_new_actor(wfc, w1)));
 
 		wf_actor_set_region(a[i], &region[i]);
@@ -189,7 +188,8 @@ on_canvas_realise (GtkWidget* _canvas, gpointer user_data)
 	agl_actor__add_child(group, background_actor(a[0]));
 
 	AGlActor* ruler = agl_actor__add_child(group, ruler_actor(a[0]));
-	ruler->region = (AGlfRegion){0, 0, 0, 20};
+	ruler->region = (AGlfRegion){0, 0, 0, ruler_height};
+	ruler->program->text = &ruler_bottom_text;
 
 	on_allocate(canvas, &canvas->allocation, user_data);
 
@@ -212,10 +212,8 @@ on_allocate (GtkWidget* widget, GtkAllocation* allocation, gpointer user_data)
 	((AGlActor*)scene)->region = (AGlfRegion){0, 0, allocation->width, allocation->height};
 	agl_actor__set_size((AGlActor*)scene);
 
-	#define ruler_height 20.0
-
-	int i; for(i=0;i<G_N_ELEMENTS(a);i++)
-		if(a[i]) wf_actor_set_rect(a[i], &(WfRectangle){
+	for (int i=0;i<G_N_ELEMENTS(a);i++)
+		if (a[i]) wf_actor_set_rect(a[i], &(WfRectangle) {
 			0.0,
 			ruler_height + 5 + i * ((AGlActor*)scene)->region.y2 / 2,
 			width,

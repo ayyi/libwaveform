@@ -8,7 +8,8 @@
  | as published by the Free Software Foundation.
  +----------------------------------------------
  |
- | Test waveform rendering in V_HI mode
+ | Test waveform rendering in V_HI mode at block edge, showing
+ | the change from the first to second blocks.
  |
  */
 
@@ -16,6 +17,7 @@
 #include <getopt.h>
 #include <gdk/gdkkeysyms.h>
 #include "agl/gtk-area.h"
+#include "agl/behaviours/split.h"
 #include "waveform/actor.h"
 #include "test/common.h"
 
@@ -26,15 +28,13 @@ static const struct option long_options[] = {
 
 static const char* const short_options = "n";
 
-#define WAV "piano.wav"
-
-#define VBORDER 8
+#define WAV "7_blocks.wav"
 
 AGlScene*        scene    = NULL;
 WaveformContext* wfc      = NULL;
-Waveform*        w1       = NULL;
-WaveformActor*   a[1]     = {NULL,};
-WaveformActor*   split[2] = {NULL,};
+Waveform*        waveform = NULL;
+WaveformActor*   a        = NULL;
+WaveformActor*   a2       = NULL;
 float            vzoom    = 1.0;
 
 KeyHandler
@@ -45,7 +45,6 @@ KeyHandler
 	scroll_left,
 	scroll_right,
 	toggle_animate,
-	debug_info,
 	delete,
 	quit;
 
@@ -62,13 +61,11 @@ Key keys[] = {
 	{(char)'<',     NULL},
 	{(char)'>',     NULL},
 	{(char)'a',     toggle_animate},
-	{(char)'d',     debug_info},
 	{GDK_Delete,    delete},
 	{113,           quit},
 	{0},
 };
 
-static void on_canvas_realise (GtkWidget*, gpointer);
 static void on_allocate       (GtkWidget*, GtkAllocation*, gpointer);
 static bool test_delete       ();
 
@@ -79,64 +76,46 @@ window_content (GtkWindow* window, GdkGLConfig* glconfig)
 	GlArea* area = gl_area_new();
 	GtkWidget* canvas = (GtkWidget*)area;
 	scene = area->scene;
+	agl_actor__add_behaviour((AGlActor*)scene, agl_split());
 
-	gtk_widget_set_size_request(canvas, 320, 256);
+	gtk_widget_set_size_request(canvas, 1024, 256);
 	gtk_container_add((GtkContainer*)window, (GtkWidget*)canvas);
 
 	wfc = wf_context_new((AGlActor*)area->scene);
 
 	g_autofree char* filename = find_wav(WAV);
-	w1 = waveform_load_new(filename);
+	waveform = waveform_load_new(filename);
 
-	int n_frames = waveform_get_n_frames(w1) / 128;
-	int start = 6 * n_frames;
-	int len = 7 * n_frames;
+	a = wf_context_add_new_actor(wfc, waveform);
+	agl_actor__add_child((AGlActor*)area->scene, (AGlActor*)a);
 
-	WfSampleRegion region[] = {
-		{start, len},
-	};
+	a2 = wf_context_add_new_actor(wfc, waveform);
+	agl_actor__add_child((AGlActor*)area->scene, (AGlActor*)a2);
 
-	uint32_t colours[][2] = {
-		{0xffffff77, 0x0000ffff},
-		{0x66eeffff, 0x0000ffff},
-		{0xffdd66ff, 0x0000ffff},
-	};
-
-	for (int i=0;i<G_N_ELEMENTS(a);i++) {
-
-		a[i] = wf_context_add_new_actor(wfc, w1);
-		agl_actor__add_child((AGlActor*)area->scene, (AGlActor*)a[i]);
-
-		wf_actor_set_region(a[i], &region[i]);
-		wf_actor_set_colour(a[i], colours[i][0]);
+	void layout (AGlActor* actor)
+	{
+		actor->region.x1 = 100.;
+		actor->region.x2 = actor->parent->region.x2 + 100.;
 	}
-
-	for (int i=0;i<G_N_ELEMENTS(split);i++) {
-		split[i] = wf_context_add_new_actor(wfc, w1);
-		agl_actor__add_child((AGlActor*)scene, (AGlActor*)split[i]);
-		wf_actor_set_colour(split[i], colours[1 + i][0]);
-	}
-	g_free(((AGlActor*)split[0])->name);
-	((AGlActor*)split[0])->name = g_strdup("Split-lhs");
-	g_free(((AGlActor*)split[1])->name);
-	((AGlActor*)split[1])->name = g_strdup("Split-rhs");
+	((AGlActor*)a2)->set_size = layout;
 
 	void on_zoom (AGlObservable* o, AGlVal zoom, gpointer _)
 	{
-		int n_frames = waveform_get_n_frames(w1) / 128;
-		int start = 6 * n_frames;
-		int len = 7 * n_frames;
+		int n_frames = waveform_get_n_frames(waveform) / 512;
 
-		wf_actor_set_region(split[0], &(WfSampleRegion){start, len / 2});
-
-		WfSampleRegion region = {start + ((float)(len / 2)) / zoom.f, len / 2};
-		wf_actor_set_region(split[1], &region);
+		wf_actor_set_region(a, &(WfSampleRegion){
+			.start = 71 * n_frames,
+			.len = 7. * (float)n_frames / zoom.f,
+		});
+		wf_actor_set_region(a2, &(WfSampleRegion){
+			.start = 71 * n_frames,
+			.len = 7. * (float)n_frames / zoom.f,
+		});
 	}
 	agl_observable_subscribe_with_state(wfc->zoom, on_zoom, NULL);
 
-	g_object_unref(w1); // this effectively transfers ownership of the waveform to the Scene
+	g_object_unref(waveform); // transfer ownership of the waveform to the Scene
 
-	g_signal_connect((gpointer)canvas, "realize",       G_CALLBACK(on_canvas_realise), NULL);
 	g_signal_connect((gpointer)canvas, "size-allocate", G_CALLBACK(on_allocate), NULL);
 }
 
@@ -184,40 +163,10 @@ main (int argc, char* argv[])
 
 
 static void
-on_canvas_realise (GtkWidget* canvas, gpointer user_data)
-{
-	if (!gtk_widget_get_realized(canvas)) return;
-
-	on_allocate(canvas, &canvas->allocation, user_data);
-}
-
-
-static void
 on_allocate (GtkWidget* widget, GtkAllocation* allocation, gpointer user_data)
 {
-	wfc->samples_per_pixel = a[0]->region.len / allocation->width;
-
-	for (int i=0;i<G_N_ELEMENTS(a);i++) {
-		if (a[i]) wf_actor_set_rect(a[i], &(WfRectangle) {
-			0.0,
-			i * allocation->height / 2,
-			allocation->width * wfc->zoom->value.f,
-			allocation->height / 2 * 0.95
-		});
-	}
-
-	int r = 1;
-	WfRectangle rect = {
-		.left = 0.,
-		.top = r * allocation->height / 2,
-		.len = allocation->width * wfc->zoom->value.f / 2.,
-		.height = allocation->height / 2 * 0.95
-	};
-
-	wf_actor_set_rect(split[0], &rect);
-
-	rect.left = allocation->width / 2;
-	wf_actor_set_rect(split[1], &rect);
+	uint64_t default_len = 7. * (float)waveform_get_n_frames(waveform) / 512;
+	wfc->samples_per_pixel = default_len / allocation->width;
 }
 
 
@@ -240,8 +189,7 @@ vzoom_up (gpointer _)
 {
 	vzoom = MIN(vzoom * 1.2, 100.0);
 
-	for (int i=0;i<G_N_ELEMENTS(a);i++)
-		if(a[i]) wf_actor_set_vzoom(a[i], vzoom);
+	wf_actor_set_vzoom(a, vzoom);
 }
 
 
@@ -250,27 +198,16 @@ vzoom_down (gpointer _)
 {
 	vzoom = MAX(vzoom / 1.2, 1.0);
 
-	for(int i=0;i<G_N_ELEMENTS(a);i++)
-		if (a[i]) wf_actor_set_vzoom(a[i], vzoom);
+	wf_actor_set_vzoom(a, vzoom);
 }
 
 
 void
 scroll_left (gpointer _)
 {
-	void set_region (WaveformActor* actor)
-	{
-		WfSampleRegion region = actor->region;
-		region.start = MAX(0, region.start - 1024);
-		wf_actor_set_region(actor, &region);
-	}
-
-	set_region(a[0]);
-	set_region(split[0]);
-
-	wf_actor_set_region(split[1], &(WfSampleRegion){
-		split[0]->region.start + 384 * wfc->samples_per_pixel / wfc->zoom->value.f,
-		split[1]->region.len,
+	wf_actor_set_region(a, &(WfSampleRegion){
+		.start = MAX(0, a->region.start - 100),
+		.len = a->region.len,
 	});
 }
 
@@ -278,17 +215,10 @@ scroll_left (gpointer _)
 void
 scroll_right (gpointer _)
 {
-	void set_region (WaveformActor* actor)
-	{
-		wf_actor_set_region(actor, &(WfSampleRegion){
-			.start = MIN(a[0]->waveform->n_frames - actor->region.len, actor->region.start + 1024),
-			.len = actor->region.len
-		});
-	}
-
-	set_region(a[0]);
-	set_region(split[0]);
-	set_region(split[1]);
+	wf_actor_set_region(a, &(WfSampleRegion){
+		.start = a->region.start + 100,
+		.len = a->region.len,
+	});
 }
 
 
@@ -331,16 +261,6 @@ toggle_animate (gpointer _)
 }
 
 
-void
-debug_info (gpointer view)
-{
-#ifdef DEBUG
-    extern void agl_actor__print_tree (AGlActor*);
-    agl_actor__print_tree((AGlActor*)scene);
-#endif
-}
-
-
 static int finalize_done = false;
 
 static void
@@ -348,7 +268,7 @@ finalize_notify (gpointer data, GObject* was)
 {
 	PF;
 
-	w1 = NULL;
+	waveform = NULL;
 	finalize_done = true;
 }
 
@@ -356,19 +276,17 @@ finalize_notify (gpointer data, GObject* was)
 static bool
 test_delete ()
 {
-	if (!a[0]) return false;
+	if (!a) return false;
 
-	g_object_weak_ref((GObject*)w1, finalize_notify, NULL);
+	g_object_weak_ref((GObject*)waveform, finalize_notify, NULL);
 
 	if (finalize_done) {
 		pwarn("waveform should not be free'd");
 		return false;
 	}
 
-	for (int i=0;i<G_N_ELEMENTS(a);i++)
-		a[i] = (agl_actor__remove_child((AGlActor*)scene, (AGlActor*)a[i]), NULL);
-	for (int i=0;i<G_N_ELEMENTS(split);i++)
-		split[i] = (agl_actor__remove_child((AGlActor*)scene, (AGlActor*)split[i]), NULL);
+	a = (agl_actor__remove_child((AGlActor*)scene, (AGlActor*)a), NULL);
+	a2 = (agl_actor__remove_child((AGlActor*)scene, (AGlActor*)a2), NULL);
 
 	if (!finalize_done) {
 		pwarn("waveform was not free'd");
@@ -391,4 +309,3 @@ quit (gpointer _)
 {
 	exit(EXIT_SUCCESS);
 }
-

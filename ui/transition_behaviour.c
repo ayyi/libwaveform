@@ -1,15 +1,23 @@
-/**
-* +----------------------------------------------------------------------+
-* | This file is part of the Ayyi project. http://ayyi.org               |
-* | copyright (C) 2012-2020 Tim Orford <tim@orford.org>                  |
-* +----------------------------------------------------------------------+
-* | This program is free software; you can redistribute it and/or modify |
-* | it under the terms of the GNU General Public License version 3       |
-* | as published by the Free Software Foundation.                        |
-* +----------------------------------------------------------------------+
-*
-*/
-#define __wf_private__
+/*
+ +----------------------------------------------------------------------+
+ | This file is part of the Ayyi project. https://www.ayyi.org          |
+ | copyright (C) 2012-2025 Tim Orford <tim@orford.org>                  |
+ +----------------------------------------------------------------------+
+ | This program is free software; you can redistribute it and/or modify |
+ | it under the terms of the GNU General Public License version 3       |
+ | as published by the Free Software Foundation.                        |
+ +----------------------------------------------------------------------+
+ | TransitionBehaviour                                                  |
+ | -------------------                                                  |
+ | TransitionBehaviour associates a list of WfAnimatables with an       |
+ | AGlActor. To update a value, instead of setting the value directly,  |
+ | call `transition_behaviour_set`.                                     |
+ |                                                                      |
+ | It is statically allocated, and has no `new` function.               |
+ +----------------------------------------------------------------------+
+ |
+ */
+
 #include "config.h"
 #include "transition/transition.h"
 #include "wf/debug.h"

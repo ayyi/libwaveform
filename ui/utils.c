@@ -160,30 +160,14 @@ wf_get_time()
 
 #ifdef USE_GTK
 #define WAVEFORM_START_DRAW(wfc) \
-	if(wfc->_draw_depth) pwarn("START_DRAW: already drawing"); \
-	wfc->_draw_depth++; \
-	if (actor_not_is_gtk(wfc->root->root) || \
-		(wfc->_draw_depth > 1) || gdk_gl_drawable_make_current (wfc->root->root->gl.gdk.drawable, wfc->root->root->gl.gdk.context) \
-		) {
+	if (actor_not_is_gtk(wfc->root->root) || gdk_gl_drawable_make_current (wfc->root->root->gl.gdk.drawable, wfc->root->root->gl.gdk.context))
 #else
 #define WAVEFORM_START_DRAW(wfc) \
 	;
 #endif
 
-#ifdef USE_GTK
-#define WAVEFORM_END_DRAW(wa) \
-	wa->_draw_depth--; \
-	if(wa->root->root->type == CONTEXT_TYPE_GTK){ \
-		if(!wa->_draw_depth) ; \
-	} \
-	} else pwarn("!! gl_begin fail")
-#else
 #define WAVEFORM_END_DRAW(wa) \
 	;
-#endif
-
-#define WAVEFORM_IS_DRAWING(wa) \
-	(wa->_draw_depth > 0)
 
 
 /*

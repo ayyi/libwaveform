@@ -1,7 +1,7 @@
 /*
  +----------------------------------------------------------------------+
- | This file is part of the Ayyi project. https://ayyi.org              |
- | copyright (C) 2013-2022 Tim Orford <tim@orford.org>                  |
+ | This file is part of the Ayyi project. https://www.ayyi.org          |
+ | copyright (C) 2013-2025 Tim Orford <tim@orford.org>                  |
  +----------------------------------------------------------------------+
  | This program is free software; you can redistribute it and/or modify |
  | it under the terms of the GNU General Public License version 3       |
@@ -19,6 +19,8 @@
 
 #include "config.h"
 #include "agl/behaviours/cache.h"
+#include "agl/behaviours/scrollable_h.h"
+#include "agl/behaviours/follow.h"
 #include "waveform/actor.h"
 #include "waveform/grid.h"
 
@@ -71,7 +73,7 @@ grid_actor (WaveformActor* wf_actor)
 
 	agl = agl_get_instance();
 
-	GridActor* grid = AGL_NEW(GridActor,
+	GridActor* grid = agl_actor__new(GridActor,
 		.actor = {
 			.class = &actor_class,
 			.colour = 0xffffffff,
@@ -87,6 +89,23 @@ grid_actor (WaveformActor* wf_actor)
 		.wf_actor = wf_actor,
 		.context = wf_actor->context,
 	);
+
+	AGlBehaviour* scrollable = agl_actor__find_behaviour((AGlActor*)wf_actor, scrollable_h_get_class());
+	if (scrollable) {
+		AGlBehaviour* f = agl_actor__add_behaviour((AGlActor*)grid, follow());
+		((FollowBehaviour*)f)->to_follow = (AGlActor*)wf_actor;
+
+		void grid_on_scroll (AGlObservable* o, AGlVal value, gpointer grid)
+		{
+			AGlActor* actor = grid;
+
+			actor->scrollable = ((AGlActor*)((GridActor*)grid)->wf_actor)->scrollable;
+
+			agl_actor__scroll_to (actor, (AGliPt){value.i, -1});
+			agl_actor__invalidate(actor);
+		}
+		agl_observable_subscribe((AGlObservable*)((HScrollableBehaviour*)scrollable)->scroll, grid_on_scroll, grid);
+	}
 
 	return (AGlActor*)grid;
 }
@@ -114,47 +133,50 @@ grid_actor_paint (AGlActor* actor)
 	if (_zoom > 0.0) {
 		zoom = _zoom / context->samples_per_pixel;
 	} else {
+#else
+	{
 #endif
-		WfViewPort viewport; wf_actor_get_viewport(grid->wf_actor, &viewport);
-		zoom = (viewport.right - viewport.left) / grid->wf_actor->region.len;
-#ifdef USE_CANVAS_SCALING
+		zoom = agl_actor__width(actor) / grid->wf_actor->region.len;
 	}
-#endif
 
 	int interval = context->sample_rate * (zoom > 0.005 ? 1 : zoom > 0.0002 ? 10 : zoom > 0.0001 ? 50 : zoom > 0.00001 ? 480 : 4800) / 10;
 
-	const int64_t region_end = context->scaled
-		? context->start_time->value.b + agl_actor__width(actor) * context->samples_per_pixel / context->zoom->value.f
-		: grid->wf_actor->region.start + grid->wf_actor->region.len;
+	const WfFrRange region = {
+		.start = wf_context_x_to_frame (context, -actor->scrollable.x1),
+		.end = context->scaled
+			? wf_context_x_to_frame (context, agl_actor__width(actor) - actor->scrollable.x1)
+			: grid->wf_actor->region.start + grid->wf_actor->region.len
+	};
 
-	int64_t f = ((int64_t)(context->start_time->value.b / interval)) * interval;
+	int64_t f = ((int64_t)((region.start - 1)/ interval) + 1) * interval;
 	if (agl->use_shaders) {
-		int n = MIN(0x5f, (region_end - f) / interval);
-		if (f < context->start_time->value.b) f += interval;
-		AGlQuadVertex vertices[n];
+		int n = MIN(0x5f, (region.end - f) / interval + 1);
+		if (n > 0) {
+			AGlQuadVertex vertices[n];
 
-		for (int i = 0; i < n; f += interval, i++) {
-			float x = wf_context_frame_to_x(context, f);
-			agl_set_quad (&vertices, i,
-				(AGlVertex){x, 0.},
-				(AGlVertex){x + 2., agl_actor__height(actor)}
-			);
+			for (int i = 0; i < n; f += interval, i++) {
+				float x = wf_context_frame_to_x(context, f);
+				agl_set_quad (&vertices, i,
+					(AGlVertex){x, 0.},
+					(AGlVertex){x + 2., agl_actor__height(actor)}
+				);
+			}
+
+			glBindBuffer (GL_ARRAY_BUFFER, vbo);
+			glBufferData (GL_ARRAY_BUFFER, sizeof(AGlQuadVertex) * n, vertices, GL_STATIC_DRAW);
+			glEnableVertexAttribArray (0);
+			glVertexAttribPointer (0, 2, GL_FLOAT, GL_FALSE, 0, NULL);
+			glDrawArrays(GL_TRIANGLES, 0, n * AGL_V_PER_QUAD);
 		}
-
-		glBindBuffer (GL_ARRAY_BUFFER, vbo);
-		glBufferData (GL_ARRAY_BUFFER, sizeof(AGlQuadVertex) * n, vertices, GL_STATIC_DRAW);
-		glEnableVertexAttribArray (0);
-		glVertexAttribPointer (0, 2, GL_FLOAT, GL_FALSE, 0, NULL);
-		glDrawArrays(GL_TRIANGLES, 0, n * AGL_V_PER_QUAD);
 
 		agl_set_font_string("Roboto 7");
 		uint32_t colour = (actor->colour & 0xffffff00) + (actor->colour & 0x000000ff) * 0x88 / 0xff;
 		char s[16] = {0,};
 		int x_ = 0;
 		uint64_t f = ((int64_t)(context->start_time->value.b / interval)) * interval;
-		for (int i = 0; (f < region_end) && (i < 0xff); f += interval, i++) {
+		for (int i = 0; (f < region.end) && (i < 0xff); f += interval, i++) {
 			int x = wf_context_frame_to_x(context, f) + 3;
-			if (x > agl_actor__width(actor)) break;
+			if (x > agl_actor__width(actor) - actor->scrollable.x1) break;
 			if (x - x_ > 60) {
 #if 0
 				if(w->n_frames / actor->canvas->sample_rate < 60)
@@ -177,7 +199,7 @@ grid_actor_paint (AGlActor* actor)
 		glColor4f(0.5, 0.5, 1.0, 0.25);
 		agl_enable(AGL_ENABLE_BLEND);
 
-		for (int i = 0; (f < region_end) && (i < 0xff); f += interval, i++) {
+		for (int i = 0; (f < region.end) && (i < 0xff); f += interval, i++) {
 			float x = wf_context_frame_to_x(context, f);
 
 			glBegin(GL_LINES);

@@ -1,7 +1,7 @@
 /*
  +----------------------------------------------------------------------+
  | This file is part of the Ayyi project. https://www.ayyi.org          |
- | copyright (C) 2012-2022 Tim Orford <tim@orford.org>                  |
+ | copyright (C) 2012-2025 Tim Orford <tim@orford.org>                  |
  +----------------------------------------------------------------------+
  | This program is free software; you can redistribute it and/or modify |
  | it under the terms of the GNU General Public License version 3       |
@@ -287,6 +287,13 @@ ng_gl2_load_block (Renderer* renderer, WaveformActor* actor, int b)
 #endif
 #endif
 	if(!*data){
+#ifdef DEBUG
+		if (!renderer->shader) {
+			static bool done = false;
+			if (!done) perr("renderer not initialised?");
+			done = true;
+		}
+#endif
 		int n_sections = waveform_get_n_audio_blocks(waveform) / MAX_BLOCKS_PER_TEXTURE + (waveform_get_n_audio_blocks(waveform) % MAX_BLOCKS_PER_TEXTURE ? 1 : 0);
 
 		*(*data = g_malloc0(sizeof(HiResNGWaveform) + sizeof(Section) * n_sections)) = (HiResNGWaveform){
@@ -372,7 +379,7 @@ ng_gl2_load_block (Renderer* renderer, WaveformActor* actor, int b)
  *  This is done only once per paint, it does not have to be done per block
  */
 static bool
-ng_gl2_pre_render (Renderer* renderer, WaveformActor* actor)
+ng_pre_render (Renderer* renderer, WaveformActor* actor)
 {
 	Waveform* w = actor->waveform;
 	WfActorPriv* _a = actor->priv;
@@ -413,7 +420,7 @@ ng_gl2_pre_render (Renderer* renderer, WaveformActor* actor)
 		);
 
 	agl_scale (&shader->shader, 1., 1.);
-	agl_translate (&shader->shader, 0., 0.);
+	agl_translate (&shader->shader, -((AGlActor*)actor)->scrollable.x1, 0.);
 	shader->shader.set_uniforms_((AGlShader*)shader);
 
 	glActiveTexture (GL_TEXTURE0);
@@ -479,7 +486,7 @@ ng_make_lod_levels (NGRenderer* renderer, Mode mode)
 	int p = 0;
 	int width = modes[mode].texture_size;
 	int level_size = width;
-	int i; for(i=0;i<N_LOD;i++){
+	for (int i=0;i<N_LOD;i++){
 		renderer->mmidx_max[i] = p;
 		renderer->mmidx_min[i] = p + width * ROWS_PER_PEAK_TYPE;
 		level_size = width / (1 << i);

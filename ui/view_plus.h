@@ -1,7 +1,7 @@
 /*
  +----------------------------------------------------------------------+
- | This file is part of the Ayyi project. https://ayyi.org              |
- | copyright (C) 2012-2021 Tim Orford <tim@orford.org>                  |
+ | This file is part of the Ayyi project. https://www.ayyi.org          |
+ | copyright (C) 2012-2025 Tim Orford <tim@orford.org>                  |
  +----------------------------------------------------------------------+
  | This program is free software; you can redistribute it and/or modify |
  | it under the terms of the GNU General Public License version 3       |
@@ -21,6 +21,7 @@
 #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 #include <gtk/gtk.h>
 #pragma GCC diagnostic warning "-Wdeprecated-declarations"
+#include "agl/gtk-area.h"
 #include "actors/background.h"
 #include "waveform/actor.h"
 #include "waveform/grid.h"
@@ -41,7 +42,7 @@ typedef struct _WaveformViewPlusClass WaveformViewPlusClass;
 typedef struct _WaveformViewPlusPrivate WaveformViewPlusPrivate;
 
 struct _WaveformViewPlus {
-	GtkDrawingArea           parent_instance;
+	GlArea                   parent_instance;
 
 	Waveform*                waveform;
 #ifndef USE_CANVAS_SCALING
@@ -55,12 +56,11 @@ struct _WaveformViewPlus {
 };
 
 struct _WaveformViewPlusClass {
-	GtkDrawingAreaClass parent_class;
+	GlAreaClass parent_class;
 };
 
 
 GType             waveform_view_plus_get_type      () G_GNUC_CONST;
-void              waveform_view_plus_set_gl        (GdkGLContext*);
 
 WaveformViewPlus* waveform_view_plus_new           (Waveform*);
 void              waveform_view_plus_load_file     (WaveformViewPlus*, const char*, WfCallback3, gpointer); // be careful, it force loads, even if already loaded.
@@ -77,6 +77,5 @@ void              waveform_view_plus_remove_layer  (WaveformViewPlus*, AGlActor*
 
 WaveformContext*  waveform_view_plus_get_context   (WaveformViewPlus*);
 WaveformActor*    waveform_view_plus_get_actor     (WaveformViewPlus*);
-
 
 G_END_DECLS

@@ -39,10 +39,6 @@
 #define true TRUE
 #endif
 
-#ifndef bool
-#define bool gboolean
-#endif
-
 #if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(60, 0, 0)
 #define N_CHANNELS(F) (f->codec_context->ch_layout.nb_channels)
 #else

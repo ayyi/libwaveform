@@ -1,7 +1,7 @@
 /*
  +----------------------------------------------------------------------+
- | This file is part of the Ayyi project. https://ayyi.org              |
- | copyright (C) 2013-2022 Tim Orford <tim@orford.org>                  |
+ | This file is part of the Ayyi project. https://www.ayyi.org          |
+ | copyright (C) 2013-2025 Tim Orford <tim@orford.org>                  |
  +----------------------------------------------------------------------+
  | This program is free software; you can redistribute it and/or modify |
  | it under the terms of the GNU General Public License version 3       |
@@ -27,6 +27,7 @@
 #define USE_CANVAS_SCALING 1
 #define WF_CONTEXT_MIN_ZOOM 0.1
 #define WF_CONTEXT_MAX_ZOOM 51200.0
+#define WF_CONTEXT_DEFAULT_SPPX (44100. / 32.)
 
 #define TYPE_WAVEFORM_CONTEXT            (waveform_context_get_type ())
 #define WAVEFORM_CONTEXT(obj)            (G_TYPE_CHECK_INSTANCE_CAST ((obj), TYPE_WAVEFORM_CONTEXT, WaveformContext))
@@ -47,19 +48,14 @@ struct _WaveformContext {
 
 	uint32_t       sample_rate;
 	float          bpm;
-	float          samples_per_pixel;  // application can specify the base sppx. Is multiplied by zoom to get the actual sppx.
+	float          samples_per_pixel;  // application can specify the base sppx. Is divided by zoom to get the actual sppx.
 	bool           scaled;             // scaled mode uses the WfContext time scale. Non-scaled mode uses only the actor rect and sample-region.
 	AGlObservable* zoom;
 	AGlObservable* start_time;         // start time measured in frames.
 	float          rotation;
 	float          v_gain;
 
-	struct {
-		RulerShader*    ruler;
-	}              shaders;
-
 	WfContextPriv* priv;
-	int           _draw_depth;
 };
 
 #ifdef __wf_canvas_priv__
@@ -80,8 +76,6 @@ struct _WaveformContextClass {
 	GObjectClass parent_class;
 };
 
-struct _WfViewPort { double left, top, right, bottom; };
-
 WaveformContext* wf_context_new                       (AGlActor*);
 #ifdef USE_SDL
 WaveformContext* wf_context_new_sdl                   (SDL_GLContext*);
@@ -90,8 +84,6 @@ void             wf_context_free                      (WaveformContext*);
 
 WaveformActor*   wf_context_add_new_actor             (WaveformContext*, Waveform*);
 
-void             wf_context_set_viewport              (WaveformContext*, WfViewPort*);
-void             wf_context_set_rotation              (WaveformContext*, float);
 #ifdef USE_CANVAS_SCALING
 float            wf_context_get_zoom                  (WaveformContext*);
 void             wf_context_set_zoom                  (WaveformContext*, float);
@@ -101,5 +93,7 @@ void             wf_context_set_start                 (WaveformContext*, int64_t
 void             wf_context_set_gain                  (WaveformContext*, float);
 void             wf_context_queue_redraw              (WaveformContext*);
 float            wf_context_frame_to_x                (WaveformContext*, uint64_t);
+uint64_t         wf_context_x_to_frame                (WaveformContext*, int);
+const char*      wf_context_print_time                (WaveformContext*, int);
 
 #define wf_context_free0(A) (wf_context_free(A), A = NULL)

@@ -10,7 +10,7 @@
 
   ---------------------------------------------------------------
 
-  Copyright (C) 2012-2021 Tim Orford <tim@orford.org>
+  Copyright (C) 2012-2025 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -28,7 +28,6 @@
 */
 #define USE_SHADERS true
 
-#define __wf_private__
 #include "config.h"
 #include <getopt.h>
 #include <sys/time.h>
@@ -36,7 +35,7 @@
 #include <gtk/gtk.h>
 #pragma GCC diagnostic warning "-Wdeprecated-declarations"
 #include <gdk/gdkkeysyms.h>
-#include "agl/utils.h"
+#include "agl/gtk.h"
 #include "waveform/actor.h"
 #include "test/common.h"
 
@@ -131,8 +130,8 @@ main (int argc, char *argv[])
 	gtk_widget_add_events        (canvas, GDK_POINTER_MOTION_MASK | GDK_BUTTON_PRESS_MASK | GDK_BUTTON_RELEASE_MASK);
 	gtk_container_add((GtkContainer*)window, (GtkWidget*)canvas);
 
-	scene1 = (AGlRootActor*)agl_actor__new_root(canvas);
-	scene2 = (AGlRootActor*)agl_actor__new_root(canvas);
+	scene1 = (AGlRootActor*)agl_new_scene_gtk(canvas);
+	scene2 = (AGlRootActor*)agl_new_scene_gtk(canvas);
 
 	char* filename = find_wav("mono_0:10.wav");
 	w1 = waveform_load_new(filename);

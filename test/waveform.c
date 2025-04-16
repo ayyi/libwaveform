@@ -1,7 +1,7 @@
 /*
  +----------------------------------------------------------------------+
  | This file is part of the Ayyi project. https://www.ayyi.org          |
- | copyright (C) 2012-2024 Tim Orford <tim@orford.org>                  |
+ | copyright (C) 2012-2025 Tim Orford <tim@orford.org>                  |
  +----------------------------------------------------------------------+
  | This program is free software; you can redistribute it and/or modify |
  | it under the terms of the GNU General Public License version 3       |
@@ -21,7 +21,9 @@
 #include "wf/waveform.h"
 #include "wf/peakgen.h"
 #include "wf/worker.h"
+#include "ui/utils.h"
 #include "waveform/pixbuf.h"
+#include "waveform/context.h"
 #include "test/utils.h"
 #include "test/runner.h"
 #include "test/common.h"
@@ -151,10 +153,10 @@ test_peakgen ()
 {
 	START_TEST;
 
-	char* filename = find_wav(WAV);
+	g_autofree char* filename = find_wav(WAV);
 	assert(filename, "cannot find file %s", WAV);
 
-	// create local peakfile
+	// create local mono peakfile
 	{
 		if (!wf_peakgen__sync(filename, WAV ".peak", NULL)) {
 			FAIL_TEST("local peakgen failed");
@@ -163,6 +165,29 @@ test_peakgen ()
 		g_autofree gchar* contents;
 		g_file_get_contents (WAV ".peak", &contents, &length, NULL);
 		assert(length == 6970, "peakfile size %i", (int)length);
+
+		WfAudioInfo info = {0};
+		ad_finfo(WAV ".peak", &info);
+		assert(info.channels == 1, "expected %i channels, got %i", 1, info.channels);
+		ad_clear_nfo(&info);
+	}
+
+	// create local stereo peakfile
+	{
+		g_autofree char* wav2 = find_wav(WAV2);
+
+		if (!wf_peakgen__sync(wav2, WAV ".peak", NULL)) {
+			FAIL_TEST("local peakgen failed");
+		}
+		gsize length;
+		g_autofree gchar* contents;
+		g_file_get_contents (WAV ".peak", &contents, &length, NULL);
+		assert(length == 13862, "peakfile size %zu", length);
+
+		WfAudioInfo info = {0};
+		ad_finfo(WAV ".peak", &info);
+		assert(info.channels == 2, "expected %i channels, got %i", 2, info.channels);
+		ad_clear_nfo(&info);
 	}
 
 	// create peakfile in the cache directory
@@ -174,7 +199,6 @@ test_peakgen ()
 		g_object_unref(w);
 		g_free(p);
 	}
-	g_free(filename);
 
 	FINISH_TEST;
 }
@@ -336,7 +360,7 @@ test_audio_file ()
 			readcount = ad_read_short(&f, &buf);
 			total += readcount;
 		} while (readcount > 0);
-		dbg(1, "diff=%zu", abs((int)total - (int)f.info.frames));
+		dbg(1, "diff=%i", abs((int)total - (int)f.info.frames));
 
 		if (g_str_has_suffix(filenames[i], ".wav") || g_str_has_suffix(filenames[i], ".flac")) {
 			assert(total == f.info.frames, "%s: incorrect number of frames read: %"PRIi64" (expected %"PRIi64")", filenames[i], total, f.info.frames);
@@ -514,9 +538,8 @@ test_alphabuf ()
 {
 	START_TEST;
 
-	char* filename = find_wav(WAV);
+	g_autofree char* filename = find_wav(WAV);
 	Waveform* w = waveform_load_new(filename);
-	g_free(filename);
 
 	int scale[] = {1, WF_PEAK_STD_TO_LO};
 	for (int b=0;b<2;b++) {
@@ -530,6 +553,30 @@ test_alphabuf ()
 	}
 
 	g_object_unref(w);
+	FINISH_TEST;
+}
+
+
+void
+test_int2db ()
+{
+	START_TEST;
+
+	float out = wf_int2db (0);
+	assert(out == -100., "%f", out);
+
+	out = wf_int2db (SHRT_MAX);
+	assert(ABS(out - 0.) < 0.001, "%i %f", SHRT_MAX, out);
+
+	out = wf_int2db (SHRT_MIN);
+	assert(ABS(out - 0.) < 0.001, "%f", out);
+
+	out = wf_int2db (SHRT_MAX / 2);
+	assert(ABS(out - (-6.021)) < 0.001, "%i %f", SHRT_MAX / 2, out);
+
+	out = wf_int2db (SHRT_MIN / 2);
+	assert(ABS(out - (-6.021)) < 0.001, "%i %f", SHRT_MIN / 2, out);
+
 	FINISH_TEST;
 }
 
@@ -680,7 +727,7 @@ test_worker ()
 
 		static gpointer mem = NULL;
 
-		gboolean main_thread ()
+		gboolean main_thread (void* _)
 		{
 			if (__test_idx != TEST.current.test) return G_SOURCE_REMOVE;
 
@@ -744,6 +791,30 @@ test_thumbnail ()
 	ad_thumbnail_free(NULL, &picture);
 	ad_free_nfo(&dec.info);
 #endif
+
+	FINISH_TEST;
+}
+
+
+void
+test_context_frames_to_x ()
+{
+	START_TEST;
+
+	WaveformContext* wfc = wf_context_new (NULL);
+
+	float r = wf_context_frame_to_x (wfc, 44100);
+	assert(r == 32., "%f", r);
+
+	// zoom in
+	wfc->samples_per_pixel = wfc->sample_rate / 64.0;
+	r = wf_context_frame_to_x (wfc, 44100);
+	assert(r == 64., "%f", r);
+
+	// change start
+	wfc->start_time->value.b = 22050;
+	r = wf_context_frame_to_x (wfc, 44100);
+	assert(r == 32., "%f", r);
 
 	FINISH_TEST;
 }

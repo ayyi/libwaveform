@@ -1,7 +1,7 @@
 /*
  +----------------------------------------------------------------------+
  | This file is part of the Ayyi project. https://www.ayyi.org          |
- | copyright (C) 2012-2021 Tim Orford <tim@orford.org>                  |
+ | copyright (C) 2012-2025 Tim Orford <tim@orford.org>                  |
  +----------------------------------------------------------------------+
  | This program is free software; you can redistribute it and/or modify |
  | it under the terms of the GNU General Public License version 3       |
@@ -18,6 +18,7 @@
 #include <stdbool.h>
 #include "glib.h"
 #include "debug/debug.h"
+#include "wf/utils.h"
 #include "runner.h"
 
 extern gpointer tests[];
@@ -93,7 +94,7 @@ next_test ()
 		TEST.timeout = g_timeout_add(30000, on_test_timeout, NULL);
 	} else {
 		printf("finished all. passed=%s %i %s failed=%s %i %s\n", GREEN, TEST.n_passed, ayyi_white, (TEST.n_failed ? RED : ayyi_white), TEST.n_failed, ayyi_white);
-		g_timeout_add(1000, __exit, NULL);
+		g_timeout_add(1000, (GSourceFunc)__exit, NULL);
 	}
 }
 
@@ -102,8 +103,10 @@ void
 test_finish ()
 {
 	dbg(2, "... passed=%i", TEST.passed);
-	if(TEST.passed) TEST.n_passed++; else TEST.n_failed++;
-	if(!TEST.passed && abort_on_fail) TEST.current.test = 1000;
+
+	if (TEST.passed) TEST.n_passed++; else TEST.n_failed++;
+	if (!TEST.passed && abort_on_fail) TEST.current.test = 1000;
+
 	next_test();
 }
 
@@ -124,6 +127,7 @@ test_reset_timeout (int ms)
 	TEST.timeout = g_timeout_add(ms, on_test_timeout_, NULL);
 }
 
+
 void
 test_errprintf (char* format, ...)
 {
@@ -135,4 +139,42 @@ test_errprintf (char* format, ...)
 	va_end(argp);
 
 	printf("%s%s%s\n", RED, str, ayyi_white);
+}
+
+
+void
+wait_for (ReadyTest test, WaitCallback on_ready, gpointer user_data)
+{
+	typedef struct {
+		ReadyTest    test;
+		int          i;
+		WaitCallback on_ready;
+		gpointer     user_data;
+	} C;
+
+	gboolean _check (C* c)
+	{
+		if(c->test(c->user_data)){
+			TEST.current.timers = g_list_remove(TEST.current.timers, GINT_TO_POINTER(g_source_get_id(g_main_current_source())));
+			c->on_ready(c->user_data);
+			g_free(c);
+			return G_SOURCE_REMOVE;
+		}
+
+		if(c->i++ > 100){
+			TEST.current.timers = g_list_remove(TEST.current.timers, GINT_TO_POINTER(g_source_get_id(g_main_current_source())));
+			g_free(c);
+			return G_SOURCE_REMOVE;
+		}
+
+		return G_SOURCE_CONTINUE;
+	}
+
+	TEST.current.timers = g_list_prepend(TEST.current.timers, GINT_TO_POINTER(
+		g_timeout_add(100, (GSourceFunc)_check, WF_NEW(C,
+			.test = test,
+			.on_ready = on_ready,
+			.user_data = user_data
+		)
+	)));
 }

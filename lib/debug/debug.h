@@ -41,9 +41,9 @@
 #endif
 
 #ifdef DEBUG
-void     debug_printf       (const char* func, int level, const char* format, ...);
+void     debug_printf       (const char* func, int level, const char* format, ...) __attribute__ ((format (printf, 3, 4)));
 #endif
-void     warnprintf         (const char* format, ...);
+void     warnprintf         (const char* format, ...) __attribute__ ((format (printf, 1, 2)));
 void     warnprintf2        (const char* func, char* format, ...);
 void     errprintf          (const char* format, ...);
 

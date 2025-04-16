@@ -1,14 +1,14 @@
-/**
-* +----------------------------------------------------------------------+
-* | This file is part of the Ayyi project. https://www.ayyi.org          |
-* | copyright (C) 2021-2021 Tim Orford <tim@orford.org>                  |
-* +----------------------------------------------------------------------+
-* | This program is free software; you can redistribute it and/or modify |
-* | it under the terms of the GNU General Public License version 3       |
-* | as published by the Free Software Foundation.                        |
-* +----------------------------------------------------------------------+
-*
-*/
+/*
+ +----------------------------------------------------------------------+
+ | This file is part of the Ayyi project. https://www.ayyi.org          |
+ | copyright (C) 2021-2025 Tim Orford <tim@orford.org>                  |
+ +----------------------------------------------------------------------+
+ | This program is free software; you can redistribute it and/or modify |
+ | it under the terms of the GNU General Public License version 3       |
+ | as published by the Free Software Foundation.                        |
+ +----------------------------------------------------------------------+
+ |
+ */
 
 #define __wf_private__
 #include "config.h"
@@ -59,7 +59,7 @@ invalidator_queue_check (Invalidator* invalidator)
 			int bit = 1 << i;
 			int valid = invalidator->valid & bit;
 			if (!valid) {
-				if (invalidator->resolve[i](invalidator)){
+				if (invalidator->resolve[i](invalidator)) {
 					invalidator->valid |= bit;
 				} else {
 					break;
@@ -72,7 +72,7 @@ invalidator_queue_check (Invalidator* invalidator)
 	}
 
 	if (!invalidator->recheck_queue) {
-		invalidator->recheck_queue = g_idle_add (invalidator_check, invalidator);
+		invalidator->recheck_queue = g_idle_add_full (G_PRIORITY_HIGH_IDLE, invalidator_check, invalidator, NULL);
 	}
 }
 

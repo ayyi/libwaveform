@@ -1,14 +1,15 @@
-/**
-* +----------------------------------------------------------------------+
-* | This file is part of the Ayyi project. http://ayyi.org               |
-* | copyright (C) 2012-2020 Tim Orford <tim@orford.org>                  |
-* +----------------------------------------------------------------------+
-* | This program is free software; you can redistribute it and/or modify |
-* | it under the terms of the GNU General Public License version 3       |
-* | as published by the Free Software Foundation.                        |
-* +----------------------------------------------------------------------+
-*
-*/
+/*
+ +----------------------------------------------------------------------+
+ | This file is part of the Ayyi project. https://www.ayyi.org          |
+ | copyright (C) 2012-2025 Tim Orford <tim@orford.org>                  |
+ +----------------------------------------------------------------------+
+ | This program is free software; you can redistribute it and/or modify |
+ | it under the terms of the GNU General Public License version 3       |
+ | as published by the Free Software Foundation.                        |
+ +----------------------------------------------------------------------+
+ |
+ */
+
 #define __waveform_peak_c__
 #define __wf_private__
 #include "config.h"
@@ -192,7 +193,7 @@ _waveform_get_property (GObject* object, guint property_id, GValue* value, GPara
 		gpointer user_data;
 	} C;
 
-	static void waveform_load_done(gpointer waveform, gpointer _c)
+	static void waveform_load_done (gpointer waveform, gpointer _c)
 	{
 		C* c = _c;
 		if(c->callback) c->callback((Waveform*)waveform, ((Waveform*)waveform)->priv->peaks->error, c->user_data);
@@ -306,7 +307,7 @@ waveform_get_sf_data(Waveform* w)
 			if(waveform_load_sync(w)){
 				w->n_channels = _w->peak.buf[1] ? 2 : 1;
 				w->n_frames = _w->num_peaks * WF_PEAK_RATIO;
-				dbg(1, "offline, have peakfile: n_frames=%Lu c=%i", w->n_frames, w->n_channels);
+				dbg(1, "offline, have peakfile: n_frames=%"PRIi64" c=%i", w->n_frames, w->n_channels);
 				return;
 			}
 		}
@@ -645,19 +646,16 @@ waveform_peakbuf_assign (Waveform* w, int block_num, Peakbuf* peakbuf)
 
 
 int
-waveform_get_n_audio_blocks(Waveform* w)
+waveform_get_n_audio_blocks (Waveform* w)
 {
 	WfAudioData* audio = &w->priv->audio;
-	if(!audio->n_blocks){
+	if (!audio->n_blocks) {
 		uint64_t n_frames = waveform_get_n_frames(w);
 
 		int xtra = (n_frames % WF_SAMPLES_PER_TEXTURE) ? 1 : 0;
 		audio->n_blocks = n_frames / WF_SAMPLES_PER_TEXTURE + xtra; // WF_SAMPLES_PER_TEXTURE takes border into account
 
-		dbg(1, "setting samplecount=%Li xtra=%i n_blocks=%i",
-		        n_frames,
-		        xtra,
-		        audio->n_blocks);
+		dbg(1, "setting samplecount=%"PRIi64" xtra=%i n_blocks=%i", n_frames, xtra, audio->n_blocks);
 	}
 	return audio->n_blocks;
 }

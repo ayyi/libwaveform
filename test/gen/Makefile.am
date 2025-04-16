@@ -3,7 +3,7 @@ if ENABLE_SNDFILE
 
 lib_LTLIBRARIES = libgen.la
 
-noinst_PROGRAMS = write_wav write_short write_block write_piano thumbnail
+noinst_PROGRAMS = write_wav write_short write_block write_piano every_point_one thumbnail
 
 DATA_DIR = ../data
 FFMPEG = ffmpeg -y -loglevel warning
@@ -16,6 +16,10 @@ GTKGLEXT_LDFLAGS = \
 	-lgmodule-2.0 \
 	$(top_srcdir)/gtkglext-1.0/.libs/libgtkglext.a
 endif
+
+AM_LDFLAGS = \
+	$(SNDFILE_LIBS) \
+	-lm
 
 TEST_LDFLAGS = \
 	$(top_srcdir)/.libs/libwaveformcore.a \
@@ -47,6 +51,9 @@ write_block_SOURCES = \
 write_block_LDADD = \
 	$(SNDFILE_LIBS)
 
+every_point_one_SOURCES = \
+	every_point_one.c
+
 write_piano_SOURCES = \
 	write_piano.cc \
 	instrument.cc instrument.hh
@@ -72,7 +79,7 @@ BUILT_SOURCES = test_data
 # disable recompilation of write_block to prevent this running each time
 test_data: Makefile libgen.la test_data_1 test_data_thumbnail
 
-test_data_1: write_block.cc write_wav write_short write_piano
+test_data_1: write_block.cc write_wav write_short write_piano every_point_one
 	@if [ ! -e "write_block" ] || [ "write_block.cc" -nt "write_block" ] || [ "Makefile" -nt "write_block" ]; then \
 		make write_block; \
 	fi
@@ -112,8 +119,14 @@ test_data_1: write_block.cc write_wav write_short write_piano
 	@if [ ! -e "$(DATA_DIR)/3_blocks.wav" ] || [ "./write_block" -nt "$(DATA_DIR)/3_blocks.wav" ]; then \
 		./write_block --numblocks=3 $(DATA_DIR)/3_blocks.wav; \
 	fi;
+	@if [ ! -e "$(DATA_DIR)/7_blocks.wav" ] || [ "./write_block" -nt "$(DATA_DIR)/7_blocks.wav" ]; then \
+		./write_block --numblocks=7 $(DATA_DIR)/7_blocks.wav; \
+	fi;
 	@if [ ! -e "$(DATA_DIR)/piano.wav" ] || [ "./write_piano" -nt "$(DATA_DIR)/piano.wav" ]; then \
 		./write_piano $(DATA_DIR)/piano.wav; \
+	fi;
+	@if [ ! -e "$(DATA_DIR)/every_point_one.wav" ] || [ "./every_point_one" -nt "$(DATA_DIR)/every_point_one.wav" ]; then \
+		./every_point_one $(DATA_DIR)/every_point_one.wav; \
 	fi;
 
 test_data_thumbnail: thumbnail

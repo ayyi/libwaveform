@@ -1,26 +1,20 @@
 /*
-
-  libwaveform test of 32bit float wav files.
-
-  Currently the test is not very good at detecting errors
-
-  --------------------------------------------------------------
-
-  Copyright (C) 2013-2021 Tim Orford <tim@orford.org>
-
-  This program is free software; you can redistribute it and/or modify
-  it under the terms of the GNU General Public License version 3
-  as published by the Free Software Foundation.
-
-  This program is distributed in the hope that it will be useful,
-  but WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-  GNU General Public License for more details.
-
-  You should have received a copy of the GNU General Public License
-  along with this program; if not, write to the Free Software
-  Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
-*/
+ +----------------------------------------------------------------------+
+ | This file is part of the Ayyi project. https://www.ayyi.org          |
+ | copyright (C) 2013-2025 Tim Orford <tim@orford.org>                  |
+ +----------------------------------------------------------------------+
+ | This program is free software; you can redistribute it and/or modify |
+ | it under the terms of the GNU General Public License version 3       |
+ | as published by the Free Software Foundation.                        |
+ +----------------------------------------------------------------------+
+ |                                                                      |
+ | libwaveform test of 32bit float wav files.                           |
+ |                                                                      |
+ | Currently the test is not very good at detecting errors              |
+ |                                                                      |
+ +----------------------------------------------------------------------+
+ |
+ */
 
 #define __wf_private__
 
@@ -33,15 +27,9 @@
 #include "wf/peakgen.h"
 #include "waveform/pixbuf.h"
 #include "test/common.h"
+#include "32bit.h"
 
-TestFn create_files, test_audiodata, test_load, delete_files;
-
-gpointer tests[] = {
-	create_files,
-	test_load,
-	test_audiodata,
-	delete_files,
-};
+SetupFn create_files;
 
 #define WAV1 "32bit.wav"
 static char* wavs[] = {WAV1};
@@ -49,22 +37,17 @@ static char* wavs[] = {WAV1};
 float first_peak[WF_PEAK_VALUES_PER_SAMPLE] = {0,};
 
 
-bool
+int
 setup ()
 {
-	TEST.n_tests = G_N_ELEMENTS(tests);
-
-	return 0;
+	return create_files();
 }
 
 
-void
+int
 create_files ()
 {
-	START_TEST;
-	test_reset_timeout(60000);
-
-	void create_file (char* filename)
+	int create_file (char* filename)
 	{
 		printf("  %s\n", filename);
 
@@ -99,28 +82,25 @@ create_files ()
 		SNDFILE* sndfile = sf_open(filename, SFM_WRITE, &info);
 		if (!sndfile) {
 			fprintf(stderr, "Sndfile open failed: %s %s\n", sf_strerror(sndfile), filename);
-			FAIL_TEST("%s", sf_strerror(sndfile));
+			return 1;
 		}
 
 		for (int i=0;i<4;i++) {
 			if (sf_writef_float(sndfile, buffer, n_frames) != n_frames) {
 				fprintf(stderr, "Write failed\n");
 				sf_close(sndfile);
-				FAIL_TEST("write failed");
+				return 1;
 			}
 		}
 
 		sf_write_sync(sndfile);
 		sf_close(sndfile);
 		g_free(buffer);
+
+		return 0;
 	}
 
-	const char* dir = find_data_dir();
-	char* filename = g_build_filename(dir, WAV1, NULL);
-	create_file(WAV1);
-	g_free(filename);
-
-	FINISH_TEST;
+	return create_file(WAV1);
 }
 
 
@@ -146,11 +126,10 @@ test_load ()
 
 	static int iter; iter = 0;
 
-	typedef struct _c C;
-	struct _c {
-		void (*next)(C*);
+	typedef struct C {
+		void (*next)(struct C*);
 		int  wi;
-	};
+	} C;
 
 	void finalize_notify (gpointer data, GObject* was)
 	{
@@ -245,9 +224,7 @@ test_load ()
 		c->next(c);
 	}
 
-	C* c = WF_NEW(C, .next = next_wav);
-
-	next_wav(c);
+	next_wav(WF_NEW(C, .next = next_wav));
 }
 
 

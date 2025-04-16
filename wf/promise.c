@@ -1,15 +1,14 @@
-/**
-* +----------------------------------------------------------------------+
-* | This file is part of the Ayyi project. http://ayyi.org               |
-* | copyright (C) 2012-2020 Tim Orford <tim@orford.org>                  |
-* +----------------------------------------------------------------------+
-* | This program is free software; you can redistribute it and/or modify |
-* | it under the terms of the GNU General Public License version 3       |
-* | as published by the Free Software Foundation.                        |
-* +----------------------------------------------------------------------+
-*
-*/
-#define __wf_private__
+/*
+ +----------------------------------------------------------------------+
+ | This file is part of the Ayyi project. https://www.ayyi.org          |
+ | copyright (C) 2012-2025 Tim Orford <tim@orford.org>                  |
+ +----------------------------------------------------------------------+
+ | This program is free software; you can redistribute it and/or modify |
+ | it under the terms of the GNU General Public License version 3       |
+ | as published by the Free Software Foundation.                        |
+ +----------------------------------------------------------------------+
+ |
+ */
 
 #include "config.h"
 #include <stdio.h>
@@ -39,7 +38,7 @@ am_promise_unref (AMPromise* p)
 	if(!--p->refcount){
 		g_list_free_full(p->children, (GDestroyNotify)am_promise_unref);
 		g_list_free_full(p->callbacks, g_free);
-		g_error_free0(p->error);
+		g_clear_pointer(&p->error, g_error_free);
 		g_free(p);
 	}
 }
@@ -88,9 +87,11 @@ am_promise_add_callback (AMPromise* p, WfPromiseCallback callback, gpointer user
 void
 am_promise_resolve (AMPromise* p, PromiseVal* value)
 {
-	if(value) p->value = *value;
-	p->is_resolved = true;
-	_am_promise_callback(p);
+	if (!p->is_resolved) {
+		if (value) p->value = *value;
+		p->is_resolved = true;
+		_am_promise_callback(p);
+	}
 }
 
 

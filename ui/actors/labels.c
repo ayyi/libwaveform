@@ -1,7 +1,7 @@
 /*
  +----------------------------------------------------------------------+
- | This file is part of the Ayyi project. https://ayyi.org              |
- | copyright (C) 2013-2021 Tim Orford <tim@orford.org>                  |
+ | This file is part of the Ayyi project. https://www.ayyi.org          |
+ | copyright (C) 2013-2025 Tim Orford <tim@orford.org>                  |
  +----------------------------------------------------------------------+
  | This program is free software; you can redistribute it and/or modify |
  | it under the terms of the GNU General Public License version 3       |
@@ -13,8 +13,6 @@
  +----------------------------------------------------------------------+
  |
  */
-
-#define __wf_private__
 
 #include "config.h"
 #include "agl/behaviours/cache.h"
@@ -34,9 +32,6 @@ static bool labels_actor_paint (AGlActor*);
 static void
 labels_actor_init (AGlActor* actor)
 {
-	if (agl->use_shaders) {
-		agl_create_program(&((LabelsActor*)actor)->context->shaders.ruler->shader);
-	}
 }
 
 

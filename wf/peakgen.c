@@ -1,7 +1,7 @@
 /*
  +----------------------------------------------------------------------+
  | This file is part of the Ayyi project. https://www.ayyi.org          |
- | copyright (C) 2012-2024 Tim Orford <tim@orford.org>                  |
+ | copyright (C) 2012-2025 Tim Orford <tim@orford.org>                  |
  +----------------------------------------------------------------------+
  | This program is free software; you can redistribute it and/or modify |
  | it under the terms of the GNU General Public License version 3       |
@@ -331,6 +331,9 @@ open_audio2 (AVCodecContext* c, AVStream* stream, OutputStream* ost)
 #define N_CHANNELS sfinfo.channels
 #endif
 
+/*
+ *  Source file will be read using best decoder, but peakfile writing is always done with ffmpeg where possible.
+ */
 static bool
 wf_ff_peakgen (const char* infilename, const char* peak_filename)
 {
@@ -340,7 +343,7 @@ wf_ff_peakgen (const char* infilename, const char* peak_filename)
 	if (!ad_open(&f, infilename)) return false;
 
 	gchar* basename = g_path_get_basename(peak_filename);
-	gchar* tmp_path = g_build_filename(g_get_tmp_dir(), basename, NULL);
+	g_autofree gchar* tmp_path = g_build_filename(g_get_tmp_dir(), basename, NULL);
 	g_free(basename);
 
 #ifdef USE_FFMPEG
@@ -374,11 +377,27 @@ wf_ff_peakgen (const char* infilename, const char* peak_filename)
 		return false;
 	}
 
-	c->sample_fmt  = codec->sample_fmts ? codec->sample_fmts[0] : AV_SAMPLE_FMT_S16;
+#if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(61, 13, 0)
+	const int* formats;
+	avcodec_get_supported_config(c, codec, AV_CODEC_CONFIG_SAMPLE_FORMAT, 0, (const void**)&formats, NULL);
+	if (formats && formats[0]) {
+		c->sample_fmt = formats[0];
+	}
+#else
+	c->sample_fmt = codec->sample_fmts ? codec->sample_fmts[0] : AV_SAMPLE_FMT_S16;
+#endif
 	c->sample_rate = f.info.sample_rate;
 #ifdef HAVE_FFMPEG_60
+#if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(61, 13, 0)
+	const AVChannelLayout* layouts = NULL;
+	avcodec_get_supported_config (c, codec, AV_CODEC_CONFIG_CHANNEL_LAYOUT, 0, (const void**)&layouts, NULL);
+
+	if (layouts) {
+		c->ch_layout = layouts[0];
+#else
 	if (codec->ch_layouts) {
 		c->ch_layout = codec->ch_layouts[0];
+#endif
 	} else {
 		av_channel_layout_default(&c->ch_layout, f.info.channels);
 	}
@@ -448,7 +467,7 @@ wf_ff_peakgen (const char* infilename, const char* peak_filename)
 
 			memset(peak, 0, sizeof(WfPeakSample) * N_CHANNELS);
 
-			int k; for (k = 0; k < MIN(remaining, WF_PEAK_RATIO); k += N_CHANNELS){
+			for (int k = 0; k < MIN(remaining, WF_PEAK_RATIO); k += N_CHANNELS){
 				int c; for(c=0;c<N_CHANNELS;c++){
 					int16_t val = buf.buf[c][WF_PEAK_RATIO * j + k];
 					peak[c] = (WfPeakSample){
@@ -545,7 +564,6 @@ wf_ff_peakgen (const char* infilename, const char* peak_filename)
 		g_file_move(tmp_file, peak_file, G_FILE_COPY_OVERWRITE, NULL, NULL, NULL, &err);
 		g_object_unref(tmp_file);
 		g_object_unref(peak_file);
-		g_free(tmp_path);
 
 		if (err != NULL) {
 			printf("Could not move peak file to %s: %s\n", peak_filename, err->message);
@@ -554,20 +572,17 @@ wf_ff_peakgen (const char* infilename, const char* peak_filename)
 		}
 	} else {
 		pwarn("failed to read from file %s", infilename);
-		g_unlink(tmp_path);
 #ifdef USE_FFMPEG
-		goto f1;
+		ad_close(&f);
+		ad_free_nfo(&f.info);
 #endif
+		g_unlink(tmp_path);
+		return false;
 	}
 
 	return true;
 
 #ifdef USE_FFMPEG
-f1:
-	g_free(tmp_path);
-	ad_close(&f);
-	ad_free_nfo(&f.info);
-	return false;
 #endif
 #endif
 }
@@ -621,7 +636,15 @@ wf_ff_peakgen_split_stereo (const char* infilename, const char* peak_filename)
 		return false;
 	}
 
+#if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(61, 13, 0)
+	const int* formats;
+	avcodec_get_supported_config(c, codec, AV_CODEC_CONFIG_SAMPLE_FORMAT, 0, (const void**)&formats, NULL);
+	if (formats && formats[0]) {
+		c->sample_fmt = formats[0];
+	}
+#else
 	c->sample_fmt  = codec->sample_fmts ? codec->sample_fmts[0] : AV_SAMPLE_FMT_S16;
+#endif
 	c->sample_rate = f.info.sample_rate;
 #ifdef HAVE_FFMPEG_60
 	av_channel_layout_default(&c->ch_layout, WF_STEREO);
@@ -1157,7 +1180,7 @@ wf_file_is_newer (const char* file1, const char* file2)
 	struct stat info2;
 	if(stat(file1, &info1)) return false;
 	if(stat(file2, &info2)) return false;
-	if(info1.st_mtime < info2.st_mtime) dbg(2, "%i %i %i", info1.st_mtime, info2.st_mtime, sizeof(time_t));
+	if(info1.st_mtime < info2.st_mtime) dbg(2, "%li %li %lu", info1.st_mtime, info2.st_mtime, sizeof(time_t));
 	return (info1.st_mtime > info2.st_mtime);
 }
 
@@ -1177,7 +1200,7 @@ get_cache_dir ()
 #define CACHE_EXPIRY_DAYS 90
 
 static gboolean
-_maintain_file_cache ()
+_maintain_file_cache (void* _)
 {
 	char* dir_name = get_cache_dir();
 	dbg(2, "dir=%s", dir_name);

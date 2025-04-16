@@ -8,6 +8,7 @@ libactors_la_SOURCES = \
 	grid.c grid.h \
 	labels.c labels.h \
 	spp.c spp.h \
+	hover.c hover.h \
 	text.c text.h
 
 if ENABLE_SYSTEM_GTKGLEXT
@@ -37,4 +38,5 @@ pkginclude_HEADERS = \
 	labels.h \
 	ruler.h \
 	spp.h \
+	hover.h \
 	text.h

@@ -1,7 +1,7 @@
 /*
  +----------------------------------------------------------------------+
  | This file is part of the Ayyi project. https://www.ayyi.org          |
- | copyright (C) 2012-2022 Tim Orford <tim@orford.org>                  |
+ | copyright (C) 2012-2025 Tim Orford <tim@orford.org>                  |
  +----------------------------------------------------------------------+
  | This program is free software; you can redistribute it and/or modify |
  | it under the terms of the GNU General Public License version 3       |
@@ -48,9 +48,10 @@ static void
 med_renderer_new_gl2 (WaveformActor* actor)
 {
 	AGlShader** shader = &modes[MODE_MED].renderer->shader;
-	if(!*shader){
+	if (!*shader) {
 		*shader = &hires_ng_shader.shader;
-		if(!(*shader)->program) agl_create_program(*shader);
+		if (!(*shader)->program)
+			agl_create_program(*shader);
 	}
 
 	// other data is created in ng_renderer.load_block
@@ -262,7 +263,7 @@ med_lo_gl1_free_waveform(Renderer* renderer, Waveform* waveform)
 
 
 void
-med_lo_on_steal(WaveformBlock* wb, guint tex)
+med_lo_on_steal (WaveformBlock* wb, guint tex)
 {
 	Mode mode = wb->block & WF_TEXTURE_CACHE_V_LORES_MASK
 		? MODE_V_LOW
@@ -302,7 +303,7 @@ med_lo_on_steal(WaveformBlock* wb, guint tex)
 
 
 Renderer med_renderer_gl1 = {MODE_MED, NULL, med_allocate_block_gl1, med_lo_pre_render_gl1, med_lo_render_gl1, NULL, med_lo_gl1_free_waveform};
-NGRenderer med_renderer_gl2 = {{MODE_MED, med_renderer_new_gl2, ng_gl2_load_block, ng_gl2_pre_render, ng_gl2_render_block, ng_gl2_post_render, ng_gl2_free_waveform}};
+NGRenderer med_renderer_gl2 = {{MODE_MED, med_renderer_new_gl2, ng_gl2_load_block, ng_pre_render, ng_gl2_render_block, ng_gl2_post_render, ng_gl2_free_waveform}};
 
 
 static Renderer*

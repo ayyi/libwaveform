@@ -233,10 +233,17 @@ ad_read_s32_sndfile (WfDecoder* d, int32_t* out, size_t len)
 
 
 int
-ad_eval_sndfile (const char *f)
+ad_eval_sndfile (const char* filename)
 {
-	char* ext = strrchr(f, '.');
-	if (!ext) return 5;
+	char* ext = strrchr(filename, '.');
+	if (!ext || strlen(ext) > 5) {
+		WfDecoder decoder;
+		if (ad_open_sndfile(&decoder, filename)) {
+			ad_close_sndfile(&decoder);
+			return 100;
+		}
+		return 5;
+	}
 
 	/* see http://www.mega-nerd.com/libsndfile/ */
 	if (!strcasecmp(ext, ".wav")) return 100;

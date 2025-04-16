@@ -11,7 +11,7 @@ SDLPROGRAMS = sdl
 endif
 
 if ENABLE_GTK
-GTKPROGRAMS = view_plus actor actor_plus actor_no_scene list group hires res_vhi multi_scene $(ASSPROGRAMS) frame_rate resources cache pixbuf
+GTKPROGRAMS = view_plus actor actor_plus actor_no_scene list group hires res_vhi res_vhi_blocks res_vhi_scrollable multi_scene $(ASSPROGRAMS) frame_rate resources cache pixbuf
 LOCAL_GTK_LDFLAGS = $(GTK_LDFLAGS)
 endif
 
@@ -28,7 +28,7 @@ endif
 endif
 
 if ENABLE_OPENGL
-noinst_PROGRAMS = waveform large_files promise 32bit glx input $(GTKPROGRAMS) $(SDLPROGRAMS)
+noinst_PROGRAMS = waveform large_files promise 32bit unit-actor glx input $(GTKPROGRAMS) $(SDLPROGRAMS)
 else
 noinst_PROGRAMS = waveform
 endif
@@ -57,8 +57,8 @@ TEST_LDFLAGS = \
 	$(top_srcdir)/.libs/libwaveformui.a \
 	$(top_srcdir)/.libs/libwaveformcore.a \
 	$(top_srcdir)/lib/agl/.libs/libagl.a \
-	../lib/debug/.libs/libayyidebug.a \
-	../lib/test/.libs/libtest.a \
+	$(top_srcdir)/lib/debug/.libs/libayyidebug.a \
+	$(top_srcdir)/lib/test/.libs/libtest.a \
 	$(OPENGL_LDFLAGS) \
 	$(GL_LOADER_LDFLAGS) \
 	$(LIBASS_LDFLAGS) \
@@ -85,6 +85,10 @@ COMMON2_SOURCES = \
 waveform_SOURCES = \
 	$(COMMON2_SOURCES) \
 	waveform.c
+
+unit_actor_SOURCES = \
+	$(COMMON2_SOURCES) \
+	unit-actor.c
 
 view_plus_SOURCES = \
 	$(COMMON2_SOURCES) \
@@ -204,6 +208,14 @@ LDADD = \
 	$(OPENGL_LDFLAGS) \
 	$(TEST_LDFLAGS)
 
+res_vhi_blocks_LDADD = \
+	$(LDADD) \
+	common2.o
+
+res_vhi_scrollable_LDADD = \
+	$(LDADD) \
+	common2.o
+
 view_plus_DEPENDENCIES = \
 	../.libs/libwaveformcore.a \
 	../.libs/libwaveformui.a \
@@ -217,7 +229,7 @@ AM_TESTS_FD_REDIRECT = 9>&2 --non-interactive
 AM_TESTS_ENVIRONMENT = \
 	export NON_INTERACTIVE=1;
 
-BUILT_SOURCES = waveform.h
+BUILT_SOURCES = waveform.h unit-actor.h 32bit.h
 
 define build_header =
 	echo > $@
@@ -235,20 +247,28 @@ define build_header =
 	@echo "int n_tests () { return "`cat $(@:.h=.c) | grep ^test_ | wc -l`"; }" >> $@
 endef
 
+32bit.h: 32bit.c Makefile
+	@$(build_header)
+
 waveform.h: waveform.c Makefile
 	@$(build_header)
 
+unit-actor.h: unit-actor.c Makefile
+	@$(build_header)
+
 # these tests will be run as part of make-check
-# TODO dont swallow stdout
 TESTS = \
 	waveform \
 	32bit \
+	unit-actor \
 	cache \
 	view_plus \
 	actor \
 	actor_plus \
 	hires \
 	res_vhi \
+	res_vhi_blocks \
+	res_vhi_scrollable \
 	group \
 	actor_no_scene \
 	multi_scene \

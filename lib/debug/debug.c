@@ -1,14 +1,14 @@
-/**
-* +----------------------------------------------------------------------+
-* | This file is part of the Ayyi project. http://ayyi.org               |
-* | copyright (C) 2013-2020 Tim Orford <tim@orford.org>                  |
-* +----------------------------------------------------------------------+
-* | This program is free software; you can redistribute it and/or modify |
-* | it under the terms of the GNU General Public License version 3       |
-* | as published by the Free Software Foundation.                        |
-* +----------------------------------------------------------------------+
-*
-*/
+/*
+ +----------------------------------------------------------------------+
+ | This file is part of the Ayyi project. https://www.ayyi.org          |
+ | copyright (C) 2013-2025 Tim Orford <tim@orford.org>                  |
+ +----------------------------------------------------------------------+
+ | This program is free software; you can redistribute it and/or modify |
+ | it under the terms of the GNU General Public License version 3       |
+ | as published by the Free Software Foundation.                        |
+ +----------------------------------------------------------------------+
+ |
+ */
 
 #define __debug_c__
 
@@ -23,7 +23,7 @@
 int _debug_ = 0;
 
 char ayyi_warn  [32] = "\x1b[1;33mwarning:\x1b[0;39m";
-char ayyi_err   [32] = "\x1b[1;31merror!\x1b[0;39m";
+char ayyi_err   [32] = "\x1b[1;31merror\x1b[0;39m";
 char ayyi_white [12] = "\x1b[0;39m";
 char ayyi_bold  [12] = "\x1b[1;39m";
 

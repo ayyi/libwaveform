@@ -1,5 +1,5 @@
 AC_PREREQ(2.59)
-AC_INIT([Libwaveform],[0.1.0],[tim@orford.org])
+AC_INIT([Libwaveform],[0.1.1],[tim@orford.org])
 AC_CONFIG_SRCDIR([wf/waveform.c])
 AC_CONFIG_HEADER([config.h])
 AM_INIT_AUTOMAKE
@@ -43,6 +43,7 @@ else
   enable_profiler="no"
 fi
 AM_CONDITIONAL(ENABLE_PROFILER, test $enable_profiler = "yes")
+AM_CONDITIONAL(ENABLE_DEBUG, test $debug = "yes")
 
 # Check for strict flag
 strict="no"

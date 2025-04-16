@@ -1,7 +1,7 @@
 /*
  +----------------------------------------------------------------------+
  | This file is part of the Ayyi project. https://www.ayyi.org          |
- | copyright (C) 2012-2022 Tim Orford <tim@orford.org>                  |
+ | copyright (C) 2012-2025 Tim Orford <tim@orford.org>                  |
  +----------------------------------------------------------------------+
  | This program is free software; you can redistribute it and/or modify |
  | it under the terms of the GNU General Public License version 3       |
@@ -22,6 +22,9 @@
  |                                                                      |
  |  For a demonstration of usage, see the file test/view_plus.c         |
  |                                                                      |
+ |  The openGL context can be obtained and used by calling              |
+ |  `agl_get_gl_context()`.                                             |
+ |                                                                      |
  +----------------------------------------------------------------------+
  |
  */
@@ -36,7 +39,9 @@
 #include <gdk/gdkkeysyms.h>
 #include "agl/debug.h"
 #include "agl/utils.h"
-#include "agl/fbo.h"
+#include "agl/behaviours/scrollable_h.h"
+#include "agl/behaviours/fullsize.h"
+#include "agl/behaviours/keytrap.h"
 #include "waveform/ui-utils.h"
 #include "waveform/actor.h"
 #include "view_plus.h"
@@ -45,14 +50,11 @@
 #define DEFAULT_HEIGHT 64
 #define DEFAULT_WIDTH 256
 
-static AGl*          agl = NULL;
+static AGl* agl = NULL;
 
-static GdkGLConfig*  glconfig = NULL;
-static GdkGLContext* gl_context = NULL;
-
-#define _g_free0(var) (var = (g_free (var), NULL))
-#define _g_object_unref0(var) ((var == NULL) ? NULL : (var = (g_object_unref (var), NULL)))
 #define _g_source_remove0(S) {if(S) g_source_remove(S); S = 0;}
+
+#define ROOT(view) ((AGlActor*)((GlArea*)view)->scene)
 
 //-----------------------------------------
 
@@ -75,13 +77,9 @@ static KeyHandler
 	zoom_out,
 	zoom_up,
 	zoom_down,
-	scroll_left,
-	scroll_right,
 	home;
 
 static Key keys[] = {
-	{KEY_Left,  scroll_left},
-	{KEY_Right, scroll_right},
 	{61,        zoom_in},
 	{45,        zoom_out},
 	{'0',       zoom_up},
@@ -95,7 +93,6 @@ static Key keys[] = {
 struct _WaveformViewPlusPrivate {
 	WaveformContext* context;
 	WaveformActor*  actor;
-	AGlActor*       root;
 
 	AMPromise*      ready;
 };
@@ -108,13 +105,9 @@ enum {
 #define promise(A) ((AMPromise*)g_list_nth_data(view->priv->ready->children, A))
 
 static int      waveform_view_plus_get_width            (WaveformViewPlus*);
-static int      waveform_view_plus_get_height           (WaveformViewPlus*);
 
-G_DEFINE_TYPE_WITH_PRIVATE (WaveformViewPlus, waveform_view_plus, GTK_TYPE_DRAWING_AREA)
-enum  {
-	WAVEFORM_VIEW_PLUS_DUMMY_PROPERTY
-};
-static gboolean waveform_view_plus_on_expose            (GtkWidget*, GdkEventExpose*);
+G_DEFINE_TYPE_WITH_PRIVATE (WaveformViewPlus, waveform_view_plus, TYPE_GL_AREA)
+
 static gboolean waveform_view_plus_button_press_event   (GtkWidget*, GdkEventButton*);
 static gboolean waveform_view_plus_button_release_event (GtkWidget*, GdkEventButton*);
 static gboolean waveform_view_plus_motion_notify_event  (GtkWidget*, GdkEventMotion*);
@@ -126,13 +119,10 @@ static void     waveform_view_plus_realize              (GtkWidget*);
 static void     waveform_view_plus_unrealize            (GtkWidget*);
 static void     waveform_view_plus_allocate             (GtkWidget*, GdkRectangle*);
 static void     waveform_view_plus_finalize             (GObject*);
-static void     waveform_view_plus_set_projection       (GtkWidget*);
-static bool     waveform_view_plus_init_drawable        (WaveformViewPlus*);
-static void     waveform_view_plus_display_ready        (WaveformViewPlus*);
 static void    _waveform_view_plus_set_waveform         (WaveformViewPlus*, Waveform*);
 static void    _waveform_view_plus_unset_waveform       (WaveformViewPlus*);
 
-static void     waveform_view_plus_gl_on_allocate       (WaveformViewPlus*);
+static void     waveform_view_plus_allocate_wave        (WaveformViewPlus*);
 
 static void     add_key_handlers                        (GtkWindow*, WaveformViewPlus*, Key keys[]);
 static void     remove_key_handlers                     (GtkWindow*, WaveformViewPlus*);
@@ -141,52 +131,12 @@ static AGlActor* waveform_actor                         (WaveformViewPlus*);
 static void      waveform_actor_size                    (AGlActor*);
 
 
-static gboolean
-__init ()
-{
-	dbg(2, "...");
-
-	if(!gl_context){
-		gtk_gl_init(NULL, NULL);
-		if(_debug_){
-			gint major, minor;
-#ifdef USE_SYSTEM_GTKGLEXT
-			gdk_gl_query_version (&major, &minor);
-#else
-			glXQueryVersion (GDK_DISPLAY_XDISPLAY(gdk_display_get_default()), &major, &minor);
-#endif
-			g_print ("GLX version %d.%d\n", major, minor);
-		}
-	}
-
-	glconfig = gdk_gl_config_new_by_mode(GDK_GL_MODE_RGBA | GDK_GL_MODE_DEPTH | GDK_GL_MODE_DOUBLE);
-	if (!glconfig) { perr ("Cannot initialise gtkglext."); return false; }
-
-	return true;
-}
-
-
-/*
- *  For use where the widget needs to share an opengl context with other items.
- *  Should be called before any widgets are instantiated.
- *
- *  Alternatively, just use the context returned by agl_get_gl_context() for other widgets.
- */
-void
-waveform_view_plus_set_gl (GdkGLContext* _gl_context)
-{
-	gl_context = _gl_context;
-}
-
-
 static WaveformViewPlus*
 construct ()
 {
-	WaveformViewPlus* self = (WaveformViewPlus*) g_object_new (TYPE_WAVEFORM_VIEW_PLUS, NULL);
-	gtk_widget_add_events ((GtkWidget*) self, (gint) ((GDK_BUTTON_PRESS_MASK | GDK_BUTTON_RELEASE_MASK) | GDK_POINTER_MOTION_MASK | GDK_LEAVE_NOTIFY_MASK));
-	if(!gtk_widget_set_gl_capability((GtkWidget*)self, glconfig, gl_context ? gl_context : agl_get_gl_context(), DIRECT, GDK_GL_RGBA_TYPE)){
-		pwarn("failed to set gl capability");
-	}
+	WaveformViewPlus* self = (WaveformViewPlus*) gl_area_construct (TYPE_WAVEFORM_VIEW_PLUS);
+
+	gtk_widget_add_events ((GtkWidget*) self, (gint) (GDK_BUTTON_PRESS_MASK | GDK_BUTTON_RELEASE_MASK | GDK_POINTER_MOTION_MASK | GDK_LEAVE_NOTIFY_MASK | GDK_SCROLL_MASK));
 
 	return self;
 }
@@ -196,9 +146,11 @@ construct ()
 	{
 		WaveformViewPlus* view = _view;
 		g_return_val_if_fail(view, G_SOURCE_REMOVE);
-		if(!promise(PROMISE_DISP_READY)->is_resolved){
-			waveform_view_plus_init_drawable(view);
-			gtk_widget_queue_draw((GtkWidget*)view); //testing.
+		if (GTK_WIDGET_REALIZED(view)) {
+			if (!promise(PROMISE_DISP_READY)->is_resolved) {
+				am_promise_resolve(promise(PROMISE_DISP_READY), NULL);
+				gtk_widget_queue_draw((GtkWidget*)view); //testing.
+			}
 		}
 		return G_SOURCE_REMOVE;
 	}
@@ -210,29 +162,19 @@ construct ()
 
 		if(agl->use_shaders && !agl->shaders.plain->program) return G_SOURCE_CONTINUE;
 
-		waveform_view_plus_display_ready(view);
+		am_promise_resolve(promise(PROMISE_DISP_READY), NULL);
 
 		return G_SOURCE_REMOVE;
-	}
-
-	void root_ready (AGlActor* a)
-	{
-		if(try_canvas(a)) g_idle_add(try_canvas, a);
-	}
-
-	void _waveform_view_plus_on_draw (AGlScene* scene, gpointer _view)
-	{
-		gtk_widget_queue_draw((GtkWidget*)_view);
 	}
 
 WaveformViewPlus*
 waveform_view_plus_new (Waveform* waveform)
 {
 	PF;
-	g_return_val_if_fail(glconfig || __init(), NULL);
 
 	WaveformViewPlus* view = construct ();
 	GtkWidget* widget = (GtkWidget*)view;
+	GlArea* area = (GlArea*)view;
 	WaveformViewPlusPrivate* v = view->priv;
 
 	if (waveform) _waveform_view_plus_set_waveform(view, waveform);
@@ -248,16 +190,57 @@ waveform_view_plus_new (Waveform* waveform)
 	v->ready = am_promise_new(view);
 	am_promise_when(v->ready, am_promise_new(view), am_promise_new(view), NULL);
 
-	v->root = agl_actor__new_root(widget);
-	v->root->init = root_ready;
-	v->context = wf_context_new(v->root);
+	v->context = wf_context_new((AGlActor*)area->scene);
 
 	v->actor = (WaveformActor*)waveform_actor(view);
 	((AGlActor*)v->actor)->z = 2;
+	area->scene->selected = (AGlActor*)v->actor;
 
-	AGlScene* scene = (AGlScene*)v->root;
-	scene->draw = _waveform_view_plus_on_draw;
-	scene->user_data = view;
+	agl_actor__add_behaviour((AGlActor*)v->actor, ({
+		AGlBehaviour* f = fullsize();
+		((FullsizeBehaviour*)f)->border.y = 6;
+		f;
+	}));
+
+	void view_plus_on_scroll (AGlObservable* o, AGlVal value, gpointer _view)
+	{
+		WaveformViewPlus* view = _view;
+
+		wf_actor_scroll_to (view->priv->actor, value.i);
+	}
+	AGlBehaviour* scrollable = agl_actor__add_behaviour((AGlActor*)v->actor, scrollable_h());
+	agl_observable_subscribe((AGlObservable*)((HScrollableBehaviour*)scrollable)->scroll, view_plus_on_scroll, view);
+
+	typedef struct {
+		WaveformViewPlus* view;
+		float             prev;
+	} C;
+
+	void view_plus_on_zoom (AGlObservable* o, AGlVal zoom, gpointer _view)
+	{
+		C* c = _view;
+		WaveformViewPlus* view = c->view;
+		WaveformViewPlusPrivate* v = view->priv;
+		AGlActor* actor = (AGlActor*)view->priv->actor;
+
+		if (view->waveform) {
+			int n_frames_in_viewport = wf_context_x_to_frame(v->context, agl_actor__width(actor));
+			int max_scrolloffset = wf_context_frame_to_x(v->context, view->waveform->n_frames - n_frames_in_viewport);
+
+			AGlBehaviour* scrollable = agl_actor__find_behaviour(actor, scrollable_h_get_class());
+			if (((AGlObservable*)((HScrollableBehaviour*)scrollable)->scroll)->value.i > max_scrolloffset) {
+				agl_observable_set_int ((AGlObservable*)((HScrollableBehaviour*)scrollable)->scroll, max_scrolloffset);
+			}
+		}
+		c->prev = v->context->zoom->value.f;
+	}
+
+	agl_obserable_add_closure(v->context->zoom, G_OBJECT(view), view_plus_on_zoom, WF_NEW(C,
+		view,
+		v->context->zoom->value.f,
+	));
+
+	agl_actor__add_behaviour((AGlActor*)((GlArea*)view)->scene, keytrap_behaviour());
 
 	return view;
 }
@@ -268,8 +251,8 @@ waveform_view_plus_new (Waveform* waveform)
 					WaveformViewPlus* view = _view;
 					WaveformViewPlusPrivate* v = view->priv;
 
-					if(w == view->waveform){ // it may have changed during load
-						if(!g_list_find (v->root->children, v->actor)){
+					if (w == view->waveform) { // it may have changed during load
+						if (!g_list_find (((AGlActor*)((GlArea*)view)->scene)->children, v->actor)) {
 							((AGlActor*)v->actor)->set_size((AGlActor*)v->actor);
 						}
 
@@ -288,11 +271,13 @@ _waveform_view_plus__show_waveform (gpointer _view, gpointer _c)
 	g_return_if_fail(v->context);
 	AGlActor* actor = (AGlActor*)v->actor;
 
+	ROOT(view)->scrollable = (AGliRegion){0, 0, ((GtkWidget*)view)->allocation.width, ((GtkWidget*)view)->allocation.height};
+
 	if(!(actor->parent)){
 		if(view->waveform){ // it is valid for the widget to not have a waveform set.
-			agl_actor__add_child(v->root, actor);
+			agl_actor__add_child((AGlActor*)((GlArea*)view)->scene, actor);
 
-			if(promise(PROMISE_DISP_READY)->is_resolved/* && !v->root->children*/){
+			if (promise(PROMISE_DISP_READY)->is_resolved) {
 				agl_actor__set_size(actor);
 			}
 
@@ -304,7 +289,7 @@ _waveform_view_plus__show_waveform (gpointer _view, gpointer _c)
 
 				g_signal_connect (view->waveform, "peakdata-ready", (GCallback)_waveform_view_plus__show_waveform_done, view);
 			}
-			waveform_view_plus_gl_on_allocate(view);
+			waveform_view_plus_allocate_wave(view);
 		}
 	}
 	gtk_widget_queue_draw((GtkWidget*)view);
@@ -349,6 +334,9 @@ waveform_view_plus_load_file (WaveformViewPlus* view, const char* filename, WfCa
 		));
 	}
 
+	AGlBehaviour* scrollable = agl_actor__find_behaviour((AGlActor*)v->actor, scrollable_h_get_class());
+	agl_observable_set_int ((AGlObservable*)((HScrollableBehaviour*)scrollable)->scroll, 0);
+
 	am_promise_add_callback(promise(PROMISE_DISP_READY), _waveform_view_plus__show_waveform, NULL);
 }
 
@@ -373,6 +361,8 @@ waveform_view_plus_set_waveform (WaveformViewPlus* view, Waveform* waveform)
 #ifndef USE_CANVAS_SCALING
 	view->zoom = 1.0;
 #endif
+	AGlBehaviour* scrollable = agl_actor__find_behaviour((AGlActor*)v->actor, scrollable_h_get_class());
+	agl_observable_set_int ((AGlObservable*)((HScrollableBehaviour*)scrollable)->scroll, 0);
 
 	am_promise_add_callback(promise(PROMISE_DISP_READY), _waveform_view_plus__show_waveform, NULL);
 }
@@ -390,31 +380,24 @@ waveform_view_plus_set_zoom (WaveformViewPlus* view, float zoom)
 {
 	g_return_if_fail(view);
 	WaveformViewPlusPrivate* v = view->priv;
+	AGlActor* actor = (AGlActor*)v->actor;
 	dbg(1, "zoom=%.2f", zoom);
 
 #ifdef USE_CANVAS_SCALING
 	if((zoom = CLAMP(zoom, 1.0, WF_CONTEXT_MAX_ZOOM)) == v->context->zoom->value.f) return;
 
+	float ratio = zoom / v->context->zoom->value.f;
 	wf_context_set_zoom(v->context, zoom);
 
-	int64_t n_frames = waveform_get_n_frames(view->waveform);
+	int max_scrolloffset = wf_context_frame_to_x(v->context, view->waveform->n_frames - wf_context_x_to_frame(v->context, agl_actor__width(actor)));
 
-	// if wav is shorter than previous, it may need to be scrolled into view.
-	// this is done un-animated.
-	if(v->actor->region.start >= n_frames){
-		int64_t delta = v->actor->region.start;
-		v->actor->region.start = 0;
-		v->actor->region.len -= delta;
-	}
+	AGlBehaviour* scrollable = agl_actor__find_behaviour(actor, scrollable_h_get_class());
+	agl_observable_set_int ((AGlObservable*)((HScrollableBehaviour*)scrollable)->scroll, MIN(((AGlObservable*)((HScrollableBehaviour*)scrollable)->scroll)->value.i * ratio, max_scrolloffset));
 
-	// It is not strictly neccesary to set the region, as it will anyway be clipped when rendering
-	int64_t region_len = v->context->samples_per_pixel * agl_actor__width(((AGlActor*)v->actor)) / v->context->priv->zoom.target_val.f;
-	int64_t max_start = n_frames - region_len;
-	wf_actor_set_region(v->actor, &(WfSampleRegion){
-		MIN(view->start_frame, max_start),
-		//(waveform_get_n_frames(view->waveform) - view->start_frame) // oversized
-		region_len
-	});
+	actor->scrollable.x2 = actor->scrollable.x1 + agl_actor__width(actor) * zoom;
+
+	agl_actor__set_size(actor);
+
 
 #else
 	view->zoom = CLAMP(zoom, 1.0, WF_CONTEXT_MAX_ZOOM);
@@ -521,10 +504,9 @@ AGlActor*
 waveform_view_plus_add_layer (WaveformViewPlus* view, AGlActor* actor, int z)
 {
 	PF;
-	WaveformViewPlusPrivate* v = view->priv;
 
 	actor->z = z;
-	agl_actor__add_child(v->root, actor);
+	agl_actor__add_child(ROOT(view), actor);
 
 	return actor;
 }
@@ -533,7 +515,7 @@ waveform_view_plus_add_layer (WaveformViewPlus* view, AGlActor* actor, int z)
 AGlActor*
 waveform_view_plus_get_layer (WaveformViewPlus* view, int z)
 {
-	return agl_actor__find_by_z(view->priv->root, z);
+	return agl_actor__find_by_z(ROOT(view), z);
 }
 
 
@@ -541,9 +523,8 @@ void
 waveform_view_plus_remove_layer (WaveformViewPlus* view, AGlActor* actor)
 {
 	g_return_if_fail(actor);
-	WaveformViewPlusPrivate* v = view->priv;
 
-	agl_actor__remove_child(v->root, actor);
+	agl_actor__remove_child(ROOT(view), actor);
 }
 
 
@@ -554,20 +535,7 @@ waveform_view_plus_realize (GtkWidget* widget)
 	WaveformViewPlus* view = (WaveformViewPlus*)widget;
 	AGlActor* actor = (AGlActor*)view->priv->actor;
 
-	GTK_WIDGET_SET_FLAGS (widget, GTK_REALIZED);
-
-	GdkWindowAttr attrs = {
-		.window_type = GDK_WINDOW_CHILD,
-		.width = widget->allocation.width,
-		.wclass = GDK_INPUT_OUTPUT,
-		.event_mask = gtk_widget_get_events(widget) | GDK_EXPOSURE_MASK | GDK_KEY_PRESS_MASK | GDK_ENTER_NOTIFY_MASK
-	};
-	_g_object_unref0(widget->window);
-	widget->window = gdk_window_new (gtk_widget_get_parent_window(widget), &attrs, 0);
-	gdk_window_set_user_data (widget->window, view);
-	gtk_widget_set_style (widget, gtk_style_attach(gtk_widget_get_style(widget), widget->window));
-	gtk_style_set_background (gtk_widget_get_style (widget), widget->window, GTK_STATE_NORMAL);
-	gdk_window_move_resize (widget->window, widget->allocation.x, widget->allocation.y, widget->allocation.width, widget->allocation.height);
+	GTK_WIDGET_CLASS (waveform_view_plus_parent_class)->realize(widget);
 
 	if(!actor->colour){
 		// currently the waveform background is always dark, so a light colour is needed for the foreground
@@ -579,7 +547,7 @@ waveform_view_plus_realize (GtkWidget* widget)
 		);
 	}
 
-	if(!promise(PROMISE_DISP_READY)->is_resolved) waveform_view_plus_init_drawable(view);
+	am_promise_resolve(promise(PROMISE_DISP_READY), NULL);
 }
 
 
@@ -592,7 +560,8 @@ waveform_view_plus_unrealize (GtkWidget* widget)
 	PF;
 	WaveformViewPlus* view = (WaveformViewPlus*)widget;
 	WaveformViewPlusPrivate* v = view->priv;
-	gdk_window_set_user_data (widget->window, NULL);
+
+	GTK_WIDGET_CLASS (waveform_view_plus_parent_class)->unrealize(widget);
 
 	am_promise_unref(promise(PROMISE_DISP_READY));
 
@@ -600,39 +569,6 @@ waveform_view_plus_unrealize (GtkWidget* widget)
 	GList* nth = g_list_nth(v->ready->children, PROMISE_DISP_READY);
 	nth->data = am_promise_new(view);
 	am_promise_add_callback(nth->data, _waveform_view_plus__show_waveform, NULL);
-}
-
-
-static gboolean
-waveform_view_plus_on_expose (GtkWidget* widget, GdkEventExpose* event)
-{
-	WaveformViewPlus* view = (WaveformViewPlus*)widget;
-	WaveformViewPlusPrivate* v = view->priv;
-	g_return_val_if_fail (event, FALSE);
-
-	if(!GTK_WIDGET_REALIZED(widget)) return true;
-	if(!promise(PROMISE_DISP_READY)->is_resolved) return true;
-
-	AGL_ACTOR_START_DRAW(view->priv->root) {
-		// needed for the case of shared contexts, where one of the other contexts modifies the projection.
-		waveform_view_plus_set_projection(widget);
-
-		AGlColourFloat bg; wf_colour_rgba_to_float(&bg, view->bg_colour);
-		glClearColor(bg.r, bg.g, bg.b, 1.0);
-		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-		if (promise(PROMISE_DISP_READY)->is_resolved) {
-			agl_actor__paint(v->root);
-		}
-
-#ifdef USE_SYSTEM_GTKGLEXT
-		gdk_gl_drawable_swap_buffers(((AGlRootActor*)v->root)->gl.gdk.drawable);
-#else
-		gdk_gl_window_swap_buffers(((AGlRootActor*)v->root)->gl.gdk.drawable);
-#endif
-	} AGL_ACTOR_END_DRAW(view->priv->root)
-
-	return true;
 }
 
 
@@ -666,7 +602,7 @@ waveform_view_plus_motion_notify_event (GtkWidget* widget, GdkEventMotion* event
 
 
 static gboolean
-waveform_view_plus_focus_in_event(GtkWidget* widget, GdkEventFocus* event)
+waveform_view_plus_focus_in_event (GtkWidget* widget, GdkEventFocus* event)
 {
 	WaveformViewPlus* view = (WaveformViewPlus*)widget;
 
@@ -677,7 +613,7 @@ waveform_view_plus_focus_in_event(GtkWidget* widget, GdkEventFocus* event)
 
 
 static gboolean
-waveform_view_plus_focus_out_event(GtkWidget* widget, GdkEventFocus* event)
+waveform_view_plus_focus_out_event (GtkWidget* widget, GdkEventFocus* event)
 {
 	WaveformViewPlus* view = (WaveformViewPlus*)widget;
 
@@ -688,39 +624,15 @@ waveform_view_plus_focus_out_event(GtkWidget* widget, GdkEventFocus* event)
 
 
 static gboolean
-waveform_view_plus_enter_notify_event(GtkWidget* widget, GdkEventCrossing* event)
+waveform_view_plus_enter_notify_event (GtkWidget* widget, GdkEventCrossing* event)
 {
 	return false;
 }
 
 
 static gboolean
-waveform_view_plus_leave_notify_event(GtkWidget* widget, GdkEventCrossing* event)
+waveform_view_plus_leave_notify_event (GtkWidget* widget, GdkEventCrossing* event)
 {
-	return false;
-}
-
-
-static void
-waveform_view_plus_display_ready(WaveformViewPlus* view)
-{
-
-	dbg(1, "READY");
-	am_promise_resolve(promise(PROMISE_DISP_READY), NULL);
-}
-
-
-static bool
-waveform_view_plus_init_drawable (WaveformViewPlus* view)
-{
-	GtkWidget* widget = (GtkWidget*)view;
-	WaveformViewPlusPrivate* v = view->priv;
-
-	if(GTK_WIDGET_REALIZED(widget) && ((AGlRootActor*)v->root)->gl.gdk.context){
-		waveform_view_plus_display_ready(view);
-		return true;
-	}
-
 	return false;
 }
 
@@ -729,19 +641,20 @@ static void
 waveform_view_plus_allocate (GtkWidget* widget, GdkRectangle* allocation)
 {
 	PF;
+	WaveformViewPlus* view = WAVEFORM_VIEW_PLUS(widget);
 	g_return_if_fail (allocation);
 
-	WaveformViewPlus* view = (WaveformViewPlus*)widget;
-	widget->allocation = (GtkAllocation)(*allocation);
-	if ((GTK_WIDGET_FLAGS (widget) & GTK_REALIZED) == 0) return;
-	gdk_window_move_resize(widget->window, widget->allocation.x, widget->allocation.y, widget->allocation.width, widget->allocation.height);
+	GTK_WIDGET_CLASS (waveform_view_plus_parent_class)->size_allocate(widget, allocation);
 
-	if(!promise(PROMISE_DISP_READY)->is_resolved)
-		if(!waveform_view_plus_init_drawable(view)) return;
+	if (GTK_WIDGET_REALIZED(widget)) {
+		if (ROOT(view)->scrollable.x2 < 2 || ROOT(view)->scrollable.y2 < 2)
+			ROOT(view)->scrollable = (AGliRegion){0, 0, allocation->width, allocation->height};
 
-	waveform_view_plus_gl_on_allocate(view);
+		am_promise_resolve(promise(PROMISE_DISP_READY), NULL);
 
-	waveform_view_plus_set_projection(widget);
+		if (view->waveform)
+			waveform_view_plus_allocate_wave(view);
+	}
 }
 
 
@@ -750,7 +663,6 @@ waveform_view_plus_class_init (WaveformViewPlusClass* klass)
 {
 	waveform_view_plus_parent_class = g_type_class_peek_parent (klass);
 
-	GTK_WIDGET_CLASS (klass)->expose_event = waveform_view_plus_on_expose;
 	GTK_WIDGET_CLASS (klass)->button_press_event = waveform_view_plus_button_press_event;
 	GTK_WIDGET_CLASS (klass)->button_release_event = waveform_view_plus_button_release_event;
 	GTK_WIDGET_CLASS (klass)->motion_notify_event = waveform_view_plus_motion_notify_event;
@@ -804,31 +716,18 @@ waveform_view_plus_finalize (GObject* obj)
 		v->actor = NULL;
 	}
 
-	if (v->context) wf_context_free0(v->context);
+	g_clear_pointer(&v->context, wf_context_free);
 
 	_waveform_view_plus_unset_waveform(view);
 	g_clear_pointer(&v->ready, am_promise_unref);
-
-	agl_actor__free(v->root);
 
 	G_OBJECT_CLASS (waveform_view_plus_parent_class)->finalize(obj);
 }
 
 
-static void
-waveform_view_plus_set_projection (GtkWidget* widget)
-{
-	int vx = 0;
-	int vy = 0;
-	int vw = waveform_view_plus_get_width((WaveformViewPlus*)widget);
-	int vh = waveform_view_plus_get_height((WaveformViewPlus*)widget);
-	glViewport(vx, vy, vw, vh);
-	dbg (2, "viewport: %i %i %i %i", vx, vy, vw, vh);
-}
-
-
 /*
- *  Returns the underlying canvas that the WaveformViewPlus is using.
+ *  Returns the context that the WaveformViewPlus is using.
+ *  The context provides properties such samples-per-pixel.
  */
 WaveformContext*
 waveform_view_plus_get_context (WaveformViewPlus* view)
@@ -855,53 +754,44 @@ waveform_view_plus_get_width (WaveformViewPlus* view)
 }
 
 
-static int
-waveform_view_plus_get_height (WaveformViewPlus* view)
-{
-	GtkWidget* widget = (GtkWidget*)view;
-
-	return GTK_WIDGET_REALIZED(widget) ? widget->allocation.height : DEFAULT_HEIGHT;
-}
-
-
 	static KeyHold key_hold = {0, NULL};
 	static bool key_down = false;
 	static GHashTable* key_handlers = NULL;
 
-	static gboolean key_hold_on_timeout(gpointer user_data)
+	static gboolean key_hold_on_timeout (gpointer user_data)
 	{
 		WaveformViewPlus* waveform = user_data;
 		if(key_hold.handler) key_hold.handler(waveform);
 		return TIMER_CONTINUE;
 	}
 
-	static gboolean key_press(GtkWidget* widget, GdkEventKey* event, gpointer user_data)
+	static gboolean key_press (GtkWidget* widget, GdkEventKey* event, gpointer user_data)
 	{
 		WaveformViewPlus* waveform = user_data;
 
-		if(key_down){
+		if (key_down) {
 			// key repeat
 			return true;
 		}
 
 		KeyHandler* handler = g_hash_table_lookup(key_handlers, &event->keyval);
-		if(handler){
+		if (handler) {
 			key_down = true;
-			if(key_hold.timer) pwarn("timer already started");
+			if (key_hold.timer) pwarn("timer already started");
 			key_hold.timer = g_timeout_add(100, key_hold_on_timeout, waveform);
 			key_hold.handler = handler;
 	
 			handler(waveform);
 		}
-		else dbg(1, "%i", event->keyval);
+		else dbg(1, "0x%x", event->keyval);
 
 		return key_down;
 	}
 
-	static gboolean key_release(GtkWidget* widget, GdkEventKey* event, gpointer user_data)
+	static gboolean key_release (GtkWidget* widget, GdkEventKey* event, gpointer user_data)
 	{
 		PF;
-		if(!key_down) return AGL_NOT_HANDLED; // sometimes happens at startup
+		if (!key_down) return AGL_NOT_HANDLED; // sometimes happens at startup
 
 		key_down = false;
 		_g_source_remove0(key_hold.timer);
@@ -910,67 +800,31 @@ waveform_view_plus_get_height (WaveformViewPlus* view)
 	}
 
 static void
-add_key_handlers (GtkWindow* window, WaveformViewPlus* waveform, Key keys[])
+add_key_handlers (GtkWindow* window, WaveformViewPlus* view, Key keys[])
 {
 	//list of keys must be terminated with a key of value zero.
 
-	if(!key_handlers){
+	if (!key_handlers) {
 		key_handlers = g_hash_table_new(g_int_hash, g_int_equal);
 
-		int i = 0; while(true){
+		int i = 0; while (true) {
 			Key* key = &keys[i];
-			if(i > 100 || !key->key) break;
+			if (i > 100 || !key->key) break;
 			g_hash_table_insert(key_handlers, &key->key, key->handler);
 			i++;
 		}
 	}
 
-	g_signal_connect(waveform, "key-press-event", G_CALLBACK(key_press), waveform);
-	g_signal_connect(waveform, "key-release-event", G_CALLBACK(key_release), waveform);
+	g_signal_connect(view, "key-press-event", G_CALLBACK(key_press), view);
+	g_signal_connect(view, "key-release-event", G_CALLBACK(key_release), view);
 }
 
 
 static void
-remove_key_handlers (GtkWindow* window, WaveformViewPlus* waveform)
+remove_key_handlers (GtkWindow* window, WaveformViewPlus* view)
 {
-	g_signal_handlers_disconnect_matched (waveform, G_SIGNAL_MATCH_ID | G_SIGNAL_MATCH_DATA, g_signal_lookup ("key-press-event", GTK_TYPE_WIDGET), 0, NULL, NULL, waveform);
-	g_signal_handlers_disconnect_matched (waveform, G_SIGNAL_MATCH_ID | G_SIGNAL_MATCH_DATA, g_signal_lookup ("key-release-event", GTK_TYPE_WIDGET), 0, NULL, NULL, waveform);
-}
-
-
-static void
-scroll_left (WaveformViewPlus* view)
-{
-#ifdef USE_CANVAS_SCALING
-	WaveformViewPlusPrivate* v = view->priv;
-#endif
-
-	if(!view->waveform) return;
-
-#ifdef USE_CANVAS_SCALING
-	int64_t n_frames_visible = agl_actor__width(((AGlActor*)v->actor)) * v->context->samples_per_pixel / v->context->zoom->value.f;
-#else
-	int n_frames_visible = ((float)view->waveform->n_frames) / view->zoom;
-#endif
-	waveform_view_plus_set_start(view, view->start_frame - n_frames_visible / 10);
-}
-
-
-static void
-scroll_right (WaveformViewPlus* view)
-{
-#ifdef USE_CANVAS_SCALING
-	WaveformViewPlusPrivate* v = view->priv;
-#endif
-
-	if(!view->waveform) return;
-
-#ifdef USE_CANVAS_SCALING
-	int64_t n_frames_visible = agl_actor__width(((AGlActor*)v->actor)) * v->context->samples_per_pixel / v->context->zoom->value.f;
-#else
-	int n_frames_visible = ((float)view->waveform->n_frames) / view->zoom;
-#endif
-	waveform_view_plus_set_start(view, view->start_frame + n_frames_visible / 10);
+	g_signal_handlers_disconnect_matched (view, G_SIGNAL_MATCH_ID | G_SIGNAL_MATCH_DATA, g_signal_lookup ("key-press-event", GTK_TYPE_WIDGET), 0, NULL, NULL, view);
+	g_signal_handlers_disconnect_matched (view, G_SIGNAL_MATCH_ID | G_SIGNAL_MATCH_DATA, g_signal_lookup ("key-release-event", GTK_TYPE_WIDGET), 0, NULL, NULL, view);
 }
 
 
@@ -1012,46 +866,45 @@ zoom_down (WaveformViewPlus* view)
 
 
 static void
-waveform_view_plus_gl_on_allocate (WaveformViewPlus* view)
+waveform_view_plus_allocate_wave (WaveformViewPlus* view)
 {
 	WaveformViewPlusPrivate* v = view->priv;
 
-	if(!v->actor) return;
+	AGlActor* root = ROOT(view);
 
 	int w = waveform_view_plus_get_width(view);
-	int h = waveform_view_plus_get_height(view);
 
-	if(w != v->root->region.x2 || h != v->root->region.y2){
-		v->root->scrollable = (AGliRegion){0, 0, w, h};
-		v->root->region = ((AGlActor*)v->actor)->region = (AGlfRegion){0, 0, w, h};
-
-		if(v->context->scaled){
+	if (v->context->scaled) {
+		float len = wf_context_frame_to_x(v->context, v->actor->region.len);
+		if (len < w) {
 			wf_context_set_scale(v->context, v->context->priv->zoom.target_val.f * v->actor->region.len / w);
 		}
-		agl_actor__set_size(v->root);
-
-		waveform_actor_size((AGlActor*)v->actor);
+	} else {
+		wf_context_set_scale(v->context, v->actor->region.len / w);
 	}
+	agl_actor__set_size(root);
+
+	waveform_actor_size((AGlActor*)v->actor);
 }
 
 
 	static void waveform_actor_size (AGlActor* actor)
 	{
-		#define V_BORDER 4.
 		WaveformActor* wf_actor = (WaveformActor*)actor;
 
-		if(!actor->parent) return;
+		int width = agl_actor__scrollable_width(actor);
+		if (!width) {
+			actor->scrollable.x2 = actor->region.x2;
+			actor->scrollable.y2 = actor->region.y2;
+			width = agl_actor__scrollable_width(actor);
+		}
 
-		actor->region = (AGlfRegion){
-			0,
-			V_BORDER,
-			agl_actor__width(actor->parent),
-			agl_actor__height(actor->parent) - V_BORDER
-		};
-
-		uint64_t n_frames = waveform_get_n_frames(wf_actor->waveform);
-		if(n_frames){
-			wf_actor->context->samples_per_pixel = n_frames / agl_actor__width(actor);
+		if (wf_actor->waveform) {
+			uint64_t n_frames = waveform_get_n_frames(wf_actor->waveform);
+			if (n_frames) {
+				if (width && wf_actor->context->priv->zoom.target_val.f < 1.000001)
+					wf_actor->context->samples_per_pixel = n_frames / width;
+			}
 		}
 	}
 
@@ -1112,6 +965,6 @@ _waveform_view_plus_unset_waveform (WaveformViewPlus* view)
 #ifdef DEBUG
 		g_object_weak_unref((GObject*)view->waveform, waveform_view_on_wav_finalize, view);
 #endif
-		_g_object_unref0(view->waveform);
+		g_clear_pointer(&view->waveform, g_object_unref);
 	}
 }

@@ -1,25 +1,26 @@
-/**
-* +----------------------------------------------------------------------+
-* | This file is part of libwaveform                                     |
-* | https://github.com/ayyi/libwaveform                                  |
-* | copyright (C) 2012-2021 Tim Orford <tim@orford.org>                  |
-* +----------------------------------------------------------------------+
-* | This program is free software; you can redistribute it and/or modify |
-* | it under the terms of the GNU General Public License version 3       |
-* | as published by the Free Software Foundation.                        |
-* +----------------------------------------------------------------------+
-* | SONG POSITION POINTER (CURSOR) ACTOR                                 |
-* | The time position can be set either by calling spp_actor_set_time()  |
-* | or by middle-clicking on the waveform.                               |
-* +----------------------------------------------------------------------+
-*
-*/
+/*
+ +----------------------------------------------------------------------+
+ | This file is part of libwaveform                                     |
+ | https://github.com/ayyi/libwaveform                                  |
+ | copyright (C) 2012-2025 Tim Orford <tim@orford.org>                  |
+ +----------------------------------------------------------------------+
+ | This program is free software; you can redistribute it and/or modify |
+ | it under the terms of the GNU General Public License version 3       |
+ | as published by the Free Software Foundation.                        |
+ +----------------------------------------------------------------------+
+ | SONG POSITION POINTER (CURSOR) ACTOR                                 |
+ | The time position can be set either by calling spp_actor_set_time()  |
+ | or by middle-clicking on the waveform.                               |
+ +----------------------------------------------------------------------+
+ |
+ */
 
 #define __wf_private__
 
 #include "config.h"
 #include <math.h>
 #include <gdk/gdkkeysyms.h>
+#include "agl/behaviours/follow.h"
 #include "waveform/actor.h"
 #include "waveform/ui-utils.h"
 #include "waveform/shader.h"
@@ -27,7 +28,6 @@
 
 static AGl* agl = NULL;
 
-static void spp_actor__set_size (AGlActor*);
 
 
 #ifdef USE_GTK
@@ -59,6 +59,8 @@ static void spp_actor__set_size (AGlActor*);
 #ifdef USE_GTK
 		g_signal_connect((gpointer)actor->root->gl.gdk.widget, "button-release-event", G_CALLBACK(on_middle_click), actor);
 #endif
+
+		agl_actor__set_size(actor->parent);
 	}
 
 
@@ -92,7 +94,7 @@ spp_actor__paint (AGlActor* actor)
 		}
 
 		int64_t frame = ((int64_t)spp->time) * a->context->sample_rate / 1000;
-		float x = floorf(wf_actor_frame_to_x(a, frame) - (width - 1.0));
+		float x = floorf(wf_context_frame_to_x(a->context, frame) - (width - 1.0));
 		agl_rect(
 			x, 0,
 			width, agl_actor__height(actor)
@@ -102,7 +104,7 @@ spp_actor__paint (AGlActor* actor)
 		char s[16] = {0,};
 		snprintf(s, 15, "%02i:%02i:%03i", (spp->time / 1000) / 60, (spp->time / 1000) % 60, spp->time % 1000);
 		// FIXME background is not opaque unless bg is ffffff
-		agl_print_with_background(0, 0, 0, spp->text_colour, 0x000000ff, s);
+		agl_print_with_background(-actor->scrollable.x1, 0, 0, spp->text_colour, 0x000000ff, s);
 		agl_set_font_string("Roboto 10");
 	}
 
@@ -123,32 +125,24 @@ wf_spp_actor (WaveformActor* wf_actor)
 			.program = (AGlShader*)&cursor,
 			.init = spp_actor__init,
 			.set_state = spp_actor__set_state,
-			.set_size = spp_actor__set_size,
 			.paint = spp_actor__paint,
 		},
 		.wf_actor = wf_actor,
 		.time = WF_SPP_TIME_NONE
 	);
 
+	AGlBehaviour* f = agl_actor__add_behaviour((AGlActor*)spp, follow());
+	((FollowBehaviour*)f)->to_follow = (AGlActor*)wf_actor;
+
 	return (AGlActor*)spp;
 }
 
 
+#ifdef HAVE_GLIB_2_76
 static void
-spp_actor__set_size (AGlActor* actor)
-{
-	#define V_BORDER 0
-
-	actor->region = (AGlfRegion){
-		.x1 = 0,
-		.y1 = V_BORDER,
-		.x2 = actor->parent->region.x2,
-		.y2 = actor->parent->region.y2 - V_BORDER,
-	};
-}
-
-
+#else
 static gboolean
+#endif
 check_playback (gpointer _spp)
 {
 	SppActor* spp = _spp;
@@ -156,7 +150,9 @@ check_playback (gpointer _spp)
 	spp->play_timeout = 0;
 	agl_actor__invalidate((AGlActor*)spp);
 
+#ifndef HAVE_GLIB_2_76
 	return G_SOURCE_REMOVE;
+#endif
 }
 
 
@@ -171,7 +167,11 @@ wf_spp_actor_set_time (SppActor* spp, uint32_t time)
 	spp->time = time;
 
 	if (spp->play_timeout) g_source_remove(spp->play_timeout);
+#ifdef HAVE_GLIB_2_76
+	spp->play_timeout = g_timeout_add_once(100, check_playback, spp);
+#else
 	spp->play_timeout = g_timeout_add(100, check_playback, spp);
+#endif
 
 	agl_actor__invalidate((AGlActor*)spp);
 }

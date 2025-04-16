@@ -4,7 +4,7 @@
 
   --------------------------------------------------------------
 
-  Copyright (C) 2012-2018 Tim Orford <tim@orford.org>
+  Copyright (C) 2012-2025 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -39,6 +39,7 @@
 
 static const struct option long_options[] = {
 	{ "non-interactive",  0, NULL, 'n' },
+	{},
 };
 
 static const char* const short_options = "n";

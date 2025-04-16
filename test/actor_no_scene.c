@@ -1,7 +1,7 @@
 /*
  +----------------------------------------------------------------------+
  | This file is part of the Ayyi project. https://www.ayyi.org          |
- | copyright (C) 2012-2022 Tim Orford <tim@orford.org>                  |
+ | copyright (C) 2012-2025 Tim Orford <tim@orford.org>                  |
  +----------------------------------------------------------------------+
  | This program is free software; you can redistribute it and/or modify |
  | it under the terms of the GNU General Public License version 3       |
@@ -35,9 +35,8 @@
 #include <gtk/gtk.h>
 #pragma GCC diagnostic warning "-Wdeprecated-declarations"
 #include <gdk/gdkkeysyms.h>
-#include "agl/utils.h"
+#include "agl/gtk.h"
 #include "agl/text/renderer.h"
-#include "agl/fbo.h"
 #include "waveform/actor.h"
 #include "test/common.h"
 
@@ -110,7 +109,7 @@ window_content (GtkWindow* window, GdkGLConfig* glconfig)
 
 	// This test is not supposed to be using a scene.
 	// It is used here for utilities it provides but not actually for the scene-graph itself
-	scene = (AGlRootActor*)agl_actor__new_root(canvas);
+	scene = (AGlScene*)agl_new_scene_gtk(canvas);
 	((AGlActor*)scene)->init = init;
 
 	g_signal_connect((gpointer)canvas, "realize",       G_CALLBACK(on_canvas_realise), NULL);
@@ -263,9 +262,6 @@ static void
 on_allocate (GtkWidget* widget, GtkAllocation* allocation, gpointer user_data)
 {
 	if (!wfc || !gtk_widget_get_gl_drawable(widget)) return;
-
-	// optimise drawing by telling the canvas which area is visible
-	wf_context_set_viewport(wfc, &(WfViewPort){0, 0, widget->allocation.width, widget->allocation.height});
 
 	builder()->target->width = widget->allocation.width;
 	builder()->target->height = widget->allocation.height;

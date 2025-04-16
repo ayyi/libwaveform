@@ -10,7 +10,7 @@
 
   ---------------------------------------------------------------
 
-  copyright (C) 2012-2021 Tim Orford <tim@orford.org>
+  copyright (C) 2012-2025 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -37,6 +37,7 @@
 
 static const struct option long_options[] = {
 	{ "non-interactive",  0, NULL, 'n' },
+	{},
 };
 
 static const char* const short_options = "n";
@@ -104,7 +105,7 @@ window_content (GtkWindow* window, GdkGLConfig* glconfig)
 
 	agl_get_instance()->pref_use_shaders = USE_SHADERS;
 
-	scene = (AGlRootActor*)agl_actor__new_root(canvas);
+	scene = (AGlScene*)agl_new_scene_gtk(canvas);
 
 	char* filename = find_wav(WAV);
 	w1 = waveform_load_new(filename);
@@ -145,10 +146,10 @@ window_content (GtkWindow* window, GdkGLConfig* glconfig)
 
 
 static gboolean
-automated ()
+automated (void* _)
 {
 	static bool done = false;
-	if(!done){
+	if (!done) {
 		done = true;
 
 		if(!test_delete())
@@ -170,7 +171,7 @@ main (int argc, char* argv[])
 	gtk_init(&argc, &argv);
 
 	int opt;
-	while((opt = getopt_long (argc, argv, short_options, long_options, NULL)) != -1) {
+	while ((opt = getopt_long (argc, argv, short_options, long_options, NULL)) != -1) {
 		switch(opt) {
 			case 'n':
 				g_timeout_add(3000, automated, NULL);

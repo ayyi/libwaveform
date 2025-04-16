@@ -1,22 +1,18 @@
-/**
-* +----------------------------------------------------------------------+
-* | This file is part of the Ayyi project. http://ayyi.org               |
-* | copyright (C) 2012-2021 Tim Orford <tim@orford.org>                  |
-* +----------------------------------------------------------------------+
-* | This program is free software; you can redistribute it and/or modify |
-* | it under the terms of the GNU General Public License version 3       |
-* | as published by the Free Software Foundation.                        |
-* +----------------------------------------------------------------------+
-*
-*/
+/*
+ +----------------------------------------------------------------------+
+ | This file is part of the Ayyi project. https://www.ayyi.org          |
+ | copyright (C) 2012-2025 Tim Orford <tim@orford.org>                  |
+ +----------------------------------------------------------------------+
+ | This program is free software; you can redistribute it and/or modify |
+ | it under the terms of the GNU General Public License version 3       |
+ | as published by the Free Software Foundation.                        |
+ +----------------------------------------------------------------------+
+ |
+ */
+
 #ifndef __actor_c__
 #define __wf_private__
 #include "config.h"
-#include <fcntl.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <math.h>
-#include <stdint.h>
 #include <sys/time.h>
 #include <sndfile.h>
 #include <gtk/gtk.h>
@@ -34,6 +30,8 @@ typedef struct
 #define ANTIALIASED_LINES
 
 #define RENDER_DATA_HI(W) ((WfTexturesHi*)W->render_data[MODE_HI])
+
+static inline bool calc_render_info (WaveformActor* actor);
 
 #ifdef DEBUG
 static void  _wf_actor_print_hires_textures  (WaveformActor*);
@@ -82,8 +80,12 @@ hi_free_gl1 (Renderer* renderer, Waveform* w)
 		if(w == a->waveform){ // the actor may have a new waveform and there is currently no way to cancel old requests.
 			modes[MODE_HI].renderer->load_block(modes[MODE_HI].renderer, a, b);
 
-			//TODO check this block is within current viewport
-			if(((AGlActor*)a)->root && ((AGlActor*)a)->root->draw) wf_context_queue_redraw(a->context);
+			RenderInfo* r = &a->priv->render_info;
+			if (!r->valid) calc_render_info(a);
+			BlockRange blocks = a->priv->render_info.viewport_blocks;
+			if (!r->valid || (b >= blocks.first && b <= blocks.last)) {
+				if(((AGlActor*)a)->root && ((AGlActor*)a)->root->draw) wf_context_queue_redraw(a->context);
+			}
 		}
 	}
 
@@ -582,7 +584,8 @@ hi_gl1_render_block (Renderer* renderer, WaveformActor* actor, int b, gboolean i
 static void
 _wf_actor_print_hires_textures (WaveformActor* a)
 {
-	dbg(0, "");
+	PF0;
+
 	GHashTableIter iter;
 	gpointer key, value;
 	g_hash_table_iter_init (&iter, RENDER_DATA_HI(a->waveform->priv)->textures);
@@ -595,7 +598,7 @@ _wf_actor_print_hires_textures (WaveformActor* a)
 #endif
 
 
-NGRenderer hi_renderer_gl2 = {{MODE_HI, hi_gl2_new, ng_gl2_load_block, ng_gl2_pre_render, ng_gl2_render_block, ng_gl2_post_render, ng_gl2_free_waveform}};
+NGRenderer hi_renderer_gl2 = {{MODE_HI, hi_gl2_init, ng_gl2_load_block, ng_pre_render, ng_gl2_render_block, ng_gl2_post_render, ng_gl2_free_waveform}};
 
 HiRenderer hi_renderer_gl1 = {{MODE_HI, hi_new_gl1, hi_gl1_load_block, hi_gl1_pre_render,
 #ifdef HIRES_NONSHADER_TEXTURES
