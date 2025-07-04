@@ -1,18 +1,20 @@
-/**
-* +----------------------------------------------------------------------+
-* | This file is part of the Ayyi project. http://ayyi.org               |
-* | copyright (C) 2012-2020 Tim Orford <tim@orford.org>                  |
-* +----------------------------------------------------------------------+
-* | This program is free software; you can redistribute it and/or modify |
-* | it under the terms of the GNU General Public License version 3       |
-* | as published by the Free Software Foundation.                        |
-* +----------------------------------------------------------------------+
-* |                                                                      |
-* | WaveformView is a Gtk widget based on GtkDrawingArea.                |
-* | It displays an audio waveform represented by a Waveform object.      |
-* +----------------------------------------------------------------------+
-*
-*/
+/*
+ +----------------------------------------------------------------------+
+ | This file is part of the Ayyi project. https://www.ayyi.org          |
+ | copyright (C) 2012-2025 Tim Orford <tim@orford.org>                  |
+ +----------------------------------------------------------------------+
+ | This program is free software; you can redistribute it and/or modify |
+ | it under the terms of the GNU General Public License version 3       |
+ | as published by the Free Software Foundation.                        |
+ +----------------------------------------------------------------------+
+ |                                                                      |
+ | WaveformView is a Gtk widget based on GtkDrawingArea.                |
+ | It displays an audio waveform represented by a Waveform object.      |
+ |                                                                      |
+ +----------------------------------------------------------------------+
+ |
+ */
+
 #define __wf_private__
 #define __waveform_view_private__
 
@@ -541,7 +543,7 @@ waveform_view_finalize (GObject* obj)
 		v->actor = (agl_actor__remove_child(v->root, (AGlActor*)v->actor), NULL);
 	}
 
-	if(v->context) wf_context_free0(v->context);
+	g_clear_pointer(&v->context, wf_context_free);
 	scene->draw = NULL;
 
 	G_OBJECT_CLASS (waveform_view_parent_class)->finalize(obj);

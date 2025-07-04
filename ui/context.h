@@ -96,4 +96,4 @@ float            wf_context_frame_to_x                (WaveformContext*, uint64_
 uint64_t         wf_context_x_to_frame                (WaveformContext*, int);
 const char*      wf_context_print_time                (WaveformContext*, int);
 
-#define wf_context_free0(A) (wf_context_free(A), A = NULL)
+G_DEFINE_AUTOPTR_CLEANUP_FUNC (WaveformContext, wf_context_free)

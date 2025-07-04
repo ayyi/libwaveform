@@ -26,6 +26,7 @@ EXTRA_DIST = \
 	grid.h \
 	invalidator.h \
 	labels.h \
+	hover.h \
 	pixbuf.h \
 	private.h \
 	promise.h \
@@ -35,6 +36,7 @@ EXTRA_DIST = \
 	text.h \
 	texture_cache.h \
 	transition_behaviour.h \
+	debug_helper.h \
 	typedefs.h \
 	ui-private.h \
 	ui-typedefs.h \
