@@ -73,6 +73,7 @@ on_test_timeout (gpointer _user_data)
 static gboolean
 __exit ()
 {
+	if (teardown) teardown();
 	exit(TEST.n_failed ? EXIT_FAILURE : EXIT_SUCCESS);
 	return G_SOURCE_REMOVE;
 }
@@ -94,7 +95,7 @@ next_test ()
 		TEST.timeout = g_timeout_add(30000, on_test_timeout, NULL);
 	} else {
 		printf("finished all. passed=%s %i %s failed=%s %i %s\n", GREEN, TEST.n_passed, ayyi_white, (TEST.n_failed ? RED : ayyi_white), TEST.n_failed, ayyi_white);
-		g_timeout_add(1000, (GSourceFunc)__exit, NULL);
+		g_timeout_add(500, (GSourceFunc)__exit, NULL);
 	}
 }
 

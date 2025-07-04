@@ -62,6 +62,7 @@ test/list
 test/multi_scene
 test/pixbuf
 test/promise
+test/promise.h
 test/resources
 test/res_vhi
 test/res_vhi_blocks

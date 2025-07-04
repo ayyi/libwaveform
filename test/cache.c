@@ -193,9 +193,9 @@ test_hires ()
 
 	assert(wfc, "canvas not created");
 
-	void set_region()
+	void set_region ()
 	{
-		int i; for(i=0;i<G_N_ELEMENTS(a)&&a[i];i++)
+		for (int i=0;i<G_N_ELEMENTS(a)&&a[i];i++)
 			wf_actor_set_region(a[i], &(WfSampleRegion){
 				0,
 				REGION_LEN
@@ -249,7 +249,7 @@ test_hires ()
 				#define ZOOM_V_LO (1.0/65536) // px_per_sample - transition point from v-low-res to low-res.
 
 				static inline int
-				get_resolution(double zoom)
+				get_resolution (double zoom)
 				{
 					return (zoom > ZOOM_HI)
 						? 1
@@ -263,7 +263,7 @@ test_hires ()
 				}
 
 				static inline Mode
-				get_mode(double zoom)
+				get_mode (double zoom)
 				{
 					return (zoom > ZOOM_HI)
 						? MODE_V_HI
@@ -294,14 +294,14 @@ test_hires ()
 
 #ifdef LATER
 				static double
-				wf_actor_samples2gl(double zoom, uint32_t n_samples)
+				wf_actor_samples2gl (double zoom, uint32_t n_samples)
 				{
 					//zoom is pixels per sample
 					return n_samples * zoom;
 				}
 
 				static BlockRange
-				wf_actor_get_visible_block_range(WfSampleRegion* region, WfRectangle* rect, double zoom, WfViewPort* viewport_px, int textures_size)
+				wf_actor_get_visible_block_range (WfSampleRegion* region, WfRectangle* rect, double zoom, WfViewPort* viewport_px, int textures_size)
 				{
 					//the region, rect and viewport are passed explictly because different users require slightly different values during transitions.
 
@@ -327,20 +327,20 @@ test_hires ()
 					}
 
 					// find first block
-					if(rect->left <= viewport_px->right){
+					if (rect->left <= viewport_px->right) {
 
-						int b; for(b=region_start_block;b<=region_end_block-1;b++){ // stop before the last block
+						for (int b=region_start_block;b<=region_end_block-1;b++) { // stop before the last block
 							int block_start_px = file_start_px + b * block_wid;
 							double block_end_px = block_start_px + block_wid;
 							dbg(3, "block_pos_px=%i", block_start_px);
-							if(block_end_px >= viewport_px->left){
+							if (block_end_px >= viewport_px->left) {
 								range.first = b;
 								goto next;
 							}
 						}
 						// check last block:
 						double block_end_px = file_start_px + wf_actor_samples2gl(zoom, region->start + region->len);
-						if(block_end_px >= viewport_px->left){
+						if (block_end_px >= viewport_px->left) {
 							range.first = b;
 							goto next;
 						}
@@ -352,17 +352,17 @@ test_hires ()
 					next:
 
 					// find last block
-					if(rect->left <= viewport_px->right){
+					if (rect->left <= viewport_px->right) {
 						int last = range.last = MIN(range.first + WF_MAX_BLOCK_RANGE, region_end_block);
 
 						g_return_val_if_fail(viewport_px->right - viewport_px->left > 0.01, range);
 
 						//crop to viewport:
-						int b; for(b=region_start_block;b<=last-1;b++){ //note we dont check the last block which can be partially outside the viewport
+						for (int b=region_start_block;b<=last-1;b++) { //note we dont check the last block which can be partially outside the viewport
 							float block_end_px = file_start_px + (b + 1) * block_wid;
 							//dbg(1, " %i: block_px: %.1f --> %.1f", b, block_end_px - (int)block_wid, block_end_px);
-							if(block_end_px > viewport_px->right) dbg(2, "end %i clipped by viewport at block %i. vp.right=%.2f block_end=%.1f", region_end_block, MAX(0, b/* - 1*/), viewport_px->right, block_end_px);
-							if(block_end_px > viewport_px->right){
+							if (block_end_px > viewport_px->right) dbg(2, "end %i clipped by viewport at block %i. vp.right=%.2f block_end=%.1f", region_end_block, MAX(0, b/* - 1*/), viewport_px->right, block_end_px);
+							if (block_end_px > viewport_px->right) {
 								range.last = MAX(0, b/* - 1*/);
 								goto out;
 							}

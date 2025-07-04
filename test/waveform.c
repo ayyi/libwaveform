@@ -169,7 +169,7 @@ test_peakgen ()
 		WfAudioInfo info = {0};
 		ad_finfo(WAV ".peak", &info);
 		assert(info.channels == 1, "expected %i channels, got %i", 1, info.channels);
-		ad_clear_nfo(&info);
+		ad_free_nfo(&info);
 	}
 
 	// create local stereo peakfile
@@ -187,7 +187,7 @@ test_peakgen ()
 		WfAudioInfo info = {0};
 		ad_finfo(WAV ".peak", &info);
 		assert(info.channels == 2, "expected %i channels, got %i", 2, info.channels);
-		ad_clear_nfo(&info);
+		ad_free_nfo(&info);
 	}
 
 	// create peakfile in the cache directory
@@ -801,7 +801,7 @@ test_context_frames_to_x ()
 {
 	START_TEST;
 
-	WaveformContext* wfc = wf_context_new (NULL);
+	g_autoptr(WaveformContext) wfc = wf_context_new (NULL);
 
 	float r = wf_context_frame_to_x (wfc, 44100);
 	assert(r == 32., "%f", r);

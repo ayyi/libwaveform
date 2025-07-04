@@ -87,6 +87,15 @@ v_hi_pre_render (Renderer* renderer, WaveformActor* actor)
 }
 
 
+static bool
+v_hi_pre_render0 (Renderer* renderer, WaveformActor* actor)
+{
+	renderer->pre_render = v_hi_pre_render;
+
+	return v_hi_pre_render(renderer, actor);
+}
+
+
 static void
 _v_hi_set_gl_state (WaveformActor* actor)
 {
@@ -95,7 +104,7 @@ _v_hi_set_gl_state (WaveformActor* actor)
 #if defined (MULTILINE_SHADER)
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-	if(wfc->use_1d_textures){
+	if (wfc->use_1d_textures) {
 		lines.uniform.colour = ((AGlActor*)actor)->colour;
 		lines.uniform.n_channels = actor->waveform->n_channels;
 	}
@@ -402,6 +411,6 @@ _wf_create_lines_texture (guchar* pbuf, int width, int height)
 #endif
 
 
-VHiRenderer v_hi_renderer = {{MODE_V_HI, v_hi_renderer_new, v_hi_load_block, v_hi_pre_render, draw_wave_buffer_v_hi, NULL, v_hi_free_waveform}};
+VHiRenderer v_hi_renderer = {{MODE_V_HI, v_hi_renderer_new, v_hi_load_block, v_hi_pre_render0, draw_wave_buffer_v_hi, NULL, v_hi_free_waveform}};
 
 

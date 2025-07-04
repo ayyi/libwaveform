@@ -1,7 +1,7 @@
 /*
  +----------------------------------------------------------------------+
  | This file is part of the Ayyi project. https://www.ayyi.org          |
- | copyright (C) 2012-2021 Tim Orford <tim@orford.org>                  |
+ | copyright (C) 2012-2025 Tim Orford <tim@orford.org>                  |
  +----------------------------------------------------------------------+
  | This program is free software; you can redistribute it and/or modify |
  | it under the terms of the GNU General Public License version 3       |
@@ -20,21 +20,13 @@
 #include "wf/waveform.h"
 #include "test/runner.h"
 #include "test/utils.h"
-
-TestFn test_1, test_2_when, test_3, test_4_many;
-
-gpointer tests[] = {
-	test_1,
-	test_2_when,
-	test_3,
-	test_4_many,
-};
+#include "test/promise.h"
 
 #include "test/common.c"
 
 
 void
-test_1()
+test_1 ()
 {
 	START_TEST;
 
@@ -71,7 +63,7 @@ test_1()
 
 
 void
-test_2_when()
+test_2_when ()
 {
 	START_TEST;
 
@@ -125,7 +117,7 @@ test_2_when()
 		WF_TEST_FINISH_TIMER_STOP;
 	}
 
-	void test_3_on_resolve(gpointer _c, gpointer callback_data)
+	void test_3_on_resolve (gpointer _c, gpointer callback_data)
 	{
 		WfTest* c = _c;
 		C3* c3 = _c;
@@ -136,7 +128,7 @@ test_2_when()
 	}
 
 void
-test_3()
+test_3 ()
 {
 	START_TEST;
 
@@ -196,7 +188,10 @@ test_3()
 		return G_SOURCE_REMOVE;
 	}
 
-	void test_4_on_resolve(gpointer _c, gpointer callback_data)
+void
+test_4_many ()
+{
+	void test_4_on_resolve (gpointer _c, gpointer callback_data)
 	{
 		WfTest* c = _c;
 		C4* c4 = _c;
@@ -212,9 +207,6 @@ test_3()
 		g_idle_add(test_4_after_resolve, promise);
 	}
 
-void
-test_4_many()
-{
 	START_TEST;
 
 	C4* c = WF_NEW(C4,

@@ -91,16 +91,17 @@ static void
 wf_context_class_init (WaveformContextClass* klass)
 {
 	waveform_context_parent_class = g_type_class_peek_parent (klass);
-	//g_type_class_add_private (klass, sizeof (WaveformContextPrivate));
+
 	G_OBJECT_CLASS (klass)->finalize = wf_context_finalize;
+
 	g_signal_new ("dimensions_changed", TYPE_WAVEFORM_CONTEXT, G_SIGNAL_RUN_LAST, 0, NULL, NULL, g_cclosure_marshal_VOID__VOID, G_TYPE_NONE, 0);
 	g_signal_new ("zoom_changed", TYPE_WAVEFORM_CONTEXT, G_SIGNAL_RUN_LAST, 0, NULL, NULL, g_cclosure_marshal_VOID__VOID, G_TYPE_NONE, 0);
 
 	agl = agl_get_instance();
 
 #if defined (WF_USE_TEXTURE_CACHE) && defined (USE_OPENGL)
-		texture_cache_init();
-		texture_cache_set_on_steal(on_steal);
+	texture_cache_init();
+	texture_cache_set_on_steal(on_steal);
 #endif
 
 	// testing...
@@ -155,8 +156,8 @@ wf_context_init (WaveformContext* wfc, AGlActor* root)
 }
 
 
-WaveformContext*
-waveform_canvas_construct (GType object_type)
+static WaveformContext*
+waveform_context_construct (GType object_type)
 {
 	return (WaveformContext*)g_object_new(object_type, NULL);
 }
@@ -169,7 +170,7 @@ wf_context_new (AGlActor* root)
 {
 	PF;
 
-	WaveformContext* wfc = waveform_canvas_construct(TYPE_WAVEFORM_CONTEXT);
+	WaveformContext* wfc = waveform_context_construct(TYPE_WAVEFORM_CONTEXT);
 	wfc->root = root;
 	wf_context_init(wfc, root);
 	wf_gl_init(wfc, root);
@@ -184,7 +185,7 @@ wf_context_new_sdl (SDL_GLContext* context)
 {
 	PF;
 
-	WaveformContext* wfc = waveform_canvas_construct(TYPE_WAVEFORM_CONTEXT);
+	WaveformContext* wfc = waveform_context_construct(TYPE_WAVEFORM_CONTEXT);
 
 	wfc->show_rms = true;
 
@@ -219,7 +220,10 @@ wf_context_free (WaveformContext* wfc)
 
 	_g_source_remove0(c->pending_init);
 	_g_source_remove0(c->_queued);
-	wf_context_finalize((GObject*)wfc);
+	g_clear_pointer(&wfc->zoom, agl_observable_free);
+	g_clear_pointer(&wfc->start_time, agl_observable_free);
+
+	g_object_unref((GObject*)wfc);
 }
 
 
@@ -247,7 +251,7 @@ wf_context_add_new_actor (WaveformContext* wfc, Waveform* w)
 	{
 		WaveformContext* wfc = _canvas;
 
-		if(wfc->root->draw) wfc->root->draw(wfc->root, wfc->root->user_data);
+		if (wfc->root->draw) wfc->root->draw(wfc->root, wfc->root->user_data);
 		wfc->priv->_queued = false;
 
 		return G_SOURCE_REMOVE;
@@ -258,11 +262,11 @@ void
 wf_context_queue_redraw (WaveformContext* wfc)
 {
 #ifdef USE_FRAME_CLOCK
-	if(wfc->root->root->is_animating){
+	if (wfc->root->root->is_animating) {
 #if 0 // this is not needed - draw is called via the frame_clock_connect callback
 		if(wfc->draw) wfc->draw(wfc, wfc->draw_data);
 #endif
-	}else{
+	} else {
 #if 0
 		frame_clock_request_phase(GDK_FRAME_CLOCK_PHASE_PAINT);
 #else

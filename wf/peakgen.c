@@ -467,7 +467,7 @@ wf_ff_peakgen (const char* infilename, const char* peak_filename)
 
 			memset(peak, 0, sizeof(WfPeakSample) * N_CHANNELS);
 
-			for (int k = 0; k < MIN(remaining, WF_PEAK_RATIO); k += N_CHANNELS){
+			for (int k = 0; k < MIN(remaining, WF_PEAK_RATIO); k += N_CHANNELS) {
 				int c; for(c=0;c<N_CHANNELS;c++){
 					int16_t val = buf.buf[c][WF_PEAK_RATIO * j + k];
 					peak[c] = (WfPeakSample){
@@ -581,9 +581,6 @@ wf_ff_peakgen (const char* infilename, const char* peak_filename)
 	}
 
 	return true;
-
-#ifdef USE_FFMPEG
-#endif
 #endif
 }
 

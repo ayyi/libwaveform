@@ -360,11 +360,9 @@ get_scaled_thumbnail (WfDecoder* d, int size, AdPicture* picture)
 	av_frame_unref(frame);
 	av_free(frame);
 
-	avcodec_close(codec_ctx);
 	avcodec_free_context(&codec_ctx);
 #endif
 
-	avcodec_close(f->thumbnail.codec_context);
 	avcodec_free_context(&f->thumbnail.codec_context);
 }
 
@@ -511,13 +509,9 @@ ad_close_ffmpeg (WfDecoder* d)
 #ifdef USE_FFMPEG_FILTERS
 	g_clear_pointer(&f->thumbnail.packet, av_packet_unref);
 #endif
+
 	av_frame_unref(&f->frame);
-#if 1
-	avcodec_close(f->codec_context);
-#else
-	// TODO the docs say dont use avcodec_close. try this instead
 	avcodec_free_context(&f->codec_context);
-#endif
 	avformat_close_input(&f->format_context);
 	g_clear_pointer(&f, g_free);
 

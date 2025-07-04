@@ -6,6 +6,7 @@ if ENABLE_SNDFILE
 if ENABLE_LIBASS
 ASSPROGRAMS = ass
 endif
+
 if ENABLE_SDL
 SDLPROGRAMS = sdl
 endif
@@ -229,7 +230,7 @@ AM_TESTS_FD_REDIRECT = 9>&2 --non-interactive
 AM_TESTS_ENVIRONMENT = \
 	export NON_INTERACTIVE=1;
 
-BUILT_SOURCES = waveform.h unit-actor.h 32bit.h
+BUILT_SOURCES = waveform.h 32bit.h promise.h unit-actor.h
 
 define build_header =
 	echo > $@
@@ -251,6 +252,9 @@ endef
 	@$(build_header)
 
 waveform.h: waveform.c Makefile
+	@$(build_header)
+
+promise.h: promise.c Makefile
 	@$(build_header)
 
 unit-actor.h: unit-actor.c Makefile

@@ -32,6 +32,7 @@
 #define __wf_private__
 #define __waveform_view_private__
 #define __wf_canvas_priv__
+
 #include "config.h"
 #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 #include <gtk/gtk.h>
@@ -92,9 +93,8 @@ static Key keys[] = {
 
 struct _WaveformViewPlusPrivate {
 	WaveformContext* context;
-	WaveformActor*  actor;
-
-	AMPromise*      ready;
+	WaveformActor*   actor;
+	AMPromise*       ready;
 };
 
 enum {
@@ -273,8 +273,8 @@ _waveform_view_plus__show_waveform (gpointer _view, gpointer _c)
 
 	ROOT(view)->scrollable = (AGliRegion){0, 0, ((GtkWidget*)view)->allocation.width, ((GtkWidget*)view)->allocation.height};
 
-	if(!(actor->parent)){
-		if(view->waveform){ // it is valid for the widget to not have a waveform set.
+	if (!(actor->parent)) {
+		if (view->waveform) { // it is valid for the widget to not have a waveform set.
 			agl_actor__add_child((AGlActor*)((GlArea*)view)->scene, actor);
 
 			if (promise(PROMISE_DISP_READY)->is_resolved) {
@@ -282,8 +282,8 @@ _waveform_view_plus__show_waveform (gpointer _view, gpointer _c)
 			}
 
 			uint64_t n_frames = waveform_get_n_frames(view->waveform);
-			if(n_frames){
-				if(!v->actor->region.len){
+			if (n_frames) {
+				if (!v->actor->region.len) {
 					wf_actor_set_region(v->actor, &(WfSampleRegion){0, n_frames});
 				}
 
@@ -300,10 +300,10 @@ static void
 waveform_view_plus_load_file_done (WaveformActor* a, gpointer _c)
 {
 	WfClosure* c = (WfClosure*)_c;
-	if(agl_actor__width(((AGlActor*)a))){
+	if (agl_actor__width(((AGlActor*)a))) {
 		a->context->samples_per_pixel = waveform_get_n_frames(a->waveform) / agl_actor__width(((AGlActor*)a));
 
-		if(((AGlActor*)a)->parent) agl_actor__invalidate(((AGlActor*)a)->parent); // we dont seem to track the layers, so have to invalidate everything.
+		if (((AGlActor*)a)->parent) agl_actor__invalidate(((AGlActor*)a)->parent); // we dont seem to track the layers, so have to invalidate everything.
 	}
 	call(c->callback, a->waveform, a->waveform->priv->peaks->error, c->user_data);
 	g_free(c);
@@ -680,7 +680,7 @@ waveform_view_plus_class_init (WaveformViewPlusClass* klass)
 
 
 static void
-waveform_view_plus_init (WaveformViewPlus * self)
+waveform_view_plus_init (WaveformViewPlus* self)
 {
 #ifndef USE_CANVAS_SCALING
 	self->zoom = 1.0;
@@ -916,7 +916,7 @@ waveform_view_plus_allocate_wave (WaveformViewPlus* view)
 		float width = agl_actor__width(actor->parent);
 		if (width > 0.0) {
 #ifdef AGL_ACTOR_RENDER_CACHE
-			actor->fbo = agl_fbo_new(MAX(1, agl_actor__width(actor)), MAX(1, agl_actor__height(actor)), 0, 0);
+			actor->fbo = agl_fbo_new(MAX(1, width), MAX(1, agl_actor__height(actor)), 0, 0);
 			actor->cache.enabled = true;
 #endif
 
@@ -954,7 +954,6 @@ _waveform_view_plus_set_waveform (WaveformViewPlus* view, Waveform* waveform)
 #ifdef DEBUG
 	g_object_weak_ref((GObject*)view->waveform, waveform_view_on_wav_finalize, view);
 #endif
-
 }
 
 
@@ -965,6 +964,6 @@ _waveform_view_plus_unset_waveform (WaveformViewPlus* view)
 #ifdef DEBUG
 		g_object_weak_unref((GObject*)view->waveform, waveform_view_on_wav_finalize, view);
 #endif
-		g_clear_pointer(&view->waveform, g_object_unref);
+		g_clear_object (&view->waveform);
 	}
 }

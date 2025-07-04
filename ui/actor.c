@@ -1954,8 +1954,8 @@ calc_render_info (WaveformActor* actor)
 #endif
 
 #ifdef DEBUG
-	if (actor->region.len * r->zoom + 0.05 < agl_actor__width(a)) {
-		pwarn("region too small for rect (%.0f < %.0f)", actor->region.len * r->zoom, agl_actor__width(a));
+	if (actor->region.len * r->zoom + 0.1 < agl_actor__width(a)) {
+		pwarn("region too small for rect (%.1f < %.1f)", actor->region.len * r->zoom, agl_actor__width(a));
 	}
 #endif
 	r->renderer = set_renderer(actor);
