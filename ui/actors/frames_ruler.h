@@ -12,4 +12,4 @@
 
 #pragma once
 
-AGlActor* ruler_actor (WaveformActor*);
+AGlActor* frames_ruler_actor (WaveformActor*);

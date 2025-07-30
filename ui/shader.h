@@ -1,17 +1,17 @@
-/**
-* +----------------------------------------------------------------------+
-* | This file is part of libwaveform                                     |
-* | https://github.com/ayyi/libwaveform                                  |
-* | copyright (C) 2012-2020 Tim Orford <tim@orford.org>                  |
-* +----------------------------------------------------------------------+
-* | This program is free software; you can redistribute it and/or modify |
-* | it under the terms of the GNU General Public License version 3       |
-* | as published by the Free Software Foundation.                        |
-* +----------------------------------------------------------------------+
-*
-*/
-#ifndef __wf_shader_h__
-#define __wf_shader_h__
+/*
+ +----------------------------------------------------------------------+
+ | This file is part of libwaveform                                     |
+ | https://github.com/ayyi/libwaveform                                  |
+ | copyright (C) 2012-2025 Tim Orford <tim@orford.org>                  |
+ +----------------------------------------------------------------------+
+ | This program is free software; you can redistribute it and/or modify |
+ | it under the terms of the GNU General Public License version 3       |
+ | as published by the Free Software Foundation.                        |
+ +----------------------------------------------------------------------+
+ |
+ */
+
+#pragma once
 
 #include "agl/typedefs.h"
 #ifdef __gl_h_
@@ -75,11 +75,25 @@ struct _RulerShader {
 typedef struct {
 	AGlShader    shader;
 	struct {
+		uint32_t fg_colour;
+		float    samples_per_pixel;
+		float    pixels_per_unit;
+		float    n_subs;
+		float    viewport_left;
+		int      markers[10];
+	}            uniform;
+} RulerFramesShader;
+
+#ifdef MULTILINE_SHADER
+typedef struct {
+	AGlShader    shader;
+	struct {
 		uint32_t colour;
 		int      n_channels;
 		int      texture_width;
 	}            uniform;
 } LinesShader;
+#endif
 
 struct _ass_shader {
 	AGlShader    shader;
@@ -97,8 +111,6 @@ struct _CursorShader {
 };
 #ifndef __wf_shader_c__
 extern CursorShader cursor;
-#endif
-
 #endif
 
 #endif

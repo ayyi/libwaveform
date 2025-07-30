@@ -18,7 +18,6 @@ AM_CFLAGS = \
 	-I$(top_srcdir) \
 	-I$(top_srcdir)/lib \
 	$(GTK_CFLAGS) \
-	$(LIBASS_CFLAGS) \
 	$(SDL_CFLAGS) \
 	$(LOCAL_GTKGLEXT_CFLAGS) \
 	$(OPENGL_CFLAGS)

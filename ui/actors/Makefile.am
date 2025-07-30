@@ -5,6 +5,7 @@ noinst_LTLIBRARIES = libactors.la
 
 libactors_la_SOURCES = \
 	ruler.c ruler.h \
+	frames_ruler.c frames_ruler.h \
 	grid.c grid.h \
 	labels.c labels.h \
 	spp.c spp.h \
@@ -25,7 +26,6 @@ AM_CFLAGS = \
 	-I$(top_srcdir) \
 	-I../../lib/agl \
 	$(GTK_CFLAGS) \
-	$(LIBASS_CFLAGS) \
 	$(SDL_CFLAGS) \
 	$(LOCAL_GTKGLEXT_CFLAGS) \
 	$(OPENGL_CFLAGS)
@@ -37,6 +37,7 @@ pkginclude_HEADERS = \
 	grid.h \
 	labels.h \
 	ruler.h \
+	frames_ruler.h \
 	spp.h \
 	hover.h \
 	text.h

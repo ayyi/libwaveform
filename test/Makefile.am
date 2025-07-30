@@ -3,16 +3,12 @@ SUBDIRS = gen
 if BUILD_TESTS
 if ENABLE_SNDFILE
 
-if ENABLE_LIBASS
-ASSPROGRAMS = ass
-endif
-
 if ENABLE_SDL
 SDLPROGRAMS = sdl
 endif
 
 if ENABLE_GTK
-GTKPROGRAMS = view_plus actor actor_plus actor_no_scene list group hires res_vhi res_vhi_blocks res_vhi_scrollable multi_scene $(ASSPROGRAMS) frame_rate resources cache pixbuf
+GTKPROGRAMS = view_plus actor actor_plus actor_no_scene list group hires res_vhi res_vhi_blocks res_vhi_scrollable multi_scene frame_rate resources cache pixbuf
 LOCAL_GTK_LDFLAGS = $(GTK_LDFLAGS)
 endif
 
@@ -48,8 +44,7 @@ AM_CFLAGS = \
 	$(OPENGL_CFLAGS) \
 	$(GTK_CFLAGS) \
 	$(SDL_CFLAGS) \
-	$(GRAPHENE_CFLAGS) \
-	$(LIBASS_CFLAGS)
+	$(GRAPHENE_CFLAGS)
 
 promise_CFLAGS = -D__no_setup__ $(AM_CFLAGS)
 
@@ -62,7 +57,6 @@ TEST_LDFLAGS = \
 	$(top_srcdir)/lib/test/.libs/libtest.a \
 	$(OPENGL_LDFLAGS) \
 	$(GL_LOADER_LDFLAGS) \
-	$(LIBASS_LDFLAGS) \
 	$(LOCAL_GTK_LDFLAGS) \
 	$(TEST_GTKGLEXT_LDFLAGS) \
 	$(GMODULE_LDFLAGS) \
@@ -172,7 +166,8 @@ waveform_LDADD = \
 	$(TEST_LDFLAGS)
 
 view_plus_LDADD = \
-	$(ass_LDADD)
+    $(OPENGL_LDFLAGS) \
+    $(TEST_LDFLAGS)
 
 actor_LDADD = \
 	$(OPENGL_LDFLAGS) \
@@ -184,11 +179,6 @@ actor_no_scene_LDADD = \
 
 actor_plus_LDADD = \
 	$(OPENGL_LDFLAGS) \
-	$(TEST_LDFLAGS)
-
-ass_LDADD = \
-	$(OPENGL_LDFLAGS) \
-	$(LIBASS_LDFLAGS) \
 	$(TEST_LDFLAGS)
 
 sdl_LDADD = \
@@ -279,8 +269,7 @@ TESTS = \
 	frame_rate \
 	glx \
 	list \
-	sdl \
-	ass
+	sdl
 
 test:
 	@echo running tests...
@@ -300,7 +289,6 @@ test:
 	./glx -n
 	./list -n
 	./sdl -n
-	./ass -n
 
 CLEANFILES = \
 	large_files \

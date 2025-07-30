@@ -323,8 +323,6 @@ wf_context_set_zoom_on_frame (WfAnimation* animation, int time)
 void
 wf_context_set_zoom (WaveformContext* wfc, float zoom)
 {
-	// TODO should probably call agl_actor__start_transition
-
 	wfc->scaled = true;
 
 	dbg(1, "zoom=%.2f-->%.2f spp=%.2f", wfc->zoom->value.f, zoom, wfc->samples_per_pixel);
@@ -339,8 +337,7 @@ wf_context_set_zoom (WaveformContext* wfc, float zoom)
 		return;
 	}
 
-	// TODO move this into the animator xx
-	if(zoom == wfc->zoom->value.f){
+	if (zoom == wfc->zoom->value.f) {
 		return;
 	}
 

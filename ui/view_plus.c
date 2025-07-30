@@ -762,7 +762,7 @@ waveform_view_plus_get_width (WaveformViewPlus* view)
 	{
 		WaveformViewPlus* waveform = user_data;
 		if(key_hold.handler) key_hold.handler(waveform);
-		return TIMER_CONTINUE;
+		return G_SOURCE_CONTINUE;
 	}
 
 	static gboolean key_press (GtkWidget* widget, GdkEventKey* event, gpointer user_data)

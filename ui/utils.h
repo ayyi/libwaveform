@@ -13,6 +13,7 @@
 #pragma once
 
 #include "waveform/utils.h"
+#include "waveform/context.h"
 
 #ifndef true
 #define true TRUE
@@ -24,7 +25,6 @@ float      wf_int2db                  (short);
 #ifdef __wf_private__
 
 #define TIMER_STOP FALSE
-#define TIMER_CONTINUE TRUE
 
 #include "waveform/ui-typedefs.h"
 
@@ -32,7 +32,6 @@ void       wf_deinterleave            (float* src, float** dest, uint64_t n_fram
 void       wf_deinterleave16          (short* src, short** dest, uint64_t n_frames);
 #endif
 
-#ifndef __ayyi_utils_h__
 #ifdef __GTK_H__
 uint32_t   wf_get_gtk_fg_color        (GtkWidget*, GtkStateType);
 uint32_t   wf_get_gtk_text_color      (GtkWidget*, GtkStateType);
@@ -46,5 +45,3 @@ void       wf_load_texture_from_alphabuf
                                       (WaveformContext*, int texture_id, AlphaBuf*);
 
 guint64    wf_get_time                ();
-
-#endif //__ayyi_utils_h__

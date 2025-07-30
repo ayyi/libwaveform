@@ -10,7 +10,6 @@
  |
  */
 
-extern LinesShader lines;
 extern AGlMaterialClass aaline_class;
 
 #define VERTEX_ARRAYS
@@ -39,6 +38,7 @@ typedef struct {
 } Range;
 
 #ifdef MULTILINE_SHADER
+extern LinesShader lines;
 static GLuint lines_texture[8] = {0};
 
 GLuint _wf_create_lines_texture (guchar* pbuf, int width, int height);

@@ -175,7 +175,7 @@ main (int argc, char* argv[])
 	AGlActor* text_layer = waveform_view_plus_add_layer(waveform, text_actor(NULL), 3);
 	((TextActor*)text_layer)->title = g_strdup("Waveform Title");
 	((TextActor*)text_layer)->text = g_strdup("Waveform text waveform text");
-	text_actor_set_colour((TextActor*)text_layer, 0x33aaffff, 0xffff00ff);
+	text_actor_set_colour((TextActor*)text_layer, 0xffffffff, 0x000000ff);
 
 	layers.spp = waveform_view_plus_add_layer(waveform, wf_spp_actor(waveform_view_plus_get_actor(waveform)), 0);
 	wf_spp_actor_set_time((SppActor*)layers.spp, (_time += 50, _time));

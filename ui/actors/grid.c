@@ -86,7 +86,7 @@ grid_actor (WaveformActor* wf_actor)
 				cache_behaviour(),
 			}
 		},
-		.wf_actor = wf_actor,
+		.wf_actor = wf_actor, // take care when using this as the grid may cover multiple actors
 		.context = wf_actor->context,
 	);
 
@@ -127,25 +127,18 @@ grid_actor_paint (AGlActor* actor)
 	g_return_val_if_fail(context, false);
 	if (!context->sample_rate) return false; // eg if file not loaded
 
-	float zoom = 0; // pixels per sample
-#ifdef USE_CANVAS_SCALING
-	float _zoom = wf_context_get_zoom(context);
-	if (_zoom > 0.0) {
-		zoom = _zoom / context->samples_per_pixel;
-	} else {
-#else
-	{
-#endif
-		zoom = agl_actor__width(actor) / grid->wf_actor->region.len;
-	}
+	float zoom = context->zoom->value.f / context->samples_per_pixel;
 
-	int interval = context->sample_rate * (zoom > 0.005 ? 1 : zoom > 0.0002 ? 10 : zoom > 0.0001 ? 50 : zoom > 0.00001 ? 480 : 4800) / 10;
+	int interval = context->sample_rate * (zoom > 0.01 ? 1 : zoom > 0.006 ? 5 : zoom > 0.0015 ? 10 : zoom > 0.0008 ? 30 : zoom > 0.00015 ? 50 : zoom > 0.00007 ? 100 : zoom > 0.00002 ? 300 : zoom > 0.00001 ? 600 : zoom > 0.000005 ? 1200 : 6000) / 10;
+	float dx = wf_context_frame_to_x(context, interval) - wf_context_frame_to_x(context, 0);
+	int interval_minor = (dx > 100) ? interval / 2 : 0;
 
+	int64_t startf = wf_context_x_to_frame (context, -actor->scrollable.x1);
 	const WfFrRange region = {
-		.start = wf_context_x_to_frame (context, -actor->scrollable.x1),
+		.start = startf,
 		.end = context->scaled
 			? wf_context_x_to_frame (context, agl_actor__width(actor) - actor->scrollable.x1)
-			: grid->wf_actor->region.start + grid->wf_actor->region.len
+			: startf + agl_actor__width(actor) * context->samples_per_pixel
 	};
 
 	int64_t f = ((int64_t)((region.start - 1)/ interval) + 1) * interval;
@@ -153,6 +146,8 @@ grid_actor_paint (AGlActor* actor)
 		int n = MIN(0x5f, (region.end - f) / interval + 1);
 		if (n > 0) {
 			AGlQuadVertex vertices[n];
+			int n2 = interval_minor ? n + 1 : 1;
+			AGlQuadVertex vertices_minor[n2];
 
 			for (int i = 0; i < n; f += interval, i++) {
 				float x = wf_context_frame_to_x(context, f);
@@ -160,6 +155,16 @@ grid_actor_paint (AGlActor* actor)
 					(AGlVertex){x, 0.},
 					(AGlVertex){x + 2., agl_actor__height(actor)}
 				);
+
+				if (interval_minor) {
+					for (int j = 1; j < interval / interval_minor; j++) {
+						float x = wf_context_frame_to_x(context, f + j * interval_minor);
+						agl_set_quad (&vertices_minor, i * (interval / interval_minor -1) + j,
+							(AGlVertex){x, 0.},
+							(AGlVertex){x + 1., agl_actor__height(actor)}
+						);
+					}
+				}
 			}
 
 			glBindBuffer (GL_ARRAY_BUFFER, vbo);
@@ -167,6 +172,13 @@ grid_actor_paint (AGlActor* actor)
 			glEnableVertexAttribArray (0);
 			glVertexAttribPointer (0, 2, GL_FLOAT, GL_FALSE, 0, NULL);
 			glDrawArrays(GL_TRIANGLES, 0, n * AGL_V_PER_QUAD);
+
+			if (interval_minor) {
+				SET_PLAIN_COLOUR(agl->shaders.dotted, 0x55bb555b);
+				agl_set_uniforms(agl->shaders.dotted);
+				glBufferData (GL_ARRAY_BUFFER, sizeof(AGlQuadVertex) * n2, vertices_minor, GL_STATIC_DRAW);
+				glDrawArrays(GL_TRIANGLES, 0, n2 * AGL_V_PER_QUAD);
+			}
 		}
 
 		agl_set_font_string("Roboto 7");
