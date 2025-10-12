@@ -83,12 +83,14 @@ AGlKey keys[] = {
 
 static GdkGLContext* on_create_context (GtkGLArea*, GdkGLContext*);
 
+#ifndef USE_EGL
 struct _GdkX11GLContextGLX
 {
   GObject parent_instance;
   cairo_region_t *old_updated_area[2];
   GLXContext glx_context;
 };
+#endif
 
 
 static GdkGLContext*
@@ -105,11 +107,12 @@ on_create_context (GtkGLArea* gl_area, GdkGLContext* context)
 		agl_set_gl_context (scene1->gl.gdk.context);
 	}
 	gdk_gl_context_make_current (scene1->gl.gdk.context);
+#ifndef USE_EGL
 	scene1->drawable = scene2->drawable = glXGetCurrentDrawable();
+#endif
 	agl_gl_init();
 	GdkDisplay* display = gdk_gl_context_get_display (scene1->gl.gdk.context);
   	agl_get_instance()->xdisplay = gdk_x11_display_get_xdisplay (display);
-	scene1->glxcontext = scene2->glxcontext = ((struct _GdkX11GLContextGLX*)scene1->gl.gdk.context)->glx_context;
 
 	agl_actor__init((AGlActor*)scene1);
 	agl_actor__init((AGlActor*)scene2);

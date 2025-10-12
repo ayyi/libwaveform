@@ -1,5 +1,5 @@
 AC_PREREQ(2.59)
-AC_INIT([Libwaveform],[0.1.0],[tim@orford.org])
+AC_INIT([Libwaveform],[0.2.0],[tim@orford.org])
 AC_CONFIG_SRCDIR([wf/waveform.c])
 AC_CONFIG_HEADER([config.h])
 AM_INIT_AUTOMAKE
@@ -269,6 +269,34 @@ fi
 
 dnl -----------------------------------------------------
 
+PKG_CHECK_MODULES(EGL, [egl], [
+	have_egl=yes
+], [
+	have_egl=no
+])
+
+AC_ARG_ENABLE(egl, AS_HELP_STRING([--enable-egl],[enable use of egl instead of glx]), enable_egl=$enableval, enable_egl="no")
+
+if test "$have_egl" = "no"; then
+	enable_egl=no
+fi
+if test "$HAVE_GTK_4_16" = "yes"; then
+	if test "$have_egl" = "no"; then
+		AC_MSG_ERROR([EGL is required when using GTK >= 4.16])
+	fi
+	enable_egl=yes
+fi
+if test "$enable_egl" = "yes"; then
+	AC_DEFINE(USE_EGL, 1, [Use EGL for OpenGL context management])
+	EGL_CFLAGS=`pkg-config --cflags egl`
+	EGL_LDFLAGS=`pkg-config --libs egl`
+	AC_SUBST(EGL_CFLAGS)
+	AC_SUBST(EGL_LDFLAGS)
+fi
+AM_CONDITIONAL(ENABLE_EGL, test "$enable_egl" = "yes")
+
+dnl -----------------------------------------------------
+
 AC_ARG_ENABLE(ffmpeg, AC_HELP_STRING([--disable-ffmpeg], [disable use of FFMPEG]), enable_ffmpeg=$enableval, enable_ffmpeg="auto")
 
 AS_IF([test "$enable_ffmpeg" != "no"], [
@@ -416,5 +444,6 @@ AC_MSG_RESULT([Building xrandr:          $have_xrandr])
 AC_MSG_RESULT([Building tests:           $enable_test])
 AC_MSG_RESULT([Building profiler:        $enable_profiler])
 AC_MSG_RESULT([Use epoxy:                $enable_epoxy])
+AC_MSG_RESULT([Use egl:                  $enable_egl])
 AC_MSG_RESULT([])
 

@@ -1,7 +1,7 @@
 /*
  +----------------------------------------------------------------------+
- | This file is part of the Ayyi project. https://ayyi.org              |
- | copyright (C) 2013-2022 Tim Orford <tim@orford.org>                  |
+ | This file is part of the Ayyi project. https://www.ayyi.org          |
+ | copyright (C) 2013-2025 Tim Orford <tim@orford.org>                  |
  +----------------------------------------------------------------------+
  | This program is free software; you can redistribute it and/or modify |
  | it under the terms of the GNU General Public License version 3       |
@@ -90,7 +90,6 @@ void             wf_context_free                      (WaveformContext*);
 WaveformActor*   wf_context_add_new_actor             (WaveformContext*, Waveform*);
 
 void             wf_context_set_viewport              (WaveformContext*, WfViewPort*);
-void             wf_context_set_rotation              (WaveformContext*, float);
 #ifdef USE_CANVAS_SCALING
 float            wf_context_get_zoom                  (WaveformContext*);
 void             wf_context_set_zoom                  (WaveformContext*, float);
@@ -100,5 +99,6 @@ void             wf_context_set_start                 (WaveformContext*, int64_t
 void             wf_context_set_gain                  (WaveformContext*, float);
 void             wf_context_queue_redraw              (WaveformContext*);
 float            wf_context_frame_to_x                (WaveformContext*, uint64_t);
+const char*      wf_context_print_time                (WaveformContext*, int);
 
-#define wf_context_free0(A) (wf_context_free(A), A = NULL)
+G_DEFINE_AUTOPTR_CLEANUP_FUNC (WaveformContext, wf_context_free)

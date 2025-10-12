@@ -321,17 +321,17 @@ hi_gl1_render_block (Renderer* renderer, WaveformActor* actor, int b, gboolean i
 #endif
 
 
-NGRenderer hi_renderer_gl2 = {{MODE_HI, hi_gl2_new, ng_gl2_load_block, ng_pre_render0, ng_gl2_render_block, ng_gl2_post_render, ng_gl2_free_waveform}};
+NGRenderer hi_renderer = {{MODE_HI, hi_gl2_new, ng_load_block, ng_load_blocks, ng_pre_render0, ng_gl2_render_block, ng_gl2_post_render, ng_gl2_free_waveform}};
 
 static Renderer*
 hi_renderer_init ()
 {
-	g_return_val_if_fail(!hi_renderer_gl2.ng_data, NULL);
+	g_return_val_if_fail(!hi_renderer.ng_data, NULL);
 
-	hi_renderer_gl2.ng_data = g_hash_table_new_full(g_direct_hash, g_int_equal, NULL, hi_gl2_free_item);
-	hi_renderer_gl2.renderer.shader = &hires_ng_shader.shader;
+	hi_renderer.ng_data = g_hash_table_new_full(g_direct_hash, g_int_equal, NULL, hi_gl2_free_item);
+	hi_renderer.renderer.shader = &hires_ng_shader.shader;
 
-	ng_make_lod_levels(&hi_renderer_gl2, MODE_HI);
+	ng_make_lod_levels(&hi_renderer, MODE_HI);
 
-	return (Renderer*)&hi_renderer_gl2;
+	return (Renderer*)&hi_renderer;
 }

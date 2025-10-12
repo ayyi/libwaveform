@@ -1,7 +1,7 @@
 /*
  +----------------------------------------------------------------------+
  | This file is part of the Ayyi project. https://www.ayyi.org          |
- | copyright (C) 2012-2024 Tim Orford <tim@orford.org>                  |
+ | copyright (C) 2012-2025 Tim Orford <tim@orford.org>                  |
  +----------------------------------------------------------------------+
  | This program is free software; you can redistribute it and/or modify |
  | it under the terms of the GNU General Public License version 3       |
@@ -171,6 +171,7 @@ struct _WfActorPriv
 typedef void    (*WaveformActorNewFn)       (WaveformActor*);
 typedef bool    (*WaveformActorPreRenderFn) (Renderer*, WaveformActor*);
 typedef void    (*WaveformActorBlockFn)     (Renderer*, WaveformActor*, int b);
+typedef void    (*WaveformActorBlocksFn)    (Renderer*, WaveformActor*, int b1, int b2);
 typedef bool    (*WaveformActorRenderFn)    (Renderer*, WaveformActor*, int b, bool is_first, bool is_last, double x);
 typedef void    (*WaveformActorPostRender)  (Renderer*, WaveformActor*);
 typedef void    (*WaveformActorFreeFn)      (Renderer*, Waveform*);
@@ -184,6 +185,7 @@ struct _Renderer
 
 	WaveformActorNewFn       new;
 	WaveformActorBlockFn     load_block;
+	WaveformActorBlocksFn    load_blocks;
 	WaveformActorPreRenderFn pre_render;
 	WaveformActorRenderFn    render_block;
 	WaveformActorPostRender  post_render;
@@ -202,6 +204,8 @@ typedef struct
 } VHiRenderer;
 
 static double wf_actor_samples2gl (double zoom, uint32_t n_samples);
+static uint64_t px_2_f (WaveformActor*, double zoom, float px);
+static float    f_2_px (WaveformActor*, double zoom, uint64_t);
 
 #if 0
 static inline float get_peaks_per_pixel_i    (WaveformContext*, WfSampleRegion*, WfRectangle*, int mode);
@@ -238,7 +242,7 @@ struct _DrawMode
 #define RES_MED modes[MODE_MED].resolution
 #define HI_MIN_TIERS 4 // equivalent to resolution of 1:16
 
-typedef struct { int lower; int upper; } ModeRange;
+typedef struct { Mode lower, upper; } ModeRange;
 
 static inline Mode get_mode                  (double zoom);
 static ModeRange   mode_range                (WaveformActor*);
@@ -1095,6 +1099,38 @@ wf_actor_get_first_visible_block(WfSampleRegion* region, double zoom, WfRectangl
 #endif
 
 
+/*
+ * Returns the audio frame number for the given pixel
+ */
+static uint64_t
+px_2_f (WaveformActor* actor, double zoom, float px)
+{
+	double region_inset_px = actor->region.start * zoom;
+	WfRectangle rect; WF_ACTOR_GET_RECT(actor, &rect);
+
+	double file_start_px = rect.left - region_inset_px;
+	g_return_val_if_fail(px >= file_start_px, 0);
+
+	float dx = px - file_start_px;
+
+	return dx / zoom;
+}
+
+
+static float
+f_2_px (WaveformActor* actor, double zoom, uint64_t f)
+{
+	WfRectangle rect; WF_ACTOR_GET_RECT(actor, &rect);
+
+	float px = rect.left + ((int64_t)f - actor->region.start) * zoom;
+
+	return px;
+}
+
+
+/*
+ *  @region - the frame-range that corresponds to the @rect
+ */
 static BlockRange
 wf_actor_get_visible_block_range (WfSampleRegion* region, WfRectangle* rect, double zoom, WfViewPort* viewport_px, int n_blocks)
 {
@@ -1122,20 +1158,20 @@ wf_actor_get_visible_block_range (WfSampleRegion* region, WfRectangle* rect, dou
 	}
 
 	// find first block
-	if(rect->left <= viewport_px->right){
-
-		int b; for(b=region_blocks.first;b<=region_blocks.last-1;b++){ // stop before the last block
+	if (rect->left <= viewport_px->right) {
+		int b;
+		for (b=region_blocks.first;b<=region_blocks.last-1;b++) { // stop before the last block
 			int block_start_px = file_start_px + b * block_wid;
 			double block_end_px = block_start_px + block_wid;
 			dbg(3, "block_pos_px=%i", block_start_px);
-			if(block_end_px >= viewport_px->left){
+			if (block_end_px >= viewport_px->left) {
 				range.first = b;
 				goto next;
 			}
 		}
 		// check last block
 		double block_end_px = file_start_px + wf_actor_samples2gl(zoom, region->start + region->len);
-		if(block_end_px >= viewport_px->left){
+		if (block_end_px >= viewport_px->left) {
 			range.first = b;
 			goto next;
 		}
@@ -1256,10 +1292,13 @@ _wf_actor_get_viewport_max (WaveformActor* a, WfViewPort* viewport)
 	float left_max = MAX(actor->region.x1, LEFT(actor).target_val.f);
 	float left_min = MIN(actor->region.x1, LEFT(actor).target_val.f);
 
+	AGlfRegion cropped;
+	agl_actor__calc_visible(actor, &cropped);
+
 	*viewport = (WfViewPort){
-		.left   = left_min,
+		.left   = MAX(left_min, cropped.x1 + actor->scrollable.x1 + actor->region.x1),
 		.top    = actor->region.y1,
-		.right  = left_max + agl_actor__width(actor),
+		.right  = MIN(left_max + agl_actor__width(actor), cropped.x2 + actor->scrollable.x1 + actor->region.x1),
 		.bottom = actor->region.y2
 	};
 }
@@ -1359,7 +1398,7 @@ _wf_actor_allocate_hi (WaveformActor* a)
 	//WfSampleRegion region = {*START->model_val.b, *_a->animatable.len.model_val.b};
 	BlockRange blocks = wf_actor_get_visible_block_range (&a->region, &rect, zoom, &viewport, a->waveform->priv->n_blocks);
 
-	int b;for(b=blocks.first;b<=blocks.last;b++){
+	for (int b=blocks.first;b<=blocks.last;b++) {
 		hi_request_block(a, b);
 	}
 
@@ -1476,7 +1515,12 @@ _wf_actor_load_missing_blocks (WaveformActor* a)
 #ifdef USE_GTK
     if (((AGlActor*)actor)->root->type == CONTEXT_TYPE_GTK) {
 		if (scene) {
-			glXMakeContextCurrent (agl->xdisplay, scene->drawable, scene->drawable, scene->glxcontext);
+#ifdef USE_EGL
+			extern EGLDisplay egl_display;
+			eglMakeCurrent(egl_display, scene->gl.egl.surface, scene->gl.egl.surface, scene->gl.egl.context);
+#else
+			glXMakeContextCurrent (agl->xdisplay, scene->drawable, scene->drawable, scene->gl.glx.context);
+#endif
 			agl_use_program(NULL);
 		}
 	}
@@ -1520,9 +1564,7 @@ _wf_actor_load_missing_blocks (WaveformActor* a)
 		BlockRange viewport_blocks = wf_actor_get_visible_block_range (&region, &rect_, zoom_, &clippingport, _w->n_blocks);
 		//dbg(0, "MED block range: %i --> %i", viewport_blocks.first, viewport_blocks.last);
 
-		int b; for(b=viewport_blocks.first;b<=viewport_blocks.last;b++){
-			modes[MODE_MED].renderer->load_block(modes[MODE_MED].renderer, a, b);
-		}
+		modes[MODE_MED].renderer->load_blocks(modes[MODE_MED].renderer, a, viewport_blocks.first, viewport_blocks.last);
 	}
 
 	if(mode[0] <= MODE_LOW && mode[1] >= MODE_LOW){
@@ -1545,13 +1587,13 @@ _wf_actor_load_missing_blocks (WaveformActor* a)
 		BlockRange viewport_blocks = wf_actor_get_visible_block_range (&region, &rect_, zoom_, &clippingport, wf_actor_get_n_blocks(w, MODE_LOW));
 		//dbg(2, "LOW block range: %i --> %i", viewport_blocks.first, viewport_blocks.last);
 
-		int b; for(b=viewport_blocks.first;b<=viewport_blocks.last;b++){
-			renderer->load_block(renderer, a, b);
-		}
+		renderer->load_blocks(renderer, a, viewport_blocks.first, viewport_blocks.last);
 	}
 
 	if(mode[0] <= MODE_V_LOW && mode[1] >= MODE_V_LOW){
 		dbg(2, "V_LOW");
+		if (!_w->peaks->is_resolved) return;
+
 		Renderer* renderer = modes[MODE_V_LOW].renderer;
 		double zoom_ = MIN(zoom, ZOOM_LO - 0.0001);
 
@@ -1566,9 +1608,7 @@ _wf_actor_load_missing_blocks (WaveformActor* a)
 
 		BlockRange viewport_blocks = wf_actor_get_visible_block_range (&region, &rect_, zoom_, &clippingport, _w->render_data[MODE_V_LOW]->n_blocks);
 
-		int b; for(b=viewport_blocks.first;b<=viewport_blocks.last;b++){
-			renderer->load_block(renderer, a, b);
-		}
+		renderer->load_blocks(renderer, a, viewport_blocks.first, viewport_blocks.last);
 	}
 
 	RenderInfo* r = &a->priv->render_info;
@@ -1802,7 +1842,7 @@ calc_render_info (WaveformActor* actor)
 {
 	AGlActor* a = (AGlActor*)actor;
 	WaveformContext* wfc = actor->context;
-	Waveform* w = actor->waveform; 
+	Waveform* w = actor->waveform;
 	WaveformPrivate* _w = w->priv;
 	RenderInfo* r  = &actor->priv->render_info;
 
@@ -1818,9 +1858,12 @@ calc_render_info (WaveformActor* actor)
 	wf_actor_get_viewport(actor, &r->viewport);
 
 	r->region = (WfSampleRegion){actor->region.start, MIN(actor->region.len, w->n_frames)};
-	if(!r->region.len){
+	if (!r->region.len) {
 		static bool region_len_warning_done = false;
-		if(!region_len_warning_done){ region_len_warning_done = true; pwarn("zero region length"); }
+		if (!region_len_warning_done) { region_len_warning_done = true; pwarn("zero region length"); }
+#ifdef DEBUG
+		actor->render_result = RENDER_RESULT_NO_REGION;
+#endif
 		return false;
 	}
 
@@ -1873,7 +1916,7 @@ calc_render_info (WaveformActor* actor)
 	if(r->region_end_block > r->n_blocks -1){ pwarn("region too long? region_end_block=%i n_blocks=%i region.len=%"PRIi64, r->region_end_block, r->n_blocks, r->region.len); r->region_end_block = w->priv->n_blocks -1; }
 #ifdef DEBUG
 	dbg(2, "block range: region=%i-->%i viewport=%i-->%i", r->region_start_block, r->region_end_block, r->viewport_blocks.first, r->viewport_blocks.last);
-	dbg(2, "rect=%.2f %.2f viewport=%.2f %.2f", r->rect.left, r->rect.len, r->viewport.left, r->viewport.right);
+	dbg(2, "rect=%.2f %.2f viewport=%.2f-->%.2f", r->rect.left, r->rect.len, r->viewport.left, r->viewport.right);
 #endif
 
 	if(r->viewport_blocks.last != r->region_end_block || r->viewport_blocks.first != r->region_start_block){
@@ -1915,7 +1958,7 @@ wf_actor_paint (AGlActor* _actor)
 	WaveformContext* wfc = actor->context;
 	g_return_val_if_fail(wfc, false);
 	WfActorPriv* _a = actor->priv;
-	Waveform* w = actor->waveform; 
+	Waveform* w = actor->waveform;
 	RenderInfo* r  = &_a->render_info;
 
 #ifdef DEBUG
@@ -2012,7 +2055,7 @@ wf_actor_paint (AGlActor* _actor)
 
 		Mode m = r->mode;
 		while ((m < N_MODES) && !render_block(modes[m].renderer, actor, b, is_first, is_last, x, m, &m_active)) {
-			dbg(1, "%i: %sfalling through...%s %s-->%s", b, "\x1b[1;33m", ayyi_white, modes[m].name, modes[m - 1].name);
+			dbg(1, "%i: %sfalling through...%s %s-->%s", b, "\x1b[1;33m", ayyi_white, modes[m].name, m > 0 ? modes[m - 1].name : "");
 			// TODO pre_render not being set propery for MODE_HI due to use_shader settings.
 			// TODO render_info not correct when falling through. Is set for the higher mode.
 			m--;
@@ -2402,14 +2445,14 @@ renderer_create_shader (Renderer* renderer)
 static void
 wf_actor_on_use_shaders_change ()
 {
-	modes[MODE_HI].renderer = (Renderer*)&hi_renderer_gl2;
+	modes[MODE_HI].renderer = (Renderer*)&hi_renderer;
 
 	modes[MODE_MED].renderer = agl->use_shaders
 		? (Renderer*)&med_renderer_gl2
 		: &med_renderer_gl1;
 
 	modes[MODE_LOW].renderer = agl->use_shaders
-		? (Renderer*)&lo_renderer_gl2
+		? (Renderer*)&lo_renderer
 		: &lo_renderer_gl1;
 
 	modes[MODE_V_LOW].renderer = agl->use_shaders

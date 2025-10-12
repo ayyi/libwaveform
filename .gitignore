@@ -73,6 +73,9 @@ test/viewport
 test/waveform
 test/waveform.h
 test/text
+test/unit-actor
+test/unit-actor.h
+test/res_vhi_blocks
 test/gen/write_piano
 test/gen/thumbnail
 transition/Makefile

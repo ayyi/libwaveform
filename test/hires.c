@@ -10,7 +10,7 @@
  |                                                                      |
  |  Test of the libwaveform WaveformView widget in hires mode.          |
  |  ----------------------------------------------------------          |
- |                                                                      | 
+ |                                                                      |
  |  Hires mode uses asynchronous loading.                               |
  |  When the widget is initially loaded in this mode, different         |
  |  code paths are exercised.                                           |
@@ -44,7 +44,6 @@ activate (GtkApplication* app, gpointer user_data)
 	gtk_window_set_default_size (GTK_WINDOW (window), 320, 160);
 
 	GtkWidget* vbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 0);
-	//GtkWidget* vbox = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 0);
 	gtk_window_set_child (GTK_WINDOW (window), vbox);
 
 	GtkWidget* box1 = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 0);

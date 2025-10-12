@@ -1,7 +1,7 @@
 /*
  +----------------------------------------------------------------------+
  | This file is part of the Ayyi project. https://www.ayyi.org          |
- | copyright (C) 2011-2023 Tim Orford <tim@orford.org>                  |
+ | copyright (C) 2011-2025 Tim Orford <tim@orford.org>                  |
  | copyright (C) 2011 Robin Gareus <robin@gareus.org>                   |
  +----------------------------------------------------------------------+
  | This program is free software; you can redistribute it and/or modify |
@@ -359,11 +359,9 @@ get_scaled_thumbnail (WfDecoder* d, int size, AdPicture* picture)
 	av_frame_unref(frame);
 	av_free(frame);
 
-	avcodec_close(codec_ctx);
 	avcodec_free_context(&codec_ctx);
 #endif
 
-	avcodec_close(f->thumbnail.codec_context);
 	avcodec_free_context(&f->thumbnail.codec_context);
 }
 
@@ -443,9 +441,11 @@ ad_open_ffmpeg (WfDecoder* decoder, const char* filename)
 		goto f;
 	}
 
+#ifdef DEBUG
 	WfAudioInfo* nfo = &decoder->info;
 	dbg(2, "%s", filename);
 	dbg(2, "sr:%i c:%i d:%"PRIi64" f:%"PRIi64" %s", nfo->sample_rate, nfo->channels, nfo->length, nfo->frames, av_get_sample_fmt_name(f->codec_parameters->format));
+#endif
 
 #if 0 // TODO why prints nothing?
 	av_dump_format(f->format_context, f->audio_stream, filename, 0);
@@ -507,13 +507,9 @@ ad_close_ffmpeg (WfDecoder* d)
 #ifdef USE_FFMPEG_FILTERS
 	g_clear_pointer(&f->thumbnail.packet, av_packet_unref);
 #endif
+
 	av_frame_unref(&f->frame);
-#if 1
-	avcodec_close(f->codec_context);
-#else
-	// TODO the docs say dont use avcodec_close. try this instead
 	avcodec_free_context(&f->codec_context);
-#endif
 	avformat_close_input(&f->format_context);
 	g_clear_pointer(&f, g_free);
 

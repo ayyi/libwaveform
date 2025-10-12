@@ -45,7 +45,7 @@
 #define DEFAULT_HEIGHT 64
 #define DEFAULT_WIDTH 128
 
-static AGl*          agl = NULL;
+static AGl* agl = NULL;
 
 static GdkGLContext* gl_context = NULL;
 
@@ -637,7 +637,7 @@ waveform_view_plus_finalize (GObject* obj)
 		v->actor = NULL;
 	}
 
-	if (v->context) wf_context_free0(v->context);
+	g_clear_pointer(&v->context, wf_context_free);
 
 	_waveform_view_plus_unset_waveform(view);
 	g_clear_pointer(&v->ready, am_promise_unref);
@@ -647,7 +647,8 @@ waveform_view_plus_finalize (GObject* obj)
 
 
 /*
- *  Returns the underlying canvas that the WaveformViewPlus is using.
+ *  Returns the context that the WaveformViewPlus is using.
+ *  The context provides properties such samples-per-pixel.
  */
 WaveformContext*
 waveform_view_plus_get_context (WaveformViewPlus* view)

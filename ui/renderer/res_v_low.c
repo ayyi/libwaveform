@@ -1,7 +1,7 @@
 /*
  +----------------------------------------------------------------------+
  | This file is part of the Ayyi project. https://www.ayyi.org          |
- | copyright (C) 2014-2024 Tim Orford <tim@orford.org>                  |
+ | copyright (C) 2014-2025 Tim Orford <tim@orford.org>                  |
  +----------------------------------------------------------------------+
  | This program is free software; you can redistribute it and/or modify |
  | it under the terms of the GNU General Public License version 3       |
@@ -21,7 +21,7 @@ v_lo_new (WaveformActor* actor)
 	int n_blocks = w->num_peaks / (WF_MED_TO_V_LOW * WF_TEXTURE_VISIBLE_SIZE) + ((w->num_peaks % (WF_MED_TO_V_LOW * WF_TEXTURE_VISIBLE_SIZE)) ? 1 : 0);
 
 	HiResNGWaveform** data = (HiResNGWaveform**)&w->render_data[MODE_V_LOW];
-	if (!*data) {
+	if (!*data && n_blocks) {
 		int n_sections = waveform_get_n_audio_blocks(waveform) / MAX_BLOCKS_PER_TEXTURE + (waveform_get_n_audio_blocks(waveform) % MAX_BLOCKS_PER_TEXTURE ? 1 : 0);
 
 		*(*data = g_malloc0(sizeof(HiResNGWaveform) + sizeof(Section) * n_sections)) = (HiResNGWaveform){
@@ -128,8 +128,8 @@ v_lo_is_not_blank (Renderer* renderer, WaveformActor* actor)
 #endif
 
 
-Renderer v_lo_renderer_gl1 = {MODE_V_LOW, v_lo_new_gl1, low_allocate_block_gl1, med_lo_pre_render_gl1, med_lo_render_gl1, NULL, med_lo_gl1_free_waveform};
-NGRenderer v_lo_renderer_gl2 = {{MODE_V_LOW, v_lo_new, ng_gl2_load_block, ng_pre_render0, ng_gl2_render_block, ng_gl2_post_render, ng_gl2_free_waveform,
+Renderer v_lo_renderer_gl1 = {MODE_V_LOW, v_lo_new_gl1, low_allocate_block_gl1, NULL, med_lo_pre_render_gl1, med_lo_render_gl1, NULL, med_lo_gl1_free_waveform};
+NGRenderer v_lo_renderer_gl2 = {{MODE_V_LOW, v_lo_new, ng_load_block, ng_load_blocks, ng_pre_render0, ng_gl2_render_block, ng_gl2_post_render, ng_gl2_free_waveform,
 #ifdef USE_TEST
 	.is_not_blank = v_lo_is_not_blank,
 #endif

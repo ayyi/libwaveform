@@ -7,10 +7,13 @@
  | it under the terms of the GNU General Public License version 3       |
  | as published by the Free Software Foundation.                        |
  +----------------------------------------------------------------------+
- |
- |  Demonstration of the libwaveform WaveformActor interface
- |
- |  Similar to actor.c but with additional features, eg background, ruler.
+ |                                                                      |
+ | Demonstration of the libwaveform WaveformActor interface             |
+ |                                                                      |
+ | Similar to actor.c but with additional features,                     |
+ | e.g. background, ruler.                                              |
+ |                                                                      |
+ +----------------------------------------------------------------------+
  |
  */
 

@@ -1,7 +1,7 @@
 /*
  +----------------------------------------------------------------------+
  | This file is part of the Ayyi project. https://www.ayyi.org          |
- | copyright (C) 2013-2023 Tim Orford <tim@orford.org>                  |
+ | copyright (C) 2013-2025 Tim Orford <tim@orford.org>                  |
  +----------------------------------------------------------------------+
  | This program is free software; you can redistribute it and/or modify |
  | it under the terms of the GNU General Public License version 3       |
@@ -10,8 +10,7 @@
  |
  */
 
-#ifndef __waveform_actor_h__
-#define __waveform_actor_h__
+#pragma once
 
 #include "transition/transition.h"
 #include "agl/actor.h"
@@ -27,8 +26,10 @@ typedef enum {
 	RENDER_RESULT_LOADING,
 	RENDER_RESULT_SIZE,
 	RENDER_RESULT_NO_BLOCKS,
+	RENDER_RESULT_NO_REGION,
 	RENDER_RESULT_BLOCK_RANGE,
 	RENDER_RESULT_NO_AUDIO_DATA,
+	RENDER_RESULT_NO_PROGRAM,
 	RENDER_RESULT_BAD
 } RenderResult;
 #endif
@@ -66,4 +67,4 @@ void           wf_actor_clear                (WaveformActor*);
 
 #define        WF_ACTOR_PX_PER_FRAME(A) (agl_actor__width((AGlActor*)A) / A->region.len)
 
-#endif
+_GLIB_DEFINE_AUTOPTR_CLEANUP_FUNCS (WaveformActor, AGlActor, agl_actor__free)

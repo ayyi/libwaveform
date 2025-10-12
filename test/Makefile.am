@@ -12,7 +12,7 @@ SDLPROGRAMS = sdl
 endif
 
 if ENABLE_GTK
-GTKPROGRAMS = view_plus no_scene hires res_vhi multi_scene $(ASSPROGRAMS) pixbuf
+GTKPROGRAMS = view_plus no_scene hires res_vhi res_vhi_blocks multi_scene $(ASSPROGRAMS) pixbuf
 LOCAL_GTK_LDFLAGS = \
 	$(GTK_LDFLAGS)
 else
@@ -31,7 +31,7 @@ endif
 endif
 
 if ENABLE_OPENGL
-noinst_PROGRAMS = waveform large_files promise 32bit actor actor_plus glx res_vlow list group input frame_rate resources cache $(GTKPROGRAMS) $(SDLPROGRAMS)
+noinst_PROGRAMS = waveform large_files promise 32bit unit-actor actor actor_plus glx res_vlow list group input frame_rate resources cache $(GTKPROGRAMS) $(SDLPROGRAMS)
 else
 noinst_PROGRAMS = waveform promise 32bit
 endif
@@ -73,6 +73,7 @@ TEST_LDFLAGS = \
 	$(GRAPHENE_LDFLAGS) \
 	$(XRANDR_LDFLAGS) \
 	$(X11_LDFLAGS) \
+	$(EGL_LDFLAGS) \
 	$(FRIBIDI_LDFLAGS) \
 	-lm
 
@@ -86,6 +87,10 @@ COMMON2_SOURCES = \
 waveform_SOURCES = \
 	$(COMMON2_SOURCES) \
 	waveform.c
+
+unit_actor_SOURCES = \
+	$(COMMON2_SOURCES) \
+	unit-actor.c
 
 view_plus_SOURCES = \
 	$(COMMON2_SOURCES) \
@@ -211,6 +216,10 @@ LDADD = \
 	$(OPENGL_LDFLAGS) \
 	$(TEST_LDFLAGS)
 
+res_vhi_blocks_LDADD = \
+	$(LDADD) \
+	common2.o
+
 view_plus_DEPENDENCIES = \
 	../.libs/libwaveformcore.a \
 	../.libs/libwaveformui.a \
@@ -224,7 +233,7 @@ AM_TESTS_FD_REDIRECT = 9>&2 --autoquit
 AM_TESTS_ENVIRONMENT = \
 	export NON_INTERACTIVE=1;
 
-BUILT_SOURCES = waveform.h 32bit.h promise.h large_files.h
+BUILT_SOURCES = waveform.h 32bit.h promise.h large_files.h unit-actor.h
 
 define build_header =
 	echo > $@
@@ -254,16 +263,21 @@ promise.h: promise.c Makefile
 large_files.h: large_files.c Makefile
 	@$(build_header)
 
+unit-actor.h: unit-actor.c Makefile
+	@$(build_header)
+
 # these tests will be run as part of make-check
 TESTS = \
 	waveform \
 	32bit \
+	unit-actor \
 	cache \
 	view_plus \
 	actor \
 	actor_plus \
 	hires \
 	res_vhi \
+	res_vhi_blocks \
 	res_vlow \
 	group \
 	no_scene \

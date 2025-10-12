@@ -1,7 +1,7 @@
 /*
  +----------------------------------------------------------------------+
  | This file is part of the Ayyi project. https://www.ayyi.org          |
- | copyright (C) 2012-2024 Tim Orford <tim@orford.org>                  |
+ | copyright (C) 2012-2025 Tim Orford <tim@orford.org>                  |
  +----------------------------------------------------------------------+
  | This program is free software; you can redistribute it and/or modify |
  | it under the terms of the GNU General Public License version 3       |
@@ -82,8 +82,8 @@ ng_gl2_set_ (Section* section, int pos, char val)
 #endif
 
 
-static void
-ng_gl2_load_block (Renderer* renderer, WaveformActor* actor, int b)
+static bool
+_ng_load_block (Renderer* renderer, WaveformActor* actor, int b)
 {
 	NGRenderer* ng_renderer = (NGRenderer*)renderer;
 	Waveform* waveform = actor->waveform;
@@ -105,16 +105,6 @@ ng_gl2_load_block (Renderer* renderer, WaveformActor* actor, int b)
 		ng_gl2_queue_clean(renderer);
 
 		return section;
-	}
-
-	bool section_is_complete (WaveformActor* actor, Section* section)
-	{
-		int max = MIN(waveform_get_n_audio_blocks(waveform), MAX_BLOCKS_PER_TEXTURE);
-		int i;for(i=0;i<max;i++){
-			if(!section->ready[i]) return false;
-		}
-		dbg(1, "complete");
-		return section->completed = true;
 	}
 
 	void other_lods (Renderer* renderer, Section* section, int dest)
@@ -282,7 +272,7 @@ ng_gl2_load_block (Renderer* renderer, WaveformActor* actor, int b)
 	{
 		HiResNGWaveform* data1 = g_hash_table_lookup(((NGRenderer*)renderer)->ng_data, waveform);
 		if((*data) != data1) pwarn("%i: wav=%p hash=%p %s", b, *data, data1, modes[renderer->mode].name);
-		g_return_if_fail((*data) == data1);
+		g_return_val_if_fail((*data) == data1, false);
 	}
 #endif
 #endif
@@ -300,69 +290,120 @@ ng_gl2_load_block (Renderer* renderer, WaveformActor* actor, int b)
 #endif
 	}
 
-	bool texture_changed[(*data)->size];
-	memset(texture_changed, 0, sizeof(bool) * (*data)->size);
+	bool texture_changed = false;
 
 	int block_size = get_block_size(actor);
-	{
-		int s  = b / MAX_BLOCKS_PER_TEXTURE;
-		int _b = b % MAX_BLOCKS_PER_TEXTURE;
-		Section* section = &(*data)->section[s];
+	int s  = b / MAX_BLOCKS_PER_TEXTURE;
+	int _b = b % MAX_BLOCKS_PER_TEXTURE;
+	Section* section = &(*data)->section[s];
 															// TODO move timestamp to render
-		section->time_stamp = ((NGRenderer*)renderer)->time_stamp++;
-		if(section->completed) return;
-		if(!section->buffer) section = add_section(renderer, actor, *data, s);
-		if(!section->ready[_b]){
-			texture_changed[s] = true;
-			call(ng_renderer->buf_to_tex, renderer, actor, b);
-			switch(renderer->mode){
-				case MODE_LOW:
-					lo_peakbuf_to_texture(renderer, actor, b, section, n_chans, block_size);
-					break;
-				case MODE_MED:
-					med_peakbuf_to_texture(renderer, actor, b, section, n_chans, block_size);
-					break;
-				case MODE_HI:
-					hi_audio_to_texture(renderer, actor, b, section, n_chans, block_size);
-					break;
-				case MODE_V_LOW:
-					//v_low_peakbuf_to_texture(renderer, actor, b, section, n_chans, block_size);
-					;int c; for(c=0;c<n_chans;c++){
-						int dest = _b * block_size + (c * block_size / 2);
-						other_lods(renderer, section, dest);
-					}
-					break;
-				default:
-					break;
-			}
-			section->ready[_b] = true;
+	section->time_stamp = ((NGRenderer*)renderer)->time_stamp++;
+	if (section->completed) return false;
+	if (!section->buffer) section = add_section(renderer, actor, *data, s);
+	if (!section->ready[_b]) {
+		texture_changed = true;
+		call(ng_renderer->buf_to_tex, renderer, actor, b);
+
+		switch (renderer->mode) {
+			case MODE_LOW:
+				lo_peakbuf_to_texture(renderer, actor, b, section, n_chans, block_size);
+				break;
+			case MODE_MED:
+				med_peakbuf_to_texture(renderer, actor, b, section, n_chans, block_size);
+				break;
+			case MODE_HI:
+				hi_audio_to_texture(renderer, actor, b, section, n_chans, block_size);
+				break;
+			case MODE_V_LOW:
+				//v_low_peakbuf_to_texture(renderer, actor, b, section, n_chans, block_size);
+				;int c; for(c=0;c<n_chans;c++){
+					int dest = _b * block_size + (c * block_size / 2);
+					other_lods(renderer, section, dest);
+				}
+				break;
+			default:
+				break;
 		}
+		section->ready[_b] = true;
+	}
+	return texture_changed;
+}
+
+static void
+upload_texture (Renderer* renderer, WaveformActor* actor, int s)
+{
+	bool section_is_complete (WaveformActor* actor, Section* section)
+	{
+		int max = MIN(waveform_get_n_audio_blocks(actor->waveform), MAX_BLOCKS_PER_TEXTURE);
+		for (int i=0;i<max;i++) {
+			if (!section->ready[i]) return false;
+		}
+		dbg(1, "complete");
+		return section->completed = true;
 	}
 
-	for(int s=0;s<(*data)->size;s++){
-		Section* section = &(*data)->section[s];
-		if(!section->completed){
-			if(texture_changed[s]){
-				if(!section->texture){
-					// note: for the WaveformBlock we use the first block for the section (WaveformBlock concept is broken in this context)
-					section->texture = texture_cache_assign_new(GL_TEXTURE_2D, (WaveformBlock){waveform, (s * MAX_BLOCKS_PER_TEXTURE) | (renderer->mode == MODE_HI ? WF_TEXTURE_CACHE_HIRES_NG_MASK : 0)});
-				}
+	Waveform* waveform = actor->waveform;
+	WaveformPrivate* w = waveform->priv;
+	HiResNGWaveform** data = (HiResNGWaveform**)&w->render_data[renderer->mode];
+	Section* section = &(*data)->section[s];
 
-				int width = modes[renderer->mode].texture_size;
-				int height = section->buffer_size / width;
-				#define pixel_format GL_ALPHA
-				agl_use_texture (section->texture);
-				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-				// TODO it is quite common for this to be done several times in quick succession for the same texture with consecutive calls to ng_gl2_load_block
-				dbg(1, "%i: uploading texture: %i x %i", s, width, height);
-				glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, width, height, 0, pixel_format, GL_UNSIGNED_BYTE, section->buffer);
-				gl_warn("error binding texture: %u", section->texture);
-			}
+#ifdef USE_EGL
+	AGlScene* scene = ((AGlActor*)actor)->root;
+#ifdef DEBUG
+	if (scene->type == CONTEXT_TYPE_GTK && eglGetCurrentContext() != scene->gl.gdk.eglcontext) {
+#else
+	if (scene->type == CONTEXT_TYPE_GTK) {
+#endif
+		gdk_gl_context_make_current (scene->gl.gdk.context);
+	}
+#endif
 
-			if(section_is_complete(actor, section)){
-				g_free0(section->buffer); // all data has been sent to the gpu so can be freed.
-			}
+	if (!section->texture) {
+		// note: for the WaveformBlock we use the first block for the section (WaveformBlock concept is broken in this context)
+		section->texture = texture_cache_assign_new(GL_TEXTURE_2D, (WaveformBlock){waveform, (s * MAX_BLOCKS_PER_TEXTURE) | (renderer->mode == MODE_HI ? WF_TEXTURE_CACHE_HIRES_NG_MASK : 0)});
+	}
+
+	int width = modes[renderer->mode].texture_size;
+	int height = section->buffer_size / width;
+	#define pixel_format GL_ALPHA
+	agl_use_texture (section->texture);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	dbg(1, "%i: uploading texture: %i x %i", s, width, height);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, width, height, 0, pixel_format, GL_UNSIGNED_BYTE, section->buffer);
+	gl_warn("error binding texture: %u", section->texture);
+
+	if (section_is_complete(actor, section)) {
+		g_free0(section->buffer); // all data has been sent to the gpu so can be freed.
+	}
+}
+
+
+static void
+ng_load_block (Renderer* renderer, WaveformActor* actor, int b)
+{
+	if (_ng_load_block(renderer, actor, b)) {
+
+		upload_texture(renderer, actor, b / MAX_BLOCKS_PER_TEXTURE);
+	}
+}
+
+
+/*
+ *  If loading many blocks, it is more efficient to call `ng_load_blocks` rather than successive calls to `ng_load_block`
+ */
+static void
+ng_load_blocks (Renderer* renderer, WaveformActor* actor, int b1, int b2)
+{
+	int s1 = b1 / MAX_BLOCKS_PER_TEXTURE;
+	int s2 = b2 / MAX_BLOCKS_PER_TEXTURE;
+	for (int s=s1;s<=s2;s++) {
+		bool changed = false;
+		for (int b=s*MAX_BLOCKS_PER_TEXTURE; b<=b2 && b<(s+1)*MAX_BLOCKS_PER_TEXTURE; b++) {
+			changed |= _ng_load_block(renderer, actor, b);
+		}
+		if (changed) {
+			upload_texture(renderer, actor, s);
 		}
 	}
 }

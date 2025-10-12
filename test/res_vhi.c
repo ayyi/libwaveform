@@ -28,7 +28,6 @@ Waveform*        w1       = NULL;
 WaveformActor*   a[1]     = {NULL,};
 WaveformActor*   split[2] = {NULL,};
 float            vzoom    = 1.0;
-gpointer         tests[]  = {};
 
 AGlKeyHandler
 	zoom_in,
@@ -38,6 +37,7 @@ AGlKeyHandler
 	scroll_left,
 	scroll_right,
 	toggle_animate,
+	debug_info,
 	delete;
 
 AGlKey keys[] = {
@@ -53,6 +53,7 @@ AGlKey keys[] = {
 	{(char)'<',     NULL},
 	{(char)'>',     NULL},
 	{(char)'a',     toggle_animate},
+	{(char)'d',     debug_info},
 	{XK_Delete,     delete},
 	{0},
 };
@@ -267,6 +268,16 @@ toggle_animate (gpointer _)
 {
 	PF0;
 	g_timeout_add(50, on_idle, NULL);
+}
+
+
+void
+debug_info (gpointer view)
+{
+#ifdef DEBUG
+    extern void agl_actor__print_tree (AGlActor*);
+    agl_actor__print_tree((AGlActor*)scene);
+#endif
 }
 
 

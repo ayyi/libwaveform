@@ -1,7 +1,7 @@
 /*
  +----------------------------------------------------------------------+
  | This file is part of the Ayyi project. https://www.ayyi.org          |
- | copyright (C) 2013-2024 Tim Orford <tim@orford.org>                  |
+ | copyright (C) 2013-2025 Tim Orford <tim@orford.org>                  |
  +----------------------------------------------------------------------+
  | This program is free software; you can redistribute it and/or modify |
  | it under the terms of the GNU General Public License version 3       |
@@ -13,7 +13,7 @@
 extern HiResNGShader hires_ng_shader;
 
 static void
-low_new_gl2 (WaveformActor* actor)
+low_new (WaveformActor* actor)
 {
 	WaveformPrivate* w = actor->waveform->priv;
 
@@ -44,8 +44,8 @@ lo_new_gl1 (WaveformActor* actor)
 }
 
 
-Renderer lo_renderer_gl1 = {MODE_LOW, lo_new_gl1, low_allocate_block_gl1, med_lo_pre_render_gl1, med_lo_render_gl1, NULL, med_lo_gl1_free_waveform};
-NGRenderer lo_renderer_gl2 = {{MODE_LOW, low_new_gl2, ng_gl2_load_block, ng_pre_render0, ng_gl2_render_block, ng_gl2_post_render, ng_gl2_free_waveform}};
+Renderer lo_renderer_gl1 = {MODE_LOW, lo_new_gl1, low_allocate_block_gl1, NULL, med_lo_pre_render_gl1, med_lo_render_gl1, NULL, med_lo_gl1_free_waveform};
+NGRenderer lo_renderer = {{MODE_LOW, low_new, ng_load_block, ng_load_blocks, ng_pre_render0, ng_gl2_render_block, ng_gl2_post_render, ng_gl2_free_waveform}};
 
 
 static Renderer*
@@ -53,9 +53,9 @@ lo_renderer_init ()
 {
 	g_return_val_if_fail(!med_renderer_gl2.ng_data, NULL);
 
-	lo_renderer_gl2.ng_data = g_hash_table_new_full(g_direct_hash, g_int_equal, NULL, g_free);
+	lo_renderer.ng_data = g_hash_table_new_full(g_direct_hash, g_int_equal, NULL, g_free);
 
-	ng_make_lod_levels(&lo_renderer_gl2, MODE_LOW);
+	ng_make_lod_levels(&lo_renderer, MODE_LOW);
 
-	return (Renderer*)&lo_renderer_gl2;
+	return (Renderer*)&lo_renderer;
 }

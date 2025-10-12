@@ -1,7 +1,7 @@
 /*
  +----------------------------------------------------------------------+
  | This file is part of the Ayyi project. https://www.ayyi.org          |
- | copyright (C) 2012-2024 Tim Orford <tim@orford.org>                  |
+ | copyright (C) 2012-2025 Tim Orford <tim@orford.org>                  |
  +----------------------------------------------------------------------+
  | This program is free software; you can redistribute it and/or modify |
  | it under the terms of the GNU General Public License version 3       |
@@ -20,6 +20,9 @@ typedef void (TestFn) ();
 typedef int  (SetupFn) ();
 typedef void (TeardownFn) ();
 
+typedef bool (*ReadyTest)    (gpointer);
+typedef void (*WaitCallback) (gpointer);
+
 typedef struct {
 	int n_tests;
 	int n_passed;
@@ -31,6 +34,7 @@ typedef struct {
 		int    test;
 		char   name[64];
 		bool   finished;  // current test has finished. Go onto the next test.
+		GList* timers;
 	}   current;
 } Runner;
 
@@ -43,6 +47,7 @@ extern Runner TEST;
 void test_finish        ();
 void test_reset_timeout (int ms);
 void test_errprintf     (char*, ...);
+void wait_for           (ReadyTest, WaitCallback, gpointer);
 
 #ifndef red
 #define RED "\x1b[1;31m"
@@ -92,6 +97,7 @@ void test_errprintf     (char*, ...);
 
 #define assert(A, B, ...) \
 	{bool __ok_ = ((A) != 0); \
+	{if(!__ok_) printf("line %i: ", __LINE__); } \
 	{if(!__ok_) perr(B, ##__VA_ARGS__); } \
 	{if(!__ok_) FAIL_TEST("assertion failed") }}
 

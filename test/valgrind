@@ -12,6 +12,7 @@ PROG=./promise
 PROG=./glx
 PROG=./list
 PROG=./actor_no_scene
+PROG=./unit-actor
 PROG=./waveform_test
 
 ls -l $PROG

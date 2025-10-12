@@ -96,8 +96,9 @@ static void
 wf_context_class_init (WaveformContextClass* klass)
 {
 	waveform_context_parent_class = g_type_class_peek_parent (klass);
-	//g_type_class_add_private (klass, sizeof (WaveformContextPrivate));
+
 	G_OBJECT_CLASS (klass)->finalize = wf_context_finalize;
+
 	g_signal_new ("dimensions_changed", TYPE_WAVEFORM_CONTEXT, G_SIGNAL_RUN_LAST, 0, NULL, NULL, g_cclosure_marshal_VOID__VOID, G_TYPE_NONE, 0);
 	g_signal_new ("zoom_changed", TYPE_WAVEFORM_CONTEXT, G_SIGNAL_RUN_LAST, 0, NULL, NULL, g_cclosure_marshal_VOID__VOID, G_TYPE_NONE, 0);
 
@@ -162,8 +163,8 @@ wf_context_init (WaveformContext* wfc, AGlActor* root)
 }
 
 
-WaveformContext*
-waveform_canvas_construct (GType object_type)
+static WaveformContext*
+waveform_context_construct (GType object_type)
 {
 	return (WaveformContext*)g_object_new(object_type, NULL);
 }
@@ -174,7 +175,7 @@ wf_context_new (AGlActor* root)
 {
 	PF;
 
-	WaveformContext* wfc = waveform_canvas_construct(TYPE_WAVEFORM_CONTEXT);
+	WaveformContext* wfc = waveform_context_construct(TYPE_WAVEFORM_CONTEXT);
 	wfc->root = root;
 	wf_context_init(wfc, root);
 
@@ -188,7 +189,7 @@ wf_context_new_sdl (SDL_GLContext* context)
 {
 	PF;
 
-	WaveformContext* wfc = waveform_canvas_construct(TYPE_WAVEFORM_CONTEXT);
+	WaveformContext* wfc = waveform_context_construct(TYPE_WAVEFORM_CONTEXT);
 
 	wfc->show_rms = true;
 
@@ -222,7 +223,10 @@ wf_context_free (WaveformContext* wfc)
 
 	_g_source_remove0(c->pending_init);
 	_g_source_remove0(c->_queued);
-	wf_context_finalize((GObject*)wfc);
+	g_clear_pointer(&wfc->zoom, agl_observable_free);
+	g_clear_pointer(&wfc->start_time, agl_observable_free);
+
+	g_object_unref((GObject*)wfc);
 }
 
 
@@ -307,13 +311,6 @@ wf_context_queue_redraw (WaveformContext* wfc)
 }
 
 
-void
-wf_context_set_rotation (WaveformContext* wfc, float rotation)
-{
-	dbg(0, "TODO");
-}
-
-
 #ifdef USE_CANVAS_SCALING
 float
 wf_context_get_zoom (WaveformContext* wfc)
@@ -356,8 +353,6 @@ wf_context_set_zoom_on_frame (WfAnimation* animation, int time)
 void
 wf_context_set_zoom (WaveformContext* wfc, float zoom)
 {
-	// TODO should probably call agl_actor__start_transition
-
 	wfc->scaled = true;
 
 	dbg(1, "zoom=%f spp=%.2f", zoom, wfc->samples_per_pixel);
@@ -373,8 +368,7 @@ wf_context_set_zoom (WaveformContext* wfc, float zoom)
 		return;
 	}
 
-	// TODO move this into the animator xx
-	if(zoom == wfc->zoom->value.f){
+	if (zoom == wfc->zoom->value.f) {
 		return;
 	}
 
