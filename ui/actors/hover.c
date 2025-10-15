@@ -1,7 +1,7 @@
 /*
  +----------------------------------------------------------------------+
  | This file is part of the Ayyi project. https://www.ayyi.org          |
- | copyright (C) 2025-2025 Tim Orford <tim@orford.org>                  |
+ | copyright (C) 2025-2026 Tim Orford <tim@orford.org>                  |
  +----------------------------------------------------------------------+
  | This program is free software; you can redistribute it and/or modify |
  | it under the terms of the GNU General Public License version 3       |
@@ -43,7 +43,7 @@ event_spy_free (AGlBehaviour* b)
 	// override the default free as there is nothing to free
 }
 
-static bool event_spy_event (AGlBehaviour*, AGlActor*, AGlEvent*);
+static bool event_spy_event (AGlBehaviour*, AGlActor*, AGlEvent*, AGliPt);
 
 static EventSpyClass event_spy_class = {
 	.class = {
@@ -61,7 +61,7 @@ typedef struct {
 } HoverActor;
 
 static bool
-event_spy_event (AGlBehaviour* behaviour, AGlActor* actor, AGlEvent* event)
+event_spy_event (AGlBehaviour* behaviour, AGlActor* actor, AGlEvent* event, AGliPt xy)
 {
 	EventSpy* spy = (EventSpy*)behaviour;
 

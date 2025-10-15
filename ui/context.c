@@ -460,3 +460,27 @@ wf_context_frame_to_x (WaveformContext* context, uint64_t frame)
 	float pixels_per_sample = context->zoom->value.f / context->samples_per_pixel;
 	return (frame - context->start_time->value.b) * pixels_per_sample;
 }
+
+
+uint64_t
+wf_context_x_to_frame (WaveformContext* context, int x)
+{
+	return context->start_time->value.b + (float)x * context->samples_per_pixel / context->zoom->value.f;
+}
+
+
+const char*
+wf_context_print_time (WaveformContext* wfc, int x)
+{
+	static char str[16] = "\0";
+
+	int64_t frames = wf_context_x_to_frame(wfc, x);
+	int _secsf = frames % (wfc->sample_rate * 60);
+
+	int mins = frames / (wfc->sample_rate * 60);
+	int secs = _secsf / wfc->sample_rate;
+	int sub = (_secsf % wfc->sample_rate) * 1000 / wfc->sample_rate;
+	snprintf(str, 15, "%02i:%02i:%03i", mins, secs, sub);
+
+	return str;
+}

@@ -49,8 +49,6 @@ static AGl* agl = NULL;
 
 static GdkGLContext* gl_context = NULL;
 
-#define _g_source_remove0(S) {if(S) g_source_remove(S); S = 0;}
-
 static ActorKeyHandler
 	zoom_in,
 	zoom_out,
@@ -104,7 +102,7 @@ static void     waveform_view_plus_gl_on_allocate       (WaveformViewPlus*);
 static AGlActor* waveform_actor                         (WaveformViewPlus*);
 static void      waveform_actor_size                    (AGlActor*);
 
-#define SCENE(VIEW) ((AGlActor*)((AGlGtkArea*)VIEW)->scene)
+#define ROOT(VIEW) ((AGlActor*)((AGlGtkArea*)VIEW)->scene)
 
 /*
  *  For use where the widget needs to share an opengl context with other items.
@@ -158,7 +156,7 @@ waveform_view_plus_new (Waveform* waveform)
 	// delay initialisation to allow for additional options to be set.
 	g_idle_add(waveform_view_plus_load_new_on_idle, view);
 
-	AGlActor* root = SCENE(view);
+	AGlActor* root = ROOT(view);
 	v->context = wf_context_new(root);
 
 	v->actor = (WaveformActor*)waveform_actor(view);
@@ -178,7 +176,7 @@ waveform_view_plus_new (Waveform* waveform)
 					WaveformViewPlusPrivate* v = view->priv;
 
 					if (w == view->waveform) { // it may have changed during load
-						if (!g_list_find (SCENE(view)->children, v->actor)) {
+						if (!g_list_find (ROOT(view)->children, v->actor)) {
 							((AGlActor*)v->actor)->set_size((AGlActor*)v->actor);
 						}
 
@@ -201,7 +199,7 @@ _waveform_view_plus__show_waveform (gpointer _view, gpointer _c)
 
 	if (!(actor->parent)) {
 		if (view->waveform) { // it is valid for the widget to not have a waveform set.
-			agl_actor__add_child(SCENE(view), actor);
+			agl_actor__add_child(ROOT(view), actor);
 
 			agl_actor__set_size(actor);
 
@@ -430,7 +428,7 @@ waveform_view_plus_add_layer (WaveformViewPlus* view, AGlActor* actor, int z)
 	PF;
 
 	actor->z = z;
-	agl_actor__add_child(SCENE(view), actor);
+	agl_actor__add_child(ROOT(view), actor);
 
 	return actor;
 }
@@ -439,7 +437,7 @@ waveform_view_plus_add_layer (WaveformViewPlus* view, AGlActor* actor, int z)
 AGlActor*
 waveform_view_plus_get_layer (WaveformViewPlus* view, int z)
 {
-	return agl_actor__find_by_z(SCENE(view), z);
+	return agl_actor__find_by_z(ROOT(view), z);
 }
 
 
@@ -448,7 +446,7 @@ waveform_view_plus_remove_layer (WaveformViewPlus* view, AGlActor* actor)
 {
 	g_return_if_fail(actor);
 
-	agl_actor__remove_child(SCENE(view), actor);
+	agl_actor__remove_child(ROOT(view), actor);
 }
 
 
@@ -537,7 +535,7 @@ waveform_view_plus_display_maybe_ready (WaveformViewPlus* view)
 
 	if (promise(PROMISE_DISP_READY)->is_resolved) return true;
 
-	if (gtk_widget_get_realized(widget) && ((AGlRootActor*)SCENE(view))->gl.gdk.context) {
+	if (gtk_widget_get_realized(widget) && ((AGlRootActor*)ROOT(view))->gl.gdk.context) {
 		waveform_view_plus_display_ready(view);
 		return true;
 	}
@@ -773,7 +771,7 @@ waveform_view_plus_gl_on_allocate (WaveformViewPlus* view)
 	if (!v->actor) return;
 
 	if (v->context->scaled) {
-		wf_context_set_scale(v->context, v->context->priv->zoom.target_val.f * v->actor->region.len / agl_actor__width(SCENE(view)));
+		wf_context_set_scale(v->context, v->context->priv->zoom.target_val.f * v->actor->region.len / agl_actor__width(ROOT(view)));
 	}
 
 	waveform_actor_size((AGlActor*)v->actor);

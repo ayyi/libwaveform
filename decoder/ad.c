@@ -1,7 +1,7 @@
 /*
  +----------------------------------------------------------------------+
  | This file is part of the Ayyi project. https://www.ayyi.org          |
- | copyright (C) 2011-2024 Tim Orford <tim@orford.org>                  |
+ | copyright (C) 2011-2025 Tim Orford <tim@orford.org>                  |
  | copyright (C) 2011 Robin Gareus <robin@gareus.org>                   |
  +----------------------------------------------------------------------+
  | This program is free software; you can redistribute it and/or modify |
@@ -92,6 +92,14 @@ ad_close (WfDecoder* d)
 {
 	if (!d) return -1;
 	return d->b->close(d);
+}
+
+
+void
+ad_clear (WfDecoder* d)
+{
+	ad_free_nfo(&d->info);
+	d->b->close(d);
 }
 
 

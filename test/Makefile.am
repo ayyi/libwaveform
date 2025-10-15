@@ -12,7 +12,7 @@ SDLPROGRAMS = sdl
 endif
 
 if ENABLE_GTK
-GTKPROGRAMS = view_plus no_scene hires res_vhi res_vhi_blocks multi_scene $(ASSPROGRAMS) pixbuf
+GTKPROGRAMS = view_plus no_scene hires res_vhi res_vhi_blocks res_vhi_scrollable multi_scene $(ASSPROGRAMS) pixbuf
 LOCAL_GTK_LDFLAGS = \
 	$(GTK_LDFLAGS)
 else
@@ -217,6 +217,10 @@ LDADD = \
 	$(TEST_LDFLAGS)
 
 res_vhi_blocks_LDADD = \
+	$(LDADD) \
+	common2.o
+
+res_vhi_scrollable_LDADD = \
 	$(LDADD) \
 	common2.o
 

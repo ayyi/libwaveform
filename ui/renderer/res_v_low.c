@@ -29,7 +29,7 @@ v_lo_new (WaveformActor* actor)
 			.size     = n_sections
 		};
 
-		g_object_weak_ref((GObject*)waveform, ng_gl2_finalize_notify, renderer);
+		g_object_weak_ref((GObject*)waveform, ng_finalize_notify, renderer);
 		g_hash_table_insert(((NGRenderer*)renderer)->ng_data, waveform, *data);
 	}
 
@@ -88,7 +88,7 @@ v_lo_buf_to_tex (Renderer* renderer, WaveformActor* actor, int b)
 		int dest = _b * block_size + (c * block_size / 2);
 
 		int t = 0;
-		if(b == 0){
+		if (_b == 0) {
 			for(t=0;t<TEX_BORDER;t++){
 				ng_gl2_set_(section, dest + lod_max[mm_level] + t, 0);
 				ng_gl2_set_(section, dest + lod_min[mm_level] + t, 0);
@@ -129,7 +129,7 @@ v_lo_is_not_blank (Renderer* renderer, WaveformActor* actor)
 
 
 Renderer v_lo_renderer_gl1 = {MODE_V_LOW, v_lo_new_gl1, low_allocate_block_gl1, NULL, med_lo_pre_render_gl1, med_lo_render_gl1, NULL, med_lo_gl1_free_waveform};
-NGRenderer v_lo_renderer_gl2 = {{MODE_V_LOW, v_lo_new, ng_load_block, ng_load_blocks, ng_pre_render0, ng_gl2_render_block, ng_gl2_post_render, ng_gl2_free_waveform,
+NGRenderer v_lo_renderer_gl2 = {{MODE_V_LOW, v_lo_new, ng_load_block, ng_load_blocks, ng_pre_render0, ng_gl2_render_block, ng_post_render, ng_free_waveform,
 #ifdef USE_TEST
 	.is_not_blank = v_lo_is_not_blank,
 #endif

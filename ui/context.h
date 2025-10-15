@@ -99,6 +99,7 @@ void             wf_context_set_start                 (WaveformContext*, int64_t
 void             wf_context_set_gain                  (WaveformContext*, float);
 void             wf_context_queue_redraw              (WaveformContext*);
 float            wf_context_frame_to_x                (WaveformContext*, uint64_t);
+uint64_t         wf_context_x_to_frame                (WaveformContext*, int);
 const char*      wf_context_print_time                (WaveformContext*, int);
 
 G_DEFINE_AUTOPTR_CLEANUP_FUNC (WaveformContext, wf_context_free)

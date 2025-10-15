@@ -1,7 +1,7 @@
 /*
  +----------------------------------------------------------------------+
- | This file is part of the Ayyi project. https://ayyi.org              |
- | copyright (C) 2013-2022 Tim Orford <tim@orford.org>                  |
+ | This file is part of the Ayyi project. https://www.ayyi.org          |
+ | copyright (C) 2013-2026 Tim Orford <tim@orford.org>                  |
  +----------------------------------------------------------------------+
  | This program is free software; you can redistribute it and/or modify |
  | it under the terms of the GNU General Public License version 3       |
@@ -109,27 +109,26 @@ grid_actor_paint (AGlActor* actor)
 	if (!context->sample_rate) return false; // eg if file not loaded
 
 	float zoom = 0; // pixels per sample
-#ifdef USE_CANVAS_SCALING
 	float _zoom = wf_context_get_zoom(context);
 	if (_zoom > 0.0) {
 		zoom = _zoom / context->samples_per_pixel;
 	} else {
-#endif
-		WfViewPort viewport; wf_actor_get_viewport(grid->wf_actor, &viewport);
+		WfViewPort viewport;
+		viewport.left   = ((AGlActor*)grid->wf_actor)->region.x1;
+		viewport.right  = ((AGlActor*)grid->wf_actor)->region.x2;
 		zoom = (viewport.right - viewport.left) / grid->wf_actor->region.len;
-#ifdef USE_CANVAS_SCALING
 	}
-#endif
 
 	int interval = context->sample_rate * (zoom > 0.005 ? 1 : zoom > 0.0002 ? 10 : zoom > 0.0001 ? 50 : zoom > 0.00001 ? 480 : 4800) / 10;
 
-	const int64_t region_end = context->scaled
+	WfFrRange region;
+	region.end = context->scaled
 		? context->start_time->value.b + agl_actor__width(actor) * context->samples_per_pixel / context->zoom->value.f
 		: grid->wf_actor->region.start + grid->wf_actor->region.len;
 
 	int64_t f = ((int64_t)(context->start_time->value.b / interval)) * interval;
 	if (agl->use_shaders) {
-		int n = MIN(0x5f, (region_end - f) / interval);
+		int n = MIN(0x5f, (region.end - f) / interval);
 		if (f < context->start_time->value.b) f += interval;
 		AGlQuadVertex vertices[n];
 
@@ -152,7 +151,7 @@ grid_actor_paint (AGlActor* actor)
 		char s[16] = {0,};
 		int x_ = 0;
 		uint64_t f = ((int64_t)(context->start_time->value.b / interval)) * interval;
-		for (int i = 0; (f < region_end) && (i < 0xff); f += interval, i++) {
+		for (int i = 0; (f < region.end) && (i < 0xff); f += interval, i++) {
 			int x = wf_context_frame_to_x(context, f) + 3;
 			if (x > agl_actor__width(actor)) break;
 			if (x - x_ > 60) {
@@ -177,7 +176,7 @@ grid_actor_paint (AGlActor* actor)
 		glColor4f(0.5, 0.5, 1.0, 0.25);
 		agl_enable(AGL_ENABLE_BLEND);
 
-		for (int i = 0; (f < region_end) && (i < 0xff); f += interval, i++) {
+		for (int i = 0; (f < region.end) && (i < 0xff); f += interval, i++) {
 			float x = wf_context_frame_to_x(context, f);
 
 			glBegin(GL_LINES);

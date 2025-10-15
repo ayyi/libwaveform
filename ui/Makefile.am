@@ -40,6 +40,11 @@ OPENGL_LIBADD = \
 	actors/libactors.la
 endif
 
+if ENABLE_DEBUG
+DEBUG_SOURCES = \
+	debug_helper.c debug_helper.h
+endif
+
 libwf_la_SOURCES = \
 	typedefs.h \
 	private.h \
@@ -47,7 +52,8 @@ libwf_la_SOURCES = \
 	pixbuf.c pixbuf.h \
 	transition_behaviour.c transition_behaviour.h \
 	invalidator.c invalidator.h \
-	utils.c utils.h
+	utils.c utils.h \
+	$(DEBUG_SOURCES)
 
 libwf_la_LIBADD = \
 	$(OPENGL_LIBADD)
@@ -56,7 +62,6 @@ EXTRA_DIST = \
 	renderer/ng.c \
 	renderer/res_med.c \
 	renderer/res_hi.c \
-	renderer/res_hi_gl2.c \
 	renderer/res_v_hi.c \
 	renderer/res_lo.c \
 	renderer/res_v_low.c

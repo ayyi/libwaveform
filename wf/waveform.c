@@ -400,8 +400,13 @@ waveform_load_peak (Waveform* w, const char* peak_file, int ch_num)
 		_w->peaks->error = g_error_new(g_quark_from_static_string(wf->domain), 1, "Failed to load peak");
 	}
 
+	if (g_str_has_suffix(w->filename, ".mp3")) {
+		if (_w->num_peaks < w->n_frames / WF_PEAK_RATIO) {
+			dbg(1, "correcting bad frame count estimate");
+			w->n_frames = _w->num_peaks * WF_PEAK_RATIO;
+		}
+	} else {
 #ifdef DEBUG
-	if(!g_str_has_suffix(w->filename, ".mp3")){
 		if(wf_debug > -1 && w->n_frames){
 			uint64_t a = _w->num_peaks;
 			uint64_t b = w->n_frames / WF_PEAK_RATIO + (w->n_frames % WF_PEAK_RATIO ? 1 : 0);
@@ -414,8 +419,8 @@ waveform_load_peak (Waveform* w, const char* peak_file, int ch_num)
 				printf("\texpected_peakfile_size=%i bytes\n", (int)((((int)w->n_frames) / WF_PEAK_RATIO) * w->n_channels * WF_PEAK_VALUES_PER_SAMPLE * sizeof(short)));
 			}
 		}
-	}
 #endif
+	}
 
 	return !!w->priv->peak.buf[ch_num];
 }

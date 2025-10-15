@@ -32,9 +32,6 @@ static bool labels_actor_paint (AGlActor*);
 static void
 labels_actor_init (AGlActor* actor)
 {
-	if (agl->use_shaders) {
-		agl_create_program(&((LabelsActor*)actor)->context->shaders.ruler->shader);
-	}
 }
 
 

@@ -41,6 +41,7 @@ else
   enable_profiler="no"
 fi
 AM_CONDITIONAL(ENABLE_PROFILER, test $enable_profiler = "yes")
+AM_CONDITIONAL(ENABLE_DEBUG, test $debug = "yes")
 
 # Check for strict flag
 strict="no"
@@ -127,6 +128,20 @@ if `pkg-config gtk4 --atleast-version=4.18`; then
   AC_DEFINE(HAVE_GTK_4_18, 1, [We have at least gtk 4.18])
 else
   HAVE_GTK_4_18="no"
+fi;
+
+if `pkg-config gtk4 --atleast-version=4.20`; then
+  HAVE_GTK_4_20="yes"
+  AC_DEFINE(HAVE_GTK_4_20, 1, [We have at least gtk 4.20])
+else
+  HAVE_GTK_4_20="no"
+fi;
+
+if `pkg-config gtk4 --atleast-version=4.22`; then
+  HAVE_GTK_4_22="yes"
+  AC_DEFINE(HAVE_GTK_4_22, 1, [We have at least gtk 4.22])
+else
+  HAVE_GTK_4_22="no"
 fi;
 
 if `pkg-config glib-2.0 --atleast-version=2.32`; then
@@ -305,8 +320,18 @@ AS_IF([test "$enable_ffmpeg" != "no"], [
 
 if test "$enable_ffmpeg" = "yes"; then
 	AC_DEFINE(USE_FFMPEG,1,[Use ffmpeg audio decoder])
+
+	AC_MSG_CHECKING([for HAVE_MP3])
+	mp3encoder=`ffmpeg -encoders | grep '^ A.*mp3'`
+	if test ! -z "$mp3encoder"; then
+		enable_mp3=yes
+		HAVE_MP3="yes"
+		AC_SUBST(HAVE_MP3)
+		AC_DEFINE(HAVE_MP3, 1, [ffmpeg provides mp3 encoding])
+	fi
 fi
 AM_CONDITIONAL(ENABLE_FFMPEG, test "$enable_ffmpeg" = "yes")
+AM_CONDITIONAL(ENABLE_MP3, test "$enable_mp3" = "yes")
 FFMPEG_LDFLAGS=${FFMPEG_LIBS}
 AC_SUBST(FFMPEG_CFLAGS)
 AC_SUBST(FFMPEG_LDFLAGS)
@@ -442,6 +467,7 @@ AC_MSG_RESULT([Building sndfile:         $enable_sndfile])
 AC_MSG_RESULT([Building ffmpeg:          $enable_ffmpeg])
 AC_MSG_RESULT([Building xrandr:          $have_xrandr])
 AC_MSG_RESULT([Building tests:           $enable_test])
+AC_MSG_RESULT([Building mp3:             $enable_mp3])
 AC_MSG_RESULT([Building profiler:        $enable_profiler])
 AC_MSG_RESULT([Use epoxy:                $enable_epoxy])
 AC_MSG_RESULT([Use egl:                  $enable_egl])

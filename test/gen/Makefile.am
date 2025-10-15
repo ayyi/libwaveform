@@ -16,7 +16,7 @@ GTKGLEXT_LDFLAGS = \
 	-lgmodule-2.0
 endif
 
-TEST_LDFLAGS = \
+GEN_LDFLAGS = \
 	$(top_srcdir)/.libs/libwaveformcore.a \
 	-lm \
 	$(GTK_LDFLAGS) \
@@ -31,14 +31,18 @@ write_wav_SOURCES = \
 
 write_wav_LDADD = \
 	$(top_srcdir)/test/gen/.libs/libgen.a \
-	$(TEST_LDFLAGS)
+	$(GEN_LDFLAGS)
+
+write_wav_DEPENDENCIES = libgen.la
 
 write_short_SOURCES = \
 	write_short.cc
 
 write_short_LDADD = \
 	$(top_srcdir)/test/gen/.libs/libgen.a \
-	$(TEST_LDFLAGS)
+	$(GEN_LDFLAGS)
+
+write_short_DEPENDENCIES = libgen.la
 
 write_block_SOURCES = \
 	write_block.cc
@@ -68,8 +72,15 @@ libgen_la_SOURCES = \
 
 BUILT_SOURCES = test_data
 
+if ENABLE_MP3
+mp3_data = test_data_thumbnail mono_0.10.mp3
+endif
+
 # disable recompilation of write_block to prevent this running each time
-test_data: Makefile libgen.la test_data_1 test_data_thumbnail
+test_data: Makefile libgen.la test_data_1 $(mp3_data)
+
+mono_0.10.mp3: libgen.la write_wav test_data_1
+	$(FFMPEG) -i $(DATA_DIR)/mono_0:10.wav -q 2 $(DATA_DIR)/mono_0.10.mp3
 
 test_data_1: write_block.cc write_wav write_short write_piano
 	@if [ ! -e "write_block" ] || [ "write_block.cc" -nt "write_block" ] || [ "Makefile" -nt "write_block" ]; then \
@@ -78,7 +89,9 @@ test_data_1: write_block.cc write_wav write_short write_piano
 	@if [[ ! -d $(DATA_DIR) ]]; then mkdir $(DATA_DIR); fi
 	@if [ ! -e "$(DATA_DIR)/mono_0:10.wav" ] || [ "./write_wav" -nt "$(DATA_DIR)/mono_0:10.wav" ] || [ "Makefile" -nt "$(DATA_DIR)/mono_0:10.wav" ]; then \
 		./write_wav $(DATA_DIR)/mono_0:10.wav; \
-		$(FFMPEG) -i $(DATA_DIR)/mono_0:10.wav -q 2 $(DATA_DIR)/mono_0:10.mp3; \
+		if [[ "$(HAVE_MP3)" = "yes" ]]; then \
+		$(FFMPEG) -i $(DATA_DIR)/mono_0:10.wav -q 2 $(DATA_DIR)/mono_0.10.mp3; \
+        fi; \
 		$(FFMPEG) -i $(DATA_DIR)/mono_0:10.wav $(DATA_DIR)/mono_0:10.m4a; \
 		$(FFMPEG) -i $(DATA_DIR)/mono_0:10.wav -b:a 128k $(DATA_DIR)/mono_0:10.opus; \
 		$(FFMPEG) -i $(DATA_DIR)/mono_0:10.wav $(DATA_DIR)/mono_0:10.flac; \
@@ -88,7 +101,9 @@ test_data_1: write_block.cc write_wav write_short write_piano
 	fi;
 	@if [ ! -e "$(DATA_DIR)/stereo_0:10.wav" ] || [ "./write_wav" -nt "$(DATA_DIR)/stereo_0:10.wav" ] || [ "Makefile" -nt "$(DATA_DIR)/stereo_0:10.wav" ]; then \
 		./write_wav --channels=2 $(DATA_DIR)/stereo_0:10.wav; \
+		if [[ "$(HAVE_MP3)" = "yes" ]]; then \
 		$(FFMPEG) -guess_layout_max 0 -i $(DATA_DIR)/stereo_0:10.wav -ac 2 -q 2 $(DATA_DIR)/stereo_0:10.mp3; \
+        fi; \
 		$(FFMPEG) -guess_layout_max 0 -i $(DATA_DIR)/stereo_0:10.wav -ac 2 $(DATA_DIR)/stereo_0:10.m4a; \
 		$(FFMPEG) -guess_layout_max 0 -channel_layout stereo -i $(DATA_DIR)/stereo_0:10.wav -ac 2 -b:a 192k $(DATA_DIR)/stereo_0:10.opus; \
 		$(FFMPEG) -channel_layout stereo -i $(DATA_DIR)/stereo_0:10.wav -ac 2 $(DATA_DIR)/stereo_0:10.flac; \
@@ -96,7 +111,9 @@ test_data_1: write_block.cc write_wav write_short write_piano
 	fi;
 	@if [ ! -e "$(DATA_DIR)/mono_10:00.wav" ] || [ "./write_wav" -nt "$(DATA_DIR)/mono_10:00.wav" ]; then \
 		./write_wav --length=600  $(DATA_DIR)/mono_10:00.wav; \
-		$(FFMPEG) -i $(DATA_DIR)/mono_10:00.wav -q 2 $(DATA_DIR)/mono_10:00.mp3; \
+		if [[ "$(HAVE_MP3)" = "yes" ]]; then \
+			$(FFMPEG) -i $(DATA_DIR)/mono_10:00.wav -q 2 $(DATA_DIR)/mono_10:00.mp3; \
+        fi; \
 	fi;
 	@if [ ! -e "$(DATA_DIR)/short.wav" ] || [ "./write_short" -nt "$(DATA_DIR)/short.wav" ]; then \
 		./write_short $(DATA_DIR)/short.wav; \
@@ -118,20 +135,25 @@ test_data_1: write_block.cc write_wav write_short write_piano
 		./write_piano $(DATA_DIR)/piano.wav; \
 	fi;
 
-test_data_thumbnail: thumbnail
+test_data_thumbnail: thumbnail mono_0.10.mp3
 	./thumbnail
-	ffmpeg -i $(DATA_DIR)/mono_0:10.mp3 -i thumbnail.png -map 0:0 -map 1:0 -codec copy -id3v2_version 3 \
+	ffmpeg -i $(DATA_DIR)/mono_0.10.mp3 -i thumbnail.png -map 0:0 -map 1:0 -codec copy -id3v2_version 3 \
 	    -metadata:s:v title="Thumbnail" -metadata:s:v comment="Thumbnail" -y $(DATA_DIR)/thumbnail.mp3
 	rm thumbnail.png
 
 clean-local:
-	if [ -f thumbnail.png ]; then rm thumbnail.png; fi
-	if [ -f $(DATA_DIR)/thumbnail.mp3 ]; then rm $(DATA_DIR)/thumbnail.mp3; fi
-	if [ -f $(DATA_DIR)/mono_0:10.mp3 ]; then rm $(DATA_DIR)/mono_0:10.mp3; fi
-	if [ -f $(DATA_DIR)/mono_10:00.wav ]; then rm $(DATA_DIR)/mono_10:00.wav; fi
-	if [ -f $(DATA_DIR)/large1.wav ]; then rm $(DATA_DIR)/large1.wav; fi
-	if [ -f $(DATA_DIR)/large2.wav ]; then rm $(DATA_DIR)/large2.wav; fi
-	if [ -f $(DATA_DIR)/stereo_24b_0:10.wav ]; then rm $(DATA_DIR)/stereo_24b_0:10.wav; fi
+	@if [ -f thumbnail.png ]; then rm thumbnail.png; fi
+	@if [ -f $(DATA_DIR)/thumbnail.mp3 ]; then rm $(DATA_DIR)/thumbnail.mp3; fi
+	@if [ -f $(DATA_DIR)/mono_0:10.wav ]; then rm $(DATA_DIR)/mono_0:10.wav; fi
+	@if [ -f $(DATA_DIR)/mono_0.10.mp3 ]; then rm $(DATA_DIR)/mono_0.10.mp3; fi
+	@if [ -f $(DATA_DIR)/mono_0:10.m4a ]; then rm $(DATA_DIR)/mono_0:10.m4a; fi
+	@if [ -f $(DATA_DIR)/mono_0:10.flac ]; then rm $(DATA_DIR)/mono_0:10.flac; fi
+	@if [ -f $(DATA_DIR)/mono_0:10.opus ]; then rm $(DATA_DIR)/mono_0:10.opus; fi
+	@if [ -f $(DATA_DIR)/mono_10:00.wav ]; then rm $(DATA_DIR)/mono_10:00.wav; fi
+	@if [ -f $(DATA_DIR)/mono_10:00.mp3 ]; then rm $(DATA_DIR)/mono_10:00.mp3; fi
+	@if [ -f $(DATA_DIR)/large1.wav ]; then rm $(DATA_DIR)/large1.wav; fi
+	@if [ -f $(DATA_DIR)/large2.wav ]; then rm $(DATA_DIR)/large2.wav; fi
+	@if [ -f $(DATA_DIR)/stereo_24b_0:10.wav ]; then rm $(DATA_DIR)/stereo_24b_0:10.wav; fi
 
 endif
 endif

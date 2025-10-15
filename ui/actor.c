@@ -147,6 +147,7 @@ struct _WfActorPriv
 		bool           valid;
 		Renderer*      renderer;
 		WfViewPort     viewport;
+		WfViewPort     viewport2;
 		WfSampleRegion region;
 		WfRectangle    rect;
 		double         zoom;
@@ -271,7 +272,6 @@ static void   renderer_create_shader         (Renderer*);
 #include "ui/renderer/ng.c"
 #include "ui/renderer/res_med.c"
 #include "ui/renderer/res_lo.c"
-#include "ui/renderer/res_hi_gl2.c"
 #include "ui/renderer/res_hi.c"
 #include "ui/renderer/res_v_hi.c"
 #include "ui/renderer/res_v_low.c"
@@ -284,6 +284,7 @@ static void  wf_actor_on_use_shaders_change    ();
 static int    wf_actor_get_first_visible_block(WfSampleRegion*, double zoom, WfRectangle*, WfViewPort*);
 #endif
 static void  _wf_actor_get_viewport_max        (WaveformActor*, WfViewPort*);
+static void  crop_to_parent                    (WaveformActor*, WfRectangle*, WfSampleRegion*);
 
 
 static void
@@ -335,13 +336,15 @@ wf_actor_class_init ()
 			AGlActor* actor = _actor;
 			WaveformActor* a = _actor;
 
-			a->context->sample_rate = a->waveform->samplerate;
+			a->context->sample_rate = w->samplerate;
 
-			if(agl_actor__width(actor) > 0.0){
+			if (agl_actor__width(actor) > 0.0) {
 				_wf_actor_load_missing_blocks(a);
 				agl_actor__invalidate((AGlActor*)a);
 			}
-			if(((AGlActor*)a)->root->draw) wf_context_queue_redraw(a->context);
+			if (((AGlActor*)a)->root->draw) wf_context_queue_redraw(a->context);
+
+			g_object_unref(w);
 		}
 
 static void
@@ -355,7 +358,8 @@ wf_actor_init (AGlActor* actor)
 
 	wf_actor_on_use_shaders_change();
 
-	if(a->waveform && !a->waveform->priv->peak.size) waveform_load(a->waveform, wf_actor_init_load_done, actor);
+	if (a->waveform && !a->waveform->priv->peak.size)
+		waveform_load(g_object_ref(a->waveform), wf_actor_init_load_done, actor);
 
 	invalidator_queue_check ((Invalidator*)actor->behaviours[INVALIDATOR]);
 }
@@ -409,7 +413,7 @@ wf_actor_after_set_waveform (WaveformActor* wf_actor)
 {
 	AGlActor* actor = (AGlActor*)wf_actor;
 
-	if(actor->root){
+	if (actor->root) {
 		TransitionBehaviour* behaviour = (TransitionBehaviour*)actor->behaviours[OPACITY];
 		*behaviour->animatables[0].val.f = 0.f;
 		behaviour->animatables[0].target_val.f = 0.f;
@@ -445,7 +449,7 @@ wf_actor_new (Waveform* w, WaveformContext* wfc)
 
 	if (!modes[MODE_LOW].renderer) wf_actor_class_init();
 
-	if(w){
+	if (w) {
 		waveform_get_n_frames(w);
 	}
 
@@ -621,7 +625,7 @@ wf_actor_new (Waveform* w, WaveformContext* wfc)
 
 	_a->peakdata_ready = am_promise_new(a);
 
-	if(w) wf_actor_connect_waveform(a);
+	if (w) wf_actor_connect_waveform(a);
 
 	_a->handlers.dimensions_changed = g_signal_connect((gpointer)a->context, "dimensions-changed", (GCallback)wf_actor_on_dimensions_changed, a);
 
@@ -655,11 +659,14 @@ _wf_actor_on_peakdata_available (Waveform* waveform, int block, gpointer _actor)
 	ModeRange mode = mode_range(a);
 	int upper = MAX(mode.lower, mode.upper);
 	int lower = MIN(mode.lower, mode.upper);
-	int m; for(m=lower; m<=upper; m+=MAX(1, upper - lower)){
+	for (int m=lower; m<=upper; m+=MAX(1, upper - lower)) {
 		Renderer* renderer = modes[m].renderer;
 		call(renderer->load_block, renderer, a, m == MODE_LOW ? (block / WF_PEAK_STD_TO_LO) : block);
 	}
-	if(((AGlActor*)a)->root && ((AGlActor*)a)->root->draw) wf_context_queue_redraw(a->context);
+
+#if 0 // should not be needed as `invalidate` will queue a redraw
+	if (((AGlActor*)a)->root && ((AGlActor*)a)->root->draw) wf_context_queue_redraw(a->context);
+#endif
 }
 
 
@@ -715,7 +722,7 @@ wf_actor_free (AGlActor* actor)
 		_g_signal_handler_disconnect0(a->context, _a->handlers.zoom_changed);
 
 		// if the waveform has no more users, the finalise notify will run which will clear the render data
-		waveform_unref0(a->waveform);
+		g_clear_object(&a->waveform);
 	}
 
 	g_clear_pointer(&_a->peakdata_ready, am_promise_unref);
@@ -767,13 +774,13 @@ wf_actor_waveform_finalize_notify (gpointer _actor, GObject* was)
 		C2* c = _c;
 		PF;
 
-		if(c->actor->waveform == w){
-			if(waveform_get_n_frames(w)){
+		if (c->actor->waveform == w) {
+			if (waveform_get_n_frames(w)) {
 				c->actor->context->sample_rate = c->actor->waveform->samplerate;
 				invalidator_invalidate_item(((Invalidator*)((AGlActor*)c->actor)->behaviours[INVALIDATOR]), INVALIDATOR_DATA);
 			}
 
-			if(c->callback) c->callback(c->actor, c->user_data);
+			if (c->callback) c->callback(c->actor, c->user_data);
 		}
 
 		g_object_unref(w);
@@ -793,7 +800,7 @@ wf_actor_set_waveform (WaveformActor* a, Waveform* waveform, WaveformActorFn cal
 	if(a->waveform){
 		wf_actor_clear(a);
 		wf_actor_disconnect_waveform(a);
-		waveform_unref0(a->waveform);
+		g_clear_object(&a->waveform);
 	}
 
 	if(waveform){
@@ -1145,7 +1152,7 @@ wf_actor_get_visible_block_range (WfSampleRegion* region, WfRectangle* rect, dou
 			? WF_MED_TO_V_LOW
 			: mode == MODE_LOW ? WF_PEAK_STD_TO_LO : 1);
 
-	double region_inset_px = wf_actor_samples2gl(zoom, region->start);
+	double region_inset_px = region->start * zoom;
 	double file_start_px = rect->left - region_inset_px;
 	double block_wid = wf_actor_samples2gl(zoom, samples_per_texture);
 	BlockRange region_blocks = {region->start / samples_per_texture, -1};
@@ -1183,13 +1190,16 @@ wf_actor_get_visible_block_range (WfSampleRegion* region, WfRectangle* rect, dou
 	next:
 
 	// find last block
-	if(rect->left <= viewport_px->right){
+	if (rect->left <= viewport_px->right) {
+#ifdef DEBUG
+		if (region_blocks.last > range.first + WF_MAX_BLOCK_RANGE) pwarn("too many blocks");
+#endif
 		range.last = MIN(range.first + WF_MAX_BLOCK_RANGE, region_blocks.last);
 
-		if(viewport_px->right - viewport_px->left < 0.01) return range;
+		if (viewport_px->right - viewport_px->left < 0.01) return range;
 
 		// crop to viewport
-		int b; for(b=region_blocks.first;b<=range.last-1;b++){ //note we dont check the last block which can be partially outside the viewport
+		for (int b=region_blocks.first;b<=range.last-1;b++) { //note we dont check the last block which can be partially outside the viewport
 			float block_end_px = file_start_px + (b + 1) * block_wid;
 			if(block_end_px > viewport_px->right) dbg(2, "end %i clipped by viewport at block %i. vp.right=%.2f block_end=%.1f", region_blocks.last, MAX(0, b/* - 1*/), viewport_px->right, block_end_px);
 			if(block_end_px > viewport_px->right){
@@ -1222,27 +1232,22 @@ wf_actor_get_visible_block_range (WfSampleRegion* region, WfRectangle* rect, dou
  *   Returns the instantaneous positions of the top-left and bottom-right corners of the actor.
  *   These points may lie outside of the canvas viewport.
  */
-void
-wf_actor_get_viewport (WaveformActor* a, WfViewPort* viewport)
+static void
+agl_actor_get_viewport (WaveformActor* a, WfViewPort* viewport)
 {
 	AGlActor* actor = (AGlActor*)a;
-#if 0
-	WfActorPriv* _a = a->priv;
-	WaveformContext* canvas = a->context;
 
-	if(canvas->viewport) *viewport = *canvas->viewport;
-	else {
-#else
-	{
-#endif
-		viewport->left   = actor->region.x1;
-		viewport->top    = actor->region.y1;
-		viewport->right  = actor->region.x2;
-		viewport->bottom = actor->region.y2;
-	}
+	viewport->left   = actor->region.x1;
+	viewport->top    = actor->region.y1;
+	viewport->right  = actor->region.x2;
+	viewport->bottom = actor->region.y2;
 }
 
 
+/*
+ *  This assumes the actor is not being scrolled.
+ *  See also `wf_context_frame_to_x`
+ */
 float
 wf_actor_frame_to_x (WaveformActor* actor, uint64_t frame)
 {
@@ -1360,6 +1365,7 @@ _wf_actor_allocate_hi (WaveformActor* a)
 
 	WfRectangle rect; WF_ACTOR_GET_RECT(a, &rect);
 	WfViewPort viewport; _wf_actor_get_viewport_max(a, &viewport);
+
 #ifdef USE_CANVAS_SCALING
 	// currently only blocks for the final target zoom are loaded, not for any transitions
 	double zoom = a->context->scaled
@@ -1394,9 +1400,16 @@ _wf_actor_allocate_hi (WaveformActor* a)
 #else
 	// load only the needed blocks - unfortunately is difficult to predict.
 
-	//WfAnimatable* start = &_a->animatable.start;
-	//WfSampleRegion region = {*START->model_val.b, *_a->animatable.len.model_val.b};
-	BlockRange blocks = wf_actor_get_visible_block_range (&a->region, &rect, zoom, &viewport, a->waveform->priv->n_blocks);
+	WfSampleRegion region = {a->region.start + wf_context_x_to_frame(a->context, -((AGlActor*)a)->scrollable.x1), *LEN((AGlActor*)a).val.b};
+	crop_to_parent(a, &rect, &region);
+
+	int scrollpos = -((AGlActor*)a)->parent->scrollable.x1;
+	if (scrollpos) {
+		rect.left += scrollpos;
+		region.start += scrollpos / zoom;
+	}
+
+	BlockRange blocks = wf_actor_get_visible_block_range (&region, &rect, zoom, &viewport, w->priv->n_blocks);
 
 	for (int b=blocks.first;b<=blocks.last;b++) {
 		hi_request_block(a, b);
@@ -1552,8 +1565,8 @@ _wf_actor_load_missing_blocks (WaveformActor* a)
 		dbg(1, "MED");
 		double zoom_ = MAX(zoom, ZOOM_LO + 0.00000001);
 
-		uint64_t start_max = MAX(a->region.start, START(actor).target_val.b);
-		uint64_t start_min = MIN(a->region.start, START(actor).target_val.b);
+		uint64_t start_max = MAX(a->region.start, START(actor).target_val.b) + wf_context_x_to_frame(a->context, -actor->scrollable.x1);
+		uint64_t start_min = MIN(a->region.start, START(actor).target_val.b) + wf_context_x_to_frame(a->context, -actor->scrollable.x1);
 		int len_max = start_max - start_min + MAX(a->region.len, LEN(actor).target_val.b);
 		WfSampleRegion region = {start_min, len_max};
 
@@ -1597,8 +1610,8 @@ _wf_actor_load_missing_blocks (WaveformActor* a)
 		Renderer* renderer = modes[MODE_V_LOW].renderer;
 		double zoom_ = MIN(zoom, ZOOM_LO - 0.0001);
 
-		uint64_t start_max = MAX(a->region.start, START(actor).target_val.b);
-		uint64_t start_min = MIN(a->region.start, START(actor).target_val.b);
+		uint64_t start_max = MAX(a->region.start, START(actor).target_val.b) + wf_context_x_to_frame(a->context, -actor->scrollable.x1);
+		uint64_t start_min = MIN(a->region.start, START(actor).target_val.b) + wf_context_x_to_frame(a->context, -actor->scrollable.x1);
 		int len_max = start_max - start_min + MAX(a->region.len, LEN(actor).target_val.b);
 		WfSampleRegion region = {start_min, len_max};
 
@@ -1637,7 +1650,8 @@ wf_actor_set_rect (WaveformActor* a, WfRectangle* rect)
 	if(rect->len == a->rect.len && rect->left == a->rect.left && rect->height == a->rect.height && rect->top == a->rect.top) return;
 #else
 	// the renderer check is to ensure an initial draw. perhaps there is a better method.
-	if(_a->render_info.renderer && rect->len == agl_actor__width(actor) && rect->left == actor->region.x1 && rect->height == agl_actor__height(actor) && rect->top == actor->region.y1) return;
+	if(_a->render_info.renderer && rect->len == agl_actor__width(actor) && rect->left == actor->region.x1 && rect->height == agl_actor__height(actor) && rect->top == actor->region.y1)
+		return;
 #endif
 
 	// TODO this test fails if we are called twice in quick succession because the valid flag is cleared in the first call
@@ -1654,17 +1668,17 @@ wf_actor_set_rect (WaveformActor* a, WfRectangle* rect)
 	bool len_changed = rect->len != a2->target_val.f;
 	bool have_full_render = had_full_render && !len_changed;
 
-	if(agl_actor__width(actor) < 1 || agl_actor__height(actor) < 1){
+	if (agl_actor__width(actor) < 1 || agl_actor__height(actor) < 1) {
 		AGL_ACTOR__SET_REGION_FROM_RECT(actor, rect);
 	}
 
-	dbg(2, "rect: %.0f --> %0.f", actor->region.x1, actor->region.x2);
+	dbg(2, "rect: %.0f..%0.f", actor->region.x1, actor->region.x2);
 
-	if(a->region.len && !have_full_render && a->waveform->priv->num_peaks)
+	if (a->region.len && !have_full_render && a->waveform->priv->num_peaks)
 		invalidator_invalidate_item((Invalidator*)actor->behaviours[INVALIDATOR], INVALIDATOR_DATA);
 
-	if(animate){
-		if(left_changed || len_changed){
+	if (animate) {
+		if (left_changed || len_changed) {
 			size_transition_set(
 				(TransitionBehaviour*)actor->behaviours[RECT],
 				a,
@@ -1677,7 +1691,7 @@ wf_actor_set_rect (WaveformActor* a, WfRectangle* rect)
 			);
 		}
 
-	}else{
+	} else {
 		*a1->val.f = a1->target_val.f = a1->start_val.f = rect->left;
 		*a2->val.f = a2->target_val.f = a2->start_val.f = rect->left + rect->len;
 
@@ -1786,6 +1800,18 @@ wf_actor_set_vzoom (WaveformActor* a, float vzoom)
 }
 
 
+void
+wf_actor_scroll_to (WaveformActor* a, int i)
+{
+	AGlActor* actor = (AGlActor*)a;
+
+	agl_actor__scroll_to (actor, (AGliPt){i, -1});
+
+	agl_actor__invalidate(actor);
+	invalidator_invalidate_item(((Invalidator*)((AGlActor*)a)->behaviours[INVALIDATOR]), INVALIDATOR_DATA);
+}
+
+
 #if 0
 static inline float
 get_peaks_per_pixel_i (WaveformContext* wfc, WfSampleRegion* region, WfRectangle* rect, int mode)
@@ -1855,9 +1881,24 @@ calc_render_info (WaveformActor* actor)
 		return false;
 	}
 
-	wf_actor_get_viewport(actor, &r->viewport);
+	agl_actor_get_viewport(actor, &r->viewport);
 
-	r->region = (WfSampleRegion){actor->region.start, MIN(actor->region.len, w->n_frames)};
+	AGlfRegion cropped;
+	agl_actor__calc_visible(a, &cropped);
+	// for historical reasons, WaveformActor ignores scrollposition
+	r->viewport2.left   = cropped.x1 + a->scrollable.x1         + a->region.x1;
+	r->viewport2.top    = cropped.y1;
+	r->viewport2.right  = cropped.x2 + a->scrollable.x1         + a->region.x1;
+	r->viewport2.bottom = cropped.y2;
+
+	int scrollable_width = a->scrollable.x2 - a->scrollable.x1;
+	if (!scrollable_width) scrollable_width = agl_actor__width(a);
+
+	int64_t rstart = actor->region.start + actor->region.len * (-(float)a->scrollable.x1 / (float)scrollable_width);
+	r->region = (WfSampleRegion){
+		.start = rstart,
+		.len = MIN(actor->region.len, w->n_frames - rstart)
+	};
 	if (!r->region.len) {
 		static bool region_len_warning_done = false;
 		if (!region_len_warning_done) { region_len_warning_done = true; pwarn("zero region length"); }
@@ -1901,7 +1942,24 @@ calc_render_info (WaveformActor* actor)
 
 																						// FIXME this is calculated differently inside wf_actor_get_visible_block_range
 	r->region_end_block = (r->region.start + r->region.len) / r->samples_per_texture - (!((r->region.start + r->region.len) % r->samples_per_texture) ? 1 : 0);
-	r->viewport_blocks = wf_actor_get_visible_block_range(&r->region, &r->rect, r->zoom, &r->viewport, r->n_blocks);
+
+	WfRectangle brect = r->rect;
+	WfSampleRegion bregion = r->region;
+	crop_to_parent(actor, &brect, &bregion);
+
+	int scrollpos = a->parent ? -a->parent->scrollable.x1 : 0;
+	if (scrollpos) {
+		brect.left += scrollpos;
+		bregion.start += scrollpos / r->zoom;
+	}
+
+	// translate to local actor coords
+	WfRectangle brect_xl8 = brect;
+	brect_xl8.left -= a->region.x1;
+	r->viewport2.left -= a->region.x1;
+	r->viewport2.right -= a->region.x1;
+
+	r->viewport_blocks = wf_actor_get_visible_block_range(&bregion, &brect_xl8, r->zoom, &r->viewport2, r->n_blocks);
 
 	if(r->viewport_blocks.last == LAST_NOT_VISIBLE && r->viewport_blocks.first == FIRST_NOT_VISIBLE){
 		r->valid = true; // this prevents unnecessary recalculation but the RenderInfo is not really valid so _must_ be invalidated again before use.
@@ -1934,9 +1992,53 @@ calc_render_info (WaveformActor* actor)
 	r->peaks_per_pixel_i = get_peaks_per_pixel_i(wfc, &r->region, &r->rect, r->mode);
 #endif
 
+#ifdef DEBUG
+#if 0 // this warning is disabled because it is a valid use-case for the sample region to not fill the rectangle
+	if (actor->region.len * r->zoom + 0.1 < agl_actor__width(a)) {
+		pwarn("region too small for rect (%.1f < %.1f)", actor->region.len * r->zoom, agl_actor__width(a));
+	}
+#endif
+#endif
 	r->renderer = set_renderer(actor);
 
 	return r->valid = true;
+}
+
+
+/*
+ *  `crop_to_parent` is used when calculating block ranges.
+ *  It supports having an actor that is bigger than its parent - an
+ *  alternative to either modifying the frame region, or using
+ *  the scenegraph scrolling mechanism.
+ *
+ *  Both @rect and @region are updated.
+ */
+static void
+crop_to_parent (WaveformActor* a, WfRectangle* rect, WfSampleRegion* region)
+{
+	AGlActor* actor = (AGlActor*)a;
+
+	if (!actor->parent) return;
+
+	if (actor->region.x1 < 0) {
+		rect->left += -actor->region.x1;
+		rect->len -= -actor->region.x1;
+		int64_t df = wf_context_x_to_frame(a->context, -actor->region.x1);
+
+		region->start += df;
+		region->len -= df;
+	}
+
+	if (actor->region.x2 > agl_actor__width(actor->parent)) {
+		float dl = actor->region.x2 - agl_actor__width(actor->parent);
+		float x2 = agl_actor__width(actor->parent);
+		rect->len = x2 - rect->left;
+
+		if (a->context->scaled)
+			region->len -= wf_context_x_to_frame(a->context, dl);
+		else
+			region->len -= region->len * dl / agl_actor__width(actor);
+	}
 }
 
 
@@ -1965,8 +2067,8 @@ wf_actor_paint (AGlActor* _actor)
 	actor->render_result = RENDER_RESULT_OK;
 #endif
 
-	if(!w || w->offline || !w->renderable) return true;
-	if(!w->priv->num_peaks){
+	if (!w || w->offline || !w->renderable) return true;
+	if (!w->priv->num_peaks) {
 #ifdef DEBUG
 		actor->render_result = RENDER_RESULT_LOADING;
 #endif
@@ -1975,7 +2077,7 @@ wf_actor_paint (AGlActor* _actor)
 
 	g_return_val_if_fail(actor->region.start < actor->waveform->n_frames, false);
 
-	if(!_actor->root || !_actor->root->draw) r->valid = false;
+	if (!_actor->root || !_actor->root->draw) r->valid = false;
 
 #ifdef RENDER_CACHE_HIT_STATS
 	static int hits = 0;
@@ -1995,7 +2097,7 @@ wf_actor_paint (AGlActor* _actor)
 
 		WfSampleRegion region = (WfSampleRegion){*START(_actor).val.b, *LEN(_actor).val.b};
 		double zoom = rect.len / region.len;
-		if (ABS(zoom - r->zoom) > .0001) pwarn("zoom not validated: %.4f %.4f", zoom, r->zoom);
+		if (_debug_ > 0 && ABS(zoom - r->zoom) > .0001) pwarn("zoom not validated: %.4f %.4f", zoom, r->zoom);
 
 		Mode mode = get_mode(r->zoom);
 		if (mode != r->mode) perr("mode not validated: %i %i", mode, r->mode);
@@ -2062,9 +2164,11 @@ wf_actor_paint (AGlActor* _actor)
 			if (m > N_MODES) {
 				render_ok = false;
 				WF_DEBUG_ pwarn("render failed. no modes succeeded. mode=%i", r->mode); // not neccesarily an error. may simply be not ready.
-			} else {
-				if(!w->priv->render_data[m]) break;
+				break;
 			}
+			if (!w->priv->render_data[m])
+				call(modes[m].renderer->new, actor);
+			if (!w->priv->render_data[m]) break;
 		}
 #ifdef RECT_ROUNDING
 		i++;
@@ -2461,9 +2565,18 @@ wf_actor_on_use_shaders_change ()
 }
 
 
+#ifdef DEBUG
+const char*
+wf_actor_print_mode (WaveformActor* wf_actor)
+{
+	return modes[wf_actor->priv->render_info.mode].name;
+}
+#endif
+
+
 #ifdef USE_TEST
 bool
-wf_actor_test_is_not_blank(WaveformActor* a)
+wf_actor_test_is_not_blank (WaveformActor* a)
 {
 	RenderInfo* r = &a->priv->render_info;
 	Renderer* renderer = r->renderer;

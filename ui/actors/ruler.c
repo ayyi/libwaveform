@@ -1,7 +1,7 @@
 /*
  +----------------------------------------------------------------------+
- | This file is part of the Ayyi project. https://ayyi.org              |
- | copyright (C) 2013-2022 Tim Orford <tim@orford.org>                  |
+ | This file is part of the Ayyi project. https://www.ayyi.org          |
+ | copyright (C) 2013-2025 Tim Orford <tim@orford.org>                  |
  +----------------------------------------------------------------------+
  | This program is free software; you can redistribute it and/or modify |
  | it under the terms of the GNU General Public License version 3       |
@@ -14,7 +14,6 @@
  |
  */
 
-#define __wf_private__
 #include "config.h"
 #include "agl/behaviours/cache.h"
 #include "wf/waveform.h"
@@ -22,22 +21,14 @@
 #include "waveform/context.h"
 #include "waveform/grid.h"
 
+extern RulerShader ruler;
+
 typedef struct {
     AGlActor         actor;
     WaveformContext* context;
 } RulerActor;
 
 static bool ruler_actor_paint (AGlActor*);
-
-
-static void
-ruler_init (AGlActor* actor)
-{
-	RulerActor* ruler = (RulerActor*)actor;
-
-	if (!ruler->context->shaders.ruler->shader.program)
-		agl_create_program(&ruler->context->shaders.ruler->shader);
-}
 
 
 static void
@@ -52,9 +43,9 @@ ruler_set_state (AGlActor* actor)
 {
 	#define samples_per_beat(C) (C->sample_rate / (C->bpm / 60.0))
 
+	RulerShader* shader = &ruler;
 	RulerActor* ruler = (RulerActor*)actor;
 	WaveformContext* context = ruler->context;
-	RulerShader* shader = context->shaders.ruler;
 
 	shader->uniform.fg_colour = 0xffffff7f;
 	shader->uniform.beats_per_pixel = context->samples_per_pixel / (samples_per_beat(context) * context->zoom->value.f);
@@ -69,9 +60,8 @@ ruler_actor (WaveformActor* wf_actor)
 
 	return (AGlActor*)agl_actor__new(RulerActor,
 		.actor = {
-			.name = g_strdup("ruler"),
-			.program = (AGlShader*)wf_actor->context->shaders.ruler,
-			.init = ruler_init,
+			.name = strdup("ruler"),
+			.program = (AGlShader*)&ruler,
 			.set_state = ruler_set_state,
 			.paint = ruler_actor_paint,
 			.set_size = ruler_actor_size,

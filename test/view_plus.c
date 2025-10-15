@@ -57,7 +57,9 @@ const char* wavs[] = {
 	"data/stereo_0:10.wav",
 	"data/1_block.wav",
 	"data/2_blocks.wav",
+#ifdef HAVE_MP3
 	"data/mono_0:10.mp3",
+#endif
 	"data/mono_10:00.wav",
 	"data/mono_0:10.opus",
 	"data/mono_0:10.m4a",
@@ -169,7 +171,8 @@ activate (GtkApplication* app, gpointer user_data)
 
 
 
-void on_quit (GSimpleAction* a, GVariant* v, gpointer app)
+void
+on_quit (GSimpleAction* a, GVariant* v, gpointer app)
 {
 
 #ifdef WITH_VALGRIND

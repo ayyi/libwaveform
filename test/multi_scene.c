@@ -112,7 +112,10 @@ on_create_context (GtkGLArea* gl_area, GdkGLContext* context)
 #endif
 	agl_gl_init();
 	GdkDisplay* display = gdk_gl_context_get_display (scene1->gl.gdk.context);
+	#pragma GCC diagnostic push
+	#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
   	agl_get_instance()->xdisplay = gdk_x11_display_get_xdisplay (display);
+	#pragma GCC diagnostic pop
 
 	agl_actor__init((AGlActor*)scene1);
 	agl_actor__init((AGlActor*)scene2);

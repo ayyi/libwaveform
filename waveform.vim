@@ -41,7 +41,6 @@ syn keyword waveformFunction wf_actor_fade_in
 syn keyword waveformFunction wf_actor_set_vzoom
 syn keyword waveformFunction wf_actor_get_z
 syn keyword waveformFunction wf_actor_set_z
-syn keyword waveformFunction wf_actor_get_viewport
 syn keyword waveformFunction wf_actor_frame_to_x
 syn keyword waveformFunction wf_actor_clear
 

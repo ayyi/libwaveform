@@ -1,7 +1,7 @@
 /*
  +----------------------------------------------------------------------+
  | This file is part of the Ayyi project. https://www.ayyi.org          |
- | copyright (C) 2013-2025 Tim Orford <tim@orford.org>                  |
+ | copyright (C) 2013-2026 Tim Orford <tim@orford.org>                  |
  +----------------------------------------------------------------------+
  | This program is free software; you can redistribute it and/or modify |
  | it under the terms of the GNU General Public License version 3       |
@@ -59,9 +59,9 @@ void           wf_actor_set_full             (WaveformActor*, WfSampleRegion*, W
 void           wf_actor_fade_out             (WaveformActor*, WaveformActorFn, gpointer);
 void           wf_actor_fade_in              (WaveformActor*, float, WaveformActorFn, gpointer);
 void           wf_actor_set_vzoom            (WaveformActor*, float);
+void           wf_actor_scroll_to            (WaveformActor*, int);
 WfAnimatable*  wf_actor_get_z                (WaveformActor*);
 void           wf_actor_set_z                (WaveformActor*, float, WaveformActorFn, gpointer);
-void           wf_actor_get_viewport         (WaveformActor*, WfViewPort*);
 float          wf_actor_frame_to_x           (WaveformActor*, uint64_t);
 void           wf_actor_clear                (WaveformActor*);
 
