@@ -233,8 +233,9 @@ struct _draw_mode
 };
 #define HI_RESOLUTION modes[MODE_HI].resolution
 #define RES_MED modes[MODE_MED].resolution
-typedef struct { Mode lower, upper; } ModeRange;
 #define HI_MIN_TIERS 4 // equivalent to resolution of 1:16
+
+typedef struct { Mode lower, upper; } ModeRange;
 
 static inline Mode get_mode                  (double zoom);
 static ModeRange   mode_range                (WaveformActor*);
@@ -299,8 +300,8 @@ wf_actor_class_init ()
 
 	modes[MODE_HI].make_texture_data = make_texture_data_hi;
 
-	modes[MODE_V_LOW].renderer = v_lo_renderer_new();
-	modes[MODE_LOW].renderer = lo_renderer_new();
+	modes[MODE_V_LOW].renderer = v_lo_renderer_init();
+	modes[MODE_LOW].renderer = lo_renderer_init();
 	modes[MODE_MED].renderer = med_renderer_new();
 	modes[MODE_HI].renderer = hi_renderer_new();
 	modes[MODE_V_HI].renderer = (Renderer*)&v_hi_renderer;
@@ -321,11 +322,6 @@ wf_actor_class_init ()
 		PF;
 		WaveformActor* a = _actor;
 		a->priv->render_info.valid = false;
-	}
-
-	static void wf_actor_on_zoom_changed (WaveformContext* wfc, gpointer _actor)
-	{
-		invalidator_invalidate_item(((Invalidator*)((AGlActor*)_actor)->behaviours[INVALIDATOR]), INVALIDATOR_DATA);
 	}
 
 		static void wf_actor_init_load_done (Waveform* w, GError* error, gpointer _actor)
@@ -365,6 +361,7 @@ wf_actor_init (AGlActor* actor)
 
 /*
  *	Graph layout handler
+ *	No animations are done here, they must be requested explictly
  */
 static void
 wf_actor_set_size (AGlActor* actor)
@@ -612,6 +609,11 @@ wf_actor_new (Waveform* w, WaveformContext* wfc)
 	if(w) wf_actor_connect_waveform(a);
 
 	_a->handlers.dimensions_changed = g_signal_connect((gpointer)a->context, "dimensions-changed", (GCallback)wf_actor_on_dimensions_changed, a);
+
+	void wf_actor_on_zoom_changed (WaveformContext* wfc, gpointer _actor)
+	{
+		invalidator_invalidate_item(((Invalidator*)((AGlActor*)_actor)->behaviours[INVALIDATOR]), INVALIDATOR_DATA);
+	}
 	_a->handlers.zoom_changed = g_signal_connect((gpointer)a->context, "zoom-changed", (GCallback)wf_actor_on_zoom_changed, a);
 
 	return a;
@@ -1164,9 +1166,6 @@ wf_actor_get_visible_block_range (WfSampleRegion* region, WfRectangle* rect, dou
 
 	// find last block
 	if (rect->left <= viewport_px->right) {
-#ifdef DEBUG
-		if (region_blocks.last > range.first + WF_MAX_BLOCK_RANGE) pwarn("too many blocks");
-#endif
 		range.last = MIN(range.first + WF_MAX_BLOCK_RANGE, region_blocks.last);
 
 		if (viewport_px->right - viewport_px->left < 0.01) return range;
@@ -1174,8 +1173,8 @@ wf_actor_get_visible_block_range (WfSampleRegion* region, WfRectangle* rect, dou
 		// crop to viewport
 		for (int b=region_blocks.first;b<=range.last-1;b++) { //note we dont check the last block which can be partially outside the viewport
 			float block_end_px = file_start_px + (b + 1) * block_wid;
-			if(block_end_px > viewport_px->right) dbg(2, "end %i clipped by viewport at block %i. vp.right=%.2f block_end=%.1f", region_blocks.last, MAX(0, b/* - 1*/), viewport_px->right, block_end_px);
-			if(block_end_px > viewport_px->right){
+			if (block_end_px > viewport_px->right) {
+				dbg(2, "end %i clipped by viewport at block %i. vp.right=%.2f block_end=%.1f", region_blocks.last, MAX(0, b/* - 1*/), viewport_px->right, block_end_px);
 				range.last = MAX(0, b/* - 1*/);
 				goto out;
 			}
@@ -1196,6 +1195,10 @@ wf_actor_get_visible_block_range (WfSampleRegion* region, WfRectangle* rect, dou
 
 		dbg(2, "end not outside viewport. vp_right=%.2f last=%i", viewport_px->right, region_blocks.last);
 	}
+
+#ifdef DEBUG
+	if (range.last - range.first > WF_MAX_BLOCK_RANGE) pwarn("too many blocks");
+#endif
 
 	out: return range;
 }
@@ -2140,7 +2143,7 @@ wf_actor_paint (AGlActor* _actor)
 			}
 			if (!w->priv->render_data[m])
 				call(modes[m].renderer->new, actor);
-			if(!w->priv->render_data[m]) break;
+			if (!w->priv->render_data[m]) break;
 		}
 #ifdef RECT_ROUNDING
 		i++;

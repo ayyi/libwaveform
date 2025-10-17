@@ -12,7 +12,7 @@
 
 
 static void
-v_lo_new_gl2 (WaveformActor* actor)
+v_lo_new (WaveformActor* actor)
 {
 	Waveform* waveform = actor->waveform;
 	WaveformPrivate* w = waveform->priv;
@@ -34,9 +34,9 @@ v_lo_new_gl2 (WaveformActor* actor)
 	}
 
 	AGlShader** shader = &modes[MODE_V_LOW].renderer->shader;
-	if(!*shader){
+	if (!*shader) {
 		*shader = &hires_ng_shader.shader;
-		if(!(*shader)->program) agl_create_program(*shader);
+		if (!(*shader)->program) agl_create_program(*shader);
 	}
 }
 
@@ -126,7 +126,7 @@ v_lo_is_not_blank (Renderer* renderer, WaveformActor* actor)
 
 
 Renderer v_lo_renderer_gl1 = {MODE_V_LOW, v_lo_new_gl1, low_allocate_block_gl1, med_lo_pre_render_gl1, med_lo_render_gl1, NULL, med_lo_gl1_free_waveform};
-NGRenderer v_lo_renderer_gl2 = {{MODE_V_LOW, v_lo_new_gl2, ng_gl2_load_block, ng_pre_render, ng_gl2_render_block, ng_gl2_post_render, ng_gl2_free_waveform,
+NGRenderer v_lo_renderer_gl2 = {{MODE_V_LOW, v_lo_new, ng_gl2_load_block, ng_pre_render, ng_gl2_render_block, ng_gl2_post_render, ng_gl2_free_waveform,
 #ifdef USE_TEST
 	.is_not_blank = v_lo_is_not_blank,
 #endif
@@ -136,15 +136,11 @@ Renderer v_lo_renderer;
 
 
 static Renderer*
-v_lo_renderer_new ()
+v_lo_renderer_init ()
 {
-	static Renderer* v_lo_renderer = (Renderer*)&v_lo_renderer_gl2;
-
 	v_lo_renderer_gl2.ng_data = g_hash_table_new_full(g_direct_hash, g_int_equal, NULL, g_free);
 
 	ng_make_lod_levels(&v_lo_renderer_gl2, MODE_V_LOW);
 
-	return (Renderer*)v_lo_renderer;
+	return (Renderer*)&v_lo_renderer_gl2;
 }
-
-

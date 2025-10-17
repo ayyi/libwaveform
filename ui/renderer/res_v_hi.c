@@ -27,15 +27,13 @@ extern AGlMaterialClass aaline_class;
 static unsigned int vao = 0;
 static unsigned int hivbo = 0;
 
+typedef struct {int l, r;} Range;
+
 typedef struct {
-	struct {
-		int l,r;
-	} inner;
-	struct {
-		int l,r;
-	} outer;
+	Range inner;
+	Range outer;
 	int border;
-} Range;
+} Extent;
 
 #ifdef MULTILINE_SHADER
 extern LinesShader lines;
@@ -163,19 +161,15 @@ draw_wave_buffer_v_hi (Renderer* renderer, WaveformActor* actor, int block, bool
 	AGlfRegion cropped;
 	agl_actor__calc_visible(
 		&(AGlActor){
-			.region = { .x1 = b_rect.left, .x2 = MIN(b_rect.left + b_rect.len, region.x2), .y2 = 10 },
+			.region = { .x1 = b_rect.left, .x2 = MIN(b_rect.left + b_rect.len, region.x2 - ((AGlActor*)actor)->scrollable.x1), .y2 = 10 },
 			.parent = (AGlActor*)actor,
 		},
 		&cropped
 	);
 
 	const int x_stop = b_rect.left + cropped.x2;
-	Range xr = {
+	Extent xr = {
 		.inner = {
-			MAX(0, b_rect.left + cropped.x1),
-			x_stop
-		},
-		.outer = {
 			MAX(0, b_rect.left + cropped.x1),
 			x_stop
 		},
@@ -183,8 +177,9 @@ draw_wave_buffer_v_hi (Renderer* renderer, WaveformActor* actor, int block, bool
 		.border = TEX_BORDER_HI
 #endif
 	};
+	xr.outer = xr.inner;
 
-	Range sr = {
+	Extent sr = {
 		.inner.l = is_first ? px_2_f(actor, ri->zoom, xr.inner.l + ((AGlActor*)actor)->region.x1) % WF_SAMPLES_PER_TEXTURE : 0,
 	};
 	sr.outer.l = sr.inner.l - sr.border;
@@ -270,9 +265,9 @@ draw_wave_buffer_v_hi (Renderer* renderer, WaveformActor* actor, int block, bool
 			}
 #else
 			{
-				float x0 = oldx - ((AGlActor*)actor)->scrollable.x1;
+				float x0 = oldx;
 				float y0 = rect->top - oldy + rect->height / 2;
-				float x1 = x - ((AGlActor*)actor)->scrollable.x1;
+				float x1 = x;
 				float y1 = rect->top -    y + rect->height / 2;
 
 				float len = sqrtf(powf((y1 - y0), 2) + powf((x1 - x0), 2));

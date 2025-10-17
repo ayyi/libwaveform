@@ -17,7 +17,9 @@
 #include <getopt.h>
 #include <gdk/gdkkeysyms.h>
 #include "agl/gtk-area.h"
+#include "actors/plain.h"
 #include "agl/behaviours/split.h"
+#include "agl/behaviours/fullsize.h"
 #include "waveform/actor.h"
 #include "test/common.h"
 
@@ -33,8 +35,7 @@ static const char* const short_options = "n";
 AGlScene*        scene    = NULL;
 WaveformContext* wfc      = NULL;
 Waveform*        waveform = NULL;
-WaveformActor*   a        = NULL;
-WaveformActor*   a2       = NULL;
+WaveformActor    *a1, *a2, *a3;
 float            vzoom    = 1.0;
 
 KeyHandler
@@ -76,21 +77,28 @@ window_content (GtkWindow* window, GdkGLConfig* glconfig)
 	GlArea* area = gl_area_new();
 	GtkWidget* canvas = (GtkWidget*)area;
 	scene = area->scene;
-	agl_actor__add_behaviour((AGlActor*)scene, agl_split());
 
-	gtk_widget_set_size_request(canvas, 1024, 256);
+	gtk_widget_set_size_request(canvas, 1024, 384);
 	gtk_container_add((GtkContainer*)window, (GtkWidget*)canvas);
 
-	wfc = wf_context_new((AGlActor*)area->scene);
+	AGlActor* waveforms = agl_actor__new(AGlActor,);
+	agl_actor__add_behaviour(waveforms, fullsize());
+	agl_actor__add_behaviour(waveforms, agl_split());
+	agl_actor__add_child((AGlActor*)scene, waveforms);
+
+	wfc = wf_context_new(waveforms);
 
 	g_autofree char* filename = find_wav(WAV);
 	waveform = waveform_load_new(filename);
 
-	a = wf_context_add_new_actor(wfc, waveform);
-	agl_actor__add_child((AGlActor*)area->scene, (AGlActor*)a);
+	a1 = wf_context_add_new_actor(wfc, waveform);
+	agl_actor__add_child(waveforms, (AGlActor*)a1);
 
 	a2 = wf_context_add_new_actor(wfc, waveform);
-	agl_actor__add_child((AGlActor*)area->scene, (AGlActor*)a2);
+	agl_actor__add_child(waveforms, (AGlActor*)a2);
+
+	a3 = wf_context_add_new_actor(wfc, waveform);
+	agl_actor__add_child(waveforms, (AGlActor*)a3);
 
 	void layout (AGlActor* actor)
 	{
@@ -99,15 +107,31 @@ window_content (GtkWindow* window, GdkGLConfig* glconfig)
 	}
 	((AGlActor*)a2)->set_size = layout;
 
+	void a3_layout (AGlActor* actor)
+	{
+		actor->scrollable.x1 = -100;
+		actor->scrollable.x2 = actor->parent->region.x2;
+	}
+	((AGlActor*)a3)->set_size = a3_layout;
+
+	for (int i=0;i<3;i++) {
+		AGlActor* box = agl_actor__add_child((AGlActor*)scene, plain_actor(NULL));
+		box->colour = 0xffff0022;
+	}
+
 	void on_zoom (AGlObservable* o, AGlVal zoom, gpointer _)
 	{
 		int n_frames = waveform_get_n_frames(waveform) / 512;
 
-		wf_actor_set_region(a, &(WfSampleRegion){
+		wf_actor_set_region(a1, &(WfSampleRegion){
 			.start = 71 * n_frames,
 			.len = 7. * (float)n_frames / zoom.f,
 		});
 		wf_actor_set_region(a2, &(WfSampleRegion){
+			.start = 71 * n_frames,
+			.len = 7. * (float)n_frames / zoom.f,
+		});
+		wf_actor_set_region(a3, &(WfSampleRegion){
 			.start = 71 * n_frames,
 			.len = 7. * (float)n_frames / zoom.f,
 		});
@@ -117,6 +141,24 @@ window_content (GtkWindow* window, GdkGLConfig* glconfig)
 	g_object_unref(waveform); // transfer ownership of the waveform to the Scene
 
 	g_signal_connect((gpointer)canvas, "size-allocate", G_CALLBACK(on_allocate), NULL);
+
+	gboolean on_configure (GtkWidget* widget, GdkEventConfigure* event, gpointer user_data)
+	{
+		float block_positions[3] = {307, 408, 208};
+
+		GList* l = ((AGlActor*)scene)->children->next;
+		for (int i=0;i<3;i++,l=l->next) {
+			AGlActor* box = l->data;
+			box->region = (AGlfRegion){
+				.x1 = block_positions[i],
+				.x2 = block_positions[i] + 10.,
+				.y1 = i * box->parent->region.y2 / 3.,
+				.y2 = (i + 1) * box->parent->region.y2 / 3.,
+			};
+		}
+		return false;
+	}
+	g_signal_connect_after((gpointer)canvas, "configure-event", G_CALLBACK(on_configure), NULL);
 }
 
 
@@ -189,7 +231,7 @@ vzoom_up (gpointer _)
 {
 	vzoom = MIN(vzoom * 1.2, 100.0);
 
-	wf_actor_set_vzoom(a, vzoom);
+	wf_actor_set_vzoom(a1, vzoom);
 }
 
 
@@ -198,16 +240,16 @@ vzoom_down (gpointer _)
 {
 	vzoom = MAX(vzoom / 1.2, 1.0);
 
-	wf_actor_set_vzoom(a, vzoom);
+	wf_actor_set_vzoom(a1, vzoom);
 }
 
 
 void
 scroll_left (gpointer _)
 {
-	wf_actor_set_region(a, &(WfSampleRegion){
-		.start = MAX(0, a->region.start - 100),
-		.len = a->region.len,
+	wf_actor_set_region(a1, &(WfSampleRegion){
+		.start = MAX(0, a1->region.start - 100),
+		.len = a1->region.len,
 	});
 }
 
@@ -215,9 +257,9 @@ scroll_left (gpointer _)
 void
 scroll_right (gpointer _)
 {
-	wf_actor_set_region(a, &(WfSampleRegion){
-		.start = a->region.start + 100,
-		.len = a->region.len,
+	wf_actor_set_region(a1, &(WfSampleRegion){
+		.start = a1->region.start + 100,
+		.len = a1->region.len,
 	});
 }
 
@@ -276,7 +318,7 @@ finalize_notify (gpointer data, GObject* was)
 static bool
 test_delete ()
 {
-	if (!a) return false;
+	if (!a1) return false;
 
 	g_object_weak_ref((GObject*)waveform, finalize_notify, NULL);
 
@@ -285,8 +327,9 @@ test_delete ()
 		return false;
 	}
 
-	a = (agl_actor__remove_child((AGlActor*)scene, (AGlActor*)a), NULL);
-	a2 = (agl_actor__remove_child((AGlActor*)scene, (AGlActor*)a2), NULL);
+	a1 = (agl_actor__remove_child(((AGlActor*)a1)->parent, (AGlActor*)a1), NULL);
+	a2 = (agl_actor__remove_child(((AGlActor*)a2)->parent, (AGlActor*)a2), NULL);
+	a2 = (agl_actor__remove_child(((AGlActor*)a3)->parent, (AGlActor*)a3), NULL);
 
 	if (!finalize_done) {
 		pwarn("waveform was not free'd");
