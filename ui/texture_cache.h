@@ -1,16 +1,15 @@
-/**
-* +----------------------------------------------------------------------+
-* | This file is part of libwaveform https://github.com/ayyi/libwaveform |
-* | copyright (C) 2012-2020 Tim Orford <tim@orford.org>                  |
-* +----------------------------------------------------------------------+
-* | This program is free software; you can redistribute it and/or modify |
-* | it under the terms of the GNU General Public License version 3       |
-* | as published by the Free Software Foundation.                        |
-* +----------------------------------------------------------------------+
-*
-*/
-#ifndef __waveform_texture_cache_h__
-#define __waveform_texture_cache_h__
+/*
+ +----------------------------------------------------------------------+
+ | This file is part of libwaveform https://github.com/ayyi/libwaveform |
+ | copyright (C) 2012-2025 Tim Orford <tim@orford.org>                  |
+ +----------------------------------------------------------------------+
+ | This program is free software; you can redistribute it and/or modify |
+ | it under the terms of the GNU General Public License version 3       |
+ | as published by the Free Software Foundation.                        |
+ +----------------------------------------------------------------------+
+ |
+ */
+#pragma once
 
 #include "waveform/waveform.h"
 
@@ -30,7 +29,8 @@ struct _texture_cache
 	WfOnSteal   on_steal;
 };
 
-void  texture_cache_init            ();
+void  texture_cache_ref             ();
+void  texture_cache_unref           ();
 void  texture_cache_set_on_steal    (WfOnSteal);
 int   texture_cache_lookup          (int tex_type, WaveformBlock);
 guint texture_cache_assign_new      (int tex_type, WaveformBlock);
@@ -40,4 +40,3 @@ void  texture_cache_remove_waveform (Waveform*);
 
 #endif // __wf_private__
 #endif // WF_USE_TEXTURE_CACHE
-#endif // __waveform_texture_cache_h__

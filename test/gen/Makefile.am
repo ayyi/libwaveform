@@ -6,7 +6,12 @@ lib_LTLIBRARIES = libgen.la
 noinst_PROGRAMS = write_wav write_short write_block write_piano every_point_one thumbnail
 
 DATA_DIR = ../data
+
+if ENABLE_FFMPEG
 FFMPEG = ffmpeg -y -loglevel warning
+else
+FFMPEG =
+endif
 
 AM_CFLAGS = \
 	-D_FILE_OFFSET_BITS=64
@@ -35,14 +40,14 @@ write_wav_SOURCES = \
 	write_wav.cc
 
 write_wav_LDADD = \
-	$(top_srcdir)/test/gen/.libs/libgen.a \
+	libgen.la \
 	$(TEST_LDFLAGS)
 
 write_short_SOURCES = \
 	write_short.cc
 
 write_short_LDADD = \
-	$(top_srcdir)/test/gen/.libs/libgen.a \
+	libgen.la \
 	$(TEST_LDFLAGS)
 
 write_block_SOURCES = \
@@ -77,7 +82,11 @@ libgen_la_SOURCES = \
 BUILT_SOURCES = test_data
 
 # disable recompilation of write_block to prevent this running each time
+if ENABLE_FFMPEG
 test_data: Makefile libgen.la test_data_1 test_data_thumbnail
+else
+test_data: Makefile libgen.la test_data_1
+endif
 
 test_data_1: write_block.cc write_wav write_short write_piano every_point_one
 	@if [ ! -e "write_block" ] || [ "write_block.cc" -nt "write_block" ] || [ "Makefile" -nt "write_block" ]; then \
@@ -86,26 +95,32 @@ test_data_1: write_block.cc write_wav write_short write_piano every_point_one
 	@if [[ ! -d $(DATA_DIR) ]]; then mkdir $(DATA_DIR); fi
 	@if [ ! -e "$(DATA_DIR)/mono_0:10.wav" ] || [ "./write_wav" -nt "$(DATA_DIR)/mono_0:10.wav" ] || [ "Makefile" -nt "$(DATA_DIR)/mono_0:10.wav" ]; then \
 		./write_wav $(DATA_DIR)/mono_0:10.wav; \
-		$(FFMPEG) -i $(DATA_DIR)/mono_0:10.wav -q 2 $(DATA_DIR)/mono_0:10.mp3; \
-		$(FFMPEG) -i $(DATA_DIR)/mono_0:10.wav $(DATA_DIR)/mono_0:10.m4a; \
-		$(FFMPEG) -i $(DATA_DIR)/mono_0:10.wav -b:a 128k $(DATA_DIR)/mono_0:10.opus; \
-		$(FFMPEG) -i $(DATA_DIR)/mono_0:10.wav $(DATA_DIR)/mono_0:10.flac; \
-		$(FFMPEG) -i $(DATA_DIR)/mono_0:10.wav -acodec pcm_s24le $(DATA_DIR)/mono_24b_0:10.wav; \
-		$(FFMPEG) -i $(DATA_DIR)/mono_0:10.wav -acodec pcm_u8 $(DATA_DIR)/mono_8b_0:10.wav; \
+		if [ ! -z "$(FFMPEG)" ]; then \
+			$(FFMPEG) -i $(DATA_DIR)/mono_0:10.wav -q 2 $(DATA_DIR)/mono_0:10.mp3; \
+			$(FFMPEG) -i $(DATA_DIR)/mono_0:10.wav $(DATA_DIR)/mono_0:10.m4a; \
+			$(FFMPEG) -i $(DATA_DIR)/mono_0:10.wav -b:a 128k $(DATA_DIR)/mono_0:10.opus; \
+			$(FFMPEG) -i $(DATA_DIR)/mono_0:10.wav $(DATA_DIR)/mono_0:10.flac; \
+			$(FFMPEG) -i $(DATA_DIR)/mono_0:10.wav -acodec pcm_s24le $(DATA_DIR)/mono_24b_0:10.wav; \
+			$(FFMPEG) -i $(DATA_DIR)/mono_0:10.wav -acodec pcm_u8 $(DATA_DIR)/mono_8b_0:10.wav; \
+		fi; \
 		./write_wav -l 0; \
 	fi;
 	@if [ ! -e "$(DATA_DIR)/stereo_0:10.wav" ] || [ "./write_wav" -nt "$(DATA_DIR)/stereo_0:10.wav" ] || [ "Makefile" -nt "$(DATA_DIR)/stereo_0:10.wav" ]; then \
 		./write_wav --channels=2 $(DATA_DIR)/stereo_0:10.wav; \
-		$(FFMPEG) -guess_layout_max 0 -i $(DATA_DIR)/stereo_0:10.wav -ac 2 -q 2 $(DATA_DIR)/stereo_0:10.mp3; \
-		$(FFMPEG) -guess_layout_max 0 -i $(DATA_DIR)/stereo_0:10.wav -ac 2 $(DATA_DIR)/stereo_0:10.m4a; \
-		$(FFMPEG) -guess_layout_max 0 -channel_layout stereo -i $(DATA_DIR)/stereo_0:10.wav -ac 2 -b:a 192k $(DATA_DIR)/stereo_0:10.opus; \
-		$(FFMPEG) -channel_layout stereo -i $(DATA_DIR)/stereo_0:10.wav -ac 2 $(DATA_DIR)/stereo_0:10.flac; \
-		$(FFMPEG) -guess_layout_max 0 -channel_layout stereo -i $(DATA_DIR)/stereo_0:10.wav -channel_layout stereo -acodec pcm_s24le $(DATA_DIR)/stereo_24b_0:10.wav; \
-	fi;
+		if [ ! -z "$(FFMPEG)" ]; then \
+			$(FFMPEG) -guess_layout_max 0 -i $(DATA_DIR)/stereo_0:10.wav -ac 2 -q 2 $(DATA_DIR)/stereo_0:10.mp3; \
+			$(FFMPEG) -guess_layout_max 0 -i $(DATA_DIR)/stereo_0:10.wav -ac 2 $(DATA_DIR)/stereo_0:10.m4a; \
+			$(FFMPEG) -guess_layout_max 0 -channel_layout stereo -i $(DATA_DIR)/stereo_0:10.wav -ac 2 -b:a 192k $(DATA_DIR)/stereo_0:10.opus; \
+			$(FFMPEG) -channel_layout stereo -i $(DATA_DIR)/stereo_0:10.wav -ac 2 $(DATA_DIR)/stereo_0:10.flac; \
+			$(FFMPEG) -guess_layout_max 0 -channel_layout stereo -i $(DATA_DIR)/stereo_0:10.wav -channel_layout stereo -acodec pcm_s24le $(DATA_DIR)/stereo_24b_0:10.wav; \
+		fi; \
+	fi
 	@if [ ! -e "$(DATA_DIR)/mono_10:00.wav" ] || [ "./write_wav" -nt "$(DATA_DIR)/mono_10:00.wav" ]; then \
 		./write_wav --length=600  $(DATA_DIR)/mono_10:00.wav; \
-		$(FFMPEG) -i $(DATA_DIR)/mono_10:00.wav -q 2 $(DATA_DIR)/mono_10:00.mp3; \
-	fi;
+		if [ ! -z "$(FFMPEG)" ]; then \
+			$(FFMPEG) -i $(DATA_DIR)/mono_10:00.wav -q 2 $(DATA_DIR)/mono_10:00.mp3; \
+		fi; \
+	fi
 	@if [ ! -e "$(DATA_DIR)/short.wav" ] || [ "./write_short" -nt "$(DATA_DIR)/short.wav" ]; then \
 		./write_short $(DATA_DIR)/short.wav; \
 		./write_short -l 10 $(DATA_DIR)/v_short.wav; \
@@ -129,11 +144,13 @@ test_data_1: write_block.cc write_wav write_short write_piano every_point_one
 		./every_point_one $(DATA_DIR)/every_point_one.wav; \
 	fi;
 
-test_data_thumbnail: thumbnail
+if ENABLE_FFMPEG
+test_data_thumbnail: thumbnail test_data_1
 	./thumbnail
 	ffmpeg -i $(DATA_DIR)/mono_0:10.mp3 -i thumbnail.png -map 0:0 -map 1:0 -codec copy -id3v2_version 3 \
 	    -metadata:s:v title="Thumbnail" -metadata:s:v comment="Thumbnail" -y $(DATA_DIR)/thumbnail.mp3
 	rm thumbnail.png
+endif
 
 clean-local:
 	if [ -f thumbnail.png ]; then rm thumbnail.png; fi

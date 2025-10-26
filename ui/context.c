@@ -99,11 +99,6 @@ wf_context_class_init (WaveformContextClass* klass)
 
 	agl = agl_get_instance();
 
-#if defined (WF_USE_TEXTURE_CACHE) && defined (USE_OPENGL)
-	texture_cache_init();
-	texture_cache_set_on_steal(on_steal);
-#endif
-
 	// testing...
 	g_signal_new ("ready", TYPE_WAVEFORM_CONTEXT, G_SIGNAL_RUN_LAST, 0, NULL, NULL, g_cclosure_marshal_VOID__VOID, G_TYPE_NONE, 0);
 }
@@ -112,6 +107,10 @@ wf_context_class_init (WaveformContextClass* klass)
 static void
 wf_context_instance_init (WaveformContext* self)
 {
+#if defined (WF_USE_TEXTURE_CACHE) && defined (USE_OPENGL)
+	texture_cache_ref();
+	texture_cache_set_on_steal(on_steal);
+#endif
 }
 
 
@@ -207,6 +206,10 @@ wf_context_finalize (GObject* obj)
 
 	wf_free(wfc->priv);
 
+#if defined (WF_USE_TEXTURE_CACHE) && defined (USE_OPENGL)
+	texture_cache_unref();
+#endif
+
 	G_OBJECT_CLASS (waveform_context_parent_class)->finalize (obj);
 }
 
@@ -238,7 +241,7 @@ wf_context_add_new_actor (WaveformContext* wfc, Waveform* w)
 {
 	g_return_val_if_fail(wfc, NULL);
 
-	WaveformActor* a = wf_actor_new(w, wfc);
+	WaveformActor* a = wf_actor_new(w, g_object_ref(wfc));
 #ifdef TRACK_ACTORS
 	actors = g_list_append(actors, a);
 #endif

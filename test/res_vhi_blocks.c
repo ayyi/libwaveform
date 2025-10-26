@@ -139,6 +139,7 @@ window_content (GtkWindow* window, GdkGLConfig* glconfig)
 	agl_observable_subscribe_with_state(wfc->zoom, on_zoom, NULL);
 
 	g_object_unref(waveform); // transfer ownership of the waveform to the Scene
+	g_object_unref(wfc);
 
 	g_signal_connect((gpointer)canvas, "size-allocate", G_CALLBACK(on_allocate), NULL);
 
@@ -350,5 +351,6 @@ delete (gpointer _)
 void
 quit (gpointer _)
 {
+	agl_actor__free((AGlActor*)scene);
 	exit(EXIT_SUCCESS);
 }

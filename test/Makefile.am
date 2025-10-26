@@ -113,8 +113,6 @@ group_SOURCES = \
 	$(COMMON2_SOURCES) \
 	group.c
 
-ass_SOURCES = $(COMMON2_SOURCES) ass.c
-
 hires_SOURCES = \
 	$(COMMON2_SOURCES) \
 	hires.c

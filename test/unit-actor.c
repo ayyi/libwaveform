@@ -115,6 +115,7 @@ setup ()
 	modes[MODE_LOW].renderer = (Renderer*)&mock_renderer;
 	modes[MODE_MED].renderer = (Renderer*)&mock_renderer_med;
 	modes[MODE_HI].renderer = (Renderer*)&mock_renderer_hi;
+	modes[MODE_V_HI].renderer = (Renderer*)&mock_renderer_hi;
 
 	vlow = (MockRenderer*)modes[MODE_V_LOW].renderer;
 	low = (MockRenderer*)modes[MODE_LOW].renderer;

@@ -126,6 +126,8 @@ draw_wave_buffer_v_hi (Renderer* renderer, WaveformActor* actor, int block, bool
 
 	// variable names: variables prefixed with x_ relate to screen coordinates (pixels), variables prefixed with s_ related to sample frames.
 
+	// drawing is done in regular local coordinate space (ie. relative to actor->scrollable.x1)
+
 	const Waveform* w = actor->waveform;
 	const WaveformContext* wfc = actor->context;
 	const WfActorPriv* _a = actor->priv;
@@ -349,10 +351,6 @@ static void
 v_hi_free_waveform (Renderer* renderer, Waveform* w)
 {
 	g_clear_pointer(&w->priv->render_data[MODE_V_HI], g_free);
-#if 0
-	glDeleteBuffers (1, &vbo);
-	vbo = 0;
-#endif
 }
 
 
@@ -406,6 +404,23 @@ _wf_create_lines_texture (guchar* pbuf, int width, int height)
 #endif
 
 
-VHiRenderer v_hi_renderer = {{MODE_V_HI, v_hi_renderer_new, v_hi_load_block, v_hi_pre_render0, draw_wave_buffer_v_hi, NULL, v_hi_free_waveform}};
+#ifdef USE_TEST
+static void
+v_hi_unref (Renderer* renderer)
+{
+	if (--renderer->ref_count < 1) {
+		glDeleteBuffers (1, &hivbo);
+		hivbo = 0;
+	}
+}
+#endif
+
+
+VHiRenderer v_hi_renderer = {{
+	MODE_V_HI, v_hi_renderer_new, v_hi_load_block, v_hi_pre_render0, draw_wave_buffer_v_hi, NULL, v_hi_free_waveform,
+#ifdef USE_TEST
+	.unref = v_hi_unref
+#endif
+}};
 
 

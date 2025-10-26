@@ -26,12 +26,14 @@ typedef struct {
 	int n_tests;
 	int n_passed;
 	int n_failed;
+	int n_skipped;
 	int timeout;
 	bool passed;
 	bool is_gtk;
 	struct {
 		int    test;
 		char   name[64];
+		bool   skipped;
 		bool   finished;  // current test has finished. Go onto the next test.
 		GList* timers;
 	}   current;
@@ -51,6 +53,7 @@ void wait_for           (ReadyTest, WaitCallback, gpointer);
 #ifndef red
 #define RED "\x1b[1;31m"
 #define GREEN "\x1b[1;32m"
+#define YELLOW "\x1b[1;33m"
 #endif
 
 #define START_TEST \
@@ -66,20 +69,18 @@ void wait_for           (ReadyTest, WaitCallback, gpointer);
 #define FINISH_TEST \
 	if(__test_idx != TEST.current.test) return; \
 	printf("%s: finish\n", TEST.current.name); \
-	TEST.current.finished = true; \
 	TEST.passed = true; \
 	test_finish(); \
 	return;
 
 #define FINISH_TEST_TIMER_STOP \
 	if(__test_idx != TEST.current.test) return G_SOURCE_REMOVE; \
-	TEST.current.finished = true; \
 	TEST.passed = true; \
 	test_finish(); \
 	return G_SOURCE_REMOVE;
 
 #define FAIL_TEST(msg, ...) \
-	{TEST.current.finished = true; \
+	{ \
 	TEST.passed = false; \
 	printf("%s: ", TEST.current.name); \
 	test_errprintf(msg, ##__VA_ARGS__); \
@@ -87,12 +88,17 @@ void wait_for           (ReadyTest, WaitCallback, gpointer);
 	return; }
 
 #define FAIL_TEST_TIMER(msg) \
-	{TEST.current.finished = true; \
+	{ \
 	TEST.passed = false; \
 	printf("%s: ", TEST.current.name); \
 	printf("%s%s%s\n", RED, msg, ayyi_white); \
 	test_finish(); \
 	return G_SOURCE_REMOVE;}
+
+#define SKIP_TEST \
+	TEST.current.skipped = true; \
+	test_finish(); \
+	return;
 
 #define assert(A, B, ...) \
 	{bool __ok_ = ((A) != 0); \

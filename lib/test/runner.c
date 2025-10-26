@@ -88,13 +88,16 @@ next_test ()
 		g_source_remove (TEST.timeout);
 	if (TEST.current.test < TEST.n_tests) {
 		TEST.current.finished = false;
+		TEST.current.skipped = false;
 		gboolean (*test)() = tests[TEST.current.test];
 		dbg(2, "test %i of %i.", TEST.current.test + 1, TEST.n_tests);
 		g_timeout_add(200, run_test, test);
 
 		TEST.timeout = g_timeout_add(30000, on_test_timeout, NULL);
 	} else {
-		printf("finished all. passed=%s %i %s failed=%s %i %s\n", GREEN, TEST.n_passed, ayyi_white, (TEST.n_failed ? RED : ayyi_white), TEST.n_failed, ayyi_white);
+		printf("finished all. passed=%s %i %s failed=%s %i %s", GREEN, TEST.n_passed, ayyi_white, (TEST.n_failed ? RED : ayyi_white), TEST.n_failed, ayyi_white);
+		if (TEST.n_skipped) printf(" skipped=%s%i%s", YELLOW, TEST.n_skipped, ayyi_white);
+		printf("\n");
 		g_timeout_add(500, (GSourceFunc)__exit, NULL);
 	}
 }
@@ -105,8 +108,14 @@ test_finish ()
 {
 	dbg(2, "... passed=%i", TEST.passed);
 
-	if (TEST.passed) TEST.n_passed++; else TEST.n_failed++;
-	if (!TEST.passed && abort_on_fail) TEST.current.test = 1000;
+	TEST.current.finished = true;
+
+	if (TEST.current.skipped) {
+		TEST.n_skipped++;
+	} else {
+		if (TEST.passed) TEST.n_passed++; else TEST.n_failed++;
+		if (!TEST.passed && abort_on_fail) TEST.current.test = 1000;
+	}
 
 	next_test();
 }

@@ -173,6 +173,7 @@ typedef void    (*WaveformActorPostRender)  (Renderer*, WaveformActor*);
 typedef void    (*WaveformActorFreeFn)      (Renderer*, Waveform*);
 #ifdef USE_TEST
 typedef bool    (*WaveformActorTestFn)      (Renderer*, WaveformActor*);
+typedef void    (*RendererFn)               (Renderer*);
 #endif
 
 struct _Renderer
@@ -187,6 +188,9 @@ struct _Renderer
 	WaveformActorFreeFn      free;
 #ifdef USE_TEST
 	WaveformActorTestFn      is_not_blank;
+	RendererFn               unref;
+
+	int                      ref_count;
 #endif
 
 	AGlShader*               shader;
@@ -616,6 +620,12 @@ wf_actor_new (Waveform* w, WaveformContext* wfc)
 	}
 	_a->handlers.zoom_changed = g_signal_connect((gpointer)a->context, "zoom-changed", (GCallback)wf_actor_on_zoom_changed, a);
 
+#ifdef USE_TEST
+	for (int r=MODE_V_LOW;r<N_MODES;r++) {
+		modes[r].renderer->ref_count++;
+	}
+#endif
+
 	return a;
 }
 
@@ -700,8 +710,15 @@ wf_actor_free (AGlActor* actor)
 		waveform_unref0(a->waveform);
 	}
 
+	g_clear_object(&a->context);
 	g_clear_pointer(&_a->peakdata_ready, am_promise_unref);
 	g_free0(a->priv);
+
+#ifdef USE_TEST
+	for (int r=MODE_V_LOW;r<N_MODES;r++) {
+		if (modes[r].renderer->unref) modes[r].renderer->unref(modes[r].renderer);
+	}
+#endif
 
 #if 0 // no, cannot call this because it calls the free function
 	if(actor->parent) agl_actor__remove_child(actor->parent, actor);

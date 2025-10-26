@@ -135,6 +135,8 @@ window_content (GtkWindow* window, GdkGLConfig* glconfig)
 
 		wf_actor_set_region(a[i], &region[i]);
 		wf_actor_set_colour(a[i], colours[i][0]);
+
+		g_object_unref(wfc[i]);
 	}
 
 	g_object_unref(w1); // transfer ownership of the waveform to the Scene
@@ -368,6 +370,8 @@ delete (gpointer _)
 void
 quit (gpointer _)
 {
+	agl_actor__free((AGlActor*)scene);
+
 	exit(EXIT_SUCCESS);
 }
 

@@ -31,8 +31,7 @@ OPENGL_SOURCES = \
 	context.c context.h \
 	actor.c actor.h \
 	shader.c shader.h \
-	texture_cache.c texture_cache.h \
-	fbo.c fbo.h
+	texture_cache.c texture_cache.h
 OPENGL_LIBADD = \
 	actors/libactors.la
 endif

@@ -53,6 +53,7 @@ test_decoder ()
 		assert(f.info.channels = 2, "channels");
 	}
 
+#ifdef USE_FFMPEG
 	{
 		g_auto(WfDecoder) f = {{0,}};
 
@@ -61,6 +62,7 @@ test_decoder ()
 
 		assert(f.info.channels = 2, "channels");
 	}
+#endif
 
 	FINISH_TEST;
 }
@@ -86,6 +88,7 @@ test_decoder_snapshot ()
 	#define N_FRAMES 9
 
 	// recorded with ffmpeg 6.1.1
+	// tested with libavcodec 61.19.101
 	int16_t snapshots[][N_FRAMES] = {
 		{0, 0, 1, 1, 2, 3, 4, 6, 8},
 		{0, 0, 1, 1, 2, 3, 4, 6, 8},
@@ -151,6 +154,9 @@ test_decoder_snapshot ()
 void
 test_peakgen ()
 {
+#ifndef USE_FFMPEG
+	SKIP_TEST;
+#else
 	START_TEST;
 
 	g_autofree char* filename = find_wav(WAV);
@@ -164,7 +170,7 @@ test_peakgen ()
 		gsize length;
 		g_autofree gchar* contents;
 		g_file_get_contents (WAV ".peak", &contents, &length, NULL);
-		assert(length == 6970, "peakfile size %i", (int)length);
+		assert(length == 6970, "peakfile size expected %i got %i", 6970, (int)length);
 
 		WfAudioInfo info = {0};
 		ad_finfo(WAV ".peak", &info);
@@ -201,12 +207,14 @@ test_peakgen ()
 	}
 
 	FINISH_TEST;
+#endif
 }
 
 
 void
 test_m4a ()
 {
+#ifdef USE_FFMPEG
 	START_TEST;
 
 	#define M4A "mono_0:10.m4a"
@@ -230,6 +238,9 @@ test_m4a ()
 	g_free(p);
 
 	FINISH_TEST;
+#else
+	SKIP_TEST;
+#endif
 }
 
 
@@ -247,6 +258,7 @@ typedef struct {
 void
 test_bad_wav ()
 {
+#ifdef USE_FFMPEG
 	START_TEST;
 	if (__test_idx == -1) printf("\n"); // stop compiler warning
 	static Waveform* w;
@@ -279,6 +291,10 @@ test_bad_wav ()
 			}
 		)
 	);
+	FINISH_TEST;
+#else
+	SKIP_TEST;
+#endif
 }
 
 

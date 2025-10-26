@@ -1,15 +1,17 @@
-/**
-* +----------------------------------------------------------------------+
-* | This file is part of the Ayyi project. http://ayyi.org               |
-* | copyright (C) 2012-2020 Tim Orford <tim@orford.org>                  |
-* +----------------------------------------------------------------------+
-* | This program is free software; you can redistribute it and/or modify |
-* | it under the terms of the GNU General Public License version 3       |
-* | as published by the Free Software Foundation.                        |
-* +----------------------------------------------------------------------+
-*
-*/
+/*
+ +----------------------------------------------------------------------+
+ | This file is part of the Ayyi project. https://www.ayyi.org          |
+ | copyright (C) 2012-2025 Tim Orford <tim@orford.org>                  |
+ +----------------------------------------------------------------------+
+ | This program is free software; you can redistribute it and/or modify |
+ | it under the terms of the GNU General Public License version 3       |
+ | as published by the Free Software Foundation.                        |
+ +----------------------------------------------------------------------+
+ |
+ */
+
 #define __wf_private__
+
 #include "config.h"
 #include <glib.h>
 #include "agl/utils.h"
@@ -53,11 +55,14 @@ static int  texture_cache_lookup_idx_by_id (TextureCache*, guint);
 static int  texture_cache_count_used       (TextureCache*);
 #endif
 
+static int ref_count;
 
 void
-texture_cache_init ()
+texture_cache_ref ()
 {
-	if(c1) return;
+	ref_count++;
+
+	if (c1) return;
 
 	c1 = g_new0(TextureCache, 1);
 	c1->t = g_array_new(FALSE, TRUE, sizeof(WfTexture));
@@ -66,6 +71,24 @@ texture_cache_init ()
 	c2 = g_new0(TextureCache, 1);
 	c2->t = g_array_new(FALSE, TRUE, sizeof(WfTexture));
 	c2->t = g_array_set_size(c2->t, 0);
+}
+
+
+void
+texture_cache_unref ()
+{
+	g_return_if_fail(ref_count > 0);
+
+	if (--ref_count < 1) {
+		while (c1->t->len > 0) {
+			texture_cache_shrink(c1, c1->t->len - WF_TEXTURE_ALLOCATION_INCREMENT);
+		}
+		while (c2->t->len > 0) {
+			texture_cache_shrink(c2, c2->t->len - WF_TEXTURE_ALLOCATION_INCREMENT);
+		}
+		g_clear_pointer(&c1, g_free);
+		g_clear_pointer(&c2, g_free);
+	}
 }
 
 
@@ -83,7 +106,7 @@ texture_cache_set_on_steal(WfOnSteal fn)
 static void
 texture_cache_gen (TextureCache* c)
 {
-	if(!c1) texture_cache_init();
+	if (!c1) texture_cache_ref();
 
 	static bool error_shown = false;
 
@@ -131,13 +154,13 @@ texture_cache_gen (TextureCache* c)
 static void
 texture_cache_shrink (TextureCache* c, int idx)
 {
-	dbg(1, "*** %i-->%i", c->t->len, idx);
+	dbg(1, "%i-->%i", c->t->len, idx);
 	g_return_if_fail(!(idx % WF_TEXTURE_ALLOCATION_INCREMENT));
 
 	guint textures[WF_TEXTURE_ALLOCATION_INCREMENT];
 
 	int i = 0;
-	int t; for(t=idx;t<idx+WF_TEXTURE_ALLOCATION_INCREMENT;t++, i++){
+	for (int t=idx;t<idx+WF_TEXTURE_ALLOCATION_INCREMENT;t++, i++) {
 		WfTexture* tx = &g_array_index(c->t, WfTexture, t);
 		textures[i] = tx->id;
 	}
@@ -197,7 +220,7 @@ texture_cache_assign (TextureCache* c, int t, WaveformBlock wb)
 
 
 void
-texture_cache_freshen(int tex_type, WaveformBlock wb)
+texture_cache_freshen (int tex_type, WaveformBlock wb)
 {
 	TextureCache* c = cache_by_type(tex_type);
 
@@ -244,14 +267,14 @@ texture_cache_freshen(int tex_type, WaveformBlock wb)
 	}
 
 static void
-texture_cache_queue_clean()
+texture_cache_queue_clean ()
 {
 	if(!idle_id) idle_id = g_idle_add(texture_cache_clean, NULL);
 }
 
 
 static void
-texture_cache_unassign(TextureCache* c, WaveformBlock wb)
+texture_cache_unassign (TextureCache* c, WaveformBlock wb)
 {
 	g_return_if_fail(wb.waveform);
 
@@ -277,7 +300,7 @@ texture_cache_unassign(TextureCache* c, WaveformBlock wb)
 
 
 static guint
-texture_cache_get(TextureCache* c, int t)
+texture_cache_get (TextureCache* c, int t)
 {
 	g_return_val_if_fail(t > -1, -1);
 	g_return_val_if_fail(t < c->t->len, -1);
@@ -292,7 +315,7 @@ texture_cache_get(TextureCache* c, int t)
  *  Returns texture id or -1.
  */
 int
-texture_cache_lookup(int tex_type, WaveformBlock wb)
+texture_cache_lookup (int tex_type, WaveformBlock wb)
 {
 	TextureCache* c = cache_by_type(tex_type);
 
@@ -310,7 +333,7 @@ texture_cache_lookup(int tex_type, WaveformBlock wb)
 
 
 static int
-texture_cache_lookup_idx(TextureCache* c, WaveformBlock wb)
+texture_cache_lookup_idx (TextureCache* c, WaveformBlock wb)
 {
 	int i; for(i=0;i<c->t->len;i++){
 		WfTexture* t = &g_array_index(c->t, WfTexture, i);
@@ -326,7 +349,7 @@ texture_cache_lookup_idx(TextureCache* c, WaveformBlock wb)
 
 #ifdef WF_DEBUG
 static int
-texture_cache_lookup_idx_by_id(TextureCache* c, guint id)
+texture_cache_lookup_idx_by_id (TextureCache* c, guint id)
 {
 	int i; for(i=0;i<c->t->len;i++){
 		WfTexture* t = &g_array_index(c->t, WfTexture, i);
@@ -340,7 +363,7 @@ texture_cache_lookup_idx_by_id(TextureCache* c, guint id)
 
 
 static int
-texture_cache_get_new(TextureCache* c)
+texture_cache_get_new (TextureCache* c)
 {
 	int t = texture_cache_find_empty(c);
 	if(t < 0){
@@ -355,7 +378,7 @@ texture_cache_get_new(TextureCache* c)
 
 
 static int
-texture_cache_find_empty(TextureCache* c)
+texture_cache_find_empty (TextureCache* c)
 {
 	int t; for(t=0;t<c->t->len;t++){
 		WfTexture* tx = &g_array_index(c->t, WfTexture, t);
@@ -369,7 +392,7 @@ texture_cache_find_empty(TextureCache* c)
 
 
 static int
-texture_cache_steal(TextureCache* c)
+texture_cache_steal (TextureCache* c)
 {
 	int oldest = -1;
 	int n = -1;
@@ -395,14 +418,14 @@ texture_cache_steal(TextureCache* c)
 
 
 void
-texture_cache_remove(int tex_type, Waveform* w, int b)
+texture_cache_remove (int tex_type, Waveform* w, int b)
 {
 	texture_cache_unassign(cache_by_type(tex_type), (WaveformBlock){w, b});
 }
 
 
 void
-texture_cache_remove_waveform(Waveform* waveform) //tmp? should probably only be called by wf_unref()
+texture_cache_remove_waveform (Waveform* waveform) //tmp? should probably only be called by wf_unref()
 {
 	WaveformPrivate* w = waveform->priv;
 
@@ -430,7 +453,7 @@ texture_cache_remove_waveform(Waveform* waveform) //tmp? should probably only be
 
 #ifdef DEBUG
 int
-texture_cache_count_by_waveform(Waveform* w)
+texture_cache_count_by_waveform (Waveform* w)
 {
 	int n_found = 0;
 	int j; for(j=0;j<2;j++){
@@ -447,7 +470,7 @@ texture_cache_count_by_waveform(Waveform* w)
 
 #ifdef DEBUG
 static int
-texture_cache_count_used(TextureCache* c)
+texture_cache_count_used (TextureCache* c)
 {
 	int n_used = 0;
 	if(c->t->len){
@@ -462,20 +485,20 @@ texture_cache_count_used(TextureCache* c)
 
 
 void
-texture_cache_print()
+texture_cache_print ()
 {
-	int j; for(j=0;j<2;j++){
+	for (int j=0;j<2;j++) {
 		TextureCache* c = j ? c2 : c1;
 		dbg(0, "%s", j ? "2D:" : "1D:");
 		int n_used = 0;
 		GList* waveforms = NULL;
-		if(c->t->len){
+		if (c->t->len) {
 			printf("         %2s %4s  %3s   %-4s\n", "id", "ts", "b", "wvfm");
-			int i; for(i=0;i<c->t->len;i++){
+			for (int i=0;i<c->t->len;i++) {
 				WfTexture* t = &g_array_index(c->t, WfTexture, i);
-				if(t->wb.waveform){
+				if (t->wb.waveform) {
 					n_used++;
-					if(!g_list_find(waveforms, t->wb.waveform)) waveforms = g_list_append(waveforms, t->wb.waveform);
+					if (!g_list_find(waveforms, t->wb.waveform)) waveforms = g_list_append(waveforms, t->wb.waveform);
 				}
 				char* mode = (!t->wb.waveform)
 					? " "
