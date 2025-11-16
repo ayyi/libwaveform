@@ -14,6 +14,7 @@ PROG=./glx
 PROG=./list
 PROG=./actor_no_scene
 PROG=./waveform
+PROG=./overview
 
 ls -l $PROG
 export G_SLICE=always-malloc

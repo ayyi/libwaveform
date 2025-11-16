@@ -1,14 +1,15 @@
-/**
-* +----------------------------------------------------------------------+
-* | This file is part of libwaveform https://github.com/ayyi/libwaveform |
-* | copyright (C) 2012-2021 Tim Orford <tim@orford.org>                  |
-* +----------------------------------------------------------------------+
-* | This program is free software; you can redistribute it and/or modify |
-* | it under the terms of the GNU General Public License version 3       |
-* | as published by the Free Software Foundation.                        |
-* +----------------------------------------------------------------------+
-*
-*/
+/*
+ +----------------------------------------------------------------------+
+ | This file is part of libwaveform https://github.com/ayyi/libwaveform |
+ | copyright (C) 2012-2025 Tim Orford <tim@orford.org>                  |
+ +----------------------------------------------------------------------+
+ | This program is free software; you can redistribute it and/or modify |
+ | it under the terms of the GNU General Public License version 3       |
+ | as published by the Free Software Foundation.                        |
+ +----------------------------------------------------------------------+
+ |
+ */
+
 #ifndef __wf_private_h__
 #define __wf_private_h__
 
@@ -92,6 +93,25 @@ struct _WfAudioData {
 	int                n_tiers_present;
 };
 
+typedef struct
+{
+	short positive;
+	short negative;
+} WfPeak;
+
+#define PREVIEW_SIZE 1024
+
+typedef struct WfPreview {
+	AGlObservable observable;
+	Waveform*     waveform;
+	WfPeak        data[WF_STEREO][PREVIEW_SIZE]; // array of 1024 approximate peak values for quick visualization
+	int           size;                          // actual used size of preview data
+	int           ref_count;
+	void*         render_data;
+	void          (*clear_render_data)(struct WfPreview*);
+	guint         idle_id;
+} WfPreview;
+
 struct _WaveformPrivate
 {
 	WfPeakBuf       peak;           // single buffer of peakdata for use at MED and LOW resolution.
@@ -111,6 +131,8 @@ struct _WaveformPrivate
 	WaveformModeRender* render_data[N_MODES];
 
 	WaveformState   state : 4;
+
+	WfPreview*      preview;
 };
 
 struct _WfWorker {
@@ -183,13 +205,7 @@ typedef struct
 	int           time_stamp;
 } WfTexture;
 
-typedef struct
-{
-	short positive;
-	short negative;
-} WfPeakSample;
-
-typedef struct _wf_drect { double x1, y1, x2, y2; } WfDRect;
+typedef struct { double x1, y1, x2, y2; } WfdRect;
 typedef struct { double start, end; } WfdRange;
 
 
@@ -210,5 +226,8 @@ void           waveform_get_rhs            (const char* left, char* right);
 
 WfTextureHi*   waveform_texture_hi_new     ();
 void           waveform_texture_hi_free    (WfTextureHi*);
+
+void           preview_unref               (WfPreview*);
+void           preview_set                 (WfPreview*, int);
 
 #endif

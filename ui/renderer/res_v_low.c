@@ -29,7 +29,7 @@ v_lo_new (WaveformActor* actor)
 			.size     = n_sections
 		};
 
-		g_object_weak_ref((GObject*)waveform, ng_gl2_finalize_notify, renderer);
+		g_object_weak_ref((GObject*)waveform, ng_finalize_notify, renderer);
 		g_hash_table_insert(((NGRenderer*)renderer)->ng_data, waveform, *data);
 	}
 
@@ -62,10 +62,11 @@ v_lo_buf_to_tex (Renderer* renderer, WaveformActor* actor, int b)
 	Waveform* waveform = actor->waveform;
 	WaveformPrivate* w = waveform->priv;
 	WfPeakBuf* peak = &w->peak;
+	HiResNGWaveform* data = (HiResNGWaveform*)w->render_data[renderer->mode];
+
 	int s  = b / MAX_BLOCKS_PER_TEXTURE;
 	int _b = b % MAX_BLOCKS_PER_TEXTURE;
 	int block_size = get_block_size(actor);
-	HiResNGWaveform* data = (HiResNGWaveform*)w->render_data[renderer->mode];
 	Section* section = &data->section[s];
 	int n_chans = waveform_get_n_channels(waveform);
 	int n_blocks = waveform_get_n_audio_blocks(waveform) / WF_MED_TO_V_LOW + (waveform_get_n_audio_blocks(waveform) % WF_MED_TO_V_LOW ? 1 : 0);
@@ -80,12 +81,12 @@ v_lo_buf_to_tex (Renderer* renderer, WaveformActor* actor, int b)
 		? peak->size / (WF_MED_TO_V_LOW * WF_PEAK_VALUES_PER_SAMPLE) + TEX_BORDER - B_SIZE * b
 		: WF_PEAK_TEXTURE_SIZE;
 
-	int c; for(c=0;c<n_chans;c++){
+	for (int c=0;c<n_chans;c++) {
 		int64_t src = WF_PEAK_VALUES_PER_SAMPLE * WF_MED_TO_V_LOW * (_b * B_SIZE - TEX_BORDER);
 		int dest = _b * block_size + (c * block_size / 2);
 
 		int t = 0;
-		if(b == 0){
+		if (b == 0) {
 			for(t=0;t<TEX_BORDER;t++){
 				ng_gl2_set_(section, dest + lod_max[mm_level] + t, 0);
 				ng_gl2_set_(section, dest + lod_min[mm_level] + t, 0);
@@ -93,11 +94,11 @@ v_lo_buf_to_tex (Renderer* renderer, WaveformActor* actor, int b)
 			src = 0;
 		}
 
-		for(; t<stop; t++, src+=2*(WF_MED_TO_V_LOW)){
+		for (; t<stop; t++, src+=2*WF_MED_TO_V_LOW) {
 			short max = 0, min = 0;
 
 			int end = MIN(WF_MED_TO_V_LOW, peak->size - (src + 1));
-			int i; for(i=0;i<end;i++){
+			for (int i=0;i<end;i++) {
 				max = MAX(max,  peak->buf[c][src + i    ]);
 				min = MIN(min, -peak->buf[c][src + i + 1]);
 			}
@@ -106,8 +107,8 @@ v_lo_buf_to_tex (Renderer* renderer, WaveformActor* actor, int b)
 			ng_gl2_set_(section, dest + lod_min[mm_level] + t, short_to_char(-min));
 		}
 
-		if(is_last_block){
-			for(t=stop;t<WF_PEAK_TEXTURE_SIZE;t++){
+		if (is_last_block) {
+			for (t=stop;t<WF_PEAK_TEXTURE_SIZE;t++) {
 				ng_gl2_set_(section, dest + lod_max[mm_level] + t, 0);
 				ng_gl2_set_(section, dest + lod_min[mm_level] + t, 0);
 			}
@@ -126,10 +127,11 @@ v_lo_is_not_blank (Renderer* renderer, WaveformActor* actor)
 
 
 Renderer v_lo_renderer_gl1 = {MODE_V_LOW, v_lo_new_gl1, low_allocate_block_gl1, med_lo_pre_render_gl1, med_lo_render_gl1, NULL, med_lo_gl1_free_waveform};
-NGRenderer v_lo_renderer_gl2 = {{MODE_V_LOW, v_lo_new, ng_gl2_load_block, ng_pre_render, ng_gl2_render_block, ng_gl2_post_render, ng_gl2_free_waveform,
+NGRenderer v_lo_renderer_gl2 = {{MODE_V_LOW, v_lo_new, ng_gl2_load_block, ng_pre_render, ng_gl2_render_block, ng_post_render, ng_free_waveform,
 #ifdef USE_TEST
 	.is_not_blank = v_lo_is_not_blank,
 #endif
+	.texture_size = WF_PEAK_TEXTURE_SIZE,
 	}, v_lo_buf_to_tex,
 };
 Renderer v_lo_renderer;
@@ -140,7 +142,7 @@ v_lo_renderer_init ()
 {
 	v_lo_renderer_gl2.ng_data = g_hash_table_new_full(g_direct_hash, g_int_equal, NULL, g_free);
 
-	ng_make_lod_levels(&v_lo_renderer_gl2, MODE_V_LOW);
+	ng_make_lod_levels(&v_lo_renderer_gl2, v_lo_renderer_gl2.renderer.texture_size);
 
 	return (Renderer*)&v_lo_renderer_gl2;
 }

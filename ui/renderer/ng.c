@@ -8,6 +8,33 @@
  | as published by the Free Software Foundation.                        |
  +----------------------------------------------------------------------+
  |
+ | This renderer passes peak data directly to the shader in a 2D texture.
+ |
+ | Texture format:
+ |    - each texture can hold up to 32 blocks.
+ |    - each 8bit value directly the stores the peak value (either max or min)
+ |    - each block is stored in 4 rows per block per channel
+ |    - row layout:
+ |      - row 0: max (positive) values
+ |      - row 1: max values repeated at progressively lower x resolution (mipmap-like)
+ |      - row 2: min (negative) values
+ |      - row 3: min values repeated at progressively lower x resolution
+ |
+ |      - row 4...: for multi channel audio, the above is repeated for other channels.
+ |
+ |      ...(repeated for subsequent blocks up to 32)
+ |
+ |  Texture size is 16k per block per channel
+ |
+ |  A 10 hour 44100k mono audio file would use: 24000 blocks, 750 textures, 384MB.
+ |
+ |  Memory usage:
+ |    - textures are timestamped when used.
+ |    - resources for each WfWaveform are removed when the waveform is free'd.
+ |    - to handle cases such as in a DAW where there are very large numbers of
+ |      audio files, a garbage collector is run after resources are added. The
+ |      collector removes the textures that have been used least recently.
+ |
  */
 
 #define NG_HASHTABLE
@@ -51,12 +78,13 @@ static void ng_gl2_queue_clean (Renderer*);
 
 
 static void
-ng_gl2_finalize_notify (gpointer user_data, GObject* was)
+ng_finalize_notify (gpointer user_data, GObject* was)
 {
 	PF;
 	Renderer* renderer = user_data;
 	Waveform* waveform = (Waveform*)was;
-	call(renderer->free, renderer, waveform);
+
+	call(renderer->free, renderer, waveform, (void**)&waveform->priv->render_data[renderer->mode]);
 }
 
 
@@ -83,13 +111,39 @@ ng_gl2_set_ (Section* section, int pos, char val)
 
 
 static void
+other_lods (Renderer* renderer, Section* section, int dest)
+{
+	int* lod_max = ((NGRenderer*)renderer)->mmidx_max;
+	int* lod_min = ((NGRenderer*)renderer)->mmidx_min;
+
+	for (int m=1;m<N_LOD;m++) {
+		int mm_level = m;
+		int mm = 1 << (mm_level - 1);
+		int i,p; for (i=0, p=0; p<renderer->texture_size/mm; i++, p+=2) {
+			ng_gl2_set_(section,
+				dest + lod_max[mm_level] + i,
+				MAX(
+					section->buffer[dest + lod_max[mm_level - 1] + i * 2    ],
+					section->buffer[dest + lod_max[mm_level - 1] + i * 2 + 1]
+				)
+			);
+			ng_gl2_set_(section, dest + lod_min[mm_level] + i, MAX(
+				section->buffer[dest + lod_min[mm_level - 1] + i * 2    ],
+				section->buffer[dest + lod_min[mm_level - 1] + i * 2 + 1]
+			));
+		}
+	}
+}
+
+
+static void
 ng_gl2_load_block (Renderer* renderer, WaveformActor* actor, int b)
 {
 	NGRenderer* ng_renderer = (NGRenderer*)renderer;
 	Waveform* waveform = actor->waveform;
 	WaveformPrivate* w = waveform->priv;
 
-	#define get_block_size(ACTOR) (modes[renderer->mode].texture_size * waveform_get_n_channels(ACTOR->waveform) * WF_PEAK_VALUES_PER_SAMPLE * ROWS_PER_PEAK_TYPE)
+	#define get_block_size(ACTOR) (renderer->texture_size * waveform_get_n_channels(ACTOR->waveform) * WF_PEAK_VALUES_PER_SAMPLE * ROWS_PER_PEAK_TYPE)
 
 	Section* add_section (Renderer* renderer, WaveformActor* actor, HiResNGWaveform* data, int s)
 	{
@@ -117,30 +171,6 @@ ng_gl2_load_block (Renderer* renderer, WaveformActor* actor, int b)
 		return section->completed = true;
 	}
 
-	void other_lods (Renderer* renderer, Section* section, int dest)
-	{
-		int* lod_max = ((NGRenderer*)renderer)->mmidx_max;
-		int* lod_min = ((NGRenderer*)renderer)->mmidx_min;
-
-		int m; for(m=1;m<N_LOD;m++){
-			int mm_level = m;
-			int mm = 1 << (mm_level - 1);
-			int i,p; for(i=0, p=0; p<modes[renderer->mode].texture_size/mm; i++, p+=2){
-				ng_gl2_set_(section,
-					dest + lod_max[mm_level] + i,
-					MAX(
-						section->buffer[dest + lod_max[mm_level - 1] + i * 2    ],
-						section->buffer[dest + lod_max[mm_level - 1] + i * 2 + 1]
-					)
-				);
-				ng_gl2_set_(section, dest + lod_min[mm_level] + i, MAX(
-					section->buffer[dest + lod_min[mm_level - 1] + i * 2    ],
-					section->buffer[dest + lod_min[mm_level - 1] + i * 2 + 1]
-				));
-			}
-		}
-	}
-
 	inline void lo_peakbuf_to_texture (Renderer* renderer, WaveformActor* actor, int b, Section* section, int n_chans, int block_size)
 	{
 		// borders: source data is not blocked so borders need to be added here.
@@ -161,12 +191,12 @@ ng_gl2_load_block (Renderer* renderer, WaveformActor* actor, int b)
 			? peak->size / (WF_PEAK_VALUES_PER_SAMPLE * WF_PEAK_STD_TO_LO) + TEX_BORDER - B_SIZE * b
 			: WF_PEAK_TEXTURE_SIZE;
 
-		int c; for(c=0;c<n_chans;c++){
+		for (int c=0;c<n_chans;c++) {
 			int src = WF_PEAK_VALUES_PER_SAMPLE * (b * B_SIZE - TEX_BORDER) * WF_PEAK_STD_TO_LO;
 			int dest = _b * block_size + (c * block_size / 2);
 
 			int t = 0;
-			if(b == 0){
+			if (b == 0) {
 				for(t=0;t<TEX_BORDER;t++){
 					ng_gl2_set_(section, dest + lod_max[mm_level] + t, 0);
 					ng_gl2_set_(section, dest + lod_min[mm_level] + t, 0);
@@ -174,9 +204,9 @@ ng_gl2_load_block (Renderer* renderer, WaveformActor* actor, int b)
 				src = 0;
 			}
 
-			for(; t<stop; t++, src+=2*WF_PEAK_STD_TO_LO){
-				WfPeakSample p = {0, 0};
-				int j; for(j=0;j<2*WF_PEAK_STD_TO_LO;j+=WF_PEAK_VALUES_PER_SAMPLE){
+			for (; t<stop; t++, src+=2*WF_PEAK_STD_TO_LO) {
+				WfPeak p = {0, 0};
+				for (int j=0;j<2*WF_PEAK_STD_TO_LO;j+=WF_PEAK_VALUES_PER_SAMPLE) {
 					p.positive = MAX(p.positive, peak->buf[c][src + j    ]);
 					p.negative = MIN(p.negative, peak->buf[c][src + j + 1]);
 				}
@@ -301,7 +331,7 @@ ng_gl2_load_block (Renderer* renderer, WaveformActor* actor, int b)
 			.n_blocks = wf_actor_get_n_blocks(waveform, renderer->mode)
 		};
 
-		g_object_weak_ref((GObject*)waveform, ng_gl2_finalize_notify, renderer);
+		g_object_weak_ref((GObject*)waveform, ng_finalize_notify, renderer);
 #ifdef NG_HASHTABLE
 		g_hash_table_insert(((NGRenderer*)renderer)->ng_data, actor->waveform, *data);
 #endif
@@ -333,7 +363,7 @@ ng_gl2_load_block (Renderer* renderer, WaveformActor* actor, int b)
 					hi_audio_to_texture(renderer, actor, b, section, n_chans, block_size);
 					break;
 				case MODE_V_LOW:
-					//v_low_peakbuf_to_texture(renderer, actor, b, section, n_chans, block_size);
+					// texture data is added in NGRenderer.buf_to_tex
 					;int c; for(c=0;c<n_chans;c++){
 						int dest = _b * block_size + (c * block_size / 2);
 						other_lods(renderer, section, dest);
@@ -355,7 +385,7 @@ ng_gl2_load_block (Renderer* renderer, WaveformActor* actor, int b)
 					section->texture = texture_cache_assign_new(GL_TEXTURE_2D, (WaveformBlock){waveform, (s * MAX_BLOCKS_PER_TEXTURE) | (renderer->mode == MODE_HI ? WF_TEXTURE_CACHE_HIRES_NG_MASK : 0)});
 				}
 
-				int width = modes[renderer->mode].texture_size;
+				int width = renderer->texture_size;
 				int height = section->buffer_size / width;
 				#define pixel_format GL_ALPHA
 				agl_use_texture (section->texture);
@@ -395,17 +425,19 @@ ng_pre_render (Renderer* renderer, WaveformActor* actor)
 	shader->uniform.top = r->rect.top;
 	shader->uniform.bottom = r->rect.top + r->rect.height;
 	shader->uniform.n_channels = waveform_get_n_channels(w);
-	shader->uniform.tex_width = modes[renderer->mode].texture_size;
-	shader->uniform.tex_height = data->section[r->viewport_blocks.first / MAX_BLOCKS_PER_TEXTURE].buffer_size / modes[renderer->mode].texture_size;
+	shader->uniform.tex_width = renderer->texture_size;
+	shader->uniform.tex_height = data->section[r->viewport_blocks.first / MAX_BLOCKS_PER_TEXTURE].buffer_size / renderer->texture_size;
 	shader->uniform.v_gain = actor->context->v_gain;
 
-	shader->uniform.mm_level = (renderer->mode == MODE_MED || renderer->mode == MODE_LOW)
+	// trade off here between performance and sharpness
+	// but the waveforms look much nicer using lower levels of detail.
+	shader->uniform.mm_level = (renderer->mode == MODE_MED || renderer->mode == MODE_LOW || renderer->mode == MODE_V_LOW)
 		? (
-		r->block_wid > 128
+		r->block_wid > 96
 			? 0
-			: r->block_wid > 64
+			: r->block_wid > 48
 				? 1
-				: r->block_wid > 32
+				: r->block_wid > 24
 					? 2
 					: 3
 		)
@@ -448,20 +480,20 @@ ng_gl2_render_block (Renderer* renderer, WaveformActor* actor, int b, bool is_fi
 	int _b = b % MAX_BLOCKS_PER_TEXTURE;
 
 	HiResNGWaveform* data = (HiResNGWaveform*)waveform->priv->render_data[renderer->mode];
-	if(!data) return false; // this can happen when audio data not yet available.
+	if (!data) return false; // this can happen when audio data not yet available.
 	Section* section = &data->section[s];
 
-	if(!_b && b != r->viewport_blocks.first){
+	if (!_b && b != r->viewport_blocks.first) {
 		HiResNGShader* shader = (HiResNGShader*)renderer->shader;
-		shader->uniform.tex_height = section->buffer_size / modes[renderer->mode].texture_size;
+		shader->uniform.tex_height = section->buffer_size / renderer->texture_size;
 		shader->shader.set_uniforms_((AGlShader*)shader);
 	}
 
 	TextureRange tex;
 	WfSampleRegionf block;
-	if(!wf_actor_get_quad_dimensions(actor, b, is_first, is_last, x, &tex, &block.start, &block.len, border, 1)) return false;
+	if (!wf_actor_get_quad_dimensions(actor, b, is_first, is_last, x, &tex, &block.start, &block.len, border, 1)) return false;
 
-	float n_rows = section->buffer_size / modes[renderer->mode].texture_size;
+	float n_rows = section->buffer_size / renderer->texture_size;
 	float ty = (b % MAX_BLOCKS_PER_TEXTURE) * 4.0 * waveform->n_channels / n_rows; // this tells the shader which block to use.
 	AGlQuad tex_rect = {tex.start, ty, tex.end, ty + 0.001}; // the 0.001 prevents the wrong block being shown on some systems
 
@@ -474,33 +506,32 @@ ng_gl2_render_block (Renderer* renderer, WaveformActor* actor, int b, bool is_fi
 
 
 static void
-ng_gl2_post_render (Renderer* renderer, WaveformActor* actor)
+ng_post_render (Renderer* renderer, WaveformActor* actor)
 {
 	glBindBuffer(GL_ARRAY_BUFFER, 0);  
 }
 
 
 static void
-ng_make_lod_levels (NGRenderer* renderer, Mode mode)
+ng_make_lod_levels (NGRenderer* renderer, int texture_width)
 {
 	int p = 0;
-	int width = modes[mode].texture_size;
-	int level_size = width;
+	int level_size = texture_width;
 	for (int i=0;i<N_LOD;i++){
 		renderer->mmidx_max[i] = p;
-		renderer->mmidx_min[i] = p + width * ROWS_PER_PEAK_TYPE;
-		level_size = width / (1 << i);
+		renderer->mmidx_min[i] = p + texture_width * ROWS_PER_PEAK_TYPE;
+		level_size = texture_width / (1 << i);
 		p += level_size;
 	}
 }
 
 
 static void
-ng_gl2_free_section (Renderer* renderer, Waveform* waveform, Section* section, int s)
+ng_free_section (Renderer* renderer, Waveform* waveform, Section* section, int s)
 {
-	if(section){
-		if(section->buffer) g_free0(section->buffer);
-		if(section->texture){
+	if (section) {
+		g_clear_pointer(&section->buffer, g_free);
+		if (section->texture) {
 			texture_cache_remove(GL_TEXTURE_2D, waveform, (s * MAX_BLOCKS_PER_TEXTURE) | (renderer->mode == MODE_HI ? WF_TEXTURE_CACHE_HIRES_NG_MASK : 0));
 			section->texture = 0;
 		}
@@ -510,29 +541,46 @@ ng_gl2_free_section (Renderer* renderer, Waveform* waveform, Section* section, i
 }
 
 
+/*
+ *  Use __data where possible as it is more versatile than tying data to the Waveform
+ */
 static void
-ng_gl2_free_waveform (Renderer* renderer, Waveform* waveform)
+ng_free_waveform (Renderer* renderer, Waveform* waveform, void** __data)
 {
+	HiResNGWaveform** _data = (HiResNGWaveform**)__data;
 	dbg(1, "%s", modes[renderer->mode].name);
 
 #ifdef NG_HASHTABLE
-	HiResNGWaveform* data = g_hash_table_lookup(((NGRenderer*)renderer)->ng_data, waveform);
+	HiResNGWaveform* data = ((NGRenderer*)renderer)->ng_data
+		? g_hash_table_lookup(((NGRenderer*)renderer)->ng_data, waveform)
+		: _data
+			? *_data
+			: (HiResNGWaveform*)waveform->priv->render_data[renderer->mode];
 #else
-	HiResNGWaveform* data = (HiResNGWaveform*)waveform->priv->render_data[renderer->mode];
+	HiResNGWaveform* data = _data ? *_data : (HiResNGWaveform*)waveform->priv->render_data[renderer->mode];
 #endif
-	if(data){
+	if (data) {
 		// the sections must be freed before removing from the hashtable
 		// so that the Waveform can be referenced.
-		int s; for(s=0;s<data->size;s++){
-			ng_gl2_free_section(renderer, waveform, &data->section[s], s);
+		for (int s=0;s<data->size;s++) {
+			ng_free_section(renderer, waveform, &data->section[s], s);
 		}
 #ifdef NG_HASHTABLE
 		// removing from the hash table will cause the item to be free'd.
-		if(!g_hash_table_remove(((NGRenderer*)renderer)->ng_data, waveform)) dbg(1, "failed to remove render data");
+		if (((NGRenderer*)renderer)->ng_data) {
+			if (g_hash_table_remove(((NGRenderer*)renderer)->ng_data, waveform)) {
+				if (_data) *_data = NULL;
+			} else {
+				dbg(1, "failed to remove render data");
+			}
+		}
 #endif
-
-		waveform->priv->render_data[renderer->mode] = NULL;
 	}
+
+	if (_data)
+		g_clear_pointer(_data, g_free);
+	else
+		waveform->priv->render_data[renderer->mode] = NULL;
 }
 
 
@@ -550,10 +598,10 @@ ng_gl2_free_waveform (Renderer* renderer, Waveform* waveform)
 		static void __hi_find_oldest(gpointer key, gpointer value, gpointer _)
 		{
 			HiResNGWaveform* data = (HiResNGWaveform*)value;
-			int s; for(s=0;s<data->size;s++){
+			for (int s=0;s<data->size;s++) {
 				Section* section = &data->section[s];
 				dbg(0, ">  %i", section->time_stamp);
-				if(section->buffer && (section->time_stamp < oldest.time_stamp)){
+				if (section->buffer && (section->time_stamp < oldest.time_stamp)) {
 					oldest = (struct _oldest){key, data, s, section->time_stamp};
 				}
 			}
@@ -570,15 +618,15 @@ __clean (gpointer user_data)
 
 	dbg(1, "size=%i", g_hash_table_size(table));
 
-	if(g_hash_table_size(table) > MAX_SECTIONS){
+	if (g_hash_table_size(table) > MAX_SECTIONS) {
 		int n_to_remove = g_hash_table_size(table) - MAX_SECTIONS;
-		int i; for(i=0;i<n_to_remove;i++){
+		for (int i=0;i<n_to_remove;i++) {
 			oldest = (struct _oldest){NULL, 0, INT_MAX};
 			g_hash_table_foreach(table, __hi_find_oldest, NULL);
 
-			if(oldest.data){
+			if (oldest.data) {
 				dbg(0, "removing: section=%i", oldest.section);
-				ng_gl2_free_section(renderer, oldest.waveform, &oldest.data->section[oldest.section], oldest.section);
+				ng_free_section(renderer, oldest.waveform, &oldest.data->section[oldest.section], oldest.section);
 			}
 		}
 	}
@@ -591,5 +639,5 @@ __clean (gpointer user_data)
 static void
 ng_gl2_queue_clean (Renderer* renderer)
 {
-	if(!idle_id) idle_id = g_idle_add_full(G_PRIORITY_LOW, __clean, renderer, NULL);
+	if (!idle_id) idle_id = g_idle_add_full(G_PRIORITY_LOW, __clean, renderer, NULL);
 }

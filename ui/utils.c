@@ -1,15 +1,17 @@
-/**
-* +----------------------------------------------------------------------+
-* | This file is part of the Ayyi project. http://ayyi.org               |
-* | copyright (C) 2012-2020 Tim Orford <tim@orford.org>                  |
-* +----------------------------------------------------------------------+
-* | This program is free software; you can redistribute it and/or modify |
-* | it under the terms of the GNU General Public License version 3       |
-* | as published by the Free Software Foundation.                        |
-* +----------------------------------------------------------------------+
-*
-*/
+/*
+ +----------------------------------------------------------------------+
+ | This file is part of the Ayyi project. https://www.ayyi.org          |
+ | copyright (C) 2012-2025 Tim Orford <tim@orford.org>                  |
+ +----------------------------------------------------------------------+
+ | This program is free software; you can redistribute it and/or modify |
+ | it under the terms of the GNU General Public License version 3       |
+ | as published by the Free Software Foundation.                        |
+ +----------------------------------------------------------------------+
+ |
+ */
+
 #define __wf_private__
+
 #include "config.h"
 #include <math.h>
 #include <sys/ioctl.h>
@@ -239,65 +241,6 @@ wf_load_texture_from_alphabuf (WaveformContext* wfc, int texture_name, AlphaBuf*
 	} WAVEFORM_END_DRAW(wfc);
 
 	gl_warn("copy to texture");
-}
-
-
-static void
-wf_context_init_gl (WaveformContext* wfc)
-{
-	PF;
-
-	AGl* agl = agl_get_instance();
-
-	if (!agl->pref_use_shaders) {
-		wfc->use_1d_textures = false;
-		return;
-	}
-
-	WAVEFORM_START_DRAW(wfc) {
-
-		if (!wfc->root) {
-			agl_gl_init();
-		}
-
-		if (!agl->use_shaders) {
-			agl_use_program(NULL);
-			wfc->use_1d_textures = false;
-		}
-
-	} WAVEFORM_END_DRAW(wfc);
-}
-
-
-static gboolean
-__wf_canvas_try_drawable (gpointer _wfc)
-{
-	WaveformContext* wfc = _wfc;
-	AGlScene* scene = wfc->root->root;
-
-	AGl* agl = agl_get_instance();
-
-#ifdef USE_GTK
-	if ((scene->type == CONTEXT_TYPE_GTK) && !wfc->root->root->gl.gdk.drawable) {
-		return G_SOURCE_CONTINUE;
-	}
-#endif
-
-	wf_context_init_gl(wfc);
-
-	if (scene->draw) wf_context_queue_redraw(wfc);
-	wfc->use_1d_textures = agl->use_shaders;
-
-	return (wfc->priv->pending_init = G_SOURCE_REMOVE);
-}
-
-
-void
-wf_gl_init (WaveformContext* wfc, AGlActor* root)
-{
-	if (wfc->root) {
-		if (__wf_canvas_try_drawable(wfc)) wfc->priv->pending_init = g_idle_add(__wf_canvas_try_drawable, wfc);
-	}
 }
 
 

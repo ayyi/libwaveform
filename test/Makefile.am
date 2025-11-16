@@ -18,16 +18,16 @@ if ENABLE_GTK
 LOCAL_GTKGLEXT_CFLAGS = \
 	-I$(top_srcdir)/gtkglext-1.0
 TEST_GTKGLEXT_LDFLAGS = \
-	-lgmodule-2.0 \
+	$(GMODULE_LDFLAGS) \
 	$(top_srcdir)/gtkglext-1.0/.libs/libgtkglext.a
 endif
 endif
 endif
 
 if ENABLE_OPENGL
-noinst_PROGRAMS = waveform large_files promise 32bit unit-actor glx input $(GTKPROGRAMS) $(SDLPROGRAMS)
+noinst_PROGRAMS = waveform large-files promise 32bit unit-actor glx input preview $(GTKPROGRAMS) $(SDLPROGRAMS)
 else
-noinst_PROGRAMS = waveform
+noinst_PROGRAMS = waveform preview
 endif
 
 if ENABLE_EPOXY
@@ -48,27 +48,38 @@ AM_CFLAGS = \
 
 promise_CFLAGS = -D__no_setup__ $(AM_CFLAGS)
 
+NONGUI_SYSTEM_LDFLAGS = \
+	$(LOCAL_GTK_LDFLAGS) \
+	$(GMODULE_LDFLAGS) \
+	$(SNDFILE_LIBS) \
+	$(FFMPEG_LDFLAGS) \
+	-lm
+
 # be careful before changing the order here
 TEST_LDFLAGS = \
 	$(top_srcdir)/.libs/libwaveformui.a \
 	$(top_srcdir)/.libs/libwaveformcore.a \
 	$(top_srcdir)/lib/agl/.libs/libagl.a \
 	$(top_srcdir)/lib/debug/.libs/libayyidebug.a \
+	$(top_srcdir)/lib/ayyi-utils/.libs/libayyiutils.a \
 	$(top_srcdir)/lib/test/.libs/libtest.a \
 	$(OPENGL_LDFLAGS) \
 	$(GL_LOADER_LDFLAGS) \
-	$(LOCAL_GTK_LDFLAGS) \
 	$(TEST_GTKGLEXT_LDFLAGS) \
-	$(GMODULE_LDFLAGS) \
-	$(SNDFILE_LIBS) \
-	$(FFMPEG_LDFLAGS) \
 	$(SYSPROF_LIBS) \
 	$(GRAPHENE_LDFLAGS) \
 	$(XRANDR_LDFLAGS) \
 	$(GDK_LIBS) \
+	$(NONGUI_SYSTEM_LDFLAGS) \
 	$(X11_LDFLAGS) \
-	$(FRIBIDI_LDFLAGS) \
-	-lm
+	$(FRIBIDI_LDFLAGS)
+
+NONGUI_TEST_LDFLAGS = \
+	$(top_srcdir)/.libs/libwaveformcore.a \
+	$(top_srcdir)/lib/debug/.libs/libayyidebug.a \
+	$(top_srcdir)/lib/test/.libs/libtest.a \
+	../lib/ayyi-utils/.libs/libayyiutils.a \
+	$(NONGUI_SYSTEM_LDFLAGS)
 
 COMMON_SOURCES = \
 	common.c common.h \
@@ -130,7 +141,7 @@ resources_SOURCES = \
 	resources.c
 
 large_files_SOURCES = \
-	large_files.c
+	large-files.c
 
 cache_SOURCES = \
 	$(COMMON_SOURCES) \
@@ -158,43 +169,15 @@ input_SOURCES = \
 	$(COMMON2_SOURCES) \
 	input.c
 
-#promise_SOURCES = promise.c
-
-waveform_LDADD = \
-	$(TEST_LDFLAGS)
-
-view_plus_LDADD = \
-    $(OPENGL_LDFLAGS) \
-    $(TEST_LDFLAGS)
-
-actor_LDADD = \
-	$(OPENGL_LDFLAGS) \
-	$(TEST_LDFLAGS)
-
-actor_no_scene_LDADD = \
-	$(OPENGL_LDFLAGS) \
-	$(TEST_LDFLAGS)
-
-actor_plus_LDADD = \
-	$(OPENGL_LDFLAGS) \
-	$(TEST_LDFLAGS)
+large_files_LDADD = \
+	$(NONGUI_TEST_LDFLAGS)
 
 sdl_LDADD = \
-	$(OPENGL_LDFLAGS) \
 	$(SDL_LIBS) \
 	../lib/agl/sdl/libsdlframerate.a \
 	$(TEST_LDFLAGS)
 
-glx_LDADD = \
-	$(OPENGL_LDFLAGS) \
-	$(TEST_LDFLAGS)
-
-input_LDADD = \
-	$(OPENGL_LDFLAGS) \
-	$(TEST_LDFLAGS)
-
 LDADD = \
-	$(OPENGL_LDFLAGS) \
 	$(TEST_LDFLAGS)
 
 res_vhi_blocks_LDADD = \
@@ -204,6 +187,9 @@ res_vhi_blocks_LDADD = \
 res_vhi_scrollable_LDADD = \
 	$(LDADD) \
 	common2.o
+
+preview_LDADD = \
+	$(NONGUI_TEST_LDFLAGS)
 
 view_plus_DEPENDENCIES = \
 	../.libs/libwaveformcore.a \
@@ -218,7 +204,7 @@ AM_TESTS_FD_REDIRECT = 9>&2 --non-interactive
 AM_TESTS_ENVIRONMENT = \
 	export NON_INTERACTIVE=1;
 
-BUILT_SOURCES = waveform.h 32bit.h promise.h unit-actor.h
+BUILT_SOURCES = waveform.h 32bit.h promise.h unit-actor.h large-files.h
 
 define build_header =
 	echo > $@
@@ -248,9 +234,13 @@ promise.h: promise.c Makefile
 unit-actor.h: unit-actor.c Makefile
 	@$(build_header)
 
+large-files.h: large-files.c Makefile
+	@$(build_header)
+
 # these tests will be run as part of make-check
 TESTS = \
 	waveform \
+	preview \
 	32bit \
 	unit-actor \
 	cache \
@@ -272,7 +262,8 @@ TESTS = \
 test:
 	@echo running tests...
 	./waveform
-	cd .. && test/large_files
+	./preview
+	cd .. && test/large-files
 	./32bit
 	./cache
 	./view_plus -n
@@ -289,7 +280,7 @@ test:
 	./sdl -n
 
 CLEANFILES = \
-	large_files \
+	large-files \
 	list \
 	multi_scene \
 	pixbuf \

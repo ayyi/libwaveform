@@ -363,6 +363,7 @@ AC_CONFIG_FILES([
 	wf/loaders/Makefile
 	gtkglext-1.0/Makefile
 	lib/Makefile
+	lib/ayyi-utils/Makefile
 	lib/debug/Makefile
 	lib/test/Makefile
 	decoder/Makefile
@@ -386,6 +387,7 @@ if test "$enable_submodules" = "yes"; then
 		lib/agl/glib/Makefile
 		lib/agl/glib/glib/Makefile
 		lib/agl/lib/Makefile
+		lib/agl/lib/ayyi-utils/Makefile
 		lib/agl/lib/test/Makefile
 		lib/agl/sdl/Makefile
 		lib/agl/transition/Makefile

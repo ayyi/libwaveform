@@ -56,6 +56,8 @@ static int  texture_cache_count_used       (TextureCache*);
 #endif
 
 static int ref_count;
+static guint idle_id;
+
 
 void
 texture_cache_ref ()
@@ -64,8 +66,9 @@ texture_cache_ref ()
 
 	if (c1) return;
 
-	c1 = g_new0(TextureCache, 1);
-	c1->t = g_array_new(FALSE, TRUE, sizeof(WfTexture));
+	c1 = WF_NEW(TextureCache,
+		.t = g_array_new(FALSE, TRUE, sizeof(WfTexture)),
+	);
 	c1->t = g_array_set_size(c1->t, 0);
 
 	c2 = g_new0(TextureCache, 1);
@@ -88,6 +91,8 @@ texture_cache_unref ()
 		}
 		g_clear_pointer(&c1, g_free);
 		g_clear_pointer(&c2, g_free);
+
+		if (idle_id) { g_source_remove(idle_id); idle_id = 0; }
 	}
 }
 
@@ -121,8 +126,8 @@ texture_cache_gen (TextureCache* c)
 #endif
 
 	int size = c->t->len + WF_TEXTURE_ALLOCATION_INCREMENT;
-	if(size > WF_TEXTURE_MAX){
-		if(wf_debug){ pwarn("texture allocation full"); if(!error_shown) texture_cache_print(); error_shown = true;} return;
+	if (size > WF_TEXTURE_MAX) {
+		if (wf_debug){ pwarn("texture allocation full"); if(!error_shown) texture_cache_print(); error_shown = true;} return;
 	}
 	c->t = g_array_set_size(c->t, size);
 
@@ -134,9 +139,9 @@ texture_cache_gen (TextureCache* c)
 	int t;
 #ifdef WF_DEBUG
 	//check the new textures are not already in the cache
-	for(t=0;t< WF_TEXTURE_ALLOCATION_INCREMENT;t++){
+	for (t=0;t< WF_TEXTURE_ALLOCATION_INCREMENT;t++) {
 		int idx = texture_cache_lookup_idx_by_id (c, textures[t]);
-		if(idx > -1){
+		if (idx > -1) {
 			WfTexture* tx = &g_array_index(c->t, WfTexture, t);
 			gwarn("given duplicate texture id: %i wf=%p b=%i", textures[t], tx->wb.waveform, tx->wb.block);
 		}
@@ -144,7 +149,7 @@ texture_cache_gen (TextureCache* c)
 #endif
 
 	int i = 0;
-	for(t=c->t->len-WF_TEXTURE_ALLOCATION_INCREMENT;t<c->t->len;t++, i++){
+	for (t=c->t->len-WF_TEXTURE_ALLOCATION_INCREMENT;t<c->t->len;t++, i++) {
 		WfTexture* tx = &g_array_index(c->t, WfTexture, t);
 		tx->id = textures[i];
 	}
@@ -174,7 +179,7 @@ texture_cache_assign_new (int tex_type, WaveformBlock wfb)
 {
 	TextureCache* cache = cache_by_type(tex_type);
 
-	if(wfb.block & WF_TEXTURE_CACHE_HIRES_MASK){
+	if (wfb.block & WF_TEXTURE_CACHE_HIRES_MASK) {
 		dbg(0, "HI RES");
 	}
 
@@ -211,7 +216,7 @@ texture_cache_assign (TextureCache* c, int t, WaveformBlock wb)
 	dbg(2, "t=%i b=%i time=%i", t, wb.block, time_stamp);
 
 #ifdef DEBUG
-	if(wf_debug > 1){
+	if (wf_debug > 1) {
 		if(timeout) g_source_remove(timeout);
 		timeout = g_timeout_add(1000, _texture_cache_print, NULL);
 	}
@@ -225,25 +230,26 @@ texture_cache_freshen (int tex_type, WaveformBlock wb)
 	TextureCache* c = cache_by_type(tex_type);
 
 	int i = texture_cache_lookup_idx(c, wb);
-	if(i > -1){
+	if (i > -1) {
 		WfTexture* tx = &g_array_index(c->t, WfTexture, i);
 		tx->time_stamp = time_stamp++;
 	}
 }
 
 
-	static guint idle_id = 0;
-
-	static gboolean texture_cache_clean(gpointer user_data)
+static void
+texture_cache_queue_clean ()
+{
+	gboolean texture_cache_clean (gpointer user_data)
 	{
 		bool last_block_is_empty (TextureCache* c)
 		{
 			int m = c->t->len - 1;
-			if(m == -1) return false;
+			if (m == -1) return false;
 			bool empty = true;
-			int i; for(i=0;i<WF_TEXTURE_ALLOCATION_INCREMENT;i++){
+			for (int i=0;i<WF_TEXTURE_ALLOCATION_INCREMENT;i++) {
 				WfTexture* tx = &g_array_index(c->t, WfTexture, m);
-				if(tx->wb.waveform){
+				if (tx->wb.waveform) {
 					empty = false;
 					break;
 				}
@@ -253,7 +259,7 @@ texture_cache_freshen (int tex_type, WaveformBlock wb)
 		}
 
 		int i = 0;
-		int j; for(j=0;j<2;j++){
+		for (int j=0;j<2;j++) {
 			TextureCache* c = j ? c2 : c1;
 			while(
 				(c->t->len > WF_TEXTURE_ALLOCATION_INCREMENT) //dont delete last block
@@ -266,10 +272,7 @@ texture_cache_freshen (int tex_type, WaveformBlock wb)
 		return G_SOURCE_REMOVE;
 	}
 
-static void
-texture_cache_queue_clean ()
-{
-	if(!idle_id) idle_id = g_idle_add(texture_cache_clean, NULL);
+	if (!idle_id) idle_id = g_idle_add(texture_cache_clean, NULL);
 }
 
 

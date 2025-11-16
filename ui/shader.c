@@ -81,7 +81,7 @@ static AGlUniformInfo uniforms_hr_ng[] = {
    {"fg_colour", 4, GL_FLOAT, -1,        },
    END_OF_UNIFORMS
 };
-HiResNGShader hires_ng_shader = {{NULL, NULL, 0, uniforms_hr_ng, _hires_ng_set_uniforms, &hires_ng_text}};
+HiResNGShader hires_ng_shader = {{.uniforms = uniforms_hr_ng, _hires_ng_set_uniforms, &hires_ng_text}};
 
 #if 0
 static AGlUniformInfo uniforms2[] = {
@@ -219,23 +219,16 @@ _hires_ng_set_uniforms (AGlShader* _shader)
 	AGlUniformInfo* uniforms = shader->uniforms;
 
 	// uniforms only updated if changed. reduces the number of gl calls but any difference is not readily apparent.
-	static float top = 0.0;
 	static float bottom = 0.0;
-	static uint32_t _fg_colour;
 	static int n_channels;
 	static int mm_level;
 	static float tex_width;
 	static float tex_height;
 
-	if(hires_ng_shader.uniform.fg_colour != _fg_colour){
-		float fg_colour[4] = {0.0, 0.0, 0.0, ((float)(hires_ng_shader.uniform.fg_colour & 0xff)) / 0x100};
-		agl_rgba_to_float(hires_ng_shader.uniform.fg_colour, &fg_colour[0], &fg_colour[1], &fg_colour[2]);
-		glUniform4fv(uniforms[8].location, 1, fg_colour);
-		_fg_colour = hires_ng_shader.uniform.fg_colour;
-	}
+	agl_set_colour_uniform(&uniforms[8], hires_ng_shader.uniform.fg_colour);
 
-	if(hires_ng_shader.uniform.top != top){
-		glUniform1f(uniforms[1].location,                top = hires_ng_shader.uniform.top);
+	if (hires_ng_shader.uniform.top != uniforms[1].state[0]) {
+		glUniform1f(uniforms[1].location, uniforms[1].state[0] = hires_ng_shader.uniform.top);
 	}
 	if(hires_ng_shader.uniform.bottom != bottom){
 		glUniform1f(uniforms[2].location,                bottom = hires_ng_shader.uniform.bottom);
@@ -253,7 +246,8 @@ _hires_ng_set_uniforms (AGlShader* _shader)
 		glUniform1i(uniforms[6].location,                mm_level = hires_ng_shader.uniform.mm_level);
 	}
 
-	glUniform1f(uniforms[7].location, hires_ng_shader.uniform.v_gain);
+	if (hires_ng_shader.uniform.mm_level != uniforms[7].state[0])
+		glUniform1f(uniforms[7].location, uniforms[7].state[0] = hires_ng_shader.uniform.v_gain);
 }
 
 

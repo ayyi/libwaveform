@@ -129,7 +129,7 @@ typedef enum {
 
 struct _WfActorPriv
 {
-	float           opacity;     // derived from background colour
+	float           opacity;     // initially taken from the alpha component of the foreground colour but is updated by the animator
 
 	struct {
 		gulong      peakdata_ready;
@@ -170,7 +170,7 @@ typedef bool    (*WaveformActorPreRenderFn) (Renderer*, WaveformActor*);
 typedef void    (*WaveformActorBlockFn)     (Renderer*, WaveformActor*, int b);
 typedef bool    (*WaveformActorRenderFn)    (Renderer*, WaveformActor*, int b, bool is_first, bool is_last, double x);
 typedef void    (*WaveformActorPostRender)  (Renderer*, WaveformActor*);
-typedef void    (*WaveformActorFreeFn)      (Renderer*, Waveform*);
+typedef void    (*WaveformActorFreeFn)      (Renderer*, Waveform*, void** data);
 #ifdef USE_TEST
 typedef bool    (*WaveformActorTestFn)      (Renderer*, WaveformActor*);
 typedef void    (*RendererFn)               (Renderer*);
@@ -194,6 +194,7 @@ struct _Renderer
 #endif
 
 	AGlShader*               shader;
+	int                      texture_size;
 };
 
 typedef struct
@@ -225,15 +226,14 @@ struct _draw_mode
 {
 	char             name[4];
 	int              resolution;
-	int              texture_size;      // mostly applies to 1d textures. 2d textures have non-square issues.
-	MakeTextureData* make_texture_data; // might not be needed after all
+	MakeTextureData* make_texture_data; // TODO remove
 	Renderer*        renderer;
 } modes[N_MODES] = {
-	{"V_LO", 16384, WF_PEAK_TEXTURE_SIZE,      },
-	{"LOW",   1024, WF_PEAK_TEXTURE_SIZE,      },
-	{"MED",    256, WF_PEAK_TEXTURE_SIZE,      },
-	{"HI",      16, WF_PEAK_TEXTURE_SIZE * 16, }, // texture size chosen so that blocks are the same as in medium res
-	{"V_HI",     1, WF_PEAK_TEXTURE_SIZE,      },
+	{"V_LO", 16384, },
+	{"LOW",   1024, },
+	{"MED",    256, },
+	{"HI",      16, },
+	{"V_HI",     1, },
 };
 #define HI_RESOLUTION modes[MODE_HI].resolution
 #define RES_MED modes[MODE_MED].resolution
@@ -266,10 +266,10 @@ static void   waveform_free_render_data      (Waveform*);
 #include "ui/renderer/ng.c"
 #include "ui/renderer/res_med.c"
 #include "ui/renderer/res_lo.c"
-#include "ui/renderer/res_hi_gl2.c"
 #include "ui/renderer/res_hi.c"
 #include "ui/renderer/res_v_hi.c"
 #include "ui/renderer/res_v_low.c"
+#include "ui/renderer/preview.c"
 
 static void  wf_actor_waveform_finalize_notify (gpointer, GObject*);
 static void  wf_actor_on_size_transition_start (WaveformActor*, WfAnimatable*);
@@ -333,9 +333,9 @@ wf_actor_class_init ()
 			AGlActor* actor = _actor;
 			WaveformActor* a = _actor;
 
-			a->context->sample_rate = a->waveform->samplerate;
+			a->context->sample_rate = w->samplerate;
 
-			if(agl_actor__width(actor) > 0.0){
+			if (agl_actor__width(actor) > 0.0) {
 				_wf_actor_load_missing_blocks(a);
 				agl_actor__invalidate((AGlActor*)a);
 			}
@@ -344,6 +344,7 @@ wf_actor_class_init ()
 #else
 			agl_actor__invalidate (actor);
 #endif
+			g_object_unref(w);
 		}
 
 static void
@@ -357,7 +358,8 @@ wf_actor_init (AGlActor* actor)
 
 	wf_actor_on_use_shaders_change();
 
-	if(a->waveform && !a->waveform->priv->peak.size) waveform_load(a->waveform, wf_actor_init_load_done, actor);
+	if (a->waveform && !a->waveform->priv->peak.size)
+		waveform_load(g_object_ref(a->waveform), wf_actor_init_load_done, actor);
 
 	invalidator_queue_check ((Invalidator*)actor->behaviours[INVALIDATOR]);
 }
@@ -411,8 +413,9 @@ wf_actor_after_set_waveform (WaveformActor* wf_actor)
 {
 	AGlActor* actor = (AGlActor*)wf_actor;
 
-	if(actor->root){
+	if (actor->root) {
 		TransitionBehaviour* behaviour = (TransitionBehaviour*)actor->behaviours[OPACITY];
+
 		*behaviour->animatables[0].val.f = 0.f;
 		behaviour->animatables[0].target_val.f = 0.f;
 		transition_behaviour_set_f(behaviour, actor, OPACITY_FROM_FG_COLOUR(wf_actor), NULL, NULL);
@@ -435,7 +438,7 @@ wf_actor_new (Waveform* w, WaveformContext* wfc)
 
 	if (!modes[MODE_LOW].renderer) wf_actor_class_init();
 
-	if(w){
+	if (w) {
 		waveform_get_n_frames(w);
 	}
 
@@ -610,7 +613,7 @@ wf_actor_new (Waveform* w, WaveformContext* wfc)
 
 	_a->peakdata_ready = am_promise_new(a);
 
-	if(w) wf_actor_connect_waveform(a);
+	if (w) wf_actor_connect_waveform(a);
 
 	_a->handlers.dimensions_changed = g_signal_connect((gpointer)a->context, "dimensions-changed", (GCallback)wf_actor_on_dimensions_changed, a);
 
@@ -650,11 +653,36 @@ _wf_actor_on_peakdata_available (Waveform* waveform, int block, gpointer _actor)
 	ModeRange mode = mode_range(a);
 	int upper = MAX(mode.lower, mode.upper);
 	int lower = MIN(mode.lower, mode.upper);
-	int m; for(m=lower; m<=upper; m+=MAX(1, upper - lower)){
+	for (int m=lower; m<=upper; m+=MAX(1, upper - lower)) {
 		Renderer* renderer = modes[m].renderer;
 		call(renderer->load_block, renderer, a, m == MODE_LOW ? (block / WF_PEAK_STD_TO_LO) : block);
 	}
-	if(((AGlActor*)a)->root && ((AGlActor*)a)->root->draw) wf_context_queue_redraw(a->context);
+
+#if 0 // should not be needed as `invalidate` will queue a redraw
+	if (((AGlActor*)a)->root && ((AGlActor*)a)->root->draw) wf_context_queue_redraw(a->context);
+#endif
+}
+
+
+static void
+wf_actor_on_preview (Waveform* waveform, WfPreview* preview, gpointer actor)
+{
+	AGlActor* a = actor;
+
+	if (waveform == ((WaveformActor*)actor)->waveform) {
+		if (a->root && a->root->enable_animations)
+			wf_actor_fade_in (actor, OPACITY_FROM_FG_COLOUR(actor), NULL, NULL);
+		else
+			agl_actor__invalidate(a);
+
+		void wf_actor_on_preview_update (AGlObservable* o, AGlVal val, void* actor)
+		{
+			int previous = val.s.prev;
+			preview_renderer_update(&preview_renderer.renderer, (WaveformActor*)actor, previous, val.i);
+			agl_actor__invalidate(actor);
+		}
+		agl_observable_subscribe((AGlObservable*)preview, wf_actor_on_preview_update, actor);
+	}
 }
 
 
@@ -665,6 +693,7 @@ wf_actor_connect_waveform (WaveformActor* a)
 	g_return_if_fail(!_a->handlers.peakdata_ready);
 
 	_a->handlers.peakdata_ready = g_signal_connect (a->waveform, "hires-ready", (GCallback)_wf_actor_on_peakdata_available, a);
+	g_signal_connect (a->waveform, "preview", (GCallback)wf_actor_on_preview, a);
 
 	g_object_weak_ref((GObject*)a->waveform, wf_actor_waveform_finalize_notify, a);
 }
@@ -677,6 +706,7 @@ wf_actor_disconnect_waveform (WaveformActor* a)
 	g_return_if_fail(_a->handlers.peakdata_ready);
 
 	_g_signal_handler_disconnect0(a->waveform, _a->handlers.peakdata_ready);
+	g_signal_handlers_disconnect_by_func(a->waveform, wf_actor_on_preview, a);
 
 	g_object_weak_unref((GObject*)a->waveform, wf_actor_waveform_finalize_notify, a);
 }
@@ -707,7 +737,7 @@ wf_actor_free (AGlActor* actor)
 		_g_signal_handler_disconnect0(a->context, _a->handlers.zoom_changed);
 
 		// if the waveform has no more users, the finalise notify will run which will clear the render data
-		waveform_unref0(a->waveform);
+		g_clear_object(&a->waveform);
 	}
 
 	g_clear_object(&a->context);
@@ -745,8 +775,7 @@ waveform_free_render_data (Waveform* waveform)
 
 	for (int m=0;m<N_MODES;m++) {
 		if (waveform->priv->render_data[m]) {
-			call(modes[m].renderer->free, modes[m].renderer, waveform);
-			waveform->priv->render_data[m] = NULL;
+			call(modes[m].renderer->free, modes[m].renderer, waveform, (void**)&waveform->priv->render_data[m]);
 		}
 	}
 }
@@ -766,13 +795,13 @@ wf_actor_waveform_finalize_notify (gpointer _actor, GObject* was)
 		C2* c = _c;
 		PF;
 
-		if(c->actor->waveform == w){
-			if(waveform_get_n_frames(w)){
+		if (c->actor->waveform == w) {
+			if (waveform_get_n_frames(w)) {
 				c->actor->context->sample_rate = c->actor->waveform->samplerate;
 				invalidator_invalidate_item(((Invalidator*)((AGlActor*)c->actor)->behaviours[INVALIDATOR]), INVALIDATOR_DATA);
 			}
 
-			if(c->callback) c->callback(c->actor, c->user_data);
+			if (c->callback) c->callback(c->actor, c->user_data);
 		}
 
 		g_object_unref(w);
@@ -792,7 +821,7 @@ wf_actor_set_waveform (WaveformActor* a, Waveform* waveform, WaveformActorFn cal
 	if(a->waveform){
 		wf_actor_clear(a);
 		wf_actor_disconnect_waveform(a);
-		waveform_unref0(a->waveform);
+		g_clear_object(&a->waveform);
 	}
 
 	if(waveform){
@@ -1755,11 +1784,13 @@ wf_actor_fade_out (WaveformActor* a, WaveformActorFn callback, gpointer user_dat
 void
 wf_actor_fade_in (WaveformActor* a, float target, WaveformActorFn callback, gpointer user_data)
 {
+	if (!((AGlActor*)a)->root) return;
+
 	transition_behaviour_set(
 		(TransitionBehaviour*)((AGlActor*)a)->behaviours[OPACITY],
 		(AGlActor*)a,
 		(TransitionValue[]){
-			{true, .value.f = 1.0}
+			{true, .value.f = target}
 		},
 		callback,
 		user_data
@@ -1974,9 +2005,11 @@ calc_render_info (WaveformActor* actor)
 #endif
 
 #ifdef DEBUG
+#if 0 // this warning is disabled because it is a valid use-case for the sample region to not fill the rectangle
 	if (actor->region.len * r->zoom + 0.1 < agl_actor__width(a)) {
 		pwarn("region too small for rect (%.1f < %.1f)", actor->region.len * r->zoom, agl_actor__width(a));
 	}
+#endif
 #endif
 	r->renderer = set_renderer(actor);
 
@@ -2046,8 +2079,12 @@ wf_actor_paint (AGlActor* _actor)
 	actor->render_result = RENDER_RESULT_OK;
 #endif
 
-	if(!w || w->offline || !w->renderable) return true;
-	if(!w->priv->num_peaks){
+	if (!w || w->offline || !w->renderable) return true;
+	if (!w->priv->num_peaks) {
+		if (w->priv->preview) {
+			preview_renderer.renderer.pre_render(&preview_renderer.renderer, actor);
+			return preview_renderer.renderer.render_block(&preview_renderer.renderer, actor, 0, false, false, 0.);
+		}
 #ifdef DEBUG
 		actor->render_result = RENDER_RESULT_LOADING;
 #endif
@@ -2056,7 +2093,7 @@ wf_actor_paint (AGlActor* _actor)
 
 	g_return_val_if_fail(actor->region.start < actor->waveform->n_frames, false);
 
-	if(!_actor->root || !_actor->root->draw) r->valid = false;
+	if (!_actor->root || !_actor->root->draw) r->valid = false;
 
 #ifdef RENDER_CACHE_HIT_STATS
 	static int hits = 0;
@@ -2513,7 +2550,7 @@ wf_actor_get_n_blocks (Waveform* waveform, Mode mode)
 
 
 static void
-wf_actor_on_use_shaders_change()
+wf_actor_on_use_shaders_change ()
 {
 	modes[MODE_HI].renderer = agl->use_shaders
 		? (Renderer*)&hi_renderer_gl2

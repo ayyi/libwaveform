@@ -164,7 +164,7 @@ test_peakgen ()
 
 	// create local mono peakfile
 	{
-		if (!wf_peakgen__sync(filename, WAV ".peak", NULL)) {
+		if (!wf_peakgen__sync(filename, WAV ".peak", NULL, NULL)) {
 			FAIL_TEST("local peakgen failed");
 		}
 		gsize length;
@@ -182,7 +182,7 @@ test_peakgen ()
 	{
 		g_autofree char* wav2 = find_wav(WAV2);
 
-		if (!wf_peakgen__sync(wav2, WAV ".peak", NULL)) {
+		if (!wf_peakgen__sync(wav2, WAV ".peak", NULL, NULL)) {
 			FAIL_TEST("local peakgen failed");
 		}
 		gsize length;
@@ -222,7 +222,7 @@ test_m4a ()
 	char* filename = find_wav(M4A);
 	assert(filename, "cannot find file %s", M4A);
 
-	assert(wf_peakgen__sync(filename, M4A ".peak", NULL), "peakgen failed");
+	assert(wf_peakgen__sync(filename, M4A ".peak", NULL, NULL), "peakgen failed");
 
 	Waveform* w = waveform_new(filename);
 	g_free(filename);
@@ -263,11 +263,11 @@ test_bad_wav ()
 	if (__test_idx == -1) printf("\n"); // stop compiler warning
 	static Waveform* w;
 
-	bool a = wf_peakgen__sync("bad.wav", "bad.peak", NULL);
+	bool a = wf_peakgen__sync("bad.wav", "bad.peak", NULL, NULL);
 	assert(!a, "peakgen was expected to fail");
 
 	GError* error = NULL;
-	a = wf_peakgen__sync("bad.wav", "bad.peak", &error);
+	a = wf_peakgen__sync("bad.wav", "bad.peak", NULL, &error);
 	assert(error, "expected error");
 	g_error_free(error);
 
@@ -291,7 +291,6 @@ test_bad_wav ()
 			}
 		)
 	);
-	FINISH_TEST;
 #else
 	SKIP_TEST;
 #endif
@@ -555,7 +554,7 @@ test_alphabuf ()
 	START_TEST;
 
 	g_autofree char* filename = find_wav(WAV);
-	Waveform* w = waveform_load_new(filename);
+	Waveform* w = waveform_load_new_sync(filename);
 
 	int scale[] = {1, WF_PEAK_STD_TO_LO};
 	for (int b=0;b<2;b++) {
@@ -772,8 +771,8 @@ test_worker ()
 			FINISH_TEST_TIMER_STOP;
 		}
 
-		waveform_unref0(w[0]);
-		waveform_unref0(w[1]);
+		g_clear_object(&w[0]);
+		g_clear_object(&w[1]);
 		g_timeout_add(15000, stop, NULL);
 		return G_SOURCE_REMOVE;
 	}
@@ -817,7 +816,8 @@ test_context_frames_to_x ()
 {
 	START_TEST;
 
-	g_autoptr(WaveformContext) wfc = wf_context_new (NULL);
+	AGlActor root = {0};
+	g_autoptr(WaveformContext) wfc = wf_context_new (&root);
 
 	float r = wf_context_frame_to_x (wfc, 44100);
 	assert(r == 32., "%f", r);

@@ -89,7 +89,7 @@ window_content (GtkWindow* window, GdkGLConfig* glconfig)
 	wfc = wf_context_new(waveforms);
 
 	g_autofree char* filename = find_wav(WAV);
-	waveform = waveform_load_new(filename);
+	waveform = waveform_load_new_sync(filename);
 
 	a1 = wf_context_add_new_actor(wfc, waveform);
 	agl_actor__add_child(waveforms, (AGlActor*)a1);

@@ -18,7 +18,7 @@
 #ifdef USE_SDL
 #  include "SDL2/SDL.h"
 #endif
-#include "agl/observable.h"
+#include "ayyi-utils/observable.h"
 #include "waveform/ui-typedefs.h"
 #include "waveform/shader.h"
 #include "waveform/utils.h"
@@ -68,7 +68,6 @@ struct _WfContextPriv {
 	guint64       _last_redraw_time;
 #endif
 	guint         _queued;
-	guint         pending_init;
 };
 #endif
 

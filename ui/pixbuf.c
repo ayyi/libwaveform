@@ -1,14 +1,15 @@
-/**
-* +----------------------------------------------------------------------+
-* | This file is part of the Ayyi project. http://ayyi.org               |
-* | copyright (C) 2012-2020 Tim Orford <tim@orford.org>                  |
-* +----------------------------------------------------------------------+
-* | This program is free software; you can redistribute it and/or modify |
-* | it under the terms of the GNU General Public License version 3       |
-* | as published by the Free Software Foundation.                        |
-* +----------------------------------------------------------------------+
-*
-*/
+/*
+ +----------------------------------------------------------------------+
+ | This file is part of the Ayyi project. https://www.ayyi.org          |
+ | copyright (C) 2012-2025 Tim Orford <tim@orford.org>                  |
+ +----------------------------------------------------------------------+
+ | This program is free software; you can redistribute it and/or modify |
+ | it under the terms of the GNU General Public License version 3       |
+ | as published by the Free Software Foundation.                        |
+ +----------------------------------------------------------------------+
+ |
+ */
+
 #define __wf_private__
 #include "config.h"
 #include "agl/utils.h"
@@ -70,7 +71,7 @@ line_clear (Line* line)
 
 #ifdef DEBUG
 static void
-pixbuf_draw_line (cairo_t* cr, WfDRect* pts, double line_width, uint32_t colour)
+pixbuf_draw_line (cairo_t* cr, WfdRect* pts, double line_width, uint32_t colour)
 {
 	//TODO set colour, or remove arg
 	if(pts->y1 == pts->y2) return;
@@ -308,8 +309,8 @@ waveform_peak_to_pixbuf_full (Waveform* waveform, GdkPixbuf* pixbuf, uint32_t re
 #endif
 
 	if(samples_per_px < 0.001) perr ("samples_per_pix=%f", samples_per_px);
-	WfPeakSample sample[WF_MAX_CH];
-	WfPeakSample peak[WF_MAX_CH];
+	WfPeak sample[WF_MAX_CH];
+	WfPeak peak[WF_MAX_CH];
 
 	dbg(3, "peak_gain=%.2f", gain);
 
@@ -423,10 +424,10 @@ waveform_peak_to_pixbuf_full (Waveform* waveform, GdkPixbuf* pixbuf, uint32_t re
 			int sub_px = 0;
 			int ch; for(ch=0;ch<n_chans;ch++){
 				sub_px = 0;
-				peak[ch] = (WfPeakSample){0,};
+				peak[ch] = (WfPeak){0,};
 
 				for(j=src.start;j<src.stop;j++){ //iterate over all the source samples for this pixel.
-					sample[ch] = (WfPeakSample){
+					sample[ch] = (WfPeak){
 						.positive = b.buf[ch][2*j   ] * gain,
 						.negative = b.buf[ch][2*j +1] * gain
 					};
@@ -448,7 +449,7 @@ waveform_peak_to_pixbuf_full (Waveform* waveform, GdkPixbuf* pixbuf, uint32_t re
 				for(ch=0;ch<n_chans;ch++){
 					if(px){
 						j = src.start - 1;
-						sample[ch] = (WfPeakSample){
+						sample[ch] = (WfPeak){
 							.positive = b.buf[ch][2*j   ],
 							.negative = b.buf[ch][2*j +1]
 						};
@@ -617,8 +618,8 @@ waveform_rms_to_pixbuf (Waveform* w, GdkPixbuf* pixbuf, uint32_t src_inset, int*
 	gettimeofday(&time_start, NULL);
 #endif
 
-	if(samples_per_px < 0.001) perr ("samples_per_pix=%f", samples_per_px);
-	WfPeakSample sample;
+	if (samples_per_px < 0.001) perr ("samples_per_pix=%f", samples_per_px);
+	WfPeak sample;
 	short min;                //negative peak value for each pixel.
 	short max;                //positive peak value for each pixel.
 	//if(!pool_item->valid) return;
@@ -739,7 +740,7 @@ waveform_rms_to_pixbuf (Waveform* w, GdkPixbuf* pixbuf, uint32_t src_inset, int*
         dbg(2, "**** block change needed!");
         Peakbuf* peakbuf = waveform_get_peakbuf_n(w, hires_block + 1);
         g_return_if_fail(peakbuf);
-        if(!get_rms_buf_info(rb->buf, rb->size, &b, ch)){ break; }//TODO if this is multichannel, we need to go back to previous peakbuf - should probably have 2 peakbufs...
+        if (!get_rms_buf_info(rb->buf, rb->size, &b, ch)){ break; }//TODO if this is multichannel, we need to go back to previous peakbuf - should probably have 2 peakbufs...
         //src_start = 0;
         block_offset = block_offset2;
         src_start = ((int)((px  ) * xmag_)) + src_inset - block_offset;
@@ -759,13 +760,13 @@ waveform_rms_to_pixbuf (Waveform* w, GdkPixbuf* pixbuf, uint32_t src_inset, int*
       int mid = ch_height / 2;
 
       int j,y;
-      if(src_stop < b.len_frames){
+      if (src_stop < b.len_frames) {
         min = 0; max = 0;
         int sub_px = 0;
 
-        if(src_start == src_stop) src_stop++; //repeat previous line. Temp, while we dont have hires rms info.
+        if (src_start == src_stop) src_stop++; //repeat previous line. Temp, while we dont have hires rms info.
 
-        for(j=src_start;j<src_stop;j++){ //iterate over all the source samples for this pixel.
+        for (j=src_start;j<src_stop;j++) { //iterate over all the source samples for this pixel.
           /*if(pool_item->peak_float && !hires_mode){
             //printf("%.1f ", buf_float[2*j]);
             sample.positive = (short)(b.buf_float[2*j +1] * (1 << 15) * gain); //ardour peak files have negative peak first.
@@ -777,10 +778,10 @@ waveform_rms_to_pixbuf (Waveform* w, GdkPixbuf* pixbuf, uint32_t src_inset, int*
             //sample.negative = ABS(b.buf[2*j   ] * gain);
             //printf("%x ", sample.positive); fflush(stdout);
           }
-          if(sample.positive > max) max = sample.positive;
+          if (sample.positive > max) max = sample.positive;
           //if(sample.negative < min) min = sample.negative;
 
-          if(sub_px<4){
+          if (sub_px<4) {
             //FIXME these supixels are not evenly distributed when > 4 available.
             lmax[sub_px] = (ch_height * sample.positive) / (256*128*2);
             //lmin[sub_px] =-(ch_height * sample.negative) / (256*128*2); //lmin contains positive values.
@@ -788,11 +789,11 @@ waveform_rms_to_pixbuf (Waveform* w, GdkPixbuf* pixbuf, uint32_t src_inset, int*
           }
           sub_px++;
         }
-        if(!sub_px){ /*printf("*"); fflush(stdout);*/ continue; }
+        if (!sub_px) continue;
 
-        if(!line_index){
+        if (!line_index) {
           //first line - we also grab the previous sample for antialiasing.
-          if(px){
+          if (px) {
             j = src_start - 1;
             /*if(pool_item->peak_float && !hires_mode){
               sample.positive = (short)(b.buf_float[j] * (1 << 15)); //ardour peak files have negative peak first.
@@ -825,9 +826,9 @@ waveform_rms_to_pixbuf (Waveform* w, GdkPixbuf* pixbuf, uint32_t src_inset, int*
         int s,a;
 
         //positive peak:
-        for(s=0;s<MIN(sub_px, 4);s++){
+        for (s=0;s<MIN(sub_px, 4);s++) {
           //printf(" v=%i->%i ", v, k[s]);
-          for(y=v;y<k[s];y++){
+          for (y=v;y<k[s];y++) {
             line_write(next_line, mid +y, alpha);
           }
           v=k[s];
@@ -840,7 +841,7 @@ waveform_rms_to_pixbuf (Waveform* w, GdkPixbuf* pixbuf, uint32_t src_inset, int*
 #else
         line_write(next_line, mid+k[s-1], 0);
 #endif
-        for(y=k[s-1]+1;y<=mid;y++){ //this looks like y goes 1 too high, but the line isnt cleared otherwise.
+        for (y=k[s-1]+1;y<=mid;y++) { //this looks like y goes 1 too high, but the line isnt cleared otherwise.
           next_line->a[mid + y] = 0;
         }
 
@@ -848,9 +849,9 @@ waveform_rms_to_pixbuf (Waveform* w, GdkPixbuf* pixbuf, uint32_t src_inset, int*
         sort_mono(k, lmin, MIN(sub_px, 4));
         alpha = 0xff;
         v = mid;
-        for(s=0;s<MIN(sub_px, 4);s++){
+        for (s=0;s<MIN(sub_px, 4);s++) {
           //for(y=v;y>mid-k[s];y--) next_line->a[y] = alpha;
-          for(y=v;y>mid-k[s];y--) line_write(next_line, y, alpha);
+          for (y=v;y>mid-k[s];y--) line_write(next_line, y, alpha);
           v=mid-k[s];
 #ifdef PEAK_ANTIALIAS
           alpha = (alpha * 2) / 3;
@@ -868,9 +869,9 @@ waveform_rms_to_pixbuf (Waveform* w, GdkPixbuf* pixbuf, uint32_t src_inset, int*
 #else
         //int blur = 0xffff;
 #endif
-        for(y=0;y<ch_height;y++){
+        for (y=0;y<ch_height;y++) {
           int p = ch*ch_height*rowstride + (ch_height - y -1)*rowstride + 3*px;
-          if(p > rowstride*height || p < 0){ perr ("p! %i > %i px=%i y=%i row=%i rowstride=%i=%i", p, 3*width*ch_height, px, y, ch_height-y-1, rowstride,3*width); return; }
+          if (p > rowstride*height || p < 0) { perr ("p! %i > %i px=%i y=%i row=%i rowstride=%i=%i", p, 3*width*ch_height, px, y, ch_height-y-1, rowstride,3*width); return; }
 
 #ifdef PEAK_ANTIALIAS
 					a = MIN((current_line->a[y] * 2)/3 + previous_line->a[y]/blur + next_line->a[y]/blur, 0xff);
@@ -883,11 +884,11 @@ waveform_rms_to_pixbuf (Waveform* w, GdkPixbuf* pixbuf, uint32_t src_inset, int*
 					pixels[p+2] = (int)( bg_blu * (0xff - a) + fg_blu * a) >> 8;
 				}
 
-			}else{
+			} else {
 #ifdef DEBUG
 				//no more source data available - as the pixmap is clear, we have nothing much to do.
 				//gdk_draw_line(GDK_DRAWABLE(pixmap), gc, px, 0, px, height);//x1, y1, x2, y2
-				WfDRect pts = {px, 0, px, ch_height};
+				WfdRect pts = {px, 0, px, ch_height};
 				pixbuf_draw_line(cairo, &pts, 1.0, 0xffff00ff);
 				warn_no_src_data(w, b.len, src_stop);
 #endif
@@ -959,10 +960,10 @@ wf_alphabuf_new (Waveform* waveform, int blocknum, int scale, bool is_rms, int o
 	int x_start;
 	int x_stop;
 	int width;
-	if(blocknum == -1){
+	if (blocknum == -1) {
 		x_start = 0;
 		x_stop  = width = _w->num_peaks;
-	}else{
+	} else {
 		int n_blocks = waveform->priv->n_blocks;
 		dbg(2, "block %i/%i", blocknum, n_blocks);
 		gboolean is_last = (blocknum == n_blocks - 1);
@@ -982,12 +983,12 @@ wf_alphabuf_new (Waveform* waveform, int blocknum, int scale, bool is_rms, int o
 	}
 	AlphaBuf* buf = _alphabuf_new(width, is_rms ? WF_TEXTURE_HEIGHT / 2: WF_TEXTURE_HEIGHT);
 
-	if(is_rms){
+	if (is_rms) {
 		#define SCALE_BODGE 2;
 		double samples_per_px = WF_PEAK_TEXTURE_SIZE * SCALE_BODGE;
 		uint32_t bg_colour = 0x00000000;
 		waveform_rms_to_alphabuf(waveform, buf, &x_start, &x_stop, samples_per_px, &fg_colour, bg_colour);
-	}else{
+	} else {
 
 		x_start += 1; //TODO waveform_peak_to_alphabuf has a 1px offset.
 
@@ -1040,10 +1041,10 @@ wf_alphabuf_new_hi (Waveform* waveform, int blocknum, int Xscale, bool is_rms, i
 	int x_start;
 	int x_stop;
 	int width;
-	if(blocknum == -1){
+	if (blocknum == -1) {
 		x_start = 0;
 		x_stop  = width = _w->num_peaks;
-	}else{
+	} else {
 		int n_blocks = waveform->priv->n_blocks;
 		dbg(2, "block %i/%i", blocknum, n_blocks);
 		gboolean is_last = (blocknum == n_blocks - 1);
@@ -1125,7 +1126,7 @@ wf_alphabuf_to_pixbuf (AlphaBuf* a)
 
 
 static void
-alphabuf_draw_line (AlphaBuf* pixbuf, WfDRect* pts, double line_width, GdkColor* colour)
+alphabuf_draw_line (AlphaBuf* pixbuf, WfdRect* pts, double line_width, GdkColor* colour)
 {
 }
 
@@ -1156,7 +1157,7 @@ waveform_peak_to_alphabuf (Waveform* w, AlphaBuf* a, int scale, int* start, int*
 	gettimeofday(&time_start, NULL);
 #endif
 
-	WfPeakSample sample;
+	WfPeak sample;
 	short min;                //negative peak value for each pixel.
 	short max;                //positive peak value for each pixel.
 
@@ -1182,11 +1183,8 @@ waveform_peak_to_alphabuf (Waveform* w, AlphaBuf* a, int scale, int* start, int*
 	int px_start = start ? *start : 0;
 	int px_stop  = *end;//   ? MIN(*end, width) : width;
 	dbg (2, "start=%i end=%i", px_start, px_stop);
-	//dbg (1, "width=%i height=%i", width, height);
 
 	if(width < px_stop - px_start){ pwarn("alphabuf too small? %i < %i", width, px_stop - px_start); return; }
-
-//int last_src = 0;
 
 	int ch; for(ch=0;ch<n_chans;ch++){
 
@@ -1199,8 +1197,6 @@ waveform_peak_to_alphabuf (Waveform* w, AlphaBuf* a, int scale, int* start, int*
 		for(px=px_start;px<px_stop;px++){
 			src_start = ((int)( px   * xmag)) + src_offset;
 			src_stop  = ((int)((px+1)* xmag));
-//last_src = src_stop;
-			//printf("%i ", src_start);
 			if(src_start < 0){ dbg(2, "skipping line..."); continue; }
 
 			Line* previous_line = &line[(line_index  ) % 3];
@@ -1222,7 +1218,6 @@ waveform_peak_to_alphabuf (Waveform* w, AlphaBuf* a, int scale, int* start, int*
 					sample.negative = b.buf[ch][2*j +1];
 					if(sample.positive > max) max = sample.positive;
 					if(sample.negative < min) min = sample.negative;
-//if((j > 240 && j<250) || j>490) dbg(0, "  s=%i %i %i", j, (int)max, (int)(-min));
 
 					if(n_sub_px < 4){
 						//FIXME these supixels are not evenly distributed when > 4 available, as we currently only use the first 4.
@@ -1306,9 +1301,8 @@ waveform_peak_to_alphabuf (Waveform* w, AlphaBuf* a, int scale, int* start, int*
 			}else{
 				//no more source data available - as the pixmap is clear, we have nothing much to do.
 				//gdk_draw_line(GDK_DRAWABLE(pixmap), gc, px, 0, px, height);//x1, y1, x2, y2
-				WfDRect pts = {px, 0, px, ch_height};
+				WfdRect pts = {px, 0, px, ch_height};
 				alphabuf_draw_line(a, &pts, 1.0, colour);
-//pwarn("!");
 			}
 			//next = srcidx + 1;
 			//xf += WF_PEAK_RATIO * WF_PEAK_VALUES_PER_SAMPLE / samples_per_px;
@@ -1318,7 +1312,6 @@ waveform_peak_to_alphabuf (Waveform* w, AlphaBuf* a, int scale, int* start, int*
 			//printf("line_index=%i %i %i %i\n", line_index, (line_index  ) % 3, (line_index+1) % 3, (line_index+2) % 3);
 		}
 	}
-//dbg(0, "last_src=%i x=%i", last_src, px);
 
 	//printf("%s(): done. drawn: %i of %i stop=%i\n", __func__, line_done_count, width, src_stop);
 
@@ -1389,11 +1382,8 @@ io_ratio = 1;
 									if(2 * p_ >= peakbuf->size) pwarn("s_=%i size=%i", p_, peakbuf->size);
 									g_return_if_fail(2 * p_ < peakbuf->size);
 		//x = rect.left + (((double)p) / region_len) * rect.len * io_ratio;
-//x = rect.left + (((double)p) / region_len) * rect.len * io_ratio;
 		x = p;
-//if(!p) dbg(0, "x=%i", x);
 		if (x - rect.left >= rect.len) break;
-//if(p < 10) printf("    x=%i %2i %2i\n", x, data[2 * p_], data[2 * p_ + 1]);
 
 		double y1 = ((double)data[WF_PEAK_VALUES_PER_SAMPLE * p_    ]) * v_gain * (rect.height / 2.0) / (1 << 15);
 		double y2 = ((double)data[WF_PEAK_VALUES_PER_SAMPLE * p_ + 1]) * v_gain * (rect.height / 2.0) / (1 << 15);
@@ -1405,19 +1395,14 @@ io_ratio = 1;
 
 		int y1_ = rect.top - y1 + rect.height / 2;
 		int y2_ = rect.top - y2 + rect.height / 2;
-//if(p < 10) printf("      y=%i-->%i\n", y1_, y2_);
-//int pp = p;
 		//int y; for(y=0;y<ch_height;y++){
 		int y; for(y=y1_;y<y2_;y++){
 			int p = chan*ch_height*rowstride + (ch_height - y -1)*rowstride + x/* + border*/;
 			if(p > rowstride*a->height || p < 0){ perr ("p! %i > %i px=%i y=%i row=%i rowstride=%i=%i", p, 3*a->width*a->height, x, y, a->height-y-1, rowstride, 3*a->width); return; }
 
 			a->buf[p] = (int)(0xff * alpha);
-//if(pp < 10) printf("              y=%i \n", y);
 		}
 #endif
-//if(p == 4095)
-//		_draw_line(rect->left + x, 0, rect->left + x, rect->height, r, g, b, 1.0);
 
 		p++;
 		p_++;
@@ -1450,7 +1435,7 @@ waveform_rms_to_alphabuf (Waveform* waveform, AlphaBuf* pixbuf, int* start, int*
 #endif
 
 	if(samples_per_px < 0.001) perr ("samples_per_pix=%f", samples_per_px);
-	WfPeakSample sample;
+	WfPeak sample;
 	short min;                //negative peak value for each pixel.
 	short max;                //positive peak value for each pixel.
 
@@ -1665,7 +1650,7 @@ if(!n_chans){ perr("n_chans"); n_chans = 1; }
 #ifdef DEBUG
 				//no more source data available - as the pixmap is clear, we have nothing much to do.
 				//gdk_draw_line(GDK_DRAWABLE(pixmap), gc, px, 0, px, height);//x1, y1, x2, y2
-				WfDRect pts = {px, 0, px, ch_height};
+				WfdRect pts = {px, 0, px, ch_height};
 				alphabuf_draw_line(pixbuf, &pts, 1.0, colour);
 				warn_no_src_data(waveform, b.len, src_stop);
 #endif

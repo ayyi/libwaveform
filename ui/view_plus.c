@@ -53,8 +53,6 @@
 
 static AGl* agl = NULL;
 
-#define _g_source_remove0(S) {if(S) g_source_remove(S); S = 0;}
-
 #define ROOT(view) ((AGlActor*)((GlArea*)view)->scene)
 
 //-----------------------------------------
@@ -142,7 +140,7 @@ construct ()
 }
 
 
-	static gboolean waveform_view_plus_load_new_on_idle (gpointer _view)
+	static gboolean waveform_view_plus_new_on_idle (gpointer _view)
 	{
 		WaveformViewPlus* view = _view;
 		g_return_val_if_fail(view, G_SOURCE_REMOVE);
@@ -185,7 +183,7 @@ waveform_view_plus_new (Waveform* waveform)
 	gtk_widget_set_size_request(widget, DEFAULT_WIDTH, DEFAULT_HEIGHT);
 
 	// delay initialisation to allow for additional options to be set.
-	g_idle_add(waveform_view_plus_load_new_on_idle, view);
+	g_idle_add(waveform_view_plus_new_on_idle, view);
 
 	v->ready = am_promise_new(view);
 	am_promise_when(v->ready, am_promise_new(view), am_promise_new(view), NULL);

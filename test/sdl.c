@@ -147,7 +147,7 @@ setup (int argc, char* argv[])
 		((AGlActor*)window.scene)->region = (AGlfRegion){.x2 = window.width, .y2 = window.height};
 
 		char* filename = find_wav(WAV);
-		window.w1 = waveform_load_new(filename);
+		window.w1 = waveform_load_new_sync(filename);
 		g_free(filename);
 
 		int n_frames = 10000;

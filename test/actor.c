@@ -31,9 +31,13 @@
 #include "config.h"
 #include <getopt.h>
 #include <gdk/gdkkeysyms.h>
+#include "glib/gstdio.h"
 #include "agl/gtk.h"
 #include "waveform/actor.h"
 #include "test/common.h"
+#ifdef DEBUG
+#include "ui/debug_helper.h"
+#endif
 
 static const struct option long_options[] = {
 	{ "non-interactive",  0, NULL, 'n' },
@@ -44,7 +48,7 @@ static const char* const short_options = "n";
 
 #define WAV "mono_0:10.wav"
 
-#define GL_WIDTH 256.0
+#define GL_WIDTH 400.0
 #define VBORDER 8
 
 AGlScene*        scene     = NULL;
@@ -97,7 +101,7 @@ window_content (GtkWindow* window, GdkGLConfig* glconfig)
 #ifdef HAVE_GTK_2_18
 	gtk_widget_set_can_focus     (canvas, true);
 #endif
-	gtk_widget_set_size_request  (canvas, 320, 128);
+	gtk_widget_set_size_request  (canvas, 400, 128);
 	gtk_widget_set_gl_capability (canvas, glconfig, NULL, 1, GDK_GL_RGBA_TYPE);
 	gtk_widget_add_events        (canvas, GDK_POINTER_MOTION_MASK | GDK_BUTTON_PRESS_MASK | GDK_BUTTON_RELEASE_MASK);
 
@@ -107,9 +111,9 @@ window_content (GtkWindow* window, GdkGLConfig* glconfig)
 
 	scene = (AGlScene*)agl_new_scene_gtk(canvas);
 
-	char* filename = find_wav(WAV);
-	w1 = waveform_load_new(filename);
-	g_free(filename);
+	g_autofree char* filename = find_wav(WAV);
+	w1 = waveform_new(filename);
+    waveform_load(w1, NULL, NULL);
 
 	int n_frames = waveform_get_n_frames(w1);
 
@@ -127,7 +131,7 @@ window_content (GtkWindow* window, GdkGLConfig* glconfig)
 		{0x66ff66ff, 0x0000ffff},
 	};
 
-	for(int i=0;i<G_N_ELEMENTS(a);i++){
+	for (int i=0;i<G_N_ELEMENTS(a);i++) {
 		wfc[i] = wf_context_new((AGlActor*)scene); // each waveform has its own context so as to have a different zoom
 
 		a[i] = wf_context_add_new_actor(wfc[i], w1);
@@ -140,6 +144,10 @@ window_content (GtkWindow* window, GdkGLConfig* glconfig)
 	}
 
 	g_object_unref(w1); // transfer ownership of the waveform to the Scene
+
+#ifdef DEBUG
+	agl_actor__add_behaviour((AGlActor*)a[0], debug_helper());
+#endif
 
 	g_signal_connect((gpointer)canvas, "realize",       G_CALLBACK(on_canvas_realise), NULL);
 	g_signal_connect((gpointer)canvas, "size-allocate", G_CALLBACK(on_allocate), NULL);
@@ -154,7 +162,7 @@ automated (void* _)
 	if (!done) {
 		done = true;
 
-		if(!test_delete())
+		if (!test_delete())
 			exit(EXIT_FAILURE);
 
 		gtk_main_quit();
@@ -167,6 +175,23 @@ int
 main (int argc, char* argv[])
 {
 	set_log_handlers();
+
+#ifdef TEMP_CACHE
+	// Set up a temporary XDG cache directory to isolate the test
+	char temp_cache_dir[512];
+	g_snprintf(temp_cache_dir, sizeof(temp_cache_dir), "/tmp/libwaveform_test");
+	if (g_mkdir_with_parents(temp_cache_dir, 0755) != 0) {
+		printf("Error creating temporary cache directory: %s\n", temp_cache_dir);
+		return 1;
+	}
+
+	// Set the XDG_CACHE_HOME environment variable to use our temp directory
+	if (setenv("XDG_CACHE_HOME", temp_cache_dir, 1) != 0) {
+		printf("Error setting XDG_CACHE_HOME environment variable\n");
+		g_rmdir(temp_cache_dir);
+		return 1;
+	}
+#endif
 
 	wf_debug = 0;
 
@@ -192,7 +217,7 @@ main (int argc, char* argv[])
 static void
 on_canvas_realise (GtkWidget* canvas, gpointer user_data)
 {
-	if(!GTK_WIDGET_REALIZED (canvas)) return;
+	if (!gtk_widget_get_realized(canvas)) return;
 
 	on_allocate(canvas, &canvas->allocation, user_data);
 }
@@ -204,9 +229,9 @@ on_allocate (GtkWidget* widget, GtkAllocation* allocation, gpointer user_data)
 	((AGlActor*)scene)->region.x2 = allocation->width;
 	((AGlActor*)scene)->region.y2 = allocation->height;
 
-	int i; for(i=0;i<G_N_ELEMENTS(a);i++){
+	for (int i=0;i<G_N_ELEMENTS(a);i++) {
 		wfc[i]->samples_per_pixel = a[i]->region.len / allocation->width;
-		if(a[i]) wf_actor_set_rect(a[i], &(WfRectangle){
+		if (a[i]) wf_actor_set_rect(a[i], &(WfRectangle){
 			0.0,
 			i * allocation->height / 4,
 			GL_WIDTH * wfc[0]->zoom->value.f,
@@ -223,7 +248,7 @@ start_zoom (float target_zoom)
 {
 	// When zooming in, the Region is preserved so the box gets bigger. Drawing is clipped by the Viewport.
 
-	for(int i=0;i<G_N_ELEMENTS(a);i++)
+	for (int i=0;i<G_N_ELEMENTS(a);i++)
 		wf_context_set_zoom(wfc[i], target_zoom);
 }
 
@@ -247,7 +272,7 @@ vzoom_up (gpointer _)
 {
 	vzoom *= 1.1;
 	vzoom = MIN(vzoom, 100.0);
-	int i; for(i=0;i<G_N_ELEMENTS(a);i++)
+	for (int i=0;i<G_N_ELEMENTS(a);i++)
 		if(a[i]) wf_actor_set_vzoom(a[i], vzoom);
 }
 
@@ -257,8 +282,8 @@ vzoom_down (gpointer _)
 {
 	vzoom /= 1.1;
 	vzoom = MAX(vzoom, 1.0);
-	int i; for(i=0;i<G_N_ELEMENTS(a);i++)
-		if(a[i]) wf_actor_set_vzoom(a[i], vzoom);
+	for (int i=0;i<G_N_ELEMENTS(a);i++)
+		if (a[i]) wf_actor_set_vzoom(a[i], vzoom);
 }
 
 
@@ -295,11 +320,11 @@ on_idle (gpointer _)
 	else{
 #ifdef DEBUG
 		uint64_t time = g_get_monotonic_time();
-		if(!(frame % 1000))
+		if (!(frame % 1000))
 			dbg(0, "rate=%.2f fps", ((float)frame) / ((float)(time - t0)) / 1000.0);
 #endif
 
-		if(!(frame % 8)){
+		if (!(frame % 8)) {
 			float v = (frame % 16) ? 2.0 : 1.0/2.0;
 			if(v > 16.0) v = 1.0;
 			start_zoom(v);
@@ -340,7 +365,7 @@ test_delete ()
 
 	a[0] = (agl_actor__remove_child((AGlActor*)scene, (AGlActor*)a[0]), NULL);
 
-	if(finalize_done){
+	if (finalize_done) {
 		pwarn("waveform should not be free'd");
 		return false;
 	}
@@ -351,7 +376,7 @@ test_delete ()
 
 	a[3] = (agl_actor__remove_child((AGlActor*)scene, (AGlActor*)a[3]), NULL);
 
-	if(!finalize_done){
+	if (!finalize_done) {
 		pwarn("waveform was not free'd");
 		return false;
 	}

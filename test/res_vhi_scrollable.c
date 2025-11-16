@@ -94,7 +94,7 @@ window_content (GtkWindow* window, GdkGLConfig* glconfig)
 	wfc = wf_context_new((AGlActor*)area->scene);
 
 	g_autofree char* filename = find_wav(WAV);
-	waveform = waveform_load_new(filename);
+	waveform = waveform_load_new_sync(filename);
 
 	g_signal_connect((gpointer)canvas, "realize",       G_CALLBACK(on_realise), NULL);
 	g_signal_connect((gpointer)canvas, "size-allocate", G_CALLBACK(on_allocate), NULL);

@@ -1,27 +1,20 @@
 /*
-  Demonstration of the WaveformActor object
+ +----------------------------------------------------------------------+
+ | This file is part of the Ayyi project. https://www.ayyi.org          |
+ | copyright (C) 2012-2025 Tim Orford <tim@orford.org>                  |
+ +----------------------------------------------------------------------+
+ | This program is free software; you can redistribute it and/or modify |
+ | it under the terms of the GNU General Public License version 3       |
+ | as published by the Free Software Foundation.                        |
+ +----------------------------------------------------------------------+
+ |
+ |  Demonstration of the WaveformActor object
+ |
+ |  A single waveform is cut into several regions that should be
+ |  seamlessly displayed to look like a single region.
+ |
+ */
 
-  A single waveform is cut into several regions that should be
-  seamlessly displayed to look like a single region.
-
-  ---------------------------------------------------------------
-
-  Copyright (C) 2012-2025 Tim Orford <tim@orford.org>
-
-  This program is free software; you can redistribute it and/or modify
-  it under the terms of the GNU General Public License version 3
-  as published by the Free Software Foundation.
-
-  This program is distributed in the hope that it will be useful,
-  but WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-  GNU General Public License for more details.
-
-  You should have received a copy of the GNU General Public License
-  along with this program; if not, write to the Free Software
-  Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
-
-*/
 
 #include "config.h"
 #include <getopt.h>
@@ -169,11 +162,11 @@ static void
 on_canvas_realise (GtkWidget* _canvas, gpointer user_data)
 {
 	PF;
-	if(w1) return;
-	if(!GTK_WIDGET_REALIZED (canvas)) return;
+	if (w1) return;
+	if (!gtk_widget_get_realized (canvas)) return;
 
 	char* filename = find_wav(WAV);
-	w1 = waveform_load_new(filename);
+	w1 = waveform_load_new_sync(filename);
 	g_free(filename);
 
 	int n_frames = waveform_get_n_frames(w1);

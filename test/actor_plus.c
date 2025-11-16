@@ -103,9 +103,8 @@ window_content (GtkWindow* window, GdkGLConfig* glconfig)
 	scene = (AGlScene*)agl_new_scene_gtk(canvas);
 	//scene->enable_animations = false;
 
-	char* filename = find_wav(WAV);
-	w1 = waveform_load_new(filename);
-	g_free(filename);
+	g_autofree char* filename = find_wav(WAV);
+	w1 = waveform_load_new_sync(filename);
 
 	g_signal_connect((gpointer)canvas, "realize",       G_CALLBACK(on_canvas_realise), NULL);
 	g_signal_connect((gpointer)canvas, "size-allocate", G_CALLBACK(on_allocate), NULL);

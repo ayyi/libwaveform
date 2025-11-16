@@ -27,3 +27,5 @@ libwfcore_la_SOURCES = \
 libwfcore_la_LIBADD = \
 	loaders/libloaders.la
 
+EXTRA_DIST = \
+	preview.c

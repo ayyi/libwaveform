@@ -1,14 +1,16 @@
-/**
-* +----------------------------------------------------------------------+
-* | This file is part of libwaveform                                     |
-* | https://github.com/ayyi/libwaveform                                  |
-* | copyright (C) 2012-2021 Tim Orford <tim@orford.org>                  |
-* +----------------------------------------------------------------------+
-* | This program is free software; you can redistribute it and/or modify |
-* | it under the terms of the GNU General Public License version 3       |
-* | as published by the Free Software Foundation.                        |
-* +----------------------------------------------------------------------+
-*/
+/*
+ +----------------------------------------------------------------------+
+ | This file is part of libwaveform                                     |
+ | https://github.com/ayyi/libwaveform                                  |
+ | copyright (C) 2012-2025 Tim Orford <tim@orford.org>                  |
+ +----------------------------------------------------------------------+
+ | This program is free software; you can redistribute it and/or modify |
+ | it under the terms of the GNU General Public License version 3       |
+ | as published by the Free Software Foundation.                        |
+ +----------------------------------------------------------------------+
+ |
+ */
+
 #include "config.h"
 #include <getopt.h>
 #include <X11/Xlib.h>
@@ -116,9 +118,8 @@ main (int argc, char* argv[])
 
 	bg->set_size = set_size;
 
-	char* filename = find_wav("mono_0:10.wav");
-	Waveform* w = waveform_load_new(filename);
-	g_free(filename);
+	g_autofree char* filename = find_wav("mono_0:10.wav");
+	Waveform* w = waveform_load_new_sync(filename);
 
 	WaveformContext* wfc = wf_context_new((AGlActor*)window->scene);
 	wfc->samples_per_pixel = waveform_get_n_frames(w) / 400.0;

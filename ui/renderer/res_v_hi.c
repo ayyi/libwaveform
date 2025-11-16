@@ -348,7 +348,7 @@ v_hi_load_block (Renderer* renderer, WaveformActor* a, int b)
 
 
 static void
-v_hi_free_waveform (Renderer* renderer, Waveform* w)
+v_hi_free_waveform (Renderer* renderer, Waveform* w, void** data)
 {
 	g_clear_pointer(&w->priv->render_data[MODE_V_HI], g_free);
 }

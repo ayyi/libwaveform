@@ -33,7 +33,6 @@
 
 #include "config.h"
 #include <sys/stat.h>
-#include <glib.h>
 #include <glib/gprintf.h>
 #include <glib/gstdio.h>
 #include <gio/gio.h>
@@ -55,6 +54,8 @@
 #include "wf/loaders/ardour.h"
 #include "wf/peakgen.h"
 
+extern bool preview_extract_from_file (const char* filename, const char* peakfile, WfPreview*);
+
 #define BUFFER_LEN 256 // length of the buffer to hold audio during processing. currently must be same as WF_PEAK_RATIO
 #define MAX_CHANNELS 2
 
@@ -66,7 +67,7 @@ static bool          need_file_cache_check = true;
 static inline void   process_data        (short* data, int count, int channels, short max[], short min[]);
 static bool          wf_file_is_newer    (const char*, const char*);
 static bool          wf_create_cache_dir ();
-static char*         get_cache_dir       ();
+static const char*   get_cache_dir       ();
 static void          maintain_file_cache ();
 
 static WfWorker peakgen = {0,};
@@ -78,14 +79,14 @@ waveform_get_peak_filename (const char* filename)
 	// filename should be absolute.
 	// caller must g_free the returned value.
 
-	if(wf->load_peak == wf_load_ardour_peak){
+	if (wf->load_peak == wf_load_ardour_peak) {
 		pwarn("cannot automatically determine path of Ardour peakfile");
 		return NULL;
 	}
 
 	GError* error = NULL;
 	gchar* uri = g_filename_to_uri(filename, NULL, &error);
-	if(error){
+	if (error) {
 		pwarn("%s", error->message);
 		return NULL;
 	}
@@ -95,9 +96,8 @@ waveform_get_peak_filename (const char* filename)
 	g_free(uri);
 	gchar* peak_basename = g_strdup_printf("%s.peak", md5);
 	g_free(md5);
-	char* cache_dir = get_cache_dir();
+	const char* cache_dir = get_cache_dir();
 	gchar* peak_filename = g_build_filename(cache_dir, peak_basename, NULL);
-	g_free(cache_dir);
 	dbg(1, "peak_filename=%s", peak_filename);
 	g_free(peak_basename);
 
@@ -199,11 +199,11 @@ waveform_ensure_peakfile__sync (Waveform* w)
 	if(!wf_create_cache_dir()) return NULL;
 
 	char* cwd = g_get_current_dir();
-	char* filename = g_path_is_absolute(w->filename) ? g_strdup(w->filename) : g_build_filename(cwd, w->filename, NULL);
+	g_autofree char* filename = g_path_is_absolute(w->filename) ? g_strdup(w->filename) : g_build_filename(cwd, w->filename, NULL);
 	g_free(cwd);
 
 	gchar* peak_filename = waveform_get_peak_filename(filename);
-	if(!peak_filename) goto out;
+	if (!peak_filename) return NULL;
 
 	if(g_file_test(peak_filename, G_FILE_TEST_EXISTS)){
 		dbg (1, "peak file exists. (%s)", peak_filename);
@@ -214,20 +214,20 @@ waveform_ensure_peakfile__sync (Waveform* w)
 		The freedesktop thumbnailer spec identifies modifications by comparing with both url and mtime stored in the thumbnail.
 		This will mostly work, but strictly speaking still won't identify a changed file in all cases.
 		*/
-		if(w->offline || wf_file_is_newer(peak_filename, filename)) goto out;
+		if (w->offline || wf_file_is_newer(peak_filename, filename)) return peak_filename;
 
 		dbg(1, "peakfile is too old");
 	}else{
 		if(w->offline){
-			g_clear_pointer(&peak_filename, g_free);
-			goto out;
+			g_free(peak_filename);
+			return NULL;
 		}
 	}
 
-	if(!wf_peakgen__sync(filename, peak_filename, NULL)){ g_free0(peak_filename); goto out; }
-
-  out:
-	g_free(filename);
+	if (!wf_peakgen__sync(filename, peak_filename, NULL, NULL)) {
+		g_free(peak_filename);
+		return NULL;
+	}
 
 	return peak_filename;
 }
@@ -335,7 +335,7 @@ open_audio2 (AVCodecContext* c, AVStream* stream, OutputStream* ost)
  *  Source file will be read using best decoder, but peakfile writing is always done with ffmpeg where possible.
  */
 static bool
-wf_ff_peakgen (const char* infilename, const char* peak_filename)
+wf_ff_peakgen (const char* infilename, const char* peak_filename, WfPreview* preview)
 {
 #if defined(USE_FFMPEG) || defined(USE_SNDFILE)
 	WfDecoder f = {{0,}};
@@ -405,7 +405,7 @@ wf_ff_peakgen (const char* infilename, const char* peak_filename)
 	c->channel_layout = codec->channel_layouts ? codec->channel_layouts[0] : (f.info.channels == 2 ? AV_CH_LAYOUT_STEREO : AV_CH_LAYOUT_MONO);
 	c->channels       = av_get_channel_layout_nb_channels(c->channel_layout);
 #endif
-	c->bit_rate    = f.info.sample_rate * 16 * f.info.channels;
+	c->bit_rate = f.info.sample_rate * 16 * f.info.channels;
 
 	stream->time_base = (AVRational){ 1, c->sample_rate };
 
@@ -436,14 +436,17 @@ wf_ff_peakgen (const char* infilename, const char* peak_filename)
 #endif
 
 	int total_frames_written = 0;
+#ifdef SHOW_TOTALS
 #ifdef USE_FFMPEG
-	WfPeakSample total[WF_STEREO] = {0,};
+	WfPeak total[WF_STEREO] = {0,};
 #else
-	WfPeakSample total[sfinfo.channels]; memset(total, 0, sizeof(WfPeakSample) * sfinfo.channels);
+	WfPeak total[sfinfo.channels]; memset(total, 0, sizeof(WfPeak) * sfinfo.channels);
 #endif
+#endif
+	WfPeak pending[WF_STEREO] = {0,};
 
-	#define n_blocks 8
-	int read_len = WF_PEAK_RATIO * n_blocks;
+	#define n_blocks 32
+	const int read_len = WF_PEAK_RATIO * n_blocks;
 
 	int16_t data[f.info.channels][read_len];
 	WfBuf16 buf = {
@@ -453,35 +456,59 @@ wf_ff_peakgen (const char* infilename, const char* peak_filename)
 		.size = n_blocks * WF_PEAK_RATIO
 	};
 
+	#define WRITE_SIZE 256 // only makes ~2% difference
+	typedef struct {
+		WfPeak buf[WRITE_SIZE * WF_STEREO];
+		int p;
+	} WriteBuf;
+	WriteBuf write = {0};
+
+#ifdef USE_FFMPEG
+	#define WRITE { \
+		avio_write(format_context->pb, (unsigned char*)write.buf, write.p * WF_PEAK_VALUES_PER_SAMPLE * f.info.channels * sizeof(short)); \
+		total_frames_written += write.p * WF_PEAK_VALUES_PER_SAMPLE; \
+		write.p = 0; \
+		}
+#else
+	#define WRITE { \
+		total_frames_written += sf_writef_short (outfile, (short*)write.buf, write.p * WF_PEAK_VALUES_PER_SAMPLE); \
+		write.p = 0; \
+		}
+#endif
+
 	int readcount;
 	int total_readcount = 0;
 	while ((readcount = ad_read_short(&f, &buf))) {
 		total_readcount += readcount;
 		int remaining = readcount;
 
-		WfPeakSample peak[N_CHANNELS];
+		WfPeak peak[N_CHANNELS];
 
 		int n = MIN(n_blocks, readcount / WF_PEAK_RATIO + (readcount % WF_PEAK_RATIO ? 1 : 0));
-		int j = 0; for(;j<n;j++){
-			WfPeakSample w[N_CHANNELS];
+		for (int j=0;j<n;j++) {
+			memset(peak, 0, sizeof(WfPeak) * N_CHANNELS);
 
-			memset(peak, 0, sizeof(WfPeakSample) * N_CHANNELS);
-
+			int c = 0;
 			for (int k = 0; k < MIN(remaining, WF_PEAK_RATIO); k += N_CHANNELS) {
-				int c; for(c=0;c<N_CHANNELS;c++){
+				for (c=0;c<N_CHANNELS;c++) {
 					int16_t val = buf.buf[c][WF_PEAK_RATIO * j + k];
-					peak[c] = (WfPeakSample){
+					peak[c] = (WfPeak){
 						MAX(peak[c].positive, val),
 						MIN(peak[c].negative, MAX(val, -32767)), // TODO value of SHRT_MAX messes up the rendering - why?
 					};
 				}
 			};
 			remaining -= WF_PEAK_RATIO;
-			int c; for(c=0;c<N_CHANNELS;c++){
-				w[c] = peak[c];
-				total[c] = (WfPeakSample){
-					MAX(total[c].positive, w[c].positive),
-					MIN(total[c].negative, w[c].negative),
+			for (int c=0;c<N_CHANNELS;c++) {
+#ifdef SHOW_TOTALS
+				total[c] = (WfPeak){
+					MAX(total[c].positive, peak[c].positive),
+					MIN(total[c].negative, peak[c].negative),
+				};
+#endif
+				pending[c] = (WfPeak){
+					MAX(pending[c].positive, peak[c].positive),
+					MIN(pending[c].negative, peak[c].negative),
 				};
 			}
 
@@ -504,22 +531,34 @@ wf_ff_peakgen (const char* infilename, const char* peak_filename)
 			*/
 #endif
 
-#ifdef USE_FFMPEG
-			avio_write(format_context->pb, (unsigned char*)w, WF_PEAK_VALUES_PER_SAMPLE * f.info.channels * sizeof(short));
-			total_frames_written += WF_PEAK_VALUES_PER_SAMPLE;
-#else
-			total_frames_written += sf_writef_short (outfile, (short*)w, WF_PEAK_VALUES_PER_SAMPLE);
-#endif
+			write.buf[write.p * N_CHANNELS] = peak[WF_LEFT];
+			if (N_CHANNELS > 1) write.buf[write.p * N_CHANNELS + 1] = peak[WF_RIGHT];
+
+			if (++write.p == WRITE_SIZE) WRITE;
+		}
+		if (preview) {
+			int idx = (PREVIEW_SIZE * (uint64_t)total_readcount) / f.info.frames;
+			for (int c=0;c<N_CHANNELS;c++) {
+				preview->data[c][idx] = (WfPeak){
+					MAX(preview->data[c][idx].positive, pending[c].positive),
+					MIN(preview->data[c][idx].negative, pending[c].negative),
+				};
+				pending[c] = (WfPeak){0};
+			}
+			if (total_readcount % (buf.size * 128) == 0) {
+				preview_set(preview, idx);
+			}
 		}
 	}
+	if (write.p) WRITE;
 
-#if 0
-	if(f.info.channels > 1) dbg(0, "max=%i,%i min=%i,%i", total[0].positive, total[1].positive, total[0].negative, total[1].negative);
+#ifdef SHOW_TOTALS
+	if (f.info.channels > 1) dbg(0, "max=%i,%i min=%i,%i", total[0].positive, total[1].positive, total[0].negative, total[1].negative);
 	else dbg(0, "max=%i min=%i", total[0].positive, total[0].negative);
 #endif
 
 #ifdef DEBUG
-	if(g_str_has_suffix(infilename, ".mp3")){
+	if (g_str_has_suffix(infilename, ".mp3")) {
 		dbg(1, "mp3");
 		f.info.frames = total_readcount; // update the estimate with the real frame count.
 	}
@@ -586,7 +625,7 @@ wf_ff_peakgen (const char* infilename, const char* peak_filename)
 
 
 static bool
-wf_ff_peakgen_split_stereo (const char* infilename, const char* peak_filename)
+wf_ff_peakgen_split_stereo (const char* infilename, const char* peak_filename, WfPreview* preview)
 {
 #if defined(USE_FFMPEG) || defined(USE_SNDFILE)
 	WfDecoder f = {{0,}};
@@ -681,14 +720,13 @@ wf_ff_peakgen_split_stereo (const char* infilename, const char* peak_filename)
 
 	int total_frames_written = 0;
 #ifdef USE_FFMPEG
-	WfPeakSample total[WF_STEREO] = {0,};
-	WfPeakSample total2[WF_STEREO] = {0,};
+	WfPeak total[WF_STEREO] = {0,};
+	WfPeak total2[WF_STEREO] = {0,};
 #else
-	WfPeakSample total[sfinfo.channels]; memset(total, 0, sizeof(WfPeakSample) * sfinfo.channels);
-	WfPeakSample total2[sfinfo.channels]; memset(total2, 0, sizeof(WfPeakSample) * sfinfo.channels);
+	WfPeak total[sfinfo.channels]; memset(total, 0, sizeof(WfPeak) * sfinfo.channels);
+	WfPeak total2[sfinfo.channels]; memset(total2, 0, sizeof(WfPeak) * sfinfo.channels);
 #endif
 
-	#define n_blocks 8
 	int read_len = WF_PEAK_RATIO * n_blocks;
 
 	int16_t data[f.info.channels][read_len];
@@ -713,26 +751,26 @@ wf_ff_peakgen_split_stereo (const char* infilename, const char* peak_filename)
 		total_readcount += readcount;
 		int remaining = readcount;
 
-		WfPeakSample peak[N_CHANNELS];
-		WfPeakSample peak2[N_CHANNELS];
+		WfPeak peak[N_CHANNELS];
+		WfPeak peak2[N_CHANNELS];
 
 		int n = MIN(n_blocks, readcount / WF_PEAK_RATIO + (readcount % WF_PEAK_RATIO ? 1 : 0));
 		int j = 0; for(;j<n;j++){
-			WfPeakSample w[N_CHANNELS];
-			WfPeakSample w2[N_CHANNELS];
+			WfPeak w[N_CHANNELS];
+			WfPeak w2[N_CHANNELS];
 
-			memset(peak, 0, sizeof(WfPeakSample) * N_CHANNELS);
-			memset(peak2, 0, sizeof(WfPeakSample) * N_CHANNELS);
+			memset(peak, 0, sizeof(WfPeak) * N_CHANNELS);
+			memset(peak2, 0, sizeof(WfPeak) * N_CHANNELS);
 
 			int k; for (k = 0; k < MIN(remaining, WF_PEAK_RATIO); k += N_CHANNELS){
 				int c; for(c=0;c<N_CHANNELS;c++){
 					int16_t val = buf.buf[c][WF_PEAK_RATIO * j + k];
 					int16_t val2= buf2.buf[c][WF_PEAK_RATIO * j + k];
-					peak[c] = (WfPeakSample){
+					peak[c] = (WfPeak){
 						MAX(peak[c].positive, val),
 						MIN(peak[c].negative, MAX(val, -32767)), // TODO value of SHRT_MAX messes up the rendering - why?
 					};
-					peak2[c] = (WfPeakSample){
+					peak2[c] = (WfPeak){
 						MAX(peak2[c].positive, val2),
 						MIN(peak2[c].negative, MAX(val2, -32767)), // TODO value of SHRT_MAX messes up the rendering - why?
 					};
@@ -742,11 +780,11 @@ wf_ff_peakgen_split_stereo (const char* infilename, const char* peak_filename)
 			int c; for(c=0;c<N_CHANNELS;c++){
 				w[c] = peak[c];
 				w2[c] = peak2[c];
-				total[c] = (WfPeakSample){
+				total[c] = (WfPeak){
 					MAX(total[c].positive, w[c].positive),
 					MIN(total[c].negative, w[c].negative),
 				};
-				total2[c] = (WfPeakSample){
+				total2[c] = (WfPeak){
 					MAX(total2[c].positive, w2[c].positive),
 					MIN(total2[c].negative, w2[c].negative),
 				};
@@ -826,18 +864,18 @@ wf_ff_peakgen_split_stereo (const char* infilename, const char* peak_filename)
 	sf_close (outfile);
 #endif
 
-	if(total_readcount){
+	if (total_readcount) {
 		GError* err = NULL;
 		GFile* tmp_file = g_file_new_for_path(tmp_path);
 		GFile* peak_file = g_file_new_for_path(peak_filename);
 		g_file_move(tmp_file, peak_file, G_FILE_COPY_OVERWRITE, NULL, NULL, NULL, &err);
 		g_object_unref(tmp_file);
 		g_object_unref(peak_file);
-		g_free(tmp_path);
 
 		if(err != NULL){
 			printf("Could not move peak file to %s: %s\n", peak_filename, err->message);
 			g_error_free(err);
+			g_free(tmp_path);
 			return false;
 		}
 	}else{
@@ -866,8 +904,27 @@ f1:
 
 
 typedef struct {
+	void* object;
+	int   ref_count;
+	void* user_data;
+} WeakRef;
+
+
+static void
+weak_ref_unref (WeakRef* wr)
+{
+	if (!--wr->ref_count) {
+		wr->object = NULL;
+		dbg(1, "freeing weakref...");
+		g_free(wr);
+	}
+}
+
+
+typedef struct {
 	char*         infilename;
 	const char*   peak_filename;
+	WeakRef*      weakpreview;
 	WfCallback3   callback;
 	void*         user_data;
 } PeakJob;
@@ -879,9 +936,9 @@ typedef struct {
 		PeakJob* job = _job;
 
 		GError* error = NULL;
-		if(!wf_peakgen__sync(job->infilename, job->peak_filename, &error)){
+		if (!wf_peakgen__sync(job->infilename, job->peak_filename, job->weakpreview ? job->weakpreview->object : NULL, &error)) {
 #ifdef DEBUG
-			if(wf_debug) pwarn("peakgen failed");
+			if (wf_debug) pwarn("peakgen failed");
 #endif
 			w->priv->peaks->error = error;
 		}
@@ -890,6 +947,14 @@ typedef struct {
 	static void peakgen_free (gpointer item)
 	{
 		PeakJob* job = item;
+		if (job->weakpreview) {
+			WfPreview* preview = job->weakpreview->object;
+			if (preview->ref_count == 1) {
+				job->weakpreview->object = NULL;
+				weak_ref_unref(job->weakpreview);
+			}
+			preview_unref(preview);
+		}
 		g_free0(job->infilename);
 		g_free(job);
 	}
@@ -910,12 +975,28 @@ typedef struct {
 void
 waveform_peakgen (Waveform* w, const char* peak_filename, WfCallback3 callback, gpointer user_data)
 {
-	if(!peakgen.msg_queue) wf_worker_init(&peakgen);
+	if (!peakgen.msg_queue) wf_worker_init(&peakgen);
+
+	#define MIN_FRAMES_FOR_PREVIEW (65536 * 32) // ~20s
+
+	WeakRef* preview = waveform_get_n_frames(w) > MIN_FRAMES_FOR_PREVIEW
+		? ({
+			WeakRef* wr = WF_NEW(WeakRef,
+				.object = WF_NEW(WfPreview,
+					.waveform = w,
+					.ref_count = 2, // one ref is owned by the waveform, one ref owned by the job
+				),
+				.ref_count = 1,
+			);
+			wr;
+		})
+		: NULL;
 
 	wf_worker_push_job(&peakgen, w, peakgen_execute_job, peakgen_post, peakgen_free,
 		WF_NEW(PeakJob,
 			.infilename = g_path_is_absolute(w->filename) ? g_strdup(w->filename) : g_build_filename(g_get_current_dir(), w->filename, NULL),
 			.peak_filename = peak_filename,
+			.weakpreview = preview,
 			.callback = callback,
 			.user_data = user_data
 		)
@@ -924,7 +1005,7 @@ waveform_peakgen (Waveform* w, const char* peak_filename, WfCallback3 callback, 
 
 
 void
-waveform_peakgen_cancel(Waveform* w)
+waveform_peakgen_cancel (Waveform* w)
 {
 	wf_worker_cancel_jobs(&peakgen, w);
 }
@@ -936,15 +1017,22 @@ waveform_peakgen_cancel(Waveform* w)
  *  If error arg is not NULL, the caller must free any GError created.
  */
 bool
-wf_peakgen__sync (const char* infilename, const char* peak_filename, GError** error)
+wf_peakgen__sync (const char* infilename, const char* peak_filename, WfPreview* preview, GError** error)
 {
 	g_return_val_if_fail(infilename, false);
 	PF;
 
-	bool (*fn) (const char* infilename, const char* peak_filename) = wf_ff_peakgen;
-	if (g_strrstr(infilename, "%L")) fn = wf_ff_peakgen_split_stereo;
+	if (preview) {
+		preview_extract_from_file(infilename, peak_filename, preview);
+		preview_set(preview, 0);
+	}
 
-	if (!fn(infilename, peak_filename)) {
+	bool (*fn) (const char* inffilename, const char* peak_filename, WfPreview*) =
+		g_strrstr(infilename, "%L")
+			? wf_ff_peakgen_split_stereo
+			: wf_ff_peakgen;
+
+	if (!fn(infilename, peak_filename, preview)) {
 		if (wf_debug) {
 #ifdef USE_SNDFILE
 			printf("peakgen: not able to open input file %s: %s\n", infilename, sf_strerror(NULL));
@@ -986,8 +1074,8 @@ process_data (short* data, int data_size_frames, int n_channels, short max[], sh
 	memset(max, 0, sizeof(short) * n_channels);
 	memset(min, 0, sizeof(short) * n_channels);
 
-	int k; for(k=0;k<data_size_frames;k+=n_channels){
-		int c; for(c=0;c<n_channels;c++){
+	for (int k=0;k<data_size_frames;k+=n_channels) {
+		for (int c=0;c<n_channels;c++) {
 			max[c] = (data[k + c] > max[c]) ? data[k + c] : max[c];
 			min[c] = (data[k + c] < min[c]) ? data[k + c] : min[c];
 		}
@@ -998,10 +1086,9 @@ process_data (short* data, int data_size_frames, int n_channels, short max[], sh
 static bool
 wf_create_cache_dir ()
 {
-	gchar* path = get_cache_dir();
+	const char* path = get_cache_dir();
 	gboolean ret  = !g_mkdir_with_parents(path, S_IRUSR | S_IWUSR | S_IXUSR | S_IRGRP);
-	if(!ret) pwarn("cannot access cache dir: %s", path);
-	g_free(path);
+	if (!ret) pwarn("cannot access cache dir: %s", path);
 	return ret;
 }
 
@@ -1182,15 +1269,22 @@ wf_file_is_newer (const char* file1, const char* file2)
 }
 
 
-static char*
+static const char*
 get_cache_dir ()
 {
-	const gchar* env = g_getenv("XDG_CACHE_HOME");
-	if(env) dbg(0, "cache_dir=%s", env);
-	if(env) return g_strdup(env);
+	static char* path;
 
-	gchar* dir_name = g_build_filename(g_get_home_dir(), DEFAULT_USER_CACHE_DIR, NULL);
-	return dir_name;
+	if (!path) {
+		const gchar* env = g_getenv("XDG_CACHE_HOME");
+		if (env) {
+			dbg(0, "cache_dir=%s", env);
+			path = g_strdup(env);
+		} else {
+			path = g_build_filename(g_get_home_dir(), DEFAULT_USER_CACHE_DIR, NULL);
+		}
+	}
+
+	return path;
 }
 
 
@@ -1199,7 +1293,7 @@ get_cache_dir ()
 static gboolean
 _maintain_file_cache (void* _)
 {
-	char* dir_name = get_cache_dir();
+	const char* dir_name = get_cache_dir();
 	dbg(2, "dir=%s", dir_name);
 	GError* error = NULL;
 	GDir* d = g_dir_open(dir_name, 0, &error);
@@ -1229,7 +1323,6 @@ _maintain_file_cache (void* _)
 	dbg(1, "peak files deleted: %i", n_deleted);
 
 	g_dir_close(d);
-	g_free(dir_name);
 
 	return G_SOURCE_REMOVE;
 }
@@ -1242,5 +1335,3 @@ maintain_file_cache ()
 
 	g_idle_add(_maintain_file_cache, NULL);
 }
-
-

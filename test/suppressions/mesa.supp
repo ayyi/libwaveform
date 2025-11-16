@@ -414,3 +414,52 @@
    ...
    fun:gdk_gl_window_swap_buffers
 }
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   match-leak-kinds: possible
+   ...
+   fun:iris_upload_shader
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   match-leak-kinds: possible
+   ...
+   fun:iris_compile_vs
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   match-leak-kinds: possible
+   ...
+   fun:disk_cache_db_write_item_to_disk
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   match-leak-kinds: possible
+   ...
+   fun:iris_compile_fs
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   match-leak-kinds: possible
+   ...
+   fun:link_program
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   match-leak-kinds: possible
+   ...
+   fun:shader_builder_create_program
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   match-leak-kinds: possible
+   ...
+   fun:_mesa_TexSubImage2D
+}

@@ -18,7 +18,7 @@ typedef struct _WaveformPrivate     WaveformPrivate;
 typedef struct _WfBuf16             WfBuf16;
 typedef struct _WfPeakBuf           WfPeakBuf;
 typedef struct _Peakbuf             Peakbuf;
-typedef struct _buf                 RmsBuf;
+typedef struct _WfBuf               RmsBuf;
 typedef struct _WfAudioData         WfAudioData;
 typedef struct _WfWorker            WfWorker;
 typedef struct _texture_hi          WfTextureHi;

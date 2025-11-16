@@ -37,6 +37,13 @@ enum  {
 	WAVEFORM_PROPERTY1
 };
 
+enum  {
+	PEAKDATA,
+	PREVIEW,
+	N_SIGNALS
+};
+static guint signals[N_SIGNALS] = {0};
+
 #define CHECKS_DONE(W) (w->priv->state & WAVEFORM_CHECKS_DONE)
 
 extern WF* wf;
@@ -44,6 +51,8 @@ guint peak_idle = 0;
 
 static void  waveform_finalize      (GObject*);
 static void _waveform_get_property  (GObject*, guint property_id, GValue*, GParamSpec*);
+
+#include "preview.c"
 
 
 Waveform*
@@ -62,7 +71,7 @@ waveform_construct (GType object_type)
 
 
 Waveform*
-waveform_load_new(const char* filename)
+waveform_load_new_sync (const char* filename)
 {
 	g_return_val_if_fail(filename, NULL);
 
@@ -90,10 +99,10 @@ waveform_new (const char* filename)
 void
 waveform_set_file (Waveform* w, const char* filename)
 {
-	if(w->filename){
-		if(filename && !strcmp(filename, w->filename)){
+	if (w->filename) {
+		if (filename && !strcmp(filename, w->filename)) {
 			// must bail otherwise peak job will not complete
-			if(wf_debug) pwarn("ignoring request to set same filename");
+			if (wf_debug) pwarn("ignoring request to set same filename");
 			return;
 		}
 		g_free(w->filename);
@@ -102,6 +111,7 @@ waveform_set_file (Waveform* w, const char* filename)
 	w->filename = g_strdup(filename);
 	w->renderable = true;
 	am_promise_unref0(w->priv->peaks);
+	g_clear_pointer(&w->priv->preview, preview_unref);
 }
 
 
@@ -112,8 +122,9 @@ waveform_class_init (WaveformClass* klass)
 	G_OBJECT_CLASS (klass)->get_property = _waveform_get_property;
 	G_OBJECT_CLASS (klass)->finalize = waveform_finalize;
 	g_object_class_install_property (G_OBJECT_CLASS (klass), WAVEFORM_PROPERTY1, g_param_spec_int ("property1", "property1", "property1", G_MININT, G_MAXINT, 0, G_PARAM_STATIC_NAME | G_PARAM_STATIC_NICK | G_PARAM_STATIC_BLURB | G_PARAM_READABLE));
-	g_signal_new ("peakdata_ready", TYPE_WAVEFORM, G_SIGNAL_RUN_LAST, 0, NULL, NULL, g_cclosure_marshal_VOID__VOID, G_TYPE_NONE, 0);
+	signals[PEAKDATA] = g_signal_new ("peakdata_ready", TYPE_WAVEFORM, G_SIGNAL_RUN_LAST, 0, NULL, NULL, g_cclosure_marshal_VOID__VOID, G_TYPE_NONE, 0);
 	g_signal_new ("hires_ready", TYPE_WAVEFORM, G_SIGNAL_RUN_LAST, 0, NULL, NULL, g_cclosure_marshal_VOID__INT, G_TYPE_NONE, 1, G_TYPE_INT);
+	signals[PREVIEW] = g_signal_new ("preview", TYPE_WAVEFORM, G_SIGNAL_RUN_LAST, 0, NULL, NULL, g_cclosure_marshal_VOID__POINTER, G_TYPE_NONE, 1, G_TYPE_POINTER);
 }
 
 
@@ -137,34 +148,34 @@ waveform_finalize (GObject* obj)
 #endif
 
 	// the warning below occurs when the waveform is created and destroyed very quickly.
-	if(g_hash_table_size(wf->peak_cache) && !g_hash_table_remove(wf->peak_cache, w) && wf_debug) pwarn("failed to remove waveform from peak_cache");
+	if (g_hash_table_size(wf->peak_cache) && !g_hash_table_remove(wf->peak_cache, w) && wf_debug) pwarn("failed to remove waveform from peak_cache");
 
-	int c; for(c=0;c<WF_MAX_CH;c++){
+	for (int c=0;c<WF_MAX_CH;c++) {
 		if(_w->peak.buf[c]) g_free(_w->peak.buf[c]);
 	}
 
-	if(_w->peaks){
-		if(!_w->peaks->is_resolved){
+	if (_w->peaks) {
+		if (!_w->peaks->is_resolved) {
 			// allow subscribers to free closure data
 			am_promise_fail(_w->peaks, NULL);
 		}
 		am_promise_unref0(_w->peaks);
 	}
 
-	if(_w->hires_peaks){
+	if (_w->hires_peaks) {
 		void** data = _w->hires_peaks->pdata;
-		for(int i=0;i<_w->hires_peaks->len;i++){
+		for (int i=0;i<_w->hires_peaks->len;i++) {
 			Peakbuf* p = data[i];
 			waveform_peakbuf_free(p);
 		}
 		g_ptr_array_free (_w->hires_peaks, true);
 	}
 
-	for(int m=MODE_V_LOW;m<=MODE_HI;m++){
-		if(_w->render_data[m]) pwarn("actor data not cleared");
+	for (int m=MODE_V_LOW;m<=MODE_HI;m++) {
+		if (_w->render_data[m]) pwarn("actor data not cleared");
 	}
 
-	if(w->free_render_data) w->free_render_data(w);
+	if (w->free_render_data) w->free_render_data(w);
 	waveform_audio_free(w);
 	g_free(w->filename);
 
@@ -196,7 +207,7 @@ _waveform_get_property (GObject* object, guint property_id, GValue* value, GPara
 	static void waveform_load_done (gpointer waveform, gpointer _c)
 	{
 		C* c = _c;
-		if(c->callback) c->callback((Waveform*)waveform, ((Waveform*)waveform)->priv->peaks->error, c->user_data);
+		if (c->callback) c->callback((Waveform*)waveform, ((Waveform*)waveform)->priv->peaks->error, c->user_data);
 		g_free(c);
 	}
 
@@ -213,13 +224,18 @@ _waveform_get_property (GObject* object, guint property_id, GValue* value, GPara
 						//_w->peaks->error = g_error_new(g_quark_from_static_string(wf->domain), 1, "failed to load peak");
 					}
 				}
-				g_signal_emit_by_name(w, "peakdata-ready");
+
+				g_clear_pointer(&w->priv->preview, preview_unref);
+
+				g_signal_emit(w, signals[PEAKDATA], 0);
 			}
 			am_promise_resolve(_w->peaks, NULL);
 		}
 
 		g_free0(peakfile);
+		g_object_unref(w);
 	}
+
 
 /*
  *  Load the peakdata for a waveform, and create a cached peakfile if not already existing.
@@ -247,18 +263,18 @@ waveform_load (Waveform* w, WfCallback3 callback, gpointer user_data)
 		WF_NEW(C, .callback = callback, .user_data = user_data)
 	);
 
-	if(_w->peak.buf[0] || _w->state & WAVEFORM_LOADING){
+	if (_w->peak.buf[0] || _w->state & WAVEFORM_LOADING) {
 		dbg(1, "subsequent load request");
 		return;
 	}
 
 	_w->state |= WAVEFORM_LOADING;
-	waveform_ensure_peakfile(w, waveform_load_have_peak, NULL);
+	waveform_ensure_peakfile(g_object_ref(w), waveform_load_have_peak, NULL);
 }
 
 
 bool
-waveform_load_sync(Waveform* w)
+waveform_load_sync (Waveform* w)
 {
 	g_return_val_if_fail(w, false);
 
@@ -279,7 +295,7 @@ waveform_load_sync(Waveform* w)
 
 
 static void
-waveform_get_sf_data(Waveform* w)
+waveform_get_info (Waveform* w)
 {
 	g_return_if_fail(w->filename);
 	WaveformPrivate* _w = w->priv;
@@ -330,9 +346,9 @@ waveform_get_sf_data(Waveform* w)
 
 
 uint64_t
-waveform_get_n_frames(Waveform* w)
+waveform_get_n_frames (Waveform* w)
 {
-	if(!w->n_frames) waveform_get_sf_data(w);
+	if (!w->n_frames) waveform_get_info(w);
 
 	return w->n_frames;
 }
@@ -348,11 +364,11 @@ waveform_get_n_channels (Waveform* w)
 {
 	g_return_val_if_fail(w, 0);
 
-	if(w->n_frames) return MIN(2, w->n_channels);
+	if (w->n_frames) return MIN(2, w->n_channels);
 
-	if(w->offline) return 0;
+	if (w->offline) return 0;
 
-	waveform_get_sf_data(w);
+	waveform_get_info(w);
 
 	return MIN(2, w->n_channels);
 }
@@ -695,7 +711,7 @@ waveform_get_rhs (const char* left, char* rhs)
 
 #if 0
 void
-waveform_print_blocks(Waveform* w)
+waveform_print_blocks (Waveform* w)
 {
 	g_return_if_fail(w);
 #ifdef USE_OPENGL

@@ -134,7 +134,7 @@ main (int argc, char *argv[])
 	scene2 = (AGlRootActor*)agl_new_scene_gtk(canvas);
 
 	char* filename = find_wav("mono_0:10.wav");
-	w1 = waveform_load_new(filename);
+	w1 = waveform_load_new_sync(filename);
 	g_free(filename);
 
 	agl_get_instance()->pref_use_shaders = USE_SHADERS;

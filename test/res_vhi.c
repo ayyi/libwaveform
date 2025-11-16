@@ -86,7 +86,7 @@ window_content (GtkWindow* window, GdkGLConfig* glconfig)
 	wfc = wf_context_new((AGlActor*)area->scene);
 
 	g_autofree char* filename = find_wav(WAV);
-	w1 = waveform_load_new(filename);
+	w1 = waveform_load_new_sync(filename);
 
 	int n_frames = waveform_get_n_frames(w1) / 128;
 	int start = 6 * n_frames;

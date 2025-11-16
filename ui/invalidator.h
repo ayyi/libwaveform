@@ -1,14 +1,22 @@
-/**
-* +----------------------------------------------------------------------+
-* | This file is part of the Ayyi project. https://www.ayyi.org          |
-* | copyright (C) 2021-2021 Tim Orford <tim@orford.org>                  |
-* +----------------------------------------------------------------------+
-* | This program is free software; you can redistribute it and/or modify |
-* | it under the terms of the GNU General Public License version 3       |
-* | as published by the Free Software Foundation.                        |
-* +----------------------------------------------------------------------+
-*
-*/
+/*
+ +----------------------------------------------------------------------+
+ | This file is part of the Ayyi project. https://www.ayyi.org          |
+ | copyright (C) 2021-2025 Tim Orford <tim@orford.org>                  |
+ +----------------------------------------------------------------------+
+ | This program is free software; you can redistribute it and/or modify |
+ | it under the terms of the GNU General Public License version 3       |
+ | as published by the Free Software Foundation.                        |
+ +----------------------------------------------------------------------+
+ |
+ | Invalidator behaviour
+ | ---------------------
+ |
+ | Validity of render state can be unset for various aspects, which
+ | will cause the corresponding resolver functions to be called in
+ | a synchronised manner so that all updates are made in a single
+ | render cycle.
+ |
+ */
 
 #pragma once
 

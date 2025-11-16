@@ -42,7 +42,12 @@ main (int argc, char* argv[])
 	g_idle_add(run, NULL);
 
 	int r = setup ? setup (argc, argv) : 0;
-	if (r) return r;
+	if (r) {
+		TEST.current.test = TEST.n_tests;
+		printf("setup failed\n");
+		next_test();
+		return r;
+	}
 
 	if (n_tests) TEST.n_tests = n_tests();
 	dbg(2, "n_tests=%i", TEST.n_tests);
@@ -98,7 +103,7 @@ next_test ()
 		printf("finished all. passed=%s %i %s failed=%s %i %s", GREEN, TEST.n_passed, ayyi_white, (TEST.n_failed ? RED : ayyi_white), TEST.n_failed, ayyi_white);
 		if (TEST.n_skipped) printf(" skipped=%s%i%s", YELLOW, TEST.n_skipped, ayyi_white);
 		printf("\n");
-		g_timeout_add(500, (GSourceFunc)__exit, NULL);
+		g_timeout_add(250, (GSourceFunc)__exit, NULL);
 	}
 }
 

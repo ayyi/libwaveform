@@ -65,7 +65,7 @@ mock_low_post_render (Renderer* renderer, WaveformActor* actor)
 }
 
 static void
-mock_low_free_waveform (Renderer* renderer, Waveform* waveform)
+mock_low_free_waveform (Renderer* renderer, Waveform* waveform, void** data)
 {
 }
 
@@ -129,7 +129,7 @@ setup ()
 	g_autofree char* filename = find_wav(WAV);
 	waveform = waveform_new(filename);
 
-	context = wf_context_new(NULL);
+	context = wf_context_new((AGlActor*)&scene);
 	wf_actor = wf_context_add_new_actor(context, waveform);
 	AGlActor* actor = (AGlActor*)wf_actor;
 

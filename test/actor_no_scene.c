@@ -227,9 +227,8 @@ on_canvas_realise (GtkWidget* _canvas, gpointer user_data)
 
 	wfc = wf_context_new((AGlActor*)scene);
 
-	char* filename = find_wav("mono_0:10.wav");
-	w1 = waveform_load_new(filename);
-	g_free(filename);
+	g_autofree char* filename = find_wav("mono_0:10.wav");
+	w1 = waveform_load_new_sync(filename);
 
 	int n_frames = waveform_get_n_frames(w1);
 

@@ -21,6 +21,8 @@
 
 #endif // __actor_c__
 
+NGRenderer hi_renderer_gl2;
+
 typedef struct
 {
 	Renderer       renderer;
@@ -39,6 +41,107 @@ static void  _wf_actor_print_hires_textures  (WaveformActor*);
 
 
 void
+hi_gl2_init (WaveformActor* a)
+{
+	if (!hi_renderer_gl2.renderer.shader) {
+		hi_renderer_gl2.renderer.shader = &hires_ng_shader.shader;
+		if (!hi_renderer_gl2.renderer.shader->program)
+			agl_create_program(&hires_ng_shader.shader);
+	}
+}
+
+
+static void
+hi_gl2_free_item (/*Waveform* waveform, */gpointer _data)
+{
+	// this is called by the hash_table when an item is removed from hi_res_ng_data.
+
+	// ** the item has already been removed from the hash_table
+	//    so we have no way of referencing the Waveform.
+
+	HiResNGWaveform* data = _data;
+
+#if 0
+	struct C {
+		HiResNGWaveform* data;
+		Waveform*        waveform;
+	} c = {data, NULL};
+
+	bool find_val(gpointer key, gpointer value, gpointer user_data)
+	{
+		// reverse lookup - find the key given the data.
+		struct C* c = user_data;
+		return (value == c->data)
+			? c->waveform = key, true
+			: false;
+	}
+
+	if(g_hash_table_find(hi_res_ng_data, find_val, &c)){
+
+		int s; for(s=0;s<data->size;s++){
+			ng_gl2_free_section(c.waveform, &data->section[s], s);
+		}
+	}
+	else gwarn("waveform not found");
+#endif
+
+	g_free(data);
+}
+
+
+void
+hi_gl2_on_steal (WaveformBlock* wb, guint tex)
+{
+	HiResNGWaveform* data = (HiResNGWaveform*)wb->waveform->priv->render_data[MODE_HI];
+	if(data){
+		int _s = wb->block & (~WF_TEXTURE_CACHE_HIRES_NG_MASK);
+		int s = _s / MAX_BLOCKS_PER_TEXTURE;
+#ifdef DEBUG
+		g_return_if_fail(_s % MAX_BLOCKS_PER_TEXTURE == 0);
+		g_return_if_fail(s < data->size);
+#endif
+		Section* section = &data->section[s];
+		if(section){
+			g_return_if_fail(tex == section->texture);
+			section->texture = 0;
+			section->completed = false;
+			memset(section->ready, 0, sizeof(bool) * MAX_BLOCKS_PER_TEXTURE);
+			dbg(0, "section %i cleared", s);
+		}
+	}
+}
+
+
+// temporary
+void
+hi_gl2_cache_print ()
+{
+	static int n_textures;
+	n_textures = 0;
+
+	void _hi_ng_print (gpointer key, gpointer value, gpointer _)
+	{
+		HiResNGWaveform* data = (HiResNGWaveform*)value;
+		int s, n=0; for (s=0;s<data->size;s++) {
+			Section* section = &data->section[s];
+			if (section->buffer) {
+				//dbg(0, "  %2i: t=%u %i", s, section->texture, section->time_stamp);
+				n++;
+			}
+			if(section->texture) n_textures++;
+		}
+		if(!n) dbg(0, "all sections EMPTY");
+	}
+
+	if (g_hash_table_size(hi_renderer_gl2.ng_data)) {
+		g_hash_table_foreach(hi_renderer_gl2.ng_data, _hi_ng_print, NULL);
+		dbg(0, "n_textures=%i", n_textures);
+	} else
+		dbg(0, "EMPTY");
+}
+
+
+void
 hi_new_gl1 (WaveformActor* a)
 {
 	WaveformPrivate* _w = a->waveform->priv;
@@ -46,7 +149,7 @@ hi_new_gl1 (WaveformActor* a)
 	g_return_if_fail(!_w->render_data[MODE_HI]);
 
 	agl = agl_get_instance();
-	if(!agl->use_shaders){
+	if (!agl->use_shaders) {
 		_w->render_data[MODE_HI] = (WaveformModeRender*)g_new0(WfTexturesHi, 1);
 		RENDER_DATA_HI(_w)->textures = g_hash_table_new(g_int_hash, g_int_equal);
 	}
@@ -54,16 +157,16 @@ hi_new_gl1 (WaveformActor* a)
 
 
 static void
-hi_free_gl1 (Renderer* renderer, Waveform* w)
+hi_free_gl1 (Renderer* renderer, Waveform* w, void** data)
 {
-	if(!w->priv->render_data[MODE_HI]) return;
+	if (!w->priv->render_data[MODE_HI]) return;
 
 	WfTexturesHi* textures = (WfTexturesHi*)w->priv->render_data[MODE_HI];
 
 	GHashTableIter iter;
 	gpointer key, value;
 	g_hash_table_iter_init (&iter, textures->textures);
-	while (g_hash_table_iter_next (&iter, &key, &value)){
+	while (g_hash_table_iter_next (&iter, &key, &value)) {
 		//int block = key;
 		WfTextureHi* texture = value;
 		waveform_texture_hi_free(texture);
@@ -151,7 +254,7 @@ make_texture_data_hi(Waveform* w, int ch, IntBufHi* buf, int blocknum)
 	//data is transformed from the Waveform hi-res peakbuf into IntBufHi* buf.
 
 	dbg(1, "b=%i", blocknum);
-	int texture_size = modes[MODE_HI].texture_size;
+	int texture_size = modes[MODE_HI].renderer->texture_size;
 	Peakbuf* peakbuf = waveform_get_peakbuf_n(w, blocknum);
 	int o = TEX_BORDER_HI; for(;o<texture_size;o++){
 		int i = (o - TEX_BORDER_HI) * WF_PEAK_VALUES_PER_SAMPLE;
@@ -423,13 +526,13 @@ wf_actor_get_quad_dimensions (WaveformActor* actor, int b, bool is_first, bool i
 
 	int samples_per_texture = r->samples_per_texture / multiplier;
 
-	double usable_pct = (modes[r->mode].texture_size - 2.0 * border) / modes[r->mode].texture_size;
+	double usable_pct = (modes[r->mode].renderer->texture_size - 2.0 * border) / modes[r->mode].renderer->texture_size;
 	double border_pct = (1.0 - usable_pct) / 2.0;
 
 	block_wid = r->block_wid / multiplier;
 	tex_pct = usable_pct; //use the whole texture
-	tex_start = ((float)border) / modes[r->mode].texture_size;
-	if (is_first){
+	tex_start = ((float)border) / modes[r->mode].renderer->texture_size;
+	if (is_first) {
 		double _tex_pct = 1.0;
 		if(r->first_offset){
 			_tex_pct = 1.0 - ((double)r->first_offset) / samples_per_texture;
@@ -445,11 +548,10 @@ wf_actor_get_quad_dimensions (WaveformActor* actor, int b, bool is_first, bool i
 		tex_start = 1.0 - border_pct - tex_pct;
 		dbg(2, "rect.left=%.2f region->start=%"PRIi64" first_offset=%i", r->rect.left, r->region.start, r->first_offset);
 	}
-	if (is_last){
-		//if(x + r->block_wid < x0 + rect->len){
-		if(b < r->region_end_block){
+	if (is_last) {
+		if (b < r->region_end_block) {
 			//end is offscreen. last block is not smaller.
-		}else{
+		} else {
 			//end is trimmed
 			WfSampleRegionf region_px = {
 				.start = wf_actor_samples2gl(r->zoom, r->region.start),
@@ -598,7 +700,9 @@ _wf_actor_print_hires_textures (WaveformActor* a)
 #endif
 
 
-NGRenderer hi_renderer_gl2 = {{MODE_HI, hi_gl2_init, ng_gl2_load_block, ng_pre_render, ng_gl2_render_block, ng_gl2_post_render, ng_gl2_free_waveform}};
+NGRenderer hi_renderer_gl2 = {{MODE_HI, hi_gl2_init, ng_gl2_load_block, ng_pre_render, ng_gl2_render_block, ng_post_render, ng_free_waveform,
+	.texture_size = WF_PEAK_TEXTURE_SIZE * 16, // texture size chosen so that blocks are the same as in medium res
+}};
 
 HiRenderer hi_renderer_gl1 = {{MODE_HI, hi_new_gl1, hi_gl1_load_block, hi_gl1_pre_render,
 #ifdef HIRES_NONSHADER_TEXTURES
@@ -620,7 +724,7 @@ hi_renderer_new ()
 
 	hi_renderer_gl2.ng_data = g_hash_table_new_full(g_direct_hash, g_int_equal, NULL, hi_gl2_free_item);
 
-	ng_make_lod_levels(&hi_renderer_gl2, MODE_HI);
+	ng_make_lod_levels(&hi_renderer_gl2, hi_renderer->renderer.texture_size);
 
 	return (Renderer*)hi_renderer;
 }

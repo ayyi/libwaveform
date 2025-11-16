@@ -1,7 +1,7 @@
 /*
  +----------------------------------------------------------------------+
  | This file is part of the Ayyi project. https://www.ayyi.org          |
- | copyright (C) 2012-2021 Tim Orford <tim@orford.org>                  |
+ | copyright (C) 2012-2025 Tim Orford <tim@orford.org>                  |
  +----------------------------------------------------------------------+
  | This program is free software; you can redistribute it and/or modify |
  | it under the terms of the GNU General Public License version 3       |
@@ -27,41 +27,31 @@
 #include "wf/peakgen.h"
 #include "test/runner.h"
 #include "test/utils.h"
-
-TestFn create_large_files, test_audiodata, test_load, delete_large_files;
-
-gpointer tests[] = {
-	create_large_files,
-	test_load,
-	test_audiodata,
-	delete_large_files,
-};
-
-#include "test/common.c"
+#include "test/common.h"
+#include "test/large-files.h"
 
 #define WAV1 "test/data/large1.wav"
 #define WAV2 "test/data/large2.wav"
 
 
-void
-create_large_files ()
+int
+setup ()
 {
-	START_TEST;
 	test_reset_timeout(60000);
 
 	create_large_file(WAV1);
 	create_large_file(WAV2);
 
-	FINISH_TEST;
+	return 0;
 }
 
 
 void
-delete_large_files ()
+teardown ()
 {
 	START_TEST;
 
-	if(g_unlink(WAV1)){
+	if (g_unlink(WAV1)) {
 		FAIL_TEST("delete failed");
 	}
 	assert(!g_unlink(WAV2), "delete failed");
@@ -85,19 +75,18 @@ test_load ()
 	struct _c {
 		void (*next)(C*);
 	};
-	C* c = g_new0(C, 1);
 
-	void finalize_notify(gpointer data, GObject* was)
+	void finalize_notify (gpointer data, GObject* was)
 	{
 		dbg(0, "...");
 	}
 
-	void next_wav(C* c)
+	void next_wav (C* c)
 	{
-		if(wi >= G_N_ELEMENTS(wavs)){
-			if(iter++ < 2){
+		if (wi >= G_N_ELEMENTS(wavs)) {
+			if (iter++ < 2) {
 				wi = 0;
-			}else{
+			} else {
 				g_free(c);
 				FINISH_TEST;
 			}
@@ -124,6 +113,8 @@ test_load ()
 		g_object_unref(w);
 		c->next(c);
 	}
+
+	C* c = g_new0(C, 1);
 	c->next = next_wav;
 	next_wav(c);
 }
@@ -163,14 +154,13 @@ test_audiodata ()
 		test_reset_timeout(5000);
 
 		WfAudioData* audio = &waveform->priv->audio;
-		if(audio->buf16){
+		if (audio->buf16) {
 			WfBuf16* buf = audio->buf16[block];
 			assert(buf, "no data in buffer! %i", block);
 			assert(buf->buf[WF_LEFT], "no data in buffer (L)! %i", block);
 			assert(buf->buf[WF_RIGHT], "no data in buffer (R)! %i", block);
 		} else pwarn("no data!");
 
-		printf("\n");
 		n++;
 		if(n >= tot_blocks){
 			g_signal_handler_disconnect((gpointer)waveform, ready_handler);
@@ -182,7 +172,7 @@ test_audiodata ()
 
 	void next_wav (C* c)
 	{
-		if(wi >= G_N_ELEMENTS(wavs)){
+		if (wi >= G_N_ELEMENTS(wavs)) {
 			g_free(c);
 			FINISH_TEST;
 		}
@@ -198,11 +188,9 @@ test_audiodata ()
 
 		// trying to load the whole file at once is slightly dangerous but seems to work ok.
 		// the callback is called before the cache is cleared for the block.
-		int b; for(b=0;b<tot_blocks;b++){
+		for (int b=0;b<tot_blocks;b++) {
 			waveform_load_audio(w, b, n_tiers_needed, NULL, NULL);
 		}
-
-		//wi++;
 	}
 	c->next = next_wav;
 	next_wav(c);

@@ -231,7 +231,7 @@ med_lo_render_gl1(Renderer* renderer, WaveformActor* actor, int b, bool is_first
 
 
 static void
-med_lo_gl1_free_waveform(Renderer* renderer, Waveform* waveform)
+med_lo_gl1_free_waveform (Renderer* renderer, Waveform* waveform, void** data)
 {
 	dbg(1, "%s", modes[renderer->mode].name);
 
@@ -303,7 +303,9 @@ med_lo_on_steal (WaveformBlock* wb, guint tex)
 
 
 Renderer med_renderer_gl1 = {MODE_MED, NULL, med_allocate_block_gl1, med_lo_pre_render_gl1, med_lo_render_gl1, NULL, med_lo_gl1_free_waveform};
-NGRenderer med_renderer_gl2 = {{MODE_MED, med_renderer_new_gl2, ng_gl2_load_block, ng_pre_render, ng_gl2_render_block, ng_gl2_post_render, ng_gl2_free_waveform}};
+NGRenderer med_renderer_gl2 = {{MODE_MED, med_renderer_new_gl2, ng_gl2_load_block, ng_pre_render, ng_gl2_render_block, ng_post_render, ng_free_waveform,
+	.texture_size = WF_PEAK_TEXTURE_SIZE,
+}};
 
 
 static Renderer*
@@ -315,7 +317,7 @@ med_renderer_new ()
 
 	med_renderer_gl2.ng_data = g_hash_table_new_full(g_direct_hash, g_int_equal, NULL, g_free);
 
-	ng_make_lod_levels(&med_renderer_gl2, MODE_MED);
+	ng_make_lod_levels(&med_renderer_gl2, med_renderer->texture_size);
 
 	return (Renderer*)med_renderer;
 }

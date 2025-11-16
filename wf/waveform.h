@@ -1,25 +1,26 @@
-/**
-* +----------------------------------------------------------------------+
-* | This file is part of the Ayyi project. http://ayyi.org               |
-* | copyright (C) 2012-2020 Tim Orford <tim@orford.org>                  |
-* +----------------------------------------------------------------------+
-* | This program is free software; you can redistribute it and/or modify |
-* | it under the terms of the GNU General Public License version 3       |
-* | as published by the Free Software Foundation.                        |
-* +----------------------------------------------------------------------+
-*
-*/
+/*
+ +----------------------------------------------------------------------+
+ | This file is part of the Ayyi project. https://www.ayyi.org          |
+ | copyright (C) 2012-2025 Tim Orford <tim@orford.org>                  |
+ +----------------------------------------------------------------------+
+ | This program is free software; you can redistribute it and/or modify |
+ | it under the terms of the GNU General Public License version 3       |
+ | as published by the Free Software Foundation.                        |
+ +----------------------------------------------------------------------+
+ |
+ */
+
+#pragma once
+
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-#ifndef __waveform_h__
-#define __waveform_h__
 
 #include <stdint.h>
 #include <stdbool.h>
 #include <glib.h>
 #include <glib-object.h>
+#include "ayyi-utils/observable.h"
 #include "waveform/typedefs.h"
 #include "waveform/utils.h"
 #include "waveform/promise.h"
@@ -99,23 +100,20 @@ struct _WfBuf16
 #endif
 };
 
-struct _buf
+struct _WfBuf
 {
 	char* buf;
 	guint size;
 };
 
-//high level api
-Waveform*  waveform_load_new             (const char* filename);
+GType      waveform_get_type             () G_GNUC_CONST;
+Waveform*  waveform_new                  (const char* filename);
+Waveform*  waveform_construct            (GType);
+Waveform*  waveform_load_new_sync        (const char* filename);
 void       waveform_set_peak_loader      (PeakLoader);
 uint64_t   waveform_get_n_frames         (Waveform*);
 int        waveform_get_n_channels       (Waveform*);
 
-//low level api
-GType      waveform_get_type             () G_GNUC_CONST;
-Waveform*  waveform_new                  (const char* filename);
-Waveform*  waveform_construct            (GType);
-#define    waveform_unref0(w)            (g_object_unref(w), w = NULL)
 void       waveform_load                 (Waveform*, WfCallback3, gpointer);
 bool       waveform_load_sync            (Waveform*);
 void       waveform_set_file             (Waveform*, const char*);
@@ -139,8 +137,6 @@ typedef struct { WfCallback3 callback; gpointer user_data; } WfClosure;
 #ifndef __waveform_peak_c__
 extern WF* wf;
 #endif
-
-#endif //__waveform_h__
 
 #ifdef __cplusplus
 }

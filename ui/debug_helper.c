@@ -24,6 +24,12 @@
 
 typedef struct
 {
+    AGlBehaviour behaviour;
+	RenderResult previous_result;
+} DebugHelper;
+
+typedef struct
+{
     AGlBehaviourClass class;
 } DebugHelperClass;
 
@@ -46,11 +52,11 @@ debug_helper_class ()
 AGlBehaviour*
 debug_helper ()
 {
-	AGlBehaviour* a = AGL_NEW (AGlBehaviour,
-		.klass = &klass.class,
+	return (AGlBehaviour*)AGL_NEW (DebugHelper,
+		.behaviour= {
+			.klass = &klass.class,
+		}
 	);
-
-	return (AGlBehaviour*)a;
 }
 
 
@@ -61,6 +67,8 @@ debug_helper_draw (AGlBehaviour* behaviour, AGlActor* actor, AGlActorPaint wrapp
 	WaveformContext* wfc = wf_actor->context;
 
 	bool result = wrapped (actor);
+
+	if (wf_actor->render_result == ((DebugHelper*)behaviour)->previous_result) return result;
 
 	double spp = wfc->scaled
 		? wfc->zoom->value.f / wfc->samples_per_pixel
@@ -84,6 +92,8 @@ debug_helper_draw (AGlBehaviour* behaviour, AGlActor* actor, AGlActorPaint wrapp
 		void agl_actor__print_tree (AGlActor*);
 		agl_actor__print_tree(actor->parent);
 	}
+
+	((DebugHelper*)behaviour)->previous_result = wf_actor->render_result;
 
 	return result;
 }

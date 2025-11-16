@@ -1,19 +1,14 @@
 /*
-  copyright (C) 2014-2021 Tim Orford <tim@orford.org>
-
-  This program is free software; you can redistribute it and/or modify
-  it under the terms of the GNU General Public License version 3
-  as published by the Free Software Foundation.
-
-  This program is distributed in the hope that it will be useful,
-  but WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-  GNU General Public License for more details.
-
-  You should have received a copy of the GNU General Public License
-  along with this program; if not, write to the Free Software
-  Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
-*/
+ +----------------------------------------------------------------------+
+ | This file is part of the Ayyi project. https://www.ayyi.org          |
+ | copyright (C) 2014-2025 Tim Orford <tim@orford.org>                  |
+ +----------------------------------------------------------------------+
+ | This program is free software; you can redistribute it and/or modify |
+ | it under the terms of the GNU General Public License version 3       |
+ | as published by the Free Software Foundation.                        |
+ +----------------------------------------------------------------------+
+ |
+ */
 
 uniform sampler2D tex2d;
 uniform float top;
@@ -43,7 +38,6 @@ void main (void)
 	float mid3 = mid;
 	vec2 t = vec2(mm2tx[mm_level], mm2ty[mm_level]);
 
-	int c = 0;
 	float yc = y;
 	if(n_channels < 2){
 		yc = (y - mid) / v_gain + mid;
@@ -55,7 +49,6 @@ void main (void)
 			yc = (y - mid3) / v_gain + mid3;
 		}else if(y > mid + 1.0){
 			// RHS
-			c = 1;
 			mid3 = mid / 2.0;
 			yc = (y - mid - mid3) / v_gain + mid3;
 			mid += mid / 2.0;
@@ -97,13 +90,31 @@ void main (void)
 
 	t.x += tex_coords.x / x_gain[mm_level];
 
-	// TODO try and use just 2 samples but calculate the correct ratio depending on how close.
-	vec4 colour = fg_colour;
-	colour.a *= min(1.0,
+	gl_FragColor = vec4(
+		fg_colour.rgb,
+		fg_colour.a * min(1.0,
 			smoothstep(y1, y2, texture2D(tex2d, vec2(t.x,                            t.y)).a) * 0.70 +
 			smoothstep(y1, y2, texture2D(tex2d, vec2(max(mm2tx[mm_level], t.x - dx), t.y)).a) * 0.40 +
 			smoothstep(y1, y2, texture2D(tex2d, vec2(t.x + dx,                       t.y)).a) * 0.40
+		)
 	);
-	gl_FragColor = colour;
+
+	// alternative sampling that only uses 2 texture values
+	// -it has some artefacts and also does not look very nice
+	// -it has an inherent problem that it varies between sharp and blurry depending on the weight
+	/*
+	vec2 vTexelSize = 1.0 / vec2(tex_width);
+
+	float color1 = smoothstep(y1, y2, texture2D(tex2d, t                ).a);
+	//float color2 = smoothstep(y1, y2, texture2D(tex2d, t + vec2(dx, 0.0)).a);
+	float color2 = smoothstep(y1, y2, texture2D(tex2d, vec2(min(0.9999, t.x + dx), t.y)).a);
+
+	float texelCenter = floor(t.x / dx) * dx + dx * 0.5;
+	float distanceToCenter = t.x - texelCenter;
+	float weight = smoothstep(0.0, 0.5 * dx, distanceToCenter);
+	weight = clamp(weight, 0.0, 1.0);
+
+	gl_FragColor = vec4(fg_colour.rgb, fg_colour.a * mix(color1, color2, weight));
+	*/
 }
 

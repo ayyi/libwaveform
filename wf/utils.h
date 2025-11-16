@@ -39,4 +39,8 @@
 
 #define wf_set_str(P, NAME) ({ if (P) g_free(P); P = NAME; })
 
+#ifndef _g_source_remove0
+#define _g_source_remove0(S) {if(S) g_source_remove(S); S = 0;}
+#endif
+
 bool       wf_get_filename_for_other_channel (const char* filename, char* other, int n_chars);

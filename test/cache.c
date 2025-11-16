@@ -606,8 +606,7 @@ test_hi_double ()
 		{
 			char* filename = find_wav(WAV2);
 			assert(filename, "failed to find wav: %s", WAV2)
-			// TODO this is very slow if peakfile not present
-			w[i] = waveform_load_new(filename);
+			w[i] = waveform_load_new_sync(filename);
 			wf_free(filename);
 		}
 
@@ -807,7 +806,7 @@ __on_canvas_realise (gpointer user_data)
 
 	{
 		char* filename = find_wav(WAV1);
-		w[0] = waveform_load_new(filename);
+		w[0] = waveform_load_new_sync(filename);
 		wf_free(filename);
 	}
 

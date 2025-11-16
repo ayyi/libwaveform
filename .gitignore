@@ -4,6 +4,7 @@ Makefile
 Makefile.in
 aclocal.m4
 .ccls-cache/
+.cache/
 agl/Makefile
 agl/Makefile.in
 agl/resources.c
@@ -57,9 +58,11 @@ test/glx
 test/group
 test/hires
 test/input
-test/large_files
+test/large-files
+test/large-files.h
 test/list
 test/multi_scene
+test/preview
 test/pixbuf
 test/promise
 test/promise.h

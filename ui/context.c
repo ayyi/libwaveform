@@ -30,6 +30,8 @@
 #include "waveform/ui-private.h"
 #include "waveform/context.h"
 
+extern AGlBehaviour* init_hook_new (WaveformContext*);
+
 static AGl* agl = NULL;
 
 #define _g_source_remove0(S) {if(S) g_source_remove(S); S = 0;}
@@ -162,8 +164,6 @@ waveform_context_construct (GType object_type)
 }
 
 
-extern void wf_gl_init (WaveformContext*, AGlActor*);
-
 WaveformContext*
 wf_context_new (AGlActor* root)
 {
@@ -172,7 +172,8 @@ wf_context_new (AGlActor* root)
 	WaveformContext* wfc = waveform_context_construct(TYPE_WAVEFORM_CONTEXT);
 	wfc->root = root;
 	wf_context_init(wfc, root);
-	wf_gl_init(wfc, root);
+
+	agl_actor__add_behaviour(root, init_hook_new(wfc));
 
 	return wfc;
 }
@@ -192,7 +193,7 @@ wf_context_new_sdl (SDL_GLContext* context)
 	wfc->root->root->gl.sdl.context = context;
 
 	wf_context_init(wfc, a);
-	wf_gl_init(wfc, a);
+	agl_actor__add_behaviour(a, init_hook_new(wfc));
 
 	return wfc;
 }
@@ -203,6 +204,9 @@ static void
 wf_context_finalize (GObject* obj)
 {
 	WaveformContext* wfc = WAVEFORM_CONTEXT (obj);
+
+	g_clear_pointer(&wfc->zoom, agl_observable_free);
+	g_clear_pointer(&wfc->start_time, agl_observable_free);
 
 	wf_free(wfc->priv);
 
@@ -221,10 +225,7 @@ wf_context_free (WaveformContext* wfc)
 	PF;
 	WfContextPriv* c = wfc->priv;
 
-	_g_source_remove0(c->pending_init);
 	_g_source_remove0(c->_queued);
-	g_clear_pointer(&wfc->zoom, agl_observable_free);
-	g_clear_pointer(&wfc->start_time, agl_observable_free);
 
 	g_object_unref((GObject*)wfc);
 }

@@ -18,7 +18,7 @@ AM_CFLAGS = \
 
 if ENABLE_GTK
 GTKGLEXT_LDFLAGS = \
-	-lgmodule-2.0 \
+	$(GMODULE_LDFLAGS) \
 	$(top_srcdir)/gtkglext-1.0/.libs/libgtkglext.a
 endif
 

@@ -59,6 +59,9 @@
 #include "ui/actors/hover.h"
 #include "waveform/view_plus.h"
 #include "common.h"
+#ifdef DEBUG
+#include "ui/debug_helper.h"
+#endif
 
 extern char* basename (const char*);
 
@@ -185,6 +188,9 @@ main (int argc, char* argv[])
 
 	g_autofree char* filename = find_wav(wavs[0]);
 	show_wav(waveform, filename);
+#ifdef DEBUG
+    agl_actor__add_behaviour((AGlActor*)waveform_view_plus_get_actor(view), debug_helper());
+#endif
 
 #if 0
 	waveform_view_plus_set_region(waveform, 0, 32383); // start in hi-res mode

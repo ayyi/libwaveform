@@ -12,6 +12,7 @@ AM_CFLAGS = \
 	-DPACKAGE_DATA_DIR=\""$(datadir)"\" \
 	-I$(includedir) \
 	-I$(top_srcdir) \
+	-I../lib/ \
 	-I../lib/agl \
 	$(GTK_CFLAGS) \
 	$(SDL_CFLAGS) \
@@ -29,6 +30,7 @@ if ENABLE_OPENGL
 OPENGL_SOURCES = \
 	$(GTK_SOURCES) \
 	context.c context.h \
+	context.root.c \
 	actor.c actor.h \
 	shader.c shader.h \
 	texture_cache.c texture_cache.h
@@ -58,10 +60,10 @@ EXTRA_DIST = \
 	renderer/ng.c \
 	renderer/res_med.c \
 	renderer/res_hi.c \
-	renderer/res_hi_gl2.c \
 	renderer/res_v_hi.c \
 	renderer/res_lo.c \
-	renderer/res_v_low.c
+	renderer/res_v_low.c \
+	renderer/preview.c
 
 CLEANFILES =
 

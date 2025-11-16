@@ -97,10 +97,9 @@ main (int argc, char *argv[])
 
 	wfc = wf_context_new((AGlActor*)scene);
 
-	char* filename = find_wav(WAV);
+	g_autofree char* filename = find_wav(WAV);
 	g_assert(filename);
-	w1 = waveform_load_new(filename);
-	g_free(filename);
+	w1 = waveform_load_new_sync(filename);
 
 	agl_actor__add_child((AGlActor*)scene, rotator(NULL));
 
