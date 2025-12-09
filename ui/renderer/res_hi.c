@@ -44,9 +44,9 @@ void
 hi_gl2_init (WaveformActor* a)
 {
 	if (!hi_renderer_gl2.renderer.shader) {
-		hi_renderer_gl2.renderer.shader = &hires_ng_shader.shader;
+		hi_renderer_gl2.renderer.shader = &ng_shader;
 		if (!hi_renderer_gl2.renderer.shader->program)
-			agl_create_program(&hires_ng_shader.shader);
+			agl_create_program(&ng_shader);
 	}
 }
 

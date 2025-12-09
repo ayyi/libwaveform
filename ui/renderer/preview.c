@@ -1,7 +1,7 @@
 /*
  +----------------------------------------------------------------------+
  | This file is part of the Ayyi project. https://www.ayyi.org          |
- | copyright (C) 2012-2025 Tim Orford <tim@orford.org>                  |
+ | copyright (C) 2012-2026 Tim Orford <tim@orford.org>                  |
  +----------------------------------------------------------------------+
  | This program is free software; you can redistribute it and/or modify |
  | it under the terms of the GNU General Public License version 3       |
@@ -18,7 +18,7 @@ preview_renderer__init ()
 {
 	g_return_val_if_fail(!preview_renderer.renderer.shader, NULL);
 
-	preview_renderer.renderer.shader = &hires_ng_shader.shader;
+	preview_renderer.renderer.shader = &ng_shader;
 
 	ng_make_lod_levels(&preview_renderer, PREVIEW_SIZE);
 
@@ -32,9 +32,8 @@ preview_renderer_init (WaveformActor* actor)
 	if (!preview_renderer.renderer.shader)
 		preview_renderer__init();
 
-	AGlShader* shader = &hires_ng_shader.shader;
-	if (!shader->program)
-		agl_create_program(shader);
+	if (!ng_shader.program)
+		agl_create_program(&ng_shader);
 }
 
 
@@ -105,32 +104,30 @@ preview_pre_render (Renderer* renderer, WaveformActor* actor)
 {
 	Waveform* w = actor->waveform;
 	WfActorPriv* _a = actor->priv;
-	AGlActor* a = &actor->actor;
 
 	if (!preview_renderer.renderer.shader)
 		preview_renderer_init(actor);
 
-	HiResNGShader* shader = (HiResNGShader*)renderer->shader;
-	agl_use_program((AGlShader*)shader);
+	AGlShader* shader = renderer->shader;
+	agl_use_program(shader);
 	HiResNGWaveform** data = (HiResNGWaveform**)&w->priv->preview->render_data;
 	if (!(*data)) preview_make_data(renderer, actor);
 	Section* section = &(*data)->section[0];
 
-	shader->uniform.fg_colour = (((AGlActor*)actor)->colour & 0xffffff00) + (unsigned)(0xff * _a->opacity);
-	shader->uniform.top = a->region.y1;
-	shader->uniform.bottom = a->region.y2;
-	shader->uniform.top = 0;
-	shader->uniform.bottom = agl_actor__height((AGlActor*)actor);
-	shader->uniform.n_channels = w->n_channels;
-	shader->uniform.tex_width = PREVIEW_SIZE;
-	shader->uniform.tex_height = section->buffer_size / PREVIEW_SIZE;
-	shader->uniform.v_gain = actor->context->v_gain;
+	AGlUniformUnion* u = (AGlUniformUnion*)shader->uniforms;
+	u[NG_U_FG_COLOUR].value.i[0] = (((AGlActor*)actor)->colour & 0xffffff00) + (unsigned)(0xff * _a->opacity);
+	u[NG_U_TOP].value.f[0] = 0;
+	u[NG_U_BOTTOM].value.f[0] = agl_actor__height((AGlActor*)actor);
+	shader->uniforms[NG_U_N_CHANNELS].value[0] = w->n_channels;
+	shader->uniforms[NG_U_TEX_WIDTH].value[0] = PREVIEW_SIZE;
+	shader->uniforms[NG_U_TEX_HEIGHT].value[0] = section->buffer_size / PREVIEW_SIZE;
+	shader->uniforms[NG_U_VGAIN].value[0] = actor->context->v_gain;
 
 	int width = agl_actor__width((AGlActor*)actor);
-	shader->uniform.mm_level = width > 320 ? 0 : width > 160 ? 1 : 2;
+	u[NG_U_MM_LEVEL].value.i[0] = width > 320 ? 0 : width > 160 ? 1 : 2;
 
-	agl_translate((AGlShader*)shader, 0, 0);
-	shader->shader.set_uniforms_((AGlShader*)shader);
+	agl_translate(shader, 0, 0);
+	shader->set_uniforms_(shader);
 
 	glActiveTexture (GL_TEXTURE0);
 	glBindBuffer (GL_ARRAY_BUFFER, agl->vbo);

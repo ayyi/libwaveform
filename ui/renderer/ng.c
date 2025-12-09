@@ -196,7 +196,7 @@ ng_gl2_load_block (Renderer* renderer, WaveformActor* actor, int b)
 			int dest = _b * block_size + (c * block_size / 2);
 
 			int t = 0;
-			if (b == 0) {
+			if (_b == 0) {
 				for(t=0;t<TEX_BORDER;t++){
 					ng_gl2_set_(section, dest + lod_max[mm_level] + t, 0);
 					ng_gl2_set_(section, dest + lod_min[mm_level] + t, 0);
@@ -244,8 +244,8 @@ ng_gl2_load_block (Renderer* renderer, WaveformActor* actor, int b)
 			int dest = _b * block_size + (c * block_size / 2);
 
 			int t = 0;
-			if(b == 0){
-				for(t=0;t<TEX_BORDER;t++){
+			if (_b == 0) {
+				for (t=0;t<TEX_BORDER;t++) {
 					ng_gl2_set_(section, dest + lod_max[mm_level] + t, 0);
 					ng_gl2_set_(section, dest + lod_min[mm_level] + t, 0);
 				}
@@ -279,7 +279,7 @@ ng_gl2_load_block (Renderer* renderer, WaveformActor* actor, int b)
 
 		short max[n_chans];
 		short min[n_chans];
-		int c; for(c=0;c<n_chans;c++){
+		for (int c=0;c<n_chans;c++) {
 			int B = _b * block_size + (c * block_size / 2);
 			int mm_level = 0;
 			int i, p; for(i=0, p=0; p<WF_PEAK_BLOCK_SIZE - DELAY; i++, p+= IO_RATIO){
@@ -287,17 +287,13 @@ ng_gl2_load_block (Renderer* renderer, WaveformActor* actor, int b)
 				short* d = &audio_buf->buf[c][p];
 				max[c] = 0;
 				min[c] = 0;
-				int k; for(k=0;k<IO_RATIO;k++){
+				for (int k=0;k<IO_RATIO;k++) {
 					max[c] = (d[k + c] > max[c]) ? d[k + c] : max[c];
 					min[c] = (d[k + c] < min[c]) ? d[k + c] : min[c];
 				}
 
-				bool ok = ng_gl2_set(section, B + ((NGRenderer*)renderer)->mmidx_max[mm_level] + ((int)TEX_BORDER_HI) + i, short_to_char(max[c]));
-				if(!ok) perr("max b=%i i=%i p=%i %i size=%i", _b, i, p, B + ((NGRenderer*)renderer)->mmidx_max[mm_level] + i, section->buffer_size);
-				g_return_if_fail(ok);
-				ok = ng_gl2_set(section, B + ((NGRenderer*)renderer)->mmidx_min[mm_level] + ((int)TEX_BORDER_HI) + i, short_to_char(-min[c]));
-				if(!ok) perr("min b=%i i=%i p=%i %i size=%i mm=%i", _b, i, p, b * block_size + ((NGRenderer*)renderer)->mmidx_min[mm_level] + i, section->buffer_size, ((NGRenderer*)renderer)->mmidx_min[mm_level]);
-				g_return_if_fail(ok);
+				ng_gl2_set_(section, B + ((NGRenderer*)renderer)->mmidx_max[mm_level] + ((int)TEX_BORDER_HI) + i, short_to_char(max[c]));
+				ng_gl2_set_(section, B + ((NGRenderer*)renderer)->mmidx_min[mm_level] + ((int)TEX_BORDER_HI) + i, short_to_char(-min[c]));
 			}
 
 			other_lods(renderer, section, B);
@@ -418,20 +414,21 @@ ng_pre_render (Renderer* renderer, WaveformActor* actor)
 	if (r->mode >= MODE_V_HI) return false; // TODO this will happen when falling through.
 
 	HiResNGWaveform* data = (HiResNGWaveform*)w->priv->render_data[renderer->mode];
-	HiResNGShader* shader = (HiResNGShader*)renderer->shader;
+	AGlShader* shader = renderer->shader;
 	if (!data || !shader) return false; // this can happen when we fall through from v hi res.
 
-	shader->uniform.fg_colour = (((AGlActor*)actor)->colour & 0xffffff00) + (unsigned)(0xff * _a->opacity);
-	shader->uniform.top = r->rect.top;
-	shader->uniform.bottom = r->rect.top + r->rect.height;
-	shader->uniform.n_channels = waveform_get_n_channels(w);
-	shader->uniform.tex_width = renderer->texture_size;
-	shader->uniform.tex_height = data->section[r->viewport_blocks.first / MAX_BLOCKS_PER_TEXTURE].buffer_size / renderer->texture_size;
-	shader->uniform.v_gain = actor->context->v_gain;
+	AGlUniformUnion* u = (AGlUniformUnion*)shader->uniforms;
+	agl_set_colour_uniform(&shader->uniforms[NG_U_FG_COLOUR], (((AGlActor*)actor)->colour & 0xffffff00) + (unsigned)(0xff * _a->opacity));
+	u[NG_U_TOP].value.f[0] = r->rect.top;
+	u[NG_U_BOTTOM].value.f[0] = r->rect.top + r->rect.height;
+	u[NG_U_N_CHANNELS].value.i[0] = waveform_get_n_channels(w);
+	shader->uniforms[NG_U_TEX_WIDTH].value[0] = renderer->texture_size;
+	shader->uniforms[NG_U_TEX_HEIGHT].value[0] = data->section[r->viewport_blocks.first / MAX_BLOCKS_PER_TEXTURE].buffer_size / renderer->texture_size;
+	shader->uniforms[NG_U_VGAIN].value[0] = actor->context->v_gain;
 
 	// trade off here between performance and sharpness
 	// but the waveforms look much nicer using lower levels of detail.
-	shader->uniform.mm_level = (renderer->mode == MODE_MED || renderer->mode == MODE_LOW || renderer->mode == MODE_V_LOW)
+	u[NG_U_MM_LEVEL].value.i[0] = (renderer->mode == MODE_MED || renderer->mode == MODE_LOW || renderer->mode == MODE_V_LOW)
 		? (
 		r->block_wid > 96
 			? 0
@@ -451,9 +448,9 @@ ng_pre_render (Renderer* renderer, WaveformActor* actor)
 					: 3
 		);
 
-	agl_scale (&shader->shader, 1., 1.);
-	agl_translate (&shader->shader, -((AGlActor*)actor)->scrollable.x1, 0.);
-	shader->shader.set_uniforms_((AGlShader*)shader);
+	agl_scale (shader, 1., 1.);
+	agl_translate (shader, -((AGlActor*)actor)->scrollable.x1, 0.);
+	shader->set_uniforms_(shader);
 
 	glActiveTexture (GL_TEXTURE0);
 	glBindBuffer (GL_ARRAY_BUFFER, agl->vbo);
@@ -484,9 +481,9 @@ ng_gl2_render_block (Renderer* renderer, WaveformActor* actor, int b, bool is_fi
 	Section* section = &data->section[s];
 
 	if (!_b && b != r->viewport_blocks.first) {
-		HiResNGShader* shader = (HiResNGShader*)renderer->shader;
-		shader->uniform.tex_height = section->buffer_size / renderer->texture_size;
-		shader->shader.set_uniforms_((AGlShader*)shader);
+		AGlShader* shader = renderer->shader;
+		shader->uniforms[NG_U_TEX_HEIGHT].value[0] = section->buffer_size / renderer->texture_size;
+		shader->set_uniforms_((AGlShader*)shader);
 	}
 
 	TextureRange tex;

@@ -30,7 +30,7 @@
 
   --------------------------------------------------------------
 
-  Copyright (C) 2012-2025 Tim Orford <tim@orford.org>
+  Copyright (C) 2012-2026 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -50,9 +50,10 @@
 
 #include "config.h"
 #include <getopt.h>
+#pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 #include <gtk/gtk.h>
-#pragma GCC diagnostic warning "-Wdeprecated-declarations"
+#pragma GCC diagnostic pop
 #include <gdk/gdkkeysyms.h>
 #include "agl/behaviours/follow.h"
 #include "actors/spinner.h"
@@ -94,7 +95,8 @@ const char* wavs[] = {
 KeyHandler
 	next_wav,
 	prev_wav,
-	toggle_shaders,
+	vzoom_up,
+	vzoom_down,
 	toggle_layers,
 	toggle_grid,
 	debug_info,
@@ -113,7 +115,8 @@ Key keys[] = {
 	{'>',           NULL},
 	{(char)'n',     next_wav},
 	{(char)'p',     prev_wav},
-	{(char)'s',     toggle_shaders},
+	{(char)'w',     vzoom_up},
+	{(char)'s',     vzoom_down},
 	{(char)'l',     toggle_layers},
 	{(char)'g',     toggle_grid},
 	{(char)'d',     debug_info},
@@ -125,7 +128,6 @@ Key keys[] = {
 	{0},
 };
 
-gpointer tests[] = {};
 uint32_t _time = 1000 + 321;
 GtkWidget* table = NULL;
 WaveformViewPlus* view = NULL;
@@ -351,17 +353,21 @@ prev_wav (gpointer waveform)
 
 
 void
-toggle_shaders (gpointer view)
+vzoom_up (gpointer view)
 {
-	printf(">> %s ...\n", __func__);
+	WaveformActor* actor = waveform_view_plus_get_actor((WaveformViewPlus*)view);
 
-	agl_actor__set_use_shaders(((AGlActor*)waveform_view_plus_get_actor((WaveformViewPlus*)view))->root, !agl_get_instance()->use_shaders);
-
-	char* filename = find_wav(wavs[0]);
-	waveform_view_plus_load_file((WaveformViewPlus*)view, filename, NULL, NULL);
-	g_free(filename);
+	wf_actor_set_vzoom(actor, actor->context->v_gain * 1.1);
 }
 
+
+void
+vzoom_down (gpointer view)
+{
+	WaveformActor* actor = waveform_view_plus_get_actor((WaveformViewPlus*)view);
+
+	wf_actor_set_vzoom(actor, actor->context->v_gain / 1.1);
+}
 
 
 void

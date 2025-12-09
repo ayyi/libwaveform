@@ -1,7 +1,7 @@
 /*
  +----------------------------------------------------------------------+
  | This file is part of the Ayyi project. https://www.ayyi.org          |
- | copyright (C) 2013-2025 Tim Orford <tim@orford.org>                  |
+ | copyright (C) 2013-2026 Tim Orford <tim@orford.org>                  |
  +----------------------------------------------------------------------+
  | This program is free software; you can redistribute it and/or modify |
  | it under the terms of the GNU General Public License version 3       |
@@ -10,7 +10,7 @@
  |
  */
 
-extern HiResNGShader hires_ng_shader;
+extern AGlShader ng_shader;
 
 static void
 low_new_gl2 (WaveformActor* actor)
@@ -20,9 +20,9 @@ low_new_gl2 (WaveformActor* actor)
 	g_return_if_fail(!w->render_data[MODE_LOW]);
 
 	Renderer* renderer = modes[MODE_LOW].renderer;
-	if(!renderer->shader){
-		renderer->shader = &hires_ng_shader.shader;
-		if(!renderer->shader->program) agl_create_program(&hires_ng_shader.shader);
+	if (!renderer->shader) {
+		renderer->shader = &ng_shader;
+		if (!ng_shader.program) agl_create_program(&ng_shader);
 	}
 }
 

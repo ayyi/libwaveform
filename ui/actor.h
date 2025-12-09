@@ -1,7 +1,7 @@
 /*
  +----------------------------------------------------------------------+
  | This file is part of the Ayyi project. https://www.ayyi.org          |
- | copyright (C) 2013-2025 Tim Orford <tim@orford.org>                  |
+ | copyright (C) 2013-2026 Tim Orford <tim@orford.org>                  |
  +----------------------------------------------------------------------+
  | This program is free software; you can redistribute it and/or modify |
  | it under the terms of the GNU General Public License version 3       |
@@ -39,7 +39,6 @@ struct _WaveformActor {
 	WaveformContext* context;
 	Waveform*        waveform;
 	WfSampleRegion   region;
-	float            vzoom;     // vertical zoom. default 1.0
 	float            z;         // render position on z-axis.
 
 	WfActorPriv*     priv;

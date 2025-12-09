@@ -1,7 +1,7 @@
 /*
  +----------------------------------------------------------------------+
  | This file is part of the Ayyi project. https://www.ayyi.org          |
- | copyright (C) 2014-2025 Tim Orford <tim@orford.org>                  |
+ | copyright (C) 2014-2026 Tim Orford <tim@orford.org>                  |
  +----------------------------------------------------------------------+
  | This program is free software; you can redistribute it and/or modify |
  | it under the terms of the GNU General Public License version 3       |
@@ -35,7 +35,7 @@ v_lo_new (WaveformActor* actor)
 
 	AGlShader** shader = &modes[MODE_V_LOW].renderer->shader;
 	if (!*shader) {
-		*shader = &hires_ng_shader.shader;
+		*shader = &ng_shader;
 		if (!(*shader)->program) agl_create_program(*shader);
 	}
 }
@@ -86,8 +86,8 @@ v_lo_buf_to_tex (Renderer* renderer, WaveformActor* actor, int b)
 		int dest = _b * block_size + (c * block_size / 2);
 
 		int t = 0;
-		if (b == 0) {
-			for(t=0;t<TEX_BORDER;t++){
+		if (_b == 0) {
+			for (t=0;t<TEX_BORDER;t++) {
 				ng_gl2_set_(section, dest + lod_max[mm_level] + t, 0);
 				ng_gl2_set_(section, dest + lod_min[mm_level] + t, 0);
 			}

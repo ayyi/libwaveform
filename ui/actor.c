@@ -453,7 +453,6 @@ wf_actor_new (Waveform* w, WaveformContext* wfc)
 		},
 		.context = wfc,
 		.priv = AGL_NEW(WfActorPriv, .opacity = 1.),
-		.vzoom = 1.0,
 		.waveform = w ? _add_waveform(a, w) : NULL,
 	);
 
@@ -1803,10 +1802,7 @@ wf_actor_set_vzoom (WaveformActor* a, float vzoom)
 {
 	dbg(1, "vzoom=%.2f", vzoom);
 
-	#define MAX_VZOOM 100.0
-	a->vzoom = CLAMP(vzoom, 1.0, MAX_VZOOM);
-
-	wf_context_set_gain(a->context, a->vzoom);
+	wf_context_set_gain(a->context, vzoom);
 
 	agl_actor__invalidate((AGlActor*)a);
 }

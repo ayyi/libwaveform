@@ -2,7 +2,7 @@
  +----------------------------------------------------------------------+
  | This file is part of libwaveform                                     |
  | https://github.com/ayyi/libwaveform                                  |
- | copyright (C) 2012-2025 Tim Orford <tim@orford.org>                  |
+ | copyright (C) 2012-2026 Tim Orford <tim@orford.org>                  |
  +----------------------------------------------------------------------+
  | This program is free software; you can redistribute it and/or modify |
  | it under the terms of the GNU General Public License version 3       |
@@ -39,19 +39,18 @@ typedef struct {
 	}         uniform;
 } HiResShader;
 
-typedef struct {
-	AGlShader shader;
-	struct {
-		uint32_t fg_colour;
-		float    top;
-		float    bottom;
-		int      n_channels;
-		float    v_gain;
-		float    tex_width;
-		float    tex_height;
-		int      mm_level;
-	}         uniform;
-} HiResNGShader;
+enum {
+	NG_U_TEX = 0,
+	NG_U_TOP,
+	NG_U_BOTTOM,
+	NG_U_N_CHANNELS,
+	NG_U_TEX_WIDTH,
+	NG_U_TEX_HEIGHT,
+	NG_U_MM_LEVEL,
+	NG_U_VGAIN,
+	NG_U_FG_COLOUR,
+	NG_U_MAX
+};
 
 typedef struct {
 	AGlShader shader;

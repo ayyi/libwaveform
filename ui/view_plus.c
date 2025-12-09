@@ -233,7 +233,7 @@ waveform_view_plus_new (Waveform* waveform)
 		c->prev = v->context->zoom->value.f;
 	}
 
-	agl_obserable_add_closure(v->context->zoom, G_OBJECT(view), view_plus_on_zoom, WF_NEW(C,
+	agl_observable_add_closure(v->context->zoom, G_OBJECT(view), view_plus_on_zoom, WF_NEW(C,
 		view,
 		v->context->zoom->value.f,
 	));

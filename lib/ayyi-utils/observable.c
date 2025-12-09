@@ -1,7 +1,7 @@
 /*
  +----------------------------------------------------------------------+
  | This file is part of the Ayyi project. https://www.ayyi.org          |
- | copyright (C) 2018-2025 Tim Orford <tim@orford.org>                  |
+ | copyright (C) 2018-2026 Tim Orford <tim@orford.org>                  |
  +----------------------------------------------------------------------+
  | This program is free software; you can redistribute it and/or modify |
  | it under the terms of the GNU General Public License version 3       |
@@ -81,12 +81,12 @@ agl_observable_set_int (AGlObservable* observable, int value)
 void
 agl_observable_set_float (AGlObservable* observable, float value)
 {
-	if(value >= observable->min.f && value <= observable->max.f){
+	if (value >= observable->min.f && value <= observable->max.f) {
 
 		observable->value.f = value;
 
 		GList* l = observable->subscriptions;
-		for(;l;l=l->next){
+		for (;l;l=l->next) {
 			Subscription* subscription = l->data;
 			subscription->fn(observable, observable->value, subscription->user);
 		}
@@ -119,7 +119,7 @@ agl_observable_subscribe_with_state (AGlObservable* observable, AGlObservableFn 
  *  This can be used where you need `user_data` to be automatically freed when `object` is destroyed.
  */
 void
-agl_obserable_add_closure (AGlObservable* observable, GObject* object, AGlObservableFn fn, gpointer user_data)
+agl_observable_add_closure (AGlObservable* observable, GObject* object, AGlObservableFn fn, gpointer user_data)
 {
 	g_object_watch_closure (object, ({
 		GClosure* closure = g_cclosure_new(G_CALLBACK(fn), user_data, (GClosureNotify)g_free);
@@ -144,11 +144,11 @@ agl_obserable_add_closure (AGlObservable* observable, GObject* object, AGlObserv
 void
 agl_observable_unsubscribe (AGlObservable* observable, AGlObservableFn fn, gpointer user)
 {
-	for(GList* l=observable->subscriptions;l;){
+	for (GList* l=observable->subscriptions;l;) {
 		Subscription* subscription = l->data;
 		GList* link = l;
 		l = l->next;
-		if((!fn || fn == (subscription->fn)) && (!user || (user == subscription->user))){
+		if ((!fn || fn == (subscription->fn)) && (!user || (user == subscription->user))) {
 			g_free(subscription);
 			observable->subscriptions = g_list_delete_link(observable->subscriptions, link);
 		}
@@ -156,3 +156,30 @@ agl_observable_unsubscribe (AGlObservable* observable, AGlObservableFn fn, gpoin
 }
 
 
+AGlObservable*
+agl_observable_map (AGlObservable* source, AGlObservableMapFn fn, gpointer user_data)
+{
+	typedef struct {
+		AGlObservable      observable;
+		AGlObservable*     source;
+		AGlObservableMapFn mapping;
+		gpointer           user_data;
+	} AGlObservableMap;
+
+	AGlObservable* mapped = (AGlObservable*)AYYI_NEW(AGlObservableMap,
+		.observable.max.i = INT_MAX,
+		.source = source,
+		.mapping = fn,
+		.user_data = user_data
+	);
+
+	void map_handler (AGlObservable* o, AGlVal value, gpointer user_data)
+	{
+		AGlObservableMap* mapped = user_data;
+
+		agl_observable_set((AGlObservable*)mapped, mapped->mapping((AGlObservable*)mapped, value, mapped->user_data));
+	}
+	agl_observable_subscribe (source, map_handler, mapped);
+
+	return mapped;
+}
