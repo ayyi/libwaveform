@@ -11,6 +11,7 @@
  */
 
 #include "config.h"
+#include <stdbool.h>
 #include <glib.h>
 #include "ayyi-utils/utils.h"
 #include "observable.h"
@@ -67,8 +68,9 @@ agl_observable_set_int (AGlObservable* observable, int value)
 	if (value != observable->value.i) {
 		observable->value.i = value;
 
-		GList* l = observable->subscriptions;
-		for(;l;l=l->next){
+		GList* next;
+		for (GList* l=observable->subscriptions;l;l=next) {
+			next = l->next;
 			Subscription* subscription = l->data;
 			subscription->fn(observable, observable->value, subscription->user);
 		}
@@ -182,4 +184,41 @@ agl_observable_map (AGlObservable* source, AGlObservableMapFn fn, gpointer user_
 	agl_observable_subscribe (source, map_handler, mapped);
 
 	return mapped;
+}
+
+
+AGlObservable*
+ayyi_array_observable_new ()
+{
+	AyyiArrayObservable* observable = AYYI_NEW(AyyiArrayObservable,
+		.array = g_ptr_array_new()
+	);
+
+	return (AGlObservable*)observable;
+}
+
+
+void
+ayyi_array_observable_add (AGlObservable* observable, gpointer item)
+{
+	AyyiArrayObservable* array = (AyyiArrayObservable*)observable;
+
+	observable->value.p = item;
+	array->change = AYYI_OBSERVABLE_ADD;
+	g_ptr_array_add(array->array, item);
+
+	agl_observable_set(observable, observable->value);
+}
+
+
+void
+ayyi_array_observable_remove (AGlObservable* observable, gpointer item)
+{
+	AyyiArrayObservable* array = (AyyiArrayObservable*)observable;
+
+	observable->value.p = item;
+	array->change = AYYI_OBSERVABLE_REMOVE;
+	g_ptr_array_remove(array->array, item);
+
+	agl_observable_set(observable, observable->value);
 }

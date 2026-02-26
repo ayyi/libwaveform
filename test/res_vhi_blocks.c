@@ -1,7 +1,7 @@
 /*
  +---------------------------------------------------------------------
  | This file is part of the Ayyi project. https://www.ayyi.org
- | copyright (C) 2012-2025 Tim Orford <tim@orford.org>
+ | copyright (C) 2012-2026 Tim Orford <tim@orford.org>
  +---------------------------------------------------------------------
  | This program is free software; you can redistribute it and/or modify
  | it under the terms of the GNU General Public License version 3
@@ -15,7 +15,7 @@
 
 #include "config.h"
 #include <getopt.h>
-#include <gdk/gdkkeysyms.h>
+#include <gdk/gdkkeysyms-compat.h>
 #include "agl/gtk-area.h"
 #include "actors/plain.h"
 #include "agl/behaviours/split.h"
@@ -50,10 +50,10 @@ KeyHandler
 	quit;
 
 Key keys[] = {
-	{KEY_Left,      scroll_left},
-	{KEY_KP_Left,   scroll_left},
-	{KEY_Right,     scroll_right},
-	{KEY_KP_Right,  scroll_right},
+	{GDK_Left,      scroll_left},
+	{GDK_KP_Left,   scroll_left},
+	{GDK_Right,     scroll_right},
+	{GDK_KP_Right,  scroll_right},
 	{61,            zoom_in},
 	{45,            zoom_out},
 	{(char)'w',     vzoom_up},

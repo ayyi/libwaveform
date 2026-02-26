@@ -5,18 +5,20 @@ AM_CFLAGS = \
 	-I.. \
 	$(GLIB_CFLAGS)
 
-lib_LTLIBRARIES = libayyiutils.la
+lib_LTLIBRARIES = libayyiutils.la libpromise.la
 
 libayyiutils_la_SOURCES = \
 	observable.c observable.h
 
+libpromise_la_SOURCES = \
+	promise.c promise.h
+
 pkgincludedir=$(includedir)/ayyi-utils
 pkginclude_HEADERS = \
 	observable.h \
-	utils.h
+	utils.h \
+	promise.h
 
-BUILT_SOURCES =
-CLEANFILES =
 EXTRA_DIST = \
 	utils.h
 

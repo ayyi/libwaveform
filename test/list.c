@@ -1,7 +1,7 @@
 /*
  +----------------------------------------------------------------------+
  | This file is part of the Ayyi project. https://www.ayyi.org          |
- | copyright (C) 2012-2025 Tim Orford <tim@orford.org>                  |
+ | copyright (C) 2012-2026 Tim Orford <tim@orford.org>                  |
  +----------------------------------------------------------------------+
  | This program is free software; you can redistribute it and/or modify |
  | it under the terms of the GNU General Public License version 3       |
@@ -22,7 +22,7 @@
 #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 #include <gtk/gtk.h>
 #pragma GCC diagnostic warning "-Wdeprecated-declarations"
-#include <gdk/gdkkeysyms.h>
+#include <gdk/gdkkeysyms-compat.h>
 #include "agl/gtk.h"
 #include "waveform/actor.h"
 #include "test/common2.h"
@@ -96,7 +96,11 @@ main (int argc, char* argv[])
 
 	g_signal_connect((gpointer)canvas, "realize",       G_CALLBACK(on_canvas_realise), NULL);
 	g_signal_connect((gpointer)canvas, "size-allocate", G_CALLBACK(on_allocate), NULL);
+#if GTK_MAJOR_VERSION < 3
 	g_signal_connect((gpointer)canvas, "expose-event",  G_CALLBACK(agl_actor__on_expose), scene);
+#else
+	g_signal_connect((gpointer)canvas, "draw",  G_CALLBACK(agl_actor__draw), scene);
+#endif
 
 	gtk_widget_show_all(window);
 
@@ -109,13 +113,13 @@ main (int argc, char* argv[])
 			case 45:
 				start_zoom(zoom / 1.5);
 				break;
-			case KEY_Left:
-			case KEY_KP_Left:
+			case GDK_Left:
+			case GDK_KP_Left:
 				dbg(0, "left");
 				//waveform_view_set_start(waveform, waveform->start_frame - 8192 / waveform->zoom);
 				break;
-			case KEY_Right:
-			case KEY_KP_Right:
+			case GDK_Right:
+			case GDK_KP_Right:
 				dbg(0, "right");
 				//waveform_view_set_start(waveform, waveform->start_frame + 8192 / waveform->zoom);
 				break;
@@ -153,8 +157,14 @@ main (int argc, char* argv[])
 static void
 setup_projection (GtkWidget* widget)
 {
-	((AGlActor*)scene)->region.x2 = widget->allocation.width;
-	((AGlActor*)scene)->region.y2 = widget->allocation.height;
+#if GTK_MAJOR_VERSION < 3
+	GtkAllocation allocation = widget->allocation;
+#else
+	GtkAllocation allocation;
+	gtk_widget_get_allocation(widget, &allocation);
+#endif
+	((AGlActor*)scene)->region.x2 = allocation.width;
+	((AGlActor*)scene)->region.y2 = allocation.height;
 }
 
 
@@ -192,7 +202,13 @@ on_canvas_realise (GtkWidget* _canvas, gpointer user_data)
 		wf_actor_set_colour(a[i], colours[i][0]);
 	}
 
+#if GTK_MAJOR_VERSION < 3
 	on_allocate(canvas, &canvas->allocation, user_data);
+#else
+	GtkAllocation allocation;
+	gtk_widget_get_allocation(canvas, &allocation);
+	on_allocate(canvas, &allocation, user_data);
+#endif
 }
 
 

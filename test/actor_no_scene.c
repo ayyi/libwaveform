@@ -1,7 +1,7 @@
 /*
  +----------------------------------------------------------------------+
  | This file is part of the Ayyi project. https://www.ayyi.org          |
- | copyright (C) 2012-2025 Tim Orford <tim@orford.org>                  |
+ | copyright (C) 2012-2026 Tim Orford <tim@orford.org>                  |
  +----------------------------------------------------------------------+
  | This program is free software; you can redistribute it and/or modify |
  | it under the terms of the GNU General Public License version 3       |
@@ -34,7 +34,7 @@
 #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 #include <gtk/gtk.h>
 #pragma GCC diagnostic warning "-Wdeprecated-declarations"
-#include <gdk/gdkkeysyms.h>
+#include <gdk/gdkkeysyms-compat.h>
 #include "agl/gtk.h"
 #include "agl/text/renderer.h"
 #include "waveform/actor.h"
@@ -70,10 +70,10 @@ KeyHandler
 	quit;
 
 Key keys[] = {
-	{KEY_Left,      scroll_left},
-	{KEY_KP_Left,   scroll_left},
-	{KEY_Right,     scroll_right},
-	{KEY_KP_Right,  scroll_right},
+	{GDK_Left,      scroll_left},
+	{GDK_KP_Left,   scroll_left},
+	{GDK_Right,     scroll_right},
+	{GDK_KP_Right,  scroll_right},
 	{61,            zoom_in},
 	{45,            zoom_out},
 	{(char)'w',     vzoom_up},
@@ -114,7 +114,11 @@ window_content (GtkWindow* window, GdkGLConfig* glconfig)
 
 	g_signal_connect((gpointer)canvas, "realize",       G_CALLBACK(on_canvas_realise), NULL);
 	g_signal_connect((gpointer)canvas, "size-allocate", G_CALLBACK(on_allocate), NULL);
+#if GTK_MAJOR_VERSION < 3
 	g_signal_connect((gpointer)canvas, "expose_event",  G_CALLBACK(on_expose), NULL);
+#else
+	g_signal_connect((gpointer)canvas, "draw",  G_CALLBACK(on_expose), NULL);
+#endif
 }
 
 
@@ -152,7 +156,13 @@ _zoom (gpointer _)
 static void
 init (AGlActor* actor)
 {
+#if GTK_MAJOR_VERSION < 3
 	on_allocate(canvas, &canvas->allocation, NULL);
+#else
+	GtkAllocation allocation;
+	gtk_widget_get_allocation(canvas, &allocation);
+	on_allocate(canvas, &allocation, NULL);
+#endif
 	g_timeout_add(500, _zoom, NULL);
 }
 
@@ -193,13 +203,17 @@ draw (GtkWidget* widget)
 static gboolean
 on_expose (GtkWidget* widget, GdkEventExpose* event, gpointer user_data)
 {
-	if (!GTK_WIDGET_REALIZED(widget)) return true;
+	if (!gtk_widget_get_realized(widget)) return true;
 	if (!wfc) return true;
 
 #ifdef USE_SYSTEM_GTKGLEXT
 	if (gdk_gl_drawable_make_current(gtk_widget_get_gl_drawable(widget), gtk_widget_get_gl_context(widget))) {
 #else
+#if GTK_MAJOR_VERSION < 3
 	if (gdk_gl_window_make_context_current(gtk_widget_get_gl_drawable(widget), scene->gl.gdk.context)) {
+#else
+	if (gdk_gl_drawable_make_current(gtk_widget_get_gl_drawable(widget), scene->gl.gdk.context)) {
+#endif
 #endif
 		glClearColor(0.0, 0.0, 0.0, 1.0);
 		glClear(GL_COLOR_BUFFER_BIT);
@@ -209,7 +223,11 @@ on_expose (GtkWidget* widget, GdkEventExpose* event, gpointer user_data)
 #if USE_SYSTEM_GTKGLEXT
 		gdk_gl_drawable_swap_buffers(gtk_widget_get_gl_drawable(widget));
 #else
+#if GTK_MAJOR_VERSION < 3
 		gdk_gl_window_swap_buffers(gtk_widget_get_gl_drawable(widget));
+#else
+		gdk_gl_drawable_swap_buffers(gtk_widget_get_gl_drawable(widget));
+#endif
 #endif
 	}
 
@@ -221,7 +239,7 @@ static void
 on_canvas_realise (GtkWidget* _canvas, gpointer user_data)
 {
 	if (wfc) return;
-	if (!GTK_WIDGET_REALIZED (canvas)) return;
+	if (!gtk_widget_get_realized (canvas)) return;
 
 	agl_get_instance()->pref_use_shaders = USE_SHADERS;
 
@@ -253,7 +271,13 @@ on_canvas_realise (GtkWidget* _canvas, gpointer user_data)
 		wf_actor_set_colour(a[i], colours[i][0]);
 	}
 
+#if GTK_MAJOR_VERSION < 3
 	on_allocate(canvas, &canvas->allocation, user_data);
+#else
+	GtkAllocation allocation;
+	gtk_widget_get_allocation(canvas, &allocation);
+	on_allocate(canvas, &allocation, user_data);
+#endif
 }
 
 
@@ -262,8 +286,8 @@ on_allocate (GtkWidget* widget, GtkAllocation* allocation, gpointer user_data)
 {
 	if (!wfc || !gtk_widget_get_gl_drawable(widget)) return;
 
-	builder()->target->width = widget->allocation.width;
-	builder()->target->height = widget->allocation.height;
+	builder()->target->width = allocation->width;
+	builder()->target->height = allocation->height;
 
 	start_zoom(zoom);
 }
@@ -276,18 +300,25 @@ start_zoom (float target_zoom)
 
 	zoom = MAX(0.1, target_zoom);
 
+#if GTK_MAJOR_VERSION < 3
+	GtkAllocation allocation = canvas->allocation;
+#else
+	GtkAllocation allocation;
+	gtk_widget_get_allocation(canvas, &allocation);
+#endif
+
 	for (int i=0;i<G_N_ELEMENTS(a);i++)
 		if (a[i]) {
 			wf_actor_set_rect(a[i], &(WfRectangle){
 				0.0,
-				i * canvas->allocation.height / 4,
-				canvas->allocation.width * target_zoom,
-				canvas->allocation.height / 4 * 0.95
+				i * allocation.height / 4,
+				allocation.width * target_zoom,
+				allocation.height / 4 * 0.95
 			});
 			((AGlActor*)a[i])->set_size((AGlActor*)a[i]);
 		}
 
-	gdk_window_invalidate_rect(canvas->window, NULL, false);
+	gdk_window_invalidate_rect(gtk_widget_get_window(canvas), NULL, false);
 }
 
 

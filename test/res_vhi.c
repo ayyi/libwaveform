@@ -1,7 +1,7 @@
 /*
  +---------------------------------------------------------------------
  | This file is part of the Ayyi project. https://www.ayyi.org
- | copyright (C) 2012-2025 Tim Orford <tim@orford.org>
+ | copyright (C) 2012-2026 Tim Orford <tim@orford.org>
  +---------------------------------------------------------------------
  | This program is free software; you can redistribute it and/or modify
  | it under the terms of the GNU General Public License version 3
@@ -14,7 +14,7 @@
 
 #include "config.h"
 #include <getopt.h>
-#include <gdk/gdkkeysyms.h>
+#include <gdk/gdkkeysyms-compat.h>
 #include "agl/gtk-area.h"
 #include "waveform/actor.h"
 #include "test/common.h"
@@ -50,10 +50,10 @@ KeyHandler
 	quit;
 
 Key keys[] = {
-	{KEY_Left,      scroll_left},
-	{KEY_KP_Left,   scroll_left},
-	{KEY_Right,     scroll_right},
-	{KEY_KP_Right,  scroll_right},
+	{GDK_Left,      scroll_left},
+	{GDK_KP_Left,   scroll_left},
+	{GDK_Right,     scroll_right},
+	{GDK_KP_Right,  scroll_right},
 	{61,            zoom_in},
 	{45,            zoom_out},
 	{(char)'w',     vzoom_up},
@@ -81,7 +81,7 @@ window_content (GtkWindow* window, GdkGLConfig* glconfig)
 	scene = area->scene;
 
 	gtk_widget_set_size_request(canvas, 320, 256);
-	gtk_container_add((GtkContainer*)window, (GtkWidget*)canvas);
+	gtk_container_add((GtkContainer*)window, canvas);
 
 	wfc = wf_context_new((AGlActor*)area->scene);
 
@@ -116,10 +116,8 @@ window_content (GtkWindow* window, GdkGLConfig* glconfig)
 		agl_actor__add_child((AGlActor*)scene, (AGlActor*)split[i]);
 		wf_actor_set_colour(split[i], colours[1 + i][0]);
 	}
-	g_free(((AGlActor*)split[0])->name);
-	((AGlActor*)split[0])->name = g_strdup("Split-lhs");
-	g_free(((AGlActor*)split[1])->name);
-	((AGlActor*)split[1])->name = g_strdup("Split-rhs");
+	wf_set_str(((AGlActor*)split[0])->name, g_strdup("Split-lhs"));
+	wf_set_str(((AGlActor*)split[1])->name, g_strdup("Split-rhs"));
 
 	void on_zoom (AGlObservable* o, AGlVal zoom, gpointer _)
 	{
@@ -189,7 +187,13 @@ on_canvas_realise (GtkWidget* canvas, gpointer user_data)
 {
 	if (!gtk_widget_get_realized(canvas)) return;
 
+#if GTK_MAJOR_VERSION < 3
 	on_allocate(canvas, &canvas->allocation, user_data);
+#else
+	GtkAllocation allocation;
+	gtk_widget_get_allocation(canvas, &allocation);
+	on_allocate(canvas, &allocation, user_data);
+#endif
 }
 
 

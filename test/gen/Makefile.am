@@ -17,9 +17,14 @@ AM_CFLAGS = \
 	-D_FILE_OFFSET_BITS=64
 
 if ENABLE_GTK
+if ENABLE_GTK3
+GTKGLEXT_LDFLAGS = \
+	$(GMODULE_LDFLAGS)
+else
 GTKGLEXT_LDFLAGS = \
 	$(GMODULE_LDFLAGS) \
-	$(top_srcdir)/gtkglext-1.0/.libs/libgtkglext.a
+	$(top_srcdir)/lib/agl/gtkglext-1.0/.libs/libgtkglext.a
+endif
 endif
 
 AM_LDFLAGS = \

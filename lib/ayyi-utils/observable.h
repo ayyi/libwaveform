@@ -10,7 +10,8 @@
  |
  */
 
-#pragma once
+#ifndef __ayyi_observable_h__
+#define __ayyi_observable_h__
 
 #include <stdbool.h>
 #include <glib-object.h>
@@ -34,6 +35,11 @@ typedef struct {
    GList* subscriptions;
 } AGlObservable;
 
+#define AyyiVal AGlVal
+#define AyyiObservable AGlObservable
+#define ayyi_observable_new agl_observable_new
+#define ayyi_observable_set_int agl_observable_set_int
+
 typedef void   (*AGlObservableFn)    (AGlObservable*, AGlVal, gpointer);
 typedef AGlVal (*AGlObservableMapFn) (AGlObservable*, AGlVal, gpointer);
 
@@ -48,3 +54,22 @@ void           agl_observable_subscribe_with_state
 void           agl_observable_add_closure (AGlObservable*, GObject*, AGlObservableFn, gpointer);
 void           agl_observable_unsubscribe (AGlObservable*, AGlObservableFn, gpointer);
 AGlObservable* agl_observable_map         (AGlObservable*, AGlObservableMapFn, gpointer);
+
+/*
+ *  ArrayObservable is a GPtrArray that emits when items are added or removed.
+ *  The value property contains the last item that was changed.
+ */
+typedef struct {
+    AGlObservable observable;
+    GPtrArray*    array;
+    enum {
+       AYYI_OBSERVABLE_ADD,
+       AYYI_OBSERVABLE_REMOVE,
+    }             change;
+} AyyiArrayObservable;
+
+AGlObservable* ayyi_array_observable_new    ();
+void           ayyi_array_observable_add    (AGlObservable*, gpointer);
+void           ayyi_array_observable_remove (AGlObservable*, gpointer);
+
+#endif

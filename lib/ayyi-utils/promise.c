@@ -1,7 +1,7 @@
 /*
  +----------------------------------------------------------------------+
- | This file is part of the Ayyi project. https://www.ayyi.org          |
- | copyright (C) 2012-2025 Tim Orford <tim@orford.org>                  |
+ | This file is part of the Ayyi project. https://ayyi.org              |
+ | copyright (C) 2012-2026 Tim Orford <tim@orford.org>                  |
  +----------------------------------------------------------------------+
  | This program is free software; you can redistribute it and/or modify |
  | it under the terms of the GNU General Public License version 3       |
@@ -11,21 +11,21 @@
  */
 
 #include "config.h"
-#include <stdio.h>
+#include <stdbool.h>
 #include "glib.h"
-#include "wf/utils.h"
-#include "wf/promise.h"
+#include "ayyi-utils/utils.h"
+#include "promise.h"
 
 typedef struct {
-    WfPromiseCallback callback;
+    AyyiPromiseCallback callback;
     gpointer          user_data;
 } Item;
 
 
-AMPromise*
-am_promise_new (gpointer user_data)
+AyyiPromise*
+ayyi_promise_new (gpointer user_data)
 {
-	return WF_NEW(AMPromise,
+	return AYYI_NEW(AyyiPromise,
 		.user_data = user_data,
 		.refcount = 1
 	);
@@ -33,10 +33,10 @@ am_promise_new (gpointer user_data)
 
 
 void
-am_promise_unref (AMPromise* p)
+ayyi_promise_unref (AyyiPromise* p)
 {
-	if(!--p->refcount){
-		g_list_free_full(p->children, (GDestroyNotify)am_promise_unref);
+	if (!--p->refcount) {
+		g_list_free_full(p->children, (GDestroyNotify)ayyi_promise_unref);
 		g_list_free_full(p->callbacks, g_free);
 		g_clear_pointer(&p->error, g_error_free);
 		g_free(p);
@@ -45,9 +45,9 @@ am_promise_unref (AMPromise* p)
 
 
 void
-_am_promise_callback (AMPromise* p)
+_ayyi_promise_callback (AyyiPromise* p)
 {
-	if(p->callbacks){
+	if (p->callbacks) {
 		p->refcount++; // allows promise to be unreffed in a user callback.
 
 		GList* l = p->callbacks;
@@ -60,15 +60,15 @@ _am_promise_callback (AMPromise* p)
 		g_list_free_full(p->callbacks, g_free);
 		p->callbacks = NULL;
 
-		am_promise_unref(p);
+		ayyi_promise_unref(p);
 	}
 }
 
 
 static void
-_add_callback (AMPromise* p, WfPromiseCallback callback, gpointer user_data)
+_add_callback (AyyiPromise* p, AyyiPromiseCallback callback, gpointer user_data)
 {
-	Item* item = WF_NEW(Item,
+	Item* item = AYYI_NEW(Item,
 		.callback = callback,
 		.user_data = user_data
 	);
@@ -77,20 +77,20 @@ _add_callback (AMPromise* p, WfPromiseCallback callback, gpointer user_data)
 
 
 void
-am_promise_add_callback (AMPromise* p, WfPromiseCallback callback, gpointer user_data)
+ayyi_promise_add_callback (AyyiPromise* p, AyyiPromiseCallback callback, gpointer user_data)
 {
 	_add_callback(p, callback, user_data);
-	if(p->is_resolved) _am_promise_callback(p);
+	if(p->is_resolved) _ayyi_promise_callback(p);
 }
 
 
 void
-am_promise_resolve (AMPromise* p, PromiseVal* value)
+ayyi_promise_resolve (AyyiPromise* p, AyyiPromiseVal* value)
 {
 	if (!p->is_resolved) {
 		if (value) p->value = *value;
 		p->is_resolved = true;
-		_am_promise_callback(p);
+		_ayyi_promise_callback(p);
 	}
 }
 
@@ -100,35 +100,35 @@ am_promise_resolve (AMPromise* p, PromiseVal* value)
  *  The client needs to check the error property to see if the promise has failed.
  */
 void
-am_promise_fail (AMPromise* p, GError* error)
+ayyi_promise_fail (AyyiPromise* p, GError* error)
 {
 	p->error = error;
-	am_promise_resolve(p, NULL);
+	ayyi_promise_resolve(p, NULL);
 }
 
 
 	static void then (gpointer _, gpointer _parent)
 	{
-		AMPromise* parent = _parent;
+		AyyiPromise* parent = _parent;
 		g_return_if_fail(parent);
 
 		bool complete = true;
 		GList* l = parent->children;
 		for(;l;l=l->next){
-			AMPromise* p = l->data;
+			AyyiPromise* p = l->data;
 			if(!p->is_resolved){
 				complete = false;
 				break;
 			}
 		}
-		if(complete) am_promise_resolve(parent, &(PromiseVal){.i=-1});
+		if(complete) ayyi_promise_resolve(parent, &(AyyiPromiseVal){.i=-1});
 	}
 
-	static void add_child (AMPromise* promise, AMPromise* child)
+	static void add_child (AyyiPromise* promise, AyyiPromise* child)
 	{
 		g_return_if_fail(child);
 		promise->children = g_list_append(promise->children, child);
-		am_promise_add_callback(child, then, promise);
+		ayyi_promise_add_callback(child, then, promise);
 	}
 /*
  *  The promise will be resolved when all the child promises are resolved.
@@ -136,16 +136,16 @@ am_promise_fail (AMPromise* p, GError* error)
  *  The last parameter must be NULL
  */
 void
-am_promise_when (AMPromise* promise, AMPromise* p, ...)
+ayyi_promise_when (AyyiPromise* promise, AyyiPromise* p, ...)
 {
-	if(!p) return;
+	if (!p) return;
 
 	add_child(promise, p);
 
 	va_list args;
 	va_start(args, p);
-	AMPromise* q;
-	while((q = va_arg (args, AMPromise*))){
+	AyyiPromise* q;
+	while ((q = va_arg (args, AyyiPromise*))) {
 		add_child(promise, q);
 	}
 	va_end(args);

@@ -37,7 +37,7 @@
 #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 #include <gtk/gtk.h>
 #pragma GCC diagnostic warning "-Wdeprecated-declarations"
-#include <gdk/gdkkeysyms.h>
+#include <gdk/gdkkeysyms-compat.h>
 #include "agl/debug.h"
 #include "agl/utils.h"
 #include "agl/behaviours/scrollable_h.h"
@@ -52,8 +52,6 @@
 #define DEFAULT_WIDTH 256
 
 static AGl* agl = NULL;
-
-#define ROOT(view) ((AGlActor*)((GlArea*)view)->scene)
 
 //-----------------------------------------
 
@@ -83,7 +81,7 @@ static Key keys[] = {
 	{45,        zoom_out},
 	{'0',       zoom_up},
 	{'9',       zoom_down},
-	{KEY_Home,  home},
+	{GDK_KP_Home, home},
 	{0},
 };
 
@@ -128,6 +126,8 @@ static void     remove_key_handlers                     (GtkWindow*, WaveformVie
 static AGlActor* waveform_actor                         (WaveformViewPlus*);
 static void      waveform_actor_size                    (AGlActor*);
 
+#define ROOT(view) ((AGlActor*)((GlArea*)view)->scene)
+
 
 static WaveformViewPlus*
 construct ()
@@ -144,7 +144,7 @@ construct ()
 	{
 		WaveformViewPlus* view = _view;
 		g_return_val_if_fail(view, G_SOURCE_REMOVE);
-		if (GTK_WIDGET_REALIZED(view)) {
+		if (gtk_widget_get_realized(GTK_WIDGET(view))) {
 			if (!promise(PROMISE_DISP_READY)->is_resolved) {
 				am_promise_resolve(promise(PROMISE_DISP_READY), NULL);
 				gtk_widget_queue_draw((GtkWidget*)view); //testing.
@@ -269,7 +269,9 @@ _waveform_view_plus__show_waveform (gpointer _view, gpointer _c)
 	g_return_if_fail(v->context);
 	AGlActor* actor = (AGlActor*)v->actor;
 
-	ROOT(view)->scrollable = (AGliRegion){0, 0, ((GtkWidget*)view)->allocation.width, ((GtkWidget*)view)->allocation.height};
+	GtkAllocation alloc;
+	gtk_widget_get_allocation(GTK_WIDGET(view), &alloc);
+	ROOT(view)->scrollable = (AGliRegion){0, 0, alloc.width, alloc.height};
 
 	if (!(actor->parent)) {
 		if (view->waveform) { // it is valid for the widget to not have a waveform set.
@@ -467,7 +469,7 @@ waveform_view_plus_set_colour (WaveformViewPlus* view, uint32_t fg, uint32_t bg)
 	WaveformViewPlusPrivate* v = view->priv;
 
 	view->bg_colour = bg;
-	if(view->priv->actor) wf_actor_set_colour(v->actor, fg);
+	if (view->priv->actor) wf_actor_set_colour(v->actor, fg);
 
 	if(agl_get_instance()->use_shaders){
 	}
@@ -478,7 +480,7 @@ waveform_view_plus_set_colour (WaveformViewPlus* view, uint32_t fg, uint32_t bg)
 	static gboolean _on_idle(gpointer _view)
 	{
 		WaveformViewPlus* view = _view;
-		if(!view->priv->context) return G_SOURCE_CONTINUE;
+		if (!view->priv->context) return G_SOURCE_CONTINUE;
 
 		view->priv->context->show_rms = show;
 		gtk_widget_queue_draw((GtkWidget*)view);
@@ -535,7 +537,7 @@ waveform_view_plus_realize (GtkWidget* widget)
 
 	GTK_WIDGET_CLASS (waveform_view_plus_parent_class)->realize(widget);
 
-	if(!actor->colour){
+	if (!actor->colour) {
 		// currently the waveform background is always dark, so a light colour is needed for the foreground
 		uint32_t base_colour = wf_get_gtk_base_color(widget, GTK_STATE_NORMAL, 0xaa);
 		wf_actor_set_colour(view->priv->actor,
@@ -644,7 +646,7 @@ waveform_view_plus_allocate (GtkWidget* widget, GdkRectangle* allocation)
 
 	GTK_WIDGET_CLASS (waveform_view_plus_parent_class)->size_allocate(widget, allocation);
 
-	if (GTK_WIDGET_REALIZED(widget)) {
+	if (gtk_widget_get_realized(GTK_WIDGET(widget))) {
 		if (ROOT(view)->scrollable.x2 < 2 || ROOT(view)->scrollable.y2 < 2)
 			ROOT(view)->scrollable = (AGliRegion){0, 0, allocation->width, allocation->height};
 
@@ -748,7 +750,13 @@ waveform_view_plus_get_width (WaveformViewPlus* view)
 {
 	GtkWidget* widget = (GtkWidget*)view;
 
-	return GTK_WIDGET_REALIZED(widget) ? widget->allocation.width : 256;
+	if (gtk_widget_get_realized(GTK_WIDGET(widget))) {
+		GtkAllocation alloc;
+		gtk_widget_get_allocation(GTK_WIDGET(widget), &alloc);
+		return alloc.width;
+	} else {
+		return 256;
+	}
 }
 
 

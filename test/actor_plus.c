@@ -1,7 +1,7 @@
 /*
  +----------------------------------------------------------------------+
  | This file is part of the Ayyi project. https://www.ayyi.org          |
- | copyright (C) 2012-2025 Tim Orford <tim@orford.org>                  |
+ | copyright (C) 2012-2026 Tim Orford <tim@orford.org>                  |
  +----------------------------------------------------------------------+
  | This program is free software; you can redistribute it and/or modify |
  | it under the terms of the GNU General Public License version 3       |
@@ -21,7 +21,7 @@
 #include <getopt.h>
 #include "agl/utils.h"
 #include <gtk/gtk.h>
-#include <gdk/gdkkeysyms.h>
+#include <gdk/gdkkeysyms-compat.h>
 #include "agl/gtk.h"
 #include "actors/background.h"
 #include "actors/group.h"
@@ -58,10 +58,10 @@ KeyHandler
 	quit;
 
 Key keys[] = {
-	{KEY_Left,      scroll_left},
-	{KEY_KP_Left,   scroll_left},
-	{KEY_Right,     scroll_right},
-	{KEY_KP_Right,  scroll_right},
+	{GDK_KP_Left,   scroll_left},
+	{GDK_Left,      scroll_left},
+	{GDK_KP_Right,  scroll_right},
+	{GDK_Right,     scroll_right},
 	{61,            zoom_in},
 	{45,            zoom_out},
 	{GDK_KP_Enter,  NULL},
@@ -108,7 +108,11 @@ window_content (GtkWindow* window, GdkGLConfig* glconfig)
 
 	g_signal_connect((gpointer)canvas, "realize",       G_CALLBACK(on_canvas_realise), NULL);
 	g_signal_connect((gpointer)canvas, "size-allocate", G_CALLBACK(on_allocate), NULL);
-	g_signal_connect((gpointer)canvas, "expose-event",  G_CALLBACK(agl_actor__on_expose), scene);
+#if GTK_MAJOR_VERSION < 3
+	g_signal_connect((gpointer)canvas, "expose-event", G_CALLBACK(agl_actor__on_expose), scene);
+#else
+	g_signal_connect((gpointer)canvas, "draw", G_CALLBACK(agl_actor__draw), scene);
+#endif
 }
 
 
@@ -141,7 +145,7 @@ on_canvas_realise (GtkWidget* _canvas, gpointer user_data)
 
 	static bool canvas_init_done = false;
 	if (canvas_init_done) return;
-	if (!GTK_WIDGET_REALIZED (canvas)) return;
+	if (!gtk_widget_get_realized (canvas)) return;
 
 	canvas_init_done = true;
 
@@ -190,11 +194,17 @@ on_canvas_realise (GtkWidget* _canvas, gpointer user_data)
 	ruler->region = (AGlfRegion){0, 0, 0, ruler_height};
 	ruler->program->text = &ruler_bottom_text;
 
+#if GTK_MAJOR_VERSION < 3
 	on_allocate(canvas, &canvas->allocation, user_data);
+#else
+	GtkAllocation allocation;
+	gtk_widget_get_allocation(canvas, &allocation);
+	on_allocate(canvas, &allocation, user_data);
+#endif
 
 	void _scene_needs_redraw(AGlScene* scene, gpointer _)
 	{
-		gdk_window_invalidate_rect(canvas->window, NULL, false);
+		gdk_window_invalidate_rect(gtk_widget_get_window(canvas), NULL, false);
 	}
 	scene->draw = _scene_needs_redraw;
 }
@@ -203,9 +213,15 @@ on_canvas_realise (GtkWidget* _canvas, gpointer user_data)
 static void
 on_allocate (GtkWidget* widget, GtkAllocation* allocation, gpointer user_data)
 {
-	if(!GTK_WIDGET_REALIZED (canvas)) return;
+	if (!gtk_widget_get_realized (canvas)) return;
 
-	double width = canvas->allocation.width - 2 * ((int)HBORDER);
+#if GTK_MAJOR_VERSION < 3
+	GtkAllocation c_alloc = canvas->allocation;
+#else
+	GtkAllocation c_alloc;
+	gtk_widget_get_allocation(canvas, &c_alloc);
+#endif
+	double width = c_alloc.width - 2 * ((int)HBORDER);
 	wfc->samples_per_pixel = waveform_get_n_frames(w1) / width;
 
 	((AGlActor*)scene)->region = (AGlfRegion){0, 0, allocation->width, allocation->height};

@@ -54,7 +54,7 @@
 #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 #include <gtk/gtk.h>
 #pragma GCC diagnostic pop
-#include <gdk/gdkkeysyms.h>
+#include <gdk/gdkkeysyms-compat.h>
 #include "agl/behaviours/follow.h"
 #include "actors/spinner.h"
 #include "ui/actors/hover.h"
@@ -268,9 +268,9 @@ quit (gpointer waveform)
 
 		agl_spinner_stop((AGlSpinner*)layers.spinner);
 
-		if(error){
+		if (error) {
 			AGlActor* text_layer = agl_actor__find_by_class((AGlActor*)waveform_view_plus_get_actor(view), text_actor_get_class());
-			if(text_layer){
+			if (text_layer) {
 				text_actor_set_text(((TextActor*)text_layer), NULL, g_strdup(error->message));
 			}
 		}
@@ -305,10 +305,10 @@ show_wav (WaveformViewPlus* view, const char* filename)
 	g_assert(view->waveform);
 
 	AGlActor* text_layer = agl_actor__find_by_class((AGlActor*)waveform_view_plus_get_actor(view), text_actor_get_class());
-	if(text_layer){
+	if (text_layer) {
 		char* text = NULL;
 		Waveform* w = view->waveform;
-		if(w->n_channels){
+		if (w->n_channels) {
 			char* ch_str = format_channels(w->n_channels);
 			char length[32]; format_time(length, (w->n_frames * 1000) / w->samplerate);
 			char fs_str[32] = {'\0'}; //samplerate_format(fs_str, sample->sample_rate); strcpy(fs_str + strlen(fs_str), " kHz");
@@ -332,10 +332,8 @@ next_wav (gpointer view)
 
 	i = (i + 1) % G_N_ELEMENTS(wavs);
 
-	char* filename = find_wav(wavs[i]);
+	g_autofree char* filename = find_wav(wavs[i]);
 	show_wav(view, filename);
-
-	g_free(filename);
 }
 
 
@@ -375,9 +373,9 @@ toggle_layers (gpointer view)
 {
 	static bool visible = true;
 	visible = !visible;
-	if(visible){
+	if (visible) {
 		layers.spp = waveform_view_plus_add_layer((WaveformViewPlus*)view, wf_spp_actor(waveform_view_plus_get_actor((WaveformViewPlus*)view)), 0);
-	}else{
+	} else {
 		waveform_view_plus_remove_layer((WaveformViewPlus*)view, layers.spp);
 		layers.spp = NULL;
 	}
@@ -389,9 +387,9 @@ toggle_grid (gpointer view)
 {
 	static bool visible = true;
 	visible = !visible;
-	if(visible){
+	if (visible) {
 		layers.grid = waveform_view_plus_add_layer((WaveformViewPlus*)view, grid_actor(waveform_view_plus_get_actor((WaveformViewPlus*)view)), 0);
-	}else{
+	} else {
 		waveform_view_plus_remove_layer((WaveformViewPlus*)view, layers.grid);
 	}
 }
@@ -445,11 +443,11 @@ finalize_notify (gpointer data, GObject* was)
 static bool
 test_delete ()
 {
-	if(!view) return false;
+	if (!view) return false;
 
 	g_object_weak_ref((GObject*)view->waveform, finalize_notify, NULL);
 
-	if(dt.finalize_done){
+	if (dt.finalize_done) {
 		pwarn("waveform should not be free'd");
 		return false;
 	}
@@ -457,7 +455,7 @@ test_delete ()
 	gtk_widget_destroy((GtkWidget*)view);
 	view = NULL;
 
-	if(!dt.finalize_done){
+	if (!dt.finalize_done) {
 		pwarn("waveform was not free'd");
 		return false;
 	}
@@ -478,11 +476,11 @@ static guint play_timer = 0;
 void
 stop (gpointer view)
 {
-	if(play_timer){
+	if (play_timer) {
 		g_source_remove (play_timer);
 		play_timer = 0;
-	}else{
-		if(layers.spp) wf_spp_actor_set_time((SppActor*)layers.spp, (_time = 0));
+	} else {
+		if (layers.spp) wf_spp_actor_set_time((SppActor*)layers.spp, (_time = 0));
 	}
 }
 
@@ -492,7 +490,7 @@ play (gpointer view)
 {
 	gboolean tick (gpointer view)
 	{
-		if(layers.spp) wf_spp_actor_set_time((SppActor*)layers.spp, (_time += 50, _time));
+		if (layers.spp) wf_spp_actor_set_time((SppActor*)layers.spp, (_time += 50, _time));
 		return true;
 	}
 

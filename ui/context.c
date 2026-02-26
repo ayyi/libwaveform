@@ -274,7 +274,7 @@ wf_context_queue_redraw (WaveformContext* wfc)
 #if 0
 		frame_clock_request_phase(GDK_FRAME_CLOCK_PHASE_PAINT);
 #else
-		frame_clock_request_phase(GDK_FRAME_CLOCK_PHASE_UPDATE);
+		frame_clock_request_phase(AGL_FRAME_CLOCK_PHASE_UPDATE);
 #endif
 	}
 

@@ -10,7 +10,7 @@
 
   ---------------------------------------------------------------
 
-  copyright (C) 2012-2025 Tim Orford <tim@orford.org>
+  copyright (C) 2012-2026 Tim Orford <tim@orford.org>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License version 3
@@ -30,7 +30,7 @@
 
 #include "config.h"
 #include <getopt.h>
-#include <gdk/gdkkeysyms.h>
+#include <gdk/gdkkeysyms-compat.h>
 #include "glib/gstdio.h"
 #include "agl/gtk.h"
 #include "waveform/actor.h"
@@ -70,10 +70,10 @@ KeyHandler
 	quit;
 
 Key keys[] = {
-	{KEY_Left,      scroll_left},
-	{KEY_KP_Left,   scroll_left},
-	{KEY_Right,     scroll_right},
-	{KEY_KP_Right,  scroll_right},
+	{GDK_Left,      scroll_left},
+	{GDK_KP_Left,   scroll_left},
+	{GDK_Right,     scroll_right},
+	{GDK_KP_Right,  scroll_right},
 	{61,            zoom_in},
 	{45,            zoom_out},
 	{(char)'w',     vzoom_up},
@@ -105,9 +105,7 @@ window_content (GtkWindow* window, GdkGLConfig* glconfig)
 	gtk_widget_set_gl_capability (canvas, glconfig, NULL, 1, GDK_GL_RGBA_TYPE);
 	gtk_widget_add_events        (canvas, GDK_POINTER_MOTION_MASK | GDK_BUTTON_PRESS_MASK | GDK_BUTTON_RELEASE_MASK);
 
-	gtk_container_add((GtkContainer*)window, (GtkWidget*)canvas);
-
-	agl_get_instance()->pref_use_shaders = USE_SHADERS;
+	gtk_container_add((GtkContainer*)window, canvas);
 
 	scene = (AGlScene*)agl_new_scene_gtk(canvas);
 
@@ -151,7 +149,11 @@ window_content (GtkWindow* window, GdkGLConfig* glconfig)
 
 	g_signal_connect((gpointer)canvas, "realize",       G_CALLBACK(on_canvas_realise), NULL);
 	g_signal_connect((gpointer)canvas, "size-allocate", G_CALLBACK(on_allocate), NULL);
+#if GTK_MAJOR_VERSION < 3
 	g_signal_connect((gpointer)canvas, "expose-event",  G_CALLBACK(agl_actor__on_expose), scene);
+#else
+	g_signal_connect((gpointer)canvas, "draw",  G_CALLBACK(agl_actor__draw), scene);
+#endif
 }
 
 
@@ -178,7 +180,7 @@ main (int argc, char* argv[])
 
 #ifdef TEMP_CACHE
 	// Set up a temporary XDG cache directory to isolate the test
-	char temp_cache_dir[512];
+	char temp_cache_dir[128];
 	g_snprintf(temp_cache_dir, sizeof(temp_cache_dir), "/tmp/libwaveform_test");
 	if (g_mkdir_with_parents(temp_cache_dir, 0755) != 0) {
 		printf("Error creating temporary cache directory: %s\n", temp_cache_dir);
@@ -219,7 +221,13 @@ on_canvas_realise (GtkWidget* canvas, gpointer user_data)
 {
 	if (!gtk_widget_get_realized(canvas)) return;
 
+#if GTK_MAJOR_VERSION < 3
 	on_allocate(canvas, &canvas->allocation, user_data);
+#else
+	GtkAllocation allocation;
+	gtk_widget_get_allocation(canvas, &allocation);
+	on_allocate(canvas, &allocation, user_data);
+#endif
 }
 
 

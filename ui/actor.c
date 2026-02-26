@@ -1,7 +1,7 @@
 /*
  +----------------------------------------------------------------------+
  | This file is part of the Ayyi project. https://www.ayyi.org          |
- | copyright (C) 2012-2025 Tim Orford <tim@orford.org>                  |
+ | copyright (C) 2012-2026 Tim Orford <tim@orford.org>                  |
  +----------------------------------------------------------------------+
  | This program is free software; you can redistribute it and/or modify |
  | it under the terms of the GNU General Public License version 3       |
@@ -706,6 +706,8 @@ wf_actor_disconnect_waveform (WaveformActor* a)
 
 	_g_signal_handler_disconnect0(a->waveform, _a->handlers.peakdata_ready);
 	g_signal_handlers_disconnect_by_func(a->waveform, wf_actor_on_preview, a);
+	if (a->waveform->priv->preview)
+		agl_observable_unsubscribe((AGlObservable*)a->waveform->priv->preview, NULL, a);
 
 	g_object_weak_unref((GObject*)a->waveform, wf_actor_waveform_finalize_notify, a);
 }
@@ -1675,17 +1677,17 @@ wf_actor_set_rect (WaveformActor* a, WfRectangle* rect)
 	bool len_changed = rect->len != a2->target_val.f;
 	bool have_full_render = had_full_render && !len_changed;
 
-	if(agl_actor__width(actor) < 1 || agl_actor__height(actor) < 1){
+	if (agl_actor__width(actor) < 1 || agl_actor__height(actor) < 1) {
 		AGL_ACTOR__SET_REGION_FROM_RECT(actor, rect);
 	}
 
-	dbg(2, "rect: %.0f --> %0.f", actor->region.x1, actor->region.x2);
+	dbg(2, "rect: %.0f..%0.f", actor->region.x1, actor->region.x2);
 
-	if(a->region.len && !have_full_render && a->waveform->priv->num_peaks)
+	if (a->region.len && !have_full_render && a->waveform->priv->num_peaks)
 		invalidator_invalidate_item((Invalidator*)actor->behaviours[INVALIDATOR], INVALIDATOR_DATA);
 
-	if(animate){
-		if(left_changed || len_changed){
+	if (animate) {
+		if (left_changed || len_changed) {
 			size_transition_set(
 				(TransitionBehaviour*)actor->behaviours[RECT],
 				a,
@@ -1698,7 +1700,7 @@ wf_actor_set_rect (WaveformActor* a, WfRectangle* rect)
 			);
 		}
 
-	}else{
+	} else {
 		*a1->val.f = a1->target_val.f = a1->start_val.f = rect->left;
 		*a2->val.f = a2->target_val.f = a2->start_val.f = rect->left + rect->len;
 		actor->region.y1 = rect->top;
@@ -2118,14 +2120,14 @@ wf_actor_paint (AGlActor* _actor)
 
 		WfSampleRegion region = (WfSampleRegion){_a->animatable.start.val.b, _a->animatable.len.val.b};
 		double zoom = rect.len / region.len;
-		if(zoom != r->zoom) perr("valid should not be set: zoom %.3f %.3f", zoom, r->zoom);
+		if (zoom != r->zoom) perr("valid should not be set: zoom %.3f %.3f", zoom, r->zoom);
 
 		Mode mode = get_mode(r->zoom);
 		if (mode != r->mode) perr("mode not validated: %i %i", mode, r->mode);
 
 		int samples_per_texture = WF_SAMPLES_PER_TEXTURE * (mode == MODE_LOW ? WF_PEAK_STD_TO_LO : 1);
 		int first_offset = region.start % samples_per_texture;
-		if(first_offset != r->first_offset) perr("valid should not be set: zoom %i %i", first_offset, r->first_offset);
+		if (first_offset != r->first_offset) perr("valid should not be set: zoom %i %i", first_offset, r->first_offset);
 #endif
 	}
 

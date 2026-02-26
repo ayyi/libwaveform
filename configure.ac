@@ -21,7 +21,41 @@ AC_PROG_LIBTOOL
 
 PKG_PROG_PKG_CONFIG
 
-AX_SUBDIRS_CONFIGURE([gtkglext-1.0], [[--enable-test=false]], [], [])
+AX_SUBDIRS_CONFIGURE([[lib/agl/gtkglext-1.0],[lib/agl/lib/gtkglext3]], [[--enable-test=false]], [], [])
+
+AC_ARG_ENABLE([gtk-3],
+	[AS_HELP_STRING([--enable-gtk-3], [build against GTK+ 3 instead of GTK+ 2])],
+	[case "${enableval}" in
+		yes) enable_gtk3=yes ;;
+		no) enable_gtk3=no ;;
+		*) AC_MSG_ERROR([bad value ${enableval} for --enable-gtk-3]) ;;
+	esac],
+	[enable_gtk3=no]
+)
+
+if test "x$enable_gtk3" = "xyes"; then
+	GTK_PKG=gtk+-3.0
+	GDK_PKG=gdk-3.0
+	gtkversion=3
+	GTKGLEXT_CFLAGS=""
+	GTKGLEXT_LIBS=""
+	AC_DEFINE(USE_GTK3, 1, [Build against GTK+ 3])
+	AC_SUBST(GTKVERSION, [3])
+else
+	GTK_PKG=gtk+-2.0
+	GDK_PKG=gdk-2.0
+	gtkversion=2
+	GTKGLEXT_CFLAGS=`pkg-config --cflags gtkglext-1.0`
+	GTKGLEXT_LIBS=`pkg-config --libs gtkglext-1.0`
+	AC_SUBST(GTKVERSION, [2])
+fi
+AM_CONDITIONAL(ENABLE_GTK3, test "$enable_gtk3" = "yes")
+
+PKG_CHECK_EXISTS([$GTK_PKG], [], [AC_MSG_ERROR([Required GTK+ package $GTK_PKG not found.])])
+
+AC_SUBST(GTK_PKG)
+AC_SUBST(GTKGLEXT_CFLAGS)
+AC_SUBST(GTKGLEXT_LIBS)
 
 # At least level 2 optimisation is needed to allow GCC to
 # determine that not all nested functions require trampolines.
@@ -104,19 +138,19 @@ AC_SUBST(GRAPHENE_LDFLAGS)
 
 dnl -----------------------------------------------------
 
-GTK_CFLAGS=`pkg-config gtk+-2.0 --cflags`
-GTK_LDFLAGS=`pkg-config gtk+-2.0 --libs`
+GTK_CFLAGS=`pkg-config $GTK_PKG --cflags`
+GTK_LDFLAGS=`pkg-config $GTK_PKG --libs`
 AC_SUBST(GTK_CFLAGS)
 AC_SUBST(GTK_LDFLAGS)
 
-if `pkg-config gtk+-2.0 --atleast-version=2.22`; then
+if `pkg-config $GTK_PKG --atleast-version=2.22`; then
   HAVE_GTK_2_22="yes"
   AC_DEFINE(HAVE_GTK_2_22, 1, [We have at least gtk version 2.22])
 else
   HAVE_GTK_2_22="no"
 fi;
 
-if `pkg-config gtk+-2.0 --atleast-version=2.18`; then
+if `pkg-config $GTK_PKG --atleast-version=2.18`; then
   HAVE_GTK_2_18="yes"
   AC_DEFINE(HAVE_GTK_2_18, 1, [We have at least gtk version 2.18])
 else
@@ -171,8 +205,8 @@ fi
 XRANDR_LDFLAGS=`pkg-config --libs xrandr`
 AC_SUBST(XRANDR_LDFLAGS)
 
-GDK_CFLAGS=`pkg-config --cflags gdk-2.0`
-GDK_LIBS=`pkg-config --libs gdk-2.0`
+GDK_CFLAGS=`pkg-config --cflags $GDK_PKG`
+GDK_LIBS=`pkg-config --libs $GDK_PKG`
 AC_SUBST(GDK_CFLAGS)
 AC_SUBST(GDK_LIBS)
 
@@ -188,7 +222,7 @@ AC_SUBST(FRIBIDI_LDFLAGS)
 
 dnl -opengl----------------------------------------------
 
-AM_CONDITIONAL(AGL_ENABLE_GTKGLEXT, false)
+AM_CONDITIONAL(AGL_ENABLE_GTKGLEXT, true)
 AM_CONDITIONAL(AGL_NO_INSTALL, true)
 
 AC_ARG_ENABLE(system-gtkglext, AC_HELP_STRING([--enable-system-gtkglext], [disable local opengl extension for gtk]), enable_system_gtkglext=$enableval, enable_system_gtkglext="no")
@@ -206,7 +240,7 @@ AC_ARG_ENABLE(
 				enable_opengl="no"
 				;;
 			*)
-				AC_MSG_ERROR([must use --enable-dbus(=yes/no) or --disable-dbus])
+				AC_MSG_ERROR([must use --enable-opengl(=yes/no) or --disable-opengl])
 				;;
 		esac
 	],
@@ -225,6 +259,10 @@ if test "x$enable_opengl" = "xyes" ; then
 	else
 		OPENGL_CFLAGS=`pkg-config --cflags-only-I gl`
 		OPENGL_LDFLAGS=`pkg-config --libs-only-l gl`
+		if test "x$enable_gtk3" != "xyes"; then
+			OPENGL_LDFLAGS="$OPENGL_LDFLAGS "`pwd`'/lib/agl/gtkglext-1.0/.libs/libgtkglext.a'
+		fi
+
 	fi
 	AC_DEFINE(USE_OPENGL, 1, [Opengl features are enabled])
 	AC_DEFINE(USE_FBO, 1, [enable support for opengl framebuffer objects for offscreen rendering])
@@ -235,6 +273,8 @@ AM_CONDITIONAL(ENABLE_OPENGL, test $enable_opengl = "yes")
 AM_CONDITIONAL(ENABLE_SYSTEM_GTKGLEXT, test "$enable_system_gtkglext" = "yes")
 AC_SUBST(OPENGL_CFLAGS)
 AC_SUBST(OPENGL_LDFLAGS)
+AC_SUBST(GTKGLEXT_CFLAGS)
+AC_SUBST(GTKGLEXT_LIBS)
 
 dnl -----------------------------------------------------
 
@@ -352,6 +392,8 @@ dnl -----------------------------------------------------
 
 AC_DEFINE(USE_FRAME_CLOCK, 1, [Synchronise drawing to screen refresh])
 
+AM_CONDITIONAL(HAVE_INTROSPECTION, test "no" = "yes")
+
 # extra CXXFLAGS that should always be used
 dnl CXXFLAGS="$CXXFLAGS -pipe -fmessage-length=139 -fdiagnostics-show-location=every-line"
 AM_CFLAGS="$CFLAGS -pipe -fmessage-length=139 -fdiagnostics-show-location=every-line -fno-common"
@@ -361,7 +403,6 @@ AC_CONFIG_FILES([
 	Makefile
 	wf/Makefile
 	wf/loaders/Makefile
-	gtkglext-1.0/Makefile
 	lib/Makefile
 	lib/ayyi-utils/Makefile
 	lib/debug/Makefile
@@ -387,6 +428,8 @@ if test "$enable_submodules" = "yes"; then
 		lib/agl/glib/Makefile
 		lib/agl/glib/glib/Makefile
 		lib/agl/lib/Makefile
+		lib/agl/gtkglext-1.0/Makefile
+		lib/agl/lib/gtkglext3/Makefile
 		lib/agl/lib/ayyi-utils/Makefile
 		lib/agl/lib/test/Makefile
 		lib/agl/sdl/Makefile
@@ -401,9 +444,8 @@ AC_MSG_RESULT([])
 AC_MSG_RESULT([Libwaveform:])
 AC_MSG_RESULT([Building submodules:      $enable_submodules])
 AC_MSG_RESULT([Building opengl:          $enable_opengl])
-AC_MSG_RESULT([Building gtk:             $enable_gtk])
+AC_MSG_RESULT([Building gtk:             $enable_gtk ($gtkversion)])
 AC_MSG_RESULT([Building sdl:             $enable_sdl])
-AC_MSG_RESULT([Building libass:          $enable_libass])
 AC_MSG_RESULT([Building sndfile:         $enable_sndfile])
 AC_MSG_RESULT([Building ffmpeg:          $enable_ffmpeg])
 AC_MSG_RESULT([Building xrandr:          $have_xrandr])

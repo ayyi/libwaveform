@@ -163,7 +163,7 @@ test_shown ()
 {
 	WfTest* t = NEW_TEST();
 
-	assert(GTK_WIDGET_REALIZED(canvas), "widget not realised");
+	assert(gtk_widget_get_realized(canvas), "widget not realised");
 	assert(wfc, "canvas not created");
 	assert(a[0], "actor not created");
 
@@ -616,7 +616,13 @@ test_hi_double ()
 		agl_actor__add_child((AGlActor*)scene, (AGlActor*)a[i]);
 		wf_actor_set_region(a[i], &(WfSampleRegion){0, 4096 * 256});
 		wf_actor_set_colour(a[i], 0x66eeffff);
+#if GTK_MAJOR_VERSION < 3
 		on_allocate(canvas, &canvas->allocation, NULL);
+#else
+		GtkAllocation allocation;
+		gtk_widget_get_allocation(canvas, &allocation);
+		on_allocate(canvas, &allocation, NULL);
+#endif
 	}
 	add_actor(1);
 
@@ -802,7 +808,11 @@ __on_canvas_realise (gpointer user_data)
 
 	wfc = wf_context_new((AGlActor*)(scene = (AGlScene*)agl_new_scene_gtk(canvas)));
 
+#if GTK_MAJOR_VERSION < 3
 	g_signal_connect((gpointer)canvas, "expose-event", G_CALLBACK(agl_actor__on_expose), scene);
+#else
+	g_signal_connect((gpointer)canvas, "draw",  G_CALLBACK(agl_actor__draw), scene);
+#endif
 
 	{
 		char* filename = find_wav(WAV1);
@@ -827,7 +837,13 @@ __on_canvas_realise (gpointer user_data)
 		wf_actor_set_colour(a[i], colours[i][0]);
 	}
 
+#if GTK_MAJOR_VERSION < 3
 	on_allocate(canvas, &canvas->allocation, user_data);
+#else
+	GtkAllocation allocation;
+	gtk_widget_get_allocation(canvas, &allocation);
+	on_allocate(canvas, &allocation, user_data);
+#endif
 
 	am_promise_resolve(ready, NULL);
 
@@ -838,8 +854,8 @@ __on_canvas_realise (gpointer user_data)
 static void
 on_canvas_realise (GtkWidget* _canvas, gpointer user_data)
 {
-	if(wfc) return;
-	if(!GTK_WIDGET_REALIZED (canvas)) return;
+	if (wfc) return;
+	if (!gtk_widget_get_realized (canvas)) return;
 
 	g_timeout_add(200, __on_canvas_realise, user_data);
 }

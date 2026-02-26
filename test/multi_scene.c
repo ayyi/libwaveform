@@ -31,10 +31,7 @@
 #include "config.h"
 #include <getopt.h>
 #include <sys/time.h>
-#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
-#include <gtk/gtk.h>
-#pragma GCC diagnostic warning "-Wdeprecated-declarations"
-#include <gdk/gdkkeysyms.h>
+#include <gdk/gdkkeysyms-compat.h>
 #include "agl/gtk.h"
 #include "waveform/actor.h"
 #include "test/common.h"
@@ -73,10 +70,10 @@ KeyHandler
 	quit;
 
 Key keys[] = {
-	{KEY_Left,      scroll_left},
-	{KEY_KP_Left,   scroll_left},
-	{KEY_Right,     scroll_right},
-	{KEY_KP_Right,  scroll_right},
+	{GDK_Left,      scroll_left},
+	{GDK_KP_Left,   scroll_left},
+	{GDK_Right,     scroll_right},
+	{GDK_KP_Right,  scroll_right},
 	{61,            zoom_in},
 	{45,            zoom_out},
 	{(char)'w',     vzoom_up},
@@ -190,8 +187,15 @@ setup_projection (GtkWidget* widget)
 {
 	int vx = 0;
 	int vy = 0;
+#if GTK_MAJOR_VERSION < 3
 	int vw = widget->allocation.width;
 	int vh = widget->allocation.height;
+#else
+	GtkAllocation allocation;
+	gtk_widget_get_allocation(widget, &allocation);
+	int vw = allocation.width;
+	int vh = allocation.height;
+#endif
 	glViewport(vx, vy, vw, vh);
 	dbg (0, "viewport: %i %i %i %i", vx, vy, vw, vh);
 	glMatrixMode(GL_PROJECTION);
@@ -210,9 +214,15 @@ setup_projection (GtkWidget* widget)
 static void
 on_canvas_realise (GtkWidget* _canvas, gpointer user_data)
 {
-	if(!GTK_WIDGET_REALIZED (canvas)) return;
+	if(!gtk_widget_get_realized (canvas)) return;
 
+#if GTK_MAJOR_VERSION < 3
 	on_allocate(canvas, &canvas->allocation, user_data);
+#else
+	GtkAllocation allocation;
+	gtk_widget_get_allocation(canvas, &allocation);
+	on_allocate(canvas, &allocation, user_data);
+#endif
 }
 
 
@@ -233,8 +243,8 @@ on_allocate (GtkWidget* widget, GtkAllocation* allocation, gpointer user_data)
 static gboolean
 on_expose (GtkWidget* widget, GdkEventExpose* event, gpointer user_data)
 {
-	if(!GTK_WIDGET_REALIZED(widget)) return true;
-	if(!wfc) return true;
+	if (!gtk_widget_get_realized(widget)) return true;
+	if (!wfc) return true;
 
 	AGL_ACTOR_START_DRAW(scene1) {
 		glClearColor(0.0, 0.0, 0.0, 1.0);
@@ -269,7 +279,11 @@ on_expose (GtkWidget* widget, GdkEventExpose* event, gpointer user_data)
 #if USE_SYSTEM_GTKGLEXT
 		gdk_gl_drawable_swap_buffers(scene1->gl.gdk.drawable);
 #else
+#if GTK_MAJOR_VERSION < 3
 		gdk_gl_window_swap_buffers(scene1->gl.gdk.drawable);
+#else
+		gdk_gl_drawable_swap_buffers(scene1->gl.gdk.drawable);
+#endif
 #endif
 	} AGL_ACTOR_END_DRAW(scene1)
 

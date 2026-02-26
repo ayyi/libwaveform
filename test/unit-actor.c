@@ -576,3 +576,31 @@ test_frames_2_px ()
 
 	FINISH_TEST;
 }
+
+void
+test_refcounting ()
+{
+	START_TEST;
+
+	static bool context_finalized = false;
+
+	void finalize_notify (gpointer data, GObject* was)
+	{
+		context_finalized = true;
+	}
+
+	WaveformContext* context = wf_context_new((AGlActor*)&scene);
+	g_object_weak_ref((GObject*)context, finalize_notify, NULL);
+	assert(((GObject*)context)->ref_count == 1, "ref_count: %i (expected 1)", ((GObject*)context)->ref_count);
+
+	WaveformActor* wf_actor = wf_context_add_new_actor(context, waveform);
+	AGlActor* actor = (AGlActor*)wf_actor;
+	assert(((GObject*)context)->ref_count == 2, "ref_count: %i (expected 2)", ((GObject*)context)->ref_count);
+
+	g_object_unref(context);
+
+	agl_actor__free(actor);
+	assert(context_finalized, "expected context_finalized");
+
+	FINISH_TEST;
+}

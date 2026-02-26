@@ -2,7 +2,7 @@ Overview
 --------
 
 Libwaveform attempts to provide versatile easy-to-use interactive display
-of audio waveforms for Gtk+-2 and X11 applications. Suitable for anything from simple
+of audio waveforms for Gtk and X11 applications. Suitable for anything from simple
 display, up to a full digital audio workstation.
 
 ![Screenshot](screenshot.webp "Screenshot")
@@ -34,9 +34,9 @@ There are 4 main ways of using libwaveform:
 
 Requirements:
 
-- GLX
+- GLX or EGl
 - Libsndfile and/or FFmpeg (Libsndfile is recommended if you are using wav or flac files)
-- Gtk2/SDL (optional)
+- Gtk optional, versions 2,3,4 - for Gtk-4 use the gtk-4 branch.
 
 
 Status
@@ -48,22 +48,23 @@ API, documentation, and visuals.
 
 An API review needs to be undertaken before a release is made.
 
-Adding support for other platfroms is relatively easy to do but there is currently no demand.
-Gtk-4 support is the next objective, followed by Wayland. Sadly, it will be necessary to drop
-support for systems that dont support OpenGL 3 in the near future.
+The `master` branch supports Gtk versions 2 and 3. For Gtk 4, please see the `gtk-4` branch.
+
+Adding support for other platfroms would be relatively easy to do if there was demand.
+Future objectives include support for Wayland.
 
 GPU Testing:
 The GPU requirements are not heavy, and no issues have been reported. Most development
 is done on Intel HD graphics.
 
-If you are able to help testing, please start with running test/view_plus_test.
+If you are able to help testing, please start with running `test/view_plus`.
 To compile the test programs you need to run configure with '--enable-test'.
 
 
 WaveformView
 ------------
 
-The easiest way to use libwaveform is via the WaveformView Gtk widget.
+The easiest way to use libwaveform is via the `WaveformView` Gtk widget.
 
 The widget will show the complete audio file and can be panned and zoomed
 down to sample level.
@@ -73,7 +74,7 @@ To use the widget:
 	WaveformView* waveform = waveform_view_new(NULL);
 	waveform_view_load_file(waveform, "myfile.wav");
 ```
-(then pack and show the widget as normal)	
+(then pack and show the widget as normal)
 
 For a demonstration of usage, see: [view_test.c](test/view_plus.c)
 
@@ -81,9 +82,8 @@ For a demonstration of usage, see: [view_test.c](test/view_plus.c)
 WaveformActor
 -------------
 
-The WaveformActor interface can be used to show a waveform on an
-existing OpenGL context. It is designed for use in editors
-and audio production tools.
+The `WaveformActor` interface can be used to show a waveform on an
+OpenGL context. It is designed for use in editors and audio production tools.
 
 WaveformActor's share a common WfContext object to allow multiple
 waveforms to be positioned and scaled togeter.

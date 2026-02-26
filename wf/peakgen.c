@@ -1,7 +1,7 @@
 /*
  +----------------------------------------------------------------------+
  | This file is part of the Ayyi project. https://www.ayyi.org          |
- | copyright (C) 2012-2025 Tim Orford <tim@orford.org>                  |
+ | copyright (C) 2012-2026 Tim Orford <tim@orford.org>                  |
  +----------------------------------------------------------------------+
  | This program is free software; you can redistribute it and/or modify |
  | it under the terms of the GNU General Public License version 3       |
@@ -977,7 +977,7 @@ waveform_peakgen (Waveform* w, const char* peak_filename, WfCallback3 callback, 
 {
 	if (!peakgen.msg_queue) wf_worker_init(&peakgen);
 
-	#define MIN_FRAMES_FOR_PREVIEW (65536 * 32) // ~20s
+	#define MIN_FRAMES_FOR_PREVIEW (65536 * 64) // ~40s
 
 	WeakRef* preview = waveform_get_n_frames(w) > MIN_FRAMES_FOR_PREVIEW
 		? ({

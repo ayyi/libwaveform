@@ -1,7 +1,7 @@
 /*
  +----------------------------------------------------------------------+
  | This file is part of the Ayyi project. https://www.ayyi.org          |
- | copyright (C) 2025-2025 Tim Orford <tim@orford.org>                  |
+ | copyright (C) 2025-2026 Tim Orford <tim@orford.org>                  |
  +----------------------------------------------------------------------+
  | This program is free software; you can redistribute it and/or modify |
  | it under the terms of the GNU General Public License version 3       |
@@ -16,6 +16,7 @@
 
 #include "config.h"
 #include "debug/debug.h"
+#include "agl/text.h"
 #include "waveform/actor.h"
 #include "waveform/ui-utils.h"
 #include "waveform/hover.h"

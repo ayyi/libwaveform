@@ -1585,7 +1585,7 @@ ad_seek_ffmpeg (WfDecoder* d, int64_t pos)
 static int
 ad_eval_ffmpeg (const char* f)
 {
-	char* ext = strrchr(f, '.');
+	const char* ext = strrchr(f, '.');
 	if (!ext) return 10;
 
 	return 40;

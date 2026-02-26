@@ -42,7 +42,7 @@
 #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 #include <gtk/gtk.h>
 #pragma GCC diagnostic warning "-Wdeprecated-declarations"
-#include <gdk/gdkkeysyms.h>
+#include <gdk/gdkkeysyms-compat.h>
 #include "waveform/view_plus.h"
 #include "test/common2.h"
 
@@ -100,17 +100,17 @@ main (int argc, char* argv[])
 			case 45:
 				waveform_view_plus_set_zoom(waveform[0], waveform_view_plus_get_zoom(waveform[0]) / 1.5);
 				break;
-			case KEY_Left:
-			case KEY_KP_Left:
+			case GDK_Left:
+			case GDK_KP_Left:
 				dbg(0, "left");
 				waveform_view_plus_set_start(waveform[0], waveform[0]->start_frame - 8192 / waveform_view_plus_get_zoom(waveform[0]));
 				break;
-			case KEY_Right:
-			case KEY_KP_Right:
+			case GDK_Right:
+			case GDK_KP_Right:
 				dbg(0, "right");
 				waveform_view_plus_set_start(waveform[0], waveform[0]->start_frame + 8192 / waveform_view_plus_get_zoom(waveform[0]));
 				break;
-			case GDK_KEY_2:
+			case GDK_2:
 				if(!waveform[1]){
 					// TODO fix issues with 2 widgets sharing the same drawable ?
 

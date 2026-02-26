@@ -29,7 +29,7 @@
 #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 #include <gtk/gtk.h>
 #pragma GCC diagnostic warning "-Wdeprecated-declarations"
-#include <gdk/gdkkeysyms.h>
+#include <gdk/gdkkeysyms-compat.h>
 #include "waveform/actor.h"
 #include "waveform/view_plus.h"
 #include "test/common2.h"
@@ -91,13 +91,13 @@ main (int argc, char *argv[])
 			case 45:
 				waveform_view_plus_set_zoom(waveform, waveform_view_plus_get_zoom(waveform) / 1.5);
 				break;
-			case KEY_Left:
-			case KEY_KP_Left:
+			case GDK_Left:
+			case GDK_KP_Left:
 				dbg(0, "left");
 				waveform_view_plus_set_start(waveform, waveform->start_frame - 8192 / waveform_view_plus_get_zoom(waveform));
 				break;
-			case KEY_Right:
-			case KEY_KP_Right:
+			case GDK_Right:
+			case GDK_KP_Right:
 				dbg(0, "right");
 				waveform_view_plus_set_start(waveform, waveform->start_frame + 8192 / waveform_view_plus_get_zoom(waveform));
 				break;

@@ -1,5 +1,7 @@
 #!/bin/sh
 
+set -e
+
 echo 'libwaveform: generating build files ...'
 libtoolize --automake
 aclocal
@@ -8,5 +10,7 @@ automake --gnu --add-missing -Wall
 autoconf
 touch Makefile.in
 
-cd gtkglext-1.0 &&
-	./autogen.sh
+(cd lib/agl/gtkglext-1.0 &&
+	./autogen.sh)
+cd lib/agl/lib/gtkglext3 &&
+	./autogen

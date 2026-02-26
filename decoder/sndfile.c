@@ -235,7 +235,7 @@ ad_read_s32_sndfile (WfDecoder* d, int32_t* out, size_t len)
 int
 ad_eval_sndfile (const char* filename)
 {
-	char* ext = strrchr(filename, '.');
+	const char* ext = strrchr(filename, '.');
 	if (!ext || strlen(ext) > 5) {
 		WfDecoder decoder;
 		if (ad_open_sndfile(&decoder, filename)) {

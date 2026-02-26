@@ -15,11 +15,22 @@ endif
 if ENABLE_OPENGL
 if !ENABLE_SYSTEM_GTKGLEXT
 if ENABLE_GTK
+if ENABLE_GTK3
 LOCAL_GTKGLEXT_CFLAGS = \
-	-I$(top_srcdir)/gtkglext-1.0
+	-I$(top_srcdir)/lib/agl/lib/gtkglext3
+LOCAL_GTKGLEXT_LDFLAGS = \
+	$(top_srcdir)/lib/agl/lib/gtkglext3/gdk/x11/libgdkglext-x11.la \
+	$(top_srcdir)/lib/agl/lib/gtkglext3/gdk/libgdkglext-3.0.la \
+	$(top_srcdir)/lib/agl/lib/gtkglext3/gtk/libgtkglext-3.0.la
+else
+LOCAL_GTKGLEXT_CFLAGS = \
+	-I$(top_srcdir)/lib/agl/gtkglext-1.0
+LOCAL_GTKGLEXT_LDFLAGS = \
+	$(top_srcdir)/lib/agl/gtkglext-1.0/.libs/libgtkglext.a
+endif
 TEST_GTKGLEXT_LDFLAGS = \
 	$(GMODULE_LDFLAGS) \
-	$(top_srcdir)/gtkglext-1.0/.libs/libgtkglext.a
+	$(LOCAL_GTKGLEXT_LDFLAGS)
 endif
 endif
 endif

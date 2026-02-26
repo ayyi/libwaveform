@@ -14,8 +14,13 @@ libactors_la_SOURCES = \
 
 if ENABLE_SYSTEM_GTKGLEXT
 else
+if ENABLE_GTK3
 LOCAL_GTKGLEXT_CFLAGS = \
-	-I$(top_srcdir)/gtkglext-1.0
+	-I$(top_srcdir)/lib/agl/lib/gtkglext3
+else
+LOCAL_GTKGLEXT_CFLAGS = \
+	-I$(top_srcdir)/lib/agl/gtkglext-1.0
+endif
 endif
 
 AM_CFLAGS = \

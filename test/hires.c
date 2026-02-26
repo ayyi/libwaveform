@@ -1,7 +1,7 @@
 /*
  +----------------------------------------------------------------------+
  | This file is part of the Ayyi project. https://www.ayyi.org          |
- | copyright (C) 2012-2025 Tim Orford <tim@orford.org>                  |
+ | copyright (C) 2012-2026 Tim Orford <tim@orford.org>                  |
  +----------------------------------------------------------------------+
  | This program is free software; you can redistribute it and/or modify |
  | it under the terms of the GNU General Public License version 3       |
@@ -25,7 +25,7 @@
 
 #include "config.h"
 #include <getopt.h>
-#include <gdk/gdkkeysyms.h>
+#include <gdk/gdkkeysyms-compat.h>
 #include "waveform/view_plus.h"
 #include "test/common.h"
 
@@ -50,8 +50,8 @@ main (int argc, char* argv[])
 	wf_debug = 0;
 
 	int opt;
-	while((opt = getopt_long (argc, argv, short_options, long_options, NULL)) != -1) {
-		switch(opt) {
+	while ((opt = getopt_long (argc, argv, short_options, long_options, NULL)) != -1) {
+		switch (opt) {
 			case 'n':
 				dbg(0, "non-interative");
 				g_timeout_add(3000, (gpointer)window_on_delete, NULL);
@@ -104,13 +104,13 @@ main (int argc, char* argv[])
 			case 45:
 				waveform_view_plus_set_zoom(waveform, waveform_view_plus_get_zoom(waveform) / 1.5);
 				break;
-			case KEY_Left:
-			case KEY_KP_Left:
+			case GDK_Left:
+			case GDK_KP_Left:
 				dbg(1, "left");
 				waveform_view_plus_set_start(waveform, waveform->start_frame - n_visible_frames / 10);
 				break;
-			case KEY_Right:
-			case KEY_KP_Right:
+			case GDK_Right:
+			case GDK_KP_Right:
 				dbg(1, "right");
 				waveform_view_plus_set_start(waveform, waveform->start_frame + n_visible_frames / 10);
 				break;
@@ -121,7 +121,7 @@ main (int argc, char* argv[])
 			case '>':
 				break;
 			case 113:
-				gtk_widget_destroy(GTK_WIDGET(waveform)->parent);
+				gtk_widget_destroy(gtk_widget_get_parent(GTK_WIDGET(waveform)));
 				exit(EXIT_SUCCESS);
 				break;
 			case GDK_Delete:
