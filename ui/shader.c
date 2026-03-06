@@ -33,8 +33,8 @@ static void  _horizontal_set_uniforms  ();
 #endif
 static void  _ass_set_uniforms         (AGlShader*);
 static void  _ruler_set_uniforms       (AGlShader*);
-static void  _lines_set_uniforms       ();
-static void  _cursor_set_uniforms      ();
+static void  _lines_set_uniforms       (AGlShader*);
+static void  _cursor_set_uniforms      (AGlShader*);
 
 #if 0
 static AGlUniformInfo uniforms[] = {
@@ -290,7 +290,7 @@ _ruler_set_uniforms (AGlShader* _shader)
 
 
 static void
-_lines_set_uniforms ()
+_lines_set_uniforms (AGlShader* _)
 {
 	AGlShader* shader = &lines.shader;
 

@@ -1,7 +1,7 @@
 /*
  +----------------------------------------------------------------------+
  | This file is part of the Ayyi project. https://www.ayyi.org          |
- | copyright (C) 2011-2025 Tim Orford <tim@orford.org>                  |
+ | copyright (C) 2011-2026 Tim Orford <tim@orford.org>                  |
  | copyright (C) 2011 Robin Gareus <robin@gareus.org>                   |
  +----------------------------------------------------------------------+
  | This program is free software; you can redistribute it and/or modify |
@@ -37,10 +37,6 @@
 #ifndef false
 #define false FALSE
 #define true TRUE
-#endif
-
-#ifndef bool
-#define bool gboolean
 #endif
 
 #if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(60, 0, 0)
