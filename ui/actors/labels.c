@@ -98,7 +98,7 @@ labels_actor_paint (AGlActor* actor)
 		int x = wf_context_frame_to_x(context, f) + 3;
 		if (x - x_ > 60) {
 			uint64_t mins = f / (60 * context->sample_rate);
-			snprintf(s, 15, "%"PRIi64":%.1f", mins, ((float)f) / context->sample_rate - 60 * mins);
+			snprintf(s, 15, "%"PRIi64":%.1f", mins % 16384, ((float)f) / context->sample_rate - 60 * mins);
 			agl_print(x, 0, 0, actor->colour, s);
 			x_ = x;
 		}

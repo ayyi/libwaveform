@@ -1,7 +1,7 @@
 /*
  +----------------------------------------------------------------------+
  | This file is part of the Ayyi project. https://www.ayyi.org          |
- | copyright (C) 2012-2025 Tim Orford <tim@orford.org>                  |
+ | copyright (C) 2012-2026 Tim Orford <tim@orford.org>                  |
  +----------------------------------------------------------------------+
  | This program is free software; you can redistribute it and/or modify |
  | it under the terms of the GNU General Public License version 3       |
@@ -369,7 +369,7 @@ test_delete ()
 	gtk_box_remove((GtkBox*)box, (GtkWidget*)view);
 	view = NULL;
 
-	gboolean check ()
+	gboolean check (void* _)
 	{
 		if (!dt.finalize_done) {
 			pwarn("waveform was not free'd");

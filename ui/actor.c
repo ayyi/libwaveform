@@ -1,7 +1,7 @@
 /*
  +----------------------------------------------------------------------+
  | This file is part of the Ayyi project. https://www.ayyi.org          |
- | copyright (C) 2012-2025 Tim Orford <tim@orford.org>                  |
+ | copyright (C) 2012-2026 Tim Orford <tim@orford.org>                  |
  +----------------------------------------------------------------------+
  | This program is free software; you can redistribute it and/or modify |
  | it under the terms of the GNU General Public License version 3       |
@@ -725,6 +725,7 @@ wf_actor_free (AGlActor* actor)
 		g_clear_object(&a->waveform);
 	}
 
+	g_clear_object(&a->context);
 	g_clear_pointer(&_a->peakdata_ready, am_promise_unref);
 	g_free0(a->priv);
 
@@ -1201,8 +1202,8 @@ wf_actor_get_visible_block_range (WfSampleRegion* region, WfRectangle* rect, dou
 		// crop to viewport
 		for (int b=region_blocks.first;b<=range.last-1;b++) { //note we dont check the last block which can be partially outside the viewport
 			float block_end_px = file_start_px + (b + 1) * block_wid;
-			if(block_end_px > viewport_px->right) dbg(2, "end %i clipped by viewport at block %i. vp.right=%.2f block_end=%.1f", region_blocks.last, MAX(0, b/* - 1*/), viewport_px->right, block_end_px);
-			if(block_end_px > viewport_px->right){
+			if (block_end_px > viewport_px->right) {
+				dbg(2, "end %i clipped by viewport at block %i. vp.right=%.2f block_end=%.1f", region_blocks.last, MAX(0, b/* - 1*/), viewport_px->right, block_end_px);
 				range.last = MAX(0, b/* - 1*/);
 				goto out;
 			}
@@ -1529,8 +1530,7 @@ _wf_actor_load_missing_blocks (WaveformActor* a)
     if (((AGlActor*)actor)->root->type == CONTEXT_TYPE_GTK) {
 		if (scene) {
 #ifdef USE_EGL
-			extern EGLDisplay egl_display;
-			eglMakeCurrent(egl_display, scene->gl.egl.surface, scene->gl.egl.surface, scene->gl.egl.context);
+			gdk_gl_context_make_current (scene->gl.gdk.context);
 #else
 			glXMakeContextCurrent (agl->xdisplay, scene->drawable, scene->drawable, scene->gl.glx.context);
 #endif

@@ -425,12 +425,12 @@ get_random_region (WaveformActor* a, Mode mode, uint32_t max_scroll)
 }
 
 
-typedef struct {
+typedef struct C {
 	int test_idx;
 	int n;
 	int iter;
 	int wait_count;
-	void (*next)();
+	void (*next)(struct C*);
 	uint64_t start;
 } C;
 
@@ -536,13 +536,13 @@ test_scroll ()
 }
 
 
-typedef struct {
+typedef struct C3 {
 	int            test_idx;
 	int            n;
 	int            iter;
 	int            wait_count;
 	WfSampleRegion region[2];
-	void (*next)();
+	void           (*next) (struct C3*);
 } C3;
 
 		gboolean _hi_check_scroll(gpointer data)
