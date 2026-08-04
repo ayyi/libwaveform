@@ -39,21 +39,21 @@
 typedef struct _WfContextPriv WfContextPriv;
 
 struct _WaveformContext {
-	GObject        parent_instance;
+	GObject         parent_instance;
 
-	bool           show_rms;
-	bool           use_1d_textures;
+	bool            show_rms;
+	bool            use_1d_textures;
 
-	AGlActor*      root;               // note the context root is not neccesarily the scenegraph root
+	AGlActor*       root;               // note the context root is not neccesarily the scenegraph root
 
-	uint32_t       sample_rate;
-	float          bpm;
-	float          samples_per_pixel;  // application can specify the base sppx. Is divided by zoom to get the actual sppx.
-	bool           scaled;             // scaled mode uses the WfContext time scale. Non-scaled mode uses only the actor rect and sample-region.
-	AGlObservable* zoom;
-	AGlObservable* start_time;         // start time measured in frames.
-	float          rotation;
-	float          v_gain;
+	uint32_t        sample_rate;
+	float           bpm;
+	float           samples_per_pixel;  // application can specify the base sppx. Is divided by zoom to get the actual sppx.
+	bool            scaled;             // scaled mode uses the WfContext time scale. Non-scaled mode uses only the actor rect and sample-region.
+	AyyiObservable* zoom;
+	AyyiObservable* start_time;         // start time measured in frames.
+	float           rotation;
+	float           v_gain;
 
 	WfContextPriv* priv;
 };

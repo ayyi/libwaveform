@@ -119,7 +119,7 @@ window_content (GtkWindow* window, GdkGLConfig* glconfig)
 	wf_set_str(((AGlActor*)split[0])->name, g_strdup("Split-lhs"));
 	wf_set_str(((AGlActor*)split[1])->name, g_strdup("Split-rhs"));
 
-	void on_zoom (AGlObservable* o, AGlVal zoom, gpointer _)
+	void on_zoom (AyyiObservable* o, AyyiVal zoom, gpointer _)
 	{
 		int n_frames = waveform_get_n_frames(w1) / 128;
 		int start = 6 * n_frames;
@@ -130,7 +130,7 @@ window_content (GtkWindow* window, GdkGLConfig* glconfig)
 		WfSampleRegion region = {start + ((float)(len / 2)) / zoom.f, len / 2};
 		wf_actor_set_region(split[1], &region);
 	}
-	agl_observable_subscribe_with_state(wfc->zoom, on_zoom, NULL);
+	ayyi_observable_subscribe_with_state(wfc->zoom, on_zoom, NULL);
 
 	g_object_unref(w1); // this effectively transfers ownership of the waveform to the Scene
 	g_object_unref(wfc); // context is freed when all actors are removed

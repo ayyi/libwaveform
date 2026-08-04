@@ -300,8 +300,8 @@ on_overview_ready (Waveform* w, WfPreview* preview, gpointer user_data)
 
 	g_assert(g_thread_self() == ctx->main_thread);
 
-	if (((AGlObservable*)preview)->value.i == 0) {
-		printf("Overview ready! Signal received from waveform_load. size=%i ref_count=%i-->%i progress=%i\n", preview->size, preview->ref_count, ctx->overview ? preview->ref_count : preview->ref_count + 1, ((AGlObservable*)preview)->value.i);
+	if (((AyyiObservable*)preview)->value.i == 0) {
+		printf("Overview ready! Signal received from waveform_load. size=%i ref_count=%i-->%i progress=%i\n", preview->size, preview->ref_count, ctx->overview ? preview->ref_count : preview->ref_count + 1, ((AyyiObservable*)preview)->value.i);
 		ctx->overview_received = true;
 		ctx->overview_time = clock();
 	}

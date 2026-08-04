@@ -172,7 +172,7 @@ on_realise (GtkWidget* canvas, gpointer user_data)
 	agl_actor__add_child((AGlActor*)area->scene, (AGlActor*)a2);
 	wf_actor_set_region(a2, &(WfSampleRegion){ .len = n_frames });
 
-	void on_scroll (AGlObservable* observable, AGlVal value, gpointer scrollbar)
+	void on_scroll (AyyiObservable* observable, AyyiVal value, gpointer scrollbar)
 	{
 		AGlActor* root = (AGlActor*)scene;
 
@@ -186,14 +186,14 @@ on_realise (GtkWidget* canvas, gpointer user_data)
 		wf_actor_scroll_to (a, 0);
 	}
 	AGlBehaviour* scrollable = agl_actor__add_behaviour((AGlActor*)scene, scrollable_h());
-	agl_observable_subscribe((AGlObservable*)((HScrollableBehaviour*)scrollable)->scroll, on_scroll, NULL);
+	ayyi_observable_subscribe((AyyiObservable*)((HScrollableBehaviour*)scrollable)->scroll, on_scroll, NULL);
 
 	g_object_unref(waveform); // transfer ownership of the waveform to the Scene
 
 	agl_actor__set_size((AGlActor*)scene);
 
 	// scroll to end of 1st block
-	agl_observable_set_int((AGlObservable*)((HScrollableBehaviour*)scrollable)->scroll, 6200);
+	ayyi_observable_set_int((AyyiObservable*)((HScrollableBehaviour*)scrollable)->scroll, 6200);
 }
 
 

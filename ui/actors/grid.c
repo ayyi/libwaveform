@@ -96,7 +96,7 @@ grid_actor (WaveformActor* wf_actor)
 		AGlBehaviour* f = agl_actor__add_behaviour((AGlActor*)grid, follow());
 		((FollowBehaviour*)f)->to_follow = (AGlActor*)wf_actor;
 
-		void grid_on_scroll (AGlObservable* o, AGlVal value, gpointer grid)
+		void grid_on_scroll (AyyiObservable* o, AyyiVal value, gpointer grid)
 		{
 			AGlActor* actor = grid;
 
@@ -105,7 +105,7 @@ grid_actor (WaveformActor* wf_actor)
 			agl_actor__scroll_to (actor, (AGliPt){value.i, -1});
 			agl_actor__invalidate(actor);
 		}
-		agl_observable_subscribe((AGlObservable*)((HScrollableBehaviour*)scrollable)->scroll, grid_on_scroll, grid);
+		ayyi_observable_subscribe((AyyiObservable*)((HScrollableBehaviour*)scrollable)->scroll, grid_on_scroll, grid);
 	}
 
 	return (AGlActor*)grid;

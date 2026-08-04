@@ -94,14 +94,14 @@ preview_unref (WfPreview* o)
 		_g_source_remove0(o->idle_id);
 		o->size = 0;
 		call(o->clear_render_data, o);
-		agl_observable_free((AGlObservable*)o);
+		ayyi_observable_free((AyyiObservable*)o);
 	}
 }
 
 
 typedef struct {
-   AGlObservableFn fn;
-   gpointer        user;
+   AyyiObservableFn fn;
+   gpointer         user;
 } Subscription;
 
 
@@ -113,11 +113,11 @@ preview_set (WfPreview* preview, int value)
 {
 	// in worker thread
 
-	AGlObservable* o = (AGlObservable*)preview;
+	AyyiObservable* o = (AyyiObservable*)preview;
 
-	o->value = (AGlVal){ .s = {
+	o->value = (AyyiVal){ .s = {
 		.val = value,
-		.prev = ((AGlObservable*)preview)->value.s.prev
+		.prev = ((AyyiObservable*)preview)->value.s.prev
 	}};
 
 	if (!value) {
@@ -141,8 +141,8 @@ preview_set (WfPreview* preview, int value)
 		// in main thread
 
 		WfPreview* preview = _preview;
-		AGlObservable* o = (AGlObservable*)preview;
-		AGlVal val = o->value; // copy to ensure the value we are using does not get updated while running the function
+		AyyiObservable* o = (AyyiObservable*)preview;
+		AyyiVal val = o->value; // copy to ensure the value we are using does not get updated while running the function
 
 		for (GList* l = o->subscriptions; l; l=l->next) {
 			Subscription* subscription = l->data;

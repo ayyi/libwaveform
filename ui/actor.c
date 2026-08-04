@@ -674,13 +674,13 @@ wf_actor_on_preview (Waveform* waveform, WfPreview* preview, gpointer actor)
 		else
 			agl_actor__invalidate(a);
 
-		void wf_actor_on_preview_update (AGlObservable* o, AGlVal val, void* actor)
+		void wf_actor_on_preview_update (AyyiObservable* o, AyyiVal val, void* actor)
 		{
 			int previous = val.s.prev;
 			preview_renderer_update(&preview_renderer.renderer, (WaveformActor*)actor, previous, val.i);
 			agl_actor__invalidate(actor);
 		}
-		agl_observable_subscribe((AGlObservable*)preview, wf_actor_on_preview_update, actor);
+		ayyi_observable_subscribe((AyyiObservable*)preview, wf_actor_on_preview_update, actor);
 	}
 }
 
@@ -707,7 +707,7 @@ wf_actor_disconnect_waveform (WaveformActor* a)
 	_g_signal_handler_disconnect0(a->waveform, _a->handlers.peakdata_ready);
 	g_signal_handlers_disconnect_by_func(a->waveform, wf_actor_on_preview, a);
 	if (a->waveform->priv->preview)
-		agl_observable_unsubscribe((AGlObservable*)a->waveform->priv->preview, NULL, a);
+		ayyi_observable_unsubscribe((AyyiObservable*)a->waveform->priv->preview, NULL, a);
 
 	g_object_weak_unref((GObject*)a->waveform, wf_actor_waveform_finalize_notify, a);
 }

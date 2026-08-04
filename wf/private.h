@@ -102,14 +102,14 @@ typedef struct
 #define PREVIEW_SIZE 1024
 
 typedef struct WfPreview {
-	AGlObservable observable;
-	Waveform*     waveform;
-	WfPeak        data[WF_STEREO][PREVIEW_SIZE]; // array of 1024 approximate peak values for quick visualization
-	int           size;                          // actual used size of preview data
-	int           ref_count;
-	void*         render_data;
-	void          (*clear_render_data)(struct WfPreview*);
-	guint         idle_id;
+	AyyiObservable observable;
+	Waveform*      waveform;
+	WfPeak         data[WF_STEREO][PREVIEW_SIZE]; // array of 1024 approximate peak values for quick visualization
+	int            size;                          // actual used size of preview data
+	int            ref_count;
+	void*          render_data;
+	void           (*clear_render_data)(struct WfPreview*);
+	guint          idle_id;
 } WfPreview;
 
 struct _WaveformPrivate

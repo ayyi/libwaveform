@@ -17,15 +17,15 @@
 #include "observable.h"
 
 typedef struct {
-   AGlObservableFn fn;
-   gpointer        user;
+   AyyiObservableFn fn;
+   gpointer         user;
 } Subscription;
 
 
-AGlObservable*
-agl_observable_new ()
+AyyiObservable*
+ayyi_observable_new ()
 {
-	return AYYI_NEW(AGlObservable,
+	return AYYI_NEW(AyyiObservable,
 		.max.i = INT_MAX
 	);
 }
@@ -35,7 +35,7 @@ agl_observable_new ()
  *  This will not free string values. Freeing of string values needs to be done by the user.
  */
 void
-agl_observable_free (AGlObservable* observable)
+ayyi_observable_free (AyyiObservable* observable)
 {
 	g_list_free_full(observable->subscriptions, g_free);
 	g_free(observable);
@@ -46,10 +46,10 @@ agl_observable_free (AGlObservable* observable)
  *	Because of the possibility of uninitialized padding
  *	there is no way to check equality of 2 unions so
  *	it is not possible to check here if the value has changed.
- *  Use `agl_observable_set_int` or `agl_observable_set_float` where possible.
+ *  Use `ayyi_observable_set_int` or `ayyi_observable_set_float` where possible.
  */
 void
-agl_observable_set (AGlObservable* observable, AGlVal value)
+ayyi_observable_set (AyyiObservable* observable, AyyiVal value)
 {
 	observable->value = value;
 
@@ -61,7 +61,7 @@ agl_observable_set (AGlObservable* observable, AGlVal value)
 
 
 bool
-agl_observable_set_int (AGlObservable* observable, int value)
+ayyi_observable_set_int (AyyiObservable* observable, int value)
 {
 	value = CLAMP(value, observable->min.i, observable->max.i);
 
@@ -81,7 +81,7 @@ agl_observable_set_int (AGlObservable* observable, int value)
 
 
 void
-agl_observable_set_float (AGlObservable* observable, float value)
+ayyi_observable_set_float (AyyiObservable* observable, float value)
 {
 	if (value >= observable->min.f && value <= observable->max.f) {
 
@@ -96,8 +96,26 @@ agl_observable_set_float (AGlObservable* observable, float value)
 }
 
 
+/*
+ *  Takes ownership of arg `str`
+ */
 void
-agl_observable_subscribe (AGlObservable* observable, AGlObservableFn fn, gpointer user)
+ayyi_observable_set_string (AyyiObservable* observable, const char* str)
+{
+	bool changed = true;
+
+	if (observable->value.c) {
+		changed = (!str) || strcmp(str, observable->value.c);
+		g_free(changed ? observable->value.c : (char*)str);
+	}
+
+	if (changed)
+		ayyi_observable_set(observable, (AyyiVal){.c = (char*)str});
+}
+
+
+void
+ayyi_observable_subscribe (AyyiObservable* observable, AyyiObservableFn fn, gpointer user)
 {
 	observable->subscriptions = g_list_append(observable->subscriptions, AYYI_NEW(Subscription,
 		.fn = fn,
@@ -110,9 +128,9 @@ agl_observable_subscribe (AGlObservable* observable, AGlObservableFn fn, gpointe
  *  Calls back imediately with the current value
  */
 void
-agl_observable_subscribe_with_state (AGlObservable* observable, AGlObservableFn fn, gpointer user)
+ayyi_observable_subscribe_with_state (AyyiObservable* observable, AyyiObservableFn fn, gpointer user)
 {
-	agl_observable_subscribe(observable, fn, user);
+	ayyi_observable_subscribe(observable, fn, user);
 	fn(observable, observable->value, user);
 }
 
@@ -121,7 +139,7 @@ agl_observable_subscribe_with_state (AGlObservable* observable, AGlObservableFn 
  *  This can be used where you need `user_data` to be automatically freed when `object` is destroyed.
  */
 void
-agl_observable_add_closure (AGlObservable* observable, GObject* object, AGlObservableFn fn, gpointer user_data)
+ayyi_observable_add_closure (AyyiObservable* observable, GObject* object, AyyiObservableFn fn, gpointer user_data)
 {
 	g_object_watch_closure (object, ({
 		GClosure* closure = g_cclosure_new(G_CALLBACK(fn), user_data, (GClosureNotify)g_free);
@@ -135,7 +153,7 @@ agl_observable_add_closure (AGlObservable* observable, GObject* object, AGlObser
 		closure;
 	}));
 
-	agl_observable_subscribe_with_state(observable, fn, user_data);
+	ayyi_observable_subscribe_with_state(observable, fn, user_data);
 }
 
 
@@ -144,7 +162,7 @@ agl_observable_add_closure (AGlObservable* observable, GObject* object, AGlObser
  *  If both are set, both must match
  */
 void
-agl_observable_unsubscribe (AGlObservable* observable, AGlObservableFn fn, gpointer user)
+ayyi_observable_unsubscribe (AyyiObservable* observable, AyyiObservableFn fn, gpointer user)
 {
 	for (GList* l=observable->subscriptions;l;) {
 		Subscription* subscription = l->data;
@@ -158,48 +176,48 @@ agl_observable_unsubscribe (AGlObservable* observable, AGlObservableFn fn, gpoin
 }
 
 
-AGlObservable*
-agl_observable_map (AGlObservable* source, AGlObservableMapFn fn, gpointer user_data)
+AyyiObservable*
+ayyi_observable_map (AyyiObservable* source, AyyiObservableMapFn fn, gpointer user_data)
 {
 	typedef struct {
-		AGlObservable      observable;
-		AGlObservable*     source;
-		AGlObservableMapFn mapping;
-		gpointer           user_data;
-	} AGlObservableMap;
+		AyyiObservable      observable;
+		AyyiObservable*     source;
+		AyyiObservableMapFn mapping;
+		gpointer            user_data;
+	} AyyiObservableMap;
 
-	AGlObservable* mapped = (AGlObservable*)AYYI_NEW(AGlObservableMap,
+	AyyiObservable* mapped = (AyyiObservable*)AYYI_NEW(AyyiObservableMap,
 		.observable.max.i = INT_MAX,
 		.source = source,
 		.mapping = fn,
 		.user_data = user_data
 	);
 
-	void map_handler (AGlObservable* o, AGlVal value, gpointer user_data)
+	void map_handler (AyyiObservable* o, AyyiVal value, gpointer user_data)
 	{
-		AGlObservableMap* mapped = user_data;
+		AyyiObservableMap* mapped = user_data;
 
-		agl_observable_set((AGlObservable*)mapped, mapped->mapping((AGlObservable*)mapped, value, mapped->user_data));
+		ayyi_observable_set((AyyiObservable*)mapped, mapped->mapping((AyyiObservable*)mapped, value, mapped->user_data));
 	}
-	agl_observable_subscribe (source, map_handler, mapped);
+	ayyi_observable_subscribe (source, map_handler, mapped);
 
 	return mapped;
 }
 
 
-AGlObservable*
+AyyiObservable*
 ayyi_array_observable_new ()
 {
 	AyyiArrayObservable* observable = AYYI_NEW(AyyiArrayObservable,
 		.array = g_ptr_array_new()
 	);
 
-	return (AGlObservable*)observable;
+	return (AyyiObservable*)observable;
 }
 
 
 void
-ayyi_array_observable_add (AGlObservable* observable, gpointer item)
+ayyi_array_observable_add (AyyiObservable* observable, gpointer item)
 {
 	AyyiArrayObservable* array = (AyyiArrayObservable*)observable;
 
@@ -207,12 +225,12 @@ ayyi_array_observable_add (AGlObservable* observable, gpointer item)
 	array->change = AYYI_OBSERVABLE_ADD;
 	g_ptr_array_add(array->array, item);
 
-	agl_observable_set(observable, observable->value);
+	ayyi_observable_set(observable, observable->value);
 }
 
 
 void
-ayyi_array_observable_remove (AGlObservable* observable, gpointer item)
+ayyi_array_observable_remove (AyyiObservable* observable, gpointer item)
 {
 	AyyiArrayObservable* array = (AyyiArrayObservable*)observable;
 
@@ -220,5 +238,5 @@ ayyi_array_observable_remove (AGlObservable* observable, gpointer item)
 	array->change = AYYI_OBSERVABLE_REMOVE;
 	g_ptr_array_remove(array->array, item);
 
-	agl_observable_set(observable, observable->value);
+	ayyi_observable_set(observable, observable->value);
 }

@@ -200,21 +200,21 @@ waveform_view_plus_new (Waveform* waveform)
 		f;
 	}));
 
-	void view_plus_on_scroll (AGlObservable* o, AGlVal value, gpointer _view)
+	void view_plus_on_scroll (AyyiObservable* o, AyyiVal value, gpointer _view)
 	{
 		WaveformViewPlus* view = _view;
 
 		wf_actor_scroll_to (view->priv->actor, value.i);
 	}
 	AGlBehaviour* scrollable = agl_actor__add_behaviour((AGlActor*)v->actor, scrollable_h());
-	agl_observable_subscribe((AGlObservable*)((HScrollableBehaviour*)scrollable)->scroll, view_plus_on_scroll, view);
+	ayyi_observable_subscribe((AyyiObservable*)((HScrollableBehaviour*)scrollable)->scroll, view_plus_on_scroll, view);
 
 	typedef struct {
 		WaveformViewPlus* view;
 		float             prev;
 	} C;
 
-	void view_plus_on_zoom (AGlObservable* o, AGlVal zoom, gpointer _view)
+	void view_plus_on_zoom (AyyiObservable* o, AyyiVal zoom, gpointer _view)
 	{
 		C* c = _view;
 		WaveformViewPlus* view = c->view;
@@ -226,14 +226,14 @@ waveform_view_plus_new (Waveform* waveform)
 			int max_scrolloffset = wf_context_frame_to_x(v->context, view->waveform->n_frames - n_frames_in_viewport);
 
 			AGlBehaviour* scrollable = agl_actor__find_behaviour(actor, scrollable_h_get_class());
-			if (((AGlObservable*)((HScrollableBehaviour*)scrollable)->scroll)->value.i > max_scrolloffset) {
-				agl_observable_set_int ((AGlObservable*)((HScrollableBehaviour*)scrollable)->scroll, max_scrolloffset);
+			if (((AyyiObservable*)((HScrollableBehaviour*)scrollable)->scroll)->value.i > max_scrolloffset) {
+				ayyi_observable_set_int ((AyyiObservable*)((HScrollableBehaviour*)scrollable)->scroll, max_scrolloffset);
 			}
 		}
 		c->prev = v->context->zoom->value.f;
 	}
 
-	agl_observable_add_closure(v->context->zoom, G_OBJECT(view), view_plus_on_zoom, WF_NEW(C,
+	ayyi_observable_add_closure(v->context->zoom, G_OBJECT(view), view_plus_on_zoom, WF_NEW(C,
 		view,
 		v->context->zoom->value.f,
 	));
@@ -335,7 +335,7 @@ waveform_view_plus_load_file (WaveformViewPlus* view, const char* filename, WfCa
 	}
 
 	AGlBehaviour* scrollable = agl_actor__find_behaviour((AGlActor*)v->actor, scrollable_h_get_class());
-	agl_observable_set_int ((AGlObservable*)((HScrollableBehaviour*)scrollable)->scroll, 0);
+	ayyi_observable_set_int ((AyyiObservable*)((HScrollableBehaviour*)scrollable)->scroll, 0);
 
 	am_promise_add_callback(promise(PROMISE_DISP_READY), _waveform_view_plus__show_waveform, NULL);
 }
@@ -362,7 +362,7 @@ waveform_view_plus_set_waveform (WaveformViewPlus* view, Waveform* waveform)
 	view->zoom = 1.0;
 #endif
 	AGlBehaviour* scrollable = agl_actor__find_behaviour((AGlActor*)v->actor, scrollable_h_get_class());
-	agl_observable_set_int ((AGlObservable*)((HScrollableBehaviour*)scrollable)->scroll, 0);
+	ayyi_observable_set_int ((AyyiObservable*)((HScrollableBehaviour*)scrollable)->scroll, 0);
 
 	am_promise_add_callback(promise(PROMISE_DISP_READY), _waveform_view_plus__show_waveform, NULL);
 }
@@ -392,7 +392,7 @@ waveform_view_plus_set_zoom (WaveformViewPlus* view, float zoom)
 	int max_scrolloffset = wf_context_frame_to_x(v->context, view->waveform->n_frames - wf_context_x_to_frame(v->context, agl_actor__width(actor)));
 
 	AGlBehaviour* scrollable = agl_actor__find_behaviour(actor, scrollable_h_get_class());
-	agl_observable_set_int ((AGlObservable*)((HScrollableBehaviour*)scrollable)->scroll, MIN(((AGlObservable*)((HScrollableBehaviour*)scrollable)->scroll)->value.i * ratio, max_scrolloffset));
+	ayyi_observable_set_int ((AyyiObservable*)((HScrollableBehaviour*)scrollable)->scroll, MIN(((AyyiObservable*)((HScrollableBehaviour*)scrollable)->scroll)->value.i * ratio, max_scrolloffset));
 
 	actor->scrollable.x2 = actor->scrollable.x1 + agl_actor__width(actor) * zoom;
 

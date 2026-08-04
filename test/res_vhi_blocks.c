@@ -119,7 +119,7 @@ window_content (GtkWindow* window, GdkGLConfig* glconfig)
 		box->colour = 0xffff0022;
 	}
 
-	void on_zoom (AGlObservable* o, AGlVal zoom, gpointer _)
+	void on_zoom (AyyiObservable* o, AyyiVal zoom, gpointer _)
 	{
 		int n_frames = waveform_get_n_frames(waveform) / 512;
 
@@ -136,7 +136,7 @@ window_content (GtkWindow* window, GdkGLConfig* glconfig)
 			.len = 7. * (float)n_frames / zoom.f,
 		});
 	}
-	agl_observable_subscribe_with_state(wfc->zoom, on_zoom, NULL);
+	ayyi_observable_subscribe_with_state(wfc->zoom, on_zoom, NULL);
 
 	g_object_unref(waveform); // transfer ownership of the waveform to the Scene
 	g_object_unref(wfc);

@@ -125,12 +125,12 @@ wf_context_init (WaveformContext* wfc, AGlActor* root)
 	wfc->samples_per_pixel = wfc->sample_rate / 32.0; // 32 pixels for 1 second
 	wfc->bpm = 120.0;
 
-	wfc->zoom = agl_observable_new();
+	wfc->zoom = ayyi_observable_new();
 	wfc->zoom->value.f = 1.0;
 	wfc->zoom->min.f = WF_CONTEXT_MIN_ZOOM;
 	wfc->zoom->max.f = WF_CONTEXT_MAX_ZOOM;
 
-	wfc->start_time = AGL_NEW(AGlObservable,
+	wfc->start_time = AGL_NEW(AyyiObservable,
 		.max.b = LONG_MAX,
 	);
 
@@ -205,8 +205,8 @@ wf_context_finalize (GObject* obj)
 {
 	WaveformContext* wfc = WAVEFORM_CONTEXT (obj);
 
-	g_clear_pointer(&wfc->zoom, agl_observable_free);
-	g_clear_pointer(&wfc->start_time, agl_observable_free);
+	g_clear_pointer(&wfc->zoom, ayyi_observable_free);
+	g_clear_pointer(&wfc->start_time, ayyi_observable_free);
 
 	wf_free(wfc->priv);
 
@@ -305,7 +305,7 @@ wf_context_set_zoom_on_frame (WfAnimation* animation, int time)
 {
 	WaveformContext* wfc = animation->user_data;
 
-	agl_observable_set_float(wfc->zoom, wfc->zoom->value.f);
+	ayyi_observable_set_float(wfc->zoom, wfc->zoom->value.f);
 
 	// note that everything under the context root is invalidated.
 	// Any non-scalable items should be in a separate sub-graph
@@ -336,7 +336,7 @@ wf_context_set_zoom (WaveformContext* wfc, float zoom)
 	zoom = CLAMP(zoom, WF_CONTEXT_MIN_ZOOM, WF_CONTEXT_MAX_ZOOM);
 
 	if(!wfc->root->root->enable_animations){
-		agl_observable_set_float(wfc->zoom, zoom);
+		ayyi_observable_set_float(wfc->zoom, zoom);
 		agl_actor__invalidate(wfc->root);
 		return;
 	}
@@ -400,7 +400,7 @@ wf_context_set_start_on_frame (WfAnimation* animation, int time)
 {
 	WaveformContext* wfc = animation->user_data;
 
-	agl_observable_set_float(wfc->start_time, wfc->start_time->value.b);
+	ayyi_observable_set_float(wfc->start_time, wfc->start_time->value.b);
 
 	agl_actor__invalidate_down (wfc->root);
 }
