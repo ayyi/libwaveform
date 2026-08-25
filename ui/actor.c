@@ -38,11 +38,17 @@
 #define __wf_private__
 #define __wf_canvas_priv__
 
+#define SHOW_BLOCK_BORDERS
+#undef SHOW_BLOCK_BORDERS
+
 #include "config.h"
 #ifdef USE_GTK
 #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 #include <gtk/gtk.h>
 #pragma GCC diagnostic warning "-Wdeprecated-declarations"
+#endif
+#ifdef SHOW_BLOCK_BORDERS
+#include "agl/text.h"
 #endif
 #include "wf/debug.h"
 #include "wf/waveform.h"
@@ -2206,6 +2212,31 @@ wf_actor_paint (AGlActor* _actor)
 #endif
 		is_first = false;
 	}
+#ifdef SHOW_BLOCK_BORDERS
+	{
+		SET_PLAIN_COLOUR (agl->shaders.plain, 0x6699ff77);
+		agl_use_program(agl->shaders.plain);
+
+		double x0 = (r->viewport_blocks.first - r->region_start_block) * r->block_wid - r->first_offset_px;
+		double x = x0;
+		bool is_first = true;
+		int border = r->mode == MODE_HI ? TEX_BORDER_HI : TEX_BORDER;
+		TextureRange tex;
+		WfSampleRegionf block;
+		for (int b=r->viewport_blocks.first;b<=r->viewport_blocks.last;b++) {
+			if (wf_actor_get_quad_dimensions(actor, b, is_first, false, x, &tex, &block.start, &block.len, border, 1))
+				agl_box(1, x, 0, r->block_wid, agl_actor__height(_actor));
+			x += r->block_wid;
+		}
+		x = x0;
+		is_first = true;
+		for (int b=r->viewport_blocks.first;b<=r->viewport_blocks.last;b++) {
+			if (wf_actor_get_quad_dimensions(actor, b, is_first, false, x, &tex, &block.start, &block.len, border, 1))
+				agl_print(x + 2, 2, 0, 0xffffffaa, "%i", b);
+			x += r->block_wid;
+		}
+	}
+#endif
 
 	if(modes[r->mode].renderer->post_render) modes[r->mode].renderer->post_render(modes[r->mode].renderer, actor);
 

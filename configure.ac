@@ -21,7 +21,27 @@ AC_PROG_LIBTOOL
 
 PKG_PROG_PKG_CONFIG
 
-AX_SUBDIRS_CONFIGURE([[lib/agl/gtkglext-1.0],[lib/agl/lib/gtkglext3]], [[--enable-test=false]], [], [])
+dnl -----------------------------------------------------
+
+AC_ARG_ENABLE(submodules, AC_HELP_STRING([--disable-submodules], [no git submodules]), enable_submodules=$enableval, enable_submodules="yes")
+
+AM_CONDITIONAL(ENABLE_SUBMODULES, test "$enable_submodules" = "yes")
+
+if test "$enable_submodules" = "yes"; then
+	if test ! -e lib/agl/autogen.sh
+	then
+		git submodule update --init --recursive
+	fi
+	touch lib/agl/libagl.pc
+	automake
+else
+	mkdir -p lib/agl/
+	echo "all:" > lib/agl/Makefile.am
+
+	PKG_CHECK_MODULES(AGL, libagl, [have_agl=yes], [AC_MSG_ERROR([AGl is required but not found])])
+fi
+
+dnl -----------------------------------------------------
 
 AC_ARG_ENABLE([gtk-3],
 	[AS_HELP_STRING([--enable-gtk-3], [build against GTK+ 3 instead of GTK+ 2])],
@@ -38,7 +58,9 @@ if test "x$enable_gtk3" = "xyes"; then
 	GDK_PKG=gdk-3.0
 	gtkversion=3
 	GTKGLEXT_CFLAGS=""
-	GTKGLEXT_LIBS=""
+	if test "$enable_submodules" = "yes"; then
+		GTKGLEXT_LIBS=`PKG_CONFIG_PATH="$srcdir" "$PKG_CONFIG" --variable=gtk3libs libwaveform.local | sed 's|/lib/waveform/|/|g'`
+	fi
 	AC_DEFINE(USE_GTK3, 1, [Build against GTK+ 3])
 	AC_SUBST(GTKVERSION, [3])
 else
@@ -56,6 +78,13 @@ PKG_CHECK_EXISTS([$GTK_PKG], [], [AC_MSG_ERROR([Required GTK+ package $GTK_PKG n
 AC_SUBST(GTK_PKG)
 AC_SUBST(GTKGLEXT_CFLAGS)
 AC_SUBST(GTKGLEXT_LIBS)
+
+AS_IF([test "$gtkversion" = 2], [
+	AX_SUBDIRS_CONFIGURE([[lib/agl/gtkglext-1.0]], [[--enable-test=false]], [], [])
+])
+AS_IF([test "$gtkversion" = 3], [
+	AX_SUBDIRS_CONFIGURE([[lib/agl/lib/gtkglext3]], [[--enable-test=false]], [], [])
+])
 
 # At least level 2 optimisation is needed to allow GCC to
 # determine that not all nested functions require trampolines.
@@ -110,24 +139,6 @@ AC_SUBST(X11_LDFLAGS)
 
 GMODULE_LDFLAGS=`pkg-config gmodule-2.0 --libs`
 AC_SUBST(GMODULE_LDFLAGS)
-
-dnl -----------------------------------------------------
-
-AC_ARG_ENABLE(submodules, AC_HELP_STRING([--disable-submodules], [no git submodules]), enable_submodules=$enableval, enable_submodules="yes")
-
-AM_CONDITIONAL(ENABLE_SUBMODULES, test "$enable_submodules" = "yes")
-
-if test "$enable_submodules" = "yes"; then
-	if test ! -e lib/agl/autogen.sh
-	then
-		git submodule update --init --recursive
-	fi
-	touch lib/agl/libagl.pc
-	automake
-else
-	mkdir -p lib/agl/
-	echo "all:" > lib/agl/Makefile.am
-fi
 
 dnl -----------------------------------------------------
 
@@ -374,12 +385,16 @@ AC_SUBST(GDKPIXBUF_CFLAGS)
 
 dnl ------------------ test progs ------------------------
 
-AC_ARG_ENABLE(test, AS_HELP_STRING([--enable-test],[ compile the test programs]), enable_test=yes, enable_test=no)
-
-AM_CONDITIONAL(BUILD_TESTS, test "$enable_test" = "yes")
-if test "$enable_test" = "yes"; then
+AC_ARG_ENABLE(test, AS_HELP_STRING([--enable-test],[ compile the test programs]))
+if test "$enableval" = "yes"; then
 	AC_DEFINE(USE_TEST, 1, [Add additional code to support test applications])
+else
+	if test "$enableval" != "no"; then
+		AC_MSG_WARN([bad value "${enableval}" for --enable-test])
+	fi
+	enable_test=no
 fi
+AM_CONDITIONAL(BUILD_TESTS, test "$enableval" = "yes")
 
 dnl -----------------------------------------------------
 
@@ -444,12 +459,12 @@ AC_MSG_RESULT([])
 AC_MSG_RESULT([Libwaveform:])
 AC_MSG_RESULT([Building submodules:      $enable_submodules])
 AC_MSG_RESULT([Building opengl:          $enable_opengl])
-AC_MSG_RESULT([Building gtk:             $enable_gtk ($gtkversion)])
+AC_MSG_RESULT([Building gtk:             $enable_gtk (v$gtkversion)])
 AC_MSG_RESULT([Building sdl:             $enable_sdl])
 AC_MSG_RESULT([Building sndfile:         $enable_sndfile])
 AC_MSG_RESULT([Building ffmpeg:          $enable_ffmpeg])
 AC_MSG_RESULT([Building xrandr:          $have_xrandr])
-AC_MSG_RESULT([Building tests:           $enable_test])
+AC_MSG_RESULT([Building tests:           ${enable_test:-no}])
 AC_MSG_RESULT([Building profiler:        $enable_profiler])
 AC_MSG_RESULT([Use system GtkGL:         $enable_system_gtkglext])
 AC_MSG_RESULT([Use epoxy:                $enable_epoxy])

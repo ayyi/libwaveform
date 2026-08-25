@@ -13,6 +13,9 @@
  | The scaling is controlled by the sample_rate and samples_per_pixel   |
  | properties of the WaveformContext.                                   |
  |                                                                      |
+ | Scrolling is done by subscribing to the observable provide by the    |
+ | ScrollableBehaviour of the associated WaveformActor                  |
+ |                                                                      |
  +----------------------------------------------------------------------+
  |
  */

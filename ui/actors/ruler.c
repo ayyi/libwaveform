@@ -8,7 +8,7 @@
  | as published by the Free Software Foundation.                        |
  +----------------------------------------------------------------------+
  |                                                                      |
- | WaveformGrid draws timeline markers onto a shared opengl drawable.   |
+ | RulerActor                                                           |
  |                                                                      |
  +----------------------------------------------------------------------+
  |
