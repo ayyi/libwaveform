@@ -1,0 +1,17 @@
+waveformdir=${pc_top_builddir}/lib/waveform
+agldir=${pc_top_builddir}/lib/waveform/lib/agl
+gtkglext3dir=${agldir}/lib/gtkglext3
+
+ayyiutils=${pc_top_builddir}/lib/waveform/lib/ayyi-utils/.libs/libayyiutils.a
+ayyidebug=${pc_top_builddir}/lib/waveform/lib/debug/.libs/libayyidebug.a
+gtk2libs=${pc_top_builddir}/lib/waveform/lib/agl/gtkglext-1.0/.libs/libgtkglext.a
+gtk3libs=${gtkglext3dir}/gtk/.libs/libgtkglext-3.0.a ${gtkglext3dir}/gdk/.libs/libgdkglext-3.0.a ${gtkglext3dir}/gdk/x11/.libs/libgdkglext-x11.a -lGL
+gtk3cflags=-I${agldir}/lib/gtkglext3
+
+Name: Libwaveform
+Version: 0.1.1
+Description: Library for displaying audio waveforms
+URL: https://github.com/ayyi/libwaveform
+Requires: x11, gl
+Cflags: -I${waveformdir} -I${waveformdir}/lib -I${agldir}
+Libs: ${pc_top_builddir}/lib/waveform/.libs/libwaveformcore.a ${pc_top_builddir}/lib/waveform/.libs/libwaveformui.a ${pc_top_builddir}/lib/waveform/lib/agl/.libs/libagl.a

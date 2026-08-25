@@ -28,7 +28,7 @@ EXTRA_DIST = \
 shaderdir = $(datadir)/$(PACKAGE)/shaders
 
 pkgconfigdir = $(libdir)/pkgconfig
-pkgconfig_DATA = libwaveform.pc
+pkgconfig_DATA = libwaveform.pc libwaveform.local.pc
 
 .PHONY: dummy
 

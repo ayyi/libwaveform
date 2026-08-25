@@ -14,6 +14,13 @@ pkginclude_HEADERS = \
 	shader.h \
 	fbo.h \
 	texture_cache.h \
+	framesruler.h \
+	grid.h \
+	hover.h \
+	labels.h \
+	ruler.h \
+	spp.h \
+	text.h \
 	private.h \
 	ui-private.h
 
@@ -23,6 +30,7 @@ EXTRA_DIST = \
 	audio.h \
 	context.h \
 	fbo.h \
+	framesruler.h \
 	grid.h \
 	invalidator.h \
 	labels.h \

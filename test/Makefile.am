@@ -19,9 +19,7 @@ if ENABLE_GTK3
 LOCAL_GTKGLEXT_CFLAGS = \
 	-I$(top_srcdir)/lib/agl/lib/gtkglext3
 LOCAL_GTKGLEXT_LDFLAGS = \
-	$(top_srcdir)/lib/agl/lib/gtkglext3/gdk/x11/libgdkglext-x11.la \
-	$(top_srcdir)/lib/agl/lib/gtkglext3/gdk/libgdkglext-3.0.la \
-	$(top_srcdir)/lib/agl/lib/gtkglext3/gtk/libgtkglext-3.0.la
+	$(GTKGLEXT_LIBS)
 else
 LOCAL_GTKGLEXT_CFLAGS = \
 	-I$(top_srcdir)/lib/agl/gtkglext-1.0
@@ -302,3 +300,14 @@ CLEANFILES = \
 
 EXTRA_DIST = 
 
+valgrind:
+	export G_SLICE=always-malloc && \
+	export G_DEBUG=gc-friendly && \
+	/usr/bin/valgrind \
+		--leak-check=full \
+		--gen-suppressions=yes \
+		--num-callers=50 \
+		--suppressions=./suppressions/test.supp \
+		./waveform
+
+.PHONY: valgrind

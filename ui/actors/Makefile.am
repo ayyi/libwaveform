@@ -5,7 +5,7 @@ noinst_LTLIBRARIES = libactors.la
 
 libactors_la_SOURCES = \
 	ruler.c ruler.h \
-	frames_ruler.c frames_ruler.h \
+	framesruler.c framesruler.h \
 	grid.c grid.h \
 	labels.c labels.h \
 	spp.c spp.h \
@@ -43,7 +43,7 @@ pkginclude_HEADERS = \
 	grid.h \
 	labels.h \
 	ruler.h \
-	frames_ruler.h \
+	framesruler.h \
 	spp.h \
 	hover.h \
 	text.h

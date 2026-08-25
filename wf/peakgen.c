@@ -163,7 +163,10 @@ waveform_ensure_peakfile (Waveform* w, WfPeakfileCallback callback, gpointer use
 {
 	if (!wf_create_cache_dir()) return;
 
-	char* filename = g_path_is_absolute(w->filename) ? g_strdup(w->filename) : g_build_filename(g_get_current_dir(), w->filename, NULL);
+	char* filename = g_path_is_absolute(w->filename) ? g_strdup(w->filename) : ({
+		g_autofree char* cwd;
+		g_build_filename(cwd = g_get_current_dir(), w->filename, NULL);
+	});
 
 	gchar* peak_filename = waveform_get_peak_filename(filename);
 	if (!peak_filename) {
@@ -994,7 +997,10 @@ waveform_peakgen (Waveform* w, const char* peak_filename, WfCallback3 callback, 
 
 	wf_worker_push_job(&peakgen, w, peakgen_execute_job, peakgen_post, peakgen_free,
 		WF_NEW(PeakJob,
-			.infilename = g_path_is_absolute(w->filename) ? g_strdup(w->filename) : g_build_filename(g_get_current_dir(), w->filename, NULL),
+			.infilename = g_path_is_absolute(w->filename) ? g_strdup(w->filename) : ({
+				g_autofree char* cwd = NULL;
+				g_build_filename(cwd = g_get_current_dir(), w->filename, NULL);
+			}),
 			.peak_filename = peak_filename,
 			.weakpreview = preview,
 			.callback = callback,

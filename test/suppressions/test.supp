@@ -31,4 +31,18 @@
    ...
    fun:wf_ff_peakgen
 }
-
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   ...
+   fun:g_get_current_dir
+   fun:find_wav
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   ...
+   fun:pthread_create
+   ...
+   fun:wf_ff_peakgen
+}
