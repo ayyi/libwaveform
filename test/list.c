@@ -65,8 +65,8 @@ main (int argc, char* argv[])
 	wf_debug = 0;
 
 	int opt;
-	while((opt = getopt_long (argc, argv, short_options, long_options, NULL)) != -1) {
-		switch(opt) {
+	while ((opt = getopt_long (argc, argv, short_options, long_options, NULL)) != -1) {
+		switch (opt) {
 			case 'n':
 				g_timeout_add(3000, (gpointer)exit, NULL);
 				break;
@@ -94,7 +94,7 @@ main (int argc, char* argv[])
 	wfc = wf_context_new((AGlActor*)scene);
 	//wfc->enable_animations = false;
 
-	g_signal_connect((gpointer)canvas, "realize",       G_CALLBACK(on_canvas_realise), NULL);
+	g_signal_connect_after((gpointer)canvas, "realize",       G_CALLBACK(on_canvas_realise), NULL);
 	g_signal_connect((gpointer)canvas, "size-allocate", G_CALLBACK(on_allocate), NULL);
 #if GTK_MAJOR_VERSION < 3
 	g_signal_connect((gpointer)canvas, "expose-event",  G_CALLBACK(agl_actor__on_expose), scene);

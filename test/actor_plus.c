@@ -106,7 +106,7 @@ window_content (GtkWindow* window, GdkGLConfig* glconfig)
 	g_autofree char* filename = find_wav(WAV);
 	w1 = waveform_load_new_sync(filename);
 
-	g_signal_connect((gpointer)canvas, "realize",       G_CALLBACK(on_canvas_realise), NULL);
+	g_signal_connect_after((gpointer)canvas, "realize",       G_CALLBACK(on_canvas_realise), NULL);
 	g_signal_connect((gpointer)canvas, "size-allocate", G_CALLBACK(on_allocate), NULL);
 #if GTK_MAJOR_VERSION < 3
 	g_signal_connect((gpointer)canvas, "expose-event", G_CALLBACK(agl_actor__on_expose), scene);
@@ -124,7 +124,7 @@ main (int argc, char *argv[])
 	wf_debug = 0;
 
 	int opt;
-	while((opt = getopt_long (argc, argv, short_options, long_options, NULL)) != -1) {
+	while ((opt = getopt_long (argc, argv, short_options, long_options, NULL)) != -1) {
 		switch(opt) {
 			case 'n':
 				g_timeout_add(3000, (gpointer)exit, NULL);
@@ -202,7 +202,7 @@ on_canvas_realise (GtkWidget* _canvas, gpointer user_data)
 	on_allocate(canvas, &allocation, user_data);
 #endif
 
-	void _scene_needs_redraw(AGlScene* scene, gpointer _)
+	void _scene_needs_redraw (AGlScene* scene, gpointer _)
 	{
 		gdk_window_invalidate_rect(gtk_widget_get_window(canvas), NULL, false);
 	}

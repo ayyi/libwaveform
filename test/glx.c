@@ -2,7 +2,7 @@
  +----------------------------------------------------------------------+
  | This file is part of libwaveform                                     |
  | https://github.com/ayyi/libwaveform                                  |
- | copyright (C) 2012-2025 Tim Orford <tim@orford.org>                  |
+ | copyright (C) 2012-2026 Tim Orford <tim@orford.org>                  |
  +----------------------------------------------------------------------+
  | This program is free software; you can redistribute it and/or modify |
  | it under the terms of the GNU General Public License version 3       |
@@ -103,7 +103,7 @@ main (int argc, char* argv[])
 		}
 	}
 
-	AGlWindow* window = agl_window("waveformglxtest", 0, 0, width, height, 0);
+	AGlWindow* window = agl_window("Waveform glx test", -1, -1, width, height, 0);
 	XMapWindow(dpy, window->window);
 
 	AGlActor* bg = agl_actor__add_child((AGlActor*)window->scene, background_actor(NULL));

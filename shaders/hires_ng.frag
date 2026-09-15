@@ -1,7 +1,7 @@
 /*
  +----------------------------------------------------------------------+
  | This file is part of the Ayyi project. https://www.ayyi.org          |
- | copyright (C) 2014-2025 Tim Orford <tim@orford.org>                  |
+ | copyright (C) 2014-2026 Tim Orford <tim@orford.org>                  |
  +----------------------------------------------------------------------+
  | This program is free software; you can redistribute it and/or modify |
  | it under the terms of the GNU General Public License version 3       |
@@ -20,8 +20,9 @@ uniform float tex_height;
 uniform float tex_width;
 uniform int mm_level;
 
-varying vec2 position;
-varying vec2 tex_coords;
+in vec2 tex_coords;
+in vec2 position;
+out vec4 colour;
 
 const vec4 x_gain = vec4(1.0, 2.0, 4.0, 8.0);
 const vec4 mm2tx = vec4(0.00, 0.00, 0.50, 0.75);
@@ -39,27 +40,27 @@ void main (void)
 	vec2 t = vec2(mm2tx[mm_level], mm2ty[mm_level]);
 
 	float yc = y;
-	if(n_channels < 2){
+	if (n_channels < 2) {
 		yc = (y - mid) / v_gain + mid;
-	}else{
-		if(y < mid - 1.0){
+	} else {
+		if (y < mid - 1.0) {
 			// LHS
 			mid3 = mid / 2.0;
 			mid -= mid / 2.0;
 			yc = (y - mid3) / v_gain + mid3;
-		}else if(y > mid + 1.0){
+		} else if(y > mid + 1.0) {
 			// RHS
 			mid3 = mid / 2.0;
 			yc = (y - mid - mid3) / v_gain + mid3;
 			mid += mid / 2.0;
 			t.y += 4.0;
-		}else{
+		} else {
 			// leave 2 pixel gap between channels       -- TODO there is now a texture lookup error of up to 1 pixel causing cropping
 			discard;
 		}
 	}
 
-	float smooth = (abs(y - mid) > 2.0) ? 2.0 : 1.0;
+	float smooth_ = (abs(y - mid) > 2.0) ? 2.0 : 1.0;
 
 	/*
 	 *   y1 and y2 are used for comparison with the texture value.
@@ -69,28 +70,28 @@ void main (void)
 	 */
 	float y1, y2;
 
-	if(y < mid){
+	if (y < mid) {
 		// max
 
 		t.y = t.y / tex_height + tex_coords.y;
 
-		y1 = (mid3 - (yc + smooth)) / mid3;
-		y2 = (mid3 - (yc - smooth)) / mid3;
+		y1 = (mid3 - (yc + smooth_)) / mid3;
+		y2 = (mid3 - (yc - smooth_)) / mid3;
 
-	}else{
+	} else {
 		// min
 
 		t.y = (t.y + 2.0) / tex_height + tex_coords.y;
 
-		y1 = ((yc - smooth) - mid3) / mid3;
-		y2 = ((yc + smooth) - mid3) / mid3;
+		y1 = ((yc - smooth_) - mid3) / mid3;
+		y2 = ((yc + smooth_) - mid3) / mid3;
 	}
 
 	//(texture2D(tex2d, vec2(tx, t.y)).a > y1) ? 1.0 : 0.0;
 
 	t.x += tex_coords.x / x_gain[mm_level];
 
-	gl_FragColor = vec4(
+	colour = vec4(
 		fg_colour.rgb,
 		fg_colour.a * min(1.0,
 			smoothstep(y1, y2, texture2D(tex2d, vec2(t.x,                            t.y)).a) * 0.70 +
@@ -114,7 +115,7 @@ void main (void)
 	float weight = smoothstep(0.0, 0.5 * dx, distanceToCenter);
 	weight = clamp(weight, 0.0, 1.0);
 
-	gl_FragColor = vec4(fg_colour.rgb, fg_colour.a * mix(color1, color2, weight));
+	colour = vec4(fg_colour.rgb, fg_colour.a * mix(color1, color2, weight));
 	*/
 }
 

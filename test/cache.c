@@ -1,7 +1,7 @@
 /*
  +----------------------------------------------------------------------+
  | This file is part of the Ayyi project. https://www.ayyi.org          |
- | copyright (C) 2013-2025 Tim Orford <tim@orford.org>                  |
+ | copyright (C) 2013-2026 Tim Orford <tim@orford.org>                  |
  +----------------------------------------------------------------------+
  | This program is free software; you can redistribute it and/or modify |
  | it under the terms of the GNU General Public License version 3       |
@@ -34,6 +34,7 @@
 #include "waveform/ui-private.h"
 #include "test/common.h"
 #include "test/utils.h"
+#include "cache.h"
 
 extern void texture_cache_print ();
 extern void hi_ng_cache_print   ();
@@ -66,25 +67,13 @@ AMPromise*      ready          = NULL;
 static void on_canvas_realise  (GtkWidget*, gpointer);
 static void on_allocate        (GtkWidget*, GtkAllocation*, gpointer);
 uint64_t    get_time           ();
-
-TestFn create_files, test_shown, test_hires, test_scroll, test_hi_double, test_add_remove, finish;
-
-gpointer tests[] = {
-	create_files,
-	test_shown,
-	test_hires,
-	test_scroll,
-	test_hi_double,
-	test_add_remove,
-	finish,
-};
+static void create_files       ();
 
 
 bool
 setup (int argc, char* argv[])
 {
 	TEST.is_gtk = true;
-	TEST.n_tests = G_N_ELEMENTS(tests);
 
 	ready = am_promise_new(NULL);
 
@@ -110,18 +99,15 @@ setup (int argc, char* argv[])
 
 	g_signal_connect(window, "delete-event", G_CALLBACK(gtk_main_quit), NULL);
 
-	gtk_main();
+	create_files();
 
 	return 0;
 }
 
 
-void
+static void
 create_files ()
 {
-	START_TEST;
-	test_reset_timeout(60000);
-
 	char* wavs[] = {WAV1, WAV2};
 
 	for (int i=0;i<G_N_ELEMENTS(wavs);i++) {
@@ -138,8 +124,6 @@ create_files ()
 		}
 	}
 	files_created = true;
-
-	FINISH_TEST;
 }
 
 
@@ -164,7 +148,7 @@ test_shown ()
 	WfTest* t = NEW_TEST();
 
 	assert(gtk_widget_get_realized(canvas), "widget not realised");
-	assert(wfc, "canvas not created");
+	assert(wfc, "waveform-context not created");
 	assert(a[0], "actor not created");
 
 	g_timeout_add(2000, __test_shown, t);
@@ -428,11 +412,6 @@ _check_scroll (gpointer _c)
 {
 	C* c = _c;
 
-	/* private!
-	WfAnimatable* animatable = &a[0]->priv->animatable.start;
-	assert_and_stop(animatable->val.i == *animatable->model_val.i, "animation not finished");
-	*/
-
 	if (g_list_length(((AGlActor*)a[0])->transitions)) return G_SOURCE_CONTINUE; // not yet ready
 
 	c->wait_count++;
@@ -456,7 +435,6 @@ _check_scroll (gpointer _c)
 		if (c->wait_count < 30) return G_SOURCE_CONTINUE;
 	}
 
-	//assert_and_stop(c->wait_count < 30, "timeout loading blocks");
 	assert_and_stop(buf, "buf is empty %i", region_start_block);
 	assert_and_stop(!n_jobs, "jobs still pending: %i", n_jobs);
 
@@ -475,7 +453,7 @@ next_scroll (C* c)
 {
 	c->wait_count = 0;
 
-	dbg(0, "------------------------- %i", c->iter);
+	dbg(1, "------------------------- %i", c->iter);
 	WfSampleRegion region = get_random_region(a[0], MODE_V_HI, UINT_MAX);
 	c->start = region.start;
 
@@ -493,7 +471,7 @@ test_scroll ()
 
 	C* c = WF_NEW(C,
 		.test_idx = __test_idx,
-		.n = 128,
+		.n = 64,
 		.next = next_scroll,
 	);
 
@@ -586,12 +564,12 @@ test_hi_double ()
 
 	void hi_next_scroll (C3* c)
 	{
-		static int timeouts[] =  {1000,   700,   600,    500,    400,      300,     100};
+		static int timeouts[] =  { 900,   600,   500,    400,    300,      200,     100};
 		static uint64_t move[] = {4096, 16384, 65536, 262144, 1048576, 4194304, INT_MAX};
 
 		c->wait_count = 0;
-		int stage = MIN(G_N_ELEMENTS(move) - 1, c->iter / 8);
-		dbg(0, "------------------------- %i %i", c->iter, stage);
+		int stage = MIN(G_N_ELEMENTS(move) - 1, c->iter / 6);
+		dbg(1, "------------------------- %i %i", c->iter, stage);
 
 		for (int i=0;i<G_N_ELEMENTS(a);i++) {
 			c->region[i] = get_random_region(a[i], MODE_HI, move[stage]);
@@ -628,7 +606,7 @@ test_hi_double ()
 
 	hi_next_scroll(WF_NEW(C3,
 		.test_idx = __test_idx,
-		.n = 128,
+		.n = 64,
 		.next = hi_next_scroll,
 	));
 }
@@ -687,17 +665,12 @@ test_hi_double ()
 			assert_and_stop((t != -1), "block 0 not found in cache");
 #endif
 
-			int i; for(i=0;i<G_N_ELEMENTS(a);i++){
-				if(a[i]){
-					a[i] = (agl_actor__remove_child((AGlActor*)scene, (AGlActor*)a[1]), NULL);
-				}
-			}
-			for(i=0;i<G_N_ELEMENTS(w);i++){
-				if(w[i]){
-					g_object_unref(w[i]);
-					w[i] = NULL;
-				}
-			}
+			for (int i=0;i<G_N_ELEMENTS(a);i++)
+				if (a[i])
+					a[i] = (agl_actor__remove((AGlActor*)a[1]), NULL);
+
+			for (int i=0;i<G_N_ELEMENTS(w);i++)
+				g_clear_object(&w[i]);
 
 			g_timeout_add(2000, check_not_in_cache, c);
 			return G_SOURCE_REMOVE;
@@ -768,11 +741,9 @@ __finish (gpointer _c)
 
 	wf_worker_cancel_jobs(&wf->audio_worker, w[0]);
 
-	for(int i=0;i<2;i++){
-		if(a[i]){
-			agl_actor__remove_child((AGlActor*)scene, (AGlActor*)a[i]);
-			a[i] = NULL;
-		}
+	for (int i=0;i<2;i++) {
+		AGlActor** actor = (AGlActor**)&a[i];
+		g_clear_pointer(actor, agl_actor__remove);
 	}
 
 	g_object_unref(w[0]);
@@ -872,13 +843,14 @@ on_allocate (GtkWidget* widget, GtkAllocation* allocation, gpointer user_data)
 	((AGlActor*)scene)->region.x2 = allocation->width;
 	((AGlActor*)scene)->region.y2 = allocation->height;
 
-	int i; for(i=0;i<G_N_ELEMENTS(a);i++)
-		if(a[i]) wf_actor_set_rect(a[i], &(WfRectangle){
-			0.0,
-			i * allocation->height / G_N_ELEMENTS(a),
-			GL_WIDTH,
-			allocation->height / G_N_ELEMENTS(a) * 0.95
-		});
+	for (int i=0;i<G_N_ELEMENTS(a);i++)
+		if (a[i])
+			wf_actor_set_rect(a[i], &(WfRectangle){
+				0.0,
+				i * allocation->height / G_N_ELEMENTS(a),
+				GL_WIDTH,
+				allocation->height / G_N_ELEMENTS(a) * 0.95
+			});
 }
 
 

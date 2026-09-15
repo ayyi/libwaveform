@@ -1,19 +1,14 @@
 /*
-  copyright (C) 2012-2017 Tim Orford <tim@orford.org>
-
-  This program is free software; you can redistribute it and/or modify
-  it under the terms of the GNU General Public License version 3
-  as published by the Free Software Foundation.
-
-  This program is distributed in the hope that it will be useful,
-  but WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-  GNU General Public License for more details.
-
-  You should have received a copy of the GNU General Public License
-  along with this program; if not, write to the Free Software
-  Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
-*/
+ +----------------------------------------------------------------------+
+ | This file is part of the Ayyi project. https://www.ayyi.org          |
+ | copyright (C) 2012-2026 Tim Orford <tim@orford.org>                  |
+ +----------------------------------------------------------------------+
+ | This program is free software; you can redistribute it and/or modify |
+ | it under the terms of the GNU General Public License version 3       |
+ | as published by the Free Software Foundation.                        |
+ +----------------------------------------------------------------------+
+ |
+ */
 
 uniform float samples_per_pixel;
 uniform float beats_per_pixel;
@@ -56,12 +51,19 @@ void main(void)
 	//-if the projections are the same, gl_FragCoord will give same results as ecPosition ?
 	//if(fract((gl_FragCoord.x -0.5 ) / pixels_per_beat) > 0.05) c[3] = 0.0;
 
-	if(MCposition.y > 20.0){
-		int i; for(i=0;i<10;i++){
+	if (MCposition.y > 20.0) {
+		int i; for (i=0;i<10;i++) {
 			float locator_x = float(markers[i]) / samples_per_pixel - viewport_left;
 
-			if(MCposition.x > locator_x - 0.05 && MCposition.x < locator_x + 8.0){
-				gl_FragColor = marker_colours[i];
+			if (MCposition.x > locator_x - 0.05 && MCposition.x < locator_x + 8.0) {
+				float width = 28.0 - MCposition.y;
+				float edgeDistance = locator_x + width - MCposition.x;
+				float alpha = smoothstep(-1.0, 1.0, edgeDistance);
+				if (alpha > 0.0) {
+					vec4 colour = marker_colours[i];
+					colour.a *= alpha;
+					gl_FragColor = colour;
+				}
 				return;
 			}
 		}

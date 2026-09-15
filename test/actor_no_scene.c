@@ -37,6 +37,7 @@
 #include <gdk/gdkkeysyms-compat.h>
 #include "agl/gtk.h"
 #include "agl/text/renderer.h"
+#include "agl/text/roundedrect.h"
 #include "waveform/actor.h"
 #include "test/common.h"
 
@@ -112,7 +113,7 @@ window_content (GtkWindow* window, GdkGLConfig* glconfig)
 	scene = (AGlScene*)agl_new_scene_gtk(canvas);
 	((AGlActor*)scene)->init = init;
 
-	g_signal_connect((gpointer)canvas, "realize",       G_CALLBACK(on_canvas_realise), NULL);
+	g_signal_connect_after((gpointer)canvas, "realize", G_CALLBACK(on_canvas_realise), NULL);
 	g_signal_connect((gpointer)canvas, "size-allocate", G_CALLBACK(on_allocate), NULL);
 #if GTK_MAJOR_VERSION < 3
 	g_signal_connect((gpointer)canvas, "expose_event",  G_CALLBACK(on_expose), NULL);
@@ -176,7 +177,9 @@ draw (GtkWidget* widget)
 			if (actor->program) {
 				agl_use_program(actor->program);
 				builder()->offset.y = actor->region.y1;
+				ops_push_clip (builder(), &AGL_ROUNDED_RECT_INIT (0, 0, agl_actor__width(actor), agl_actor__height(actor))); // needed for text
 				actor->paint(actor);
+				ops_pop_clip (builder());
 			}
 		}
 

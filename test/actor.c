@@ -367,22 +367,20 @@ finalize_notify (gpointer data, GObject* was)
 static bool
 test_delete ()
 {
-	if(!a[0]) return false;
+	if (!a[0]) return false;
 
 	g_object_weak_ref((GObject*)w1, finalize_notify, NULL);
 
-	a[0] = (agl_actor__remove_child((AGlActor*)scene, (AGlActor*)a[0]), NULL);
+	g_clear_pointer(({ AGlActor** actor = (AGlActor**)&a[0]; actor; }), agl_actor__remove);
 
 	if (finalize_done) {
 		pwarn("waveform should not be free'd");
 		return false;
 	}
 
-	a[1] = (agl_actor__remove_child((AGlActor*)scene, (AGlActor*)a[1]), NULL);
-
-	a[2] = (agl_actor__remove_child((AGlActor*)scene, (AGlActor*)a[2]), NULL);
-
-	a[3] = (agl_actor__remove_child((AGlActor*)scene, (AGlActor*)a[3]), NULL);
+	a[1] = (agl_actor__remove((AGlActor*)a[1]), NULL);
+	a[2] = (agl_actor__remove((AGlActor*)a[2]), NULL);
+	a[3] = (agl_actor__remove((AGlActor*)a[3]), NULL);
 
 	if (!finalize_done) {
 		pwarn("waveform was not free'd");

@@ -371,9 +371,9 @@ test_delete ()
 	}
 
 	for (int i=0;i<G_N_ELEMENTS(a);i++)
-		a[i] = (agl_actor__remove_child((AGlActor*)scene, (AGlActor*)a[i]), NULL);
+		a[i] = (agl_actor__remove((AGlActor*)a[i]), NULL);
 	for (int i=0;i<G_N_ELEMENTS(split);i++)
-		split[i] = (agl_actor__remove_child((AGlActor*)scene, (AGlActor*)split[i]), NULL);
+		split[i] = (agl_actor__remove((AGlActor*)split[i]), NULL);
 
 	if (!finalize_done) {
 		pwarn("waveform was not free'd");

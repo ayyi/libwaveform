@@ -21,6 +21,10 @@
 #include "wf/utils.h"
 #include "runner.h"
 
+#ifdef USE_GTK
+extern void gtk_main (void);
+#endif
+
 extern gpointer tests[];
 
 extern int  setup    (int, char* argv[]) __attribute__((weak));
@@ -54,6 +58,10 @@ main (int argc, char* argv[])
 
 	if (!TEST.is_gtk)
 		g_main_loop_run (g_main_loop_new (NULL, 0));
+#ifdef USE_GTK
+	else
+		gtk_main();
+#endif
 
 	exit(1);
 }

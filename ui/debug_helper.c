@@ -1,7 +1,7 @@
 /*
  +----------------------------------------------------------------------+
  | This file is part of the Ayyi project. https://www.ayyi.org          |
- | copyright (C) 2012-2025 Tim Orford <tim@orford.org>                  |
+ | copyright (C) 2012-2026 Tim Orford <tim@orford.org>                  |
  +----------------------------------------------------------------------+
  | This program is free software; you can redistribute it and/or modify |
  | it under the terms of the GNU General Public License version 3       |
@@ -26,6 +26,7 @@ typedef struct
 {
     AGlBehaviour behaviour;
 	RenderResult previous_result;
+	int          n_draw_calls;
 } DebugHelper;
 
 typedef struct
@@ -33,10 +34,12 @@ typedef struct
     AGlBehaviourClass class;
 } DebugHelperClass;
 
+void debug_helper_init (AGlBehaviour*, AGlActor*);
 bool debug_helper_draw (AGlBehaviour*, AGlActor*, AGlActorPaint);
 
 static DebugHelperClass klass = {
 	.class = {
+		.init = debug_helper_init,
 		.draw = debug_helper_draw
 	}
 };
@@ -60,6 +63,34 @@ debug_helper ()
 }
 
 
+void
+debug_helper_init (AGlBehaviour* behaviour, AGlActor* actor)
+{
+	typedef struct {
+		AGlActor*     actor;
+		AGlBehaviour* behaviour;
+	} BehaviourClosure;
+
+	gboolean debug_helper_init_timeout (void* user_data)
+	{
+		BehaviourClosure* c = user_data;
+		extern void agl_actor__print_tree (AGlActor*);
+		extern bool agl_actor__is_onscreen (AGlActor*);
+		DebugHelper* dh = (DebugHelper*)c->behaviour;
+
+		if (!agl_actor__is_onscreen(c->actor)) pwarn("OFFSCREEN");
+
+		dbg(1, "after 2s: n_draw_calls=%i", dh->n_draw_calls);
+		if (!dh->n_draw_calls)
+			agl_actor__print_tree((AGlActor*)c->actor->root);
+
+		g_free(c);
+		return G_SOURCE_REMOVE;
+	}
+	g_timeout_add(2000, debug_helper_init_timeout, WF_NEW(BehaviourClosure, actor, behaviour));
+}
+
+
 bool
 debug_helper_draw (AGlBehaviour* behaviour, AGlActor* actor, AGlActorPaint wrapped)
 {
@@ -67,6 +98,8 @@ debug_helper_draw (AGlBehaviour* behaviour, AGlActor* actor, AGlActorPaint wrapp
 	WaveformContext* wfc = wf_actor->context;
 
 	bool result = wrapped (actor);
+
+	((DebugHelper*)behaviour)->n_draw_calls++;
 
 	if (wf_actor->render_result == ((DebugHelper*)behaviour)->previous_result) return result;
 

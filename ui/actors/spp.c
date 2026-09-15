@@ -73,7 +73,7 @@ spp_actor__set_state (AGlActor* actor)
 	if (!a->context) return;
 
 	if (spp->time != WF_SPP_TIME_NONE) {
-		((AGlUniformUnion*)&cursor.shader.uniforms[0])->value.i[0] = 0x00ff00ff;
+		(&cursor.shader.uniforms[0])->value.i[0] = 0x00ff00ff;
 		cursor.uniform.width = spp->play_timeout
 			? MAX(2.0, (WF_ACTOR_PX_PER_FRAME(a) / a->context->sample_rate) * (1 << 24) * 4)
 			: 2.0;

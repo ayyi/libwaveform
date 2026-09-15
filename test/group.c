@@ -13,194 +13,58 @@
  |
  */
 
-#define __wf_private__
-
 #include "config.h"
 #include <getopt.h>
-#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
-#include <gtk/gtk.h>
-#pragma GCC diagnostic warning "-Wdeprecated-declarations"
+#include "agl/x11.h"
+#include "agl/event.h"
 #include <gdk/gdkkeysyms-compat.h>
-#include "agl/gtk.h"
 #include "waveform/actor.h"
 #include "test/common2.h"
 
 #define WAV "mono_0:10.wav"
 
-#define GL_WIDTH 256.0
-#define GL_HEIGHT 256.0
+#define WIDTH 320.
+#define HEIGHT 256.
 #define VBORDER 8
 
-//float rotate[3] = {45.0, 45.0, 45.0};
 float rotate[3] = {30.0, 30.0, 30.0};
 float isometric_rotation[3] = {35.264f, 45.0f, 0.0f};
 
-GdkGLConfig*    glconfig       = NULL;
-static bool     gl_initialised = false;
-GtkWidget*      canvas         = NULL;
 WaveformContext* wfc           = NULL;
 AGlScene*       scene          = NULL;
-Waveform*       w1             = NULL;
-WaveformActor*  a[]            = {NULL, NULL, NULL, NULL};
+WaveformActor*  a[4];
 float           zoom           = 1.0;
 float           dz             = 20.0;
 gpointer        tests[]        = {};
 
+static AGlActorPaint wrapped = NULL;
+
 static AGlActor* rotator           (WaveformActor*);
-static void      on_canvas_realise (GtkWidget*, gpointer);
-static void      on_allocate       (GtkWidget*, GtkAllocation*, gpointer);
 static void      start_zoom        (float target_zoom);
 static void      forward           ();
 static void      backward          ();
 static void      toggle_animate    ();
-
-static const struct option long_options[] = {
-	{ "non-interactive",  0, NULL, 'n' },
-};
-
-static const char* const short_options = "n";
-
+static bool      _paint            (AGlActor*);
 
 int
-main (int argc, char *argv[])
+run (int argc, char *argv[])
 {
-	set_log_handlers();
+	AGlWindow* window = agl_window ("Group", -1, -1, WIDTH, HEIGHT, 0);
+	AGlActor* root = (AGlActor*)window->scene;
+	scene = window->scene;
+	scene->selected = root;
 
-	wf_debug = 0;
-
-	int opt;
-	while ((opt = getopt_long (argc, argv, short_options, long_options, NULL)) != -1) {
-		switch (opt) {
-			case 'n':
-				g_timeout_add(3000, (gpointer)exit, NULL);
-				break;
-		}
-	}
-
-	gtk_init(&argc, &argv);
-	if (!(glconfig = gdk_gl_config_new_by_mode(GDK_GL_MODE_RGBA | GDK_GL_MODE_DEPTH | GDK_GL_MODE_DOUBLE))) {
-		perr ("Cannot initialise gtkglext."); return EXIT_FAILURE;
-	}
-
-	GtkWidget* window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
-
-	canvas = gtk_drawing_area_new();
-#ifdef HAVE_GTK_2_18
-	gtk_widget_set_can_focus     (canvas, true);
-#endif
-	gtk_widget_set_size_request  (canvas, 320, 128);
-	gtk_widget_set_gl_capability (canvas, glconfig, NULL, 1, GDK_GL_RGBA_TYPE);
-	gtk_widget_add_events        (canvas, GDK_POINTER_MOTION_MASK | GDK_BUTTON_PRESS_MASK | GDK_BUTTON_RELEASE_MASK);
-	gtk_container_add((GtkContainer*)window, (GtkWidget*)canvas);
-
-	scene = (AGlScene*)agl_new_scene_gtk(canvas);
+	wfc = wf_context_new(root);
 
 	wfc = wf_context_new((AGlActor*)scene);
 
 	g_autofree char* filename = find_wav(WAV);
 	g_assert(filename);
-	w1 = waveform_load_new_sync(filename);
+	Waveform* wav = waveform_load_new_sync(filename);
 
-	agl_actor__add_child((AGlActor*)scene, rotator(NULL));
+	agl_actor__add_child(root, rotator(NULL));
 
-	g_signal_connect((gpointer)canvas, "realize",       G_CALLBACK(on_canvas_realise), NULL);
-	g_signal_connect((gpointer)canvas, "size-allocate", G_CALLBACK(on_allocate), NULL);
-#if GTK_MAJOR_VERSION < 3
-	g_signal_connect((gpointer)canvas, "expose-event",  G_CALLBACK(agl_actor__on_expose), scene);
-#else
-	g_signal_connect((gpointer)canvas, "draw",  G_CALLBACK(agl_actor__draw), scene);
-#endif
-
-	gtk_widget_show_all(window);
-
-	gboolean key_press (GtkWidget* widget, GdkEventKey* event, gpointer user_data)
-	{
-		switch (event->keyval) {
-			case 61:
-				start_zoom(zoom * 1.5);
-				break;
-			case 45:
-				start_zoom(zoom / 1.5);
-				break;
-			case GDK_Left:
-			case GDK_KP_Left:
-				dbg(0, "left");
-				break;
-			case GDK_Right:
-			case GDK_KP_Right:
-				dbg(0, "right");
-				break;
-			case GDK_Up:
-			case GDK_KP_Up:
-				dbg(0, "up");
-				forward();
-				break;
-			case GDK_Down:
-			case GDK_KP_Down:
-				dbg(0, "down");
-				backward();
-				break;
-			case (char)'a':
-				toggle_animate();
-				break;
-			case GDK_KP_Enter:
-				break;
-			case 113:
-				exit(EXIT_SUCCESS);
-				break;
-			case GDK_Delete:
-				break;
-			default:
-				dbg(0, "%i", event->keyval);
-				break;
-		}
-		return TRUE;
-	}
-
-	g_signal_connect(window, "key-press-event", G_CALLBACK(key_press), NULL);
-
-	gboolean window_on_delete (GtkWidget* widget, GdkEvent* event, gpointer user_data)
-	{
-		gtk_main_quit();
-		return false;
-	}
-	g_signal_connect(window, "delete-event", G_CALLBACK(window_on_delete), NULL);
-
-	gtk_main();
-
-	return EXIT_SUCCESS;
-}
-
-
-static AGlActorPaint wrapped = NULL;
-
-bool
-_paint (AGlActor* actor)
-{
-	WfAnimatable* z = wf_actor_get_z((WaveformActor*)actor);
-
-	glTranslatef(0, 0, *z->val.f);
-	wrapped(actor);
-	glTranslatef(0, 0, -*z->val.f);
-
-	return true;
-}
-
-
-static gboolean canvas_init_done = false;
-
-static void
-on_canvas_realise (GtkWidget* _canvas, gpointer user_data)
-{
-	PF;
-	if (canvas_init_done) return;
-	if (!gtk_widget_get_realized (canvas)) return;
-
-	gl_initialised = true;
-
-	canvas_init_done = true;
-
-	int n_frames = waveform_get_n_frames(w1);
+	int n_frames = waveform_get_n_frames(wav);
 
 	WfSampleRegion region[] = {
 		{0,            n_frames    },
@@ -216,42 +80,101 @@ on_canvas_realise (GtkWidget* _canvas, gpointer user_data)
 		{0x66ff66ff, 0x0000ffff}, // green
 	};
 
-	AGlActor* rotator = ((AGlActor*)scene)->children->data;
+	AGlActor* rotator = root->children->data;
 	for (int i=0;i<G_N_ELEMENTS(a);i++) {
-		agl_actor__add_child(rotator, (AGlActor*)(a[i] = wf_context_add_new_actor(wfc, w1)));
+		agl_actor__add_child(rotator, (AGlActor*)(a[i] = wf_context_add_new_actor(wfc, wav)));
 
 		wrapped = ((AGlActor*)a[i])->paint;
 		((AGlActor*)a[i])->paint = _paint;
 
-		((AGlActor*)a[i])->name = g_strdup_printf("Waveform %i", i);
+		wf_set_str(((AGlActor*)a[i])->name, g_strdup_printf("Waveform %i", i));
 
 		wf_actor_set_region (a[i], &region[i]);
 		wf_actor_set_colour (a[i], colours[i][0]);
 		wf_actor_set_z      (a[i], -i * dz, NULL, NULL);
 	}
 
-#if GTK_MAJOR_VERSION < 3
-	on_allocate(canvas, &canvas->allocation, user_data);
-#else
-	GtkAllocation allocation;
-	gtk_widget_get_allocation(canvas, &allocation);
-	on_allocate(canvas, &allocation, user_data);
-#endif
+	bool on_event (AGlActor* actor, GdkEvent* e, AGliPt xy)
+	{
+		switch (e->type) {
+			case GDK_KEY_PRESS:
+				;GdkEventKey* event = (GdkEventKey*)e;
+				switch (event->keyval) {
+					case 61:
+						start_zoom(zoom * 1.5);
+						break;
+					case 45:
+						start_zoom(zoom / 1.5);
+						break;
+					case GDK_Left:
+					case GDK_KP_Left:
+						dbg(0, "left");
+						break;
+					case GDK_Right:
+					case GDK_KP_Right:
+						dbg(0, "right");
+						break;
+					case GDK_Up:
+					case GDK_KP_Up:
+						dbg(0, "up");
+						forward();
+						break;
+					case GDK_Down:
+					case GDK_KP_Down:
+						dbg(0, "down");
+						backward();
+						break;
+					case (char)'a':
+						toggle_animate();
+						break;
+					case GDK_KP_Enter:
+						break;
+					case 113:
+						exit(EXIT_SUCCESS);
+						break;
+					case GDK_Delete:
+						break;
+					default:
+						dbg(0, "%i", event->keyval);
+						break;
+				}
+				return AGL_HANDLED;
+			default:
+				break;
+		}
+		return AGL_NOT_HANDLED;
+	}
+
+	root->on_event = on_event;
+
+	void set_size (AGlActor* scene)
+	{
+		AGlActor* rotator = scene->children->data;
+		rotator->region = rotator->parent->region;
+
+		start_zoom(zoom);
+	}
+	root->set_size = set_size;
+
+	g_main_loop_run (agl_main_loop_new());
+
+	agl_window_destroy (&window);
+	XCloseDisplay (dpy);
+
+	return EXIT_SUCCESS;
 }
 
 
-static void
-on_allocate (GtkWidget* widget, GtkAllocation* allocation, gpointer user_data)
+static bool
+_paint (AGlActor* actor)
 {
-	((AGlActor*)scene)->region.x2 = allocation->width;
-	((AGlActor*)scene)->region.y2 = allocation->height;
+	WfAnimatable* z = wf_actor_get_z((WaveformActor*)actor);
 
-	AGlActor* rotator = ((AGlActor*)scene)->children->data;
-	rotator->region = (AGlfRegion){0, 0, allocation->width, allocation->height};
+	glTranslatef(0, 0, *z->val.f);
+	wrapped(actor);
+	glTranslatef(0, 0, -*z->val.f);
 
-	if (!gl_initialised) return;
-
-	start_zoom(zoom);
+	return true;
 }
 
 
@@ -283,9 +206,9 @@ set_position (int i, int j)
 
 	if (a[i]) wf_actor_set_rect(a[i], &(WfRectangle) {
 		40.0,
-		((float)j) * GL_HEIGHT * Y_FACTOR / 4 + 10.0f,
-		GL_WIDTH * zoom,
-		GL_HEIGHT / 4 * 0.95
+		((float)j) * HEIGHT * Y_FACTOR / 4 + 10.0f,
+		WIDTH * zoom,
+		HEIGHT / 4 * 0.95
 	});
 }
 
@@ -421,4 +344,4 @@ toggle_animate ()
 	g_timeout_add(50, on_idle, NULL);
 }
 
-
+#include "test/x11.c"

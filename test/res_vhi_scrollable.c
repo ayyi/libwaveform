@@ -96,7 +96,7 @@ window_content (GtkWindow* window, GdkGLConfig* glconfig)
 	g_autofree char* filename = find_wav(WAV);
 	waveform = waveform_load_new_sync(filename);
 
-	g_signal_connect((gpointer)canvas, "realize",       G_CALLBACK(on_realise), NULL);
+	g_signal_connect_after((gpointer)canvas, "realize",       G_CALLBACK(on_realise), NULL);
 	g_signal_connect((gpointer)canvas, "size-allocate", G_CALLBACK(on_allocate), NULL);
 
 	gboolean key_press (GtkWidget* widget, GdkEventKey* event, gpointer user_data)
@@ -322,8 +322,8 @@ test_delete ()
 		return false;
 	}
 
-	a = (agl_actor__remove_child((AGlActor*)scene, (AGlActor*)a), NULL);
-	a2 = (agl_actor__remove_child((AGlActor*)scene, (AGlActor*)a2), NULL);
+	a = (agl_actor__remove((AGlActor*)a), NULL);
+	a2 = (agl_actor__remove((AGlActor*)a2), NULL);
 
 	if (!finalize_done) {
 		perr("waveform was not free'd");

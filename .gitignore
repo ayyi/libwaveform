@@ -53,6 +53,7 @@ test/actor_plus
 test/actor
 test/ass
 test/cache
+test/cache.h
 test/frame_rate
 test/glx
 test/group
@@ -70,6 +71,7 @@ test/resources
 test/res_vhi
 test/res_vhi_blocks
 test/res_vhi_scrollable
+test/shader
 test/scenegraph
 test/sdl
 test/view_plus

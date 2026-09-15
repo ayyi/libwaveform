@@ -34,7 +34,7 @@ endif
 endif
 
 if ENABLE_OPENGL
-noinst_PROGRAMS = waveform large-files promise 32bit unit-actor glx input preview $(GTKPROGRAMS) $(SDLPROGRAMS)
+noinst_PROGRAMS = waveform large-files promise 32bit unit-actor glx shader preview $(GTKPROGRAMS) $(SDLPROGRAMS)
 else
 noinst_PROGRAMS = waveform preview
 endif
@@ -49,6 +49,7 @@ AM_CFLAGS = \
 	-I$(top_srcdir) \
 	-I$(top_srcdir)/lib \
 	-I$(top_srcdir)/lib/agl \
+	-I$(top_srcdir)/lib/agl/lib \
 	$(LOCAL_GTKGLEXT_CFLAGS) \
 	$(OPENGL_CFLAGS) \
 	$(GTK_CFLAGS) \
@@ -174,10 +175,6 @@ glx_SOURCES = \
 	$(COMMON2_SOURCES) \
 	glx.c
 
-input_SOURCES = \
-	$(COMMON2_SOURCES) \
-	input.c
-
 large_files_LDADD = \
 	$(NONGUI_TEST_LDFLAGS)
 
@@ -213,7 +210,7 @@ AM_TESTS_FD_REDIRECT = 9>&2 --non-interactive
 AM_TESTS_ENVIRONMENT = \
 	export NON_INTERACTIVE=1;
 
-BUILT_SOURCES = waveform.h 32bit.h promise.h unit-actor.h large-files.h
+BUILT_SOURCES = waveform.h 32bit.h promise.h unit-actor.h large-files.h cache.h
 
 define build_header =
 	echo > $@
@@ -244,6 +241,9 @@ unit-actor.h: unit-actor.c Makefile
 	@$(build_header)
 
 large-files.h: large-files.c Makefile
+	@$(build_header)
+
+cache.h: cache.c Makefile
 	@$(build_header)
 
 # these tests will be run as part of make-check

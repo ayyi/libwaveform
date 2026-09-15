@@ -1,7 +1,7 @@
 /*
  +----------------------------------------------------------------------+
  | This file is part of the Ayyi project. https://www.ayyi.org          |
- | copyright (C) 2012-2025 Tim Orford <tim@orford.org>                  |
+ | copyright (C) 2012-2026 Tim Orford <tim@orford.org>                  |
  +----------------------------------------------------------------------+
  | This program is free software; you can redistribute it and/or modify |
  | it under the terms of the GNU General Public License version 3       |
@@ -524,7 +524,7 @@ waveform_view_plus_remove_layer (WaveformViewPlus* view, AGlActor* actor)
 {
 	g_return_if_fail(actor);
 
-	agl_actor__remove_child(ROOT(view), actor);
+	agl_actor__remove(actor);
 }
 
 
@@ -546,8 +546,6 @@ waveform_view_plus_realize (GtkWidget* widget)
 				: base_colour
 		);
 	}
-
-	am_promise_resolve(promise(PROMISE_DISP_READY), NULL);
 }
 
 
@@ -689,6 +687,26 @@ waveform_view_plus_init (WaveformViewPlus* self)
 	self->priv = waveform_view_plus_get_instance_private(self);
 	self->priv->context = NULL;
 	self->priv->actor = NULL;
+
+	typedef struct {
+		GlArea* area;
+		gulong hid;
+	} C;
+
+	void waveform_view_after_realize (GtkWidget* widget, void* user_data)
+	{
+		g_autofree C* c = user_data;
+		WaveformViewPlus* view = WAVEFORM_VIEW_PLUS(c->area);
+
+		am_promise_resolve(promise(PROMISE_DISP_READY), NULL);
+
+		g_signal_handler_disconnect(G_OBJECT(c->area), c->hid);
+		c->hid = 0;
+	}
+	C* c = WF_NEW(C,
+		.area = (GlArea*)self,
+	);
+	c->hid = g_signal_connect_after (self, "realize", G_CALLBACK(waveform_view_after_realize), c);
 }
 
 
@@ -700,19 +718,7 @@ waveform_view_plus_finalize (GObject* obj)
 
 	// these should really be done in dispose
 	if (v->actor) {
-#ifdef AGL_ACTOR_RENDER_CACHE
-		/*
-		 *  Temporary pending completion of moving caching to a separate behaviour
-		 */
-		g_clear_pointer(&((AGlActor*)v->actor)->fbo, agl_fbo_free);
-#endif
-
 		wf_actor_clear(v->actor);
-
-		AGlActor* parent = (AGlActor*)((AGlActor*)v->actor)->root;
-		if (parent) {
-			agl_actor__remove_child(parent, (AGlActor*)v->actor);
-		}
 		v->actor = NULL;
 	}
 

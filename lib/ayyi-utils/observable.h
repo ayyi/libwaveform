@@ -15,18 +15,7 @@
 
 #include <stdbool.h>
 #include <glib-object.h>
-
-typedef union
-{
-    int         i;
-    unsigned    u;
-    float       f;
-    double      d;
-    char*       c;
-    int64_t     b;
-    void*       p;
-    struct { int32_t val, prev; } s;
-} AyyiVal;
+#include "ayyi-utils/value.h"
 
 typedef struct {
    AyyiVal value;
@@ -48,7 +37,7 @@ void            ayyi_observable_subscribe   (AyyiObservable*, AyyiObservableFn, 
 void            ayyi_observable_subscribe_with_state
                                             (AyyiObservable*, AyyiObservableFn, gpointer);
 void            ayyi_observable_add_closure (AyyiObservable*, GObject*, AyyiObservableFn, gpointer);
-void            ayyi_observable_unsubscribe (AyyiObservable*, AyyiObservableFn, gpointer);
+int             ayyi_observable_unsubscribe (AyyiObservable*, AyyiObservableFn, gpointer);
 AyyiObservable* ayyi_observable_map         (AyyiObservable*, AyyiObservableMapFn, gpointer);
 
 /*

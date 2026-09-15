@@ -227,11 +227,9 @@ main (int argc, char* argv[])
         // verify preview data
         if (ctx->overview && ctx->overview->size > 0) {
             // Calculate some metrics
-            long long sum = 0;
             short max_val = 0;
             for (int i = 0; i < ctx->overview->size; i++) {
                 if (ctx->overview->data[0][i].positive > max_val) max_val = ctx->overview->data[0][i].positive;
-                sum += ctx->overview->data[0][i].positive;
             }
 
             printf("Overview data metrics:\n");

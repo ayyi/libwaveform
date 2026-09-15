@@ -9,7 +9,6 @@ AM_PROG_AR
 
 AC_PROG_CXX
 AC_PROG_CC_C99
-AC_C_CONST
 AC_C_INLINE
 AC_HEADER_STDBOOL
 AC_TYPE_SIZE_T
@@ -437,6 +436,7 @@ if test "$enable_submodules" = "yes"; then
 		lib/agl/agl/Makefile
 		lib/agl/agl/shaders/Makefile
 		lib/agl/agl/behaviours/Makefile
+		lib/agl/agl/rnodes/Makefile
 		lib/agl/agl/text/Makefile
 		lib/agl/actors/Makefile
 		lib/agl/debug/Makefile

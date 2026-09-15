@@ -328,9 +328,9 @@ test_delete ()
 		return false;
 	}
 
-	a1 = (agl_actor__remove_child(((AGlActor*)a1)->parent, (AGlActor*)a1), NULL);
-	a2 = (agl_actor__remove_child(((AGlActor*)a2)->parent, (AGlActor*)a2), NULL);
-	a2 = (agl_actor__remove_child(((AGlActor*)a3)->parent, (AGlActor*)a3), NULL);
+	a1 = (agl_actor__remove((AGlActor*)a1), NULL);
+	a2 = (agl_actor__remove((AGlActor*)a2), NULL);
+	a2 = (agl_actor__remove((AGlActor*)a3), NULL);
 
 	if (!finalize_done) {
 		pwarn("waveform was not free'd");

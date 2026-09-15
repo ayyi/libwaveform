@@ -1,7 +1,7 @@
 /*
  +----------------------------------------------------------------------+
  | This file is part of the Ayyi project. https://www.ayyi.org          |
- | copyright (C) 2012-2025 Tim Orford <tim@orford.org>                  |
+ | copyright (C) 2012-2026 Tim Orford <tim@orford.org>                  |
  +----------------------------------------------------------------------+
  | This program is free software; you can redistribute it and/or modify |
  | it under the terms of the GNU General Public License version 3       |
@@ -297,13 +297,15 @@ draw_wave_buffer_v_hi (Renderer* renderer, WaveformActor* actor, int block, bool
 		}
 
 #ifndef MULTILINE_SHADER
-		glBindVertexArray(vao);
+		agl_use_va(vao);
 
 		glBindBuffer(GL_ARRAY_BUFFER, hivbo);
 		glBufferData(GL_ARRAY_BUFFER, sizeof(quads), quads, GL_STATIC_DRAW);
 
 		glEnableVertexAttribArray(0);
-		glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 0, NULL);
+		glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(AGlVertex), NULL);
+		glEnableVertexAttribArray(1);
+		glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(AGlVertex), (void*)sizeof(AGlVertex));
 
 		glDrawArrays(GL_TRIANGLES, 0, i * AGL_V_PER_QUAD);
 #endif

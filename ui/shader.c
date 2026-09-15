@@ -1,7 +1,7 @@
 /*
  +----------------------------------------------------------------------+
  | This file is part of the Ayyi project. https://www.ayyi.org          |
- | copyright (C) 2012-2025 Tim Orford <tim@orford.org>                  |
+ | copyright (C) 2012-2026 Tim Orford <tim@orford.org>                  |
  +----------------------------------------------------------------------+
  | This program is free software; you can redistribute it and/or modify |
  | it under the terms of the GNU General Public License version 3       |
@@ -66,19 +66,22 @@ static AGlUniformInfo uniforms_hr[] = {
 HiResShader hires_shader = {{NULL, NULL, 0, uniforms_hr, _hires_set_uniforms, &hires_text}};
 #endif
 
-static AGlUniformInfo uniforms_hr_ng[] = {
-   {"tex2d",     1, GL_INT,         -1, { 0,  }}, // 0 corresponds to glActiveTexture(GL_TEXTURE0);
-   {"top",       1, GL_FLOAT,       -1, { 0., }},
-   {"bottom",    1, GL_FLOAT,       -1, { 0., }},
-   {"n_channels",1, GL_INT,         -1, { 1,  }},
-   {"tex_width", 1, GL_FLOAT,       -1, { 0., }},
-   {"tex_height",1, GL_FLOAT,       -1, { 0., }},
-   {"mm_level",  1, GL_INT,         -1, { 0,  }},
-   {"v_gain",    1, GL_FLOAT,       -1, { 1., }},
-   {"fg_colour", 4, GL_COLOR_ARRAY, -1,        },
-   END_OF_UNIFORMS
+AGlShader ng_shader = {
+	.uniforms = (AGlUniform[]){
+		{"tex2d",     1, GL_INT,         -1, { .i = {0, }}}, // 0 corresponds to glActiveTexture(GL_TEXTURE0);
+		{"top",       1, GL_FLOAT,       -1,              },
+		{"bottom",    1, GL_FLOAT,       -1,              },
+		{"n_channels",1, GL_INT,         -1, { .i = {1, }}},
+		{"tex_width", 1, GL_FLOAT,       -1,              },
+		{"tex_height",1, GL_FLOAT,       -1,              },
+		{"mm_level",  1, GL_INT,         -1,              },
+		{"v_gain",    1, GL_FLOAT,       -1, { .i = {1.,}}},
+		{"fg_colour", 4, GL_COLOR_ARRAY, -1,              },
+		END_OF_UNIFORMS
+	},
+	agl_set_uniforms,
+	&hires_ng_text
 };
-AGlShader ng_shader = {.uniforms = uniforms_hr_ng, agl_set_uniforms, &hires_ng_text};
 
 #if 0
 static AGlUniformInfo uniforms2[] = {
@@ -95,8 +98,7 @@ BloomShader vertical = {{NULL, NULL, 0, uniforms3, _vertical_set_uniforms, &vert
 #endif
 
 AssShader ass = {{
-   NULL, NULL, 0,
-   (AGlUniformInfo[]){
+   .uniforms = (AGlUniform[]){
       {"tex2d", 1, GL_INT, -1,},
       END_OF_UNIFORMS
    },
@@ -104,21 +106,24 @@ AssShader ass = {{
 }};
 
 
-static AGlUniformInfo uniforms5[] = {
-   {"fg_colour", 4, GL_FLOAT, -1, { 0., }},
-   END_OF_UNIFORMS
-};
-RulerShader ruler = {{.uniforms = uniforms5, _ruler_set_uniforms, &ruler_text}};
+RulerShader ruler = {{
+	.uniforms = (AGlUniform[]){
+		{"fg_colour", 4, GL_FLOAT, -1,},
+		END_OF_UNIFORMS
+	},
+	_ruler_set_uniforms,
+	&ruler_text
+}};
 
 
 RulerFramesShader frames_ruler = {{
-	.uniforms = (AGlUniformInfo[]){
-		{"fg_colour",         4, GL_FLOAT, -1, { 0., }},
-		{"samples_per_pixel", 1, GL_FLOAT, -1, { 0., }},
-		{"pixels_per_unit",   1, GL_FLOAT, -1, { 0., }},
-		{"n_subs",            1, GL_FLOAT, -1, { 0., }},
-		{"viewport_left",     1, GL_FLOAT, -1, { 0., }},
-		{"markers",          10, GL_INT,   -1, { 0,  }},
+	.uniforms = (AGlUniform[]){
+		{"fg_colour",         4, GL_FLOAT, -1,},
+		{"samples_per_pixel", 1, GL_FLOAT, -1,},
+		{"pixels_per_unit",   1, GL_FLOAT, -1,},
+		{"n_subs",            1, GL_FLOAT, -1,},
+		{"viewport_left",     1, GL_FLOAT, -1,},
+		{"markers",          10, GL_INT,   -1,},
 		END_OF_UNIFORMS
 	},
 	_ruler_frames_set_uniforms,
@@ -127,7 +132,7 @@ RulerFramesShader frames_ruler = {{
 
 
 CursorShader cursor = {{
-	.uniforms = (AGlUniformInfo[]){
+	.uniforms = (AGlUniform[]){
    		{"colour", 4, GL_COLOR_ARRAY, -1,},
 		END_OF_UNIFORMS
 	},
@@ -267,7 +272,7 @@ _ruler_set_uniforms (AGlShader* _shader)
 static void
 _ruler_frames_set_uniforms (AGlShader* _shader)
 {
-	AGlUniformInfo* uniforms = frames_ruler.shader.uniforms;
+	AGlUniform* uniforms = frames_ruler.shader.uniforms;
 
 	#define SET(N, NAME) \
 		static float NAME; \

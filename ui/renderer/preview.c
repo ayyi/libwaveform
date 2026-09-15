@@ -114,14 +114,14 @@ preview_pre_render (Renderer* renderer, WaveformActor* actor)
 	if (!(*data)) preview_make_data(renderer, actor);
 	Section* section = &(*data)->section[0];
 
-	AGlUniformUnion* u = (AGlUniformUnion*)shader->uniforms;
+	AGlUniform* u = shader->uniforms;
 	u[NG_U_FG_COLOUR].value.i[0] = (((AGlActor*)actor)->colour & 0xffffff00) + (unsigned)(0xff * _a->opacity);
 	u[NG_U_TOP].value.f[0] = 0;
 	u[NG_U_BOTTOM].value.f[0] = agl_actor__height((AGlActor*)actor);
-	shader->uniforms[NG_U_N_CHANNELS].value[0] = w->n_channels;
-	shader->uniforms[NG_U_TEX_WIDTH].value[0] = PREVIEW_SIZE;
-	shader->uniforms[NG_U_TEX_HEIGHT].value[0] = section->buffer_size / PREVIEW_SIZE;
-	shader->uniforms[NG_U_VGAIN].value[0] = actor->context->v_gain;
+	u[NG_U_N_CHANNELS].value.i[0] = w->n_channels;
+	u[NG_U_TEX_WIDTH].value.f[0] = PREVIEW_SIZE;
+	u[NG_U_TEX_HEIGHT].value.f[0] = section->buffer_size / PREVIEW_SIZE;
+	u[NG_U_VGAIN].value.f[0] = actor->context->v_gain;
 
 	int width = agl_actor__width((AGlActor*)actor);
 	u[NG_U_MM_LEVEL].value.i[0] = width > 320 ? 0 : width > 160 ? 1 : 2;

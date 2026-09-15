@@ -1,7 +1,7 @@
 /*
  +----------------------------------------------------------------------+
  | This file is part of the Ayyi project. https://www.ayyi.org          |
- | copyright (C) 2013-2025 Tim Orford <tim@orford.org>                  |
+ | copyright (C) 2013-2026 Tim Orford <tim@orford.org>                  |
  +----------------------------------------------------------------------+
  | This program is free software; you can redistribute it and/or modify |
  | it under the terms of the GNU General Public License version 3       |
@@ -9,6 +9,10 @@
  +----------------------------------------------------------------------+
  |                                                                      |
  | RulerActor                                                           |
+ |                                                                      |
+ | Attached to a WaveformContext                                        |
+ | By default it shows bars,beats,semiquavers and ticks at window top   |
+ | but this can be changed by swapping the shader.                      |
  |                                                                      |
  +----------------------------------------------------------------------+
  |

@@ -8,6 +8,7 @@ AM_CFLAGS = \
 lib_LTLIBRARIES = libayyiutils.la libpromise.la
 
 libayyiutils_la_SOURCES = \
+	value.h \
 	observable.c observable.h
 
 libpromise_la_SOURCES = \
@@ -15,6 +16,7 @@ libpromise_la_SOURCES = \
 
 pkgincludedir=$(includedir)/ayyi-utils
 pkginclude_HEADERS = \
+	value.h \
 	observable.h \
 	utils.h \
 	promise.h

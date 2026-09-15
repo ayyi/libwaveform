@@ -43,13 +43,15 @@
 
 #include "config.h"
 #ifdef USE_GTK
+#pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 #include <gtk/gtk.h>
-#pragma GCC diagnostic warning "-Wdeprecated-declarations"
+#pragma GCC diagnostic pop
 #endif
 #ifdef SHOW_BLOCK_BORDERS
 #include "agl/text.h"
 #endif
+#include "agl/behaviours/weak-ref.h"
 #include "wf/debug.h"
 #include "wf/waveform.h"
 #include "wf/audio.h"
@@ -109,6 +111,7 @@ typedef enum
 	Z,
 	OPACITY,
 	INVALIDATOR,
+	WEAKREF,
 	N_BEHAVIOURS
 } Behaviours;
 
@@ -117,6 +120,7 @@ typedef enum
 #define LEFT(A) (((TransitionBehaviour*)A->behaviours[RECT])->animatables[0])
 #define RIGHT(A) (((TransitionBehaviour*)A->behaviours[RECT])->animatables[1])
 #define OPACITY(A) (((TransitionBehaviour*)A->behaviours[OPACITY])->animatables[0])
+#define WEAK_REF(A) ((WeakRefBehaviour*)A->behaviours[WEAKREF])
 
 typedef void    (*WaveformActorTransitionFn) (WaveformActor*, WfAnimatable*);
 
@@ -615,6 +619,9 @@ wf_actor_new (Waveform* w, WaveformContext* wfc)
 		return true;
 	}
 	((Invalidator*)actor->behaviours[INVALIDATOR])->resolve[INVALIDATOR_DATA] = resolve_data;
+
+	actor->behaviours[WEAKREF] = weak_ref_behaviour();
+	WEAK_REF(actor)->ref->actor = actor;
 
 	_a->peakdata_ready = am_promise_new(a);
 
@@ -1989,8 +1996,8 @@ calc_render_info (WaveformActor* actor)
 
 	if(r->region_end_block > r->n_blocks -1){ pwarn("region too long? region_end_block=%i n_blocks=%i region.len=%"PRIi64, r->region_end_block, r->n_blocks, r->region.len); r->region_end_block = w->priv->n_blocks -1; }
 #ifdef DEBUG
-	dbg(2, "block range: region=%i-->%i viewport=%i-->%i", r->region_start_block, r->region_end_block, r->viewport_blocks.first, r->viewport_blocks.last);
-	dbg(2, "rect=%.2f %.2f viewport=%.2f-->%.2f", r->rect.left, r->rect.len, r->viewport.left, r->viewport.right);
+	dbg(2, "block range: region=%i..%i viewport=%i..%i", r->region_start_block, r->region_end_block, r->viewport_blocks.first, r->viewport_blocks.last);
+	dbg(2, "rect=%.2f (len=%.2f) viewport=%.2f..%.2f", r->rect.left, r->rect.len, r->viewport.left, r->viewport.right);
 #endif
 
 	if(r->viewport_blocks.last != r->region_end_block || r->viewport_blocks.first != r->region_start_block){

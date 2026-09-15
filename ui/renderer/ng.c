@@ -417,14 +417,14 @@ ng_pre_render (Renderer* renderer, WaveformActor* actor)
 	AGlShader* shader = renderer->shader;
 	if (!data || !shader) return false; // this can happen when we fall through from v hi res.
 
-	AGlUniformUnion* u = (AGlUniformUnion*)shader->uniforms;
+	AGlUniform* u = shader->uniforms;
 	agl_set_colour_uniform(&shader->uniforms[NG_U_FG_COLOUR], (((AGlActor*)actor)->colour & 0xffffff00) + (unsigned)(0xff * _a->opacity));
 	u[NG_U_TOP].value.f[0] = r->rect.top;
 	u[NG_U_BOTTOM].value.f[0] = r->rect.top + r->rect.height;
 	u[NG_U_N_CHANNELS].value.i[0] = waveform_get_n_channels(w);
-	shader->uniforms[NG_U_TEX_WIDTH].value[0] = renderer->texture_size;
-	shader->uniforms[NG_U_TEX_HEIGHT].value[0] = data->section[r->viewport_blocks.first / MAX_BLOCKS_PER_TEXTURE].buffer_size / renderer->texture_size;
-	shader->uniforms[NG_U_VGAIN].value[0] = actor->context->v_gain;
+	u[NG_U_TEX_WIDTH].value.f[0] = renderer->texture_size;
+	u[NG_U_TEX_HEIGHT].value.f[0] = data->section[r->viewport_blocks.first / MAX_BLOCKS_PER_TEXTURE].buffer_size / renderer->texture_size;
+	u[NG_U_VGAIN].value.f[0] = actor->context->v_gain;
 
 	// trade off here between performance and sharpness
 	// but the waveforms look much nicer using lower levels of detail.
@@ -456,7 +456,9 @@ ng_pre_render (Renderer* renderer, WaveformActor* actor)
 	glBindBuffer (GL_ARRAY_BUFFER, agl->vbo);
 
 	glEnableVertexAttribArray (0);
-	glVertexAttribPointer (0, 4, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)0);
+	glVertexAttribPointer (0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)0);
+	glEnableVertexAttribArray (1);
+	glVertexAttribPointer (1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)(2 * sizeof(float)));
 
 	return true;
 }
@@ -482,7 +484,7 @@ ng_gl2_render_block (Renderer* renderer, WaveformActor* actor, int b, bool is_fi
 
 	if (!_b && b != r->viewport_blocks.first) {
 		AGlShader* shader = renderer->shader;
-		shader->uniforms[NG_U_TEX_HEIGHT].value[0] = section->buffer_size / renderer->texture_size;
+		shader->uniforms[NG_U_TEX_HEIGHT].value.f[0] = section->buffer_size / renderer->texture_size;
 		shader->set_uniforms_((AGlShader*)shader);
 	}
 

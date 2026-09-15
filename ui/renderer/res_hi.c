@@ -1,7 +1,7 @@
 /*
  +----------------------------------------------------------------------+
  | This file is part of the Ayyi project. https://www.ayyi.org          |
- | copyright (C) 2012-2025 Tim Orford <tim@orford.org>                  |
+ | copyright (C) 2012-2026 Tim Orford <tim@orford.org>                  |
  +----------------------------------------------------------------------+
  | This program is free software; you can redistribute it and/or modify |
  | it under the terms of the GNU General Public License version 3       |
@@ -93,7 +93,7 @@ void
 hi_gl2_on_steal (WaveformBlock* wb, guint tex)
 {
 	HiResNGWaveform* data = (HiResNGWaveform*)wb->waveform->priv->render_data[MODE_HI];
-	if(data){
+	if (data) {
 		int _s = wb->block & (~WF_TEXTURE_CACHE_HIRES_NG_MASK);
 		int s = _s / MAX_BLOCKS_PER_TEXTURE;
 #ifdef DEBUG
@@ -101,7 +101,7 @@ hi_gl2_on_steal (WaveformBlock* wb, guint tex)
 		g_return_if_fail(s < data->size);
 #endif
 		Section* section = &data->section[s];
-		if(section){
+		if (section) {
 			g_return_if_fail(tex == section->texture);
 			section->texture = 0;
 			section->completed = false;
@@ -130,7 +130,7 @@ hi_gl2_cache_print ()
 			}
 			if(section->texture) n_textures++;
 		}
-		if(!n) dbg(0, "all sections EMPTY");
+		if (!n) dbg(0, "all sections EMPTY");
 	}
 
 	if (g_hash_table_size(hi_renderer_gl2.ng_data)) {
@@ -177,25 +177,44 @@ hi_free_gl1 (Renderer* renderer, Waveform* w, void** data)
 }
 
 
-	static void hi_request_block_done(Waveform* w, int b, gpointer _a)
+static void
+hi_request_block (WaveformActor* a, int b)
+{
+	typedef struct {
+		WaveformActor* actor;
+		AGlWeakRef*    weakref;
+	} C;
+
+	void hi_request_block_done (Waveform* w, int b, gpointer user_data)
 	{
-		WaveformActor* a = _a;
-		if(w == a->waveform){ // the actor may have a new waveform and there is currently no way to cancel old requests.
+		g_autofree C* c = user_data;
+
+		if (!c->weakref->actor) {
+			weak_ref_unref(c->weakref);
+			return;
+		}
+
+		WaveformActor* a = c->actor;
+		if (w == a->waveform) { // the actor may have a new waveform and requests are not cancellable.
 			modes[MODE_HI].renderer->load_block(modes[MODE_HI].renderer, a, b);
 
 			RenderInfo* r = &a->priv->render_info;
 			if (!r->valid) calc_render_info(a);
 			BlockRange blocks = a->priv->render_info.viewport_blocks;
 			if (!r->valid || (b >= blocks.first && b <= blocks.last)) {
-				if(((AGlActor*)a)->root && ((AGlActor*)a)->root->draw) wf_context_queue_redraw(a->context);
+				if (((AGlActor*)a)->root && ((AGlActor*)a)->root->draw) wf_context_queue_redraw(a->context);
 			}
 		}
 	}
 
-static void
-hi_request_block (WaveformActor* a, int b)
-{
-	waveform_load_audio(a->waveform, b, HI_MIN_TIERS, hi_request_block_done, a);
+	waveform_load_audio(a->waveform, b, HI_MIN_TIERS, hi_request_block_done, WF_NEW(C,
+		.actor = a,
+		.weakref = ({
+			AGlWeakRef* weakref = ((WeakRefBehaviour*)((AGlActor*)a)->behaviours[WEAKREF])->ref;
+			weakref->ref_count++;
+			weakref;
+		}),
+	));
 }
 
 
@@ -205,7 +224,7 @@ hi_gl1_load_block (Renderer* renderer, WaveformActor* a, int block)
 	// audio data for this block _must_ already be loaded
 
 	void
-	wf_actor_allocate_block_hi(WaveformActor* a, int b)
+	wf_actor_allocate_block_hi (WaveformActor* a, int b)
 	{
 		PF;
 		WfTextureHi* texture = g_hash_table_lookup(RENDER_DATA_HI(a->waveform->priv)->textures, &b);
@@ -226,10 +245,10 @@ hi_gl1_load_block (Renderer* renderer, WaveformActor* a, int block)
 	}
 
 	ModeRange mode = mode_range(a);
-	if(mode.lower == MODE_HI || mode.upper == MODE_HI){ // TODO presumably this check is no longer needed. test and remove.
+	if (mode.lower == MODE_HI || mode.upper == MODE_HI) { // TODO presumably this check is no longer needed. test and remove.
 
 		WfTextureHi* texture = g_hash_table_lookup(RENDER_DATA_HI(a->waveform->priv)->textures, &block);
-		if(!texture){
+		if (!texture) {
 			texture = waveform_texture_hi_new();
 			dbg(1, "b=%i: inserting...", block);
 			uint32_t* key = (uint32_t*)g_malloc(sizeof(uint32_t));
@@ -243,7 +262,7 @@ hi_gl1_load_block (Renderer* renderer, WaveformActor* a, int block)
 #endif
 
 		//TODO check this block is within current viewport
-		if(((AGlActor*)a)->root->draw) wf_context_queue_redraw(a->context);
+		if (((AGlActor*)a)->root->draw) wf_context_queue_redraw(a->context);
 	}
 }
 
@@ -258,7 +277,7 @@ make_texture_data_hi(Waveform* w, int ch, IntBufHi* buf, int blocknum)
 	Peakbuf* peakbuf = waveform_get_peakbuf_n(w, blocknum);
 	int o = TEX_BORDER_HI; for(;o<texture_size;o++){
 		int i = (o - TEX_BORDER_HI) * WF_PEAK_VALUES_PER_SAMPLE;
-		if(i >= peakbuf->size){
+		if (i >= peakbuf->size) {
 			dbg(2, "end of peak: %i b=%i n_sec=%.3f", peakbuf->size, blocknum, ((float)((texture_size * blocknum + o) * WF_PEAK_RATIO))/44100); break;
 		}
 
@@ -417,7 +436,7 @@ draw_wave_buffer_hi_gl1 (Renderer* renderer, WaveformActor* actor, int b, bool i
 			pwarn("end/ratio=%i size=%i - region.end should never exceed %i", ((int)region_end / io_ratio), peakbuf->size / WF_PEAK_VALUES_PER_SAMPLE, io_ratio * peakbuf->size / WF_PEAK_VALUES_PER_SAMPLE);
 		*/
 		g_return_if_fail(region_end / io_ratio <= peakbuf->size / WF_PEAK_VALUES_PER_SAMPLE);
-		while (p < region.len / io_ratio){
+		while (p < region.len / io_ratio) {
 										if(2 * p_ >= peakbuf->size) pwarn("s_=%i size=%i", p_, peakbuf->size);
 										g_return_if_fail(2 * p_ < peakbuf->size);
 			x = rect->left + (((double)p) / ((double)region.len)) * rect->len * io_ratio;
@@ -452,7 +471,7 @@ draw_wave_buffer_hi_gl1 (Renderer* renderer, WaveformActor* actor, int b, bool i
 	WfRectangle* rect = &r->rect;
 
 	Peakbuf* peakbuf = waveform_get_peakbuf_n(w, b);
-	if(!peakbuf) return false;
+	if (!peakbuf) return false;
 
 	dbg(2, "  b=%i x=%.2f", b, x);
 
@@ -464,18 +483,18 @@ draw_wave_buffer_hi_gl1 (Renderer* renderer, WaveformActor* actor, int b, bool i
 		r->block_wid,
 		rect->height / w->n_channels
 	};
-	if(is_first){
+	if (is_first) {
 		float first_fraction =((float)hr->block_region.len) / WF_SAMPLES_PER_TEXTURE;
 		block_rect.left += (WF_SAMPLES_PER_TEXTURE - WF_SAMPLES_PER_TEXTURE * first_fraction) * r->zoom;
 	}
 	//WfRectangle block_rect = {x + (region.start % WF_PEAK_BLOCK_SIZE) * r->zoom, rect.top + c * rect.height/2, r->block_wid, rect.height / w->n_channels};
 	dbg(2, "  HI: %i: rect=%.2f-->%.2f", b, block_rect.left, block_rect.left + block_rect.len);
 
-	if(is_last){
-		if(b < r->region_end_block){
+	if (is_last) {
+		if (b < r->region_end_block) {
 			// end is offscreen. last block is not smaller.
 			// reducing the block size here would be an optimisation rather than essential
-		}else{
+		} else {
 			// last block of region (not merely truncated by viewport).
 			//block_region.len = r->region.len - b * WF_PEAK_BLOCK_SIZE;
 			//block_region.len = (r->region.start - block_region.start + r->region.len) % WF_PEAK_BLOCK_SIZE;// - hr->block_region.start;
@@ -489,8 +508,8 @@ draw_wave_buffer_hi_gl1 (Renderer* renderer, WaveformActor* actor, int b, bool i
 	}
 	block_rect.len = hr->block_region.len * r->zoom; // always
 
-	int c; for(c=0;c<w->n_channels;c++){
-		if(peakbuf->buf[c]){
+	for (int c=0;c<w->n_channels;c++) {
+		if (peakbuf->buf[c]) {
 			//dbg(1, "peakbuf: %i:%i: %i", b, c, ((short*)peakbuf->buf[c])[0]);
 
 			block_rect.top = rect->top + c * rect->height/2;
@@ -534,14 +553,14 @@ wf_actor_get_quad_dimensions (WaveformActor* actor, int b, bool is_first, bool i
 	tex_start = ((float)border) / modes[r->mode].renderer->texture_size;
 	if (is_first) {
 		double _tex_pct = 1.0;
-		if(r->first_offset){
+		if (r->first_offset) {
 			_tex_pct = 1.0 - ((double)r->first_offset) / samples_per_texture;
 			tex_pct = tex_pct - (usable_pct) * ((double)r->first_offset) / samples_per_texture;
 		}
 
 #ifdef HIRES_NONSHADER_TEXTURES
-		if(r->first_offset >= samples_per_texture) return false;
-		if(r->first_offset) tex_pct = 1.0 - ((double)r->first_offset) / samples_per_texture;
+		if (r->first_offset >= samples_per_texture) return false;
+		if (r->first_offset) tex_pct = 1.0 - ((double)r->first_offset) / samples_per_texture;
 #endif
 
 		block_wid = (r->block_wid / multiplier) * _tex_pct;
@@ -618,7 +637,7 @@ hi_gl1_render_block (Renderer* renderer, WaveformActor* actor, int b, gboolean i
 
 									//int b_ = b | WF_TEXTURE_CACHE_HIRES_MASK;
 	WfTextureHi* texture = g_hash_table_lookup(actor->waveform->textures_hi->textures, &b);
-	if(!texture){
+	if (!texture) {
 		dbg(1, "texture not available. b=%i", b);
 		return false;
 	}
@@ -646,17 +665,17 @@ hi_gl1_render_block (Renderer* renderer, WaveformActor* actor, int b, gboolean i
 	TextureRange tex;
 #endif
 	WfSampleRegionf block;
-	if(!wf_actor_get_quad_dimensions(actor, b, is_first, is_last, x, &tex, &block.start, &block.len, TEX_BORDER_HI, HIRES_NONSHADER_TEXTURES_MULTIPLIER)) return false;
+	if (!wf_actor_get_quad_dimensions(actor, b, is_first, is_last, x, &tex, &block.start, &block.len, TEX_BORDER_HI, HIRES_NONSHADER_TEXTURES_MULTIPLIER)) return false;
 
 	glBegin(GL_QUADS);
 	//#if defined (USE_FBO) && defined (multipass)
 	//	if(false){
 	//	if(true){    //fbo not yet implemented for hi-res mode.
 	//#else
-		if(wfc->use_1d_textures){
+		if (wfc->use_1d_textures) {
 	//#endif
 			_draw_block_from_1d(tex_start, tex_pct, block.start, r->rect.top, block.len, r->rect.height, modes[MODE_HI].texture_size);
-		}else{
+		} else {
 			dbg(0, "x=%.2f wid=%.2f tex_pct=%.2f", block.start, block.len, tex_pct);
 
 			/*
@@ -665,7 +684,7 @@ hi_gl1_render_block (Renderer* renderer, WaveformActor* actor, int b, gboolean i
 			 *  (not possible to have saturation while blending over background)
 			 */
 			float texel_offset = 1.0 / ((float)texture_size);
-			int i; for(i=0;i<texels_per_px_i;i++){
+			for (int i=0;i<texels_per_px_i;i++) {
 				dbg(0, "texels_per_px=%.2f %i texel_offset=%.3f tex_start=%.4f", texels_per_px, texels_per_px_i, (texels_per_px / 2.0) / ((float)texture_size), tex_start);
 				glTexCoord2d(tex_start + 0.0,     0.0); glVertex2d(block.start + 0.0,       rect->top);
 				glTexCoord2d(tex_start + tex_pct, 0.0); glVertex2d(block.start + block.len, rect->top);
@@ -728,4 +747,3 @@ hi_renderer_new ()
 
 	return (Renderer*)hi_renderer;
 }
-

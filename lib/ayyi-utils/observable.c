@@ -161,9 +161,10 @@ ayyi_observable_add_closure (AyyiObservable* observable, GObject* object, AyyiOb
  *  Disconnect by either fn or user_data if they are set.
  *  If both are set, both must match
  */
-void
+int
 ayyi_observable_unsubscribe (AyyiObservable* observable, AyyiObservableFn fn, gpointer user)
 {
+	int n = 0;
 	for (GList* l=observable->subscriptions;l;) {
 		Subscription* subscription = l->data;
 		GList* link = l;
@@ -171,8 +172,10 @@ ayyi_observable_unsubscribe (AyyiObservable* observable, AyyiObservableFn fn, gp
 		if ((!fn || fn == (subscription->fn)) && (!user || (user == subscription->user))) {
 			g_free(subscription);
 			observable->subscriptions = g_list_delete_link(observable->subscriptions, link);
+			n++;
 		}
 	}
+	return n;
 }
 
 
