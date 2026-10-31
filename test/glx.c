@@ -56,6 +56,7 @@ Key keys[] = {
 
 static const struct option long_options[] = {
 	{ "non-interactive",  0, NULL, 'n' },
+	{}
 };
 
 static const char* const short_options = "n";
@@ -129,7 +130,7 @@ main (int argc, char* argv[])
 
 	wf_actor_set_region(layers.wa, &(WfSampleRegion){0, 441000});
 
-	add_key_handlers(keys);
+	add_key_handlers((AGlActor*)window->scene, keys);
 
 	GMainLoop* mainloop = agl_main_loop_new();
 	g_main_loop_run(mainloop);
@@ -171,5 +172,3 @@ zoom_out (gpointer user_data)
 	WaveformContext* wfc = layers.wa->context;
 	wf_context_set_zoom(wfc, (wfc->scaled ? wf_context_get_zoom(wfc) : 1.0) / 1.5);
 }
-
-

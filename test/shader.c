@@ -22,7 +22,6 @@
 #define __glx_test__
 #include "test/common2.h"
 
-extern AGl _agl;
 extern AGlShader ng_shader;
 
 static AGlRootActor* scene;
@@ -82,8 +81,8 @@ run (int argc, char *argv[])
 				x + w, y,      t.x1, t.y0
 			};
 
-			agl_use_va(_agl.vao);
-			glBindBuffer(GL_ARRAY_BUFFER, _agl.vbo);
+			agl_use_va(agl.vao);
+			glBindBuffer(GL_ARRAY_BUFFER, agl.vbo);
 			glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
 
 			glEnableVertexAttribArray(0);

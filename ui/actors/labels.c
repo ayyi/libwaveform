@@ -25,8 +25,6 @@ typedef struct {
     WaveformContext* context;
 } LabelsActor;
 
-static AGl* agl = NULL;
-
 static bool labels_actor_paint (AGlActor*);
 
 
@@ -46,8 +44,6 @@ AGlActor*
 labels_actor (WaveformContext* context)
 {
 	g_return_val_if_fail(context, NULL);
-
-	agl = agl_get_instance();
 
 	LabelsActor* labels = AGL_NEW(LabelsActor,
 		.actor = {

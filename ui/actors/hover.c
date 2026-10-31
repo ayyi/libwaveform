@@ -17,11 +17,10 @@
 #include "config.h"
 #include "debug/debug.h"
 #include "agl/text.h"
+#include "agl/event.h"
 #include "waveform/actor.h"
 #include "waveform/ui-utils.h"
 #include "waveform/hover.h"
-
-static AGl* agl;
 
 /*
  *  EventSpy attaches to a different actor in order to get its events
@@ -43,7 +42,7 @@ event_spy_free (AGlBehaviour* b)
 	// override the default free as there is nothing to free
 }
 
-static bool event_spy_event (AGlBehaviour*, AGlActor*, GdkEvent*);
+static bool event_spy_event (AGlBehaviour*, AGlActor*, AGlEvent*);
 
 static EventSpyClass event_spy_class = {
 	.class = {
@@ -61,16 +60,16 @@ typedef struct {
 } HoverActor;
 
 static bool
-event_spy_event (AGlBehaviour* behaviour, AGlActor* actor, GdkEvent* event)
+event_spy_event (AGlBehaviour* behaviour, AGlActor* actor, AGlEvent* event)
 {
 	EventSpy* spy = (EventSpy*)behaviour;
 
 	switch (event->type) {
-		case GDK_MOTION_NOTIFY:
+		case AGL_MOTION_NOTIFY:
 			spy->xy = (AGliPt){event->button.x, event->button.y};
 			agl_actor__invalidate((AGlActor*)actor->root);
 			break;
-		case GDK_LEAVE_NOTIFY:
+		case AGL_LEAVE_NOTIFY:
 			spy->xy = (AGliPt){-1, -1};
 			agl_actor__invalidate((AGlActor*)actor->root);
 		default:
@@ -112,8 +111,6 @@ AGlActor*
 hover_actor (WaveformActor* wf_actor)
 {
 	g_return_val_if_fail(wf_actor, NULL);
-
-	agl = agl_get_instance();
 
 	HoverActor* hover = agl_actor__new(HoverActor,
 		.actor = {

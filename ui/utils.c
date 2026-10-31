@@ -182,14 +182,12 @@ wf_load_texture_from_alphabuf (WaveformContext* wfc, int texture_name, AlphaBuf*
 	g_return_if_fail(alphabuf);
 	g_return_if_fail(texture_name);
 
-	AGl* agl = agl_get_instance();
-
 #ifdef USE_MIPMAPPING
 	guchar* generate_mipmap (AlphaBuf* a, int level)
 	{
 		int r = 1 << level;
 		int height = MAX(1, a->height / r);
-		int width = agl->have & AGL_HAVE_NPOT_TEXTURES ? MAX(1, a->width / r) : height;
+		int width = agl.have & AGL_HAVE_NPOT_TEXTURES ? MAX(1, a->width / r) : height;
 		guchar* buf = g_malloc(width * height);
 
 		for (int y=0;y<height;y++) {
@@ -206,7 +204,7 @@ wf_load_texture_from_alphabuf (WaveformContext* wfc, int texture_name, AlphaBuf*
 		//note: gluBuild2DMipmaps is deprecated. instead use GL_GENERATE_MIPMAP (requires GL 1.4)
 
 		glBindTexture(GL_TEXTURE_2D, texture_name);
-		int width = agl->have & AGL_HAVE_NPOT_TEXTURES ? alphabuf->width : alphabuf->height;
+		int width = agl.have & AGL_HAVE_NPOT_TEXTURES ? alphabuf->width : alphabuf->height;
 		dbg (2, "copying texture... width=%i texture_id=%u", width, texture_name);
 		glTexImage2D(GL_TEXTURE_2D, 0, GL_ALPHA8, width, alphabuf->height, 0, GL_ALPHA, GL_UNSIGNED_BYTE, alphabuf->buf);
 
@@ -214,7 +212,7 @@ wf_load_texture_from_alphabuf (WaveformContext* wfc, int texture_name, AlphaBuf*
 		{
 			for(int l=1;l<16;l++){
 				guchar* buf = generate_mipmap(alphabuf, l);
-				int width = (agl->have & AGL_HAVE_NPOT_TEXTURES ? alphabuf->width : alphabuf->height) / (1<<l);
+				int width = (agl.have & AGL_HAVE_NPOT_TEXTURES ? alphabuf->width : alphabuf->height) / (1<<l);
 				int width = alphabuf->height / (1<<l);
 				glTexImage2D(GL_TEXTURE_2D, l, GL_ALPHA8, width, alphabuf->height/(1<<l), 0, GL_ALPHA, GL_UNSIGNED_BYTE, buf);
 				wf_free(buf);

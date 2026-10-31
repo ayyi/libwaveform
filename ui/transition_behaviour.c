@@ -20,7 +20,7 @@
 
 #include "config.h"
 #include "transition/transition.h"
-#include "wf/debug.h"
+#include "debug/debug.h"
 #include "waveform/actor.h"
 #include "waveform/transition_behaviour.h"
 

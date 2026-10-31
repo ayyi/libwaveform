@@ -101,7 +101,7 @@ window_content (GtkWindow* window, GdkGLConfig* glconfig)
 
 	gboolean key_press (GtkWidget* widget, GdkEventKey* event, gpointer user_data)
 	{
-		return agl_actor__on_event (scene, (GdkEvent*)event);
+		return agl_actor__on_event (scene, (AGlEvent*)event);
 	}
 
 	g_signal_connect(window, "key-press-event", G_CALLBACK(key_press), NULL);

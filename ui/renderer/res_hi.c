@@ -148,8 +148,7 @@ hi_new_gl1 (WaveformActor* a)
 
 	g_return_if_fail(!_w->render_data[MODE_HI]);
 
-	agl = agl_get_instance();
-	if (!agl->use_shaders) {
+	if (!agl.use_shaders) {
 		_w->render_data[MODE_HI] = (WaveformModeRender*)g_new0(WfTexturesHi, 1);
 		RENDER_DATA_HI(_w)->textures = g_hash_table_new(g_int_hash, g_int_equal);
 	}

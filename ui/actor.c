@@ -65,8 +65,6 @@
 
 #define _g_signal_handler_disconnect0(A, H) (H = (g_signal_handler_disconnect((gpointer)A, H), 0))
 
-static AGl* agl = NULL;
-
 #ifdef USE_FBO
 #define multipass
 #endif
@@ -123,13 +121,6 @@ typedef enum
 #define WEAK_REF(A) ((WeakRefBehaviour*)A->behaviours[WEAKREF])
 
 typedef void    (*WaveformActorTransitionFn) (WaveformActor*, WfAnimatable*);
-
-typedef struct
-{
-    TransitionBehaviour       behaviours;
-    WfAnimatable              flex_space[2]; // alocate space for the flex array
-    WaveformActorTransitionFn on_start;
-} WfWaveformActorSizeTransitions;
 
 typedef enum {
 	INVALIDATOR_SIZE = 0,
@@ -310,8 +301,6 @@ wf_actor_get_class ()
 static void
 wf_actor_class_init ()
 {
-	agl = agl_get_instance();
-
 	modes[MODE_HI].make_texture_data = make_texture_data_hi;
 
 	modes[MODE_V_LOW].renderer = v_lo_renderer_init();
@@ -364,7 +353,7 @@ wf_actor_init (AGlActor* actor)
 
 	a->priv->render_info.valid = false;
 
-	a->context->use_1d_textures = agl->use_shaders;
+	a->context->use_1d_textures = agl.use_shaders;
 
 	wf_actor_on_use_shaders_change();
 
@@ -2221,8 +2210,8 @@ wf_actor_paint (AGlActor* _actor)
 	}
 #ifdef SHOW_BLOCK_BORDERS
 	{
-		SET_PLAIN_COLOUR (agl->shaders.plain, 0x6699ff77);
-		agl_use_program(agl->shaders.plain);
+		SET_PLAIN_COLOUR (agl.shaders.plain, 0x6699ff77);
+		agl_use_program(agl.shaders.plain);
 
 		double x0 = (r->viewport_blocks.first - r->region_start_block) * r->block_wid - r->first_offset_px;
 		double x = x0;
@@ -2588,19 +2577,19 @@ wf_actor_get_n_blocks (Waveform* waveform, Mode mode)
 static void
 wf_actor_on_use_shaders_change ()
 {
-	modes[MODE_HI].renderer = agl->use_shaders
+	modes[MODE_HI].renderer = agl.use_shaders
 		? (Renderer*)&hi_renderer_gl2
 		: (Renderer*)&hi_renderer_gl1;
 
-	modes[MODE_MED].renderer = agl->use_shaders
+	modes[MODE_MED].renderer = agl.use_shaders
 		? (Renderer*)&med_renderer_gl2
 		: &med_renderer_gl1;
 
-	modes[MODE_LOW].renderer = agl->use_shaders
+	modes[MODE_LOW].renderer = agl.use_shaders
 		? (Renderer*)&lo_renderer_gl2
 		: &lo_renderer_gl1;
 
-	modes[MODE_V_LOW].renderer = agl->use_shaders
+	modes[MODE_V_LOW].renderer = agl.use_shaders
 		? (Renderer*)&v_lo_renderer_gl2
 		: &v_lo_renderer_gl1;
 }

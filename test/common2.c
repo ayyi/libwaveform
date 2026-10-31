@@ -1,14 +1,15 @@
-/**
-* +----------------------------------------------------------------------+
-* | This file is part of libwaveform https://github.com/ayyi/libwaveform |
-* | copyright (C) 2013-2020 Tim Orford <tim@orford.org>                  |
-* +----------------------------------------------------------------------+
-* | This program is free software; you can redistribute it and/or modify |
-* | it under the terms of the GNU General Public License version 3       |
-* | as published by the Free Software Foundation.                        |
-* +----------------------------------------------------------------------+
-*
-*/
+/*
+ +----------------------------------------------------------------------+
+ | This file is part of libwaveform https://github.com/ayyi/libwaveform |
+ | copyright (C) 2013-2026 Tim Orford <tim@orford.org>                  |
+ +----------------------------------------------------------------------+
+ | This program is free software; you can redistribute it and/or modify |
+ | it under the terms of the GNU General Public License version 3       |
+ | as published by the Free Software Foundation.                        |
+ +----------------------------------------------------------------------+
+ |
+ */
+
 #define __common2_c__
 #define __wf_private__
 #include "config.h"
@@ -24,7 +25,7 @@
 #pragma GCC diagnostic warning "-Wdeprecated-declarations"
 #endif
 #include <glib-object.h>
-#include "agl/actor.h"
+#include "agl/behaviours/key.h"
 #include "waveform/utils.h"
 #ifdef USE_EPOXY
 # define __glx_test__
@@ -210,18 +211,11 @@ add_key_handlers_gtk (GtkWindow* window, gpointer user_data, Key keys[])
 
 
 void
-add_key_handlers (Key keys[])
+add_key_handlers (AGlActor* actor, Key keys[])
 {
-	if(!key_handlers){
-		key_handlers = g_hash_table_new(g_int_hash, g_int_equal);
+	AGlBehaviour* beh = agl_actor__add_behaviour(actor, key_behaviour());
+	((KeyBehaviour*)beh)->keys = (ActorKey (*)[])keys;
+	key_behaviour_init(beh, actor);
 
-		int i = 0; while(true) {
-			Key* key = &keys[i];
-			if(i > 100 || !key->key) break;
-			g_hash_table_insert(key_handlers, &key->key, key->handler);
-			i++;
-		}
-	}
+	actor->root->selected = actor;
 }
-
-

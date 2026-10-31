@@ -1,7 +1,7 @@
 /*
  +----------------------------------------------------------------------+
  | This file is part of the Ayyi project. https://www.ayyi.org          |
- | copyright (C) 2025-2025 Tim Orford <tim@orford.org>                  |
+ | copyright (C) 2025-2026 Tim Orford <tim@orford.org>                  |
  +----------------------------------------------------------------------+
  | This program is free software; you can redistribute it and/or modify |
  | it under the terms of the GNU General Public License version 3       |
@@ -20,8 +20,6 @@
 
 #include "test/common.h"
 #include "test/unit-actor.h"
-
-extern AGl _agl;
 
 #define WAV "mono_0:10.wav"
 
@@ -122,8 +120,7 @@ setup ()
 	med = (MockRenderer*)modes[MODE_MED].renderer;
 	hi = (MockRenderer*)modes[MODE_HI].renderer;
 
-	agl = &_agl;
-	_agl.use_shaders = true;
+	agl.use_shaders = true;
 	scene.gl.glx.draw_idle = 1; // prevent idle from running
 
 	g_autofree char* filename = find_wav(WAV);

@@ -453,7 +453,7 @@ ng_pre_render (Renderer* renderer, WaveformActor* actor)
 	shader->set_uniforms_(shader);
 
 	glActiveTexture (GL_TEXTURE0);
-	glBindBuffer (GL_ARRAY_BUFFER, agl->vbo);
+	glBindBuffer (GL_ARRAY_BUFFER, agl.vbo);
 
 	glEnableVertexAttribArray (0);
 	glVertexAttribPointer (0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)0);

@@ -134,7 +134,7 @@ main (int argc, char *argv[])
 	w1 = waveform_load_new_sync(filename);
 	g_free(filename);
 
-	agl_get_instance()->pref_use_shaders = USE_SHADERS;
+	agl.pref_use_shaders = USE_SHADERS;
 
 	wfc = wf_context_new((AGlActor*)scene1);
 
