@@ -32,8 +32,6 @@
 
 extern AGlBehaviour* init_hook_new (WaveformContext*);
 
-static AGl* agl = NULL;
-
 #define _g_source_remove0(S) {if(S) g_source_remove(S); S = 0;}
 
 #undef is_sdl
@@ -98,8 +96,6 @@ wf_context_class_init (WaveformContextClass* klass)
 
 	g_signal_new ("dimensions_changed", TYPE_WAVEFORM_CONTEXT, G_SIGNAL_RUN_LAST, 0, NULL, NULL, g_cclosure_marshal_VOID__VOID, G_TYPE_NONE, 0);
 	g_signal_new ("zoom_changed", TYPE_WAVEFORM_CONTEXT, G_SIGNAL_RUN_LAST, 0, NULL, NULL, g_cclosure_marshal_VOID__VOID, G_TYPE_NONE, 0);
-
-	agl = agl_get_instance();
 
 	// testing...
 	g_signal_new ("ready", TYPE_WAVEFORM_CONTEXT, G_SIGNAL_RUN_LAST, 0, NULL, NULL, g_cclosure_marshal_VOID__VOID, G_TYPE_NONE, 0);
@@ -210,11 +206,11 @@ wf_context_finalize (GObject* obj)
 
 	wf_free(wfc->priv);
 
+	G_OBJECT_CLASS (waveform_context_parent_class)->finalize (obj);
+
 #if defined (WF_USE_TEXTURE_CACHE) && defined (USE_OPENGL)
 	texture_cache_unref();
 #endif
-
-	G_OBJECT_CLASS (waveform_context_parent_class)->finalize (obj);
 }
 
 

@@ -41,7 +41,6 @@ static void text_actor_init     (AGlActor*);
 
 static AGlActorClass actor_class = {0, "Text", (AGlActorNew*)text_actor, text_actor_free};
 
-static AGl* agl = NULL;
 static int instance_count = 0;
 
 static void text_actor_render_text (TextActor*);
@@ -116,7 +115,6 @@ text_actor_init (AGlActor* a)
 	if (!ta->text_colour) ta->text_colour = wf_get_gtk_base_color(a->root->gl.gdk.widget, GTK_STATE_NORMAL, 0xaa);
 #endif
 
-	agl = agl_get_instance();
 	agl_set_font_string("Roboto 10"); // initialise the pango context
 
 	ass.uniform.colour1 = ((TextActor*)a)->title_colour1;

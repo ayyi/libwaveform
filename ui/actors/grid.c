@@ -34,7 +34,6 @@ typedef struct {
     WaveformContext* context;
 } GridActor;
 
-static AGl* agl;
 static unsigned int vbo;
 
 static bool grid_actor_paint (AGlActor*);
@@ -64,9 +63,7 @@ grid_actor_set_state (AGlActor* actor)
 {
 	agl_enable(AGL_ENABLE_BLEND);
 
-	if (agl->use_shaders) {
-		SET_PLAIN_COLOUR(agl->shaders.dotted, 0x55bb5566);
-	}
+	SET_PLAIN_COLOUR(agl.shaders.dotted, 0x55bb5566);
 }
 
 
@@ -75,14 +72,12 @@ grid_actor (WaveformActor* wf_actor)
 {
 	g_return_val_if_fail(wf_actor, NULL);
 
-	agl = agl_get_instance();
-
 	GridActor* grid = agl_actor__new(GridActor,
 		.actor = {
 			.class = &actor_class,
 			.colour = 0xffffffff,
 			.init = grid_actor_init,
-			.program = (AGlShader*)agl->shaders.dotted,
+			.program = (AGlShader*)agl.shaders.dotted,
 			.set_state = grid_actor_set_state,
 			.paint = grid_actor_paint,
 			.set_size = grid_actor_size,
@@ -146,7 +141,7 @@ grid_actor_paint (AGlActor* actor)
 	};
 
 	int64_t f = ((int64_t)((region.start - 1)/ interval) + 1) * interval;
-	if (agl->use_shaders) {
+	if (agl.use_shaders) {
 		int n = MIN(0x5f, (region.end - f) / interval + 1);
 		if (n > 0) {
 			AGlQuadVertex vertices[n];
@@ -178,8 +173,8 @@ grid_actor_paint (AGlActor* actor)
 			glDrawArrays(GL_TRIANGLES, 0, n * AGL_V_PER_QUAD);
 
 			if (interval_minor) {
-				SET_PLAIN_COLOUR(agl->shaders.dotted, 0x55bb555b);
-				agl_set_uniforms(agl->shaders.dotted);
+				SET_PLAIN_COLOUR(agl.shaders.dotted, 0x55bb555b);
+				agl_set_uniforms(agl.shaders.dotted);
 				glBufferData (GL_ARRAY_BUFFER, sizeof(AGlQuadVertex) * n2, vertices_minor, GL_STATIC_DRAW);
 				glDrawArrays(GL_TRIANGLES, 0, n2 * AGL_V_PER_QUAD);
 			}

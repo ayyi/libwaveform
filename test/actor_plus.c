@@ -39,7 +39,6 @@ extern AGlShaderText ruler_bottom_text;
 #define VBORDER 8
 #define ruler_height 20.0
 
-AGl*             agl      = NULL;
 GtkWidget*       canvas   = NULL;
 AGlRootActor*    scene    = NULL;
 AGlActor*        group    = NULL;
@@ -97,8 +96,6 @@ window_content (GtkWindow* window, GdkGLConfig* glconfig)
 	gtk_widget_add_events        (canvas, GDK_POINTER_MOTION_MASK | GDK_BUTTON_PRESS_MASK | GDK_BUTTON_RELEASE_MASK);
 
 	gtk_container_add((GtkContainer*)window, (GtkWidget*)canvas);
-
-	agl = agl_get_instance();
 
 	scene = (AGlScene*)agl_new_scene_gtk(canvas);
 	//scene->enable_animations = false;
@@ -290,7 +287,7 @@ void
 toggle_shaders (gpointer _)
 {
 	PF0;
-	agl_actor__set_use_shaders(scene, !agl->use_shaders);
+	agl_actor__set_use_shaders(scene, !agl.use_shaders);
 }
 
 

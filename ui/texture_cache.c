@@ -280,6 +280,7 @@ static void
 texture_cache_unassign (TextureCache* c, WaveformBlock wb)
 {
 	g_return_if_fail(wb.waveform);
+	g_return_if_fail(c);
 
 	dbg(2, "block=%i", wb.block);
 	int i = 0;

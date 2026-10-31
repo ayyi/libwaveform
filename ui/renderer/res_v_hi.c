@@ -50,19 +50,17 @@ v_hi_renderer_new (WaveformActor* actor)
 
 	g_return_if_fail(!w->render_data[MODE_V_HI]);
 
-	agl = agl_get_instance();
-
 	w->render_data[MODE_V_HI] = WF_NEW(WaveformModeRender,
 		.n_blocks = w->n_blocks
 	);
 
 #if defined (MULTILINE_SHADER)
-	if(agl->use_shaders){
+	if (agl.use_shaders) {
 		agl_create_program(&lines.shader);
 		modes[MODE_V_HI].renderer->shader = &lines.shader;
 	}
 #else
-	if(!agl->aaline) agl->aaline = agl_aa_line_new();
+	if (!agl.aaline) agl.aaline = agl_aa_line_new();
 
 	modes[MODE_V_HI].renderer->shader = aaline_class.shader;
 #endif
@@ -107,11 +105,10 @@ _v_hi_set_gl_state (WaveformActor* actor)
 		lines.uniform.n_channels = actor->waveform->n_channels;
 	}
 #else
-	AGl* agl = agl_get_instance();
 
 	if (wfc->use_1d_textures) {
-		agl->shaders.alphamap->uniform.fg_colour = ((AGlActor*)actor)->colour;
-		agl_use_material(agl->aaline);
+		ALPHAMAP_COLOUR() = ((AGlActor*)actor)->colour;
+		agl_use_material(agl.aaline);
 	} else {
 		agl_enable(AGL_ENABLE_BLEND);
 	}
@@ -293,7 +290,7 @@ draw_wave_buffer_v_hi (Renderer* renderer, WaveformActor* actor, int block, bool
 		dbg(2, "%i: n_lines=%i x=%i-->%i", block, i, xr.inner.l, x);
 
 		if (w->n_channels == 2) {
-			agl_translate ((AGlShader*)agl->shaders.alphamap, 0., - rect->height/4. + c * rect->height/2.);
+			agl_translate ((AGlShader*)agl.shaders.alphamap, 0., - rect->height/4. + c * rect->height/2.);
 		}
 
 #ifndef MULTILINE_SHADER
