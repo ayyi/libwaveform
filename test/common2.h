@@ -1,15 +1,14 @@
-
-/**
-* +----------------------------------------------------------------------+
-* | This file is part of the Ayyi project. http://ayyi.org               |
-* | copyright (C) 2013-2020 Tim Orford <tim@orford.org>                  |
-* +----------------------------------------------------------------------+
-* | This program is free software; you can redistribute it and/or modify |
-* | it under the terms of the GNU General Public License version 3       |
-* | as published by the Free Software Foundation.                        |
-* +----------------------------------------------------------------------+
-*
-*/
+/*
+ +----------------------------------------------------------------------+
+ | This file is part of the Ayyi project. https://ayyi.org              |
+ | copyright (C) 2013-2026 Tim Orford <tim@orford.org>                  |
+ +----------------------------------------------------------------------+
+ | This program is free software; you can redistribute it and/or modify |
+ | it under the terms of the GNU General Public License version 3       |
+ | as published by the Free Software Foundation.                        |
+ +----------------------------------------------------------------------+
+ |
+ */
 
 #define __wf_private__
 #include "wf/debug.h"
@@ -71,7 +70,7 @@ extern char ok       [];
 extern char fail     [];
 #endif
 
-void add_key_handlers         (Key keys[]);
+void add_key_handlers         (AGlActor*, Key keys[]);
 #ifdef __GTK_H__
 void add_key_handlers_gtk     (GtkWindow*, gpointer, Key keys[]);
 

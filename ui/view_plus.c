@@ -51,8 +51,6 @@
 #define DEFAULT_HEIGHT 64
 #define DEFAULT_WIDTH 256
 
-static AGl* agl = NULL;
-
 //-----------------------------------------
 
 typedef void (KeyHandler)(WaveformViewPlus*);
@@ -158,7 +156,7 @@ construct ()
 		AGlActor* a = _a;
 		WaveformViewPlus* view = (WaveformViewPlus*)((AGlRootActor*)a)->gl.gdk.widget;
 
-		if(agl->use_shaders && !agl->shaders.plain->program) return G_SOURCE_CONTINUE;
+		if (agl.use_shaders && !agl.shaders.plain->program) return G_SOURCE_CONTINUE;
 
 		am_promise_resolve(promise(PROMISE_DISP_READY), NULL);
 
@@ -470,9 +468,6 @@ waveform_view_plus_set_colour (WaveformViewPlus* view, uint32_t fg, uint32_t bg)
 
 	view->bg_colour = bg;
 	if (view->priv->actor) wf_actor_set_colour(v->actor, fg);
-
-	if(agl_get_instance()->use_shaders){
-	}
 }
 
 	static bool show;
@@ -672,8 +667,6 @@ waveform_view_plus_class_init (WaveformViewPlusClass* klass)
 	GTK_WIDGET_CLASS (klass)->unrealize = waveform_view_plus_unrealize;
 	GTK_WIDGET_CLASS (klass)->size_allocate = waveform_view_plus_allocate;
 	G_OBJECT_CLASS (klass)->finalize = waveform_view_plus_finalize;
-
-	agl = agl_get_instance();
 }
 
 

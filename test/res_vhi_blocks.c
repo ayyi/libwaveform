@@ -1,12 +1,12 @@
 /*
- +---------------------------------------------------------------------
- | This file is part of the Ayyi project. https://www.ayyi.org
- | copyright (C) 2012-2026 Tim Orford <tim@orford.org>
- +---------------------------------------------------------------------
- | This program is free software; you can redistribute it and/or modify
- | it under the terms of the GNU General Public License version 3
- | as published by the Free Software Foundation.
- +----------------------------------------------
+ +----------------------------------------------------------------------+
+ | This file is part of the Ayyi project. https://www.ayyi.org          |
+ | copyright (C) 2012-2026 Tim Orford <tim@orford.org>                  |
+ +--------------------------------------------------------------------- +
+ | This program is free software; you can redistribute it and/or modify |
+ | it under the terms of the GNU General Public License version 3       |
+ | as published by the Free Software Foundation.                        |
+ +----------------------------------------------------------------------+
  |
  | Test waveform rendering in V_HI mode at block edge, showing
  | the change from the first to second blocks.
@@ -20,6 +20,7 @@
 #include "actors/plain.h"
 #include "agl/behaviours/split.h"
 #include "agl/behaviours/fullsize.h"
+#include "waveform/debug_helper.h"
 #include "waveform/actor.h"
 #include "test/common.h"
 
@@ -67,8 +68,8 @@ Key keys[] = {
 	{0},
 };
 
-static void on_allocate       (GtkWidget*, GtkAllocation*, gpointer);
-static bool test_delete       ();
+static void on_allocate (GtkWidget*, GtkAllocation*, gpointer);
+static bool test_delete ();
 
 
 static void
@@ -100,12 +101,16 @@ window_content (GtkWindow* window, GdkGLConfig* glconfig)
 	a3 = wf_context_add_new_actor(wfc, waveform);
 	agl_actor__add_child(waveforms, (AGlActor*)a3);
 
-	void layout (AGlActor* actor)
+#ifdef DEBUG
+	agl_actor__add_behaviour((AGlActor*)a1, debug_helper());
+#endif
+
+	void a2_layout (AGlActor* actor)
 	{
 		actor->region.x1 = 100.;
 		actor->region.x2 = actor->parent->region.x2 + 100.;
 	}
-	((AGlActor*)a2)->set_size = layout;
+	((AGlActor*)a2)->set_size = a2_layout;
 
 	void a3_layout (AGlActor* actor)
 	{
@@ -157,9 +162,16 @@ window_content (GtkWindow* window, GdkGLConfig* glconfig)
 				.y2 = (i + 1) * box->parent->region.y2 / 3.,
 			};
 		}
+#ifdef USE_GTK3
+		agl_actor__set_size((AGlActor*)scene);
+#endif
 		return false;
 	}
+#ifdef USE_GTK3
+	g_signal_connect_after((gpointer)canvas, "realize", G_CALLBACK(on_configure), NULL);
+#else
 	g_signal_connect_after((gpointer)canvas, "configure-event", G_CALLBACK(on_configure), NULL);
+#endif
 }
 
 

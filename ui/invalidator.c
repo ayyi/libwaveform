@@ -1,7 +1,7 @@
 /*
  +----------------------------------------------------------------------+
  | This file is part of the Ayyi project. https://www.ayyi.org          |
- | copyright (C) 2021-2025 Tim Orford <tim@orford.org>                  |
+ | copyright (C) 2021-2026 Tim Orford <tim@orford.org>                  |
  +----------------------------------------------------------------------+
  | This program is free software; you can redistribute it and/or modify |
  | it under the terms of the GNU General Public License version 3       |
@@ -16,7 +16,6 @@
 #include "waveform/actor.h"
 #include "waveform/invalidator.h"
 
-static void invalidator_init (AGlBehaviour*, AGlActor*);
 static void invalidator_free (AGlBehaviour*);
 
 typedef struct
@@ -26,7 +25,6 @@ typedef struct
 
 static InvalidatorClass klass = {
 	.class = {
-		.init = invalidator_init,
 		.free = invalidator_free,
 	}
 };
@@ -73,12 +71,6 @@ invalidator_queue_check (Invalidator* invalidator)
 	if (!invalidator->recheck_queue) {
 		invalidator->recheck_queue = g_idle_add_full (G_PRIORITY_HIGH_IDLE, invalidator_check, invalidator, NULL);
 	}
-}
-
-
-static void
-invalidator_init (AGlBehaviour* behaviour, AGlActor* actor)
-{
 }
 
 

@@ -34,7 +34,7 @@ typedef struct
     AGlBehaviourClass class;
 } DebugHelperClass;
 
-void debug_helper_init (AGlBehaviour*, AGlActor*);
+void debug_helper_init (AGlBehaviour*, AGlActor*, AGlInitCallback*);
 bool debug_helper_draw (AGlBehaviour*, AGlActor*, AGlActorPaint);
 
 static DebugHelperClass klass = {
@@ -64,8 +64,10 @@ debug_helper ()
 
 
 void
-debug_helper_init (AGlBehaviour* behaviour, AGlActor* actor)
+debug_helper_init (AGlBehaviour* behaviour, AGlActor* actor, AGlInitCallback* next)
 {
+	next->call(behaviour, actor, next);
+
 	typedef struct {
 		AGlActor*     actor;
 		AGlBehaviour* behaviour;

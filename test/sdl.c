@@ -30,8 +30,6 @@
 #define HBORDER (16.0)
 #define VBORDER 8
 
-AGl* agl = NULL;
-
 struct
 {
    int             width;
@@ -87,19 +85,17 @@ setup (int argc, char* argv[])
 	wf_debug = 0;
 
 	int opt;
-	while((opt = getopt_long (argc, argv, short_options, long_options, NULL)) != -1) {
-		switch(opt) {
+	while ((opt = getopt_long (argc, argv, short_options, long_options, NULL)) != -1) {
+		switch (opt) {
 			case 'n':
 				g_timeout_add(3000, (gpointer)exit, NULL);
 				break;
 		}
 	}
 
-	agl = agl_get_instance();
-
 	g_main_loop_new(NULL, true);
 
-	if(SDL_Init(SDL_INIT_VIDEO) < 0){
+	if (SDL_Init(SDL_INIT_VIDEO) < 0) {
 		dbg(0, "Unable to Init SDL: %s", SDL_GetError());
 		return EXIT_FAILURE;
 	}
@@ -195,11 +191,12 @@ setup (int argc, char* argv[])
 #endif
 	}
 
-	void render () {
+	void render ()
+	{
 		glClear(GL_COLOR_BUFFER_BIT);
 
-		SET_PLAIN_COLOUR(agl->shaders.plain, 0xaaaaffff);
-		agl_use_program(agl->shaders.plain);
+		SET_PLAIN_COLOUR(agl.shaders.plain, 0xaaaaffff);
+		agl_use_program(agl.shaders.plain);
 
 		glRectf(0.0, window.height/2.0, window.width, window.height);
 
@@ -210,8 +207,8 @@ setup (int argc, char* argv[])
 
 	SDL_Event event;
 #if 1
-	while(window.running) {
-		while(SDL_PollEvent(&event)) {
+	while (window.running) {
+		while (SDL_PollEvent(&event)) {
 			on_event(&event);
 		}
 #else
@@ -221,7 +218,7 @@ setup (int argc, char* argv[])
 
 		loop();
 
-		if(window.dirty){
+		if (window.dirty) {
 			render();
 			window.dirty = false;
 		}
@@ -234,7 +231,7 @@ setup (int argc, char* argv[])
 #endif
 	}
 
-	void cleanup()
+	void cleanup ()
 	{
 		SDL_GL_DeleteContext(window.gl_context);
 		SDL_DestroyWindow(window.mainWindow);
@@ -250,11 +247,11 @@ setup (int argc, char* argv[])
 static void
 on_event (SDL_Event* event)
 {
-	switch(event->type) {
+	switch (event->type) {
 		case SDL_KEYDOWN:
 			;SDL_KeyboardEvent* e = (SDL_KeyboardEvent*)event;
-			int i; for(i=0;i<G_N_ELEMENTS(keys)-1;i++){
-				if(keys[i].key == e->keysym.sym){
+			for (int i=0;i<G_N_ELEMENTS(keys)-1;i++) {
+				if (keys[i].key == e->keysym.sym) {
 					keys[i].handler(NULL);
 					break;
 				}
@@ -301,8 +298,8 @@ start_zoom (float target_zoom)
 	window.zoom = MAX(0.1, target_zoom);
 	window.dirty = true;
 
-	int i; for(i=0;i<G_N_ELEMENTS(window.a);i++)
-		if(window.a[i])
+	for (int i=0;i<G_N_ELEMENTS(window.a);i++)
+		if (window.a[i])
 			wf_actor_set_region(window.a[i], &(WfSampleRegion){
 				window.region[i].start,
 				window.region[i].len / window.zoom

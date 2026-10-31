@@ -94,11 +94,11 @@ run (int argc, char *argv[])
 		wf_actor_set_z      (a[i], -i * dz, NULL, NULL);
 	}
 
-	bool on_event (AGlActor* actor, GdkEvent* e, AGliPt xy)
+	bool on_event (AGlActor* actor, AGlEvent* e, AGliPt xy)
 	{
 		switch (e->type) {
-			case GDK_KEY_PRESS:
-				;GdkEventKey* event = (GdkEventKey*)e;
+			case AGL_KEY_PRESS:
+				;AGlEventKey* event = (AGlEventKey*)e;
 				switch (event->keyval) {
 					case 61:
 						start_zoom(zoom * 1.5);

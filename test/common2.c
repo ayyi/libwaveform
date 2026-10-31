@@ -1,14 +1,15 @@
-/**
-* +----------------------------------------------------------------------+
-* | This file is part of libwaveform https://github.com/ayyi/libwaveform |
-* | copyright (C) 2013-2020 Tim Orford <tim@orford.org>                  |
-* +----------------------------------------------------------------------+
-* | This program is free software; you can redistribute it and/or modify |
-* | it under the terms of the GNU General Public License version 3       |
-* | as published by the Free Software Foundation.                        |
-* +----------------------------------------------------------------------+
-*
-*/
+/*
+ +----------------------------------------------------------------------+
+ | This file is part of libwaveform https://github.com/ayyi/libwaveform |
+ | copyright (C) 2013-2026 Tim Orford <tim@orford.org>                  |
+ +----------------------------------------------------------------------+
+ | This program is free software; you can redistribute it and/or modify |
+ | it under the terms of the GNU General Public License version 3       |
+ | as published by the Free Software Foundation.                        |
+ +----------------------------------------------------------------------+
+ |
+ */
+
 #define __common2_c__
 #define __wf_private__
 #include "config.h"
@@ -24,7 +25,7 @@
 #pragma GCC diagnostic warning "-Wdeprecated-declarations"
 #endif
 #include <glib-object.h>
-#include "agl/actor.h"
+#include "agl/behaviours/key.h"
 #include "waveform/utils.h"
 #ifdef USE_EPOXY
 # define __glx_test__
@@ -37,29 +38,29 @@
 char*
 find_wav (const char* wav)
 {
-	if(wav[0] == '/'){
+	if (wav[0] == '/') {
 		return g_strdup(wav);
 	}
 	char* filename = g_build_filename(g_get_current_dir(), wav, NULL);
-	if(g_file_test(filename, G_FILE_TEST_EXISTS)){
+	if (g_file_test(filename, G_FILE_TEST_EXISTS)) {
 		return filename;
 	}
 	wf_free(filename);
 
 	filename = g_build_filename(g_get_current_dir(), "test", wav, NULL);
-	if(g_file_test(filename, G_FILE_TEST_EXISTS)){
+	if (g_file_test(filename, G_FILE_TEST_EXISTS)) {
 		return filename;
 	}
 	wf_free(filename);
 
 	filename = g_build_filename(g_get_current_dir(), "test/data", wav, NULL);
-	if(g_file_test(filename, G_FILE_TEST_EXISTS)){
+	if (g_file_test(filename, G_FILE_TEST_EXISTS)) {
 		return filename;
 	}
 	wf_free(filename);
 
 	filename = g_build_filename(g_get_current_dir(), "data", wav, NULL);
-	if(g_file_test(filename, G_FILE_TEST_EXISTS)){
+	if (g_file_test(filename, G_FILE_TEST_EXISTS)) {
 		return filename;
 	}
 	wf_free(filename);
@@ -73,8 +74,8 @@ find_data_dir ()
 {
 	static char* dirs[] = {"test/data", "data"};
 
-	int i; for(i=0;i<G_N_ELEMENTS(dirs);i++){
-		if(g_file_test(dirs[i], G_FILE_TEST_EXISTS)){
+	for (int i=0;i<G_N_ELEMENTS(dirs);i++) {
+		if (g_file_test(dirs[i], G_FILE_TEST_EXISTS)) {
 			return dirs[i];
 		}
 	}
@@ -128,7 +129,7 @@ int
 gtk_window (Key keys[], WindowFn content)
 {
 	GdkGLConfig* glconfig;
-	if(!(glconfig = gdk_gl_config_new_by_mode(GDK_GL_MODE_RGBA | GDK_GL_MODE_DEPTH | GDK_GL_MODE_DOUBLE))){
+	if (!(glconfig = gdk_gl_config_new_by_mode(GDK_GL_MODE_RGBA | GDK_GL_MODE_DEPTH | GDK_GL_MODE_DOUBLE))) {
 		perr ("Cannot initialise gtkglext."); return EXIT_FAILURE;
 	}
 
@@ -179,7 +180,13 @@ gtk_window (Key keys[], WindowFn content)
 		return key_down;
 	}
 
-	static gboolean key_release(GtkWidget* widget, GdkEventKey* event, gpointer user_data)
+/*
+ * list of keys must be terminated with a key of value zero.
+ */
+void
+add_key_handlers_gtk (GtkWindow* window, gpointer user_data, Key keys[])
+{
+	gboolean key_release (GtkWidget* widget, GdkEventKey* event, gpointer user_data)
 	{
 		PF;
 		if(!key_down) return AGL_NOT_HANDLED; // sometimes happens at startup
@@ -190,15 +197,10 @@ gtk_window (Key keys[], WindowFn content)
 		return true;
 	}
 
-void
-add_key_handlers_gtk (GtkWindow* window, gpointer user_data, Key keys[])
-{
-	//list of keys must be terminated with a key of value zero.
-
 	key_handlers = g_hash_table_new(g_int_hash, g_int_equal);
-	int i = 0; while(true){
+	int i = 0; while (true) {
 		Key* key = &keys[i];
-		if(i > 100 || !key->key) break;
+		if (i > 100 || !key->key) break;
 		g_hash_table_insert(key_handlers, &key->key, key->handler);
 		i++;
 	}
@@ -210,18 +212,11 @@ add_key_handlers_gtk (GtkWindow* window, gpointer user_data, Key keys[])
 
 
 void
-add_key_handlers (Key keys[])
+add_key_handlers (AGlActor* actor, Key keys[])
 {
-	if(!key_handlers){
-		key_handlers = g_hash_table_new(g_int_hash, g_int_equal);
+	AGlBehaviour* beh = agl_actor__add_behaviour(actor, key_behaviour());
+	((KeyBehaviour*)beh)->keys = (ActorKey (*)[])keys;
+	agl_behaviour_init(beh, actor);
 
-		int i = 0; while(true) {
-			Key* key = &keys[i];
-			if(i > 100 || !key->key) break;
-			g_hash_table_insert(key_handlers, &key->key, key->handler);
-			i++;
-		}
-	}
+	actor->root->selected = actor;
 }
-
-

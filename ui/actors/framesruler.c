@@ -28,8 +28,6 @@ typedef struct {
     WaveformContext* context;
 } FramesRulerActor;
 
-static AGl* agl = NULL;
-
 static bool frames_ruler_actor_paint (AGlActor*);
 
 
@@ -83,8 +81,6 @@ AGlActor*
 frames_ruler_actor (WaveformActor* wf_actor)
 {
 	g_return_val_if_fail(wf_actor, NULL);
-
-	agl = agl_get_instance();
 
 	return (AGlActor*)agl_actor__new(FramesRulerActor,
 		.actor = {

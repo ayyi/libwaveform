@@ -27,9 +27,6 @@
 #include "waveform/shader.h"
 #include "ui/actors/spp.h"
 
-static AGl* agl = NULL;
-
-
 
 #ifdef USE_GTK
 		static bool on_middle_click (GtkWidget* widget, GdkEventButton* event, gpointer _spp)
@@ -89,10 +86,7 @@ spp_actor__paint (AGlActor* actor)
 	if (!a || !a->context) return false;
 
 	if (spp->time != WF_SPP_TIME_NONE) {
-		float width = 1.0;
-		if (agl->use_shaders) {
-			width = cursor.uniform.width;
-		}
+		float width = cursor.uniform.width;
 
 		int64_t frame = ((int64_t)spp->time) * a->context->sample_rate / 1000;
 		float x = floorf(wf_context_frame_to_x(a->context, frame) - (width - 1.0));
@@ -117,8 +111,6 @@ AGlActor*
 wf_spp_actor (WaveformActor* wf_actor)
 {
 	g_return_val_if_fail(wf_actor, NULL);
-
-	agl = agl_get_instance();
 
 	SppActor* spp = agl_actor__new(SppActor,
 		.actor = {

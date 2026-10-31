@@ -687,7 +687,7 @@ __on_ready (gpointer user_data, gpointer _)
 #if 0
 	assert(!agl_get_instance()->use_shaders, "shaders must be disabled for this test");
 #else
-	if(agl_get_instance()->use_shaders){
+	if(agl.use_shaders){
 		pwarn("test only suports GL 1");
 		WF_TEST_FINISH;
 	}

@@ -25,7 +25,7 @@ extern AGlMaterialClass aaline_class;
 #define TWO_COORDS_PER_VERTEX 2
 
 static unsigned int vao = 0;
-static unsigned int hivbo = 0;
+static unsigned int vhivbo = 0;
 
 typedef struct {int l, r;} Range;
 
@@ -50,25 +50,30 @@ v_hi_renderer_new (WaveformActor* actor)
 
 	g_return_if_fail(!w->render_data[MODE_V_HI]);
 
-	agl = agl_get_instance();
-
 	w->render_data[MODE_V_HI] = WF_NEW(WaveformModeRender,
 		.n_blocks = w->n_blocks
 	);
 
 #if defined (MULTILINE_SHADER)
-	if(agl->use_shaders){
+	if (agl.use_shaders) {
 		agl_create_program(&lines.shader);
 		modes[MODE_V_HI].renderer->shader = &lines.shader;
 	}
 #else
-	if(!agl->aaline) agl->aaline = agl_aa_line_new();
+	if (!agl.aaline) agl.aaline = agl_aa_line_new();
 
 	modes[MODE_V_HI].renderer->shader = aaline_class.shader;
 #endif
 
 	glGenVertexArrays(1, &vao);
-	glGenBuffers(1, &hivbo);
+	glGenBuffers(1, &vhivbo);
+	agl_use_va(vao);
+	glBindBuffer(GL_ARRAY_BUFFER, vhivbo);
+
+	glEnableVertexAttribArray(0);
+	glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(AGlVertex), NULL);
+	glEnableVertexAttribArray(1);
+	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(AGlVertex), (void*)sizeof(AGlVertex));
 }
 
 
@@ -107,11 +112,10 @@ _v_hi_set_gl_state (WaveformActor* actor)
 		lines.uniform.n_channels = actor->waveform->n_channels;
 	}
 #else
-	AGl* agl = agl_get_instance();
 
 	if (wfc->use_1d_textures) {
-		agl->shaders.alphamap->uniform.fg_colour = ((AGlActor*)actor)->colour;
-		agl_use_material(agl->aaline);
+		ALPHAMAP_COLOUR() = ((AGlActor*)actor)->colour;
+		agl_use_material(agl.aaline);
 	} else {
 		agl_enable(AGL_ENABLE_BLEND);
 	}
@@ -293,19 +297,14 @@ draw_wave_buffer_v_hi (Renderer* renderer, WaveformActor* actor, int block, bool
 		dbg(2, "%i: n_lines=%i x=%i-->%i", block, i, xr.inner.l, x);
 
 		if (w->n_channels == 2) {
-			agl_translate ((AGlShader*)agl->shaders.alphamap, 0., - rect->height/4. + c * rect->height/2.);
+			agl_translate ((AGlShader*)agl.shaders.alphamap, 0., - rect->height/4. + c * rect->height/2.);
 		}
 
 #ifndef MULTILINE_SHADER
 		agl_use_va(vao);
 
-		glBindBuffer(GL_ARRAY_BUFFER, hivbo);
+		glBindBuffer(GL_ARRAY_BUFFER, vhivbo);
 		glBufferData(GL_ARRAY_BUFFER, sizeof(quads), quads, GL_STATIC_DRAW);
-
-		glEnableVertexAttribArray(0);
-		glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(AGlVertex), NULL);
-		glEnableVertexAttribArray(1);
-		glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(AGlVertex), (void*)sizeof(AGlVertex));
 
 		glDrawArrays(GL_TRIANGLES, 0, i * AGL_V_PER_QUAD);
 #endif
@@ -345,7 +344,7 @@ draw_wave_buffer_v_hi (Renderer* renderer, WaveformActor* actor, int block, bool
 static void
 v_hi_load_block (Renderer* renderer, WaveformActor* a, int b)
 {
-	if(((AGlActor*)a)->root->draw) wf_context_queue_redraw(a->context);
+	if (((AGlActor*)a)->root->draw) wf_context_queue_redraw(a->context);
 }
 
 
@@ -370,23 +369,11 @@ _wf_create_lines_texture (guchar* pbuf, int width, int height)
 	 */
 	glEnable(GL_TEXTURE_2D);
 
-	if(!lines_texture[0]){
+	if (!lines_texture[0]) {
 		glGenTextures(8, lines_texture);
-		if(glGetError() != GL_NO_ERROR){ perr ("couldnt create lines_texture."); return 0; }
+		if (glGetError() != GL_NO_ERROR){ perr ("couldnt create lines_texture."); return 0; }
 		dbg(2, "lines_texture=%i", lines_texture[0]);
 	}
-
-	/*
-	int y; for(y=0;y<height/2;y++){
-		int x; for(x=0;x<width;x++){
-			y=0; *(pbuf + y * width + x) = 0x40;
-			y=1; *(pbuf + y * width + x) = 0xa0;
-			y=2; *(pbuf + y * width + x) = 0xff;
-			y=3; *(pbuf + y * width + x) = 0xa0;
-			y=4; *(pbuf + y * width + x) = 0x40;
-		}
-	}
-	*/
 
 	// currently we rotate through a fixed number of textures. TODO needs improvement - fixed number will either be too high or too low depending on the application.
 	static int t_idx = 0;
@@ -397,7 +384,6 @@ _wf_create_lines_texture (guchar* pbuf, int width, int height)
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_ALPHA, width, height, 0, pixel_format, GL_UNSIGNED_BYTE, pbuf);
-	gl_warn("error binding lines texture");
 
 	t_idx = (t_idx + 1) % 8;
 
@@ -411,8 +397,8 @@ static void
 v_hi_unref (Renderer* renderer)
 {
 	if (--renderer->ref_count < 1) {
-		glDeleteBuffers (1, &hivbo);
-		hivbo = 0;
+		glDeleteBuffers (1, &vhivbo);
+		vhivbo = 0;
 	}
 }
 #endif

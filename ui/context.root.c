@@ -1,7 +1,7 @@
 /*
  +----------------------------------------------------------------------+
  | This file is part of the Ayyi project. https://www.ayyi.org          |
- | copyright (C) 2012-2025 Tim Orford <tim@orford.org>                  |
+ | copyright (C) 2012-2026 Tim Orford <tim@orford.org>                  |
  +----------------------------------------------------------------------+
  | This program is free software; you can redistribute it and/or modify |
  | it under the terms of the GNU General Public License version 3       |
@@ -37,9 +37,7 @@ wf_context_init_gl (WaveformContext* wfc)
 {
 	PF;
 
-	AGl* agl = agl_get_instance();
-
-	if (!agl->pref_use_shaders) {
+	if (!agl.pref_use_shaders) {
 		wfc->use_1d_textures = false;
 		return;
 	}
@@ -50,7 +48,7 @@ wf_context_init_gl (WaveformContext* wfc)
 			agl_gl_init();
 		}
 
-		if (!agl->use_shaders) {
+		if (!agl.use_shaders) {
 			agl_use_program(NULL);
 			wfc->use_1d_textures = false;
 		}
@@ -60,7 +58,7 @@ wf_context_init_gl (WaveformContext* wfc)
 
 
 AGlBehaviour* init_hook      ();
-void          init_hook_init (AGlBehaviour*, AGlActor*);
+void          init_hook_init (AGlBehaviour*, AGlActor*, AGlInitCallback*);
 
 typedef struct {
    AGlBehaviour     behaviour;
@@ -95,16 +93,17 @@ init_hook_new (WaveformContext* wfc)
 
 
 void
-init_hook_init (AGlBehaviour* behaviour, AGlActor* actor)
+init_hook_init (AGlBehaviour* behaviour, AGlActor* actor, AGlInitCallback* next)
 {
 	InitHookBehaviour* hook = (InitHookBehaviour*)behaviour;
 	AGlScene* scene = actor->root;
-	AGl* agl = agl_get_instance();
+
+	next->call(behaviour, actor, next);
 
 	wf_context_init_gl(hook->wfc);
 
 	if (scene->draw) wf_context_queue_redraw(hook->wfc);
-	hook->wfc->use_1d_textures = agl->use_shaders;
+	hook->wfc->use_1d_textures = agl.use_shaders;
 }
 
 
