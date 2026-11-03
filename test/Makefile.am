@@ -12,7 +12,7 @@ SDLPROGRAMS = sdl
 endif
 
 if ENABLE_GTK
-GTKPROGRAMS = view_plus no_scene hires res_vhi res_vhi_blocks res_vhi_scrollable multi_scene $(ASSPROGRAMS) pixbuf
+GTKPROGRAMS = view_plus no_scene hires res_vhi res_vhi_blocks res_vhi_scrollable multi_scene $(ASSPROGRAMS) pixbuf gdktexture
 LOCAL_GTK_LDFLAGS = \
 	$(GTK_LDFLAGS)
 else
@@ -156,6 +156,10 @@ cache_SOURCES = \
 pixbuf_SOURCES = \
 	$(COMMON2_SOURCES) \
 	pixbuf.c
+
+gdktexture_SOURCES = \
+	$(COMMON2_SOURCES) \
+	gdktexture.c
 
 if ENABLE_SDL
 sdl_SOURCES = \

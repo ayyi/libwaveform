@@ -1,7 +1,7 @@
 /*
  +----------------------------------------------------------------------+
  | This file is part of the Ayyi project. https://www.ayyi.org          |
- | copyright (C) 2012-2025 Tim Orford <tim@orford.org>                  |
+ | copyright (C) 2012-2026 Tim Orford <tim@orford.org>                  |
  +----------------------------------------------------------------------+
  | This program is free software; you can redistribute it and/or modify |
  | it under the terms of the GNU General Public License version 3       |
@@ -18,7 +18,6 @@
 #include <gtk/gtk.h>
 #include "agl/utils.h"
 #include "agl/actor.h"
-#include "waveform/view_plus.h"
 #include "waveform/pixbuf.h"
 #include "waveform/text.h"
 #include "common2.h"
@@ -115,6 +114,8 @@ activate (GtkApplication* app, gpointer user_data)
 	}
 
 	add_key_handlers_gtk((GtkWindow*)window, NULL, (AGlKey*)&keys);
+
+	gtk_widget_set_visible(window, true);
 }
 
 
@@ -122,8 +123,11 @@ static void draw_sync (GtkDrawingArea* area, cairo_t* cr, int width, int height,
 {
 	GdkPixbuf* pixbuf = gdk_pixbuf_new(GDK_COLORSPACE_RGB, FALSE, 8, CLAMP(width, 8, 1920), CLAMP(height, 8, 600));
 	if (waveform_load_sync(items[0].waveform)) {
-		waveform_peak_to_pixbuf(items[0].waveform, pixbuf, &items[0].region, 0xeeeeeebb, 0x000066ff, false);
+		waveform_peak_to_gdkpixbuf(items[0].waveform, pixbuf, &items[0].region, 0xeeeeeebb, 0x000066ff, false);
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 		gdk_cairo_set_source_pixbuf (cr, pixbuf, 0., 0.);
+#pragma GCC diagnostic pop
 		cairo_paint(cr);
 	}
 
@@ -136,17 +140,23 @@ draw_async (GtkDrawingArea* area, cairo_t* cr, int width, int height, gpointer d
 {
 
 	Item* item = &items[1];
+	static int _x;
 
-	bool changed = !item->pixbuf || gdk_pixbuf_get_width(item->pixbuf) != width || gdk_pixbuf_get_height(item->pixbuf) != height;
+	bool changed = !item->pixbuf || gdk_pixbuf_get_width(item->pixbuf) != width || gdk_pixbuf_get_height(item->pixbuf) != height || x != _x;
 
 	if (changed) {
 		image_async(area, &(GtkAllocation){.width = width, .height = height});
 	}
 
 	if (item->pixbuf) {
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 		gdk_cairo_set_source_pixbuf (cr, item->pixbuf, 0., 0.);
+#pragma GCC diagnostic pop
 		cairo_paint(cr);
 	}
+
+	_x = x;
 }
 
 
@@ -196,8 +206,8 @@ void
 scroll_left (gpointer _)
 {
 	x = MAX(0, x - 2000);
-	item0.region.start = x;
-	gtk_widget_queue_draw(item0.widget);
+	item1.region.start = x;
+	gtk_widget_queue_draw(item1.widget);
 }
 
 
@@ -205,11 +215,11 @@ void
 scroll_right (gpointer _)
 {
 	x = MIN(
-		waveform_get_n_frames(item0.waveform) - item0.region.len,
+		waveform_get_n_frames(item1.waveform) - item1.region.len,
 		x + 2000
 	);
-	item0.region.start = x;
-	gtk_widget_queue_draw(item0.widget);
+	item1.region.start = x;
+	gtk_widget_queue_draw(item1.widget);
 }
 
 
@@ -222,10 +232,9 @@ next_wav (gpointer _)
 
 	g_object_unref(item1.waveform);
 
-	char* filename = find_wav(wavs[w % G_N_ELEMENTS(wavs)]);
+	g_autofree char* filename = find_wav(wavs[w % G_N_ELEMENTS(wavs)]);
 	g_return_if_fail(filename);
 	item1.waveform = waveform_new(filename);
-	g_free(filename);
 
 	image_async((GtkDrawingArea*)item1.widget, &(GtkAllocation){.width=gtk_widget_get_width(item1.widget), .height=gtk_widget_get_height(item1.widget)});
 }

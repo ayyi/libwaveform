@@ -642,10 +642,8 @@ test_worker ()
 
 			uint64_t t0 = g_get_monotonic_time();
 
-			int j = 0;
 			for (int i=0;i<n_hashes;i++) {
 				GFile* file = g_file_new_for_path(WAV);
-				j++;
 				g_file_hash(file);
 				g_object_unref(file);
 

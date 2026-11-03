@@ -1,7 +1,7 @@
 /*
  +----------------------------------------------------------------------+
  | This file is part of the Ayyi project. https://www.ayyi.org          |
- | copyright (C) 2013-2024 Tim Orford <tim@orford.org>                  |
+ | copyright (C) 2013-2026 Tim Orford <tim@orford.org>                  |
  +----------------------------------------------------------------------+
  | This program is free software; you can redistribute it and/or modify |
  | it under the terms of the GNU General Public License version 3       |
@@ -145,15 +145,13 @@ test_load ()
 		dbg(1, "...");
 	}
 
-	bool check_pixbuf (GdkPixbuf* pixbuf)
+	bool check_pixbuf (AGlPixbuf* pixbuf)
 	{
-		guchar* pixels = gdk_pixbuf_get_pixels (pixbuf);
-		int rowstride = gdk_pixbuf_get_rowstride (pixbuf);
-		int n_channels = gdk_pixbuf_get_n_channels (pixbuf);
+		int n_channels = pixbuf->has_alpha ? 4 : 3;
 		int value = 0;
-		for (int y=0;y<gdk_pixbuf_get_height(pixbuf);y++) {
-			for (int x=0;x<gdk_pixbuf_get_width(pixbuf);x++) {
-				guchar* p = pixels + y * rowstride + x * n_channels;
+		for (int y=0;y<pixbuf->height;y++) {
+			for (int x=0;x<pixbuf->width;x++) {
+				guchar* p = pixbuf->data + y * pixbuf->rowstride + x * n_channels;
 				value += p[0];
 			}
 		}
@@ -197,29 +195,44 @@ test_load ()
 		// check MED res
 		// the pixbuf generation does not report errors so is difficult to test
 		{
-			GdkPixbuf* pixbuf = gdk_pixbuf_new(GDK_COLORSPACE_RGB, FALSE, 8, 20, 32);
-			guchar* pixels = gdk_pixbuf_get_pixels (pixbuf);
-			memset(pixels, 0, gdk_pixbuf_get_rowstride(pixbuf) * gdk_pixbuf_get_height(pixbuf));
-			waveform_peak_to_pixbuf(w, pixbuf, NULL, 0xffffffff, 0x000000ff, false);
+			WfPeakParams params = {
+				.width = 20,
+				.height = 32,
+				.colour = 0xffffffff,
+				.bgcolour = 0x000000ff,
+			};
+			AGlPixbuf pixbuf = {
+				.width = params.width,
+				.height = params.height,
+				.rowstride = 3 * 20,
+				.data = g_malloc0(3 * 20 * 32),
+			};
+			waveform_peak_to_pixbuf(w, &pixbuf, &params);
 #if 0
 			gdk_pixbuf_save(pixbuf, "tmp1medres.png", "png", NULL, NULL);
 #endif
-			assert(check_pixbuf(pixbuf), "MED waveform is blank");
-			g_object_unref(pixbuf);
-
+			assert(check_pixbuf(&pixbuf), "MED waveform is blank");
 		}
 
 		// check HI res
 		{
-			GdkPixbuf* pixbuf = gdk_pixbuf_new(GDK_COLORSPACE_RGB, FALSE, 8, 40, 64);
-			guchar* pixels = gdk_pixbuf_get_pixels (pixbuf);
-			memset(pixels, 0, gdk_pixbuf_get_rowstride(pixbuf) * gdk_pixbuf_get_height(pixbuf));
-			waveform_peak_to_pixbuf(w, pixbuf, NULL, 0xffffffff, 0x000000ff, false);
-			assert(check_pixbuf(pixbuf), "HI waveform is blank");
+			WfPeakParams params = {
+				.width = 40,
+				.height = 64,
+				.colour = 0xffffffff,
+				.bgcolour = 0x000000ff,
+			};
+			AGlPixbuf pixbuf = {
+				.width = params.width,
+				.height = params.height,
+				.rowstride = 3 * params.width,
+				.data = g_malloc0(3 * params.width * params.height),
+			};
+			waveform_peak_to_pixbuf(w, &pixbuf, &params);
+			assert(check_pixbuf(&pixbuf), "HI waveform is blank");
 #if 0
 			gdk_pixbuf_save(pixbuf, "tmp1hires.png", "png", NULL, NULL);
 #endif
-			g_object_unref(pixbuf);
 		}
 
 		/* render_data is not set until drawn onscreen

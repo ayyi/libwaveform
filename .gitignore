@@ -53,6 +53,7 @@ test/actor
 test/ass
 test/cache
 test/frame_rate
+test/gdktexture
 test/glx
 test/group
 test/hires

@@ -1,7 +1,7 @@
 /*
  +----------------------------------------------------------------------+
  | This file is part of the Ayyi project. https://www.ayyi.org          |
- | copyright (C) 2011-2024 Tim Orford <tim@orford.org>                  |
+ | copyright (C) 2011-2026 Tim Orford <tim@orford.org>                  |
  | copyright (C) 2011 Robin Gareus <robin@gareus.org>                   |
  +----------------------------------------------------------------------+
  | This program is free software; you can redistribute it and/or modify |
@@ -211,7 +211,7 @@ ad_read_sndfile_short (WfDecoder* d, WfBuf16* buf)
 int
 ad_eval_sndfile (const char *f)
 {
-	char* ext = strrchr(f, '.');
+	const char* ext = strrchr(f, '.');
 	if (!ext) return 5;
 
 	/* see http://www.mega-nerd.com/libsndfile/ */

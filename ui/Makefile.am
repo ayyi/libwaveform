@@ -50,6 +50,7 @@ libwf_la_SOURCES = \
 	private.h \
 	$(OPENGL_SOURCES) \
 	pixbuf.c pixbuf.h \
+	gdktexture.c gdktexture.h \
 	transition_behaviour.c transition_behaviour.h \
 	invalidator.c invalidator.h \
 	utils.c utils.h \
