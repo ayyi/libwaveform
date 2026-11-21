@@ -1,32 +1,23 @@
 /*
-  Demonstration of the libwaveform WaveformActor interface
-
-  Several waveforms are drawn onto a single canvas with
-  different colours and zoom levels. The canvas can be zoomed
-  and panned.
-
-  This example demonstrates the use of two separate agl scenes
-  rendered together on the same display.
-
-  ---------------------------------------------------------------
-
-  Copyright (C) 2012-2025 Tim Orford <tim@orford.org>
-
-  This program is free software; you can redistribute it and/or modify
-  it under the terms of the GNU General Public License version 3
-  as published by the Free Software Foundation.
-
-  This program is distributed in the hope that it will be useful,
-  but WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-  GNU General Public License for more details.
-
-  You should have received a copy of the GNU General Public License
-  along with this program; if not, write to the Free Software
-  Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
-
-*/
-#define USE_SHADERS true
+ +----------------------------------------------------------------------+
+ | This file is part of the Ayyi project. https://www.ayyi.org          |
+ | copyright (C) 2012-2026 Tim Orford <tim@orford.org>                  |
+ +----------------------------------------------------------------------+
+ | This program is free software; you can redistribute it and/or modify |
+ | it under the terms of the GNU General Public License version 3       |
+ | as published by the Free Software Foundation.                        |
+ +----------------------------------------------------------------------+
+ |
+ |  Demonstration of the libwaveform WaveformActor interface
+ |
+ |  Several waveforms are drawn onto a single canvas with
+ |  different colours and zoom levels. The canvas can be zoomed
+ |  and panned.
+ |
+ |  This example demonstrates the use of two separate agl scenes
+ |  rendered together on the same display.
+ |
+ */
 
 #include "config.h"
 #include <getopt.h>
@@ -133,8 +124,6 @@ main (int argc, char *argv[])
 	char* filename = find_wav("mono_0:10.wav");
 	w1 = waveform_load_new_sync(filename);
 	g_free(filename);
-
-	agl.pref_use_shaders = USE_SHADERS;
 
 	wfc = wf_context_new((AGlActor*)scene1);
 

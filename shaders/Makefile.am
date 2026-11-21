@@ -1,5 +1,5 @@
 all: *.vert *.frag
-	../lib/agl/agl/shaders/make_shaders peak peak_nonscaling horizontal vertical hires hires_ng ruler ruler_bottom ruler_frames ass lines cursor
+	../lib/agl/agl/shaders/make_shaders peak peak_nonscaling horizontal vertical hires hires_ng ruler ruler_bottom ruler_frames ass cursor
 
 clean-local:
 	if [ -f shaders.c ]; then rm shaders.c; fi
@@ -23,8 +23,6 @@ SHADERS = \
 	ruler_bottom.frag \
 	ruler_frames.vert \
 	ruler_frames.frag \
-	lines.vert \
-	lines.frag \
 	ass.vert \
 	ass.frag \
 	cursor.vert \

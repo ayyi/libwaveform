@@ -120,7 +120,6 @@ setup ()
 	med = (MockRenderer*)modes[MODE_MED].renderer;
 	hi = (MockRenderer*)modes[MODE_HI].renderer;
 
-	agl.use_shaders = true;
 	scene.gl.glx.draw_idle = 1; // prevent idle from running
 
 	g_autofree char* filename = find_wav(WAV);

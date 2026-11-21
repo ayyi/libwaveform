@@ -248,7 +248,6 @@ static ModeRange   mode_range                (WaveformActor*);
 #if 0
 static void   wf_actor_load_texture1d        (Waveform*, Mode, WfGlBlock*, int b);
 #endif
-static void   wf_actor_load_texture2d        (WaveformActor*, Mode, int t, int b);
 
 #if defined (USE_FBO) && defined (multipass)
 #if 0
@@ -353,7 +352,7 @@ wf_actor_init (AGlActor* actor)
 
 	a->priv->render_info.valid = false;
 
-	a->context->use_1d_textures = agl.use_shaders;
+	a->context->use_1d_textures = true;
 
 	wf_actor_on_use_shaders_change();
 
@@ -375,22 +374,22 @@ wf_actor_set_size (AGlActor* actor)
 	WfActorPriv* _a = ((WaveformActor*)actor)->priv;
 
 	WfAnimatable* right = &RIGHT(actor);
-	if(!right->target_val.f){
+	if (!right->target_val.f) {
 		LEFT(actor).target_val.f = actor->region.x1;
 		right->target_val.f = actor->region.x2;
 	}
 
 	RenderInfo* ri = &_a->render_info;
-	if(ri->valid){
-		if(ri->rect.left != actor->region.x1 || ri->rect.len != agl_actor__width(actor) || ri->rect.height != agl_actor__height(actor)){
+	if (ri->valid) {
+		if (ri->rect.left != actor->region.x1 || ri->rect.len != agl_actor__width(actor) || ri->rect.height != agl_actor__height(actor)) {
 			agl_actor__invalidate(actor);
-			if(agl_actor__width(actor) > 0.)
+			if (agl_actor__width(actor) > 0.)
 				_wf_actor_load_missing_blocks(a);
 		}
-	}else{
-		if(agl_actor__width(actor) && a->waveform){
+	} else {
+		if (agl_actor__width(actor) && a->waveform) {
 			agl_actor__invalidate(actor);
-			if(agl_actor__width(actor) > 0.)
+			if (agl_actor__width(actor) > 0.)
 				_wf_actor_load_missing_blocks(a);
 		}
 	}
@@ -603,7 +602,7 @@ wf_actor_new (Waveform* w, WaveformContext* wfc)
 		// because this is asynchronous, any caches may consist of an empty render.
 		agl_actor__invalidate(actor);
 
-		if(scene && scene->draw) wf_context_queue_redraw(a->context);
+		if (scene && scene->draw) wf_context_queue_redraw(a->context);
 
 		return true;
 	}
@@ -754,7 +753,7 @@ wf_actor_free (AGlActor* actor)
 #endif
 
 #if 0 // no, cannot call this because it calls the free function
-	if(actor->parent) agl_actor__remove_child(actor->parent, actor);
+	if (actor->parent) agl_actor__remove_child(actor->parent, actor);
 #endif
 
 	g_free(a);
@@ -770,7 +769,7 @@ waveform_free_render_data (Waveform* waveform)
 #if 0
 #if defined(USE_OPENGL) && defined(DEBUG)
 	extern int texture_cache_count_by_waveform(Waveform*);
-	if(wf_debug && texture_cache_count_by_waveform(waveform)){
+	if (wf_debug && texture_cache_count_by_waveform(waveform)) {
 		perr("textures not cleared");
 	}
 #endif
@@ -821,15 +820,15 @@ wf_actor_set_waveform (WaveformActor* a, Waveform* waveform, WaveformActorFn cal
 	g_return_if_fail(a);
 	PF;
 
-	if(a->waveform){
+	if (a->waveform) {
 		wf_actor_clear(a);
 		wf_actor_disconnect_waveform(a);
 		g_clear_object(&a->waveform);
 	}
 
-	if(waveform){
+	if (waveform) {
 		waveform_get_n_frames(waveform);
-		if(!waveform->renderable) return;
+		if (!waveform->renderable) return;
 
 		a->waveform = _add_waveform(a, waveform);
 		wf_actor_set_region(a, &(WfSampleRegion){0, waveform->n_frames});
@@ -841,7 +840,7 @@ wf_actor_set_waveform (WaveformActor* a, Waveform* waveform, WaveformActorFn cal
 			wf_actor_set_waveform_done,
 			WF_NEW(C2, .actor = a, .callback = callback, .user_data = user_data)
 		);
-	}else{
+	} else {
 		a->waveform = NULL;
 	}
 
@@ -857,11 +856,11 @@ wf_actor_set_waveform_sync (WaveformActor* a, Waveform* waveform)
 	g_return_if_fail(a);
 
 	waveform_get_n_frames(waveform);
-	if(!waveform->renderable) return;
+	if (!waveform->renderable) return;
 
 	agl_actor__invalidate((AGlActor*)a);
 
-	if(a->waveform){
+	if (a->waveform){
 		wf_actor_clear(a);
 		wf_actor_disconnect_waveform(a);
 		g_object_unref(a->waveform);
@@ -871,7 +870,7 @@ wf_actor_set_waveform_sync (WaveformActor* a, Waveform* waveform)
 
 	waveform_load_sync(a->waveform);
 
-	if(waveform_get_n_frames(a->waveform)){
+	if (waveform_get_n_frames(a->waveform)) {
 		a->context->sample_rate = a->waveform->samplerate;
 		invalidator_invalidate_item(((Invalidator*)((AGlActor*)a)->behaviours[INVALIDATOR]), INVALIDATOR_DATA);
 		wf_actor_set_region(a, &(WfSampleRegion){0, waveform_get_n_frames(a->waveform)});
@@ -891,31 +890,31 @@ wf_actor_set_region (WaveformActor* a, WfSampleRegion* region)
 	AGlScene* scene = actor->root;
 
 	IF_WF_DEBUG dbg(1, "region_start=%"PRIi64" (%"PRIi64"%%) region_end=%"PRIi64" wave_end=%"PRIi64, region->start, (waveform_get_n_frames(a->waveform) ? (100 * region->start / a->waveform->n_frames) : 0), region->start + region->len, waveform_get_n_frames(a->waveform));
-	if(!region->len && a->waveform->n_channels){ pwarn("invalid region: len not set"); return; }
-	if(region->start > waveform_get_n_frames(a->waveform)){ pwarn("invalid region: start out of range: %"PRIi64" > %"PRIi64"", region->start, waveform_get_n_frames(a->waveform)); return; }
-	if(region->start + region->len > waveform_get_n_frames(a->waveform)){ pwarn("invalid region: too long: %"PRIi64" len=%"PRIi64" n_frames=%"PRIi64, region->start, region->len, waveform_get_n_frames(a->waveform)); return; }
+	if (!region->len && a->waveform->n_channels){ pwarn("invalid region: len not set"); return; }
+	if (region->start > waveform_get_n_frames(a->waveform)){ pwarn("invalid region: start out of range: %"PRIi64" > %"PRIi64"", region->start, waveform_get_n_frames(a->waveform)); return; }
+	if (region->start + region->len > waveform_get_n_frames(a->waveform)){ pwarn("invalid region: too long: %"PRIi64" len=%"PRIi64" n_frames=%"PRIi64, region->start, region->len, waveform_get_n_frames(a->waveform)); return; }
 
 	region->len = MAX(1, region->len);
 
 	bool start = (region->start != a->region.start);
 	bool end   = (region->len   != a->region.len);
 
-	if(a->region.len < 2){
+	if (a->region.len < 2) {
 		a->region.len = START(actor).target_val.b = region->len; // dont animate on initial region set.
 	}
 
-	if(!start && !end) return;
+	if (!start && !end) return;
 
-	if(agl_actor__width(actor) > 0.00001)
+	if (agl_actor__width(actor) > 0.00001)
 		invalidator_invalidate_item((Invalidator*)actor->behaviours[INVALIDATOR], INVALIDATOR_DATA);
 
-	if(!(scene && scene->draw) || !scene->enable_animations){
+	if (!(scene && scene->draw) || !scene->enable_animations){
 		a->region = *region;
 		START(actor).target_val.b = region->start;
 		LEN(actor).target_val.b = region->len;
 
 		_a->render_info.valid = false;
-		if(scene && scene->draw) wf_context_queue_redraw(a->context);
+		if (scene && scene->draw) wf_context_queue_redraw(a->context);
 		return; // no animations
 	}
 
@@ -980,7 +979,7 @@ _on_set_full_finished (WfAnimation* animation, gpointer user_data)
 	g_return_if_fail(animation);
 	C* c = user_data;
 
-	if(c->callback) c->callback(c->actor, c->user_data);
+	if (c->callback) c->callback(c->actor, c->user_data);
 
 	g_free(c);
 }
@@ -1002,35 +1001,35 @@ wf_actor_set_full (WaveformActor* a, WfSampleRegion* region, WfRectangle* rect, 
 	//FIXME this definition is different to below
 	bool animate = scene->draw && scene->enable_animations && !is_new;
 
-	if(region){
+	if (region) {
 		dbg(1, "region_start=%"PRIi64" region_end=%"PRIi64" wave_end=%"PRIu64, region->start, (uint64_t)(region->start + region->len), waveform_get_n_frames(a->waveform));
-		if(!region->len){ pwarn("invalid region: len not set"); return; }
-		if(region->start + region->len > waveform_get_n_frames(a->waveform)){ pwarn("invalid region: too long: %"PRIi64" len=%"PRIi64" n_frames=%"PRIi64, region->start, region->len, waveform_get_n_frames(a->waveform)); return; }
+		if (!region->len) { pwarn("invalid region: len not set"); return; }
+		if (region->start + region->len > waveform_get_n_frames(a->waveform)) { pwarn("invalid region: too long: %"PRIi64" len=%"PRIi64" n_frames=%"PRIi64, region->start, region->len, waveform_get_n_frames(a->waveform)); return; }
 
 		region->len = MAX(1, region->len);
 
 		WfAnimatable* a1 = &START(actor);
 		WfAnimatable* a2 = &LEN(actor);
 
-		if(a->region.len < 2){
+		if (a->region.len < 2) {
 			a->region.len = a2->target_val.b = region->len; //dont animate on initial region set.
 		}
 
 		bool start = (region->start != a->region.start);
 		bool end   = (region->len   != a->region.len);
 
-		if(start || end){
+		if (start || end) {
 						// TODO too early - set rect first.
 			if(agl_actor__width(actor) > 0.00001) _wf_actor_load_missing_blocks(a); // this loads _current_ values, future values are loaded by the animator preview
 
-			if(!scene->draw || !scene->enable_animations){
+			if (!scene->draw || !scene->enable_animations) {
 				// no animations
 				a->region = *region;
 
 				_a->render_info.valid = false;
-				if(scene->draw) wf_context_queue_redraw(a->context);
+				if (scene->draw) wf_context_queue_redraw(a->context);
 
-			}else{
+			} else {
 				animatables = start ? g_list_append(NULL, a1) : NULL;
 				animatables = end   ? g_list_append(animatables, a2) : animatables;
 			}
@@ -1039,7 +1038,7 @@ wf_actor_set_full (WaveformActor* a, WfSampleRegion* region, WfRectangle* rect, 
 
 	float len = agl_actor__width(actor);
 	float height = agl_actor__height(actor);
-	if(rect && !(rect->len == len && rect->left == actor->region.x1 && rect->height == height && rect->top == actor->region.y1)){
+	if (rect && !(rect->len == len && rect->left == actor->region.x1 && rect->height == height && rect->top == actor->region.y1)) {
 
 		_a->render_info.valid = false;
 
@@ -1052,19 +1051,19 @@ wf_actor_set_full (WaveformActor* a, WfSampleRegion* region, WfRectangle* rect, 
 
 		dbg(2, "rect: %.2f --> %.2f", actor->region.x1, actor->region.x2);
 
-		if(animate){
-			if(a3->target_val.f != rect->left) animatables = g_list_prepend(animatables, a3);
-			if(a4->target_val.f != rect->len) animatables = g_list_prepend(animatables, a4);
-		}else{
+		if (animate) {
+			if (a3->target_val.f != rect->left) animatables = g_list_prepend(animatables, a3);
+			if (a4->target_val.f != rect->len) animatables = g_list_prepend(animatables, a4);
+		} else {
 			*a3->val.f = actor->region.x1;
 			a3->start_val.f = a3->target_val.f = actor->region.x1;
 			*a4->val.f = agl_actor__width(actor);
 			a4->start_val.f = a4->target_val.f = agl_actor__width(actor);
 
-			if(scene->draw) wf_context_queue_redraw(a->context);
+			if (scene->draw) wf_context_queue_redraw(a->context);
 		}
 
-		if(!a->waveform->offline) _wf_actor_load_missing_blocks(a);
+		if (!a->waveform->offline) _wf_actor_load_missing_blocks(a);
 	}
 
 	int tlen = wf_transition.length;
@@ -1101,7 +1100,7 @@ wf_actor_get_first_visible_block(WfSampleRegion* region, double zoom, WfRectangl
 	// return the block number of the first block of the actor that is within the given viewport
 	// or FIRST_NOT_VISIBLE if the actor is outside the viewport.
 
-	if(rect->left > viewport_px->right) return FIRST_NOT_VISIBLE;
+	if (rect->left > viewport_px->right) return FIRST_NOT_VISIBLE;
 
 	int resolution = get_resolution(zoom);
 	int samples_per_texture = WF_SAMPLES_PER_TEXTURE * (resolution == 1024 ? WF_PEAK_STD_TO_LO : 1);
@@ -1112,16 +1111,16 @@ wf_actor_get_first_visible_block(WfSampleRegion* region, double zoom, WfRectangl
 
 	int region_start_block = region->start / samples_per_texture;
 	int region_end_block = (region->start + region->len) / samples_per_texture;
-	int b; for(b=region_start_block;b<=region_end_block-1;b++){ // stop before the last block
+	for (int b=region_start_block;b<=region_end_block-1;b++) { // stop before the last block
 		int block_start_px = file_start_px + b * block_wid;
 		double block_end_px = block_start_px + block_wid;
 		dbg(3, "block_pos_px=%i", block_start_px);
-		if(block_end_px >= viewport_px->left) return b;
+		if (block_end_px >= viewport_px->left) return b;
 	}
 	{
 		// check last block:
 		double block_end_px = file_start_px + wf_actor_samples2gl(zoom, region->start + region->len);
-		if(block_end_px >= viewport_px->left) return b;
+		if (block_end_px >= viewport_px->left) return b;
 	}
 
 	dbg(1, "region outside viewport? vp_left=%.2f region_end=%.2f", viewport_px->left, file_start_px + region_inset_px + wf_actor_samples2gl(zoom, region->len));
@@ -1229,15 +1228,15 @@ wf_actor_get_visible_block_range (WfSampleRegion* region, WfRectangle* rect, dou
 			}
 
 	#if 0
-			if(rect.len > 0.0)
-			if(file_start_px + (b) * block_wid > rect.left + rect.len){
+			if (rect.len > 0.0)
+			if (file_start_px + (b) * block_wid > rect.left + rect.len){
 				perr("block too high: block_start=%.2f rect.len=%.2f", file_start_px + (b) * block_wid, rect.len);
 				return b - 1;
 			}
 	#endif
 		}
 
-		if(file_start_px + wf_actor_samples2gl(zoom, region->start + region->len) < viewport_px->left){
+		if (file_start_px + wf_actor_samples2gl(zoom, region->start + region->len) < viewport_px->left) {
 			range.last = LAST_NOT_VISIBLE;
 			goto out;
 		}
@@ -1367,7 +1366,7 @@ mode_range (WaveformActor* a)
 
 	double zoom_end = ((float)agl_actor__width(actor)) / a->region.len;
 	double zoom_start = target / a->region.len;
-	if(zoom_start == 0.0) zoom_start = zoom_end;
+	if (zoom_start == 0.0) zoom_start = zoom_end;
 
 	return (ModeRange){get_mode(zoom_start), get_mode(zoom_end)};
 }
@@ -1413,11 +1412,11 @@ _wf_actor_allocate_hi (WaveformActor* a)
 	region.start = MAX(start->val.i, *_a->animatable.start.model_val.i);
 	int last_block = wf_actor_get_last_visible_block(&region, rect, zoom, &viewport, a->waveform->textures);
 	dbg(1, "%i--->%i", first_block, last_block);
-	if(last_block - first_block > wf_audio_cache_get_size()) pwarn("too many blocks requested. increase cache size");
+	if (last_block - first_block > wf_audio_cache_get_size()) pwarn("too many blocks requested. increase cache size");
 
-	int b;for(b=first_block;b<=last_block;b++){
+	for (int b=first_block;b<=last_block;b++) {
 		int n_tiers_needed = get_min_n_tiers();
-		if(waveform_load_audio(a->waveform, b, n_tiers_needed, NULL, NULL)){
+		if (waveform_load_audio(a->waveform, b, n_tiers_needed, NULL, NULL)) {
 			((Renderer*)&hi_renderer)->load_block(&hi_renderer, a, b);
 		}
 	}
@@ -1442,7 +1441,7 @@ _wf_actor_allocate_hi (WaveformActor* a)
 #if 0 // audio requests are currently done in start_transition() but needs testing.
 	bool is_new = a->rect.len == 0.0;
 	bool animate = a->context->draw && scene->enable_animations && !is_new;
-	if(animate){
+	if (animate) {
 		// add blocks for transition
 		// note that the animation doesnt run exactly on time so the position when redrawing cannot be precisely predicted.
 
@@ -1461,7 +1460,7 @@ _wf_actor_allocate_hi (WaveformActor* a)
 			return  (1.0 - time_fraction) * orig_val + time_fraction * target_val;
 		}
 
-		int t; for(t=0;t<ANIMATION_LENGTH;t+=WF_FRAME_INTERVAL){
+		for (int t=0;t<ANIMATION_LENGTH;t+=WF_FRAME_INTERVAL) {
 			uint32_t s = transition_linear(NULL, start, t);
 			region.start = s;
 			int b = wf_actor_get_first_visible_block(&region, zoom, rect, &viewport);
@@ -1517,7 +1516,7 @@ _wf_actor_load_missing_blocks (WaveformActor* a)
 	PF2;
 	AGlActor* actor = (AGlActor*)a;
 	Waveform* w = a->waveform;
-	if(!a->waveform) return;
+	if (!a->waveform) return;
 	WaveformPrivate* _w = w->priv;
 
 	WfdRange _zoom =
@@ -1532,7 +1531,7 @@ _wf_actor_load_missing_blocks (WaveformActor* a)
 			.end = (RIGHT(actor).target_val.f - LEFT(actor).target_val.f) / LEN(actor).target_val.b,
 	};
 
-	if(_zoom.start == 0.0) _zoom.start = _zoom.end;
+	if (_zoom.start == 0.0) _zoom.start = _zoom.end;
 	Mode mode1 = get_mode(_zoom.start);
 	Mode mode2 = get_mode(_zoom.end);
 	dbg(2, "zoom=%.6f-->%.6f (%s --> %s)", _zoom.start, _zoom.end, modes[mode1].name, modes[mode2].name);
@@ -1561,7 +1560,7 @@ _wf_actor_load_missing_blocks (WaveformActor* a)
 		}
 	}
 
-	if(mode[0] <= MODE_MED && mode[1] >= MODE_MED){
+	if (mode[0] <= MODE_MED && mode[1] >= MODE_MED) {
 		dbg(2, "MED");
 		double zoom_ = MAX(zoom, ZOOM_LO + 0.00000001);
 
@@ -1579,12 +1578,12 @@ _wf_actor_load_missing_blocks (WaveformActor* a)
 		BlockRange viewport_blocks = wf_actor_get_visible_block_range (&region, &rect_, zoom_, &clippingport, _w->n_blocks);
 		//dbg(0, "MED block range: %i --> %i", viewport_blocks.first, viewport_blocks.last);
 
-		int b; for(b=viewport_blocks.first;b<=viewport_blocks.last;b++){
+		for(int b=viewport_blocks.first;b<=viewport_blocks.last;b++) {
 			modes[MODE_MED].renderer->load_block(modes[MODE_MED].renderer, a, b);
 		}
 	}
 
-	if(mode[0] <= MODE_LOW && mode[1] >= MODE_LOW){
+	if (mode[0] <= MODE_LOW && mode[1] >= MODE_LOW) {
 		// TODO low resolution doesnt have the same adjustments to region and viewport like STD mode does.
 		// -this doesnt seem to be causing any problems though
 		dbg(2, "LOW");
@@ -1920,7 +1919,7 @@ calc_render_info (WaveformActor* actor)
 		return false;
 	}
 
-	if(r->region.start + r->region.len > w->n_frames){
+	if (r->region.start + r->region.len > w->n_frames) {
 		// happens during transitions
 		dbg(1, "bad region adjusted: %"PRIi64" / %"PRIu64, r->region.start + r->region.len, w->n_frames);
 		r->region.len = w->n_frames - r->region.start;
@@ -1934,14 +1933,14 @@ calc_render_info (WaveformActor* actor)
 		: r->rect.len / r->region.len;
 	r->mode = get_mode(r->zoom);
 
-	if(!_w->render_data[r->mode]){
+	if (!_w->render_data[r->mode]) {
 #ifdef DEBUG
 		actor->render_result = RENDER_RESULT_LOADING;
 #endif
 		return false;
 	}
 	r->n_blocks = _w->render_data[r->mode]->n_blocks;
-	if(!r->n_blocks){
+	if (!r->n_blocks) {
 #ifdef DEBUG
 		actor->render_result = RENDER_RESULT_NO_BLOCKS;
 #endif
@@ -1973,7 +1972,7 @@ calc_render_info (WaveformActor* actor)
 
 	r->viewport_blocks = wf_actor_get_visible_block_range(&bregion, &brect_xl8, r->zoom, &r->viewport2, r->n_blocks);
 
-	if(r->viewport_blocks.last == LAST_NOT_VISIBLE && r->viewport_blocks.first == FIRST_NOT_VISIBLE){
+	if (r->viewport_blocks.last == LAST_NOT_VISIBLE && r->viewport_blocks.first == FIRST_NOT_VISIBLE) {
 		r->valid = true; // this prevents unnecessary recalculation but the RenderInfo is not really valid so _must_ be invalidated again before use.
 #ifdef DEBUG
 		actor->render_result = RENDER_RESULT_BLOCK_RANGE;
@@ -1983,13 +1982,13 @@ calc_render_info (WaveformActor* actor)
 	// ideally conditions which trigger this should be detected before rendering.
 	g_return_val_if_fail(r->viewport_blocks.last >= r->viewport_blocks.first, false);
 
-	if(r->region_end_block > r->n_blocks -1){ pwarn("region too long? region_end_block=%i n_blocks=%i region.len=%"PRIi64, r->region_end_block, r->n_blocks, r->region.len); r->region_end_block = w->priv->n_blocks -1; }
+	if (r->region_end_block > r->n_blocks -1) { pwarn("region too long? region_end_block=%i n_blocks=%i region.len=%"PRIi64, r->region_end_block, r->n_blocks, r->region.len); r->region_end_block = w->priv->n_blocks -1; }
 #ifdef DEBUG
 	dbg(2, "block range: region=%i..%i viewport=%i..%i", r->region_start_block, r->region_end_block, r->viewport_blocks.first, r->viewport_blocks.last);
 	dbg(2, "rect=%.2f (len=%.2f) viewport=%.2f..%.2f", r->rect.left, r->rect.len, r->viewport.left, r->viewport.right);
 #endif
 
-	if(r->viewport_blocks.last != r->region_end_block || r->viewport_blocks.first != r->region_start_block){
+	if (r->viewport_blocks.last != r->region_end_block || r->viewport_blocks.first != r->region_start_block) {
 		// if not cropped by viewport we can avoid having to recheck for missing blocks during translations.
 		r->cropped = true;
 	}
@@ -2098,8 +2097,8 @@ wf_actor_paint (AGlActor* _actor)
 #ifdef RENDER_CACHE_HIT_STATS
 	static int hits = 0;
 	static int misses = 0;
-	if(r->valid) hits++; else misses++;
-	if(!((hits + misses) % 100)) dbg(1, "hit ratio: %.2f", ((float)hits) / ((float)misses));
+	if (r->valid) hits++; else misses++;
+	if (!((hits + misses) % 100)) dbg(1, "hit ratio: %.2f", ((float)hits) / ((float)misses));
 #endif
 
 	if (!r->valid) {
@@ -2149,7 +2148,7 @@ wf_actor_paint (AGlActor* _actor)
 
 	bool inline render_block (Renderer* renderer, WaveformActor* actor, int b, bool is_first, bool is_last, double x, Mode m, Mode* m_active)
 	{
-		if(m != *m_active){
+		if (m != *m_active) {
 			if(!renderer->pre_render(renderer, actor))
 				return false;
 			*m_active = m;
@@ -2234,7 +2233,7 @@ wf_actor_paint (AGlActor* _actor)
 	}
 #endif
 
-	if(modes[r->mode].renderer->post_render) modes[r->mode].renderer->post_render(modes[r->mode].renderer, actor);
+	if (modes[r->mode].renderer->post_render) modes[r->mode].renderer->post_render(modes[r->mode].renderer, actor);
 
 #if 0
 	glTranslatef(0, 0, -actor->priv->animatable.z.val.f);
@@ -2247,27 +2246,22 @@ wf_actor_paint (AGlActor* _actor)
 	float top = r->rect.top + 0.1;
 	x = r->rect.left + (r->viewport_blocks.first - r->region_start_block) * r->block_wid - r->first_offset_px; // x is now the start of the first block (can be before part start when inset is present)
 	is_first = true;
-	if(agl->use_shaders){
-		agl->shaders.plain->uniform.colour = 0x6677ff77;
-		agl_use_program((AGlShader*)agl->shaders.plain);
-		glDisable(GL_TEXTURE_1D);
-	}else{
-		agl_enable(AGL_ENABLE_BLEND | !AGL_ENABLE_TEXTURE_2D);
-		glColor4f(1.0, 0.0, 1.0, 0.75);
-	}
-	for(b=r->viewport_blocks.first;b<=r->viewport_blocks.last;b++){
+	agl->shaders.plain->uniform.colour = 0x6677ff77;
+	agl_use_program((AGlShader*)agl->shaders.plain);
+	glDisable(GL_TEXTURE_1D);
+	for (b=r->viewport_blocks.first;b<=r->viewport_blocks.last;b++) {
 		glLineWidth(1);
 		float x_ = x + 0.1; // added for intel 945.
 		glBegin(GL_LINES);
 		{
 			// lines are cropped by the rect to avoid confusion with multiple waveforms
 			glVertex3f(MAX(x_, r->rect.left), top, 0); glVertex3f(MIN(x_ + r->block_wid, r->rect.left + r->rect.len), top, 0);
-			if(x_ + r->block_wid <= r->rect.left + r->rect.len){
+			if (x_ + r->block_wid <= r->rect.left + r->rect.len) {
 			glVertex3f(x_ + r->block_wid, top, 0);    glVertex3f(x_ + r->block_wid, bot,             0);
 			}
 			glVertex3f(x_,                bot, 0);    glVertex3f(x_ + r->block_wid, bot,             0);
 
-			if(x_ >= r->rect.left){
+			if (x_ >= r->rect.left) {
 			glVertex3f(x_,                top, 0);    glVertex3f(x_,                r->rect.top + 10,0);
 			}
 			glVertex3f(x_,                bot, 0);    glVertex3f(x_,                bot - 10,        0);
@@ -2275,19 +2269,15 @@ wf_actor_paint (AGlActor* _actor)
 		glEnd();
 
 		// add a small marker every 32 blocks
-		if(!(b % 32)){
-			if(agl->use_shaders){
-				agl->shaders.plain->uniform.colour = 0xff7733aa;
-				agl->shaders.plain->shader.set_uniforms_();
-			}
+		if (!(b % 32)) {
+			agl->shaders.plain->uniform.colour = 0xff7733aa;
+			agl->shaders.plain->shader.set_uniforms_();
 			glBegin(GL_LINES);
 				glVertex3f(x_+ 1,         top, 0);    glVertex3f(x_ + 1,            r->rect.top + 10,0);
 				glVertex3f(x_+ 1,         bot, 0);    glVertex3f(x_ + 1,            bot - 10,        0);
 			glEnd();
-			if(agl->use_shaders){
-				agl->shaders.plain->uniform.colour = 0x6677ff77;
-				agl->shaders.plain->shader.set_uniforms_();
-			}
+			agl->shaders.plain->uniform.colour = 0x6677ff77;
+			agl->shaders.plain->shader.set_uniforms_();
 		}
 
 		x += r->block_wid;
@@ -2311,7 +2301,7 @@ wf_actor_load_texture1d(Waveform* w, Mode mode, WfGlBlock* blocks, int blocknum)
 {
 	g_return_if_fail(mode == MODE_LOW);
 
-	if(blocks) dbg(2, "%i: %i %i %i %i", blocknum,
+	if (blocks) dbg(2, "%i: %i %i %i %i", blocknum,
 		blocks->peak_texture[0].main[blocknum],
 		blocks->peak_texture[0].neg[blocknum],
 		blocks->peak_texture[1].main ? blocks->peak_texture[WF_RIGHT].main[blocknum] : 0,
@@ -2337,24 +2327,24 @@ wf_actor_load_texture1d(Waveform* w, Mode mode, WfGlBlock* blocks, int blocknum)
 			? peak->size / WF_PEAK_VALUES_PER_SAMPLE + TEX_BORDER - B_SIZE * blocknum
 			: WF_PEAK_TEXTURE_SIZE;
 		int f = 0;
-		if(blocknum == 0){
-			for(f=0;f<TEX_BORDER;f++){
+		if (blocknum == 0) {
+			for (f=0;f<TEX_BORDER;f++) {
 				buf->positive[f] = 0;
 				buf->negative[f] = 0;
 			}
 		}
-		for(;f<stop;f++){
+		for (;f<stop;f++) {
 			int i = (B_SIZE * blocknum + f - TEX_BORDER) * WF_PEAK_VALUES_PER_SAMPLE;
 
 			buf->positive[f] =  peak->buf[ch][i  ] >> 8;
 			buf->negative[f] = -peak->buf[ch][i+1] >> 8;
 		}
-		for(;f<WF_PEAK_TEXTURE_SIZE;f++){
+		for (;f<WF_PEAK_TEXTURE_SIZE;f++) {
 			// could use memset here
 			int i = (B_SIZE * blocknum + f - TEX_BORDER) * WF_PEAK_VALUES_PER_SAMPLE;
 			buf->positive[f] = 0;
 			buf->negative[f] = 0;
-			if(i == peak->size) dbg(1, "end of peak: %i b=%i n_sec=%.3f", peak->size, blocknum, ((float)((WF_PEAK_TEXTURE_SIZE * blocknum + f) * WF_PEAK_RATIO))/44100);// break;
+			if (i == peak->size) dbg(1, "end of peak: %i b=%i n_sec=%.3f", peak->size, blocknum, ((float)((WF_PEAK_TEXTURE_SIZE * blocknum + f) * WF_PEAK_RATIO))/44100);// break;
 		}
 	}
 
@@ -2363,10 +2353,10 @@ wf_actor_load_texture1d(Waveform* w, Mode mode, WfGlBlock* blocks, int blocknum)
 		dbg(2, "b=%i", blocknum);
 
 		WfPeakBuf* peak = &w->priv->peak;
-		int f; for(f=0;f<WF_PEAK_TEXTURE_SIZE;f++){
+		for(int f=0;f<WF_PEAK_TEXTURE_SIZE;f++) {
 			int i = ((WF_PEAK_TEXTURE_SIZE  - 2 * TEX_BORDER) * blocknum + f  - TEX_BORDER) * WF_PEAK_VALUES_PER_SAMPLE * WF_PEAK_STD_TO_LO;
-			if(i >= peak->size) break;
-			if(i < 0) continue;        //TODO change the loop start point instead (TEX_BORDER)
+			if (i >= peak->size) break;
+			if (i < 0) continue;        //TODO change the loop start point instead (TEX_BORDER)
 
 			WfPeakSample p = {0, 0};
 			int j; for(j=0;j<WF_PEAK_STD_TO_LO;j++){
@@ -2382,7 +2372,7 @@ wf_actor_load_texture1d(Waveform* w, Mode mode, WfGlBlock* blocks, int blocknum)
 	}
 
 	static IntBufHi buf_hi; //TODO shouldnt be static
-	void make_data(Waveform* w, int c, struct _buf* buf)
+	void make_data (Waveform* w, int c, struct _buf* buf)
 	{
 		make_texture_data_low(w, c, buf);
 	}
@@ -2402,7 +2392,7 @@ glEnable(GL_TEXTURE_1D);
 		glBindTexture(GL_TEXTURE_1D, d->tex_id);
 		dbg (2, "loading texture1D... texture_id=%u", d->tex_id);
 		gl_warn("gl error: bind failed: unit=%i buf=%p tid=%i", d->tex_unit, d->buf, d->tex_id);
-		if(!glIsTexture(d->tex_id)) pwarn ("invalid texture: texture_id=%u", d->tex_id);
+		if (!glIsTexture(d->tex_id)) pwarn ("invalid texture: texture_id=%u", d->tex_id);
 		glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_WRAP_S, GL_CLAMP);
 		//glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
 		glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_WRAP_T, GL_CLAMP);
@@ -2417,7 +2407,7 @@ glEnable(GL_TEXTURE_1D);
 		gl_warn("unit=%i buf=%p tid=%i", d->tex_unit, d->buf, d->tex_id);
 	}
 
-	int c;for(c=0;c<waveform_get_n_channels(w);c++){
+	for (int c=0;c<waveform_get_n_channels(w);c++) {
 		make_data(w, c, &buf);
 
 		struct _d d[2] = {
@@ -2425,12 +2415,12 @@ glEnable(GL_TEXTURE_1D);
 			{WF_TEXTURE1 + 2 * c, blocks->peak_texture[c].neg [blocknum], buf.negative},
 		};
 
-		if(mode == MODE_HI){
+		if (mode == MODE_HI) {
 			d[0].buf = buf_hi.positive;
 			d[1].buf = buf_hi.negative;
 		}
 
-		int v; for(v=0;v<2;v++){
+		for (int v=0;v<2;v++) {
 			_load_texture(&d[v]);
 		}
 		gl_warn("loading textures failed (lhs)");
@@ -2443,74 +2433,6 @@ glEnable(GL_TEXTURE_1D);
 #endif
 
 
-static void
-wf_actor_load_texture2d(WaveformActor* a, Mode mode, int texture_id, int blocknum)
-{
-	Waveform* w = a->waveform;
-	dbg(1, "* %i: texture=%i", blocknum, texture_id);
-	if(mode == MODE_MED){
-		AlphaBuf* alphabuf = wf_alphabuf_new(w, blocknum, 1, false, TEX_BORDER);
-		wf_load_texture_from_alphabuf(a->context, texture_id, alphabuf);
-		wf_alphabuf_free(alphabuf);
-	}
-	else if(mode == MODE_HI){
-		AlphaBuf* alphabuf = wf_alphabuf_new_hi(w, blocknum, 1, false, TEX_BORDER);
-		wf_load_texture_from_alphabuf(a->context, texture_id, alphabuf);
-		wf_alphabuf_free(alphabuf);
-	}
-}
-
-
-	typedef struct {
-		WaveformActor* actor;
-		AnimationFn    done;
-		gpointer       user_data;
-	} C3;
-
-		// TODO consider having each wf_animation_preview callback as a separate idle fn.
-		static void set_region_on_frame_preview (WfAnimation* animation, UVal val[], gpointer _c)
-		{
-			WaveformActor* a = _c;
-			AGlActor* actor = (AGlActor*)a;
-
-			GList* l = animation->members;
-			for(;l;l=l->next){
-				WfAnimActor* anim_actor = l->data;
-				WfSampleRegion region = {START(actor).target_val.b, LEN(actor).target_val.b};
-				GList* j = anim_actor->transitions;
-				int i; for(i=0;j;j=j->next,i++){
-					WfAnimatable* animatable = j->data;
-					if(animatable == &START(actor)){
-						region.start = val[i].b;
-					}
-					else if(animatable == &LEN(actor)){
-						region.len = val[i].b;
-					}
-
-#ifdef USE_CANVAS_SCALING
-					double zoom = a->context->scaled ? wf_context_get_zoom(a->context) : agl_actor__width(actor) / region.len;
-#else
-					double zoom = _a->rect.len / region.len;
-#endif
-
-					int mode = get_mode(zoom);
-					WfViewPort viewport; _wf_actor_get_viewport_max(a, &viewport);
-
-					BlockRange blocks = wf_actor_get_visible_block_range (&region, &(WfRectangle)WF_ACTOR_RECT(actor), zoom, &viewport, wf_actor_get_n_blocks(a->waveform, mode));
-
-					int b;for(b=blocks.first;b<=blocks.last;b++){
-						if(mode >= MODE_HI){
-							hi_request_block(a, b);
-						}else{
-							Renderer* renderer = modes[mode].renderer;
-							if(a->waveform->priv->render_data[mode]) // can be unset during transitions that span more than one mode.
-								call(renderer->load_block, renderer, a, b);
-						}
-					}
-				}
-			}
-		}
-
 /*
  *  load resources that will be needed over the course of the transition
  */
@@ -2518,6 +2440,49 @@ static void
 wf_actor_on_size_transition_start (WaveformActor* a, WfAnimatable* Xanimatable)
 {
 	AGlActor* actor = (AGlActor*)a;
+
+	// TODO consider having each wf_animation_preview callback as a separate idle fn.
+	void set_region_on_frame_preview (WfAnimation* animation, UVal val[], gpointer _c)
+	{
+		WaveformActor* a = _c;
+		AGlActor* actor = (AGlActor*)a;
+
+		for (GList* l=animation->members;l;l=l->next) {
+			WfAnimActor* anim_actor = l->data;
+			WfSampleRegion region = {START(actor).target_val.b, LEN(actor).target_val.b};
+			GList* j = anim_actor->transitions;
+			for (int i=0;j;j=j->next,i++) {
+				WfAnimatable* animatable = j->data;
+				if (animatable == &START(actor)) {
+					region.start = val[i].b;
+				}
+				else if (animatable == &LEN(actor)) {
+					region.len = val[i].b;
+				}
+
+#ifdef USE_CANVAS_SCALING
+				double zoom = a->context->scaled ? wf_context_get_zoom(a->context) : agl_actor__width(actor) / region.len;
+#else
+				double zoom = _a->rect.len / region.len;
+#endif
+
+				int mode = get_mode(zoom);
+				WfViewPort viewport; _wf_actor_get_viewport_max(a, &viewport);
+
+				BlockRange blocks = wf_actor_get_visible_block_range (&region, &(WfRectangle)WF_ACTOR_RECT(actor), zoom, &viewport, wf_actor_get_n_blocks(a->waveform, mode));
+
+				for (int b=blocks.first;b<=blocks.last;b++) {
+					if (mode >= MODE_HI) {
+						hi_request_block(a, b);
+					} else {
+						Renderer* renderer = modes[mode].renderer;
+						if (a->waveform->priv->render_data[mode]) // can be unset during transitions that span more than one mode.
+							call(renderer->load_block, renderer, a, b);
+					}
+				}
+			}
+		}
+	}
 
 	// if neccesary load any additional audio needed by the transition.
 	// - currently only changes to the region start are checked.
@@ -2536,7 +2501,7 @@ wf_actor_on_size_transition_start (WaveformActor* a, WfAnimatable* Xanimatable)
 				for (;k;k=k->next) {
 					WfAnimatable* animatable = k->data;
 												#if 0
-					if(animatable == &_a->animatable.start){
+					if (animatable == &_a->animatable.start) {
 						wf_animation_preview(g_list_last(actor->transitions)->data, set_region_on_frame_preview, a);
 					}
 												#endif
@@ -2577,21 +2542,10 @@ wf_actor_get_n_blocks (Waveform* waveform, Mode mode)
 static void
 wf_actor_on_use_shaders_change ()
 {
-	modes[MODE_HI].renderer = agl.use_shaders
-		? (Renderer*)&hi_renderer_gl2
-		: (Renderer*)&hi_renderer_gl1;
-
-	modes[MODE_MED].renderer = agl.use_shaders
-		? (Renderer*)&med_renderer_gl2
-		: &med_renderer_gl1;
-
-	modes[MODE_LOW].renderer = agl.use_shaders
-		? (Renderer*)&lo_renderer_gl2
-		: &lo_renderer_gl1;
-
-	modes[MODE_V_LOW].renderer = agl.use_shaders
-		? (Renderer*)&v_lo_renderer_gl2
-		: &v_lo_renderer_gl1;
+	modes[MODE_HI].renderer = (Renderer*)&hi_renderer;
+	modes[MODE_MED].renderer = (Renderer*)&med_renderer;
+	modes[MODE_LOW].renderer = (Renderer*)&lo_renderer;
+	modes[MODE_V_LOW].renderer = (Renderer*)&v_lo_renderer;
 }
 
 
@@ -2612,10 +2566,10 @@ wf_actor_test_is_not_blank (WaveformActor* a)
 	Renderer* renderer = r->renderer;
 	g_return_val_if_fail(renderer, false);
 
-	if(renderer->is_not_blank){
-		if(renderer->is_not_blank(renderer, a)){
+	if (renderer->is_not_blank) {
+		if (renderer->is_not_blank(renderer, a)) {
 			dbg(0, "is not blank");
-		}else{
+		} else {
 			dbg(0, "is blank");
 			return false;
 		}

@@ -145,83 +145,68 @@ grid_actor_paint (AGlActor* actor)
 			: startf + agl_actor__width(actor) * context->samples_per_pixel
 	};
 
-	int64_t f = ((int64_t)((region.start - 1)/ interval) + 1) * interval;
-	if (agl.use_shaders) {
-		int n = MIN(0x5f, (region.end - f) / interval + 1);
-		if (n > 0) {
-			AGlQuadVertex vertices[n];
-			int n2 = interval_minor ? n + 1 : 1;
-			AGlQuadVertex vertices_minor[n2];
+	int64_t fr = ((int64_t)((region.start - 1)/ interval) + 1) * interval;
+	int n = MIN(0x5f, (region.end - fr) / interval + 1);
+	if (n > 0) {
+		AGlQuadVertex vertices[n];
+		int n2 = interval_minor ? n + 1 : 1;
+		AGlQuadVertex vertices_minor[n2];
 
-			for (int i = 0; i < n; f += interval, i++) {
-				float x = wf_context_frame_to_x(context, f);
-				agl_set_quad (&vertices, i,
-					(AGlVertex){x, 0.},
-					(AGlVertex){x + 2., agl_actor__height(actor)}
-				);
-
-				if (interval_minor) {
-					for (int j = 1; j < interval / interval_minor; j++) {
-						float x = wf_context_frame_to_x(context, f + j * interval_minor);
-						agl_set_quad (&vertices_minor, i * (interval / interval_minor -1) + j,
-							(AGlVertex){x, 0.},
-							(AGlVertex){x + 1., agl_actor__height(actor)}
-						);
-					}
-				}
-			}
-
-			agl_use_va(vao);
-			glBindBuffer (GL_ARRAY_BUFFER, vbo);
-			glBufferData (GL_ARRAY_BUFFER, sizeof(AGlQuadVertex) * n, vertices, GL_STATIC_DRAW);
-			glDrawArrays(GL_TRIANGLES, 0, n * AGL_V_PER_QUAD);
+		for (int i = 0; i < n; fr += interval, i++) {
+			float x = wf_context_frame_to_x(context, fr);
+			agl_set_quad (&vertices, i,
+				(AGlVertex){x, 0.},
+				(AGlVertex){x + 2., agl_actor__height(actor)}
+			);
 
 			if (interval_minor) {
-				SET_PLAIN_COLOUR(agl.shaders.dotted, 0x55bb555b);
-				agl_set_uniforms(agl.shaders.dotted);
-				glBufferData (GL_ARRAY_BUFFER, sizeof(AGlQuadVertex) * n2, vertices_minor, GL_STATIC_DRAW);
-				glDrawArrays(GL_TRIANGLES, 0, n2 * AGL_V_PER_QUAD);
-			}
-		}
-
-		agl_set_font_string("Roboto 7");
-		uint32_t colour = (actor->colour & 0xffffff00) + (actor->colour & 0x000000ff) * 0x88 / 0xff;
-		char s[16] = {0,};
-		int x_ = 0;
-		uint64_t f = ((int64_t)(context->start_time->value.b / interval)) * interval;
-		for (int i = 0; (f < region.end) && (i < 0xff); f += interval, i++) {
-			int x = wf_context_frame_to_x(context, f) + 3;
-			if (x > agl_actor__width(actor) - actor->scrollable.x1) break;
-			if (x - x_ > 60) {
-#if 0
-				if(w->n_frames / actor->canvas->sample_rate < 60)
-					snprintf(s, 15, "%.1f", ((float)f) / actor->canvas->sample_rate);
-				else{
-#endif
-					uint64_t mins = f / (60 * context->sample_rate);
-					snprintf(s, 15, "%"PRIi64":%.1f", mins % 16384, ((float)f) / context->sample_rate - 60 * mins);
-#if 0
+				for (int j = 1; j < interval / interval_minor; j++) {
+					float x = wf_context_frame_to_x(context, fr + j * interval_minor);
+					agl_set_quad (&vertices_minor, i * (interval / interval_minor -1) + j,
+						(AGlVertex){x, 0.},
+						(AGlVertex){x + 1., agl_actor__height(actor)}
+					);
 				}
-#endif
-				agl_print(x, 0, 0, colour, s);
-				x_ = x;
 			}
 		}
-		agl_set_font_string("Roboto 10");
-	} else {
-		glDisable(GL_TEXTURE_1D);
-		glLineWidth(1);
-		glColor4f(0.5, 0.5, 1.0, 0.25);
-		agl_enable(AGL_ENABLE_BLEND);
 
-		for (int i = 0; (f < region.end) && (i < 0xff); f += interval, i++) {
-			float x = wf_context_frame_to_x(context, f);
+		agl_use_va(vao);
+		glBindBuffer (GL_ARRAY_BUFFER, vbo);
+		glBufferData (GL_ARRAY_BUFFER, sizeof(AGlQuadVertex) * n, vertices, GL_STATIC_DRAW);
+		glDrawArrays(GL_TRIANGLES, 0, n * AGL_V_PER_QUAD);
 
-			glBegin(GL_LINES);
-			glVertex3f(x, 0.0, 1);
-			glVertex3f(x, agl_actor__height(actor), 1);
-			glEnd();
+		if (interval_minor) {
+			SET_PLAIN_COLOUR(agl.shaders.dotted, 0x55bb555b);
+			agl_set_uniforms(agl.shaders.dotted);
+			glBufferData (GL_ARRAY_BUFFER, sizeof(AGlQuadVertex) * n2, vertices_minor, GL_STATIC_DRAW);
+			glDrawArrays(GL_TRIANGLES, 0, n2 * AGL_V_PER_QUAD);
 		}
 	}
+
+	agl_set_font_string("Roboto 7");
+	uint32_t colour = (actor->colour & 0xffffff00) + (actor->colour & 0x000000ff) * 0x88 / 0xff;
+	char s[16] = {0,};
+	int x_ = 0;
+	uint64_t f = ((int64_t)(context->start_time->value.b / interval)) * interval;
+	for (int i = 0; (f < region.end) && (i < 0xff); f += interval, i++) {
+		int x = wf_context_frame_to_x(context, f) + 3;
+		if (x > agl_actor__width(actor) - actor->scrollable.x1) break;
+		if (x - x_ > 60) {
+#if 0
+			if(w->n_frames / actor->canvas->sample_rate < 60)
+				snprintf(s, 15, "%.1f", ((float)f) / actor->canvas->sample_rate);
+			else{
+#endif
+				uint64_t mins = f / (60 * context->sample_rate);
+				snprintf(s, 15, "%"PRIi64":%.1f", mins % 16384, ((float)f) / context->sample_rate - 60 * mins);
+#if 0
+			}
+#endif
+			agl_print(x, 0, 0, colour, s);
+			x_ = x;
+		}
+	}
+	agl_set_font_string("Roboto 10");
+
 	return true;
 }

@@ -25,8 +25,6 @@
  |
  */
 
-#define USE_SHADERS true
-
 #define __wf_private__
 
 #include "config.h"
@@ -243,8 +241,6 @@ on_canvas_realise (GtkWidget* _canvas, gpointer user_data)
 {
 	if (wfc) return;
 	if (!gtk_widget_get_realized (canvas)) return;
-
-	agl.pref_use_shaders = USE_SHADERS;
 
 	wfc = wf_context_new((AGlActor*)scene);
 

@@ -53,7 +53,6 @@ KeyHandler
 	scroll_left,
 	scroll_right,
 	toggle_animate,
-	toggle_shaders,
 	quit;
 
 Key keys[] = {
@@ -67,7 +66,6 @@ Key keys[] = {
 	{(char)'<',     NULL},
 	{(char)'>',     NULL},
 	{(char)'a',     toggle_animate},
-	{(char)'s',     toggle_shaders},
 	{GDK_Delete,    NULL},
 	{113,           quit},
 	{0},
@@ -280,14 +278,6 @@ toggle_animate (gpointer _)
 	PF0;
 
 	g_timeout_add(50, on_idle, NULL);
-}
-
-
-void
-toggle_shaders (gpointer _)
-{
-	PF0;
-	agl_actor__set_use_shaders(scene, !agl.use_shaders);
 }
 
 

@@ -13,15 +13,6 @@
 extern AGlMaterialClass aaline_class;
 
 #define VERTEX_ARRAYS
-
-/*
- *  The multiline shader is a performance related experiment,
- *  but is unlikely to offer much improvement if any.
- *  It has less draw calls but the gpu is doing more work.
- */
-#define MULTILINE_SHADER
-#undef MULTILINE_SHADER
-
 #define TWO_COORDS_PER_VERTEX 2
 
 static unsigned int vao = 0;
@@ -35,13 +26,6 @@ typedef struct {
 	int border;
 } Extent;
 
-#ifdef MULTILINE_SHADER
-extern LinesShader lines;
-static GLuint lines_texture[8] = {0};
-
-GLuint _wf_create_lines_texture (guchar* pbuf, int width, int height);
-#endif
-
 
 static void
 v_hi_renderer_new (WaveformActor* actor)
@@ -54,16 +38,9 @@ v_hi_renderer_new (WaveformActor* actor)
 		.n_blocks = w->n_blocks
 	);
 
-#if defined (MULTILINE_SHADER)
-	if (agl.use_shaders) {
-		agl_create_program(&lines.shader);
-		modes[MODE_V_HI].renderer->shader = &lines.shader;
-	}
-#else
 	if (!agl.aaline) agl.aaline = agl_aa_line_new();
 
 	modes[MODE_V_HI].renderer->shader = aaline_class.shader;
-#endif
 
 	glGenVertexArrays(1, &vao);
 	glGenBuffers(1, &vhivbo);
@@ -102,24 +79,8 @@ v_hi_pre_render0 (Renderer* renderer, WaveformActor* actor)
 static void
 _v_hi_set_gl_state (WaveformActor* actor)
 {
-	const WaveformContext* wfc = actor->context;
-
-#if defined (MULTILINE_SHADER)
-	glEnable(GL_BLEND);
-	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-	if (wfc->use_1d_textures) {
-		lines.uniform.colour = ((AGlActor*)actor)->colour;
-		lines.uniform.n_channels = actor->waveform->n_channels;
-	}
-#else
-
-	if (wfc->use_1d_textures) {
-		ALPHAMAP_COLOUR() = ((AGlActor*)actor)->colour;
-		agl_use_material(agl.aaline);
-	} else {
-		agl_enable(AGL_ENABLE_BLEND);
-	}
-#endif
+	ALPHAMAP_COLOUR() = ((AGlActor*)actor)->colour;
+	agl_use_material(agl.aaline);
 }
 
 
@@ -179,9 +140,6 @@ draw_wave_buffer_v_hi (Renderer* renderer, WaveformActor* actor, int block, bool
 			MAX(0, b_rect.left + cropped.x1),
 			x_stop
 		},
-#ifdef MULTILINE_SHADER
-		.border = TEX_BORDER_HI
-#endif
 	};
 	xr.outer = xr.inner;
 
@@ -190,19 +148,9 @@ draw_wave_buffer_v_hi (Renderer* renderer, WaveformActor* actor, int block, bool
 	};
 	sr.outer.l = sr.inner.l - sr.border;
 
-#ifndef MULTILINE_SHADER
 	const int n_lines = MIN(MAX_SCREEN_SIZE, x_stop - xr.inner.l);
 	g_return_val_if_fail(n_lines > 0, false);
 	AGlTQuad quads[n_lines];
-#endif
-
-#ifdef MULTILINE_SHADER
-	int mls_tex_w = x_stop - 2 * TEX_BORDER_HI;
-	int mls_tex_h = 2; // TODO if we really are not going to add the indirection for x (for zoom > 1), use a 1d texture.
-	int t_width = agl_power_of_two(mls_tex_w);
-	guchar* _pbuf = g_new0(guchar, t_width * mls_tex_h);
-	guchar* pbuf[] = {_pbuf, _pbuf + t_width};
-#endif
 
 	sr.inner.r = sr.outer.l + (xr.inner.r - xr.inner.l) / ri->zoom;
 	sr.outer.r = sr.outer.l + ((double)x_stop) / ri->zoom;
@@ -224,35 +172,19 @@ draw_wave_buffer_v_hi (Renderer* renderer, WaveformActor* actor, int block, bool
 	float gain = wfc->v_gain * (ri->rect.height / (2.0 * w->n_channels)) / (1 << 15);
 
 	const int s0 = sr.outer.l;
-	for(int c=0;c<w->n_channels;c++){
-		if(!buf->buf[c]) continue;
+	for (int c=0;c<w->n_channels;c++) {
+		if (!buf->buf[c]) continue;
 
-#ifdef MULTILINE_SHADER
-		int val0 = ((2*c + 1) * 128) / w->n_channels;
-		if(mls_tex_w > TEX_BORDER_HI + 7) //TODO improve this test - make sure index is not negative  --- may not be needed (texture is bigger now (includes borders))
-		memset((void*)((uintptr_t)pbuf[c] + (uintptr_t)(mls_tex_w - TEX_BORDER_HI)) - 7, val0, TEX_BORDER_HI + 7); // zero the rhs border in case it is not filled with content.
-
-																						memset((void*)((uintptr_t)pbuf[c]), val0, t_width);
-#endif
-
-#ifndef MULTILINE_SHADER
 		int oldx = xr.inner.l - 1;
 		float oldy = 0;
-#endif
 		double ds = (1. / ri->zoom) * (x_stop - xr.inner.l + 1) / (x_stop - xr.inner.l);
 		int s = -ds;
 		int i = 0;
 		int x;
 		// note that when using texture borders, at the viewport left edge x is NOT zero, it is TEX_BORDER_HI.
-		for(x = xr.inner.l; x < x_stop; x++, i++){
+		for (x = xr.inner.l; x < x_stop; x++, i++) {
 			s = i * ds;
 
-#ifdef MULTILINE_SHADER
-			if (s0 + s < 0){ // left border and no valid data.
-				pbuf[c][i] = val0;
-				continue;
-			}
-#endif
 			if (s0 + s >= (int)buf->size ) { pwarn("end of block reached at s=%i: b_region%i..%i buf.size=%i ds=%.1f", s, s0, sr.inner.r, buf->size, 1. / ri->zoom); break; }
 
 			short* d = buf->buf[c];
@@ -264,12 +196,6 @@ draw_wave_buffer_v_hi (Renderer* renderer, WaveformActor* actor, int block, bool
 			}
 			float y = (val[0] > -val[1] ? val[0] : val[1]) * gain;
 
-#if defined (MULTILINE_SHADER)
-			if(i >= mls_tex_w){ pwarn("tex index out of range %i (max %i)", i, mls_tex_w); break; }
-			{
-				pbuf[c][i] = val0 + MIN(y, 63); // the 63 is to stop it wrapping - would be nice to remove this.
-			}
-#else
 			{
 				float x0 = oldx;
 				float y0 = rect->top - oldy + rect->height / 2;
@@ -292,7 +218,6 @@ draw_wave_buffer_v_hi (Renderer* renderer, WaveformActor* actor, int block, bool
 
 			oldx = x;
 			oldy = y;
-#endif
 		}
 		dbg(2, "%i: n_lines=%i x=%i-->%i", block, i, xr.inner.l, x);
 
@@ -300,38 +225,13 @@ draw_wave_buffer_v_hi (Renderer* renderer, WaveformActor* actor, int block, bool
 			agl_translate ((AGlShader*)agl.shaders.alphamap, 0., - rect->height/4. + c * rect->height/2.);
 		}
 
-#ifndef MULTILINE_SHADER
 		agl_use_va(vao);
 
 		glBindBuffer(GL_ARRAY_BUFFER, vhivbo);
 		glBufferData(GL_ARRAY_BUFFER, sizeof(quads), quads, GL_STATIC_DRAW);
 
 		glDrawArrays(GL_TRIANGLES, 0, i * AGL_V_PER_QUAD);
-#endif
 	} // end channel
-
-#if defined (MULTILINE_SHADER)
-	#define TEXELS_PER_PIXEL 1.0
-	guint texture =_wf_create_lines_texture(pbuf[0], t_width, mls_tex_h);
-	float len = MIN(agl_actor__width((AGlActor*)actor), b_rect.len); // the texture contents are cropped by viewport so we should do the same when setting the rect width.
-
-	AGlQuad t = {
-		((float)TEX_BORDER_HI)/((float)t_width),
-		0.0,
-		((float)((x_stop) * TEXELS_PER_PIXEL)) / (float)t_width,
-		1.0
-	};
-
-	lines.uniform.texture_width = t_width;
-	agl_use_program((AGlShader*)&lines); // to set the uniform
-
-	glPushMatrix();
-	glTranslatef(b_rect.left, 0.0, 0.0);
-	agl_textured_rect(texture, 0.0, b_rect.top, len, b_rect.height, &t);
-	glPopMatrix();
-
-	g_free(_pbuf);
-#endif
 
 	// increment for next block
 	vhr->block_region_v_hi.start = (vhr->block_region_v_hi.start / WF_PEAK_BLOCK_SIZE + 1) * WF_PEAK_BLOCK_SIZE;
@@ -355,43 +255,6 @@ v_hi_free_waveform (Renderer* renderer, Waveform* w, void** data)
 }
 
 
-#ifdef MULTILINE_SHADER
-GLuint
-_wf_create_lines_texture (guchar* pbuf, int width, int height)
-{
-	/*
-	 * This texture is used as data for the shader.
-	 * Each column represents a vertex.
-	 * Each row contains the following values:
-	 *   0: x value // .. or maybe not
-	 *   1: y value
-	 *
-	 */
-	glEnable(GL_TEXTURE_2D);
-
-	if (!lines_texture[0]) {
-		glGenTextures(8, lines_texture);
-		if (glGetError() != GL_NO_ERROR){ perr ("couldnt create lines_texture."); return 0; }
-		dbg(2, "lines_texture=%i", lines_texture[0]);
-	}
-
-	// currently we rotate through a fixed number of textures. TODO needs improvement - fixed number will either be too high or too low depending on the application.
-	static int t_idx = 0;
-	int t = t_idx;
-
-	int pixel_format = GL_ALPHA;
-	glBindTexture  (GL_TEXTURE_2D, lines_texture[t]);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_ALPHA, width, height, 0, pixel_format, GL_UNSIGNED_BYTE, pbuf);
-
-	t_idx = (t_idx + 1) % 8;
-
-	return lines_texture[t];
-}
-#endif
-
-
 #ifdef USE_TEST
 static void
 v_hi_unref (Renderer* renderer)
@@ -410,5 +273,3 @@ VHiRenderer v_hi_renderer = {{
 	.unref = v_hi_unref
 #endif
 }};
-
-

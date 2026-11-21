@@ -13,7 +13,7 @@
 extern AGlShader ng_shader;
 
 static void
-low_new_gl2 (WaveformActor* actor)
+low_new (WaveformActor* actor)
 {
 	WaveformPrivate* w = actor->waveform->priv;
 
@@ -27,23 +27,7 @@ low_new_gl2 (WaveformActor* actor)
 }
 
 
-static void
-lo_new_gl1(WaveformActor* actor)
-{
-	Waveform* w = actor->waveform;
-	WaveformPrivate* _w = w->priv;
-
-	if (!_w->render_data[MODE_LOW]) {
-		int n_blocks = _w->num_peaks / (WF_PEAK_STD_TO_LO * WF_TEXTURE_VISIBLE_SIZE) + ((_w->num_peaks % (WF_PEAK_STD_TO_LO * WF_TEXTURE_VISIBLE_SIZE)) ? 1 : 0);
-
-		_w->render_data[MODE_LOW] = (WaveformModeRender*)wf_texture_array_new(n_blocks, w->n_channels);
-		_w->render_data[MODE_LOW]->n_blocks = n_blocks;
-	}
-}
-
-
-Renderer lo_renderer_gl1 = {MODE_LOW, lo_new_gl1, low_allocate_block_gl1, med_lo_pre_render_gl1, med_lo_render_gl1, NULL, med_lo_gl1_free_waveform};
-NGRenderer lo_renderer_gl2 = {{MODE_LOW, low_new_gl2, ng_gl2_load_block, ng_pre_render, ng_gl2_render_block, ng_post_render, ng_free_waveform,
+NGRenderer lo_renderer = {{MODE_LOW, low_new, ng_load_block, ng_pre_render, ng_render_block, ng_post_render, ng_free_waveform,
 	.texture_size = WF_PEAK_TEXTURE_SIZE,
 }};
 
@@ -51,13 +35,13 @@ NGRenderer lo_renderer_gl2 = {{MODE_LOW, low_new_gl2, ng_gl2_load_block, ng_pre_
 static Renderer*
 lo_renderer_init ()
 {
-	g_return_val_if_fail(!med_renderer_gl2.ng_data, NULL);
+	g_return_val_if_fail(!med_renderer.ng_data, NULL);
 
-	static Renderer* lo_renderer = (Renderer*)&lo_renderer_gl2;
+	Renderer* _lo_renderer = (Renderer*)&lo_renderer;
 
-	lo_renderer_gl2.ng_data = g_hash_table_new_full(g_direct_hash, g_int_equal, NULL, g_free);
+	lo_renderer.ng_data = g_hash_table_new_full(g_direct_hash, g_int_equal, NULL, g_free);
 
-	ng_make_lod_levels(&lo_renderer_gl2, lo_renderer->texture_size);
+	ng_make_lod_levels(&lo_renderer, _lo_renderer->texture_size);
 
-	return (Renderer*)lo_renderer;
+	return (Renderer*)_lo_renderer;
 }
