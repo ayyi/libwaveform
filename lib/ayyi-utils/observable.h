@@ -29,7 +29,7 @@ typedef AyyiVal (*AyyiObservableMapFn) (AyyiObservable*, AyyiVal, gpointer);
 
 AyyiObservable* ayyi_observable_new         ();
 void            ayyi_observable_free        (AyyiObservable*);
-void            ayyi_observable_set         (AyyiObservable*, AyyiVal);
+void            ayyi_observable_set_val     (AyyiObservable*, AyyiVal);
 bool            ayyi_observable_set_int     (AyyiObservable*, int);
 void            ayyi_observable_set_float   (AyyiObservable*, float);
 void            ayyi_observable_set_string  (AyyiObservable*, const char*);
@@ -56,5 +56,13 @@ typedef struct {
 AyyiObservable* ayyi_array_observable_new    ();
 void            ayyi_array_observable_add    (AyyiObservable*, gpointer);
 void            ayyi_array_observable_remove (AyyiObservable*, gpointer);
+
+#define ayyi_observable_set(O, v) _Generic((v), \
+	AyyiVal: ayyi_observable_set_val, \
+	int: ayyi_observable_set_int, \
+	float: ayyi_observable_set_float \
+	)(O, v)
+
+G_DEFINE_AUTOPTR_CLEANUP_FUNC (AyyiObservable, ayyi_observable_free)
 
 #endif

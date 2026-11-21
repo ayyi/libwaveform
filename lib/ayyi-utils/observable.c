@@ -49,7 +49,7 @@ ayyi_observable_free (AyyiObservable* observable)
  *  Use `ayyi_observable_set_int` or `ayyi_observable_set_float` where possible.
  */
 void
-ayyi_observable_set (AyyiObservable* observable, AyyiVal value)
+ayyi_observable_set_val (AyyiObservable* observable, AyyiVal value)
 {
 	observable->value = value;
 

@@ -37,20 +37,10 @@ wf_context_init_gl (WaveformContext* wfc)
 {
 	PF;
 
-	if (!agl.pref_use_shaders) {
-		wfc->use_1d_textures = false;
-		return;
-	}
-
 	WAVEFORM_START_DRAW(wfc) {
 
 		if (!wfc->root) {
 			agl_gl_init();
-		}
-
-		if (!agl.use_shaders) {
-			agl_use_program(NULL);
-			wfc->use_1d_textures = false;
 		}
 
 	} WAVEFORM_END_DRAW(wfc);
@@ -103,7 +93,5 @@ init_hook_init (AGlBehaviour* behaviour, AGlActor* actor, AGlInitCallback* next)
 	wf_context_init_gl(hook->wfc);
 
 	if (scene->draw) wf_context_queue_redraw(hook->wfc);
-	hook->wfc->use_1d_textures = agl.use_shaders;
+	hook->wfc->use_1d_textures = true;
 }
-
-

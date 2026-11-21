@@ -676,38 +676,6 @@ test_hi_double ()
 			return G_SOURCE_REMOVE;
 		}
 
-static void
-__on_ready (gpointer user_data, gpointer _)
-{
-	WfTest* c = _;
-
-	wf_worker_cancel_jobs(&wf->audio_worker, a[0]->waveform);
-
-	// TODO support gl2 mode also
-#if 0
-	assert(!agl_get_instance()->use_shaders, "shaders must be disabled for this test");
-#else
-	if(agl.use_shaders){
-		pwarn("test only suports GL 1");
-		WF_TEST_FINISH;
-	}
-#endif
-	wb = (WaveformBlock){a[0]->waveform, 0 | WF_TEXTURE_CACHE_LORES_MASK};
-
-	void set_res()
-	{
-		int i; for(i=0;i<G_N_ELEMENTS(a)&&a[i];i++)
-			wf_actor_set_region(a[i], &(WfSampleRegion){
-				0,
-				MIN(len, a[i]->waveform->n_frames - 1)
-			});
-	}
-	set_res();
-
-	g_timeout_add(5000, check_in_cache, c);
-}
-
-
 void
 test_add_remove ()
 {
@@ -728,6 +696,32 @@ test_add_remove ()
 	}
 
 	files_created = true; // hack needed if earlier tests are disabled
+
+	void __on_ready (gpointer user_data, gpointer _)
+	{
+		WfTest* c = _;
+
+		wf_worker_cancel_jobs(&wf->audio_worker, a[0]->waveform);
+
+		// TODO support gl2 mode also
+		if (true) {
+			pwarn("test only suports GL 1");
+			WF_TEST_FINISH;
+		}
+		wb = (WaveformBlock){a[0]->waveform, 0 | WF_TEXTURE_CACHE_LORES_MASK};
+
+		void set_res()
+		{
+			int i; for(i=0;i<G_N_ELEMENTS(a)&&a[i];i++)
+				wf_actor_set_region(a[i], &(WfSampleRegion){
+					0,
+					MIN(len, a[i]->waveform->n_frames - 1)
+				});
+		}
+		set_res();
+
+		g_timeout_add(5000, check_in_cache, c);
+	}
 
 	am_promise_add_callback(ready, __on_ready, t);
 }

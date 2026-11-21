@@ -12,14 +12,19 @@ libactors_la_SOURCES = \
 	hover.c hover.h \
 	text.c text.h
 
-if ENABLE_SYSTEM_GTKGLEXT
-else
+if !ENABLE_SYSTEM_GTKGLEXT
 if ENABLE_GTK3
-LOCAL_GTKGLEXT_CFLAGS = \
-	-I$(top_srcdir)/lib/agl/lib/gtkglext3
+if ENABLE_SUBMODULES
+LOCAL_GTKGLEXT_CFLAGS = -I$(top_srcdir)/lib/agl/lib/gtkglext3
 else
-LOCAL_GTKGLEXT_CFLAGS = \
-	-I$(top_srcdir)/lib/agl/gtkglext-1.0
+LOCAL_GTKGLEXT_CFLAGS = -I$(prefix)/include/gtkglext-3.0
+endif
+else
+if ENABLE_SUBMODULES
+LOCAL_GTKGLEXT_CFLAGS = -I$(top_srcdir)/lib/agl/gtkglext-1.0
+else
+LOCAL_GTKGLEXT_CFLAGS = -I$(prefix)/include/gtkglext-1.0
+endif
 endif
 endif
 

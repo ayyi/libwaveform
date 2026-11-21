@@ -241,7 +241,6 @@ quit (gpointer waveform)
 #ifdef WITH_VALGRIND
 	gboolean on_idle (void* data)
 	{
-		agl_gl_uninit ();
 		exit (EXIT_SUCCESS);
 
 		return G_SOURCE_REMOVE;

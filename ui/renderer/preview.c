@@ -74,8 +74,8 @@ preview_make_data (Renderer* renderer, WaveformActor* actor)
 		int dest = (c * PREVIEW_SIZE * WF_PEAK_VALUES_PER_SAMPLE * 2);
 
 		for(int t=0; t<PREVIEW_SIZE; t++){
-			ng_gl2_set_(section, dest + lod_max[mm_level] + t, short_to_char( preview->data[c][t].positive));
-			ng_gl2_set_(section, dest + lod_min[mm_level] + t, short_to_char(-preview->data[c][t].negative));
+			ng_set_(section, dest + lod_max[mm_level] + t, short_to_char( preview->data[c][t].positive));
+			ng_set_(section, dest + lod_min[mm_level] + t, short_to_char(-preview->data[c][t].negative));
 		}
 
 		other_lods(renderer, section, dest);
@@ -187,8 +187,8 @@ preview_renderer_update (Renderer* renderer, WaveformActor* actor, int x1, int x
 		int dest = (c * PREVIEW_SIZE * WF_PEAK_VALUES_PER_SAMPLE * ROWS_PER_CHANNEL);
 
 		for (int t=x1; t<x2; t++) {
-			ng_gl2_set_(section, dest + lod_max[mm_level] + t, short_to_char( preview->data[c][t].positive));
-			ng_gl2_set_(section, dest + lod_min[mm_level] + t, short_to_char(-preview->data[c][t].negative));
+			ng_set_(section, dest + lod_max[mm_level] + t, short_to_char( preview->data[c][t].positive));
+			ng_set_(section, dest + lod_min[mm_level] + t, short_to_char(-preview->data[c][t].negative));
 		}
 
 		other_lods(renderer, section, dest);

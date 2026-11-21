@@ -22,7 +22,7 @@ PKG_PROG_PKG_CONFIG
 
 dnl -----------------------------------------------------
 
-AC_ARG_ENABLE(submodules, AC_HELP_STRING([--disable-submodules], [no git submodules]), enable_submodules=$enableval, enable_submodules="yes")
+AC_ARG_ENABLE(submodules, AS_HELP_STRING([--disable-submodules], [no git submodules]), enable_submodules=$enableval, enable_submodules="yes")
 
 AM_CONDITIONAL(ENABLE_SUBMODULES, test "$enable_submodules" = "yes")
 
@@ -194,7 +194,7 @@ fi;
 
 dnl GTK can be disabled if required
 
-AC_ARG_ENABLE(gtk, AC_HELP_STRING([--disable-gtk], [disable use of GTK]), enable_gtk=$enableval, enable_gtk="yes")
+AC_ARG_ENABLE(gtk, AS_HELP_STRING([--disable-gtk], [disable use of GTK]), enable_gtk=$enableval, enable_gtk="yes")
 
 if test "$enable_gtk" = "yes"; then
 	AC_DEFINE(USE_GTK, 1, [Use GTK])
@@ -235,7 +235,7 @@ dnl -opengl----------------------------------------------
 AM_CONDITIONAL(AGL_ENABLE_GTKGLEXT, true)
 AM_CONDITIONAL(AGL_NO_INSTALL, true)
 
-AC_ARG_ENABLE(system-gtkglext, AC_HELP_STRING([--enable-system-gtkglext], [disable local opengl extension for gtk]), enable_system_gtkglext=$enableval, enable_system_gtkglext="no")
+AC_ARG_ENABLE(system-gtkglext, AS_HELP_STRING([--enable-system-gtkglext], [disable local opengl extension for gtk]), enable_system_gtkglext=$enableval, enable_system_gtkglext="no")
 
 AC_ARG_ENABLE(
 	[opengl],
@@ -288,7 +288,7 @@ AC_SUBST(GTKGLEXT_LIBS)
 
 dnl -----------------------------------------------------
 
-AC_ARG_ENABLE(sndfile, AC_HELP_STRING([--disable-sndfile], [disable use of libsndfile]), enable_sndfile=$enableval, enable_sndfile="auto")
+AC_ARG_ENABLE(sndfile, AS_HELP_STRING([--disable-sndfile], [disable use of libsndfile]), enable_sndfile=$enableval, enable_sndfile="auto")
 
 AS_IF([test "$enable_sndfile" != "no"], [
 	PKG_CHECK_MODULES(SNDFILE, sndfile, enable_sndfile=yes, enable_sndfile=no)
@@ -310,7 +310,7 @@ PKG_CHECK_MODULES(EPOXY, [epoxy],
 	[have_epoxy=yes]
 )
 
-AC_ARG_ENABLE(epoxy, AC_HELP_STRING([--enable-epoxy], [enable use of epoxy GL dispatch library]), enable_epoxy=$enableval, enable_epoxy="no")
+AC_ARG_ENABLE(epoxy, AS_HELP_STRING([--enable-epoxy], [enable use of epoxy GL dispatch library]), enable_epoxy=$enableval, enable_epoxy="no")
 AC_SUBST(EPOXY_LDFLAGS)
 AM_CONDITIONAL(ENABLE_EPOXY, test "$enable_epoxy" = "yes")
 if test "$enable_epoxy" = "yes"; then
@@ -319,7 +319,7 @@ fi
 
 dnl -----------------------------------------------------
 
-AC_ARG_ENABLE(ffmpeg, AC_HELP_STRING([--disable-ffmpeg], [disable use of FFMPEG]), enable_ffmpeg=$enableval, enable_ffmpeg="auto")
+AC_ARG_ENABLE(ffmpeg, AS_HELP_STRING([--disable-ffmpeg], [disable use of FFMPEG]), enable_ffmpeg=$enableval, enable_ffmpeg="auto")
 
 AS_IF([test "$enable_ffmpeg" != "no"], [
 	PKG_CHECK_MODULES(FFMPEG, [libavformat >= 51.0.0 libavcodec >= 51.0.0 libavutil >= 50.0.0 libswscale >= 5.0.0], enable_ffmpeg=yes, enable_ffmpeg=no)

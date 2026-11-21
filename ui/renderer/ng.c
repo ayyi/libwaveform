@@ -74,7 +74,7 @@ typedef struct {
 } HiResNGWaveform;
 
 
-static void ng_gl2_queue_clean (Renderer*);
+static void ng_queue_clean (Renderer*);
 
 
 static void
@@ -98,7 +98,7 @@ ng_gl2_set (Section* section, int pos, char val)
 	return true;
 }
 static void
-ng_gl2_set_ (Section* section, int pos, char val)
+ng_set_ (Section* section, int pos, char val)
 {
 	g_return_if_fail(section->buffer_size);
 	g_return_if_fail(pos < section->buffer_size);
@@ -106,7 +106,7 @@ ng_gl2_set_ (Section* section, int pos, char val)
 }
 #else
 #define ng_gl2_set(section, pos, val) (section->buffer[pos] = val, true)
-#define ng_gl2_set_(section, pos, val) (section->buffer[pos] = val)
+#define ng_set_(section, pos, val) (section->buffer[pos] = val)
 #endif
 
 
@@ -120,14 +120,14 @@ other_lods (Renderer* renderer, Section* section, int dest)
 		int mm_level = m;
 		int mm = 1 << (mm_level - 1);
 		int i,p; for (i=0, p=0; p<renderer->texture_size/mm; i++, p+=2) {
-			ng_gl2_set_(section,
+			ng_set_(section,
 				dest + lod_max[mm_level] + i,
 				MAX(
 					section->buffer[dest + lod_max[mm_level - 1] + i * 2    ],
 					section->buffer[dest + lod_max[mm_level - 1] + i * 2 + 1]
 				)
 			);
-			ng_gl2_set_(section, dest + lod_min[mm_level] + i, MAX(
+			ng_set_(section, dest + lod_min[mm_level] + i, MAX(
 				section->buffer[dest + lod_min[mm_level - 1] + i * 2    ],
 				section->buffer[dest + lod_min[mm_level - 1] + i * 2 + 1]
 			));
@@ -137,7 +137,7 @@ other_lods (Renderer* renderer, Section* section, int dest)
 
 
 static void
-ng_gl2_load_block (Renderer* renderer, WaveformActor* actor, int b)
+ng_load_block (Renderer* renderer, WaveformActor* actor, int b)
 {
 	NGRenderer* ng_renderer = (NGRenderer*)renderer;
 	Waveform* waveform = actor->waveform;
@@ -156,7 +156,7 @@ ng_gl2_load_block (Renderer* renderer, WaveformActor* actor, int b)
 
 		section->time_stamp = ((NGRenderer*)renderer)->time_stamp++;
 
-		ng_gl2_queue_clean(renderer);
+		ng_queue_clean(renderer);
 
 		return section;
 	}
@@ -198,8 +198,8 @@ ng_gl2_load_block (Renderer* renderer, WaveformActor* actor, int b)
 			int t = 0;
 			if (_b == 0) {
 				for(t=0;t<TEX_BORDER;t++){
-					ng_gl2_set_(section, dest + lod_max[mm_level] + t, 0);
-					ng_gl2_set_(section, dest + lod_min[mm_level] + t, 0);
+					ng_set_(section, dest + lod_max[mm_level] + t, 0);
+					ng_set_(section, dest + lod_min[mm_level] + t, 0);
 				}
 				src = 0;
 			}
@@ -211,8 +211,8 @@ ng_gl2_load_block (Renderer* renderer, WaveformActor* actor, int b)
 					p.negative = MIN(p.negative, peak->buf[c][src + j + 1]);
 				}
 
-				ng_gl2_set_(section, dest + lod_max[mm_level] + t, short_to_char( p.positive));
-				ng_gl2_set_(section, dest + lod_min[mm_level] + t, short_to_char(-p.negative));
+				ng_set_(section, dest + lod_max[mm_level] + t, short_to_char( p.positive));
+				ng_set_(section, dest + lod_min[mm_level] + t, short_to_char(-p.negative));
 			}
 
 			other_lods(renderer, section, dest);
@@ -246,15 +246,15 @@ ng_gl2_load_block (Renderer* renderer, WaveformActor* actor, int b)
 			int t = 0;
 			if (_b == 0) {
 				for (t=0;t<TEX_BORDER;t++) {
-					ng_gl2_set_(section, dest + lod_max[mm_level] + t, 0);
-					ng_gl2_set_(section, dest + lod_min[mm_level] + t, 0);
+					ng_set_(section, dest + lod_max[mm_level] + t, 0);
+					ng_set_(section, dest + lod_min[mm_level] + t, 0);
 				}
 				src = 0;
 			}
 
 			for(; t<stop; t++, src+=2){
-				ng_gl2_set_(section, dest + lod_max[mm_level] + t, short_to_char( peak->buf[c][src    ]));
-				ng_gl2_set_(section, dest + lod_min[mm_level] + t, short_to_char(-peak->buf[c][src + 1]));
+				ng_set_(section, dest + lod_max[mm_level] + t, short_to_char( peak->buf[c][src    ]));
+				ng_set_(section, dest + lod_min[mm_level] + t, short_to_char(-peak->buf[c][src + 1]));
 			}
 
 			other_lods(renderer, section, dest);
@@ -292,8 +292,8 @@ ng_gl2_load_block (Renderer* renderer, WaveformActor* actor, int b)
 					min[c] = (d[k + c] < min[c]) ? d[k + c] : min[c];
 				}
 
-				ng_gl2_set_(section, B + ((NGRenderer*)renderer)->mmidx_max[mm_level] + ((int)TEX_BORDER_HI) + i, short_to_char(max[c]));
-				ng_gl2_set_(section, B + ((NGRenderer*)renderer)->mmidx_min[mm_level] + ((int)TEX_BORDER_HI) + i, short_to_char(-min[c]));
+				ng_set_(section, B + ((NGRenderer*)renderer)->mmidx_max[mm_level] + ((int)TEX_BORDER_HI) + i, short_to_char(max[c]));
+				ng_set_(section, B + ((NGRenderer*)renderer)->mmidx_min[mm_level] + ((int)TEX_BORDER_HI) + i, short_to_char(-min[c]));
 			}
 
 			other_lods(renderer, section, B);
@@ -316,7 +316,7 @@ ng_gl2_load_block (Renderer* renderer, WaveformActor* actor, int b)
 #ifdef DEBUG
 		if (!renderer->shader) {
 			static bool done = false;
-			if (!done) perr("renderer not initialised?");
+			if (!done) perr("renderer not initialised? (shader not set)");
 			done = true;
 		}
 #endif
@@ -372,11 +372,11 @@ ng_gl2_load_block (Renderer* renderer, WaveformActor* actor, int b)
 		}
 	}
 
-	for(int s=0;s<(*data)->size;s++){
+	for (int s=0;s<(*data)->size;s++) {
 		Section* section = &(*data)->section[s];
-		if(!section->completed){
-			if(texture_changed[s]){
-				if(!section->texture){
+		if (!section->completed) {
+			if (texture_changed[s]) {
+				if (!section->texture) {
 					// note: for the WaveformBlock we use the first block for the section (WaveformBlock concept is broken in this context)
 					section->texture = texture_cache_assign_new(GL_TEXTURE_2D, (WaveformBlock){waveform, (s * MAX_BLOCKS_PER_TEXTURE) | (renderer->mode == MODE_HI ? WF_TEXTURE_CACHE_HIRES_NG_MASK : 0)});
 				}
@@ -387,7 +387,7 @@ ng_gl2_load_block (Renderer* renderer, WaveformActor* actor, int b)
 				agl_use_texture (section->texture);
 				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-				// TODO it is quite common for this to be done several times in quick succession for the same texture with consecutive calls to ng_gl2_load_block
+				// TODO it is quite common for this to be done several times in quick succession for the same texture with consecutive calls to ng_load_block
 				dbg(1, "%i: uploading texture: %i x %i", s, width, height);
 				glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, width, height, 0, pixel_format, GL_UNSIGNED_BYTE, section->buffer);
 				gl_warn("error binding texture: %u", section->texture);
@@ -461,7 +461,7 @@ ng_pre_render (Renderer* renderer, WaveformActor* actor)
 
 
 static bool
-ng_gl2_render_block (Renderer* renderer, WaveformActor* actor, int b, bool is_first, bool is_last, double x)
+ng_render_block (Renderer* renderer, WaveformActor* actor, int b, bool is_first, bool is_last, double x)
 {
 	gl_warn("pre");
 
@@ -632,7 +632,7 @@ __clean (gpointer user_data)
 
 
 static void
-ng_gl2_queue_clean (Renderer* renderer)
+ng_queue_clean (Renderer* renderer)
 {
 	if (!idle_id) idle_id = g_idle_add_full(G_PRIORITY_LOW, __clean, renderer, NULL);
 }

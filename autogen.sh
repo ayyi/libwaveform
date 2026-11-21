@@ -3,6 +3,9 @@
 set -e
 
 echo 'libwaveform: generating build files ...'
+
+git submodule update --init --recursive
+
 libtoolize --automake
 aclocal
 autoheader -Wall

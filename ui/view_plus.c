@@ -156,7 +156,7 @@ construct ()
 		AGlActor* a = _a;
 		WaveformViewPlus* view = (WaveformViewPlus*)((AGlRootActor*)a)->gl.gdk.widget;
 
-		if (agl.use_shaders && !agl.shaders.plain->program) return G_SOURCE_CONTINUE;
+		if (!agl.shaders.plain->program) return G_SOURCE_CONTINUE;
 
 		am_promise_resolve(promise(PROMISE_DISP_READY), NULL);
 
